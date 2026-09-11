@@ -2,10 +2,12 @@ import { Check, Minus } from "lucide-react";
 import { cn } from "@/utils";
 
 export function ButtonCheckbox({
+  label,
   checked,
   indeterminate,
   onChange,
 }: {
+  label: string;
   checked: boolean;
   indeterminate?: boolean;
   onChange: (shiftKey: boolean) => void;
@@ -14,6 +16,7 @@ export function ButtonCheckbox({
     <button
       type="button"
       role="checkbox"
+      aria-label={label}
       aria-checked={indeterminate ? "mixed" : checked}
       onClick={(e) => {
         e.stopPropagation();

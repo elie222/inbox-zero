@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { startBulkCategorization } from "./start-bulk-categorization";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const {
@@ -50,21 +49,18 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
   ) => mockDeleteCategorizationProgress(...args),
 }));
 
-vi.mock(
-  "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders",
-  () => ({
-    getUncategorizedSenders: (
-      ...args: Parameters<typeof mockGetUncategorizedSenders>
-    ) => mockGetUncategorizedSenders(...args),
-  }),
-);
+vi.mock("@/utils/categorize/senders/get-uncategorized-senders", () => ({
+  getUncategorizedSenders: (
+    ...args: Parameters<typeof mockGetUncategorizedSenders>
+  ) => mockGetUncategorizedSenders(...args),
+}));
 
-vi.mock("@/utils/actions/stats", () => ({
+vi.mock("@/utils/actions/stats-loading", () => ({
   loadEmails: (...args: Parameters<typeof mockLoadEmails>) =>
     mockLoadEmails(...args),
 }));
 
-const logger = createScopedLogger("start-bulk-categorization-test");
+const logger = createTestLogger();
 
 describe("startBulkCategorization", () => {
   beforeEach(() => {

@@ -6,7 +6,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("applyThreadStatusLabel", () => {

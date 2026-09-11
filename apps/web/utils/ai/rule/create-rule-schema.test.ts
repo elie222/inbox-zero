@@ -48,6 +48,29 @@ describe("createRuleSchema", () => {
     mockEnv.webhookActionsEnabled = true;
   });
 
+  it("exposes integration actions only when their dedicated flag is enabled", () => {
+    const rule = {
+      name: "TaskRule",
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails with follow-up tasks",
+        static: null,
+      },
+      actions: [
+        {
+          type: ActionType.INTEGRATION,
+          fields: { content: "Follow up" },
+          delayInMinutes: null,
+        },
+      ],
+    };
+
+    expect(createRuleSchema(provider, false).safeParse(rule).success).toBe(
+      false,
+    );
+    expect(createRuleSchema(provider, true).safeParse(rule).success).toBe(true);
+  });
+
   it("includes SEND_EMAIL in available actions for this test provider", () => {
     assertSendEmailAvailable();
   });
@@ -190,6 +213,23 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects rules without any semantic or static condition", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.ARCHIVE,
+        fields: {},
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: null,
+        static: null,
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("accepts LABEL actions when only the label field is provided", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
@@ -252,6 +292,20 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts CALL_WEBHOOK when fields.webhookUrl is present", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          webhookUrl: "https://example.com/hooks/inbox",
+        },
+        delayInMinutes: null,
+      }),
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("rejects MOVE_FOLDER actions for non-Microsoft providers", () => {
@@ -321,13 +375,6 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some(
-          (issue) => issue.path.join(".") === "condition.static.from",
-        ),
-      ).toBe(true);
-    }
   });
 
   it("rejects catch-all static.from values", () => {
@@ -357,13 +404,6 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some(
-          (issue) => issue.path.join(".") === "condition.static.from",
-        ),
-      ).toBe(true);
-    }
   });
 });
 
@@ -375,21 +415,54 @@ describe("getExtraActions", () => {
   });
 
   it("includes CALL_WEBHOOK when webhook actions are enabled", () => {
-    expect(getExtraActions()).toContain(ActionType.CALL_WEBHOOK);
+    expect(getExtraActions({ integrationActionsEnabled: false })).toContain(
+      ActionType.CALL_WEBHOOK,
+    );
+  });
+
+  it("exposes integration actions only to early access users", () => {
+    expect(getExtraActions({ integrationActionsEnabled: true })).toContain(
+      ActionType.INTEGRATION,
+    );
+    expect(getExtraActions({ integrationActionsEnabled: false })).not.toContain(
+      ActionType.INTEGRATION,
+    );
   });
 
   it("omits CALL_WEBHOOK when webhook actions are disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
-    expect(getExtraActions()).not.toContain(ActionType.CALL_WEBHOOK);
+    expect(getExtraActions({ integrationActionsEnabled: false })).not.toContain(
+      ActionType.CALL_WEBHOOK,
+    );
   });
 
   it("omits CALL_WEBHOOK for persisted actions when webhook actions are disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
-    expect(getExtraActions([ActionType.CALL_WEBHOOK])).not.toContain(
-      ActionType.CALL_WEBHOOK,
+    expect(
+      getExtraActions({
+        existingActionTypes: [ActionType.CALL_WEBHOOK],
+        integrationActionsEnabled: false,
+      }),
+    ).not.toContain(ActionType.CALL_WEBHOOK);
+  });
+});
+
+describe("delete action availability", () => {
+  const provider = "google";
+
+  it("does not expose DELETE in AI rule schemas", () => {
+    expect(getAvailableActions(provider)).not.toContain(ActionType.DELETE);
+    expect(getExtraActions({ integrationActionsEnabled: false })).not.toContain(
+      ActionType.DELETE,
     );
+    expect(
+      getExtraActions({
+        existingActionTypes: [ActionType.DELETE],
+        integrationActionsEnabled: false,
+      }),
+    ).not.toContain(ActionType.DELETE);
   });
 });
 

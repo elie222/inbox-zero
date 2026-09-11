@@ -1,17 +1,39 @@
 ---
 title: 'Delayed Actions'
-description: 'Automatically perform actions on emails after a set time.'
+description: 'Run supported rule actions after a configurable delay.'
 icon: 'clock'
 ---
 
-Delayed actions let you automatically perform actions on emails after a set period. This is perfect for low-priority emails that are only relevant for a short time before they become noise in your inbox.
+Delayed execution lets an assistant rule wait before applying an action. Use it for mail that should remain visible temporarily or for messages that should not be sent immediately.
 
-## How It Works
+## Add a Delay
 
-Add a delayed action to any rule in [AI Personal Assistant](https://www.getinboxzero.com/automation). When an email matches the rule, the action will be performed after the delay you specify.
+1. Open **Assistant** and edit a rule.
+2. Add or open a supported action.
+3. Open the action's **More options** menu and choose **Add delay**.
+4. Set a delay between 1 minute and 90 days, then save the rule.
 
-**Common use cases:**
+The delay belongs to that specific action. Other actions in the same rule can still run immediately or use different delays.
 
-- **Auto-archive newsletters** after 7 days — they're still searchable if you need them later
-- **Send replies with a short delay** (e.g., 2 minutes) to make automated responses feel more natural
-- **Clean up notifications** that are only relevant for a day or two
+## Supported Actions
+
+You can delay:
+
+- Archive
+- Label
+- Send reply
+- Send email
+- Forward
+- Mark as read
+- Star
+- Delete
+- Move to folder
+
+Other actions cannot be delayed.
+
+## Common Uses
+
+- Archive newsletters after seven days.
+- Send an automated reply after a short delay.
+- Remove time-sensitive notifications from the inbox after they expire.
+- Move older messages to a folder after a review window.

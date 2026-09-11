@@ -1,5 +1,6 @@
 /* eslint-disable no-process-env */
 import * as Sentry from "@sentry/nextjs";
+import { beforeSend, beforeSendTransaction } from "@/utils/sentry-scrub";
 
 export function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
@@ -10,6 +11,9 @@ export function register() {
       tracesSampleRate: 1,
       // Setting this option to true will print useful information to the console while you're setting up Sentry.
       debug: false,
+      // Redact PII/secrets before sending to Sentry (third party).
+      beforeSend,
+      beforeSendTransaction,
       // uncomment the line below to enable Spotlight (https://spotlightjs.com)
       // spotlight: process.env.NODE_ENV === 'development',
     });
@@ -23,6 +27,9 @@ export function register() {
       tracesSampleRate: 1,
       // Setting this option to true will print useful information to the console while you're setting up Sentry.
       debug: false,
+      // Redact PII/secrets before sending to Sentry (third party).
+      beforeSend,
+      beforeSendTransaction,
     });
   }
 }

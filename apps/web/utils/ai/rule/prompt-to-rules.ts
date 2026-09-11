@@ -7,7 +7,8 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -28,7 +29,10 @@ export async function aiPromptToRules({
 ${cleanedPromptFile}
 </prompt>`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.PromptToRules,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,
@@ -36,13 +40,21 @@ ${cleanedPromptFile}
     modelOptions,
     promptHardening: { trust: "trusted" },
   });
+  const integrationActionsEnabled = await isIntegrationActionEnabledForUserId(
+    emailAccount.userId,
+  );
 
   const aiResponse = await generateObject({
     ...modelOptions,
     prompt,
     system,
     schema: z.object({
-      rules: z.array(createRuleSchema(emailAccount.account.provider)),
+      rules: z.array(
+        createRuleSchema(
+          emailAccount.account.provider,
+          integrationActionsEnabled,
+        ),
+      ),
     }),
   });
 
@@ -68,6 +80,7 @@ You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 If the rule is only matching exact sender addresses or domains, put those in static.from and leave aiInstructions empty. Do not restate the sender in aiInstructions.
+If a sender/domain is combined with topic, content, or intent requirements, static.from is not enough; set conditionalOperator to AND and put the non-sender requirements in aiInstructions.
 If the user did not specify any sender or domain, leave static.from empty. Never fill it with placeholders like none, null, or @*.
 aiInstructions are only for semantic or content matching. Do not repeat sender lists, label names, or actions there.
 Example sender-only rule shape: static.from="@airbnb.com|@booking.com|@delta.com" and no aiInstructions.

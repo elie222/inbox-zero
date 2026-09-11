@@ -3,7 +3,7 @@ import { z } from "zod";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
-import { processFollowUpRemindersForEmailAccountId } from "../../process";
+import { processFollowUpRemindersForEmailAccountId } from "@/utils/follow-up/process";
 
 export const maxDuration = 800;
 
@@ -13,7 +13,7 @@ const queuePayloadSchema = z.object({
   emailAccountId: z.string().min(1),
 });
 
-export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
+const queueHandler = handleCallback<z.infer<typeof queuePayloadSchema>>(
   async (message, metadata) => {
     const parseResult = queuePayloadSchema.safeParse(message);
     if (!parseResult.success) {
@@ -57,3 +57,5 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
     }),
   },
 );
+
+export const POST = (request: Request) => queueHandler(request);

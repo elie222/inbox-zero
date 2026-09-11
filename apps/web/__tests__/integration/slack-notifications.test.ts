@@ -17,21 +17,25 @@ import {
   beforeEach,
   vi,
 } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
-import { WebClient } from "@slack/web-api";
+import type { WebClient } from "@slack/web-api";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
+import { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
+  DraftEmailStatus,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createGmailTestHarness } from "./helpers";
+import {
+  createGmailTestHarness,
+  createSlackTestHarness,
+  type SlackTestHarness,
+} from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: vi.fn().mockResolvedValue(undefined),
@@ -50,63 +54,51 @@ vi.mock("@/utils/email/provider", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4098;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Slack notification flows",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
+    let slackHarness: SlackTestHarness;
     let notifChannelId: string;
     let engChannelId: string;
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "slack",
+      slackHarness = await createSlackTestHarness({
         port: TEST_PORT,
-        seed: {
-          slack: {
-            team: { name: "TestWorkspace", domain: "test-workspace" },
-            users: [
-              {
-                name: "alice",
-                real_name: "Alice Smith",
-                email: "alice@example.com",
-              },
-            ],
-            channels: [
-              {
-                name: "inbox-zero-notifications",
-                is_private: true,
-                topic: "Inbox Zero alerts",
-              },
-              {
-                name: "engineering",
-                is_private: false,
-                topic: "Engineering discussion",
-              },
-            ],
+        team: { name: "TestWorkspace", domain: "test-workspace" },
+        users: [
+          {
+            name: "alice",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
           },
-        },
+        ],
+        channels: [
+          {
+            name: "inbox-zero-notifications",
+            is_private: true,
+            topic: "Inbox Zero alerts",
+          },
+          {
+            name: "engineering",
+            is_private: false,
+            topic: "Engineering discussion",
+          },
+        ],
       });
 
-      emulatorClient = new WebClient("emulator-token", {
-        slackApiUrl: `${emulator.url}/api/`,
-      });
-
-      // Resolve channel IDs once for all tests
-      const { listChannels } = await import(
-        "@/utils/messaging/providers/slack/channels"
-      );
-      const channels = await listChannels(emulatorClient);
-      notifChannelId = channels.find(
-        (c) => c.name === "inbox-zero-notifications",
-      )!.id;
-      engChannelId = channels.find((c) => c.name === "engineering")!.id;
+      emulatorClient = slackHarness.client;
+      notifChannelId = slackHarness.channelsByName["inbox-zero-notifications"];
+      engChannelId = slackHarness.channelsByName.engineering;
+      if (!notifChannelId || !engChannelId) {
+        throw new Error("Slack emulator channels not found");
+      }
     });
 
     afterAll(async () => {
-      await emulator?.close();
+      await slackHarness?.emulator.close();
     });
 
     beforeEach(() => {
@@ -322,14 +314,15 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(needsReplyCall).toBeDefined();
 
       const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
-      expect(awaitingBlocks).toContain("Follow-up nudge");
-      expect(awaitingBlocks).toContain("they haven't replied");
-      expect(awaitingBlocks).toContain("sent 4 days ago");
+      expect(awaitingBlocks).toContain("Follow-up: waiting for their reply");
+      expect(awaitingBlocks).toContain("4 days ago");
       expect(awaitingBlocks).toContain("Jane Partner");
       expect(awaitingBlocks).toContain("jane@partner.com");
-      // AWAITING: the user emailed Jane — preposition must be "to", not "from"
-      expect(awaitingBlocks).toContain("to *Jane Partner*");
-      expect(awaitingBlocks).not.toContain("from *Jane Partner*");
+      // AWAITING: the user emailed Jane, so the reminder should make that clear.
+      expect(awaitingBlocks).toContain("You sent this email to *Jane Partner*");
+      expect(awaitingBlocks).not.toContain(
+        "You received this email from *Jane Partner*",
+      );
       expect(awaitingBlocks).toContain(
         "Wanted to check whether the redlines have landed.",
       );
@@ -338,10 +331,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       );
 
       const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
-      expect(needsReplyBlocks).toContain("Follow-up nudge");
-      expect(needsReplyBlocks).toContain("you haven't replied");
-      expect(needsReplyBlocks).toContain("received 1 day ago");
-      expect(needsReplyBlocks).toContain("from *Alex Customer*");
+      expect(needsReplyBlocks).toContain("Follow-up: reply needed from you");
+      expect(needsReplyBlocks).toContain("1 day ago");
+      expect(needsReplyBlocks).toContain(
+        "You received this email from *Alex Customer*",
+      );
       expect(needsReplyBlocks).toContain(
         "Could you walk me through the SSO setup?",
       );
@@ -412,6 +406,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const postEphemeral = vi.fn().mockResolvedValue(undefined);
       const post = vi.fn().mockResolvedValue(undefined);
+      const editMessage = vi.fn().mockResolvedValue(undefined);
+
+      const threadId = postedCall![0].channel ?? notifChannelId;
+      const messageId = "1700000000.000100";
 
       await handleFollowUpReminderAction({
         event: {
@@ -419,9 +417,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           value: markDoneButton.value,
           user: { userId: "U_USER" },
           raw: { team: { id: "T_TEAM" } },
-          threadId: postedCall![0].channel ?? notifChannelId,
-          messageId: "1700000000.000100",
-          adapter: { name: "slack" },
+          threadId,
+          messageId,
+          adapter: { name: "slack", editMessage },
           thread: { postEphemeral, post },
         } as any,
         logger,
@@ -442,8 +440,17 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // Tracker flipped to resolved.
       expect(prisma.threadTracker.update).toHaveBeenCalledWith({
         where: { id: trackerId },
-        data: { resolved: true },
+        data: {
+          resolved: true,
+          followUpNotifications: Prisma.JsonNull,
+        },
       });
+
+      expect(editMessage).toHaveBeenCalledTimes(1);
+      const editArgs = editMessage.mock.calls[0];
+      expect(editArgs?.[0]).toBe(threadId);
+      expect(editArgs?.[1]).toBe(messageId);
+      expect(JSON.stringify(editArgs?.[2])).toMatch(/done/i);
 
       // User saw an ephemeral confirmation.
       expect(postEphemeral).toHaveBeenCalled();
@@ -537,9 +544,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const postArgs = postMessageSpy.mock.calls[0]?.[0];
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("New email — reply drafted");
+      expect(message?.text).toContain("I drafted a reply for you");
       expect(message?.text).toContain("*sender@example.com*");
-      expect(message?.text).toContain(`about "${subject}"`);
+      expect(message?.text).toContain(`*Subject:* ${subject}`);
       expect(message?.text).toContain("They wrote:");
       expect(message?.text).toContain("Can you help with this request?");
       expect(message?.text).toContain("I drafted a reply for you:");
@@ -564,7 +571,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       } = await import("@/utils/messaging/rule-notifications");
 
       const gmailEmail = "slack-draft-send@example.com";
-      const subject = getUniqueSubject("Edited draft");
+      const subject = getUniqueSubject("Edited draft câfé 👀🔍");
       const editedContent = "I reviewed this and sent the update.";
       const gmailHarness = await createGmailTestHarness({
         port: 4112,
@@ -601,7 +608,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           draftId: createdDraft.id,
           subject: `Re: ${subject}`,
           content: "Initial draft body.",
-          wasDraftSent: false,
+          draftStatus: DraftEmailStatus.PENDING as DraftEmailStatus | null,
         };
 
         const slackActionState = {
@@ -617,7 +624,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           messagingChannelId: "channel-1",
           messagingMessageId: null as string | null,
           messagingMessageStatus: null as MessagingMessageStatus | null,
-          wasDraftSent: false,
+          draftStatus: null as DraftEmailStatus | null,
           executedRule: {
             id: "executed-rule-edit-send",
             ruleId: "rule-1",
@@ -725,8 +732,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
               if (typeof data?.content === "string") {
                 slackActionState.content = data.content;
               }
-              if (typeof data?.wasDraftSent === "boolean") {
-                slackActionState.wasDraftSent = data.wasDraftSent;
+              if (data?.draftStatus) {
+                slackActionState.draftStatus =
+                  data.draftStatus as DraftEmailStatus;
               }
             }
 
@@ -734,8 +742,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
               if (typeof data?.content === "string") {
                 siblingDraftActionState.content = data.content;
               }
-              if (typeof data?.wasDraftSent === "boolean") {
-                siblingDraftActionState.wasDraftSent = data.wasDraftSent;
+              if (data?.draftStatus) {
+                siblingDraftActionState.draftStatus =
+                  data.draftStatus as DraftEmailStatus;
               }
             }
 
@@ -828,8 +837,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         expect(slackActionState.messagingMessageStatus).toBe(
           MessagingMessageStatus.DRAFT_SENT,
         );
-        expect(slackActionState.wasDraftSent).toBe(true);
-        expect(siblingDraftActionState.wasDraftSent).toBe(true);
+        expect(slackActionState.draftStatus).toBe(DraftEmailStatus.LIKELY_SENT);
+        expect(siblingDraftActionState.draftStatus).toBe(
+          DraftEmailStatus.LIKELY_SENT,
+        );
         expect(
           await gmailHarness.provider.getDraft(createdDraft.id),
         ).toBeNull();
@@ -846,7 +857,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           sentMessageId!,
         );
 
-        expect(sentReply.headers.subject).toBe(`Re: ${subject}`);
+        expect(sentReply.threadId).toBe(sourceMessage.threadId);
+        expect(decodeMimeSubject(sentReply.headers.subject)).toBe(
+          `Re: ${subject}`,
+        );
         expect(sentReply.textPlain || sentReply.textHtml || "").toContain(
           editedContent,
         );
@@ -894,15 +908,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const postArgs = postMessageSpy.mock.calls[0]?.[0];
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("Email notification");
+      expect(message?.text).toContain("New email for you");
       expect(message?.text).toContain(`*Subject:* ${subject}`);
       expect(getActionLabels(postArgs?.blocks)).toEqual([
         "Archive",
         "Mark read",
-        "Delete",
-        "Spam",
         "Open in Gmail",
         "Dismiss",
+        "More",
       ]);
     });
 
@@ -995,15 +1008,20 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         ts: rootMessageId!,
       });
 
-      const texts =
-        replies.messages?.map((message) => message.text || "") || [];
-      expect(texts.some((text) => text.includes(firstSubject))).toBe(true);
-      expect(texts.some((text) => text.includes(secondSubject))).toBe(true);
       expect(replies.messages).toHaveLength(2);
+      const firstMessage = replies.messages?.find((message) =>
+        message.text?.includes(firstSubject),
+      );
+      const secondMessage = replies.messages?.find((message) =>
+        message.text?.includes(secondSubject),
+      );
+      expect(firstMessage?.ts).toBeTruthy();
+      expect(secondMessage?.ts).toBeTruthy();
+      expect(secondMessage?.ts).not.toBe(rootMessageId);
       expect(prisma.executedAction.update).toHaveBeenLastCalledWith({
         where: { id: "thread-action-2" },
         data: {
-          messagingMessageId: rootMessageId,
+          messagingMessageId: secondMessage?.ts,
           messagingMessageSentAt: expect.any(Date),
           messagingMessageStatus: "SENT",
         },
@@ -1167,7 +1185,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("New email — reply drafted");
+      expect(message?.text).toContain("I drafted a reply for you");
       expect(prisma.executedAction.update).toHaveBeenCalledWith({
         where: { id: executedActionId },
         data: {
@@ -1294,6 +1312,20 @@ function getActionLabels(blocks: unknown[] | undefined) {
 
     return block.elements.flatMap((element) => {
       if (
+        element &&
+        typeof element === "object" &&
+        "type" in element &&
+        element.type === "static_select" &&
+        "placeholder" in element &&
+        element.placeholder &&
+        typeof element.placeholder === "object" &&
+        "text" in element.placeholder &&
+        typeof element.placeholder.text === "string"
+      ) {
+        return [element.placeholder.text];
+      }
+
+      if (
         !element ||
         typeof element !== "object" ||
         !("text" in element) ||
@@ -1312,4 +1344,44 @@ function getActionLabels(blocks: unknown[] | undefined) {
 
 function getUniqueSubject(prefix: string) {
   return `${prefix} ${Date.now()} ${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function decodeMimeSubject(subject: string) {
+  const unfolded = subject.replace(/\r?\n[ \t]+/g, " ");
+  const encodedWordPattern = /=\?UTF-8\?([QB])\?([^?]+)\?=/gi;
+  let decoded = "";
+  let cursor = 0;
+  let match = encodedWordPattern.exec(unfolded);
+
+  while (match) {
+    decoded += unfolded.slice(cursor, match.index);
+    decoded += decodeMimeWord(match[1], match[2]);
+    cursor = encodedWordPattern.lastIndex;
+
+    const adjacentEncodedWordSpace = /^\s+(?==\?UTF-8\?[QB]\?)/i.exec(
+      unfolded.slice(cursor),
+    );
+    if (adjacentEncodedWordSpace) {
+      cursor += adjacentEncodedWordSpace[0].length;
+      encodedWordPattern.lastIndex = cursor;
+    }
+
+    match = encodedWordPattern.exec(unfolded);
+  }
+
+  return decoded + unfolded.slice(cursor);
+}
+
+function decodeMimeWord(encoding: string, value: string) {
+  if (encoding.toUpperCase() === "B") {
+    return Buffer.from(value, "base64").toString("utf8");
+  }
+
+  const binary = value
+    .replace(/_/g, " ")
+    .replace(/=([0-9A-F]{2})/gi, (_match, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+
+  return Buffer.from(binary, "binary").toString("utf8");
 }

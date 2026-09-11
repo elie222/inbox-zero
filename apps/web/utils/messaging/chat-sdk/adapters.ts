@@ -6,6 +6,7 @@ import {
 } from "@chat-adapter/telegram";
 import type { Adapter } from "chat";
 import { env } from "@/env";
+import { isTeamsBotConfigured } from "@/utils/messaging/chat-sdk/teams-config";
 
 export type MessagingAdapters = {
   slack?: SlackAdapter;
@@ -49,12 +50,12 @@ function createMessagingAdapterRegistry(): MessagingAdapterRegistry {
     typedAdapters.slack = slackAdapter;
   }
 
-  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD) {
+  if (isTeamsBotConfigured()) {
     const teamsAdapter = createTeamsAdapter({
       appId: env.TEAMS_BOT_APP_ID,
       appPassword: env.TEAMS_BOT_APP_PASSWORD,
       appTenantId: env.TEAMS_BOT_APP_TENANT_ID,
-      ...(env.TEAMS_BOT_APP_TYPE ? { appType: env.TEAMS_BOT_APP_TYPE } : {}),
+      appType: "SingleTenant",
     });
 
     adapters.teams = teamsAdapter;

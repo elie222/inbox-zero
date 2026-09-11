@@ -1,0 +1,43 @@
+import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import { GmailLabel } from "@/utils/gmail/label";
+
+/**
+ * A thread is unread when any of its messages is unread. The row's styling, the
+ * reader's ⋯ menu and the update below all have to agree on that, so they read it here.
+ * Both providers normalise to these ids, so this is not a provider branch.
+ */
+export function isThreadUnread(
+  messages: readonly { labelIds?: string[] | null }[],
+) {
+  return messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.UNREAD),
+  );
+}
+
+/** Read state lives on every message, so marking a thread rewrites all of them. */
+export function withThreadReadState<T extends ListThread>(
+  thread: T,
+  read: boolean,
+): T {
+  let changed = false;
+  const messages = thread.messages.map((message) => {
+    const labelIds = message.labelIds ?? [];
+    const isRead = !labelIds.includes(GmailLabel.UNREAD);
+    if (isRead === read) return message;
+
+    changed = true;
+    return {
+      ...message,
+      labelIds: read
+        ? labelIds.filter((labelId) => labelId !== GmailLabel.UNREAD)
+        : [...labelIds, GmailLabel.UNREAD],
+    };
+  });
+
+  if (!changed) return thread;
+
+  return {
+    ...thread,
+    messages,
+  } as T;
+}

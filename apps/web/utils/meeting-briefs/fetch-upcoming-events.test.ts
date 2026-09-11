@@ -1,12 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { addMinutes } from "date-fns/addMinutes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
+import prisma from "@/utils/__mocks__/prisma";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type {
   CalendarEvent,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
-import { fetchUpcomingEvents } from "./fetch-upcoming-events";
-import { createTestLogger } from "@/__tests__/helpers";
+import {
+  fetchUpcomingEvents,
+  filterEventsWithExternalGuests,
+} from "./fetch-upcoming-events";
 
+vi.mock("@/utils/prisma");
 vi.mock("@/utils/calendar/event-provider");
 
 const logger = createTestLogger();
@@ -14,6 +20,7 @@ const logger = createTestLogger();
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.calendarConnection.count.mockResolvedValue(1);
   });
 
   it("skips cancelled event placeholder titles", async () => {
@@ -80,11 +87,121 @@ describe("fetchUpcomingEvents", () => {
 
     expect(events.map((event) => event.id)).toEqual(["earlier", "later"]);
   });
+
+  describe("lookahead window", () => {
+    const now = new Date("2024-01-20T09:00:00Z");
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("includes events entering the lead window before the next cron tick", async () => {
+      // With minutesBefore=5 and a 15-minute cron, an event 18 minutes out
+      // would be missed entirely if the window were only [now, now + 5m]:
+      // its lead window [T-5, T] can fall between two cron ticks.
+      const provider = createWindowedProvider([
+        createEvent({
+          id: "between-ticks",
+          startTime: addMinutes(now, 18),
+        }),
+      ]);
+
+      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+
+      const events = await fetchUpcomingEvents({
+        emailAccountId: "email-account-id",
+        minutesBefore: 5,
+        logger,
+      });
+
+      expect(events.map((event) => event.id)).toEqual(["between-ticks"]);
+    });
+
+    it("excludes events beyond the lead window plus one cron interval", async () => {
+      const provider = createWindowedProvider([
+        createEvent({
+          id: "too-far-out",
+          startTime: addMinutes(now, 25),
+        }),
+      ]);
+
+      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+
+      const events = await fetchUpcomingEvents({
+        emailAccountId: "email-account-id",
+        minutesBefore: 5,
+        logger,
+      });
+
+      expect(events).toEqual([]);
+    });
+  });
+});
+
+describe("filterEventsWithExternalGuests", () => {
+  it("keeps only events that have guests outside the user's team context", () => {
+    const events = [
+      createEvent({
+        id: "team-only",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "teammate@company.com" },
+        ],
+      }),
+      createEvent({
+        id: "user-only",
+        attendees: [{ email: "user@company.com" }],
+      }),
+      createEvent({
+        id: "customer-call",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "personal-domain-peer",
+        attendees: [{ email: "user@gmail.com" }, { email: "guest@gmail.com" }],
+      }),
+    ];
+
+    expect(
+      filterEventsWithExternalGuests(
+        events.slice(0, 3),
+        "user@company.com",
+      ).map((event) => event.id),
+    ).toEqual(["customer-call"]);
+    expect(
+      filterEventsWithExternalGuests(events.slice(3), "user@gmail.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["personal-domain-peer"]);
+  });
 });
 
 function createProvider(events: CalendarEvent[]): CalendarEventProvider {
   return {
     fetchEvents: vi.fn().mockResolvedValue(events),
+    fetchEventsWithAttendee: vi.fn().mockResolvedValue([]),
+  };
+}
+
+// Mimics the calendar API: only returns events within the requested window.
+function createWindowedProvider(
+  events: CalendarEvent[],
+): CalendarEventProvider {
+  return {
+    fetchEvents: vi.fn(
+      async ({ timeMin, timeMax }: { timeMin: Date; timeMax: Date }) =>
+        events.filter(
+          (event) => event.startTime >= timeMin && event.startTime <= timeMax,
+        ),
+    ),
     fetchEventsWithAttendee: vi.fn().mockResolvedValue([]),
   };
 }

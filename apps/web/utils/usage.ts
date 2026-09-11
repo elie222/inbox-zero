@@ -15,7 +15,35 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
 
+export type AiUsageEvent = {
+  cachedInputTokens: number;
+  estimatedCost: number;
+  inputTokens: number;
+  label: string;
+  model: string;
+  outputTokens: number;
+  platformCost: number;
+  provider: string;
+  providerCostSource?: string;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  reasoningTokens: number;
+  totalTokens: number;
+};
+
+type AiUsageListener = (event: AiUsageEvent) => void;
+
+const aiUsageListeners = new Set<AiUsageListener>();
+
+export function subscribeToAiUsage(listener: AiUsageListener): () => void {
+  aiUsageListeners.add(listener);
+  return () => {
+    aiUsageListeners.delete(listener);
+  };
+}
+
 export async function saveAiUsage({
+  userId,
   email,
   emailAccountId,
   provider,
@@ -26,9 +54,11 @@ export async function saveAiUsage({
   providerReportedCost,
   providerUpstreamInferenceCost,
   providerCostSource,
+  providerRequestIds,
   stepCount,
   toolCallCount,
 }: {
+  userId?: string;
   email: string;
   emailAccountId: string;
   provider: string;
@@ -39,25 +69,76 @@ export async function saveAiUsage({
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
   providerCostSource?: string;
+  providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
 }) {
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
-  const platformCost = isUserApiKey ? 0 : estimatedCost;
+  const platformCost = isUserApiKey
+    ? 0
+    : getPlatformCost({
+        estimatedCost,
+        providerReportedCost,
+        providerUpstreamInferenceCost,
+      });
+  const inputTokens = usage.inputTokens ?? 0;
+  const outputTokens = usage.outputTokens ?? 0;
+  const cachedInputTokens = usage.cachedInputTokens ?? 0;
+  const reasoningTokens = usage.reasoningTokens ?? 0;
+  const totalTokens = usage.totalTokens ?? 0;
 
-  try {
-    return Promise.all([
+  logger.info("AI call completed", {
+    userId,
+    emailAccountId,
+    label,
+    provider,
+    model,
+    isUserApiKey,
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningTokens,
+    totalTokens,
+    estimatedCost,
+    platformCost,
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    providerCostSource,
+    providerRequestId: providerRequestIds?.at(-1),
+    providerRequestIds,
+    stepCount,
+    toolCallCount,
+  });
+
+  notifyAiUsageListeners({
+    cachedInputTokens,
+    estimatedCost,
+    inputTokens,
+    label,
+    model,
+    outputTokens,
+    platformCost,
+    provider,
+    providerCostSource,
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    reasoningTokens,
+    totalTokens,
+  });
+
+  const [analyticsResult, redisResult] = await Promise.allSettled([
+    invokeUsageSink(() =>
       publishAiCall({
-        userId: email,
+        userId: userId ?? email,
         emailAccountId,
         provider,
         model,
-        totalTokens: usage.totalTokens ?? 0,
-        completionTokens: usage.outputTokens ?? 0,
-        promptTokens: usage.inputTokens ?? 0,
-        cachedInputTokens: usage.cachedInputTokens ?? 0,
-        reasoningTokens: usage.reasoningTokens ?? 0,
+        totalTokens,
+        completionTokens: outputTokens,
+        promptTokens: inputTokens,
+        cachedInputTokens,
+        reasoningTokens,
         cost: platformCost,
         estimatedCost,
         providerReportedCost,
@@ -69,10 +150,21 @@ export async function saveAiUsage({
         stepCount,
         toolCallCount,
       }),
-      saveUsage({ email, cost: platformCost, usage }),
-    ]);
-  } catch (error) {
-    logger.error("Failed to save usage", { error });
+    ),
+    invokeUsageSink(() =>
+      saveUsage({ userId, emailAccountId, cost: platformCost, usage }),
+    ),
+  ]);
+
+  if (analyticsResult.status === "rejected") {
+    logger.error("Failed to publish AI usage analytics", {
+      error: analyticsResult.reason,
+    });
+  }
+  if (redisResult.status === "rejected") {
+    logger.error("Failed to save AI usage to Redis", {
+      error: redisResult.reason,
+    });
   }
 }
 
@@ -94,13 +186,12 @@ export function calculateUsageCost(options: {
   const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
   const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
-  const reasoningTokens = Math.max(0, usage.reasoningTokens ?? 0);
   const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
 
   return (
     uncachedInputTokens * pricing.input +
     cachedInputTokens * cachedInputTokenPrice +
-    (outputTokens + reasoningTokens) * pricing.output
+    outputTokens * pricing.output
   );
 }
 
@@ -132,6 +223,40 @@ function getModelPricing(options: {
   return;
 }
 
+function getPlatformCost({
+  estimatedCost,
+  providerReportedCost,
+  providerUpstreamInferenceCost,
+}: {
+  estimatedCost: number;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+}) {
+  if (isPositiveFiniteNumber(providerReportedCost)) {
+    return providerReportedCost;
+  }
+  if (isPositiveFiniteNumber(providerUpstreamInferenceCost)) {
+    return providerUpstreamInferenceCost;
+  }
+  if (estimatedCost > 0) return estimatedCost;
+
+  if (isNonNegativeFiniteNumber(providerReportedCost))
+    return providerReportedCost;
+  if (isNonNegativeFiniteNumber(providerUpstreamInferenceCost)) {
+    return providerUpstreamInferenceCost;
+  }
+
+  return estimatedCost;
+}
+
+function isPositiveFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegativeFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function buildModelLookupCandidates({
   provider,
   model,
@@ -158,6 +283,20 @@ function buildModelLookupCandidates({
   return [...new Set(candidates)];
 }
 
+function notifyAiUsageListeners(event: AiUsageEvent): void {
+  for (const listener of aiUsageListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      logger.error("AI usage listener failed", { error });
+    }
+  }
+}
+
 function toTinybirdBoolean(value: boolean): 0 | 1 {
   return value ? 1 : 0;
+}
+
+function invokeUsageSink(operation: () => unknown) {
+  return new Promise<unknown>((resolve) => resolve(operation()));
 }

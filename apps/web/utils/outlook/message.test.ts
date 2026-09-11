@@ -1,15 +1,93 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { Message } from "@microsoft/microsoft-graph-types";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildOutlookSearchFallbackQuery,
   convertMessage,
+  getMessage,
+  queryBatchMessages,
+  queryMessagesWithAttachments,
+  queryMessagesWithFilters,
   sanitizeOutlookSearchQuery,
   sanitizeKqlValue,
   sanitizeKqlFieldQuery,
   sanitizeKqlTextQuery,
 } from "@/utils/outlook/message";
+import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("preserves reply headers used by outbound processing", () => {
+    const result = convertMessage(
+      {
+        id: "msg-123",
+        conversationId: "thread-456",
+        internetMessageHeaders: [
+          { name: "In-Reply-To", value: "<source@example.com>" },
+        ],
+      },
+      {},
+    );
+
+    expect(result.headers).toMatchObject({
+      "in-reply-to": "<source@example.com>",
+    });
+  });
+
+  it("normalizes null reply headers", () => {
+    const result = convertMessage(
+      {
+        id: "msg-123",
+        conversationId: "thread-456",
+        internetMessageHeaders: [{ name: "In-Reply-To", value: null }],
+      },
+      {},
+    );
+
+    expect(result.headers["in-reply-to"]).toBeUndefined();
+  });
+
+  it("excludes inline images embedded in the email body from attachments", () => {
+    const message: Message = {
+      id: "msg-123",
+      conversationId: "thread-456",
+      attachments: [
+        {
+          id: "inline-attachment",
+          name: "signature-logo.png",
+          contentType: "image/png",
+          contentId: "signature-logo",
+          size: 128,
+          isInline: true,
+        },
+        {
+          id: "document-attachment",
+          name: "receipt.pdf",
+          contentType: "application/pdf",
+          size: 1024,
+          isInline: false,
+        },
+      ],
+    };
+
+    const result = convertMessage(message, {});
+
+    expect(result.attachments).toEqual([
+      expect.objectContaining({
+        attachmentId: "document-attachment",
+        filename: "receipt.pdf",
+      }),
+    ]);
+    expect(result.inline).toEqual([
+      expect.objectContaining({
+        attachmentId: "inline-attachment",
+        filename: "signature-logo.png",
+        headers: expect.objectContaining({
+          "content-id": "signature-logo",
+        }),
+      }),
+    ]);
+  });
+
   describe("category ID mapping", () => {
     it("should return category IDs when categoryMap is provided", () => {
       const message: Message = {
@@ -110,216 +188,395 @@ describe("convertMessage", () => {
       expect(result.labelIds).toContain("INBOX");
       expect(result.labelIds).toContain("uuid-urgent-123");
     });
+
+    it("preserves the Outlook web link for opening the exact message", () => {
+      const message: Message = {
+        id: "msg-123",
+        conversationId: "thread-456",
+        webLink:
+          "https://outlook.office.com/mail/deeplink/read/msg-123?ispopout=0",
+        isRead: true,
+      };
+
+      const result = convertMessage(message, {});
+
+      expect(result.externalUrl).toBe(
+        "https://outlook.office.com/mail/deeplink/read/msg-123?ispopout=0",
+      );
+    });
+  });
+});
+
+describe("queryBatchMessages", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryBatchMessages(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it("queries the requested folder directly for folder-only cleanup", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { folderId: "folder/id", searchQuery: "" },
+      createTestLogger(),
+    );
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid/messages");
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).not.toHaveBeenCalled();
+  });
+
+  it("preserves folder scope on continuation pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "inside",
+          conversationId: "thread-1",
+          parentFolderId: "folder-1",
+        },
+        {
+          id: "outside",
+          conversationId: "thread-2",
+          parentFolderId: "folder-2",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "folder-1",
+        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["inside"]);
+    expect(result.nextPageToken).toBe(
+      "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    );
+  });
+
+  it("uses metadata filters for unread category searches", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(
+      api,
+      new Map([["Newsletter", "category-newsletter"]]),
+    );
+
+    await queryBatchMessages(
+      client,
+      {
+        searchQuery: "",
+        readState: "unread",
+        categoryNames: ["Newsletter"],
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).toHaveBeenCalledWith(
+      "isRead eq false and categories/any(category: category eq 'Newsletter')",
+    );
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("uses standalone unread query terms as metadata filters", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        searchQuery: "unread",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).toHaveBeenCalledWith("isRead eq false");
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("strips standalone unread from text search and filters the page", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "message-unread",
+          conversationId: "thread-unread",
+          isRead: false,
+        },
+        {
+          id: "message-read",
+          conversationId: "thread-read",
+          isRead: true,
+        },
+      ],
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    const result = await queryBatchMessages(
+      client,
+      {
+        searchQuery: "unread newsletter",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.filter).not.toHaveBeenCalled();
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.id).toBe("message-unread");
+  });
+
+  it("keeps category-looking words as text search without structured filters", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        searchQuery: "newsletter",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.filter).not.toHaveBeenCalled();
+  });
+
+  it("escapes exact sender filters and omits incompatible ordering", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        fromEmail: "o'connor@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.filter).toHaveBeenCalledWith(
+      "from/emailAddress/address eq 'o''connor@example.com'",
+    );
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    undefined,
+    "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next-page",
+  ])("filters Outlook search pages to the exact sender (page: %s)", async (pageToken) => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "matching-message",
+          conversationId: "matching-thread",
+          from: { emailAddress: { address: "Sender@Example.com" } },
+        },
+        {
+          id: "non-matching-message",
+          conversationId: "non-matching-thread",
+          from: { emailAddress: { address: "other@example.com" } },
+        },
+      ],
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    const result = await queryBatchMessages(
+      client,
+      {
+        searchQuery: "invoice",
+        pageToken,
+        fromEmail: "sender@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    if (pageToken) {
+      expect(api).toHaveBeenCalledWith(pageToken);
+      expect(request.search).not.toHaveBeenCalled();
+    } else {
+      expect(request.search).toHaveBeenCalledWith('"invoice"');
+    }
+    expect(result.messages.map((message) => message.id)).toEqual([
+      "matching-message",
+    ]);
+  });
+});
+
+describe("queryMessagesWithFilters", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryMessagesWithFilters(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+});
+
+describe("queryMessagesWithAttachments", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryMessagesWithAttachments(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
   });
 });
 
 describe("sanitizeKqlValue", () => {
-  it("should return empty string for empty input", () => {
-    expect(sanitizeKqlValue("")).toBe("");
-    expect(sanitizeKqlValue("   ")).toBe("");
-  });
-
-  it("should replace ? with space", () => {
-    expect(sanitizeKqlValue("hello?world")).toBe("hello world");
-  });
-
-  it("should escape backslashes", () => {
-    expect(sanitizeKqlValue("path\\to\\file")).toBe("path\\\\to\\\\file");
-  });
-
-  it("should escape double quotes", () => {
-    expect(sanitizeKqlValue('say "hello"')).toBe('say \\"hello\\"');
-  });
-
-  it("should normalize multiple spaces", () => {
-    expect(sanitizeKqlValue("hello   world")).toBe("hello world");
-  });
-
-  it("should handle email addresses", () => {
-    expect(sanitizeKqlValue("user@example.com")).toBe("user@example.com");
+  it.each([
+    ["empty input", "", ""],
+    ["whitespace-only input", "   ", ""],
+    ["question marks", "hello?world", "hello world"],
+    ["backslashes", "path\\to\\file", "path\\\\to\\\\file"],
+    ["double quotes", 'say "hello"', 'say \\"hello\\"'],
+    ["multiple spaces", "hello   world", "hello world"],
+    ["email addresses", "user@example.com", "user@example.com"],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlValue(input)).toBe(expected);
   });
 });
 
 describe("sanitizeKqlFieldQuery", () => {
-  it("should return field:value without outer quotes", () => {
-    expect(sanitizeKqlFieldQuery("participants:user@example.com")).toBe(
+  it.each([
+    [
+      "field:value without outer quotes",
       "participants:user@example.com",
-    );
-  });
-
-  it("should quote value with spaces", () => {
-    expect(sanitizeKqlFieldQuery("subject:meeting notes")).toBe(
-      'subject:"meeting notes"',
-    );
-  });
-
-  it("should replace ? and quote if result has spaces", () => {
-    expect(sanitizeKqlFieldQuery("from:user?name")).toBe('from:"user name"');
-  });
-
-  it("should escape backslashes in value", () => {
-    expect(sanitizeKqlFieldQuery("subject:path\\file")).toBe(
-      "subject:path\\\\file",
-    );
-  });
-
-  it("should escape quotes in value", () => {
-    expect(sanitizeKqlFieldQuery('subject:say "hi"')).toBe(
-      'subject:"say \\"hi\\""',
-    );
-  });
-
-  it("should handle empty value", () => {
-    expect(sanitizeKqlFieldQuery("field:")).toBe("field:");
-  });
-
-  it("should handle query without colon", () => {
-    expect(sanitizeKqlFieldQuery("nofield")).toBe("nofield");
+      "participants:user@example.com",
+    ],
+    ["value with spaces", "subject:meeting notes", 'subject:"meeting notes"'],
+    ["question mark in value", "from:user?name", 'from:"user name"'],
+    ["backslashes in value", "subject:path\\file", "subject:path\\\\file"],
+    ["quotes in value", 'subject:say "hi"', 'subject:"say \\"hi\\""'],
+    ["empty value", "field:", "field:"],
+    ["query without colon", "nofield", "nofield"],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlFieldQuery(input)).toBe(expected);
   });
 });
 
 describe("sanitizeKqlTextQuery", () => {
-  it("should wrap text in quotes", () => {
-    expect(sanitizeKqlTextQuery("hello world")).toBe('"hello world"');
-  });
-
-  it("should remove internal quotes", () => {
-    expect(sanitizeKqlTextQuery('say "hello"')).toBe('"say hello"');
-  });
-
-  it("should replace ? with space", () => {
-    expect(sanitizeKqlTextQuery("hello?world")).toBe('"hello world"');
-  });
-
-  it("should escape backslashes", () => {
-    expect(sanitizeKqlTextQuery("path\\to")).toBe('"path\\\\to"');
-  });
-
-  it("should normalize multiple spaces", () => {
-    expect(sanitizeKqlTextQuery("hello    world")).toBe('"hello world"');
+  it.each([
+    ["text", "hello world", '"hello world"'],
+    ["internal quotes", 'say "hello"', '"say hello"'],
+    ["question marks", "hello?world", '"hello world"'],
+    ["backslashes", "path\\to", '"path\\\\to"'],
+    ["multiple spaces", "hello    world", '"hello world"'],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlTextQuery(input)).toBe(expected);
   });
 });
 
 describe("sanitizeOutlookSearchQuery", () => {
   describe("empty and whitespace inputs", () => {
-    it("should return empty string for empty input", () => {
-      const result = sanitizeOutlookSearchQuery("");
-      expect(result.sanitized).toBe("");
-      expect(result.wasSanitized).toBe(false);
-    });
-
-    it("should return empty string for whitespace-only input", () => {
-      const result = sanitizeOutlookSearchQuery("   ");
-      expect(result.sanitized).toBe("");
-      expect(result.wasSanitized).toBe(false);
+    it.each([
+      ["empty input", ""],
+      ["whitespace-only input", "   "],
+    ])("returns empty string for %s", (_name, input) => {
+      expectSanitizedSearchQuery(input, "", false);
     });
   });
 
   describe("KQL field queries (field:value syntax)", () => {
-    it("should NOT wrap participants:email in outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery(
+    it.each([
+      [
+        "participants email",
         "participants:user@example.com",
-      );
-      expect(result.sanitized).toBe("participants:user@example.com");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle subject field query without outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery("subject:meeting");
-      expect(result.sanitized).toBe("subject:meeting");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should quote value with spaces in field query", () => {
-      const result = sanitizeOutlookSearchQuery("subject:meeting notes");
-      expect(result.sanitized).toBe('subject:"meeting notes"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle ? in field query value by replacing with space", () => {
-      const result = sanitizeOutlookSearchQuery("participants:user?name");
-      expect(result.sanitized).toBe('participants:"user name"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should treat empty value after colon as text query", () => {
-      const result = sanitizeOutlookSearchQuery("field:");
-      expect(result.sanitized).toBe('"field:"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape backslashes in field value", () => {
-      const result = sanitizeOutlookSearchQuery("subject:path\\file");
-      expect(result.sanitized).toBe("subject:path\\\\file");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape quotes in field value and wrap if needed", () => {
-      const result = sanitizeOutlookSearchQuery('subject:say "hello"');
-      expect(result.sanitized).toBe('subject:"say \\"hello\\""');
-      expect(result.wasSanitized).toBe(true);
+        "participants:user@example.com",
+      ],
+      ["subject field", "subject:meeting", "subject:meeting"],
+      [
+        "field query value with spaces",
+        "subject:meeting notes",
+        'subject:"meeting notes"',
+      ],
+      [
+        "question mark in field query value",
+        "participants:user?name",
+        'participants:"user name"',
+      ],
+      ["empty value after colon", "field:", '"field:"'],
+      [
+        "backslashes in field value",
+        "subject:path\\file",
+        "subject:path\\\\file",
+      ],
+      [
+        "quotes in field value",
+        'subject:say "hello"',
+        'subject:"say \\"hello\\""',
+      ],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
   describe("regular text queries (no field:value syntax)", () => {
-    it("should wrap simple query in quotes", () => {
-      const result = sanitizeOutlookSearchQuery("simple query");
-      expect(result.sanitized).toBe('"simple query"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should remove internal double quotes and wrap in outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery(
+    it.each([
+      ["simple query", "simple query", '"simple query"'],
+      [
+        "internal double quotes",
         'Reinstatement of "Universal policy" for "5161 Collins Ave"',
-      );
-      expect(result.sanitized).toBe(
         '"Reinstatement of Universal policy for 5161 Collins Ave"',
-      );
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should replace ? with space in text query", () => {
-      const result = sanitizeOutlookSearchQuery("hello? world");
-      expect(result.sanitized).toBe('"hello world"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape backslashes in text query", () => {
-      const result = sanitizeOutlookSearchQuery("test\\path");
-      expect(result.sanitized).toBe('"test\\\\path"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should normalize multiple spaces", () => {
-      const result = sanitizeOutlookSearchQuery("hello    world");
-      expect(result.sanitized).toBe('"hello world"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle single word queries", () => {
-      const result = sanitizeOutlookSearchQuery("hello");
-      expect(result.sanitized).toBe('"hello"');
-      expect(result.wasSanitized).toBe(true);
+      ],
+      ["question mark in text query", "hello? world", '"hello world"'],
+      ["backslashes in text query", "test\\path", '"test\\\\path"'],
+      ["multiple spaces", "hello    world", '"hello world"'],
+      ["single word query", "hello", '"hello"'],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
   describe("edge cases", () => {
-    it("should handle colon in middle of text (not at start)", () => {
-      const result = sanitizeOutlookSearchQuery("meeting at 10:30am");
-      expect(result.sanitized).toBe('"meeting at 10:30am"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should not treat URL-like strings as KQL fields", () => {
-      const result = sanitizeOutlookSearchQuery("https://example.com");
-      expect(result.sanitized).toBe('"https://example.com"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should treat http: as text query, not KQL field", () => {
-      const result = sanitizeOutlookSearchQuery("http://test.com");
-      expect(result.sanitized).toBe('"http://test.com"');
-      expect(result.wasSanitized).toBe(true);
+    it.each([
+      ["colon in middle of text", "meeting at 10:30am", '"meeting at 10:30am"'],
+      ["URL-like string", "https://example.com", '"https://example.com"'],
+      ["http: prefix", "http://test.com", '"http://test.com"'],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
@@ -365,24 +622,24 @@ describe("sanitizeOutlookSearchQuery", () => {
 });
 
 describe("buildOutlookSearchFallbackQuery", () => {
-  it("falls back from a fielded sender lookup to a plain-text sender search", () => {
-    expect(buildOutlookSearchFallbackQuery("from:sender@example.com")).toBe(
+  it.each([
+    [
+      "fielded sender lookup",
+      "from:sender@example.com",
       '"sender@example.com"',
-    );
-  });
-
-  it("drops trailing helper filters when collapsing an Outlook sender query", () => {
-    expect(
-      buildOutlookSearchFallbackQuery(
-        "from:sender@example.com received>=2026-04-20 unread",
-      ),
-    ).toBe('"sender@example.com"');
-  });
-
-  it("falls back from a subject field query to plain text", () => {
-    expect(
-      buildOutlookSearchFallbackQuery('subject:"Quarterly planning notes"'),
-    ).toBe('"Quarterly planning notes"');
+    ],
+    [
+      "Outlook sender query with trailing helper filters",
+      "from:sender@example.com received>=2026-04-20 unread",
+      '"sender@example.com"',
+    ],
+    [
+      "subject field query",
+      'subject:"Quarterly planning notes"',
+      '"Quarterly planning notes"',
+    ],
+  ])("falls back from %s", (_name, query, expected) => {
+    expect(buildOutlookSearchFallbackQuery(query)).toBe(expected);
   });
 
   it("preserves read-state words when they are part of the quoted subject text", () => {
@@ -393,13 +650,123 @@ describe("buildOutlookSearchFallbackQuery", () => {
   });
 
   it("does not strip plain keyword text that happens to contain a comparison", () => {
-    expect(buildOutlookSearchFallbackQuery('"price < 5"')).toBeNull();
     expect(sanitizeOutlookSearchQuery('"price < 5"').sanitized).toBe(
       '"price < 5"',
     );
   });
 
-  it("returns null when the fallback would not change the query", () => {
-    expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
+  it.each([
+    ["plain keyword text with comparison", '"price < 5"'],
+    ["unchanged sender query", "sender@example.com"],
+  ])("returns null for %s", (_name, query) => {
+    expect(buildOutlookSearchFallbackQuery(query)).toBeNull();
   });
 });
+
+function expectSanitizedSearchQuery(
+  query: string,
+  sanitized: string,
+  wasSanitized = true,
+) {
+  const result = sanitizeOutlookSearchQuery(query);
+  expect(result.sanitized).toBe(sanitized);
+  expect(result.wasSanitized).toBe(wasSanitized);
+}
+
+function createCachedOutlookClient(
+  api: ReturnType<typeof vi.fn>,
+  categoryMap = new Map<string, string>(),
+): OutlookClient {
+  return {
+    getClient: () => ({ api }),
+    getFolderIdCache: () => ({ inbox: "inbox-folder-id" }),
+    setFolderIdCache: vi.fn(),
+    getCategoryMapCache: () => categoryMap,
+    setCategoryMapCache: vi.fn(),
+  } as unknown as OutlookClient;
+}
+
+function createMockMessagesRequest() {
+  const request = {
+    select: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    top: vi.fn().mockReturnThis(),
+    filter: vi.fn().mockReturnThis(),
+    orderby: vi.fn().mockReturnThis(),
+    search: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({ value: [] }),
+  };
+
+  return request;
+}
+
+describe("calendar MIME enrichment", () => {
+  it("keeps invitation attachments when the optional MIME fetch fails", async () => {
+    const rawGet = vi
+      .fn()
+      .mockRejectedValue({ statusCode: 400, message: "MIME unavailable" });
+    const client = calendarMessageClient(rawGet);
+    const message = await getMessage("message", client, createTestLogger(), {
+      includeCalendarContent: true,
+    });
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.attachments?.[0].attachmentId).toBe("attachment");
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("extracts calendar data from a native Outlook meeting message", async () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        "MIME-Version: 1.0\r\nContent-Type: text/calendar; method=REQUEST; charset=utf-8\r\n\r\n" +
+          content,
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.calendarContent?.trim()).toBe(
+      content.replaceAll("\r\n", "\n"),
+    );
+  });
+
+  it("does not fetch raw MIME for ordinary message reads", async () => {
+    const rawGet = vi.fn();
+    await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+    );
+    expect(rawGet).not.toHaveBeenCalled();
+  });
+});
+
+function calendarMessageClient(rawGet: ReturnType<typeof vi.fn>) {
+  const request = {
+    select: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({
+      id: "message",
+      "@odata.type": "#microsoft.graph.eventMessageRequest",
+      attachments: [
+        {
+          id: "attachment",
+          name: "invite.ics",
+          contentType: "text/calendar",
+          size: 100,
+        },
+      ],
+    }),
+  };
+  const rawRequest = { responseType: vi.fn().mockReturnThis(), get: rawGet };
+  return {
+    getFolderIdCache: () => ({}),
+    getCategoryMapCache: () => new Map(),
+    getClient: () => ({
+      api: (path: string) => (path.endsWith("/$value") ? rawRequest : request),
+    }),
+  } as unknown as OutlookClient;
+}

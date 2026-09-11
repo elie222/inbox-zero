@@ -62,23 +62,19 @@ export function TabSelect<T extends string>({
       <LayoutGroup id={layoutGroupId}>
         {options.map(({ id, label, href, target }) => {
           const isSelected = id === selected;
-          const As = href ? Link : "div";
-          return (
-            <As
-              key={id}
-              className="relative"
-              href={href ?? "#"}
-              target={target ?? undefined}
-            >
+          const content = (
+            <>
               <button
                 type="button"
                 onClick={() => {
-                  analytics.captureAction("tab_selected", {
-                    tab: id,
-                    tab_label: label,
-                    has_href: Boolean(href),
-                  });
                   if (onSelect && !href) onSelect(id);
+                  setTimeout(() => {
+                    analytics.captureAction("tab_selected", {
+                      tab: id,
+                      tab_label: label,
+                      has_href: Boolean(href),
+                    });
+                  }, 0);
                 }}
                 className={cn(
                   tabSelectButtonVariants({ variant }),
@@ -103,7 +99,26 @@ export function TabSelect<T extends string>({
                   <div className="h-0.5 rounded-t-full bg-current" />
                 </motion.div>
               )}
-            </As>
+            </>
+          );
+
+          if (href) {
+            return (
+              <Link
+                key={id}
+                className="relative"
+                href={href}
+                target={target ?? undefined}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <div key={id} className="relative">
+              {content}
+            </div>
           );
         })}
       </LayoutGroup>

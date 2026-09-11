@@ -14,10 +14,10 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   createGmailTestHarness,
   createOutlookTestHarness,
+  type GmailTestHarness,
   type ProviderTestHarness,
 } from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@inboxzero/tinybird", () => ({
   publishArchive: vi.fn().mockResolvedValue(undefined),
 }));
@@ -60,6 +60,16 @@ function gmailSeedMessages(email: string) {
       label_ids: ["INBOX"],
       internal_date: "1711900120000",
     },
+    ...Array.from({ length: 100 }, (_, index) => ({
+      id: `msg_bulk_${index}`,
+      user_email: email,
+      from: "bulk-sender@example.com",
+      to: email,
+      subject: `Bulk archive ${index}`,
+      body_text: "Archive this message",
+      label_ids: ["INBOX"],
+      internal_date: String(1_711_800_000_000 + index * 1000),
+    })),
   ];
 }
 
@@ -230,7 +240,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Provider operations — Gmail",
   { timeout: 30_000 },
   () => {
-    let harness: ProviderTestHarness & { emulator: any };
+    let harness: ProviderTestHarness & {
+      gmailClient: GmailTestHarness["gmailClient"];
+    };
 
     beforeAll(async () => {
       const h = await createGmailTestHarness({
@@ -240,6 +252,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       harness = {
         emulator: h.emulator,
+        gmailClient: h.gmailClient,
         provider: h.provider,
         email: GMAIL_EMAIL,
       };
@@ -250,6 +263,34 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     providerTestSuite(() => harness, "Gmail");
+
+    test("archiveMessages removes a large snapshot from the inbox", async () => {
+      const messageIds = Array.from(
+        { length: 100 },
+        (_, index) => `msg_bulk_${index}`,
+      );
+
+      await harness.provider.archiveMessages(messageIds);
+
+      const inbox = await harness.gmailClient.users.messages.list({
+        userId: "me",
+        labelIds: ["INBOX"],
+        maxResults: 500,
+      });
+      const inboxIds = new Set(
+        inbox.data.messages?.map((message) => message.id) ?? [],
+      );
+      expect(messageIds.some((messageId) => inboxIds.has(messageId))).toBe(
+        false,
+      );
+      for (const messageId of ["msg_bulk_0", "msg_bulk_50", "msg_bulk_99"]) {
+        const message = await harness.gmailClient.users.messages.get({
+          userId: "me",
+          id: messageId,
+        });
+        expect(message.data.threadId).toBeDefined();
+      }
+    });
   },
 );
 
@@ -284,5 +325,119 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     providerTestSuite(() => harness, "Outlook");
+
+    test("exposes inline file attachment metadata through the Graph query contract", async () => {
+      const graphFetch = globalThis.fetch;
+      let attachmentExpand: string | null = null;
+
+      globalThis.fetch = async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ) => {
+        const requestUrl =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const url = new URL(requestUrl);
+
+        if (
+          url.origin !== "https://graph.microsoft.com" ||
+          url.pathname !== "/v1.0/me/messages"
+        ) {
+          return graphFetch(input, init);
+        }
+
+        attachmentExpand = url.searchParams.get("$expand");
+        const selectedAttachmentFields =
+          attachmentExpand
+            ?.match(/attachments\(\$select=([^)]+)\)/)?.[1]
+            ?.split(",") ?? [];
+
+        if (selectedAttachmentFields.includes("contentId")) {
+          return Response.json(
+            {
+              error: {
+                code: "BadRequest",
+                message:
+                  "Could not find a property named 'contentId' on type 'microsoft.graph.attachment'.",
+              },
+            },
+            { status: 400 },
+          );
+        }
+
+        const response = await graphFetch(input, init);
+        const body = (await response.json()) as {
+          value: Array<{
+            body?: { contentType?: string; content?: string };
+            attachments?: Array<{
+              name?: string;
+              isInline?: boolean;
+              contentId?: string;
+            }>;
+          }>;
+        };
+        const projectsFileAttachmentContentId =
+          selectedAttachmentFields.includes(
+            "microsoft.graph.fileAttachment/contentId",
+          );
+
+        for (const message of body.value) {
+          for (const attachment of message.attachments ?? []) {
+            if (attachment.name !== "agenda.txt") continue;
+
+            attachment.isInline = true;
+            attachment.contentId = projectsFileAttachmentContentId
+              ? "agenda-image"
+              : undefined;
+            message.body = {
+              contentType: "html",
+              content: '<p>Agenda</p><img src="cid:agenda-image">',
+            };
+          }
+        }
+
+        return Response.json(body, { status: response.status });
+      };
+
+      try {
+        const result = await harness.provider.getMessagesWithPagination({
+          maxResults: 20,
+        });
+        const message = result.messages.find((item) =>
+          item.inline.some(
+            (attachment) => attachment.filename === "agenda.txt",
+          ),
+        );
+        const inlineAttachment = message?.inline[0];
+
+        expect(attachmentExpand).toContain(
+          "microsoft.graph.fileAttachment/contentId",
+        );
+        expect(inlineAttachment).toMatchObject({
+          filename: "agenda.txt",
+          attachmentId: expect.any(String),
+          headers: {
+            "content-id": "agenda-image",
+          },
+        });
+        expect(message?.textHtml).toContain(
+          `cid:${inlineAttachment?.headers["content-id"]}`,
+        );
+
+        const downloadedAttachment = await harness.provider.getAttachment(
+          message!.id,
+          inlineAttachment!.attachmentId,
+        );
+
+        expect(downloadedAttachment.data).toBe(
+          Buffer.from("Draft agenda").toString("base64"),
+        );
+      } finally {
+        globalThis.fetch = graphFetch;
+      }
+    });
   },
 );

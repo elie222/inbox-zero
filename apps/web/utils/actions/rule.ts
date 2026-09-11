@@ -1,5 +1,6 @@
 "use server";
 
+import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { revalidatePath } from "next/cache";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
@@ -35,6 +36,7 @@ import {
   updateRuleInstructions,
   type RuleActionCreateData,
   addActionOwnershipToInput,
+  assertIntegrationActionsConnected,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -42,8 +44,10 @@ import {
   getSystemRuleActionTypes,
   getCategoryAction,
   getActionTypesForCategoryAction,
+  STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { env } from "@/env";
 import { prefixPath } from "@/utils/path";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
@@ -55,13 +59,16 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
+import { setDefaultMailSplits } from "@/utils/mail/default-splits.server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
   .inputSchema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         name,
         runOnThreads,
@@ -70,6 +77,8 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      await assertCanUseDigestsIfNeeded(userId, actions ?? []);
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -83,15 +92,15 @@ export const createRuleAction = actionClient
         const rule = await createRule({
           result: {
             name,
-            condition: {
-              aiInstructions: conditions.instructions ?? null,
+            condition: toCreateOrUpdateRuleCondition({
+              aiInstructions: conditions.instructions,
               conditionalOperator: conditionalOperator || null,
               static: {
-                from: conditions.from || null,
-                to: conditions.to || null,
-                subject: conditions.subject || null,
+                from: conditions.from,
+                to: conditions.to,
+                subject: conditions.subject,
               },
-            },
+            }),
             actions: resolvedActions.map(mapActionToSanitizedFields),
           },
           emailAccountId,
@@ -112,7 +121,7 @@ export const updateRuleAction = actionClient
   .inputSchema(updateRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         id,
         name,
@@ -122,6 +131,15 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
+
+      const existingRule = await prisma.rule.findFirst({
+        where: { id, emailAccountId },
+        select: { actions: { select: { type: true } } },
+      });
+
+      await assertCanUseDigestsIfNeeded(userId, actions, existingRule?.actions);
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -136,15 +154,15 @@ export const updateRuleAction = actionClient
           ruleId: id,
           result: {
             name: name || "",
-            condition: {
-              aiInstructions: conditions.instructions ?? null,
+            condition: toCreateOrUpdateRuleCondition({
+              aiInstructions: conditions.instructions,
               conditionalOperator: conditionalOperator || null,
               static: {
-                from: conditions.from || null,
-                to: conditions.to || null,
-                subject: conditions.subject || null,
+                from: conditions.from,
+                to: conditions.to,
+                subject: conditions.subject,
               },
-            },
+            }),
             actions: resolvedActions.map(mapActionToSanitizedFields),
           },
           emailAccountId,
@@ -165,6 +183,8 @@ export const updateRuleSettingsAction = actionClient
   .inputSchema(updateRuleSettingsBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
+
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });
@@ -280,9 +300,14 @@ export const deleteRuleAction = actionClient
           emailAccountId,
         },
       },
-      select: { systemType: true, groupId: true },
+      select: { systemType: true, groupId: true, organizationRuleId: true },
     });
     if (!rule) return; // already deleted
+    if (rule.organizationRuleId) {
+      throw new SafeError(
+        "This rule is managed by your organization and can't be deleted here.",
+      );
+    }
     if (rule.systemType) {
       throw new SafeError(
         "Default rules cannot be deleted. Disable them instead.",
@@ -325,6 +350,9 @@ export const createRulesOnboardingAction = actionClient
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];
+      const defaultSplitRulePromises: Array<
+        ReturnType<typeof upsertSystemRule>
+      > = [];
 
       const isSet = (
         value: string | undefined | null,
@@ -370,6 +398,8 @@ export const createRulesOnboardingAction = actionClient
         })();
 
         promises.push(promise);
+
+        return promise;
       }
 
       async function deleteRule(
@@ -389,20 +419,12 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // Process system rules
-      const systemRules = [
-        SystemType.TO_REPLY,
-        SystemType.NEWSLETTER,
-        SystemType.MARKETING,
-        SystemType.CALENDAR,
-        SystemType.RECEIPT,
-        SystemType.NOTIFICATION,
-        SystemType.COLD_EMAIL,
-      ];
-
-      for (const type of systemRules) {
+      for (const type of STANDARD_CATEGORY_SYSTEM_TYPES) {
         const config = systemCategoryMap.get(type);
         if (config && isSet(config.action)) {
-          createSystemRuleForOnboarding(type, config.action);
+          defaultSplitRulePromises.push(
+            createSystemRuleForOnboarding(type, config.action),
+          );
         } else {
           deleteRule(type, emailAccountId);
         }
@@ -463,6 +485,17 @@ export const createRulesOnboardingAction = actionClient
 
       await Promise.allSettled(promises);
 
+      try {
+        const systemRules = await Promise.all(defaultSplitRulePromises);
+        await setDefaultMailSplits({
+          emailAccountId,
+          defaultSplits: getDefaultMailSplitDrafts(systemRules),
+          enabled: true,
+        });
+      } catch (error) {
+        logger.error("Error creating default mail splits", { error });
+      }
+
       after(() =>
         bulkProcessInboxEmails({
           emailAccount,
@@ -500,13 +533,13 @@ export const toggleAllRulesAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
     if (enabled) {
       await prisma.rule.updateMany({
-        where: { emailAccountId },
+        where: { emailAccountId, organizationRuleId: null },
         data: { enabled },
       });
     } else {
       await prisma.$transaction([
         prisma.rule.updateMany({
-          where: { emailAccountId },
+          where: { emailAccountId, organizationRuleId: null },
           data: { enabled },
         }),
         prisma.emailAccount.update({
@@ -561,11 +594,11 @@ export const copyRulesFromAccountAction = actionClientUser
         throw new SafeError("Target account not found or unauthorized");
       }
 
-      // Fetch selected rules from source account
       const sourceRules = await prisma.rule.findMany({
         where: {
           emailAccountId: sourceEmailAccountId,
           id: { in: ruleIds },
+          organizationRuleId: null,
         },
         include: { actions: true },
       });
@@ -574,9 +607,16 @@ export const copyRulesFromAccountAction = actionClientUser
         return { copiedCount: 0, replacedCount: 0 };
       }
 
-      // Fetch existing rules in target account to check for duplicates
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        sourceRules.flatMap((rule) => rule.actions),
+      );
+
       const targetRules = await prisma.rule.findMany({
-        where: { emailAccountId: targetEmailAccountId },
+        where: {
+          emailAccountId: targetEmailAccountId,
+          organizationRuleId: null,
+        },
         select: { id: true, name: true, systemType: true },
       });
 
@@ -687,6 +727,7 @@ async function toggleRule({
   logger: Logger;
 }) {
   if (ruleId) {
+    await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
     return await setRuleEnabled({ ruleId, emailAccountId, enabled });
   }
 
@@ -793,7 +834,18 @@ function mapActionToSanitizedFields(action: {
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
   staticAttachments?: AttachmentSourceInput[] | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Record<string, string | null | undefined> | null;
 }) {
+  const nonEmptyIntegrationArgs = action.integrationArgs
+    ? (Object.fromEntries(
+        Object.entries(action.integrationArgs).filter(
+          ([, value]) => typeof value === "string" && value.trim() !== "",
+        ),
+      ) as Record<string, string>)
+    : undefined;
+
   const sanitized = sanitizeActionFields({
     type: action.type,
     messagingChannelId: action.messagingChannelId ?? null,
@@ -811,6 +863,9 @@ function mapActionToSanitizedFields(action: {
     staticAttachments: action.staticAttachments?.length
       ? action.staticAttachments
       : undefined,
+    integrationName: action.integrationName,
+    integrationToolName: action.integrationToolName,
+    integrationArgs: nonEmptyIntegrationArgs,
   });
 
   return {
@@ -830,6 +885,9 @@ function mapActionToSanitizedFields(action: {
     folderId: sanitized.folderId ?? null,
     delayInMinutes: sanitized.delayInMinutes ?? null,
     staticAttachments: sanitized.staticAttachments ?? null,
+    integrationName: sanitized.integrationName ?? null,
+    integrationToolName: sanitized.integrationToolName ?? null,
+    integrationArgs: sanitized.integrationArgs ?? null,
   };
 }
 
@@ -1028,12 +1086,19 @@ export const importRulesAction = actionClient
   .metadata({ name: "importRules" })
   .inputSchema(importRulesBody)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { rules } }) => {
+    async ({
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: { rules },
+    }) => {
       logger.info("Importing rules", { count: rules.length });
 
-      // Fetch existing rules to check for duplicates by name or systemType
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        rules.flatMap((rule) => rule.actions),
+      );
+
       const existingRules = await prisma.rule.findMany({
-        where: { emailAccountId },
+        where: { emailAccountId, organizationRuleId: null },
         select: { id: true, name: true, systemType: true },
       });
 
@@ -1071,7 +1136,15 @@ export const importRulesAction = actionClient
             folderId: null,
             url: action.url,
             delayInMinutes: action.delayInMinutes,
+            integrationName: action.integrationName,
+            integrationToolName: action.integrationToolName,
+            integrationArgs: action.integrationArgs ?? undefined,
           }));
+
+          await assertIntegrationActionsConnected(
+            mappedActions,
+            emailAccountId,
+          );
 
           if (existingRuleId) {
             await replaceRuleWithResolvedActions({

@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
-import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
+import {
+  checkAndCompleteExecutedRule,
+  executeScheduledAction,
+} from "@/utils/scheduled-actions/executor";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -17,6 +20,8 @@ export const POST = withError(
   "scheduled-actions/execute",
   withQstashOrInternal(async (request) => {
     const logger = request.logger;
+    let executingAction: { id: string; executedRuleId: string } | null = null;
+
     try {
       logger.info("QStash request received", {
         url: request.url,
@@ -87,11 +92,23 @@ export const POST = withError(
         });
         return new Response("Action already being processed", { status: 200 });
       }
+      executingAction = {
+        id: scheduledAction.id,
+        executedRuleId: scheduledAction.executedRuleId,
+      };
 
       if (!scheduledAction.emailAccount?.account?.provider) {
         logger.error("Email account or provider missing", {
           scheduledActionId: scheduledAction.id,
         });
+        await prisma.scheduledAction.update({
+          where: { id: scheduledAction.id },
+          data: { status: ScheduledActionStatus.FAILED },
+        });
+        await checkAndCompleteExecutedRule(
+          scheduledAction.executedRuleId,
+          logger,
+        );
         return new Response("Email account or provider missing", {
           status: 500,
         });
@@ -123,6 +140,16 @@ export const POST = withError(
       }
     } catch (error) {
       logger.error("QStash scheduled action execution failed", { error });
+      if (executingAction) {
+        await prisma.scheduledAction.update({
+          where: { id: executingAction.id },
+          data: { status: ScheduledActionStatus.FAILED },
+        });
+        await checkAndCompleteExecutedRule(
+          executingAction.executedRuleId,
+          logger,
+        );
+      }
       return new Response("Internal server error", { status: 500 });
     }
   }),

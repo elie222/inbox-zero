@@ -4,6 +4,7 @@ import { auth } from "@/utils/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
 import {
+  AdminBackfillPremiumAdmins,
   AdminSyncStripe,
   AdminSyncStripeCustomers,
 } from "@/app/(app)/admin/AdminSyncStripe";
@@ -47,6 +48,7 @@ export default async function AdminPage() {
         <div className="flex gap-2">
           <AdminSyncStripe />
           <AdminSyncStripeCustomers />
+          <AdminBackfillPremiumAdmins />
         </div>
 
         <AdminTopSpenders />

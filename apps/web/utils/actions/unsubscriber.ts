@@ -1,28 +1,39 @@
 "use server";
 
 import {
-  setNewsletterStatusBody,
+  setSenderStatusBody,
   unsubscribeSenderBody,
 } from "@/utils/actions/unsubscriber.validation";
 import { actionClient } from "@/utils/actions/safe-action";
+import { createEmailProvider } from "@/utils/email/provider";
 import {
-  setSenderStatus,
+  setSenderStatusWithAutoArchive,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
 
-export const setNewsletterStatusAction = actionClient
-  .metadata({ name: "setNewsletterStatus" })
-  .inputSchema(setNewsletterStatusBody)
+export const setSenderStatusAction = actionClient
+  .metadata({ name: "setSenderStatus" })
+  .inputSchema(setSenderStatusBody)
   .action(
     async ({
-      parsedInput: { newsletterEmail, status },
-      ctx: { emailAccountId },
-    }) =>
-      setSenderStatus({
+      parsedInput: { senderEmail, status, labelId, labelName },
+      ctx: { emailAccountId, provider, logger },
+    }) => {
+      const emailProvider = await createEmailProvider({
         emailAccountId,
-        newsletterEmail,
+        provider,
+        logger,
+      });
+
+      return setSenderStatusWithAutoArchive({
+        emailAccountId,
+        emailProvider,
+        senderEmail,
         status,
-      }),
+        labelId,
+        labelName,
+      });
+    },
   );
 
 export const unsubscribeSenderAction = actionClient
@@ -30,12 +41,12 @@ export const unsubscribeSenderAction = actionClient
   .inputSchema(unsubscribeSenderBody)
   .action(
     async ({
-      parsedInput: { newsletterEmail, unsubscribeLink, listUnsubscribeHeader },
+      parsedInput: { senderEmail, unsubscribeLink, listUnsubscribeHeader },
       ctx: { emailAccountId, logger },
     }) =>
       unsubscribeSenderAndMark({
         emailAccountId,
-        newsletterEmail,
+        senderEmail,
         unsubscribeLink,
         listUnsubscribeHeader,
         logger,

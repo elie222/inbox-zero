@@ -21,6 +21,19 @@ export const watchEmailsBody = z.object({
 });
 export type WatchEmailsBody = z.infer<typeof watchEmailsBody>;
 
+export const syncStripeForUserBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+});
+export type SyncStripeForUserBody = z.infer<typeof syncStripeForUserBody>;
+
+export const syncAppleSubscriptionForUserBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+  transactionId: z.string().trim().min(1, "Transaction ID is required"),
+});
+export type SyncAppleSubscriptionForUserBody = z.infer<
+  typeof syncAppleSubscriptionForUserBody
+>;
+
 export const getUserInfoBody = z.object({
   email: z.string().trim().email("Valid email address is required"),
 });

@@ -10,6 +10,7 @@ describe("manageInbox action helpers", () => {
     expect(isManageInboxAction("archive_threads")).toBe(true);
     expect(isManageInboxAction("trash_threads")).toBe(true);
     expect(isManageInboxAction("label_threads")).toBe(true);
+    expect(isManageInboxAction("remove_label_threads")).toBe(true);
     expect(isManageInboxAction("unknown_action")).toBe(false);
     expect(isManageInboxAction(undefined)).toBe(false);
   });
@@ -18,6 +19,7 @@ describe("manageInbox action helpers", () => {
     expect(requiresThreadIds("archive_threads")).toBe(true);
     expect(requiresThreadIds("trash_threads")).toBe(true);
     expect(requiresThreadIds("label_threads")).toBe(true);
+    expect(requiresThreadIds("remove_label_threads")).toBe(true);
     expect(requiresThreadIds("mark_read_threads")).toBe(true);
     expect(requiresThreadIds("bulk_archive_senders")).toBe(false);
   });

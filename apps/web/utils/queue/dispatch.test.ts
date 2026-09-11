@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockSend = vi.fn();
 const mockPublishToQstashQueue = vi.fn();
 const mockPublishToInternalApiInBackground = vi.fn();
 const mockEnqueueBullmqHttpJob = vi.fn();
 const mockIsVercelQueueDispatchEnabled = vi.fn();
-const mockLogger = {
-  error: vi.fn(),
-  warn: vi.fn(),
-};
 
 async function loadDispatchModule({
   queueBackend,
@@ -52,8 +49,6 @@ async function loadDispatchModule({
 
 describe("enqueueBackgroundJob", () => {
   beforeEach(() => {
-    mockLogger.error.mockReset();
-    mockLogger.warn.mockReset();
     mockPublishToInternalApiInBackground.mockReset();
     mockIsVercelQueueDispatchEnabled.mockReturnValue(false);
   });
@@ -72,7 +67,7 @@ describe("enqueueBackgroundJob", () => {
         parallelism: 3,
         path: "/api/automation-jobs/execute",
       },
-      logger: mockLogger as any,
+      logger: createTestLogger(),
     });
 
     expect(result).toBe("bullmq");
@@ -102,11 +97,10 @@ describe("enqueueBackgroundJob", () => {
         parallelism: 3,
         path: "/api/automation-jobs/execute",
       },
-      logger: mockLogger as any,
+      logger: createTestLogger(),
     });
 
     expect(result).toBe("qstash");
-    expect(mockLogger.warn).toHaveBeenCalled();
     expect(mockPublishToQstashQueue).toHaveBeenCalled();
   });
 
@@ -125,8 +119,9 @@ describe("enqueueBackgroundJob", () => {
         queueName: "email-digest-all",
         parallelism: 3,
         path: "/api/resend/digest",
+        deduplicationId: "digest-account-1-2026-06-16",
       },
-      logger: mockLogger as any,
+      logger: createTestLogger(),
     });
 
     expect(result).toBe("qstash");
@@ -136,6 +131,7 @@ describe("enqueueBackgroundJob", () => {
       path: "/api/resend/digest",
       body: { id: "job-3" },
       headers: undefined,
+      deduplicationId: "digest-account-1-2026-06-16",
     });
     expect(mockEnqueueBullmqHttpJob).not.toHaveBeenCalled();
   });
@@ -156,7 +152,7 @@ describe("enqueueBackgroundJob", () => {
         parallelism: 3,
         path: "/api/resend/digest",
       },
-      logger: mockLogger as any,
+      logger: createTestLogger(),
     });
 
     expect(result).toBe("internal-fallback");

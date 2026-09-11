@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
+  checkHasAccessMock,
   createEmailProviderMock,
   flushLoggerSafelyMock,
   getEmailAccountForRuleExecutionMock,
   runRulesMock,
 } = vi.hoisted(() => ({
+  checkHasAccessMock: vi.fn(),
   createEmailProviderMock: vi.fn(),
   flushLoggerSafelyMock: vi.fn(),
   getEmailAccountForRuleExecutionMock: vi.fn(),
   runRulesMock: vi.fn(),
 }));
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
@@ -32,11 +33,18 @@ vi.mock("@/utils/user/get", () => ({
 vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
   runRules: runRulesMock,
 }));
+vi.mock("@/utils/premium/server", () => ({
+  checkHasAccess: checkHasAccessMock,
+}));
 
 import {
   runRulesAction,
   testAiCustomContentAction,
 } from "@/utils/actions/ai-rule";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
 
 describe("runRulesAction", () => {
   beforeEach(() => {
@@ -77,6 +85,7 @@ describe("runRulesAction", () => {
     ]);
 
     flushLoggerSafelyMock.mockResolvedValue(undefined);
+    checkHasAccessMock.mockResolvedValue(true);
   });
 
   it("waits for logger flush before resolving test-mode runs", async () => {
@@ -167,6 +176,88 @@ describe("runRulesAction", () => {
       }),
     );
   });
+
+  it("flushes logs when a test-mode run fails before returning", async () => {
+    createEmailProviderMock.mockRejectedValueOnce(
+      new Error("provider unavailable"),
+    );
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: true,
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(flushLoggerSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "runRules",
+        flushReason: "test-mode-error",
+        stage: "create-email-provider",
+      }),
+    );
+  });
+
+  it("blocks a rerun when the user is not on the required tier", async () => {
+    checkHasAccessMock.mockResolvedValue(false);
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+      rerun: true,
+    });
+
+    expect(result?.serverError).toBe(RERUN_UPGRADE_MESSAGE);
+    expect(checkHasAccessMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      minimumTier: RERUN_MINIMUM_TIER,
+    });
+    expect(runRulesMock).not.toHaveBeenCalled();
+  });
+
+  it("runs rules again and ignores the existing result when the user has access", async () => {
+    prisma.executedRule.findMany.mockResolvedValue([
+      { id: "existing-executed-rule" },
+    ] as any);
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+      rerun: true,
+    });
+
+    expect(result?.data).toHaveLength(1);
+    expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+    expect(runRulesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not check tier access for a normal run", async () => {
+    await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+    });
+
+    expect(checkHasAccessMock).not.toHaveBeenCalled();
+    expect(runRulesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not gate reruns in test mode", async () => {
+    checkHasAccessMock.mockResolvedValue(false);
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: true,
+      rerun: true,
+    });
+
+    expect(result?.data).toHaveLength(1);
+    expect(checkHasAccessMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("testAiCustomContentAction", () => {
@@ -231,6 +322,23 @@ describe("testAiCustomContentAction", () => {
       expect.objectContaining({
         action: "testAiCustomContent",
         flushReason: "test-mode",
+      }),
+    );
+  });
+
+  it("flushes logs when a custom content test run fails", async () => {
+    runRulesMock.mockRejectedValueOnce(new Error("rule execution failed"));
+
+    const result = await testAiCustomContentAction("account-1", {
+      content: "x",
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(flushLoggerSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "testAiCustomContent",
+        flushReason: "test-mode-error",
       }),
     );
   });

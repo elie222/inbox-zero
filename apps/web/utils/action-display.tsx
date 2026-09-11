@@ -1,4 +1,4 @@
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, type MessagingProvider } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -14,9 +14,16 @@ import {
   FileTextIcon,
   MailIcon,
   NewspaperIcon,
+  SquareCheckBigIcon,
   StarIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
+import {
+  getIntegrationActionDisplayValue,
+  getIntegrationActionLabel,
+} from "@/utils/mcp/tool-specs";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 
 /**
  * Hide messaging-channel draft entries when an email draft already exists,
@@ -45,6 +52,10 @@ export function getActionDisplay(
     content?: string | null;
     to?: string | null;
     notificationDestination?: string | null;
+    messagingChannel?: { provider: MessagingProvider } | null;
+    integrationName?: string | null;
+    integrationToolName?: string | null;
+    integrationArgs?: unknown;
   },
   provider: string,
   labels: Array<{ id: string; name: string }>,
@@ -79,6 +90,8 @@ export function getActionDisplay(
     }
     case ActionType.ARCHIVE:
       return "Archive";
+    case ActionType.DELETE:
+      return "Delete";
     case ActionType.MARK_READ:
       return "Mark Read";
     case ActionType.STAR:
@@ -102,11 +115,19 @@ export function getActionDisplay(
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      if (action.messagingChannel?.provider) {
+        return `Notify on ${getMessagingProviderName(action.messagingChannel.provider)}`;
+      }
       return action.notificationDestination
-        ? `Notify via ${truncate(action.notificationDestination, 18)}`
+        ? `Notify on ${truncate(action.notificationDestination, 18)}`
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
+    case ActionType.INTEGRATION: {
+      const label = getIntegrationActionLabel(action);
+      const displayValue = getIntegrationActionDisplayValue(action);
+      return displayValue ? `${label}: '${truncate(displayValue, 20)}'` : label;
+    }
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -114,12 +135,36 @@ export function getActionDisplay(
   }
 }
 
+export const ACTION_TYPE_LABELS = {
+  [ActionType.LABEL]: "Label",
+  [ActionType.ARCHIVE]: "Archive",
+  [ActionType.DELETE]: "Delete",
+  [ActionType.MARK_READ]: "Mark read",
+  [ActionType.MARK_SPAM]: "Mark spam",
+  [ActionType.STAR]: "Star",
+  [ActionType.MOVE_FOLDER]: "Move to folder",
+  [ActionType.FORWARD]: "Forward",
+  [ActionType.REPLY]: "Reply",
+  [ActionType.SEND_EMAIL]: "Send email",
+  [ActionType.DRAFT_EMAIL]: "Draft reply",
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft to chat channel",
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify chat channel",
+  [ActionType.CALL_WEBHOOK]: "Call webhook",
+  [ActionType.DIGEST]: "Add to digest",
+  [ActionType.NOTIFY_SENDER]: "Notify sender",
+  // ActionType alone cannot name a specific tool; getIntegrationActionLabel
+  // gives the precise name when the action is known.
+  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
+} satisfies Record<ActionType, string>;
+
 export function getActionIcon(actionType: ActionType) {
   switch (actionType) {
     case ActionType.LABEL:
       return TagIcon;
     case ActionType.ARCHIVE:
       return ArchiveIcon;
+    case ActionType.DELETE:
+      return Trash2Icon;
     case ActionType.MOVE_FOLDER:
       return FolderInputIcon;
     case ActionType.DRAFT_EMAIL:
@@ -145,6 +190,8 @@ export function getActionIcon(actionType: ActionType) {
       return BellIcon;
     case ActionType.NOTIFY_SENDER:
       return BellIcon;
+    case ActionType.INTEGRATION:
+      return SquareCheckBigIcon;
     default: {
       const exhaustiveCheck: never = actionType;
       return exhaustiveCheck;

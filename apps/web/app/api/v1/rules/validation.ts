@@ -2,10 +2,7 @@ import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
-import {
-  isWebhookActionEnabled,
-  WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
+import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
 
 const conditionSchema = z
   .object({
@@ -32,7 +29,7 @@ const conditionSchema = z
     },
   );
 
-const ruleActionTypeSchema = z.enum([
+const ruleActionRequestTypeSchema = z.enum([
   ActionType.LABEL,
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
@@ -48,11 +45,12 @@ const ruleActionTypeSchema = z.enum([
   ActionType.MOVE_FOLDER,
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
+  ActionType.DELETE,
 ]);
 
 const actionSchema = z
   .object({
-    type: ruleActionTypeSchema,
+    type: ruleActionRequestTypeSchema,
     messagingChannelId: z.string().cuid().nullish(),
     fields: z
       .object({
@@ -73,14 +71,7 @@ const actionSchema = z
       .nullish(),
   })
   .superRefine((action, ctx) => {
-    if (action.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
+    if (addDisabledRuleActionIssue(action.type, ctx)) return;
 
     addMissingRecipientIssue({
       actionType: action.type,
@@ -146,8 +137,13 @@ export const ruleRequestBodySchema = z.object({
   actions: z.array(actionSchema).min(1),
 });
 
+const ruleActionTypeResponseSchema = z.enum([
+  ...ruleActionRequestTypeSchema.options,
+  ActionType.INTEGRATION,
+]);
+
 const ruleActionResponseSchema = z.object({
-  type: ruleActionTypeSchema,
+  type: ruleActionTypeResponseSchema,
   messagingChannelId: z.string().cuid().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),
@@ -160,6 +156,9 @@ const ruleActionResponseSchema = z.object({
     folderName: z.string().nullable(),
   }),
   delayInMinutes: z.number().nullable(),
+  integrationName: z.string().nullable(),
+  integrationToolName: z.string().nullable(),
+  integrationArgs: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const ruleResponseSchema = z.object({

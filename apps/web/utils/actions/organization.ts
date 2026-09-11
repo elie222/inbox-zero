@@ -4,16 +4,17 @@ import { after } from "next/server";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import {
   createOrganizationBody,
-  inviteMemberBody,
+  inviteMembersBody,
   removeMemberBody,
   updateMemberRoleBody,
+  transferOwnershipBody,
   cancelInvitationBody,
   handleInvitationBody,
   updateAnalyticsConsentBody,
   createOrganizationAndInviteBody,
 } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { getAuthorizedOrganizationAdminMembership } from "@/utils/organizations/access";
 import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 import {
@@ -24,6 +25,11 @@ import {
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { createScopedLogger } from "@/utils/logger";
+import {
+  deleteMemberOrganizationRuleCopies,
+  syncOrganizationRulesForNewMember,
+} from "@/utils/organizations/rules";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -68,13 +74,13 @@ export const createOrganizationAction = actionClient
     return organization;
   });
 
-export const inviteMemberAction = actionClientUser
-  .metadata({ name: "inviteMember" })
-  .inputSchema(inviteMemberBody)
+export const inviteMembersAction = actionClientUser
+  .metadata({ name: "inviteMembers" })
+  .inputSchema(inviteMembersBody)
   .action(
     async ({
       ctx: { userId },
-      parsedInput: { email, role, organizationId },
+      parsedInput: { invitations, organizationId },
     }) => {
       const inviterMember = await getAuthorizedOrganizationAdminMembership({
         organizationId,
@@ -83,61 +89,89 @@ export const inviteMemberAction = actionClientUser
           "Only organization owners or admins can invite members.",
       });
 
-      const inviterEmailAccount = await prisma.emailAccount.findUnique({
-        where: { id: inviterMember.emailAccountId },
-        select: { name: true, email: true },
-      });
+      const [inviterEmailAccount, org] = await Promise.all([
+        prisma.emailAccount.findUnique({
+          where: { id: inviterMember.emailAccountId },
+          select: { name: true, email: true },
+        }),
+        prisma.organization.findUnique({
+          where: { id: inviterMember.organizationId },
+          select: { name: true },
+        }),
+      ]);
 
       if (!inviterEmailAccount) {
         throw new SafeError("Email account not found.");
       }
 
-      if (role === "owner" && inviterMember.role !== "owner") {
-        throw new SafeError(
-          "Only existing owners can assign the owner role to new members.",
-        );
-      }
+      const inviterName = inviterEmailAccount.name || inviterEmailAccount.email;
+      const organizationName = org?.name || "Your organization";
 
-      const existing = await prisma.invitation.findFirst({
+      const existingInvitations = await prisma.invitation.findMany({
         where: {
           organizationId: inviterMember.organizationId,
-          email,
+          email: { in: invitations.map((i) => i.email) },
           status: "pending",
         },
-        select: { id: true },
+        select: { email: true },
       });
-      if (existing) {
-        return;
-      }
+      const alreadyInvited = new Set(existingInvitations.map((i) => i.email));
 
-      const invitation = await prisma.invitation.create({
-        data: {
-          organizationId: inviterMember.organizationId,
-          email,
-          role,
-          status: "pending",
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), // 14 days
-          inviterId: inviterMember.emailAccountId,
-        },
-        select: { id: true },
-      });
+      const results: { email: string; success: boolean; error?: string }[] = [];
+      const seen = new Set<string>();
 
-      const org = await prisma.organization.findUnique({
-        where: { id: inviterMember.organizationId },
-        select: { name: true },
-      });
+      for (const { email, role } of invitations) {
+        if (seen.has(email)) {
+          results.push({ email, success: false, error: "Duplicate email" });
+          continue;
+        }
+        seen.add(email);
 
-      try {
-        await sendOrganizationInvitation({
-          email,
-          organizationName: org?.name || "Your organization",
-          inviterName: inviterEmailAccount.name || inviterEmailAccount.email,
-          invitationId: invitation.id,
+        if (role === "owner" && inviterMember.role !== "owner") {
+          results.push({
+            email,
+            success: false,
+            error: "Only owners can assign the owner role.",
+          });
+          continue;
+        }
+
+        if (alreadyInvited.has(email)) {
+          results.push({ email, success: false, error: "Already invited" });
+          continue;
+        }
+
+        const invitation = await prisma.invitation.create({
+          data: {
+            organizationId: inviterMember.organizationId,
+            email,
+            role,
+            status: "pending",
+            expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), // 14 days
+            inviterId: inviterMember.emailAccountId,
+          },
+          select: { id: true },
         });
-      } catch {
-        await prisma.invitation.delete({ where: { id: invitation.id } });
-        throw new SafeError("Failed to send invitation email");
+
+        try {
+          await sendOrganizationInvitation({
+            email,
+            organizationName,
+            inviterName,
+            invitationId: invitation.id,
+          });
+          results.push({ email, success: true });
+        } catch {
+          await prisma.invitation.delete({ where: { id: invitation.id } });
+          results.push({
+            email,
+            success: false,
+            error: "Failed to send email",
+          });
+        }
       }
+
+      return { results };
     },
   );
 
@@ -277,6 +311,31 @@ async function acceptInvitation({
     data: { status: "accepted" },
   });
 
+  // A sync failure must not block joining the organization, but it is surfaced
+  // (logged + captured) so the team can recover the member's missing rule copies.
+  const syncLogger = createScopedLogger("organizations/rules").with({
+    emailAccountId,
+    organizationId: invitation.organizationId,
+  });
+  try {
+    await syncOrganizationRulesForNewMember({
+      organizationId: invitation.organizationId,
+      emailAccountId,
+      logger: syncLogger,
+    });
+  } catch (error) {
+    syncLogger.error("Failed to materialize org rules for new member", {
+      error,
+    });
+    captureException(error, {
+      emailAccountId,
+      extra: {
+        organizationId: invitation.organizationId,
+        context: "syncOrganizationRulesForNewMember",
+      },
+    });
+  }
+
   const premium = await getOrganizationPremium(invitation.organizationId);
   if (premium) {
     const emailAccount = await getUserFromEmailAccount(emailAccountId);
@@ -329,6 +388,11 @@ export const removeMemberAction = actionClientUser
       }
     }
 
+    await deleteMemberOrganizationRuleCopies({
+      emailAccountId: targetMember.emailAccountId,
+      organizationId: targetMember.organizationId,
+    });
+
     await prisma.member.delete({ where: { id: memberId } });
   });
 
@@ -352,6 +416,61 @@ export const updateMemberRoleAction = actionClientUser
       select: { id: true, role: true },
     });
   });
+
+export const transferOwnershipAction = actionClientUser
+  .metadata({ name: "transferOwnership" })
+  .inputSchema(transferOwnershipBody)
+  .action(
+    async ({ ctx: { userId }, parsedInput: { organizationId, memberId } }) => {
+      const targetMember = await prisma.member.findUnique({
+        where: { id: memberId },
+        select: {
+          id: true,
+          emailAccountId: true,
+          organizationId: true,
+          role: true,
+        },
+      });
+
+      if (!targetMember || targetMember.organizationId !== organizationId) {
+        throw new SafeError("Member not found.");
+      }
+
+      const callerMembership = await prisma.member.findFirst({
+        where: {
+          organizationId,
+          role: "owner",
+          emailAccount: { userId },
+        },
+        select: { id: true, emailAccountId: true },
+      });
+
+      if (!callerMembership) {
+        throw new SafeError("Only organization owners can transfer ownership.");
+      }
+
+      if (targetMember.emailAccountId === callerMembership.emailAccountId) {
+        throw new SafeError("You already own this organization.");
+      }
+
+      if (targetMember.role === "owner") {
+        return { id: targetMember.id, role: targetMember.role };
+      }
+
+      await prisma.$transaction([
+        prisma.member.update({
+          where: { id: targetMember.id },
+          data: { role: "owner" },
+        }),
+        prisma.member.update({
+          where: { id: callerMembership.id },
+          data: { role: "admin" },
+        }),
+      ]);
+
+      return { id: targetMember.id, role: "owner" };
+    },
+  );
 
 export const cancelInvitationAction = actionClientUser
   .metadata({ name: "cancelInvitation" })

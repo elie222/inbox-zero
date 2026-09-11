@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterAll } from "vitest";
+import { describe, test, expect, afterAll } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
 import {
   describeEvalMatrix,
@@ -9,15 +9,15 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
 import { getRuleConfig } from "@/utils/rule/consts";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
+import { createScopedLogger } from "@/utils/logger";
 import { getEmail, getRule } from "@/__tests__/helpers";
 
 // pnpm test-ai eval/classification-feedback-hint
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/classification-feedback-hint
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
+const logger = createScopedLogger("eval-classification-feedback-hint");
 
 const systemRule = (type: SystemType) => {
   const config = getRuleConfig(type);
@@ -245,7 +245,9 @@ const testCases = [
 ];
 
 describe.runIf(shouldRunEval)("Eval: Classification Feedback Hints", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({
+    evalName: "classification-feedback-hint",
+  });
 
   describeEvalMatrix("classification-feedback-hint", (model, emailAccount) => {
     for (const tc of testCases) {
@@ -257,6 +259,7 @@ describe.runIf(shouldRunEval)("Eval: Classification Feedback Hints", () => {
             rules,
             emailAccount,
             classificationFeedback: tc.feedback,
+            logger,
           });
 
           const primaryRule = result.rules.find((r) => r.isPrimary);

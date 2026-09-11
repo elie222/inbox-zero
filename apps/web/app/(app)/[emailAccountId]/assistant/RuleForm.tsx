@@ -12,6 +12,7 @@ import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
+import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import {
   PencilIcon,
   TrashIcon,
@@ -49,7 +50,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Form } from "@/components/ui/form";
 import { cn } from "@/utils";
-import { getActionIcon } from "@/utils/action-display";
+import { ACTION_TYPE_LABELS, getActionIcon } from "@/utils/action-display";
 import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
@@ -78,13 +79,17 @@ import {
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
+import { shouldIncludeDigestAction } from "@/utils/premium/digest";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
+import { useIntegrationActionsEnabled } from "@/hooks/useFeatureFlags";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
-import { sortActionsByPriority } from "@/utils/action-sort";
-import {
-  denormalizeDraftReplyActions,
-  normalizeDraftReplyActions,
-} from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  buildPersistedRuleActions,
+  getRuleFormActionState,
+} from "@/app/(app)/[emailAccountId]/assistant/ruleFormActions";
 
 export function Rule({
   ruleId,
@@ -128,42 +133,26 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
-  const ruleEditorActions = getRuleEditorActions(rule.actions);
+  const integrationActionsEnabled = useIntegrationActionsEnabled();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
+  const ruleFormActionState = getRuleFormActionState({
+    actions: rule.actions,
+    webhookActionsEnabled: env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false,
+  });
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
     defaultValues: rule
       ? {
           ...rule,
-          digest: ruleEditorActions.some(
-            (action) => action.type === ActionType.DIGEST,
-          ),
+          digest: ruleFormActionState.digest,
           notifyMessagingChannelId:
-            ruleEditorActions.find(
-              (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
-            )?.messagingChannelId ?? null,
-          actions: [
-            ...normalizeDraftReplyActions(
-              sortActionsByPriority(
-                ruleEditorActions
-                  .filter(
-                    (action) =>
-                      action.type !== ActionType.DIGEST &&
-                      action.type !== ActionType.NOTIFY_MESSAGING_CHANNEL,
-                  )
-                  .map((action) => ({
-                    ...action,
-                    delayInMinutes: action.delayInMinutes,
-                    content: {
-                      ...action.content,
-                      setManually: !!action.content?.value,
-                    },
-                    folderName: action.folderName,
-                    folderId: action.folderId,
-                  })),
-              ),
-            ),
-          ],
+            ruleFormActionState.notifyMessagingChannelId,
+          actions: ruleFormActionState.actions,
         }
       : undefined,
   });
@@ -215,63 +204,32 @@ export function RuleForm({
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
-      // set content to empty string if it's not set manually
-      for (const action of data.actions) {
-        if (isDraftReplyActionType(action.type)) {
-          if (!action.content?.setManually) {
-            action.content = { value: "", ai: false };
-          }
-        }
-      }
-
-      const normalizedActions = denormalizeDraftReplyActions(data.actions);
-
-      const hasDraftAction = normalizedActions.some((action) =>
+      const existingDigestAction = rule.actions.find(
+        (action) => action.type === ActionType.DIGEST,
+      );
+      const includeDigestAction = shouldIncludeDigestAction({
+        digestFeatureEnabled: !!env.NEXT_PUBLIC_DIGEST_ENABLED,
+        hasDigestAccess,
+        wantsDigest: !!data.digest,
+        hasExistingDigest: !!existingDigestAction,
+      });
+      const actionsToSubmit = buildPersistedRuleActions({
+        formActions: data.actions,
+        originalActions: rule.actions,
+        includeDigestAction,
+        notifyMessagingChannelId: data.notifyMessagingChannelId,
+        webhookActionsEnabled: env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false,
+      });
+      const hasDraftAction = actionsToSubmit.some((action) =>
         isDraftReplyActionType(action.type),
       );
 
-      // Add DIGEST action if digest is enabled
-      const actionsToSubmit = [...normalizedActions];
-      if (data.digest) {
-        const existingDigestAction = rule.actions.find(
-          (action) => action.type === ActionType.DIGEST,
-        );
-
-        actionsToSubmit.push({
-          id: existingDigestAction?.id,
-          type: ActionType.DIGEST,
-        });
-      }
-
-      // Add NOTIFY_MESSAGING_CHANNEL action if a channel is selected
-      if (data.notifyMessagingChannelId) {
-        const existingNotifyAction = rule.actions.find(
-          (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
-        );
-
-        actionsToSubmit.push({
-          id: existingNotifyAction?.id,
-          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
-          messagingChannelId: data.notifyMessagingChannelId,
-        });
-      }
-
       if (data.id) {
-        const orderedActionsToSubmit = restorePersistedActionSequence({
-          actions: actionsToSubmit,
-          originalActions: rule.actions,
-        });
-
         if (mutate) {
-          // mutate delayInMinutes optimistically to keep the UI consistent
-          // in case the modal is reopened immediately after saving
           const optimisticData = {
             rule: {
               ...rule,
-              actions: rule.actions.map((action, index) => ({
-                ...action,
-                delayInMinutes: data.actions[index]?.delayInMinutes,
-              })),
+              actions: actionsToSubmit,
             },
           };
           mutate(optimisticData, false);
@@ -279,7 +237,7 @@ export function RuleForm({
 
         const res = await updateRuleAction(emailAccountId, {
           ...data,
-          actions: orderedActionsToSubmit,
+          actions: actionsToSubmit,
           id: data.id,
         });
 
@@ -307,7 +265,7 @@ export function RuleForm({
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: orderedActionsToSubmit.map((action) => action.type),
+            actions: actionsToSubmit.map((action) => action.type),
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -367,6 +325,7 @@ export function RuleForm({
       onSuccess,
       mutate,
       rule,
+      hasDigestAccess,
     ],
   );
 
@@ -384,8 +343,11 @@ export function RuleForm({
         formState.errors?.actions?.[index]?.url?.root?.message ||
         formState.errors?.actions?.[index]?.labelId?.root?.message ||
         formState.errors?.actions?.[index]?.to?.root?.message ||
-        formState.errors?.actions?.[index]?.messagingChannelId?.message;
-      if (actionError) actionErrors.push(actionError);
+        formState.errors?.actions?.[index]?.messagingChannelId?.message ||
+        formState.errors?.actions?.[index]?.integrationArgs?.message ||
+        formState.errors?.actions?.[index]?.integrationArgs?.root?.message;
+      // react-hook-form widens a nested record's message to string | FieldError
+      if (typeof actionError === "string") actionErrors.push(actionError);
     });
     return actionErrors;
   }, [formState, watch]);
@@ -393,8 +355,8 @@ export function RuleForm({
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
   const existingActionTypes = useMemo(
-    () => ruleEditorActions.map((action) => action.type),
-    [ruleEditorActions],
+    () => ruleFormActionState.editableActionTypes,
+    [ruleFormActionState.editableActionTypes],
   );
 
   const formErrors = useMemo(
@@ -412,11 +374,18 @@ export function RuleForm({
         labelActionText: terminology.label.action,
         systemType: rule.systemType,
         existingActionTypes,
+        integrationActionsEnabled,
       }).map((option) => ({
         ...option,
         icon: getActionIcon(option.value),
       })),
-    [existingActionTypes, provider, terminology.label.action, rule.systemType],
+    [
+      existingActionTypes,
+      integrationActionsEnabled,
+      provider,
+      terminology.label.action,
+      rule.systemType,
+    ],
   );
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
@@ -583,15 +552,24 @@ export function RuleForm({
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
                   <AdvancedRow
                     title="Include in digest"
-                    description="Show matched emails in your digest summary."
+                    description={
+                      !hasDigestAccess && watch("digest")
+                        ? "Digests are available on the Plus plan. Turn this off to update this rule on your current plan."
+                        : "Show matched emails in your digest summary."
+                    }
                   >
-                    <Toggle
-                      name="digest"
-                      enabled={watch("digest") || false}
-                      onChange={(enabled) => {
-                        setValue("digest", enabled);
-                      }}
-                    />
+                    {isLoadingPremium ? null : hasDigestAccess ||
+                      watch("digest") ? (
+                      <Toggle
+                        name="digest"
+                        enabled={watch("digest") || false}
+                        onChange={(enabled) => {
+                          setValue("digest", enabled);
+                        }}
+                      />
+                    ) : (
+                      <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to include emails in your digest." />
+                    )}
                   </AdvancedRow>
                 )}
 
@@ -866,54 +844,10 @@ function allowMultipleConditions(systemType: SystemType | null | undefined) {
   );
 }
 
-function restorePersistedActionSequence({
-  actions,
-  originalActions,
-}: {
-  actions: CreateRuleBody["actions"];
-  originalActions: CreateRuleBody["actions"];
-}) {
-  const originalIndexById = new Map(
-    originalActions.flatMap((action, index) =>
-      action.id ? [[action.id, index] as const] : [],
-    ),
-  );
-
-  if (originalIndexById.size === 0) return actions;
-
-  const existing: CreateRuleBody["actions"] = [];
-  const added: CreateRuleBody["actions"] = [];
-
-  for (const action of actions) {
-    if (action.id && originalIndexById.has(action.id)) {
-      existing.push(action);
-    } else {
-      added.push(action);
-    }
-  }
-
-  if (existing.length === 0) return actions;
-
-  existing.sort(
-    (a, b) =>
-      (originalIndexById.get(a.id ?? "") ?? 0) -
-      (originalIndexById.get(b.id ?? "") ?? 0),
-  );
-
-  return [...existing, ...added];
-}
-
-function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
-  if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) {
-    return actions.filter((action) => action.type !== ActionType.CALL_WEBHOOK);
-  }
-
-  return actions;
-}
-
 type ActionTypeOption = {
   label: string;
   value: ActionType;
+  dividerBefore?: boolean;
 };
 
 export function getRuleActionTypeOptions({
@@ -921,11 +855,13 @@ export function getRuleActionTypeOptions({
   labelActionText,
   systemType,
   existingActionTypes,
+  integrationActionsEnabled,
 }: {
   provider: string;
   labelActionText: string;
   systemType: SystemType | null | undefined;
   existingActionTypes: ActionType[];
+  integrationActionsEnabled: boolean;
 }): ActionTypeOption[] {
   const availableActions = new Set(
     getAvailableActionsForRuleEditor({
@@ -933,7 +869,12 @@ export function getRuleActionTypeOptions({
       existingActionTypes,
     }),
   );
-  const extraActions = new Set(getExtraAvailableActionsForRuleEditor());
+  const extraActions = new Set(
+    getExtraAvailableActionsForRuleEditor({
+      existingActionTypes,
+      integrationActionsEnabled,
+    }),
+  );
 
   return [
     {
@@ -943,7 +884,7 @@ export function getRuleActionTypeOptions({
     ...(availableActions.has(ActionType.MOVE_FOLDER)
       ? [
           {
-            label: "Move to folder",
+            label: ACTION_TYPE_LABELS[ActionType.MOVE_FOLDER],
             value: ActionType.MOVE_FOLDER,
           },
         ]
@@ -951,27 +892,36 @@ export function getRuleActionTypeOptions({
     ...(availableActions.has(ActionType.DRAFT_EMAIL)
       ? [
           {
-            label: "Draft reply",
+            label: ACTION_TYPE_LABELS[ActionType.DRAFT_EMAIL],
             value: ActionType.DRAFT_EMAIL,
           },
         ]
       : []),
     {
-      label: "Archive",
+      label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
+    ...(isDeleteEmailActionEnabled() ||
+    existingActionTypes.includes(ActionType.DELETE)
+      ? [
+          {
+            label: ACTION_TYPE_LABELS[ActionType.DELETE],
+            value: ActionType.DELETE,
+          },
+        ]
+      : []),
     {
-      label: "Mark read",
+      label: ACTION_TYPE_LABELS[ActionType.MARK_READ],
       value: ActionType.MARK_READ,
     },
     {
-      label: "Star",
+      label: ACTION_TYPE_LABELS[ActionType.STAR],
       value: ActionType.STAR,
     },
     ...(availableActions.has(ActionType.REPLY)
       ? [
           {
-            label: "Reply",
+            label: ACTION_TYPE_LABELS[ActionType.REPLY],
             value: ActionType.REPLY,
           },
         ]
@@ -979,7 +929,7 @@ export function getRuleActionTypeOptions({
     ...(availableActions.has(ActionType.SEND_EMAIL)
       ? [
           {
-            label: "Send email",
+            label: ACTION_TYPE_LABELS[ActionType.SEND_EMAIL],
             value: ActionType.SEND_EMAIL,
           },
         ]
@@ -987,20 +937,29 @@ export function getRuleActionTypeOptions({
     ...(availableActions.has(ActionType.FORWARD)
       ? [
           {
-            label: "Forward",
+            label: ACTION_TYPE_LABELS[ActionType.FORWARD],
             value: ActionType.FORWARD,
           },
         ]
       : []),
     {
-      label: "Mark spam",
+      label: ACTION_TYPE_LABELS[ActionType.MARK_SPAM],
       value: ActionType.MARK_SPAM,
     },
     ...(extraActions.has(ActionType.CALL_WEBHOOK)
       ? [
           {
-            label: "Call webhook",
+            label: ACTION_TYPE_LABELS[ActionType.CALL_WEBHOOK],
             value: ActionType.CALL_WEBHOOK,
+          },
+        ]
+      : []),
+    ...(extraActions.has(ActionType.INTEGRATION)
+      ? [
+          {
+            label: ACTION_TYPE_LABELS[ActionType.INTEGRATION],
+            value: ActionType.INTEGRATION,
+            dividerBefore: true,
           },
         ]
       : []),
@@ -1009,7 +968,7 @@ export function getRuleActionTypeOptions({
     existingActionTypes.includes(ActionType.NOTIFY_SENDER)
       ? [
           {
-            label: "Notify sender",
+            label: ACTION_TYPE_LABELS[ActionType.NOTIFY_SENDER],
             value: ActionType.NOTIFY_SENDER,
           },
         ]

@@ -1,0 +1,271 @@
+import {
+  cloneEmailAccountForProvider,
+  getLastMatchingToolCall,
+  hasSearchBeforeTool,
+  mockMoveThreadToFolder,
+  mockSearchMessages,
+  runAssistantChat,
+  setupInboxWorkflowEval,
+  TIMEOUT,
+} from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { getMockMessage } from "@/__tests__/helpers";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
+
+// pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-outlook-folders.test.ts
+// Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-outlook-folders.test.ts
+
+const shouldRunEval = shouldRunEvalTests();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-outlook-folders",
+});
+
+describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
+  setupInboxWorkflowEval();
+
+  describeEvalMatrix(
+    "assistant-chat outlook folders",
+    (model, emailAccount) => {
+      test(
+        "moves searched messages to an Outlook folder",
+        async () => {
+          const testName = "outlook folder move uses folder tool after search";
+          const searchMessages = [
+            getMockMessage({
+              id: "msg-folder-move-1",
+              threadId: "thread-folder-move-1",
+              from: "updates@vendor.example",
+              subject: "Release update",
+              snippet: "A release note for review.",
+              labelIds: ["INBOX"],
+            }),
+            getMockMessage({
+              id: "msg-folder-move-2",
+              threadId: "thread-folder-move-2",
+              from: "updates@vendor.example",
+              subject: "Maintenance update",
+              snippet: "A maintenance notice for review.",
+              labelIds: ["INBOX"],
+            }),
+          ];
+          const messages = [
+            {
+              role: "user" as const,
+              content: `Move the two vendor update emails to my Operations${FOLDER_SEPARATOR}Reports Outlook folder.`,
+            },
+          ];
+
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [
+                {
+                  model,
+                  provider: "microsoft",
+                  searchMessages: getStableMessageCacheKey(searchMessages),
+                  messages,
+                },
+              ],
+            },
+            async () => {
+              mockSearchMessages.mockResolvedValueOnce({
+                messages: searchMessages,
+                nextPageToken: undefined,
+              });
+
+              const { toolCalls, actual } = await runAssistantChat({
+                emailAccount: cloneEmailAccountForProvider(
+                  emailAccount,
+                  "microsoft",
+                ),
+                messages,
+              });
+
+              const moveCall = getLastMatchingToolCall(
+                toolCalls,
+                "moveThreadsToFolder",
+                isMoveThreadsToFolderInput,
+              )?.input;
+              const movedThreadIds = new Set(moveCall?.threadIds ?? []);
+              const movedToNestedFolder =
+                mockMoveThreadToFolder.mock.calls.every(
+                  ([, , folderId]) => folderId === "folder-operations-reports",
+                );
+              const pass =
+                !!moveCall &&
+                hasSearchBeforeTool(toolCalls, "moveThreadsToFolder") &&
+                movedThreadIds.has("thread-folder-move-1") &&
+                movedThreadIds.has("thread-folder-move-2") &&
+                normalizeFolderName(moveCall.folderName).includes("reports") &&
+                mockMoveThreadToFolder.mock.calls.length === 2 &&
+                movedToNestedFolder &&
+                !toolCalls.some(
+                  (toolCall) => toolCall.toolName === "manageInbox",
+                );
+
+              return {
+                pass,
+                actual: `${actual} | folderName=${moveCall?.folderName ?? "none"} | moved=${Array.from(
+                  movedThreadIds,
+                ).join(",")}`,
+              };
+            },
+          );
+
+          expect(record.pass, record.actual).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "creates or reuses an Outlook folder when explicitly asked",
+        async () => {
+          const testName = "outlook explicit folder create uses folder tool";
+          const messages = [
+            {
+              role: "user" as const,
+              content:
+                "Make sure I have an Outlook folder called Vendor Updates.",
+            },
+          ];
+
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [{ model, provider: "microsoft", messages }],
+            },
+            async () => {
+              const { toolCalls, actual } = await runAssistantChat({
+                emailAccount: cloneEmailAccountForProvider(
+                  emailAccount,
+                  "microsoft",
+                ),
+                messages,
+              });
+
+              const folderCall = getLastMatchingToolCall(
+                toolCalls,
+                "createOrGetFolder",
+                isCreateOrGetFolderInput,
+              )?.input;
+              const pass =
+                normalizeFolderName(folderCall?.name) === "vendor updates" &&
+                !toolCalls.some(
+                  (toolCall) => toolCall.toolName === "createOrGetCategory",
+                );
+
+              return {
+                pass,
+                actual: `${actual} | folderName=${folderCall?.name ?? "none"}`,
+              };
+            },
+          );
+
+          expect(record.pass, record.actual).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "lists Outlook folders without exposing internal folder ids",
+        async () => {
+          const testName = "outlook folder listing hides internal ids";
+          const messages = [
+            {
+              role: "user" as const,
+              content: "Show me my Outlook folders.",
+            },
+          ];
+
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [{ model, provider: "microsoft", messages }],
+            },
+            async () => {
+              const { toolCalls, actual, finalText } = await runAssistantChat({
+                emailAccount: cloneEmailAccountForProvider(
+                  emailAccount,
+                  "microsoft",
+                ),
+                messages,
+              });
+
+              const listCall = toolCalls.find(
+                (toolCall) => toolCall.toolName === "listFolders",
+              );
+              const output = listCall?.output as
+                | { folders: Array<{ id: string }> }
+                | undefined;
+              const outputText = JSON.stringify(output ?? {});
+              const folderIds =
+                output?.folders.map((folder) => folder.id) ?? [];
+              const pass =
+                !!listCall &&
+                outputText.includes(`Operations${FOLDER_SEPARATOR}Reports`) &&
+                folderIds.length > 0 &&
+                finalText.trim().length > 0 &&
+                folderIds.every(
+                  (id) =>
+                    typeof id === "string" &&
+                    id.trim().length > 0 &&
+                    !finalText.includes(id),
+                ) &&
+                !toolCalls.some(
+                  (toolCall) =>
+                    toolCall.toolName === "listCategories" ||
+                    toolCall.toolName === "createOrGetCategory",
+                );
+
+              return {
+                pass,
+                actual: `${actual} | output=${outputText} | finalText=${finalText}`,
+              };
+            },
+          );
+
+          expect(record.pass, record.actual).toBe(true);
+        },
+        TIMEOUT,
+      );
+    },
+  );
+
+  afterAll(() => {
+    evalReporter.printReport();
+  });
+});
+
+function isMoveThreadsToFolderInput(
+  input: unknown,
+): input is { threadIds: string[]; folderName: string } {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    threadIds?: unknown;
+    folderName?: unknown;
+  };
+
+  return Array.isArray(value.threadIds) && typeof value.folderName === "string";
+}
+
+function isCreateOrGetFolderInput(input: unknown): input is { name: string } {
+  return (
+    !!input &&
+    typeof input === "object" &&
+    typeof (input as { name?: unknown }).name === "string"
+  );
+}
+
+function normalizeFolderName(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}

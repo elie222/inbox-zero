@@ -6,8 +6,6 @@ import {
   type DismissedPrompt,
 } from "./TimezoneDetector.utils";
 
-vi.mock("server-only", () => ({}));
-
 describe("shouldShowTimezonePrompt", () => {
   beforeEach(() => {
     vi.useFakeTimers();

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { getEmail } from "@/__tests__/helpers";
 import {
   describeEvalMatrix,
@@ -10,13 +10,13 @@ import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-statu
 
 // pnpm test-ai eval/determine-thread-status
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
 describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({
+    evalName: "determine-thread-status",
+  });
 
   describeEvalMatrix("determine-thread-status", (model, emailAccount) => {
     test(

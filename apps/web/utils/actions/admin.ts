@@ -6,7 +6,10 @@ import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
-import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import {
+  connectPurchaserAsAdmin,
+  syncStripeDataToDb,
+} from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { premiumEntitlementSelect } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -17,17 +20,23 @@ import {
   convertGmailUrlBody,
   getLabelsBody,
   watchEmailsBody,
+  syncAppleSubscriptionForUserBody,
+  syncStripeForUserBody,
   getUserInfoBody,
   loadResponseTimeDataBody,
   disableAllRulesBody,
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
+import { syncAppleSubscriptionToDb } from "@/ee/billing/apple";
+import {
+  cleanupAIDraftsForAccount,
+  getConfiguredDraftCleanupDays,
+} from "@/utils/ai/draft-cleanup";
 import {
   getAdminResponseTimeProviderDelayMs,
   getResponseTimeStats,
-} from "@/app/api/user/stats/response-time/controller";
+} from "@/utils/stats/response-time/controller";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -137,6 +146,149 @@ export const adminSyncStripeForAllUsersAction = adminActionClient
       });
     }
   });
+
+export const adminBackfillPremiumAdminsAction = adminActionClient
+  .metadata({ name: "adminBackfillPremiumAdmins" })
+  .action(async ({ ctx: { logger } }) => {
+    const stripe = getStripe();
+
+    const premiumsWithoutAdmins = await prisma.premium.findMany({
+      where: {
+        stripeCustomerId: { not: null },
+        admins: { none: {} },
+        users: { some: {} },
+      },
+      select: {
+        id: true,
+        stripeCustomerId: true,
+        users: { select: { id: true } },
+      },
+    });
+
+    let backfilled = 0;
+    let skipped = 0;
+
+    for (const premium of premiumsWithoutAdmins) {
+      if (!premium.stripeCustomerId) continue;
+      try {
+        const connected = await connectPurchaserAsAdmin({
+          stripe,
+          customerId: premium.stripeCustomerId,
+          premium,
+          logger,
+        });
+        if (connected) backfilled++;
+        else skipped++;
+      } catch (error) {
+        logger.error("Failed to backfill premium admin", {
+          premiumId: premium.id,
+          error,
+        });
+        skipped++;
+      }
+    }
+
+    logger.info("Completed premium admin backfill", { backfilled, skipped });
+    return { backfilled, skipped };
+  });
+
+export const adminSyncStripeForUserAction = adminActionClient
+  .metadata({ name: "adminSyncStripeForUser" })
+  .inputSchema(syncStripeForUserBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await findUserByUserOrAccountEmail(normalizedEmail);
+
+    if (!user?.premium) {
+      throw new SafeError("Premium record not found");
+    }
+
+    if (!user.premium.stripeCustomerId) {
+      throw new SafeError("Stripe customer ID not found");
+    }
+
+    logger.info("Starting admin Stripe sync for user", {
+      userId: user.id,
+      premiumId: user.premium.id,
+      stripeCustomerId: user.premium.stripeCustomerId,
+    });
+
+    await syncStripeDataToDb({
+      customerId: user.premium.stripeCustomerId,
+      logger,
+    });
+
+    const premium = await prisma.premium.findUnique({
+      where: { id: user.premium.id },
+      select: {
+        stripeSubscriptionStatus: true,
+        stripeRenewsAt: true,
+        tier: true,
+      },
+    });
+
+    logger.info("Finished admin Stripe sync for user", {
+      userId: user.id,
+      premiumId: user.premium.id,
+      stripeCustomerId: user.premium.stripeCustomerId,
+      stripeSubscriptionStatus: premium?.stripeSubscriptionStatus,
+    });
+
+    return {
+      stripeSubscriptionStatus: premium?.stripeSubscriptionStatus ?? null,
+      stripeRenewsAt: premium?.stripeRenewsAt ?? null,
+      tier: premium?.tier ?? null,
+    };
+  });
+
+export const adminSyncAppleSubscriptionForUserAction = adminActionClient
+  .metadata({ name: "adminSyncAppleSubscriptionForUser" })
+  .inputSchema(syncAppleSubscriptionForUserBody)
+  .action(
+    async ({ parsedInput: { email, transactionId }, ctx: { logger } }) => {
+      const normalizedEmail = email.toLowerCase();
+
+      const user = await findUserByUserOrAccountEmail(normalizedEmail);
+
+      if (!user) {
+        throw new SafeError("User not found");
+      }
+
+      logger.info("Starting admin Apple subscription sync for user", {
+        userId: user.id,
+        transactionId,
+      });
+
+      const premium = await syncAppleSubscriptionToDb({
+        authenticatedUserId: user.id,
+        logger,
+        originalTransactionId: transactionId,
+      });
+
+      if (!premium) {
+        throw new SafeError("Apple subscription could not be mapped to a user");
+      }
+
+      logger.info("Finished admin Apple subscription sync for user", {
+        userId: user.id,
+        premiumId: premium.id,
+        appleProductId: premium.appleProductId,
+        appleSubscriptionStatus: premium.appleSubscriptionStatus,
+        appleExpiresAt: premium.appleExpiresAt,
+        tier: premium.tier,
+      });
+
+      return {
+        appleEnvironment: premium.appleEnvironment,
+        appleExpiresAt: premium.appleExpiresAt,
+        appleProductId: premium.appleProductId,
+        appleRevokedAt: premium.appleRevokedAt,
+        appleSubscriptionStatus: premium.appleSubscriptionStatus,
+        tier: premium.tier,
+      };
+    },
+  );
 
 export const adminSyncAllStripeCustomersToDbAction = adminActionClient
   .metadata({ name: "adminSyncAllStripeCustomersToDb" })
@@ -551,10 +703,12 @@ export const adminCleanupDraftsAction = adminActionClient
     let totalErrors = 0;
 
     for (const emailAccount of emailAccounts) {
+      const cleanupDays = await getConfiguredDraftCleanupDays(emailAccount.id);
       const result = await cleanupAIDraftsForAccount({
         emailAccountId: emailAccount.id,
         provider: emailAccount.account.provider,
         logger,
+        cleanupDays,
       });
 
       totalDeleted += result.deleted;
@@ -611,4 +765,40 @@ async function findUserWithDetails(email?: string, userId?: string) {
       },
     },
   });
+}
+
+async function findUserByUserOrAccountEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      premium: {
+        select: {
+          id: true,
+          stripeCustomerId: true,
+        },
+      },
+    },
+  });
+
+  if (user) return user;
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
+    select: {
+      user: {
+        select: {
+          id: true,
+          premium: {
+            select: {
+              id: true,
+              stripeCustomerId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return emailAccount?.user ?? null;
 }

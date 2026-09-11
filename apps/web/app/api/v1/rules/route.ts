@@ -5,6 +5,15 @@ import { createRule } from "@/utils/rule/rule";
 import { toRuleWriteInput } from "@/app/api/v1/rules/request";
 import { apiRuleSelect, serializeRule } from "@/app/api/v1/rules/serializers";
 import { ruleRequestBodySchema } from "@/app/api/v1/rules/validation";
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import {
+  createPublicApiMethodNotAllowedHandler,
+  readPublicApiJson,
+} from "@/utils/public-api-error";
+
+export const PUT = createPublicApiMethodNotAllowedHandler(["GET", "POST"]);
+export const PATCH = createPublicApiMethodNotAllowedHandler(["GET", "POST"]);
+export const DELETE = createPublicApiMethodNotAllowedHandler(["GET", "POST"]);
 
 export const GET = withAccountApiKey(
   "v1/rules",
@@ -28,9 +37,11 @@ export const POST = withAccountApiKey(
   "v1/rules",
   ["RULES_WRITE"],
   async (request) => {
-    const { emailAccountId, provider } = request.apiAuth;
-    const body = ruleRequestBodySchema.parse(await request.json());
+    const { emailAccountId, provider, userId } = request.apiAuth;
+    const body = ruleRequestBodySchema.parse(await readPublicApiJson(request));
     const ruleInput = toRuleWriteInput(body);
+
+    await assertCanUseDigestsIfNeeded(userId, ruleInput.actions);
 
     const createdRule = await createRule({
       result: {

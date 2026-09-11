@@ -3,26 +3,13 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (
-      _scope: string,
-      handler: (
-        request: Request & { auth: { emailAccountId: string } },
-        context: { params: Promise<{ chatId: string }> },
-      ) => Promise<Response>,
-    ) =>
-    async (
-      request: Request,
-      context: { params: Promise<{ chatId: string }> },
-    ) =>
-      handler(
-        Object.assign(request, {
-          auth: { emailAccountId: "email-account-1" },
-        }),
-        context,
-      ),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware();
+});
 
 import { PATCH } from "./route";
 

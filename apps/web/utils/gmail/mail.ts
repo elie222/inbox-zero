@@ -1,9 +1,8 @@
-import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { type WithMailerAttachments, zodAttachment } from "@/utils/types/mail";
+import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
@@ -13,8 +12,12 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createScopedLogger } from "@/utils/logger";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import { createScopedLogger, type Logger } from "@/utils/logger";
+import {
+  extractErrorInfo,
+  withGmailNonIdempotentWriteRetry,
+  withGmailRetry,
+} from "@/utils/gmail/retry";
 import {
   buildReplyAllRecipients,
   formatCcList,
@@ -23,7 +26,11 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { convertNewlinesToBr } from "@/utils/string";
+import { getMessage } from "@/utils/gmail/message";
+import { getDraftIdForMessage } from "@/utils/gmail/draft";
+import { SafeError } from "@/utils/error";
+import { GmailLabel } from "@/utils/gmail/label";
+import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
   quotePlainTextContent,
@@ -31,25 +38,6 @@ import {
 
 const logger = createScopedLogger("gmail/mail");
 
-export const sendEmailBody = z.object({
-  replyToEmail: z
-    .object({
-      threadId: z.string(),
-      headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
-      references: z.string().optional(), // for threading
-      messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
-    })
-    .optional(),
-  to: z.string(),
-  from: z.string().optional(),
-  cc: z.string().optional(),
-  bcc: z.string().optional(),
-  replyTo: z.string().optional(),
-  subject: z.string(),
-  messageHtml: z.string(),
-  attachments: z.array(zodAttachment).optional(),
-});
-export type SendEmailBody = z.infer<typeof sendEmailBody>;
 type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) =>
@@ -59,9 +47,11 @@ const encodeMessage = (message: Buffer) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-const createMail = async (options: Mail.Options) => {
+export const createMail = async (options: Mail.Options) => {
   const mailComposer = new MailComposer(options);
-  const message = await mailComposer.compile().build();
+  const compiledMessage = mailComposer.compile();
+  compiledMessage.keepBcc = true;
+  const message = await compiledMessage.build();
   return encodeMessage(message);
 };
 
@@ -103,9 +93,7 @@ const createRawMailMessage = async ({
       headerMessageId: replyToEmail?.headerMessageId || "",
       references: replyToEmail?.references,
     }),
-    headers: {
-      "X-Mailer": "Inbox Zero Web",
-    },
+    headers: { "X-Mailer": "Inbox Zero Web" },
   });
 };
 
@@ -114,6 +102,7 @@ const createRawMailMessage = async ({
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: MailSendEmailBody,
+  sendLogger: Logger = logger,
 ) {
   ensureEmailSendingEnabled();
 
@@ -122,18 +111,55 @@ export async function sendEmailWithHtml(
   try {
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
-    logger.error("Error converting email html to text", { error });
-    // Strip HTML tags as a fallback
-    // Keep new lines
-    messageText = body.messageHtml
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n")
-      .replace(/<[^>]*>/g, "")
-      .trim();
+    sendLogger.error("Error converting email html to text", { error });
+    messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await withGmailRetry(() =>
+  sendLogger.info("Prepared Gmail send", getGmailSendMetadata(raw, body));
+  const { replyToEmail } = body;
+  if (replyToEmail?.messageId) {
+    const message = await getMessage(
+      replyToEmail.messageId,
+      gmail,
+      "metadata",
+    ).catch((error: unknown) => {
+      if (extractErrorInfo(error).status === 404) {
+        sendLogger.warn("Reply source disappeared before sending", {
+          messageId: replyToEmail.messageId,
+        });
+        throw new SafeError(
+          "The reply source changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+      throw error;
+    });
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      if (message.labelIds.includes(GmailLabel.SENT)) {
+        throw new SafeError(
+          "This draft is already marked as sent. Reopen the thread before sending.",
+        );
+      }
+      const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
+      if (!draftId) {
+        throw new SafeError(
+          "The draft changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+
+      // Sending the existing draft consumes it and applies edits in one request.
+      return trackGmailSend("drafts.send", sendLogger, () =>
+        gmail.users.drafts.send({
+          userId: "me",
+          requestBody: {
+            id: draftId,
+            message: { threadId: replyToEmail.threadId, raw },
+          },
+        }),
+      );
+    }
+  }
+  const result = await trackGmailSend("messages.send", sendLogger, () =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -161,7 +187,10 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    attachments?: Attachment[];
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -190,7 +219,7 @@ export async function replyToEmail(
     },
   });
 
-  const result = await withGmailRetry(() =>
+  const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -255,7 +284,7 @@ export async function forwardEmail(
     attachments,
   });
 
-  const result = await withGmailRetry(() =>
+  const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -280,7 +309,7 @@ export async function draftEmail(
     bcc?: string;
     attachments?: Attachment[];
   },
-  userEmail: string,
+  userEmails: string | string[],
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
@@ -294,7 +323,7 @@ export async function draftEmail(
   const recipients = buildReplyAllRecipients(
     originalEmail.headers,
     args.to,
-    userEmail,
+    userEmails,
   );
 
   // Merge CC from reply-all with CC from args
@@ -353,17 +382,7 @@ async function createDraft(
 export function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  const normalizedText = text.replace(/\r\n/g, "\n");
-  const lines = normalizedText.split("\n");
-
-  const htmlContent = lines
-    .map((line) => {
-      const trimmed = line.trim();
-      return trimmed === "" ? "<br>" : `<p>${trimmed}</p>`;
-    })
-    .join("");
-
-  return `<html><body>${htmlContent}</body></html>`;
+  return `<html><body>${textToHtmlParagraphs(text)}</body></html>`;
 }
 
 export function buildReplyMessageText({
@@ -393,4 +412,106 @@ function renderReplyBodyAsPlainText(textContent?: string) {
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+export function stripHtmlTagsForPlainText(html: string) {
+  let plainText = "";
+
+  for (let index = 0; index < html.length; index++) {
+    const char = html[index];
+    if (char !== "<") {
+      plainText += char;
+      continue;
+    }
+
+    if (html.startsWith("<!--", index)) {
+      const commentEnd = html.indexOf("-->", index + 4);
+      if (commentEnd === -1) break;
+      index = commentEnd + 2;
+      continue;
+    }
+
+    const isClosingTag = html[index + 1] === "/";
+    const tagStart = index + (isClosingTag ? 2 : 1);
+    const tagName = readHtmlTagName(html, tagStart);
+    if (!tagName) {
+      plainText += char;
+      continue;
+    }
+
+    const tagEnd = html.indexOf(">", tagStart + tagName.length);
+    if (tagEnd === -1) {
+      plainText += char;
+      continue;
+    }
+
+    if (tagName === "br" || (isClosingTag && tagName === "p")) {
+      plainText += "\n";
+    }
+
+    index = tagEnd;
+  }
+
+  return plainText;
+}
+
+function readHtmlTagName(value: string, start: number) {
+  let tagName = "";
+
+  for (let index = start; index < value.length; index++) {
+    const char = value[index]?.toLowerCase();
+    if (!char) break;
+
+    const isTagNameChar =
+      (char >= "a" && char <= "z") ||
+      (tagName.length > 0 && char >= "0" && char <= "9");
+    if (!isTagNameChar) break;
+
+    tagName += char;
+  }
+
+  return tagName;
+}
+
+async function trackGmailSend<T>(
+  gmailOperation: "messages.send" | "drafts.send",
+  logger: Logger,
+  send: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  logger.info("Gmail send request started", { gmailOperation });
+  try {
+    const result = await withGmailNonIdempotentWriteRetry(send, 5, { logger });
+    logger.info("Gmail send request accepted", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    const { status, googleErrorStatus } = extractErrorInfo(error);
+    logger.warn("Gmail send request failed", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+      status,
+      googleErrorStatus,
+    });
+    throw error;
+  }
+}
+
+function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {
+  const mime = Buffer.from(raw, "base64url");
+  const headerEnd = mime.indexOf("\r\n\r\n");
+  const mimeHeaders = mime
+    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
+    .toString("utf8");
+  return {
+    hasExplicitFrom: Boolean(body.from?.trim()),
+    hasMimeFrom: /^from:/im.test(mimeHeaders),
+    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
+    hasThreadId: Boolean(body.replyToEmail?.threadId),
+    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
+    mimeBytes: mime.length,
+    attachmentCount: body.attachments?.length ?? 0,
+  };
 }

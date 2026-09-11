@@ -33,21 +33,11 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/middleware", async () => {
-  const { createScopedLogger } =
-    await vi.importActual<typeof import("@/utils/logger")>("@/utils/logger");
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-  return {
-    withError:
-      (_name: string, handler: (request: NextRequest) => Promise<Response>) =>
-      async (request: NextRequest) => {
-        (
-          request as NextRequest & {
-            logger: ReturnType<typeof createScopedLogger>;
-          }
-        ).logger = createScopedLogger("test/slack-callback");
-        return handler(request);
-      },
-  };
+  return createWithErrorTestMiddleware();
 });
 
 vi.mock("@/utils/prisma");
@@ -161,6 +151,16 @@ describe("slack callback route", () => {
         teamName: "Acme Workspace",
       }),
     );
+    expect(
+      mockSendSlackOnboardingDirectMessageWithLogging,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "xoxb-access-token",
+        botUserId: "B123",
+        teamId: "T123",
+        userId: "U123",
+      }),
+    );
   });
 
   it("returns a processing redirect on the channels page while another request owns the OAuth code lock", async () => {
@@ -193,23 +193,35 @@ describe("slack callback route", () => {
   it("rejects a signed callback state that does not match the browser state cookie", async () => {
     const attackerState = createSignedState("attacker-account");
     const victimState = createSignedState("victim-account");
+    const consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+    try {
+      const response = await GET(
+        createRequest(
+          `http://localhost:3000/api/slack/callback?code=valid-auth-code&state=${encodeURIComponent(attackerState)}`,
+          victimState,
+        ),
+      );
 
-    const response = await GET(
-      createRequest(
-        `http://localhost:3000/api/slack/callback?code=valid-auth-code&state=${encodeURIComponent(attackerState)}`,
-        victimState,
-      ),
-    );
+      const location = new URL(response.headers.get("location")!);
 
-    const location = new URL(response.headers.get("location")!);
-
-    expect(location.pathname).toBe("/channels");
-    expect(location.searchParams.get("error")).toBe("connection_failed");
-    expect(location.searchParams.get("error_reason")).toBe("invalid_state");
-    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
-    expect(mockAcquireOAuthCodeLock).not.toHaveBeenCalled();
-    expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
-    expect(global.fetch).not.toHaveBeenCalled();
+      expect(location.pathname).toBe("/channels");
+      expect(location.searchParams.get("error")).toBe("connection_failed");
+      expect(location.searchParams.get("error_reason")).toBe("invalid_state");
+      expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+      expect(mockAcquireOAuthCodeLock).not.toHaveBeenCalled();
+      expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalled();
+      const warning = consoleWarnSpy.mock.calls.flat().join(" ");
+      expect(warning).toMatch(
+        /"receivedStateFingerprint": "sha256:[a-f0-9]{12}"/,
+      );
+      expect(warning).not.toContain(attackerState);
+      expect(warning).not.toContain(victimState);
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it("redirects Slack OAuth failures back to the account channels page", async () => {

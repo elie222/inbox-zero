@@ -35,14 +35,14 @@ export function CardHeader({
         </div>
       ) : null}
       {title ? (
-        <h2
+        <h3
           className={cn(
             "font-title text-xl leading-6",
             title || addon ? "mt-5" : "",
           )}
         >
           {title}
-        </h2>
+        </h3>
       ) : null}
       {description ? (
         <Paragraph size="sm" className="mt-3">

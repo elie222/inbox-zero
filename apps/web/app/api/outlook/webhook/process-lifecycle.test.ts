@@ -14,7 +14,6 @@ import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-m
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import { processOutlookLifecycleNotification } from "@/app/api/outlook/webhook/process-lifecycle";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailMessage: {

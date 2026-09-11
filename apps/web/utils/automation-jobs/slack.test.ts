@@ -3,7 +3,7 @@ import {
   MessagingProvider,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const {
   mockCreateSlackClient,
@@ -34,7 +34,7 @@ vi.mock("@/utils/messaging/providers/slack/send", async () => {
 
 import { sendAutomationMessageToSlack } from "./slack";
 
-const logger = createScopedLogger("automation-jobs-slack-test");
+const logger = createTestLogger();
 
 describe("sendAutomationMessageToSlack", () => {
   beforeEach(() => {

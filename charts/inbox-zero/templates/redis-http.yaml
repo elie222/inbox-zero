@@ -1,0 +1,88 @@
+{{- if and .Values.redis.enabled .Values.redisHttp.enabled (not .Values.externalRedis.enabled) -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inbox-zero.redisHttpServiceName" . }}
+  labels:
+    {{- include "inbox-zero.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-http
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    {{- include "inbox-zero.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inbox-zero.redisHttpServiceName" . }}
+  labels:
+    {{- include "inbox-zero.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-http
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "inbox-zero.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis-http
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "inbox-zero.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis-http
+    spec:
+      serviceAccountName: {{ include "inbox-zero.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - until redis-cli -h "$REDIS_HOST" ping | grep -q PONG; do sleep 2; done
+          env:
+            - name: REDIS_HOST
+              value: {{ include "inbox-zero.redisServiceName" . | quote }}
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_PASSWORD
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      containers:
+        - name: redis-http
+          image: "{{ .Values.redisHttp.image.repository }}:{{ .Values.redisHttp.image.tag }}"
+          imagePullPolicy: {{ .Values.redisHttp.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: SRH_MODE
+              value: env
+            - name: SRH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: UPSTASH_REDIS_TOKEN
+            - name: SRH_CONNECTION_STRING
+              {{- if .Values.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_URL
+              {{- else }}
+              value: {{ include "inbox-zero.redisUrl" . | quote }}
+              {{- end }}
+          resources:
+            {{- toYaml .Values.redisHttp.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+{{- end }}

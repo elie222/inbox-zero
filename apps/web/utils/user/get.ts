@@ -11,6 +11,7 @@ export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
     email: true;
     about: true;
     multiRuleSelectionEnabled: true;
+    sensitiveDataPolicy: true;
     timezone: true;
     calendarBookingLink: true;
     user: {
@@ -50,6 +51,7 @@ export async function getEmailAccountWithAi({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       name: true,
@@ -87,6 +89,7 @@ export async function getEmailAccountForRuleExecution({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       name: true,
@@ -120,6 +123,7 @@ export async function getEmailAccountWithAiAndTokens({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       user: {

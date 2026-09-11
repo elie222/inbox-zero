@@ -29,6 +29,29 @@ export async function withGmailRetry<T>(
   maxRetries = 5,
   context?: RetryLogContext,
 ): Promise<T> {
+  return withGmailRetryPolicy(operation, maxRetries, context, "all");
+}
+
+/** Retries ambiguous sends only when Gmail explicitly rejected them for throttling. */
+export async function withGmailNonIdempotentWriteRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 5,
+  context?: RetryLogContext,
+): Promise<T> {
+  return withGmailRetryPolicy(
+    operation,
+    maxRetries,
+    context,
+    "rate-limit-only",
+  );
+}
+
+async function withGmailRetryPolicy<T>(
+  operation: () => Promise<T>,
+  maxRetries: number,
+  context: RetryLogContext | undefined,
+  retryPolicy: "all" | "rate-limit-only",
+): Promise<T> {
   const retryLogger = context?.logger || logger;
 
   try {
@@ -42,7 +65,7 @@ export async function withGmailRetry<T>(
           isRetryableError(errorInfo);
         const retryLogFields = buildRetryLogFields(errorInfo);
 
-        if (!retryable) {
+        if (!retryable || (retryPolicy === "rate-limit-only" && !isRateLimit)) {
           retryLogger.warn("Non-retryable error encountered", retryLogFields);
           throw originalError;
         }

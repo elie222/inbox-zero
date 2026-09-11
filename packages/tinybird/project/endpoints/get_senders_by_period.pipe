@@ -1,0 +1,29 @@
+TOKEN "read pipes token" READ
+
+NODE received_emails
+DESCRIPTION >
+    Filter received emails for user.
+
+SQL >
+
+%
+    SELECT "from" FROM email
+    WHERE sent = false AND draft = false AND ownerEmail = {{ String(ownerEmail) }}
+
+
+
+NODE get_most_received_from
+DESCRIPTION >
+    Get most active senders for a given period of time.
+
+SQL >
+
+%
+    SELECT "from", COUNT(*) as count FROM received_emails
+    GROUP BY "from"
+    ORDER BY count DESC
+    LIMIT {{ Int64(limit, 50) }}
+
+TYPE endpoint
+
+

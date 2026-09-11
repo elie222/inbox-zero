@@ -1,14 +1,25 @@
-import { load } from "cheerio";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
+import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
+
+export type PreviousDraftHandlingResult =
+  | {
+      shouldCreateDraft: true;
+    }
+  | {
+      shouldCreateDraft: false;
+      existingDraftId: string;
+      reason: "modified" | "missing_original_content" | "missing_content";
+    };
 
 /**
  * Handles finding and potentially deleting a previous AI-generated draft for a thread.
+ * Returns whether the caller should create a replacement draft.
  */
 export async function handlePreviousDraftDeletion({
   client,
@@ -18,7 +29,7 @@ export async function handlePreviousDraftDeletion({
   client: EmailProvider;
   executedRule: Pick<ExecutedRule, "id" | "threadId" | "emailAccountId">;
   logger: Logger;
-}) {
+}): Promise<PreviousDraftHandlingResult> {
   try {
     // Find the most recent previous executed action of type DRAFT_EMAIL for this thread
     const previousDraftAction = await prisma.executedAction.findFirst({
@@ -44,7 +55,7 @@ export async function handlePreviousDraftDeletion({
 
     if (!previousDraftAction?.draftId) {
       logger.info("No previous draft found for this thread to delete");
-      return;
+      return { shouldCreateDraft: true };
     }
 
     logger.info("Found previous draft", {
@@ -55,41 +66,72 @@ export async function handlePreviousDraftDeletion({
       previousDraftAction.draftId,
     );
 
-    if (!currentDraftDetails?.textPlain && !currentDraftDetails?.textHtml) {
-      logger.warn(
-        "Could not fetch current draft details or content, skipping deletion.",
-        { previousDraftId: previousDraftAction.draftId },
-      );
-      return;
+    if (!currentDraftDetails) {
+      logger.warn("Previous draft not found, continuing draft creation.", {
+        previousDraftId: previousDraftAction.draftId,
+      });
+      return { shouldCreateDraft: true };
     }
 
-    const isUnmodified =
-      !previousDraftAction.content ||
+    if (!currentDraftDetails.textPlain && !currentDraftDetails.textHtml) {
+      logger.warn(
+        "Previous draft content is unavailable, skipping replacement draft creation.",
+        { previousDraftId: previousDraftAction.draftId },
+      );
+      return {
+        shouldCreateDraft: false,
+        existingDraftId: previousDraftAction.draftId,
+        reason: "missing_content",
+      };
+    }
+
+    if (previousDraftAction.content === null) {
+      logger.info(
+        "Previous draft content missing, skipping replacement draft creation.",
+      );
+      return {
+        shouldCreateDraft: false,
+        existingDraftId: previousDraftAction.draftId,
+        reason: "missing_original_content",
+      };
+    }
+
+    if (
       isDraftUnmodified({
         originalContent: previousDraftAction.content,
         currentDraft: currentDraftDetails,
         logger,
-      });
-
-    if (isUnmodified) {
+      })
+    ) {
       logger.info("Draft content matches, deleting draft.");
 
       await Promise.all([
         client.deleteDraft(previousDraftAction.draftId),
         prisma.executedAction.update({
           where: { id: previousDraftAction.id },
-          data: { wasDraftSent: false },
+          data: {
+            draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+          },
         }),
       ]);
 
       logger.info("Deleted draft and updated action status.");
+      return { shouldCreateDraft: true };
     } else {
-      logger.info("Draft content modified by user, skipping deletion.");
+      logger.info(
+        "Draft content modified by user, skipping replacement draft creation.",
+      );
+      return {
+        shouldCreateDraft: false,
+        existingDraftId: previousDraftAction.draftId,
+        reason: "modified",
+      };
     }
   } catch (error) {
     logger.error("Error finding or deleting previous draft", {
       error: (error as Error)?.message || error,
     });
+    return { shouldCreateDraft: true };
   }
 }
 
@@ -108,7 +150,7 @@ export async function updateExecutedActionWithDraftId({
   try {
     await prisma.executedAction.update({
       where: { id: actionId },
-      data: { draftId },
+      data: { draftId, draftStatus: DraftEmailStatus.PENDING },
     });
     logger.info("Updated executed action with draft ID", { actionId, draftId });
   } catch (error) {
@@ -133,21 +175,6 @@ export function extractDraftPlainText(draft: ParsedMessage): string {
       : "";
   }
   return draft.textPlain || "";
-}
-
-export function stripQuotedHtmlContent(html: string): string {
-  const $ = load(html, null, false);
-
-  $(
-    [
-      ".gmail_quote_container",
-      ".gmail_quote",
-      ".gmail_attr",
-      "blockquote[type='cite']",
-    ].join(", "),
-  ).remove();
-
-  return $.root().html() || html;
 }
 
 /**

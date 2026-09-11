@@ -5,7 +5,7 @@ import { getModel } from "@/utils/llms/model";
 import type { UserAIFields } from "@/utils/llms/types";
 
 export interface JudgeCriterion {
-  description: string;
+  description?: string;
   name: string;
 }
 
@@ -167,7 +167,9 @@ function buildJudgePrompt(options: {
 }): string {
   const parts = [
     "## Criterion",
-    `**${options.criterion.name}**: ${options.criterion.description}`,
+    options.criterion.description
+      ? `**${options.criterion.name}**: ${options.criterion.description}`
+      : `**${options.criterion.name}**`,
     "",
     "## Input",
     options.input,

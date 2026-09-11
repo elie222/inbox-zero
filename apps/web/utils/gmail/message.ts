@@ -1,34 +1,48 @@
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import type { gmail_v1 } from "@googleapis/gmail";
-import chunk from "lodash/chunk";
 import {
-  type BatchError,
   type MessageWithPayload,
   type ParsedMessage,
   type ThreadWithPayloadMessages,
-  isBatchError,
   isDefined,
 } from "@/utils/types";
-import { getBatch } from "@/utils/gmail/batch";
+import { getBatchWithRetry } from "@/utils/gmail/batch-with-retry";
 import { getSearchTermForSender } from "@/utils/email";
-import { createScopedLogger } from "@/utils/logger";
-import { sleep } from "@/utils/sleep";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
-import { isRetryableError, withGmailRetry } from "@/utils/gmail/retry";
-
-const logger = createScopedLogger("gmail/message");
-const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
+import { withGmailRetry } from "@/utils/gmail/retry";
+import type { Logger } from "@/utils/logger";
 
 export function parseMessage(
   message: MessageWithPayload,
+  options?: { includeCalendarContent?: boolean },
 ): ParsedMessage & { subject: string; date: string } {
   const parsed = parse(message) as ParsedMessage;
+  const calendarParts = getCalendarParts(message.payload);
+  const calendarData =
+    calendarParts.length === 1 ? calendarParts[0].body?.data : undefined;
+  const inlineAttachments = parsed.attachments?.filter(isInlineAttachment);
+  const attachments = parsed.attachments?.filter(
+    (attachment) => !isInlineAttachment(attachment),
+  );
+
   return {
     ...parsed,
+    isMeetingInvitation: calendarParts.length
+      ? calendarParts.length === 1
+      : undefined,
+    calendarContent:
+      options?.includeCalendarContent &&
+      calendarData &&
+      calendarData.length <= CALENDAR_INVITATION_LIMITS.encoded
+        ? Buffer.from(calendarData, "base64").toString("utf8")
+        : undefined,
+    attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
+    inline: [...(parsed.inline ?? []), ...(inlineAttachments ?? [])],
     // gmail-api-parse-message converts internalDate to a number, but our type expects string
     internalDate:
       parsed.internalDate != null ? String(parsed.internalDate) : null,
@@ -87,6 +101,7 @@ export async function getMessage(
 export async function getMessageByRfc822Id(
   rfc822MessageId: string,
   gmail: gmail_v1.Gmail,
+  logger: Logger,
 ) {
   // Search for message using RFC822 Message-ID header
   // Remove any < > brackets if present
@@ -115,93 +130,23 @@ export async function getMessagesBatch({
   messageIds,
   accessToken,
   retryCount = 0,
+  logger,
 }: {
   messageIds: string[];
   accessToken: string;
   retryCount?: number;
+  logger: Logger;
 }): Promise<ParsedMessage[]> {
-  if (!accessToken) throw new Error("No access token");
-
-  if (retryCount > 3) {
-    logger.error("Too many retries", { messageIds, retryCount });
-    return [];
-  }
   if (messageIds.length > 100) throw new Error("Too many messages. Max 100");
 
-  const batch: (MessageWithPayload | BatchError)[] = await getBatch(
-    messageIds,
-    "/gmail/v1/users/me/messages",
+  return getBatchWithRetry<MessageWithPayload, ParsedMessage>({
+    ids: messageIds,
+    endpoint: "/gmail/v1/users/me/messages",
     accessToken,
-  );
-
-  const missingMessageIds = new Set<string>();
-  let shouldRetryInSmallerBatches = false;
-
-  if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
-    logger.error("Error fetching messages", { firstBatchItem: batch?.[0] });
-    throw new Error("Invalid access token");
-  }
-
-  const messages = batch
-    .map((message, i) => {
-      if (isBatchError(message)) {
-        const { code, message: errorMessage, errors } = message.error;
-        const reason = errors?.[0]?.reason;
-
-        const { retryable, isRateLimit } = isRetryableError({
-          status: code,
-          reason,
-          errorMessage,
-        });
-
-        if (!retryable) {
-          logger.warn("Skipping message due to non-retryable error", {
-            messageId: messageIds[i],
-            code,
-            reason,
-            errorMessage,
-          });
-          return;
-        }
-
-        logger.error("Error fetching message, adding to retry queue", {
-          code,
-          error: errorMessage,
-          reason,
-        });
-        if (isRateLimit) shouldRetryInSmallerBatches = true;
-        missingMessageIds.add(messageIds[i]);
-        return;
-      }
-
-      return parseMessage(message as MessageWithPayload);
-    })
-    .filter(isDefined);
-
-  // if we errored, then try to refetch the missing messages
-  if (missingMessageIds.size > 0) {
-    const missingIds = Array.from(missingMessageIds);
-    logger.info("Missing messages", {
-      missingMessageIds: missingIds,
-      retryMode: shouldRetryInSmallerBatches ? "chunked" : "batch",
-    });
-    const nextRetryCount = retryCount + 1;
-    await sleep(1000 * nextRetryCount);
-    const missingMessages = shouldRetryInSmallerBatches
-      ? await getMessagesBatchInRetryChunks({
-          messageIds: missingIds,
-          accessToken,
-          retryCount: nextRetryCount,
-        })
-      : await getMessagesBatch({
-          messageIds: missingIds,
-          accessToken,
-          retryCount: nextRetryCount,
-        });
-    return [...messages, ...missingMessages];
-  }
-
-  return messages;
+    parse: (message) => parseMessage(message),
+    retryCount,
+    logger,
+  });
 }
 
 async function findPreviousEmailsWithSender(
@@ -291,15 +236,28 @@ function isMessage(
   return !!message.id && !!message.threadId;
 }
 
+function isInlineAttachment(
+  attachment: NonNullable<ParsedMessage["attachments"]>[number],
+) {
+  return (
+    attachment.headers["content-disposition"]
+      ?.split(";", 1)[0]
+      ?.trim()
+      .toLowerCase() === "inline"
+  );
+}
+
 export async function queryBatchMessages(
   gmail: gmail_v1.Gmail,
   options: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    logger: Logger;
   },
 ) {
   const { query, pageToken } = options;
+  const { logger } = options;
 
   const MAX_RESULTS = 20;
 
@@ -320,7 +278,12 @@ export async function queryBatchMessages(
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
   return {
-    messages: (await getMessagesBatch({ messageIds, accessToken })) || [],
+    messages:
+      (await getMessagesBatch({
+        messageIds,
+        accessToken,
+        logger,
+      })) || [],
     nextPageToken: messages.nextPageToken,
   };
 }
@@ -331,9 +294,11 @@ export async function queryBatchMessagesPages(
   {
     query,
     maxResults,
+    logger,
   }: {
     query: string;
     maxResults: number;
+    logger: Logger;
   },
 ) {
   const messages: ParsedMessage[] = [];
@@ -343,6 +308,7 @@ export async function queryBatchMessagesPages(
       await queryBatchMessages(gmail, {
         query,
         pageToken: nextPageToken,
+        logger,
       });
     messages.push(...pageMessages);
     nextPageToken = nextToken || undefined;
@@ -351,34 +317,27 @@ export async function queryBatchMessagesPages(
   return messages;
 }
 
-export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
+export async function getSentMessages(
+  gmail: gmail_v1.Gmail,
+  logger: Logger,
+  maxResults = 20,
+) {
   const messages = await queryBatchMessages(gmail, {
     query: "label:sent",
     maxResults,
+    logger,
   });
   return messages.messages;
 }
 
-async function getMessagesBatchInRetryChunks({
-  messageIds,
-  accessToken,
-  retryCount,
-}: {
-  messageIds: string[];
-  accessToken: string;
-  retryCount: number;
-}) {
-  const chunkedMessages = chunk(messageIds, RATE_LIMIT_RETRY_BATCH_SIZE);
-  const messages: ParsedMessage[] = [];
-
-  for (const messageIdsChunk of chunkedMessages) {
-    const chunkMessages = await getMessagesBatch({
-      messageIds: messageIdsChunk,
-      accessToken,
-      retryCount,
-    });
-    messages.push(...chunkMessages);
+function getCalendarParts(
+  part: gmail_v1.Schema$MessagePart | undefined,
+): gmail_v1.Schema$MessagePart[] {
+  if (!part) return [];
+  const parts = part.mimeType?.toLowerCase() === "text/calendar" ? [part] : [];
+  for (const child of part.parts ?? []) {
+    parts.push(...getCalendarParts(child));
+    if (parts.length > 1) break;
   }
-
-  return messages;
+  return parts;
 }

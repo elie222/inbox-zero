@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   assertProviderNotRateLimited,
   getEmailProviderRateLimitState,
@@ -11,8 +11,6 @@ import {
   withRateLimitRecording,
 } from "./rate-limit";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis", () => ({
   redis: {
     get: vi.fn(),
@@ -21,7 +19,7 @@ vi.mock("@/utils/redis", () => ({
   },
 }));
 
-const logger = createScopedLogger("test-rate-limit");
+const logger = createTestLogger();
 
 describe("email provider rate-limit state", () => {
   beforeEach(() => {

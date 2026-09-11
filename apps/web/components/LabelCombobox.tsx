@@ -73,8 +73,12 @@ export function LabelCombobox({
                   {
                     loading: `Creating label "${searchValue}"...`,
                     success: `Created label "${searchValue}"`,
-                    error: (errorMessage) =>
-                      `Error creating label "${searchValue}": ${errorMessage}`,
+                    error: (errorMessage: unknown) =>
+                      `Error creating label "${searchValue}": ${
+                        errorMessage instanceof Error
+                          ? errorMessage.message
+                          : String(errorMessage)
+                      }`,
                   },
                 );
               }}

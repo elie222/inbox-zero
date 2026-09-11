@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 export const messageQuerySchema = z.object({
   q: z.string().nullish(),
-  pageToken: z.string().nullish(),
+  pageToken: microsoftGraphPageTokenSchema,
 });
 export type MessageQuery = z.infer<typeof messageQuerySchema>;
 

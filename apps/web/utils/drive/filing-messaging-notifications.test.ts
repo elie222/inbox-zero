@@ -5,7 +5,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { sendFilingMessagingNotifications } from "./filing-messaging-notifications";
 import {
   resolveSlackRouteDestination,
@@ -14,7 +14,6 @@ import {
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),
@@ -25,7 +24,7 @@ vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: vi.fn(),
 }));
 
-const logger = createScopedLogger("filing-messaging-notifications-test");
+const logger = createTestLogger();
 
 describe("sendFilingMessagingNotifications", () => {
   beforeEach(() => {

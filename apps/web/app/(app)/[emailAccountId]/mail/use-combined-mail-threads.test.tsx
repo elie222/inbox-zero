@@ -1,0 +1,1208 @@
+// @vitest-environment jsdom
+
+import type { ReactNode } from "react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { SWRConfig } from "swr";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
+import { useCombinedMailThreads } from "./use-combined-mail-threads";
+
+const cache = vi.hoisted(() => ({
+  read: vi.fn(),
+  write: vi.fn(),
+}));
+const mailbox = vi.hoisted(() => ({
+  listeners: new Set<(emailAccountId: string) => void>(),
+  read: vi.fn(),
+  subscribe: vi.fn(),
+}));
+const mutationStore = vi.hoisted(() => ({
+  listeners: new Set<() => void>(),
+  read: vi.fn(),
+  subscribe: vi.fn(),
+}));
+
+vi.mock("@/utils/email-cache/thread-lists", () => ({
+  readCachedThreadList: cache.read,
+  writeCachedThreadList: cache.write,
+}));
+vi.mock("@/utils/email-cache/mailbox", () => ({
+  readCombinedSyncedMailboxThreads: mailbox.read,
+  subscribeToMailboxStore: mailbox.subscribe,
+}));
+vi.mock("@/utils/email-cache/mail-mutations", () => ({
+  getActiveMailMutations: mutationStore.read,
+  subscribeToMailMutations: mutationStore.subscribe,
+}));
+
+describe("useCombinedMailThreads", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cache.read.mockResolvedValue(undefined);
+    cache.write.mockResolvedValue(undefined);
+    mailbox.listeners.clear();
+    mailbox.read.mockResolvedValue(undefined);
+    mailbox.subscribe.mockImplementation(
+      (listener: (emailAccountId: string) => void) => {
+        mailbox.listeners.add(listener);
+        return () => mailbox.listeners.delete(listener);
+      },
+    );
+    mutationStore.listeners.clear();
+    mutationStore.read.mockResolvedValue([]);
+    mutationStore.subscribe.mockImplementation((listener: () => void) => {
+      mutationStore.listeners.add(listener);
+      return () => mutationStore.listeners.delete(listener);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("keeps search results separate from synced inbox threads and other searches", async () => {
+    mailbox.read.mockResolvedValue({
+      threads: [createUnreadThread("account-1", "inbox-only")],
+    });
+    const fetcher = vi.fn(async (key: string) => {
+      const query = new URL(key, "http://localhost").searchParams.get("q");
+      if (query === null) throw new Error("Expected a search query");
+      return {
+        threads: [createUnreadThread("account-1", query)],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+      };
+    });
+    const { result, rerender, unmount } = renderHook(
+      ({ searchQuery }) =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+          searchQuery,
+        }),
+      {
+        initialProps: { searchQuery: "first" },
+        wrapper: createWrapper(fetcher),
+      },
+    );
+    try {
+      await waitFor(() =>
+        expect(result.current.threads.map((thread) => thread.id)).toEqual([
+          "first",
+        ]),
+      );
+      rerender({ searchQuery: "second" });
+      await waitFor(() =>
+        expect(result.current.threads.map((thread) => thread.id)).toEqual([
+          "second",
+        ]),
+      );
+      expect(mailbox.read).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
+  it("does not revive an archived thread when returning to a cached combined split", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const fetcher = vi.fn().mockImplementation(async () => ({
+      threads: [createUnreadThread("account-1", "archived-in-other-split")],
+      failedAccountIds: [],
+      labelsByAccount: {},
+      nextPageToken: null,
+    }));
+    const { result, rerender, unmount } = renderHook(
+      ({ isUnread }) =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread,
+        }),
+      { initialProps: { isUnread: false }, wrapper: createWrapper(fetcher) },
+    );
+    try {
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+      rerender({ isUnread: true });
+      await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+      mailbox.read.mockResolvedValue({
+        accountStates: createAccountStates(200),
+        complete: true,
+        missingAccountIds: [],
+        threads: [],
+        truncated: false,
+      });
+      clock.mockReturnValue(300);
+      rerender({ isUnread: false });
+      await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(3));
+      await act(async () => {});
+      expect(result.current.threads).toEqual([]);
+    } finally {
+      unmount();
+      clock.mockRestore();
+    }
+  });
+
+  it("keeps a later combined page fetched after mailbox sync", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("account-1", "old-page")],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: "page-2",
+      })
+      .mockResolvedValue({
+        threads: [createThread("account-1", "current-page")],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+      });
+    const { result, unmount } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    try {
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+      mailbox.read.mockResolvedValue({
+        accountStates: createAccountStates(200),
+        complete: true,
+        missingAccountIds: [],
+        threads: [],
+        truncated: false,
+      });
+      act(() => {
+        for (const listener of mailbox.listeners) listener("account-1");
+      });
+      await waitFor(() => expect(result.current.threads).toEqual([]));
+      clock.mockReturnValue(300);
+      act(() => result.current.loadMore());
+      await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "current-page",
+      ]);
+    } finally {
+      unmount();
+      clock.mockRestore();
+    }
+  });
+
+  it("applies durable overlays by composite account and thread identity", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "shared"),
+        createThread("account-2", "shared"),
+      ],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "archive",
+        messageIds: ["shared-message"],
+        threadId: "shared",
+      }),
+      createMutation({
+        emailAccountId: "account-2",
+        kind: "set_read_state",
+        messageIds: ["shared-message"],
+        read: false,
+        threadId: "shared",
+      }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(result.current.threads[0]?.account.id).toBe("account-2");
+    expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual([
+      "INBOX",
+      "UNREAD",
+    ]);
+    await waitFor(() => expect(cache.write).toHaveBeenCalled());
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: expect.arrayContaining([
+          expect.objectContaining({ id: "account-1:shared" }),
+          expect.objectContaining({ id: "account-2:shared" }),
+        ]),
+      }),
+    );
+  });
+
+  it("keeps a completed archive overlaid until the combined list reconciles", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "archived")],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "archive",
+        messageIds: ["archived-message"],
+        threadId: "archived",
+      }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    mutationStore.read.mockResolvedValue([]);
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+    await waitFor(() => expect(mutationStore.read).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.threads).toEqual([]);
+  });
+
+  it("removes only the pending-read owner from an unread-only view", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createUnreadThread("account-1", "pending-read"),
+        createUnreadThread("account-2", "still-unread"),
+      ],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "set_read_state",
+        messageIds: ["pending-read-message"],
+        read: true,
+        threadId: "pending-read",
+      }),
+    ]);
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: true,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() =>
+      expect(
+        result.current.threads.map((thread) => [thread.account.id, thread.id]),
+      ).toEqual([["account-2", "still-unread"]]),
+    );
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: expect.arrayContaining([
+          expect.objectContaining({ id: "account-1:pending-read" }),
+          expect.objectContaining({ id: "account-2:still-unread" }),
+        ]),
+      }),
+    );
+  });
+
+  it("renders a complete merged mailbox while the server revalidates", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-2", "local")],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "local",
+      ]);
+      expect(result.current.hasMore).toBe(false);
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(mailbox.read).toHaveBeenCalledWith({
+      accounts: ACCOUNTS,
+      limit: 20,
+      query: { type: "inbox" },
+    });
+  });
+
+  it("keeps loading when an empty cached page is awaiting server rows", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("loads a multi-label view without mixing in the generic inbox snapshot", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [createThread("account-1", "matching-label")],
+      }),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+          labelNames: ["Receipts & orders", "Invoices"],
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "matching-label",
+      ]),
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "labelNames=Receipts+%26+orders&labelNames=Invoices",
+      ),
+    );
+    expect(mailbox.read).not.toHaveBeenCalled();
+  });
+
+  it("uses a newer server page when the persisted mailbox predates the request", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "canonical")],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [
+              {
+                ...createThread("account-1", "canonical"),
+                snippet: "remote",
+              },
+              createThread("account-2", "stale-recent"),
+              createThread(
+                "account-2",
+                "older-than-local-window",
+                "2026-07-01T10:00:00.000Z",
+              ),
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "stale-recent",
+        "older-than-local-window",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("remote");
+    });
+  });
+
+  it("keeps cached rows outside the first server page", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "remote-row"),
+        createThread("account-2", "stale-recent", "2026-08-23T10:01:00.000Z"),
+        createThread("account-2", "cached-only", "2026-08-23T09:59:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: "next-page",
+            threads: [
+              {
+                ...createThread("account-1", "remote-row"),
+                snippet: "remote",
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "remote-row",
+        "cached-only",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("remote");
+      expect(cache.write).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          hasMore: true,
+          threads: expect.arrayContaining([
+            expect.objectContaining({ id: "account-1:remote-row" }),
+            expect.objectContaining({ id: "account-2:cached-only" }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("keeps a mailbox sync that completes while the server request is in flight", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(100);
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: createAccountStates(200),
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "local-only")],
+      truncated: false,
+    });
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "local-only",
+      ]),
+    );
+
+    vi.mocked(Date.now).mockReturnValue(300);
+    await act(async () => {
+      network.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [createThread("account-1", "server-only")],
+      });
+      await network.promise;
+    });
+
+    await waitFor(() => expect(cache.write).toHaveBeenCalled());
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "local-only",
+    ]);
+  });
+
+  it("keeps a complete canonical snapshot after it syncs more recently than the server page", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "canonical")],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [
+              {
+                ...createThread("account-1", "canonical"),
+                snippet: "remote",
+              },
+              createThread("account-2", "stale-recent"),
+              createThread(
+                "account-2",
+                "older-than-local-window",
+                "2026-07-01T10:00:00.000Z",
+              ),
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "older-than-local-window",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("canonical");
+    });
+  });
+
+  it("keeps valid next-page rows when an account mailbox is truncated", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: {
+        ...createAccountStates(Number.MAX_SAFE_INTEGER),
+        "account-2": {
+          ...ACCOUNT_STATES["account-2"],
+          syncedAt: Number.MAX_SAFE_INTEGER,
+          truncated: true,
+        },
+      },
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "canonical"),
+        createThread("account-2", "boundary"),
+      ],
+      truncated: true,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: "next-page",
+            threads: [
+              createThread(
+                "account-2",
+                "stale-recent",
+                "2026-08-23T10:01:00.000Z",
+              ),
+              createThread("account-1", "canonical"),
+              createThread(
+                "account-2",
+                "valid-next-page-row",
+                "2026-08-23T09:59:00.000Z",
+              ),
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "boundary",
+        "valid-next-page-row",
+      ]);
+    });
+  });
+
+  it("does not hide authoritative local rows when the server is exhausted", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+      complete: true,
+      missingAccountIds: [],
+      threads: Array.from({ length: 21 }, (_, index) =>
+        createThread(
+          index % 2 ? "account-1" : "account-2",
+          `local-${index}`,
+          new Date(Date.UTC(2026, 7, 23, 10, 0, index)).toISOString(),
+        ),
+      ),
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads).toHaveLength(21);
+      expect(result.current.hasMore).toBe(false);
+    });
+  });
+
+  it("loads more synchronized rows while the server is unavailable", async () => {
+    const localThreads = Array.from({ length: 25 }, (_, index) =>
+      createThread(
+        index % 2 ? "account-1" : "account-2",
+        `local-${index}`,
+        new Date(Date.UTC(2026, 7, 23, 10, 0, index)).toISOString(),
+      ),
+    );
+    mailbox.read.mockImplementation(({ limit }: { limit: number }) =>
+      Promise.resolve({
+        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+        complete: true,
+        missingAccountIds: [],
+        threads: localThreads.slice(0, limit),
+        truncated: localThreads.length > limit,
+      }),
+    );
+    const network = Promise.withResolvers<unknown>();
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(20);
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(25);
+      expect(result.current.hasMore).toBe(false);
+    });
+    expect(mailbox.read).toHaveBeenLastCalledWith({
+      accounts: ACCOUNTS,
+      limit: 40,
+      query: { type: "inbox" },
+    });
+  });
+
+  it("loads more synchronized rows before requesting another server page", async () => {
+    const localThreads = Array.from({ length: 25 }, (_, index) =>
+      createThread(
+        index % 2 ? "account-1" : "account-2",
+        `local-${index}`,
+        new Date(Date.UTC(2026, 7, 23, 10, 0, 25 - index)).toISOString(),
+      ),
+    );
+    mailbox.read.mockImplementation(({ limit }: { limit: number }) =>
+      Promise.resolve({
+        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+        complete: true,
+        missingAccountIds: [],
+        threads: localThreads.slice(0, limit),
+        truncated: localThreads.length > limit,
+      }),
+    );
+    const fetcher = vi.fn((key: string) =>
+      Promise.resolve(
+        key.includes("cursor=next-page")
+          ? {
+              failedAccountIds: [],
+              labelsByAccount: {},
+              nextPageToken: null,
+              threads: [createThread("account-1", "remote-page-two")],
+            }
+          : {
+              failedAccountIds: [],
+              labelsByAccount: {},
+              nextPageToken: "next-page",
+              threads: [localThreads[0]],
+            },
+      ),
+    );
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(20);
+      expect(result.current.hasMore).toBe(true);
+      expect(fetcher).toHaveBeenCalledOnce();
+    });
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(25);
+      expect(mailbox.read).toHaveBeenLastCalledWith({
+        accounts: ACCOUNTS,
+        limit: 40,
+        query: { type: "inbox" },
+      });
+    });
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(result.current.hasMore).toBe(false);
+    });
+  });
+
+  it("reconciles freshness independently for each account", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: {
+        "account-1": {
+          ...ACCOUNT_STATES["account-1"],
+          syncedAt: Number.MAX_SAFE_INTEGER,
+        },
+        "account-2": ACCOUNT_STATES["account-2"],
+      },
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "fresh-local", "2026-08-23T10:02:00.000Z"),
+        createThread("account-2", "stale-local", "2026-08-23T09:00:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [
+              createThread(
+                "account-1",
+                "stale-server",
+                "2026-08-23T10:01:00.000Z",
+              ),
+              createThread(
+                "account-2",
+                "fresh-server",
+                "2026-08-23T10:00:00.000Z",
+              ),
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "fresh-local",
+        "fresh-server",
+      ]);
+    });
+  });
+
+  it("uses an available local snapshot when that account fails remotely", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: { "account-1": ACCOUNT_STATES["account-1"] },
+      complete: false,
+      missingAccountIds: ["account-2"],
+      threads: [
+        createThread("account-1", "local-fallback", "2026-08-23T10:01:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: ["account-1"],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [createThread("account-2", "remote")],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "local-fallback",
+        "remote",
+      ]);
+    });
+  });
+
+  it("rehydrates only when one of the displayed account stores changes", async () => {
+    mailbox.read
+      .mockResolvedValueOnce({
+        accountStates: { "account-1": ACCOUNT_STATES["account-1"] },
+        complete: false,
+        missingAccountIds: ["account-2"],
+        threads: [createThread("account-1", "one")],
+        truncated: false,
+      })
+      .mockResolvedValue({
+        accountStates: ACCOUNT_STATES,
+        complete: true,
+        missingAccountIds: [],
+        threads: [
+          createThread("account-2", "two"),
+          createThread("account-1", "one"),
+        ],
+        truncated: false,
+      });
+    const network = Promise.withResolvers<unknown>();
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("other-account");
+    });
+    expect(mailbox.read).toHaveBeenCalledOnce();
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-2");
+    });
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    expect(mailbox.read).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores an older mailbox read that resolves after a newer one", async () => {
+    const staleRead = Promise.withResolvers<unknown>();
+    const newerRead = Promise.withResolvers<unknown>();
+    mailbox.read
+      .mockReturnValueOnce(staleRead.promise)
+      .mockReturnValueOnce(newerRead.promise);
+    const network = Promise.withResolvers<unknown>();
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(mailbox.read).toHaveBeenCalledOnce());
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-1");
+    });
+    await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      newerRead.resolve({
+        accountStates: ACCOUNT_STATES,
+        complete: true,
+        missingAccountIds: [],
+        threads: [createThread("account-1", "newer")],
+        truncated: false,
+      });
+      await newerRead.promise;
+    });
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "newer",
+    ]);
+
+    await act(async () => {
+      staleRead.resolve({
+        accountStates: ACCOUNT_STATES,
+        complete: true,
+        missingAccountIds: [],
+        threads: [createThread("account-1", "stale")],
+        truncated: false,
+      });
+      await staleRead.promise;
+    });
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "newer",
+    ]);
+  });
+
+  it("updates and rolls back one account without touching a same-id thread", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "shared"),
+        createThread("account-2", "shared"),
+      ],
+      truncated: false,
+    });
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    let update!: ReturnType<typeof result.current.optimisticallyUpdateThreads>;
+    act(() => {
+      update = result.current.optimisticallyUpdateThreads(
+        ["account-1:shared"],
+        (thread) => ({ ...thread, snippet: "updated" }),
+      );
+    });
+    expect(
+      result.current.threads.map((thread) => [
+        thread.account.id,
+        thread.snippet,
+      ]),
+    ).toEqual([
+      ["account-1", "updated"],
+      ["account-2", "shared"],
+    ]);
+
+    act(() => update.rollback(["account-1:shared"]));
+    expect(result.current.threads.map((thread) => thread.snippet)).toEqual([
+      "shared",
+      "shared",
+    ]);
+  });
+});
+
+const ACCOUNTS = [createAccount("account-1"), createAccount("account-2")];
+const ACCOUNT_STATES = createAccountStates(100);
+
+function createAccountStates(syncedAt: number, complete = true) {
+  return {
+    "account-1": {
+      after: "2026-07-24T00:00:00.000Z",
+      complete,
+      syncedAt,
+      truncated: false,
+    },
+    "account-2": {
+      after: "2026-07-24T00:00:00.000Z",
+      complete,
+      syncedAt,
+      truncated: false,
+    },
+  };
+}
+
+function createAccount(id: string) {
+  return { email: `${id}@example.com`, id, image: null, name: id };
+}
+
+function createThread(
+  accountId: string,
+  id: string,
+  internalDate = "2026-08-23T10:00:00.000Z",
+) {
+  return {
+    account: createAccount(accountId),
+    id,
+    messages: [
+      {
+        date: internalDate,
+        headers: { subject: id },
+        id: `${id}-message`,
+        internalDate,
+        labelIds: ["INBOX"],
+        snippet: id,
+        subject: id,
+        threadId: id,
+      },
+    ],
+    plan: undefined,
+    plans: [],
+    snippet: id,
+  };
+}
+
+function createUnreadThread(accountId: string, id: string) {
+  const thread = createThread(accountId, id);
+  return {
+    ...thread,
+    messages: thread.messages.map((message) => ({
+      ...message,
+      labelIds: ["INBOX", "UNREAD"],
+    })),
+  };
+}
+
+function createMutation(
+  value:
+    | {
+        emailAccountId: string;
+        kind: "archive";
+        messageIds: string[];
+        threadId: string;
+      }
+    | {
+        emailAccountId: string;
+        kind: "set_read_state";
+        messageIds: string[];
+        read: boolean;
+        threadId: string;
+      },
+): MailMutation {
+  return {
+    ...value,
+    id: `${value.emailAccountId}-${value.kind}`,
+    batchId: `${value.emailAccountId}-${value.kind}`,
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+function createWrapper(fetcher: (key: string) => unknown) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <SWRConfig
+        value={{
+          fetcher,
+          provider: () => new Map(),
+          shouldRetryOnError: false,
+        }}
+      >
+        {children}
+      </SWRConfig>
+    );
+  };
+}

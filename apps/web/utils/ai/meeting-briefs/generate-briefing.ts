@@ -1,11 +1,9 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { createPerplexity } from "@ai-sdk/perplexity";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { env } from "@/env";
-import { getModel } from "@/utils/llms/model";
 import { createGenerateText } from "@/utils/llms";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -20,8 +18,11 @@ import {
   setCachedResearch,
 } from "@/utils/redis/research-cache";
 import type { Logger } from "@/utils/logger";
-import { Provider } from "@/utils/llms/config";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import {
+  getWebSearchConfigForProvider,
+  type WebSearchConfig,
+} from "@/utils/ai/web-search";
 
 const MAX_AGENT_STEPS = 15;
 const MAX_EMAILS_PER_GUEST = 10;
@@ -100,8 +101,14 @@ export async function aiGenerateMeetingBriefing({
     );
   }
 
-  const prompt = buildPrompt(briefingData, emailAccount);
-  const modelOptions = getModel(emailAccount.user);
+  const availableSearchTools = ["perplexitySearch", "webSearch"].filter(
+    (toolName) => toolName in searchTools,
+  );
+  const prompt = buildPrompt(briefingData, emailAccount, availableSearchTools);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.MeetingBriefing,
+  );
 
   const generateText = createGenerateText({
     emailAccount,
@@ -249,14 +256,26 @@ async function buildSearchTools({
   }
 
   // Web search (OpenAI, Google, or OpenRouter - if configured)
-  const webSearchConfig = getWebSearchConfig();
+  const resolvedWebSearchModelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.MeetingWebSearch,
+  );
+  const webSearchModelOptions = {
+    ...resolvedWebSearchModelOptions,
+    fallbackModels: resolvedWebSearchModelOptions.fallbackModels.filter(
+      (fallback) =>
+        fallback.provider === resolvedWebSearchModelOptions.provider,
+    ),
+  };
+  const webSearchConfig = getWebSearchConfigForProvider(
+    webSearchModelOptions.provider,
+  );
   if (webSearchConfig) {
     tools.webSearch = createWebSearchTool({
       emailAccount,
       logger,
-      providerName: webSearchConfig.providerName,
-      getSearchTools: webSearchConfig.getSearchTools,
-      useOnlineVariant: webSearchConfig.useOnlineVariant,
+      modelOptions: webSearchModelOptions,
+      webSearchConfig,
     });
   }
 
@@ -283,51 +302,24 @@ async function buildSearchTools({
   };
 }
 
-type WebSearchConfig = {
-  providerName: string;
-  useOnlineVariant: boolean;
-  getSearchTools?: () => ToolSet;
-};
-
-function getWebSearchConfig(): WebSearchConfig | null {
-  switch (env.DEFAULT_LLM_PROVIDER) {
-    case Provider.OPEN_AI:
-      return {
-        providerName: "OpenAI",
-        useOnlineVariant: false,
-        getSearchTools: () => ({ web_search: openai.tools.webSearch({}) }),
-      };
-    case Provider.GOOGLE:
-      return {
-        providerName: "Google",
-        useOnlineVariant: false,
-        getSearchTools: () => ({
-          google_search: google.tools.googleSearch({}),
-        }),
-      };
-    case Provider.OPENROUTER:
-      return {
-        providerName: "OpenRouter",
-        useOnlineVariant: true,
-      };
-    default:
-      return null;
-  }
-}
-
 function createWebSearchTool({
   emailAccount,
   logger,
-  providerName,
-  getSearchTools,
-  useOnlineVariant,
+  modelOptions,
+  webSearchConfig,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
-  providerName: string;
-  getSearchTools?: () => ToolSet;
-  useOnlineVariant: boolean;
+  modelOptions: ReturnType<typeof getModelForUseCase>;
+  webSearchConfig: WebSearchConfig;
 }) {
+  const {
+    providerName,
+    tools: searchTools,
+    providerOptions,
+    toolChoice,
+  } = webSearchConfig;
+
   return tool({
     description: "Search the web for information",
     inputSchema: searchInputSchema,
@@ -346,12 +338,6 @@ function createWebSearchTool({
       }
 
       try {
-        const modelOptions = getModel(
-          emailAccount.user,
-          "economy",
-          useOnlineVariant,
-        );
-
         const webGenerateText = createGenerateText({
           emailAccount,
           label: "Web Search",
@@ -362,7 +348,9 @@ function createWebSearchTool({
         const searchResult = await webGenerateText({
           model: modelOptions.model,
           prompt: query,
-          ...(getSearchTools && { tools: getSearchTools() }),
+          tools: searchTools,
+          providerOptions,
+          toolChoice,
         });
 
         const text = searchResult.text;
@@ -390,6 +378,7 @@ function createWebSearchTool({
 export function buildPrompt(
   briefingData: MeetingBriefingData,
   emailAccount: EmailAccountWithAI,
+  availableSearchTools: string[],
 ): string {
   const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
 
@@ -405,20 +394,9 @@ export function buildPrompt(
     }),
   );
 
-  // List available search tools for the prompt
-  const availableTools: string[] = [];
-  if (env.PERPLEXITY_API_KEY) availableTools.push("perplexitySearch");
-  if (
-    env.DEFAULT_LLM_PROVIDER === Provider.OPEN_AI ||
-    env.DEFAULT_LLM_PROVIDER === Provider.GOOGLE ||
-    env.DEFAULT_LLM_PROVIDER === Provider.OPENROUTER
-  ) {
-    availableTools.push("webSearch");
-  }
-
   const toolsNote =
-    availableTools.length > 0
-      ? `\nAvailable search tools: ${availableTools.join(", ")}`
+    availableSearchTools.length > 0
+      ? `\nAvailable search tools: ${availableSearchTools.join(", ")}`
       : "";
 
   const prompt = `Prepare a concise briefing for this upcoming meeting.

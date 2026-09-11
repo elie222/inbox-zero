@@ -1,26 +1,17 @@
 "use client";
 
 import { useReducer, useRef, useState } from "react";
-import Link from "next/link";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
-import type { ThreadsResponse } from "@/app/api/threads/route";
-import type { ThreadsQuery } from "@/utils/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { runAiRules } from "@/utils/queue/email-actions";
-import {
-  pauseAiQueue,
-  resumeAiQueue,
-  clearAiQueue,
-} from "@/utils/queue/ai-queue";
-import { sleep } from "@/utils/sleep";
+import { pauseAiQueue, resumeAiQueue } from "@/utils/queue/ai-queue";
 import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useBeforeUnload } from "@/hooks/useBeforeUnload";
-import { useAiQueueState, clearAiQueueAtom } from "@/store/ai-queue";
+import { useAiQueueState } from "@/store/ai-queue";
 import {
   Dialog,
   DialogContent,
@@ -30,9 +21,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { fetchWithAccount } from "@/utils/fetch";
 import { Toggle } from "@/components/Toggle";
+import { Badge } from "@/components/ui/badge";
 import { hasTierAccess } from "@/utils/premium";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
@@ -40,6 +35,11 @@ import {
   getProgressMessage,
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
+import { EndTrialButton } from "@/components/EndTrialButton";
+import { onRun } from "@/app/(app)/[emailAccountId]/assistant/bulk-run";
+import { useAiAutomationStatus } from "@/hooks/useAiAutomationStatus";
+
+const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
@@ -49,17 +49,32 @@ export function BulkRunRules() {
 
   const queue = useAiQueueState();
 
-  const { hasAiAccess, isLoading: isLoadingPremium, tier } = usePremium();
-  const { PremiumModal, openModal } = usePremiumModal();
+  const {
+    hasAiAccess,
+    isLoading: isLoadingPremium,
+    premium,
+    tier,
+  } = usePremium();
+  const { data: aiAutomationStatus } = useAiAutomationStatus();
 
   const isBusinessPlusTier = hasTierAccess({
     tier: tier || null,
     minimumTier: "PROFESSIONAL_MONTHLY",
   });
+  const hasRerunAccess = hasTierAccess({
+    tier: tier || null,
+    minimumTier: RERUN_MINIMUM_TIER,
+  });
+  const isTrial = premium?.stripeSubscriptionStatus === "trialing";
+  const trialAiLimitMessage =
+    aiAutomationStatus?.status === "trial_ai_limit_reached"
+      ? aiAutomationStatus.message
+      : null;
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [includeRead, setIncludeRead] = useState(false);
+  const [rerun, setRerun] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
 
@@ -71,6 +86,10 @@ export function BulkRunRules() {
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
+  // Access can drop while the toggle is still on (the tier is revalidated in
+  // the background), so everything reads the gated value rather than the raw
+  // toggle state.
+  const isRerunEnabled = rerun && hasRerunAccess;
 
   // Warn user before leaving page during processing (includes initial fetch)
   useBeforeUnload(isBusy);
@@ -97,11 +116,22 @@ export function BulkRunRules() {
     try {
       abortRef.current = await onRun(
         emailAccountId,
-        { startDate, endDate, includeRead },
+        {
+          startDate,
+          endDate,
+          includeRead,
+          rerun: isRerunEnabled,
+          maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
+        },
         (threads) => {
           dispatch({ type: "THREADS_QUEUED", threads });
         },
-        (_completionStatus, count) => {
+        (completionStatus, count) => {
+          if (completionStatus !== "success") {
+            dispatch({ type: "STOP", completedCount: count });
+            return;
+          }
+
           dispatch({ type: "COMPLETE", count });
         },
       );
@@ -127,8 +157,6 @@ export function BulkRunRules() {
 
   const handleStop = () => {
     dispatch({ type: "STOP", completedCount: completed });
-    clearAiQueue();
-    clearAiQueueAtom();
     abortRef.current?.();
   };
 
@@ -146,8 +174,7 @@ export function BulkRunRules() {
           <DialogHeader>
             <DialogTitle>Bulk Process Emails</DialogTitle>
             <DialogDescription>
-              Run your rules on emails in your inbox that haven't been handled
-              yet.
+              Run your rules on emails already in your inbox.
             </DialogDescription>
           </DialogHeader>
           {progressMessage && (
@@ -182,27 +209,47 @@ export function BulkRunRules() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4">
+              <Toggle
+                name="include-read"
+                label="Include read emails"
+                enabled={includeRead}
+                onChange={(enabled) => setIncludeRead(enabled)}
+                disabled={isProcessing || !isBusinessPlusTier}
+                explainText={
+                  !isBusinessPlusTier && hasAiAccess
+                    ? "Including read emails is available on the Professional plan."
+                    : undefined
+                }
+              />
+
+              <div className="flex items-center gap-2">
                 <Toggle
-                  name="include-read"
-                  label="Include read emails"
-                  enabled={includeRead}
-                  onChange={(enabled) => setIncludeRead(enabled)}
-                  disabled={isProcessing || !isBusinessPlusTier}
+                  name="rerun"
+                  label="Re-process emails already handled"
+                  enabled={isRerunEnabled}
+                  onChange={(enabled) => setRerun(enabled)}
+                  disabled={isProcessing || !hasRerunAccess}
+                  disabledTooltipText={
+                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
+                  }
+                  tooltipText="Runs your rules again on emails that already have a result. Use this after changing your rules."
                 />
-                {!isBusinessPlusTier && hasAiAccess && (
-                  <Link
-                    href="/premium"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      openModal();
-                    }}
-                    className="text-sm text-primary hover:underline whitespace-nowrap"
-                  >
-                    Upgrade to Professional to enable
-                  </Link>
-                )}
+                {!hasRerunAccess && <ProfessionalPlanBadge />}
               </div>
+
+              {isTrial && (
+                <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    {trialAiLimitMessage ??
+                      `Trials can process up to ${TRIAL_BULK_PROCESS_EMAIL_LIMIT} past emails at a time.`}
+                  </span>
+                  <EndTrialButton
+                    size="sm"
+                    variant="outline"
+                    className="self-start border-blue-300 bg-white text-blue-900 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900 sm:self-auto"
+                  />
+                </div>
+              )}
 
               {(state.status !== "idle" ||
                 state.processedThreadIds.size > 0) && (
@@ -222,7 +269,12 @@ export function BulkRunRules() {
                 !isProcessing && (
                   <Button
                     type="button"
-                    disabled={!startDate || !emailAccountId || !hasAiAccess}
+                    disabled={
+                      !startDate ||
+                      !emailAccountId ||
+                      !hasAiAccess ||
+                      trialAiLimitMessage !== null
+                    }
                     onClick={handleStart}
                   >
                     Process Emails
@@ -252,111 +304,48 @@ export function BulkRunRules() {
 
               {state.runResult && state.runResult.count === 0 && (
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                  No {includeRead ? "" : "unread, "}unprocessed emails found in
-                  the selected date range.
+                  No{" "}
+                  {describeTargetedEmails({
+                    includeRead,
+                    rerun: isRerunEnabled,
+                  })}{" "}
+                  found in your inbox in the selected date range.
                 </div>
               )}
             </div>
           </LoadingContent>
         </DialogContent>
       </Dialog>
-      <PremiumModal />
     </div>
   );
 }
 
-// fetch batches of messages and add them to the ai queue
-async function onRun(
-  emailAccountId: string,
-  {
-    startDate,
-    endDate,
-    includeRead,
-  }: { startDate: Date; endDate?: Date; includeRead?: boolean },
-  onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
-  onComplete: (
-    status: "success" | "error" | "cancelled",
-    count: number,
-  ) => void,
-) {
-  let nextPageToken = "";
-  const LIMIT = 25;
-  let totalProcessed = 0;
+function ProfessionalPlanBadge() {
+  const { PremiumModal, openModal } = usePremiumModal();
 
-  let aborted = false;
+  return (
+    <>
+      <button type="button" onClick={openModal} aria-label="Upgrade plan">
+        <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
+          Professional
+        </Badge>
+      </button>
+      <PremiumModal />
+    </>
+  );
+}
 
-  function abort() {
-    aborted = true;
-  }
+function describeTargetedEmails({
+  includeRead,
+  rerun,
+}: {
+  includeRead: boolean;
+  rerun: boolean;
+}) {
+  const qualifiers = [
+    includeRead ? null : "unread",
+    rerun ? null : "unprocessed",
+  ].filter(Boolean);
 
-  async function run() {
-    for (let i = 0; i < 100; i++) {
-      const query: ThreadsQuery = {
-        type: "inbox",
-        limit: LIMIT,
-        after: startDate,
-        ...(endDate ? { before: endDate } : {}),
-        ...(!includeRead ? { isUnread: true } : {}),
-        ...(nextPageToken ? { nextPageToken } : {}),
-      };
-
-      const res = await fetchWithAccount({
-        // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-        url: `/api/threads?${new URLSearchParams(query as any).toString()}`,
-        emailAccountId,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Failed to fetch threads:", res.status, errorData);
-        toastError({
-          title: "Failed to fetch emails",
-          description:
-            typeof errorData.error === "string"
-              ? errorData.error
-              : `Error: ${res.status}`,
-        });
-        onComplete("error", totalProcessed);
-        return;
-      }
-
-      const data: ThreadsResponse = await res.json();
-
-      if (!data.threads) {
-        console.error("Invalid response: missing threads", data);
-        toastError({
-          title: "Invalid response",
-          description: "Failed to process emails. Please try again.",
-        });
-        onComplete("error", totalProcessed);
-        return;
-      }
-
-      nextPageToken = data.nextPageToken || "";
-
-      const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
-
-      onThreadsQueued(threadsWithoutPlan);
-      totalProcessed += threadsWithoutPlan.length;
-
-      runAiRules(emailAccountId, threadsWithoutPlan, false);
-
-      if (aborted) {
-        onComplete("cancelled", totalProcessed);
-        return;
-      }
-
-      if (!nextPageToken) break;
-
-      // avoid gmail api rate limits
-      // ai takes longer anyway
-      await sleep(threadsWithoutPlan.length ? 5000 : 2000);
-    }
-
-    onComplete("success", totalProcessed);
-  }
-
-  run();
-
-  return abort;
+  return qualifiers.length ? `${qualifiers.join(", ")} emails` : "emails";
 }

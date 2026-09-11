@@ -1,3 +1,4 @@
+import { processDueScheduledEmails } from "@/utils/scheduled-email/service";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
@@ -5,10 +6,14 @@ import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
-import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
+import {
+  checkAndCompleteExecutedRule,
+  executeScheduledAction,
+} from "@/utils/scheduled-actions/executor";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { processDueSnoozedThreads } from "@/utils/snooze/process-due";
 
 export const maxDuration = 300;
 
@@ -22,12 +27,7 @@ export const GET = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processScheduledActions(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -40,12 +40,7 @@ export const POST = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processScheduledActions(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -93,6 +88,10 @@ async function processScheduledActions(logger: Logger) {
           where: { id: scheduledAction.id },
           data: { status: ScheduledActionStatus.FAILED },
         });
+        await checkAndCompleteExecutedRule(
+          scheduledAction.executedRuleId,
+          actionLogger,
+        );
         failed += 1;
         continue;
       }
@@ -128,6 +127,10 @@ async function processScheduledActions(logger: Logger) {
         where: { id: scheduledAction.id },
         data: { status: ScheduledActionStatus.FAILED },
       });
+      await checkAndCompleteExecutedRule(
+        scheduledAction.executedRuleId,
+        actionLogger,
+      );
       failed += 1;
     }
   }
@@ -137,5 +140,28 @@ async function processScheduledActions(logger: Logger) {
     failed,
     skipped,
     total: scheduledActions.length,
+  };
+}
+
+async function processScheduledMail(logger: Logger) {
+  if (!env.QSTASH_TOKEN) {
+    const [scheduledActions, snoozedThreads, scheduledEmails] =
+      await Promise.all([
+        processScheduledActions(logger),
+        processDueSnoozedThreads(logger),
+        processDueScheduledEmails(logger),
+      ]);
+    return { scheduledActions, snoozedThreads, scheduledEmails };
+  }
+
+  logger.info("QStash configured; checking snoozed thread fallback");
+  const [snoozedThreads, scheduledEmails] = await Promise.all([
+    processDueSnoozedThreads(logger),
+    processDueScheduledEmails(logger),
+  ]);
+  return {
+    scheduledEmails,
+    scheduledActions: { skipped: true, reason: "qstash-configured" },
+    snoozedThreads,
   };
 }

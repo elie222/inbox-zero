@@ -1,0 +1,14 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+setup = "pnpm install --prefer-offline --frozen-lockfile"
+archive = "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/dev-setup.ts clean"
+
+[scripts.run.dev]
+command = "pnpm dev-setup dev --url conductor"
+default = true
+icon = "play"
+
+[scripts.run.evals]
+command = "EVAL_MODELS=deepseek-v4-flash-azure EVAL_RESULT_CACHE=readwrite pnpm --filter inbox-zero-ai test-ai __tests__/eval"
+icon = "flask-conical"

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { markdownToTelegramText } from "./format";
+import { escapeTelegramMarkdown, markdownToTelegramText } from "./format";
+
+describe("escapeTelegramMarkdown", () => {
+  it("escapes link-shaped text and URLs for Telegram", () => {
+    const input =
+      "Review [portal](https://example.com/a_(b)?x=1.2) and foo_bar *soon*!";
+
+    expect(escapeTelegramMarkdown(input)).toBe(
+      "Review \\[portal\\]\\(https://example.com/a\\_\\(b\\)?x=1.2\\) and foo\\_bar \\*soon\\*!",
+    );
+  });
+});
 
 describe("markdownToTelegramText", () => {
   it("normalizes escaped markdown from assistant output", () => {

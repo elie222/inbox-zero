@@ -6,8 +6,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 // Run with: pnpm test-ai ai-regression/ai-assistant-chat-send-disabled-regression
 
-vi.mock("server-only", () => ({}));
-
 const TIMEOUT = 15_000;
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

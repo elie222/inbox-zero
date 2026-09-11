@@ -2,7 +2,6 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
-  getLastMatchingToolCall,
   isUpdateRuleInput,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
@@ -26,11 +25,11 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-rule-editing-patch-semantics
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing-patch-semantics
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 240_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-rule-editing-patch-semantics",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-patch-semantics",
 );
@@ -133,26 +132,34 @@ const {
   mockPosthogCaptureEvent,
   mockRedis,
   mockUnsubscribeSenderAndMark,
-} = vi.hoisted(() => ({
-  mockCreateRule: vi.fn(),
-  mockPartialUpdateRule: vi.fn(),
-  mockUpdateRuleActions: vi.fn(),
-  mockSetRuleEnabled: vi.fn(),
-  mockSaveLearnedPatterns: vi.fn(),
-  mockCreateEmailProvider: vi.fn(),
-  mockPosthogCaptureEvent: vi.fn(),
-  mockRedis: {
-    set: vi.fn(),
-    rpush: vi.fn(),
-    hincrby: vi.fn(),
-    expire: vi.fn(),
-    keys: vi.fn().mockResolvedValue([]),
-    get: vi.fn().mockResolvedValue(null),
-    llen: vi.fn().mockResolvedValue(0),
-    lrange: vi.fn().mockResolvedValue([]),
-  },
-  mockUnsubscribeSenderAndMark: vi.fn(),
-}));
+  mockEnv,
+} = await vi.hoisted(async () => {
+  const { buildAssistantChatEvalEnv } = await import(
+    "@/__tests__/eval/assistant-chat-eval-env"
+  );
+
+  return {
+    mockCreateRule: vi.fn(),
+    mockPartialUpdateRule: vi.fn(),
+    mockUpdateRuleActions: vi.fn(),
+    mockSetRuleEnabled: vi.fn(),
+    mockSaveLearnedPatterns: vi.fn(),
+    mockCreateEmailProvider: vi.fn(),
+    mockPosthogCaptureEvent: vi.fn(),
+    mockRedis: {
+      set: vi.fn(),
+      rpush: vi.fn(),
+      hincrby: vi.fn(),
+      expire: vi.fn(),
+      keys: vi.fn().mockResolvedValue([]),
+      get: vi.fn().mockResolvedValue(null),
+      llen: vi.fn().mockResolvedValue(0),
+      lrange: vi.fn().mockResolvedValue([]),
+    },
+    mockUnsubscribeSenderAndMark: vi.fn(),
+    mockEnv: buildAssistantChatEvalEnv(),
+  };
+});
 
 vi.mock("@/utils/rule/rule", async (importOriginal) => {
   const { buildRuleModuleMutationMock } = await import(
@@ -192,11 +199,7 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 vi.mock("@/utils/prisma");
 
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
+  env: mockEnv,
 }));
 
 describe.runIf(shouldRunEval)(
@@ -204,6 +207,7 @@ describe.runIf(shouldRunEval)(
   () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      const ruleRows = cloneRuleRows(patchRuleRows);
 
       configureRuleMutationMocks({
         mockCreateRule,
@@ -212,15 +216,36 @@ describe.runIf(shouldRunEval)(
         mockSetRuleEnabled,
         mockSaveLearnedPatterns,
       });
+      mockPartialUpdateRule.mockImplementation(async ({ ruleId, data }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, data, {
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
+      mockSetRuleEnabled.mockImplementation(async ({ ruleId, enabled }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, {
+            enabled,
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
 
       configureRuleEvalPrisma({
         about,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
 
       configureRuleEvalProvider({
         mockCreateEmailProvider,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
     });
 
@@ -413,6 +438,73 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
+          "does not repeat a rule update after confirmed current rule output",
+          async () => {
+            const ruleRows = cloneRuleRows(patchRuleRows);
+            configureRuleEvalPrisma({
+              about,
+              ruleRows,
+            });
+            configureRuleEvalProvider({
+              mockCreateEmailProvider,
+              ruleRows,
+            });
+            mockPartialUpdateRule.mockImplementation(
+              async ({ ruleId, data }) => {
+                const rule = ruleRows.find(
+                  (candidate) => candidate.id === ruleId,
+                );
+                if (rule) {
+                  Object.assign(rule, data, {
+                    updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+                  });
+                }
+
+                return { id: ruleId };
+              },
+            );
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content: `Update my "${staticConditionRuleName}" rule so it only catches billing emails that need finance review.`,
+                },
+              ],
+            });
+
+            const updateCalls = getSuccessfulUpdateRuleCalls(
+              toolCalls,
+              staticConditionRuleName,
+            );
+            const updateCall = updateCalls[0];
+            const pass =
+              updateCalls.length === 1 &&
+              !!updateCall?.input.updates.condition &&
+              getPatchConditionInstructions(updateCall.input)
+                .toLowerCase()
+                .includes("finance") &&
+              outputHasCurrentRule(updateCall.output) &&
+              !hasSuccessfulRuleUpdateAfter(toolCalls, {
+                ruleName: staticConditionRuleName,
+                startIndex: updateCall.index,
+              }) &&
+              hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
+
+            evalReporter.record({
+              testName: "confirmed rule update does not repeat",
+              model: model.label,
+              pass,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
           "renames and updates actions in one patch without touching conditions",
           async () => {
             const { toolCalls, actual } = await runAssistantChat({
@@ -499,18 +591,18 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const patchCall = getLastUpdateRuleCall(toolCalls)?.input;
+            const patchCall = getLastUpdateRuleCall(toolCalls);
             const pass =
               !!patchCall &&
-              patchCall.ruleName === "Notification" &&
-              !("name" in patchCall.updates) &&
-              !!patchCall.updates.condition &&
-              !!patchCall.updates.actions &&
-              getPatchConditionInstructions(patchCall)
+              patchCall.input.ruleName === "Notification" &&
+              !("name" in patchCall.input.updates) &&
+              !!patchCall.input.updates.condition &&
+              !!patchCall.input.updates.actions &&
+              getPatchConditionInstructions(patchCall.input)
                 .toLowerCase()
                 .includes("system alert") &&
-              patchHasActionType(patchCall, ActionType.MARK_READ) &&
-              patchHasLabelAction(patchCall, "Notification") &&
+              patchHasActionType(patchCall.input, ActionType.MARK_READ) &&
+              patchHasLabelAction(patchCall.input, "Notification") &&
               hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
 
             evalReporter.record({
@@ -538,21 +630,104 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const patchCall = getLastUpdateRuleCall(toolCalls)?.input;
+            const patchCall = getLastUpdateRuleCall(toolCalls);
             const pass =
               !!patchCall &&
-              patchCall.ruleName === "Marketing" &&
-              patchCall.updates.enabled === false &&
-              !("name" in patchCall.updates) &&
-              !("condition" in patchCall.updates) &&
-              !("actions" in patchCall.updates) &&
+              patchCall.input.ruleName === "Marketing" &&
+              isStatusOnlyEnabledUpdateInput(patchCall.input, false) &&
+              isSuccessfulStatusOnlyUpdateOutput(patchCall.output, false) &&
+              countSuccessfulRuleUpdates(toolCalls) === 1 &&
               hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
 
             evalReporter.record({
               testName: "pause uses enabled patch",
               model: model.label,
               pass,
-              actual,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "pauses multiple rules through existing rule updates",
+          async () => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Pause both my Marketing and Newsletter rules for now.",
+                },
+              ],
+            });
+
+            const statusUpdates = toolCalls.filter(
+              (toolCall) =>
+                toolCall.toolName === "updateRule" &&
+                isUpdateRuleInput(toolCall.input) &&
+                isStatusOnlyEnabledUpdateInput(toolCall.input, false) &&
+                isSuccessfulOutput(toolCall.output),
+            );
+            const updatedRuleNames = statusUpdates.flatMap((toolCall) =>
+              isUpdateRuleInput(toolCall.input)
+                ? [toolCall.input.ruleName]
+                : [],
+            );
+            const firstUpdateIndex = toolCalls.findIndex(
+              (toolCall) => toolCall.toolName === "updateRule",
+            );
+            const pass =
+              statusUpdates.length === 2 &&
+              sameValues(updatedRuleNames, ["Marketing", "Newsletter"]) &&
+              hasRuleReadBeforeUpdate(toolCalls, firstUpdateIndex) &&
+              hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
+
+            evalReporter.record({
+              testName: "multiple pauses use existing rule updates",
+              model: model.label,
+              pass,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "deletes a rule through the confirmation-gated delete tool",
+          async () => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content: `Delete my "${customRuleName}" rule.`,
+                },
+              ],
+            });
+
+            const deleteCall = getLastDeleteRuleCall(toolCalls);
+            const deleteCallIndex = deleteCall?.index ?? -1;
+            const pass =
+              !!deleteCall &&
+              isSuccessfulOutput(deleteCall.output) &&
+              deleteCall.input.ruleName === customRuleName &&
+              !hasSuccessfulRuleUpdateAfter(toolCalls, {
+                ruleName: customRuleName,
+                startIndex: deleteCallIndex,
+              }) &&
+              hasRuleReadBeforeUpdate(toolCalls, deleteCallIndex);
+
+            evalReporter.record({
+              testName: "delete uses delete rule tool",
+              model: model.label,
+              pass,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
             });
 
             expect(pass).toBe(true);
@@ -591,11 +766,149 @@ async function runAssistantChat({
 }
 
 function getLastUpdateRuleCall(toolCalls: RecordedToolCall[]) {
-  return getLastMatchingToolCall(toolCalls, "updateRule", isUpdateRuleInput);
+  return getLastToolCall(toolCalls, "updateRule", isUpdateRuleInput);
+}
+
+function getLastDeleteRuleCall(toolCalls: RecordedToolCall[]) {
+  return getLastToolCall(toolCalls, "deleteRule", isDeleteRuleInput);
+}
+
+function getLastToolCall<TInput>(
+  toolCalls: RecordedToolCall[],
+  toolName: string,
+  matches: (input: unknown) => input is TInput,
+) {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== toolName) continue;
+    if (!matches(toolCall.input)) continue;
+
+    return {
+      index,
+      input: toolCall.input,
+      output: toolCall.output,
+    };
+  }
+
+  return null;
+}
+
+function isDeleteRuleInput(input: unknown): input is { ruleName: string } {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as { ruleName?: unknown };
+  return typeof value.ruleName === "string";
+}
+
+function sameValues(actual: string[], expected: string[]) {
+  return (
+    actual.length === expected.length &&
+    expected.every((value) => actual.includes(value))
+  );
 }
 
 function patchHasActionType(input: UpdateRuleInput, actionType: ActionType) {
   return input.updates.actions?.some((action) => action.type === actionType);
+}
+
+function isStatusOnlyEnabledUpdateInput(
+  input: UpdateRuleInput,
+  enabled: boolean,
+) {
+  return (
+    input.updates.enabled === enabled &&
+    input.updates.name === undefined &&
+    input.updates.condition === undefined &&
+    input.updates.actions === undefined
+  );
+}
+
+function hasSuccessfulRuleUpdateAfter(
+  toolCalls: RecordedToolCall[],
+  {
+    ruleName,
+    startIndex,
+  }: {
+    ruleName: string;
+    startIndex: number;
+  },
+) {
+  return toolCalls
+    .slice(startIndex + 1)
+    .some(
+      (toolCall) =>
+        toolCall.toolName === "updateRule" &&
+        isUpdateRuleInput(toolCall.input) &&
+        toolCall.input.ruleName === ruleName &&
+        isSuccessfulOutput(toolCall.output),
+    );
+}
+
+function getSuccessfulUpdateRuleCalls(
+  toolCalls: RecordedToolCall[],
+  ruleName: string,
+) {
+  return toolCalls.flatMap((toolCall, index) => {
+    if (toolCall.toolName !== "updateRule") return [];
+    if (!isUpdateRuleInput(toolCall.input)) return [];
+    if (toolCall.input.ruleName !== ruleName) return [];
+    if (!isSuccessfulOutput(toolCall.output)) return [];
+
+    return [
+      {
+        index,
+        input: toolCall.input,
+        output: toolCall.output,
+      },
+    ];
+  });
+}
+
+function isSuccessfulStatusOnlyUpdateOutput(
+  output: unknown,
+  enabled: boolean,
+): output is { success: true; updatedEnabled: boolean } {
+  if (!isSuccessfulOutput(output)) return false;
+
+  const value = output as {
+    originalName?: unknown;
+    updatedActions?: unknown;
+    updatedConditions?: unknown;
+    updatedEnabled?: unknown;
+    updatedName?: unknown;
+  };
+
+  return (
+    value.updatedEnabled === enabled &&
+    value.updatedName === value.originalName &&
+    value.updatedConditions === undefined &&
+    value.updatedActions === undefined
+  );
+}
+
+function countSuccessfulRuleUpdates(toolCalls: RecordedToolCall[]) {
+  return toolCalls.filter(
+    (toolCall) =>
+      toolCall.toolName === "updateRule" &&
+      isUpdateRuleInput(toolCall.input) &&
+      isSuccessfulOutput(toolCall.output),
+  ).length;
+}
+
+function isSuccessfulOutput(output: unknown): output is { success: true } {
+  return (
+    typeof output === "object" &&
+    output !== null &&
+    (output as { success?: unknown }).success === true
+  );
+}
+
+function outputHasCurrentRule(output: unknown) {
+  return (
+    isSuccessfulOutput(output) &&
+    typeof (output as { currentRule?: unknown }).currentRule === "object" &&
+    (output as { currentRule?: unknown }).currentRule !== null
+  );
 }
 
 function patchHasLabelAction(input: UpdateRuleInput, label: string) {
@@ -633,12 +946,33 @@ function hasNoCreateDeleteOrLegacyRuleMutations(toolCalls: RecordedToolCall[]) {
   return !toolCalls.some((toolCall) =>
     [
       "createRule",
-      "updateRuleState",
+      "deleteRule",
       "updateRuleActions",
       "updateRuleConditions",
       "updateLearnedPatterns",
     ].includes(toolCall.toolName),
   );
+}
+
+function summarizeRuleMutationCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls
+    .filter((toolCall) =>
+      ["createRule", "updateRule", "deleteRule"].includes(toolCall.toolName),
+    )
+    .map(
+      (toolCall) =>
+        `${toolCall.toolName} ${JSON.stringify(toolCall.input)} -> ${summarizeToolOutput(toolCall.output)}`,
+    )
+    .join(" | ");
+}
+
+function summarizeToolOutput(output: unknown) {
+  if (isSuccessfulOutput(output)) return "success";
+  if (typeof output === "object" && output !== null && "error" in output) {
+    return `error: ${String((output as { error?: unknown }).error)}`;
+  }
+
+  return "no output";
 }
 
 function getLastToolCallIndex(toolCalls: RecordedToolCall[], toolName: string) {
@@ -657,4 +991,14 @@ function hasRuleReadBeforeUpdate(
       "getUserRulesAndSettings",
     ) >= 0
   );
+}
+
+function cloneRuleRows<T extends { updatedAt: Date; actions: unknown[] }>(
+  rules: T[],
+) {
+  return rules.map((rule) => ({
+    ...rule,
+    updatedAt: new Date(rule.updatedAt),
+    actions: rule.actions.map((action) => ({ ...action })),
+  }));
 }

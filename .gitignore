@@ -17,10 +17,13 @@ node_modules
 
 # production
 /build
+/apps/desktop/release
+/apps/desktop/build/*.provisionprofile
 
 # misc
 .DS_Store
 *.pem
+.conductor/settings.local.toml
 
 # debug
 npm-debug.log*
@@ -111,3 +114,8 @@ qa/browser-flows/results/*
 
 # eval reports
 eval-results/
+
+.agent-worktrees/
+.context/
+.deepsec/
+.tmp/

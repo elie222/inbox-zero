@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   removeMemberAction,
+  transferOwnershipAction,
   updateMemberRoleAction,
 } from "@/utils/actions/organization";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
@@ -100,6 +100,35 @@ describe("removeMemberAction", () => {
     vi.clearAllMocks();
   });
 
+  it("deletes the member's org rule copies scoped to the organization, leaving personal rules untouched", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "member",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      role: "owner",
+      emailAccountId: "email-account-1",
+      emailAccount: { user: { premium: null } },
+    } as any);
+    prisma.rule.deleteMany.mockResolvedValue({ count: 2 } as any);
+    prisma.member.delete.mockResolvedValue({} as any);
+
+    const result = await removeMemberAction({ memberId: "member-2" });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.rule.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-2",
+        organizationRule: { organizationId: "org-1" },
+      },
+    });
+    expect(prisma.member.delete).toHaveBeenCalledWith({
+      where: { id: "member-2" },
+    });
+  });
+
   it("prevents callers from removing themselves", async () => {
     prisma.member.findUnique.mockResolvedValue({
       id: "member-1",
@@ -140,5 +169,89 @@ describe("removeMemberAction", () => {
 
     expect(result?.serverError).toBe("Only owners can remove other owners.");
     expect(prisma.member.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("transferOwnershipAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.member.update.mockResolvedValue({} as any);
+    prisma.$transaction.mockResolvedValue([] as any);
+  });
+
+  it("transfers ownership to another member and demotes the caller to admin", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "admin",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      id: "member-1",
+      role: "owner",
+      emailAccountId: "email-account-1",
+    } as any);
+
+    const result = await transferOwnershipAction({
+      organizationId: "org-1",
+      memberId: "member-2",
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      expect.anything(),
+      expect.anything(),
+    ]);
+    expect(prisma.member.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "member-2" },
+      data: { role: "owner" },
+    });
+    expect(prisma.member.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "member-1" },
+      data: { role: "admin" },
+    });
+    expect(result?.data).toEqual({ id: "member-2", role: "owner" });
+  });
+
+  it("blocks admins from transferring ownership", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "member",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue(null);
+
+    const result = await transferOwnershipAction({
+      organizationId: "org-1",
+      memberId: "member-2",
+    });
+
+    expect(result?.serverError).toBe(
+      "Only organization owners can transfer ownership.",
+    );
+    expect(prisma.member.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("prevents transferring ownership to yourself", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-1",
+      emailAccountId: "email-account-1",
+      organizationId: "org-1",
+      role: "owner",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      id: "member-1",
+      role: "owner",
+      emailAccountId: "email-account-1",
+    } as any);
+
+    const result = await transferOwnershipAction({
+      organizationId: "org-1",
+      memberId: "member-1",
+    });
+
+    expect(result?.serverError).toBe("You already own this organization.");
+    expect(prisma.member.update).not.toHaveBeenCalled();
   });
 });

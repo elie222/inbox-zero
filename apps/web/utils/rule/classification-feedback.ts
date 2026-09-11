@@ -5,6 +5,7 @@ import {
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { truncate } from "@/utils/string";
 
 const MAX_FEEDBACK_FOR_PROMPT = 10;
@@ -40,26 +41,48 @@ export async function saveClassificationFeedback({
     eventType,
   });
 
-  await prisma.classificationFeedback.upsert({
-    where: {
-      emailAccountId_sender_ruleId_messageId_eventType: {
+  const uniqueFeedbackKey = {
+    emailAccountId,
+    sender: normalizedSender,
+    ruleId,
+    messageId,
+    eventType,
+  };
+
+  try {
+    await prisma.classificationFeedback.upsert({
+      where: {
+        emailAccountId_sender_ruleId_messageId_eventType: uniqueFeedbackKey,
+      },
+      create: {
         emailAccountId,
         sender: normalizedSender,
         ruleId,
+        threadId,
         messageId,
         eventType,
       },
-    },
-    create: {
-      emailAccountId,
-      sender: normalizedSender,
+      update: {},
+    });
+  } catch (error) {
+    if (
+      !isDuplicateError(error, [
+        "emailAccountId",
+        "sender",
+        "ruleId",
+        "messageId",
+        "eventType",
+      ])
+    ) {
+      throw error;
+    }
+
+    logger.trace("Classification feedback already saved", {
       ruleId,
-      threadId,
       messageId,
       eventType,
-    },
-    update: {},
-  });
+    });
+  }
 }
 
 export async function getClassificationFeedback({

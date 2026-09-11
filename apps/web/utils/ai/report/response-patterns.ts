@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const responsePatternsSchema = z.object({
   commonResponses: z.array(
@@ -85,7 +85,10 @@ For email categorization, create simple, practical categories based on actual em
 
 Only suggest categories that are meaningful and provide clear organizational value. If emails don't fit into meaningful categories, don't create categories for them.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.EmailReportResponsePatterns,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

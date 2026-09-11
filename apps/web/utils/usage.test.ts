@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { LanguageModelUsage } from "ai";
 import { OPENROUTER_MODEL_PRICING } from "@/utils/llms/pricing.generated";
-import { calculateUsageCost, saveAiUsage } from "./usage";
+import { calculateUsageCost, saveAiUsage, subscribeToAiUsage } from "./usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { saveUsage } from "@/utils/redis/usage";
 
@@ -37,7 +37,7 @@ describe("calculateUsageCost", () => {
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
 
-  it("charges reasoning tokens at the output rate", () => {
+  it("does not charge reasoning tokens twice when output includes them", () => {
     const provider = "openrouter";
     const model = "openai/gpt-5.1";
     const pricing = OPENROUTER_MODEL_PRICING["gpt-5.1"];
@@ -53,8 +53,7 @@ describe("calculateUsageCost", () => {
     };
 
     const expected =
-      usage.inputTokens! * pricing.input +
-      (usage.outputTokens! + usage.reasoningTokens!) * pricing.output;
+      usage.inputTokens! * pricing.input + usage.outputTokens! * pricing.output;
 
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
@@ -151,6 +150,80 @@ describe("calculateUsageCost", () => {
     ).toBe(0);
   });
 
+  it.each([
+    "deepseek/deepseek-v4-flash",
+    "~deepseek/deepseek-v4-flash-latest",
+  ])("estimates DeepSeek V4 Flash costs for %s", (model) => {
+    const provider = "openrouter";
+    const pricing = OPENROUTER_MODEL_PRICING[model];
+    if (!pricing) throw new Error(`Expected pricing for ${model}`);
+
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 250,
+      outputTokens: 500,
+      totalTokens: 1500,
+    };
+
+    const expected =
+      750 * pricing.input + 250 * pricing.cachedInput + 500 * pricing.output;
+
+    expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
+  });
+
+  it("estimates current platform model costs", () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 250,
+      outputTokens: 500,
+      totalTokens: 1500,
+    };
+
+    expect(
+      calculateUsageCost({
+        provider: "azure-foundry",
+        model: "DeepSeek-V4-Pro",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (1.925 / 1_000_000) +
+        250 * (0.165 / 1_000_000) +
+        500 * (3.828 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "azure-foundry",
+        model: "DeepSeek-V4-Flash",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (0.19 / 1_000_000) +
+        250 * (0.028 / 1_000_000) +
+        500 * (0.51 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "openrouter",
+        model: "openai/gpt-5.4",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (2.5 / 1_000_000) +
+        250 * (0.25 / 1_000_000) +
+        500 * (15 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "perplexity",
+        model: "sonar-pro",
+        usage,
+      }),
+    ).toBeCloseTo(1000 * (3 / 1_000_000) + 500 * (15 / 1_000_000));
+  });
+
   it("resolves prefixed OpenRouter pricing for non-prefixed model names", () => {
     const usage: LanguageModelUsage = {
       inputTokens: 100,
@@ -190,6 +263,7 @@ describe("saveAiUsage", () => {
     };
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openai",
@@ -201,7 +275,7 @@ describe("saveAiUsage", () => {
     expect(publishAiCall).toHaveBeenCalledTimes(1);
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user@example.com",
+        userId: "user-1",
         emailAccountId: "email-account-1",
         cachedInputTokens: 300,
         reasoningTokens: 25,
@@ -217,7 +291,8 @@ describe("saveAiUsage", () => {
     expect(saveUsage).toHaveBeenCalledTimes(1);
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: calculateUsageCost({
           provider: "openai",
@@ -242,6 +317,7 @@ describe("saveAiUsage", () => {
     });
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openrouter",
@@ -253,7 +329,7 @@ describe("saveAiUsage", () => {
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user@example.com",
+        userId: "user-1",
         emailAccountId: "email-account-1",
         cost: 0,
         estimatedCost,
@@ -263,14 +339,45 @@ describe("saveAiUsage", () => {
 
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: 0,
       }),
     );
   });
 
-  it("stores provider-reported cost separately from local estimates", async () => {
+  it("records Redis usage when analytics ingestion throws synchronously", async () => {
+    vi.mocked(publishAiCall).mockImplementationOnce(() => {
+      throw new Error("analytics unavailable");
+    });
+
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "azure-foundry",
+      model: "DeepSeek-V4-Pro",
+      usage,
+      label: "Choose rule",
+    });
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+      }),
+    );
+  });
+
+  it("uses provider-reported cost for platform spend", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
       outputTokens: 400,
@@ -285,6 +392,7 @@ describe("saveAiUsage", () => {
     });
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openrouter",
@@ -300,7 +408,7 @@ describe("saveAiUsage", () => {
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        cost: estimatedCost,
+        cost: 1.2345,
         estimatedCost,
         providerReportedCost: 1.2345,
         providerUpstreamInferenceCost: 0.3456,
@@ -312,9 +420,211 @@ describe("saveAiUsage", () => {
 
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 1.2345,
+      }),
+    );
+  });
+
+  it("logs completed AI calls with usage and provider request metadata", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 200,
+      outputTokens: 400,
+      reasoningTokens: 100,
+      totalTokens: 1500,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.6-luna",
+      usage,
+      label: "Reply context collector",
+      providerReportedCost: 0.42,
+      providerRequestIds: ["gen-step-1", "gen-step-2"],
+      stepCount: 2,
+      toolCallCount: 4,
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[usage]: AI call completed"),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"inputTokens": 1000'),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"providerRequestIds"'),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"gen-step-2"'),
+    );
+    consoleLogSpy.mockRestore();
+  });
+
+  it("uses estimated cost when provider-reported cost is zero", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+    });
+
+    expect(estimatedCost).toBeGreaterThan(0);
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: estimatedCost,
+        estimatedCost,
+        providerReportedCost: 0,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: estimatedCost,
+      }),
+    );
+  });
+
+  it("keeps zero provider-reported cost when pricing is unavailable", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "model-without-local-pricing",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0,
+        estimatedCost: 0,
+        providerReportedCost: 0,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0,
+      }),
+    );
+  });
+
+  it("uses upstream inference cost when provider cost is unavailable", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "model-without-local-pricing",
+      usage,
+      label: "assistant-chat",
+      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0.3456,
+        estimatedCost: 0,
+        providerUpstreamInferenceCost: 0.3456,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0.3456,
+      }),
+    );
+  });
+
+  it("notifies usage listeners with estimated and provider-reported costs", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "~deepseek/deepseek-v4-flash-latest",
+      usage,
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeToAiUsage(listener);
+
+    try {
+      await saveAiUsage({
+        userId: "user-1",
+        email: "user@example.com",
+        emailAccountId: "email-account-1",
+        provider: "openrouter",
+        model: "~deepseek/deepseek-v4-flash-latest",
+        usage,
+        label: "eval-test",
+        providerReportedCost: 0.000_18,
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "openrouter",
+        model: "~deepseek/deepseek-v4-flash-latest",
+        label: "eval-test",
+        estimatedCost,
+        platformCost: 0.000_18,
+        providerReportedCost: 0.000_18,
+        inputTokens: 1000,
+        outputTokens: 400,
+        totalTokens: 1400,
       }),
     );
   });

@@ -16,6 +16,7 @@ import { renderEmailTextWithSafeLinks } from "@/utils/email/render-safe-links";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { renderReferralSignatureHtml } from "@/utils/referral/signature";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
@@ -23,6 +24,10 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
+import {
+  getRecordedMeetingContext,
+  formatRecordedMeetingContextForPrompt,
+} from "@/utils/meeting-recorder/reply-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
@@ -30,6 +35,7 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
+import { collectSenderReplyExamples } from "@/utils/reply-tracker/sender-reply-examples";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
@@ -117,6 +123,10 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       emailAccountWithSignatures?.allowHiddenAiDraftLinks ?? false,
   });
 
+  if (emailAccountWithSignatures?.signature) {
+    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
+  }
+
   if (
     !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
     emailAccountWithSignatures?.includeReferralSignature
@@ -125,12 +135,8 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       emailAccount.userId,
     );
     const referralLink = generateReferralLink(referralSignature.code);
-    const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
+    const htmlSignature = renderReferralSignatureHtml(referralLink);
     finalResult = `${finalResult}\n\n${htmlSignature}`;
-  }
-
-  if (emailAccountWithSignatures?.signature) {
-    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
   }
 
   return {
@@ -152,8 +158,8 @@ async function fetchThreadAndConversationMessages(
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  // Normalize provider-specific ordering (Outlook returns newest-first).
-  // Downstream drafting logic expects chronological order (oldest -> newest).
+  // Providers return chronological order; sort defensively since drafting
+  // logic breaks silently if messages arrive out of order.
   const threadMessages = (await client.getThreadMessages(threadId)).sort(
     sortByInternalDate("asc"),
   );
@@ -198,12 +204,18 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
-        draftContextMetadata: cachedReply.draftContextMetadata,
+        draftContextMetadata: cachedReply.draftContextMetadata
+          ? {
+              ...cachedReply.draftContextMetadata,
+              draft: { confidence: cachedReply.confidence },
+            }
+          : cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
 
     logger.info("Skipping cached draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: cachedReply.confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,
@@ -213,11 +225,14 @@ async function generateDraftContent(
 
   const messages = threadMessages.map((msg, index) => ({
     date: internalDateToDate(msg.internalDate),
+    threadId: msg.threadId,
     ...getEmailForLLM(msg, {
       // give more context for the message we're processing
       maxLength: index === threadMessages.length - 1 ? 2000 : 500,
       extractReply: true,
       removeForwarded: false,
+      includeLinkUrls: true,
+      includeImageAltText: true,
     }),
   }));
 
@@ -233,13 +248,19 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const historicalMessagesForLLM = previousConversationMessages?.map((msg) =>
-    getEmailForLLM(msg, {
-      maxLength: 1000,
-      extractReply: true,
-      removeForwarded: false,
-    }),
-  );
+  const currentMessageIds = new Set(threadMessages.map((msg) => msg.id));
+  const historicalMessagesForLLM = previousConversationMessages
+    ?.filter((msg) => !currentMessageIds.has(msg.id))
+    .map((msg) =>
+      getEmailForLLM(msg, {
+        maxLength: 1000,
+        extractReply: true,
+        removeForwarded: false,
+        includeLinkUrls: true,
+        includeImageAltText: true,
+      }),
+    );
+  const senderEmail = extractEmailAddress(lastMessage.headers.from);
 
   if (historicalMessagesForLLM?.length) {
     logger.info("Fetching historical messages from sender");
@@ -267,6 +288,30 @@ async function generateDraftContent(
         selectedAttachments: [],
         attachmentContext: null,
       });
+  const activeBookingLinksPromise = prisma.bookingLink.findMany({
+    where: { emailAccountId: emailAccount.id, isActive: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: { slug: true, minimumNoticeMinutes: true },
+  });
+  const calendarAvailabilityPromise = activeBookingLinksPromise.then(
+    (activeBookingLinks) =>
+      aiGetCalendarAvailability({
+        emailAccount,
+        messages,
+        logger,
+        bookingLinkAvailable:
+          activeBookingLinks.length > 0 || !!emailAccount.calendarBookingLink,
+        minimumNoticeMinutes:
+          activeBookingLinks[0]?.minimumNoticeMinutes ?? undefined,
+      }),
+  );
+  // Other To/CC recipients, used for privacy filtering of meeting context:
+  // only meetings where ALL recipients were attendees are included.
+  const additionalRecipients = [
+    ...extractEmailAddresses(lastMessage.headers.to),
+    ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
+  ].filter((email) => email.toLowerCase() !== emailAccount.email.toLowerCase());
   const [
     knowledgeResult,
     replyMemorySelection,
@@ -276,8 +321,11 @@ async function generateDraftContent(
     emailAccountSettings,
     mcpResult,
     upcomingMeetings,
+    recordedMeetings,
     emailHistorySummary,
     attachmentSelection,
+    activeBookingLinks,
+    senderReplyExamples,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -286,8 +334,8 @@ async function generateDraftContent(
       logger,
     }),
     getReplyMemoriesForPrompt({
-      emailAccountId: emailAccount.id,
-      senderEmail: extractEmailAddress(lastMessage.headers.from),
+      emailAccount,
+      senderEmail,
       emailContent: lastMessageContent,
       logger,
     }),
@@ -296,7 +344,7 @@ async function generateDraftContent(
       emailAccount,
       emailProvider,
     }),
-    aiGetCalendarAvailability({ emailAccount, messages, logger }),
+    calendarAvailabilityPromise,
     getWritingStyle({ emailAccountId: emailAccount.id }),
     prisma.emailAccount.findUnique({
       where: { id: emailAccount.id },
@@ -305,15 +353,14 @@ async function generateDraftContent(
     mcpAgent({ emailAccount, messages }),
     getMeetingContext({
       emailAccountId: emailAccount.id,
-      recipientEmail: extractEmailAddress(lastMessage.headers.from),
-      // extract all other recipients (To, CC) for privacy filtering
-      // only meetings where ALL recipients were attendees will be included
-      additionalRecipients: [
-        ...extractEmailAddresses(lastMessage.headers.to),
-        ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
-      ].filter(
-        (email) => email.toLowerCase() !== emailAccount.email.toLowerCase(),
-      ),
+      recipientEmail: senderEmail,
+      additionalRecipients,
+      logger,
+    }),
+    getRecordedMeetingContext({
+      emailAccountId: emailAccount.id,
+      recipientEmail: senderEmail,
+      additionalRecipients,
       logger,
     }),
     historicalMessagesForLLM?.length
@@ -325,6 +372,14 @@ async function generateDraftContent(
         })
       : Promise.resolve(null),
     attachmentSelectionPromise,
+    activeBookingLinksPromise,
+    collectSenderReplyExamples({
+      emailAccount,
+      emailProvider,
+      senderEmail,
+      currentMessageIds,
+      logger,
+    }),
   ]);
   const {
     content: replyMemoryContent,
@@ -332,6 +387,10 @@ async function generateDraftContent(
   } = replyMemorySelection;
   const meetingContext = formatMeetingContextForPrompt(
     upcomingMeetings,
+    emailAccount.timezone,
+  );
+  const recordedMeetingContext = formatRecordedMeetingContextForPrompt(
+    recordedMeetings,
     emailAccount.timezone,
   );
   const precedentThreadCount = emailHistoryContext?.relevantEmails.length ?? 0;
@@ -351,6 +410,8 @@ async function generateDraftContent(
       summarySourceMessageCount: historicalMessagesForLLM?.length ?? 0,
       precedentThreadsInjected: precedentThreadCount > 0,
       precedentThreadCount,
+      sameSenderReplyExamplesInjected: !!senderReplyExamples?.content,
+      sameSenderReplyExampleCount: senderReplyExamples?.count ?? 0,
     },
     calendar: {
       injected: !!calendarAvailability,
@@ -360,6 +421,10 @@ async function generateDraftContent(
     writingStyle: { custom: !!writingStyle },
     externalTools: { injected: !!mcpResult?.response },
     meetings: { injected: !!meetingContext, count: upcomingMeetings.length },
+    recordedMeetings: {
+      injected: !!recordedMeetingContext,
+      count: recordedMeetings.length,
+    },
     attachments: {
       injected: !!attachmentSelection.attachmentContext,
       selectedCount: attachmentSelection.selectedAttachments.length,
@@ -382,27 +447,32 @@ async function generateDraftContent(
   // 3. Draft reply
   const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
-    emailAccount,
+    emailAccount: { ...emailAccount, bookingLinks: activeBookingLinks },
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
+    senderReplyExamples: senderReplyExamples?.content ?? null,
     calendarAvailability,
     writingStyle,
     learnedWritingStyle: emailAccountSettings?.learnedWritingStyle ?? null,
     hasConfiguredSignature: !!emailAccountSettings?.signature?.trim(),
     mcpContext: mcpResult?.response || null,
     meetingContext,
+    recordedMeetingContext,
     attachmentContext: attachmentSelection.attachmentContext,
   });
 
-  if (
-    !meetsDraftReplyConfidenceRequirement({
-      draftConfidence: confidence,
-      minimumConfidence,
-    })
-  ) {
+  const meetsThreshold = meetsDraftReplyConfidenceRequirement({
+    draftConfidence: confidence,
+    minimumConfidence,
+  });
+  draftContextMetadata.draft = { confidence };
+
+  if (!meetsThreshold) {
+    // A suppressed draft creates no action and therefore no ExecutedAction row.
     logger.info("Skipping draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,

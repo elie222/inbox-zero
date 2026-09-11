@@ -9,12 +9,14 @@ export interface CalendarAvailabilityProvider {
    */
   fetchBusyPeriods(params: {
     accessToken?: string | null;
+    connectionId?: string | null;
     refreshToken: string | null;
     expiresAt: number | null;
     emailAccountId: string;
     calendarIds: string[];
     timeMin: string;
     timeMax: string;
+    failOnCalendarError?: boolean;
   }): Promise<BusyPeriod[]>;
   name: "google" | "microsoft";
 }

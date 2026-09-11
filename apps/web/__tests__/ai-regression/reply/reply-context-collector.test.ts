@@ -6,8 +6,6 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-regression/reply/reply-context-collector
 
-vi.mock("server-only", () => ({}));
-
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 const TEST_TIMEOUT = 60_000;
 

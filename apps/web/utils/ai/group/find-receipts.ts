@@ -6,6 +6,7 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
+import type { Logger } from "@/utils/logger";
 
 // Predefined lists of receipt senders and subjects
 const defaultReceiptSenders = [
@@ -38,9 +39,13 @@ const defaultReceiptSubjects = [
 ];
 
 // Find additional receipts from the user's inbox that don't match the predefined lists
-export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
-  const senders = await findReceiptSenders(gmail);
-  const subjects = await findReceiptSubjects(gmail);
+export async function findReceipts(
+  gmail: gmail_v1.Gmail,
+  userEmail: string,
+  logger: Logger,
+) {
+  const senders = await findReceiptSenders(gmail, logger);
+  const subjects = await findReceiptSubjects(gmail, logger);
 
   // filter out senders that would match the default list
   const filteredSenders = senders.filter(
@@ -97,11 +102,12 @@ export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
 
 const receiptSenders = ["invoice", "receipt", "payment"];
 
-async function findReceiptSenders(gmail: gmail_v1.Gmail) {
+async function findReceiptSenders(gmail: gmail_v1.Gmail, logger: Logger) {
   const query = `from:(${receiptSenders.join(" OR ")})`;
   const messages = await queryBatchMessagesPages(gmail, {
     query,
     maxResults: 100,
+    logger,
   });
 
   return uniq(messages.map((message) => message.headers.from));
@@ -117,11 +123,12 @@ const receiptSubjects = [
   '"billing statement"',
 ];
 
-async function findReceiptSubjects(gmail: gmail_v1.Gmail) {
+async function findReceiptSubjects(gmail: gmail_v1.Gmail, logger: Logger) {
   const query = `subject:(${receiptSubjects.join(" OR ")})`;
   const messages = await queryBatchMessagesPages(gmail, {
     query,
     maxResults: 100,
+    logger,
   });
 
   return uniqBy(

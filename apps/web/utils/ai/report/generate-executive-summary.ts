@@ -3,7 +3,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const executiveSummarySchema = z.object({
   userProfile: z.object({
@@ -134,7 +134,10 @@ Generate:
 3. **Top insights** about their email behavior
 4. **Quick actions** for immediate improvement`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.EmailReportExecutiveSummary,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

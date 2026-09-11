@@ -17,6 +17,7 @@ import {
   buildFollowUpReminderBlocks,
   type FollowUpReminderBlocksParams,
 } from "./messages/follow-up-reminder";
+import { getFollowUpCopy } from "@/utils/follow-up/copy";
 
 export type SlackBriefingParams = MeetingBriefingBlocksParams & {
   accessToken: string;
@@ -44,7 +45,7 @@ export async function sendMeetingBriefingToSlack({
 
   await postMessageWithJoin(client, channelId, {
     blocks,
-    text: `Briefing for ${meetingTitle}, starting at ${formattedTime}`,
+    text: `📅 Briefing for ${meetingTitle}, starting at ${formattedTime}`,
   });
 }
 
@@ -60,23 +61,25 @@ export async function sendChannelConfirmation({
   const client = createSlackClient(accessToken);
 
   await postMessageWithJoin(client, channelId, {
-    text: `Inbox Zero connected! You can ${formatSlackAppMention(botUserId)} here to chat about your emails. If you enable meeting briefs or attachment filing notifications, I can send those in this channel too.`,
+    text: `✅ Inbox Zero connected! You can mention ${formatSlackAppMention(botUserId)} in this channel to chat about your emails. If you enable meeting briefs or attachment filing notifications, I can send those here too.`,
   });
 }
 
 export async function sendConnectionOnboardingDirectMessage({
   accessToken,
   userId,
+  botUserId,
 }: {
   accessToken: string;
   userId: string;
+  botUserId?: string | null;
 }): Promise<void> {
   const client = createSlackClient(accessToken);
 
   await client.chat.postMessage(
     disableSlackLinkUnfurls({
       channel: userId,
-      text: "Inbox Zero connected. Next, choose a private channel in Inbox Zero Settings for meeting brief and attachment notifications, then invite @InboxZero there. You can also DM me anytime to chat about your emails.",
+      text: `✅ Inbox Zero connected. Next, choose a private channel in Inbox Zero Settings for meeting brief and attachment notifications, then invite ${formatSlackAppMention(botUserId)} there. You can also DM me anytime to chat about your emails.`,
     }),
   );
 }
@@ -106,7 +109,7 @@ export async function sendDocumentFiledToSlack({
 
   await postMessageWithJoin(client, channelId, {
     blocks,
-    text: `Filed ${filename} to ${folderPath}`,
+    text: `📨 Filed ${filename} to ${folderPath}`,
   });
 }
 
@@ -127,7 +130,7 @@ export async function sendDocumentAskToSlack({
 
   await postMessageWithJoin(client, channelId, {
     blocks,
-    text: `Where should I file ${filename}?`,
+    text: `📄 Where should I file ${filename}?`,
   });
 }
 
@@ -152,7 +155,7 @@ export async function sendDigestToSlack({
 
   await postMessageWithJoin(client, channelId, {
     blocks,
-    text: "Your Inbox Zero digest",
+    text: "📋 Your Inbox Zero digest",
   });
 }
 
@@ -165,13 +168,14 @@ export async function sendFollowUpReminderToSlack({
   accessToken,
   channelId,
   ...blockParams
-}: SlackFollowUpReminderParams): Promise<void> {
+}: SlackFollowUpReminderParams): Promise<string | null> {
   const client = createSlackClient(accessToken);
   const blocks = buildFollowUpReminderBlocks(blockParams);
+  const { emoji } = getFollowUpCopy(blockParams.trackerType);
 
-  await postMessageWithJoin(client, channelId, {
+  return postMessageWithJoin(client, channelId, {
     blocks,
-    text: `Follow-up: ${blockParams.subject}`,
+    text: `${emoji} Follow-up: ${blockParams.subject}`,
   });
 }
 
@@ -251,7 +255,7 @@ async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
   message: { text: string; blocks?: Blocks },
-): Promise<void> {
+): Promise<string | null> {
   const args = disableSlackLinkUnfurls(
     message.blocks
       ? { channel: channelId, blocks: message.blocks, text: message.text }
@@ -259,7 +263,8 @@ async function postMessageWithJoin(
   );
 
   try {
-    await client.chat.postMessage(args);
+    const response = await client.chat.postMessage(args);
+    return response.ts ?? null;
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
       try {
@@ -275,8 +280,8 @@ async function postMessageWithJoin(
         }
         throw joinError;
       }
-      await client.chat.postMessage(args);
-      return;
+      const response = await client.chat.postMessage(args);
+      return response.ts ?? null;
     }
     throw error;
   }

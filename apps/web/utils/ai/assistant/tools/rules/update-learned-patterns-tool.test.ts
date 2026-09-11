@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { updateLearnedPatternsTool } from "./update-learned-patterns-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
@@ -13,7 +12,7 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPatterns: vi.fn(),
 }));
 
-const logger = createScopedLogger("update-learned-patterns-tool-test");
+const logger = createTestLogger();
 
 describe("updateLearnedPatternsTool", () => {
   beforeEach(() => {
@@ -46,6 +45,124 @@ describe("updateLearnedPatternsTool", () => {
       toolErrorVisibility: "hidden",
     });
     expect(prisma.rule.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("marks missing-rule retry guidance as hidden from user display", async () => {
+    prisma.rule.findUnique.mockResolvedValueOnce(null);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [
+        {
+          exclude: {
+            from: "sender@example.com",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+      toolErrorVisibility: "hidden",
+    });
+  });
+
+  it("reports that saved patterns improve matching without guaranteeing it", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "VIP senders",
+      updatedAt: new Date("2026-04-12T10:00:00.000Z"),
+      organizationRuleId: null,
+      emailAccount: {
+        rulesRevision: 3,
+      },
+    } as never);
+    vi.mocked(saveLearnedPatterns).mockResolvedValue({} as never);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [
+        {
+          include: {
+            from: "vip@example.com",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: true,
+      ruleId: "rule-1",
+      futureMatchGuaranteed: false,
+      summary:
+        "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute.",
+    });
+  });
+
+  it("returns a hidden failure for empty learned patterns", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "VIP senders",
+      updatedAt: new Date("2026-04-12T10:00:00.000Z"),
+      organizationRuleId: null,
+      emailAccount: {
+        rulesRevision: 3,
+      },
+    } as never);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [{ include: null, exclude: null }],
+    });
+
+    expect(saveLearnedPatterns).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: false,
+      error:
+        "No learned patterns were saved because no sender or subject pattern was provided.",
+      toolErrorVisibility: "hidden",
+    });
   });
 
   it("returns a failure when saving learned patterns fails", async () => {

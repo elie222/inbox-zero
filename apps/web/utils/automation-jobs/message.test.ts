@@ -1,21 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount, getMockEmailProvider } from "@/__tests__/helpers";
 import type { AutomationCheckInEmailAccount } from "@/utils/ai/automation-jobs/generate-check-in-message";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const { mockAiGenerateAutomationCheckInMessage } = vi.hoisted(() => {
   const mockAiGenerateAutomationCheckInMessage = vi.fn();
   return { mockAiGenerateAutomationCheckInMessage };
 });
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/ai/automation-jobs/generate-check-in-message", () => ({
   aiGenerateAutomationCheckInMessage: mockAiGenerateAutomationCheckInMessage,
 }));
 
 import { getAutomationJobMessage } from "./message";
 
-const logger = createScopedLogger("automation-jobs-message-test");
+const logger = createTestLogger();
 const emailAccount: AutomationCheckInEmailAccount = {
   ...getEmailAccount({
     email: "user@example.com",

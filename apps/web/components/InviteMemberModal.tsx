@@ -1,8 +1,8 @@
 "use client";
 
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { PlusIcon, XIcon } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -22,21 +22,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TagInput } from "@/components/TagInput";
-import { Label } from "@/components/ui/label";
 import {
-  inviteMemberAction,
+  inviteMembersAction,
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
-import {
-  inviteMemberBody,
-  type InviteMemberBody,
-} from "@/utils/actions/organization.validation";
+import { MAX_BULK_INVITES } from "@/utils/actions/organization.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isValidEmail } from "@/utils/email";
+
+type InviteRole = "admin" | "member";
+
+type InviteFormValues = {
+  invitations: { email: string; role: InviteRole }[];
+};
 
 export function InviteMemberModal({
   organizationId,
@@ -67,18 +68,16 @@ export function InviteMemberModal({
       {trigger !== null &&
         (trigger ?? (
           <DialogTrigger asChild>
-            <Button size="sm">Invite Member</Button>
+            <Button size="sm">Invite Members</Button>
           </DialogTrigger>
         ))}
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {organizationId ? "Invite Member" : "Invite Members"}
-          </DialogTitle>
+          <DialogTitle>Invite teammates</DialogTitle>
           <DialogDescription>
             {organizationId
-              ? "Send an invitation to join your organization."
+              ? "We'll send each teammate an email with a link to join your organization. The link expires in two weeks."
               : "Enter email addresses to invite team members."}
           </DialogDescription>
         </DialogHeader>
@@ -108,83 +107,144 @@ function InviteForm({
 }) {
   const {
     register,
+    control,
     handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
     setValue,
     watch,
-  } = useForm<InviteMemberBody>({
-    resolver: zodResolver(inviteMemberBody),
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<InviteFormValues>({
     defaultValues: {
-      organizationId,
-      role: "member",
+      invitations: [
+        { email: "", role: "member" },
+        { email: "", role: "member" },
+      ],
     },
   });
 
-  const selectedRole = watch("role");
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "invitations",
+  });
 
-  const onSubmit: SubmitHandler<InviteMemberBody> = useCallback(
-    async (data) => {
-      const result = await inviteMemberAction(data);
+  const invitations = watch("invitations");
+  const canAddMore = fields.length < MAX_BULK_INVITES;
 
-      if (result?.serverError) {
-        toastError({
-          title: "Error sending invitation",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({
-          description: "Invitation sent successfully!",
-        });
-        reset();
-        onClose();
-        onSuccess?.();
-      }
-    },
-    [reset, onClose, onSuccess],
-  );
+  const onSubmit = handleSubmit(async (data) => {
+    const filled = data.invitations
+      .map((i) => ({ email: i.email.trim().toLowerCase(), role: i.role }))
+      .filter((i) => i.email.length > 0);
+
+    if (filled.length === 0) {
+      toastError({ description: "Please enter at least one email address" });
+      return;
+    }
+
+    const result = await inviteMembersAction({
+      organizationId,
+      invitations: filled,
+    });
+
+    if (result?.serverError) {
+      toastError({
+        title: "Error sending invitations",
+        description: result.serverError,
+      });
+      return;
+    }
+
+    if (!result?.data) return;
+
+    const successCount = result.data.results.filter((r) => r.success).length;
+    const failures = result.data.results.filter((r) => !r.success);
+
+    if (successCount > 0) {
+      toastSuccess({
+        description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
+      });
+      onSuccess?.();
+      reset();
+      onClose();
+    }
+
+    if (failures.length > 0) {
+      toastError({
+        title: `Failed to send ${failures.length} invitation${failures.length > 1 ? "s" : ""}`,
+        description: failures
+          .map((f) => `${f.email}: ${f.error ?? "Failed"}`)
+          .join("\n"),
+      });
+    }
+  });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input
-        type="email"
-        name="email"
-        label="Email Address"
-        placeholder="john.doe@example.com"
-        registerProps={register("email")}
-        error={errors.email}
-      />
-
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
-        <div className="flex items-center space-x-2">
-          <Label htmlFor="role">Role</Label>
-          <TooltipExplanation
-            side="right"
-            text="Members can view and collaborate.\nAdmins can manage the organization and invite others."
-          />
-        </div>
-        <Select
-          value={selectedRole}
-          onValueChange={(value) =>
-            setValue("role", value as "admin" | "member")
-          }
-        >
-          <SelectTrigger id="role">
-            <SelectValue placeholder="Select a role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="member">Member</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-          </SelectContent>
-        </Select>
+        {fields.map((field, index) => (
+          <div key={field.id} className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <Input
+                type="email"
+                name={`invitations.${index}.email`}
+                placeholder="email@example.com"
+                registerProps={register(`invitations.${index}.email`, {
+                  validate: (v) =>
+                    !v.trim() ||
+                    isValidEmail(v.trim()) ||
+                    "Please enter a valid email address",
+                })}
+                error={errors.invitations?.[index]?.email}
+              />
+            </div>
+            <div className="w-[130px] flex-shrink-0">
+              <Select
+                value={invitations[index]?.role}
+                onValueChange={(value) =>
+                  setValue(`invitations.${index}.role`, value as InviteRole, {
+                    shouldDirty: true,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => remove(index)}
+              disabled={fields.length === 1}
+              aria-label="Remove invitation"
+            >
+              <XIcon className="size-4" />
+            </Button>
+          </div>
+        ))}
       </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => append({ email: "", role: "member" })}
+        disabled={!canAddMore}
+        className="px-2 -ml-2"
+      >
+        <PlusIcon className="size-4 mr-2" />
+        Add another email
+      </Button>
 
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="outline">Cancel</Button>
         </DialogClose>
         <Button type="submit" loading={isSubmitting}>
-          Send Invitation
+          Send invites
         </Button>
       </DialogFooter>
     </form>

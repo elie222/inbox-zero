@@ -1,3 +1,8 @@
+import { Suspense } from "react";
+import {
+  ConversionAnalyticsScript,
+  ConversionQueryParamEvents,
+} from "@/components/ConversionAnalytics";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SetupContent } from "./SetupContent";
@@ -10,6 +15,10 @@ export default async function SetupPage(props: {
 
   return (
     <>
+      <Suspense>
+        <ConversionQueryParamEvents />
+      </Suspense>
+      <ConversionAnalyticsScript />
       <SetupContent />
       <LoadStats loadBefore showToast={false} />
     </>

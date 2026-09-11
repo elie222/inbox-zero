@@ -6,7 +6,12 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildHiddenRuleNotFoundError,
+  buildVisibleOrgManagedRuleError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const updateLearnedPatternsTool = ({
   email,
@@ -21,7 +26,7 @@ export const updateLearnedPatternsTool = ({
 }) =>
   tool({
     description:
-      "Update the learned patterns of an existing inbox rule after you have identified the exact rule to change. Use when an existing category rule already fits and the user wants recurring senders added or removed, instead of creating a new rule or editing static from/to fields. If a recurring sender should move from one rule to another, update both rules with learned-pattern includes and excludes.",
+      "Update the learned patterns of an existing inbox rule after you have identified the exact rule to change. Use when an existing category rule already fits and the user wants recurring senders added or removed, including feedback that a message from a known sender should have matched that existing rule. Save the precise learned sender or subject pattern instead of broadly rewriting the rule's AI instructions, creating a new rule, or editing static from/to fields. If a recurring sender should move from one rule to another, update both rules with learned-pattern includes and excludes. Report a successful save as an intended matching improvement, not a guarantee about every future message.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z
@@ -81,6 +86,7 @@ export const updateLearnedPatternsTool = ({
             id: true,
             name: true,
             updatedAt: true,
+            organizationRuleId: true,
             emailAccount: {
               select: {
                 rulesRevision: true,
@@ -90,11 +96,11 @@ export const updateLearnedPatternsTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
+        }
+
+        if (rule.organizationRuleId) {
+          return buildVisibleOrgManagedRuleError();
         }
 
         const staleReadError = validateRuleWasReadRecently({
@@ -150,23 +156,35 @@ export const updateLearnedPatternsTool = ({
           }
         }
 
-        if (patternsToSave.length > 0) {
-          const result = await saveLearnedPatterns({
-            emailAccountId,
-            ruleName: rule.name,
-            patterns: patternsToSave,
-            logger,
+        if (patternsToSave.length === 0) {
+          return hideToolErrorFromUser({
+            success: false,
+            error:
+              "No learned patterns were saved because no sender or subject pattern was provided.",
           });
-
-          if (result?.error) {
-            return {
-              success: false,
-              error: result.error,
-            };
-          }
         }
 
-        return { success: true, ruleId: rule.id };
+        const result = await saveLearnedPatterns({
+          emailAccountId,
+          ruleName: rule.name,
+          patterns: patternsToSave,
+          logger,
+        });
+
+        if (result?.error) {
+          return {
+            success: false,
+            error: result.error,
+          };
+        }
+
+        return {
+          success: true,
+          ruleId: rule.id,
+          futureMatchGuaranteed: false,
+          summary:
+            "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute.",
+        };
       } catch (error) {
         logger.error("Failed to update learned patterns", { error, ruleName });
         return {

@@ -4,6 +4,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { env } from "@/env";
+import { beforeSend, beforeSendTransaction } from "@/utils/sentry-scrub";
 
 Sentry.init({
   dsn: env.NEXT_PUBLIC_SENTRY_DSN,
@@ -13,6 +14,10 @@ Sentry.init({
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
+
+  // Redact PII/secrets before sending to Sentry (third party).
+  beforeSend,
+  beforeSendTransaction,
 
   replaysOnErrorSampleRate: 1.0,
 

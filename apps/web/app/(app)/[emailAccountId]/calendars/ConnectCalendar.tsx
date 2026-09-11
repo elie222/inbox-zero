@@ -11,6 +11,7 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { CALENDAR_ONBOARDING_RETURN_COOKIE } from "@/utils/calendar/constants";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import type { AppPage } from "@/utils/analytics/product";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function ConnectCalendar({
   analyticsPage,
@@ -49,7 +50,7 @@ export function ConnectCalendar({
 
       const data: GetCalendarAuthUrlResponse = await response.json();
       setOnboardingReturnCookie();
-      window.location.href = data.url;
+      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       analytics.captureAction("calendar_connect_start_failed", {
         provider: "google",
@@ -84,7 +85,7 @@ export function ConnectCalendar({
 
       const data: GetCalendarAuthUrlResponse = await response.json();
       setOnboardingReturnCookie();
-      window.location.href = data.url;
+      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       analytics.captureAction("calendar_connect_start_failed", {
         provider: "microsoft",

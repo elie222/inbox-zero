@@ -64,17 +64,11 @@ export function bulkRunReducer(
       // Don't override stopped status
       if (state.status === "stopped") return state;
 
-      // No emails found - go back to idle
-      if (action.count === 0) {
-        return {
-          ...state,
-          status: "idle",
-          runResult: { count: 0 },
-        };
-      }
-
-      // Keep current status (processing or paused)
-      return state;
+      return {
+        ...state,
+        status: "idle",
+        runResult: { count: action.count },
+      };
 
     case "PAUSE":
       if (state.status !== "processing") return state;

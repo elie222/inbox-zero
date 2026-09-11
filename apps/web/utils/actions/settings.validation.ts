@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Frequency } from "@/generated/prisma/enums";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
+import { SENSITIVE_DATA_POLICIES } from "@/utils/dlp/sensitive-content";
 
 export const saveDigestScheduleBody = z.object({
   intervalDays: z.number().nullable(),
@@ -37,6 +38,13 @@ export const saveAiSettingsBody = z.object({
   aiApiKey: z.string().optional(),
 });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
+
+export const saveSensitiveDataPolicyBody = z.object({
+  sensitiveDataPolicy: z.enum(SENSITIVE_DATA_POLICIES),
+});
+export type SaveSensitiveDataPolicyBody = z.infer<
+  typeof saveSensitiveDataPolicyBody
+>;
 
 export const updateDigestItemsBody = z.object({
   ruleDigestPreferences: z.record(z.string(), z.boolean()),

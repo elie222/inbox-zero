@@ -4,7 +4,7 @@ import { Footer } from "@/components/new-landing/sections/Footer";
 export function BlogHeader() {
   return (
     <div className="sticky inset-x-0 top-0 z-30 w-full transition-all">
-      <div className="bg-white/75 shadow backdrop-blur-md">
+      <div className="bg-white shadow">
         <Header className="mx-auto w-full max-w-screen-xl px-6 lg:px-8" />
       </div>
     </div>

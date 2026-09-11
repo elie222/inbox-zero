@@ -9,6 +9,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { BRAND_NAME } from "@/utils/branding";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export default function PermissionsConsentPage() {
   const { provider, isLoading: accountLoading } = useAccount();
@@ -21,7 +22,7 @@ export default function PermissionsConsentPage() {
     try {
       const accountProvider = provider === "microsoft" ? "microsoft" : "google";
       const url = await getAccountLinkingUrl(accountProvider);
-      window.location.href = url;
+      redirectToSafeUrl(url, { allowExternal: true });
     } catch {
       toastError({
         title: "Error initiating reconnection",

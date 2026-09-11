@@ -1,12 +1,10 @@
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { saasFounderMixedInbox } from "@/__tests__/fixtures/inboxes/demo-inboxes";
 import { toGmailSeedMessages } from "@/__tests__/fixtures/inboxes/adapters";
 import {
   createGmailTestHarness,
   type GmailTestHarness,
 } from "@/__tests__/integration/helpers";
-
-vi.mock("server-only", () => ({}));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
 

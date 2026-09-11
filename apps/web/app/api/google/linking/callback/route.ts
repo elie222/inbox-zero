@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -26,6 +28,7 @@ import {
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const actorUserId = (await auth(request.headers))?.user.id ?? null;
@@ -62,7 +65,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     targetUserId,
   });
 
-  if (actorUserId && actorUserId !== targetUserId) {
+  if (!actorUserId || actorUserId !== targetUserId) {
     return createAccountLinkingRedirect({
       query: { error: "invalid_state" },
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
@@ -136,6 +139,39 @@ export const GET = withError("google/linking/callback", async (request) => {
       return linkingResult.response;
     }
 
+    if (linkingResult.type === "update_existing_account") {
+      assertVerifiedGoogleEmail(payload);
+
+      logger.info(
+        "Updating existing Google account with new providerAccountId",
+        {
+          email: providerEmail,
+          targetUserId,
+          accountId: linkingResult.existingAccountId,
+        },
+      );
+
+      await updateGoogleAccount({
+        accountId: linkingResult.existingAccountId,
+        providerAccountId,
+        tokens,
+      });
+
+      logger.info("OAuth linking callback completed", {
+        accountId: linkingResult.existingAccountId,
+        outcome: "tokens_updated",
+        providerEmailHash: hash(providerEmail),
+        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+      });
+
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "tokens_updated",
+        targetUserId,
+      });
+    }
+
     if (linkingResult.type === "continue_create") {
       if (isGoogleOauthEmulationEnabled()) {
         const existingEmulatedAccount = await prisma.emailAccount.findFirst({
@@ -150,6 +186,8 @@ export const GET = withError("google/linking/callback", async (request) => {
         });
 
         if (existingEmulatedAccount) {
+          assertVerifiedGoogleEmail(payload);
+
           logger.info(
             "Updating existing Google emulator account for same user and email",
             {
@@ -163,10 +201,11 @@ export const GET = withError("google/linking/callback", async (request) => {
             tokens,
           });
 
-          await setOAuthCodeResult(code, { success: "tokens_updated" });
-          return createAccountLinkingRedirect({
-            query: { success: "tokens_updated" },
-            stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+          return completeGoogleAccountLinking({
+            code,
+            logger,
+            success: "tokens_updated",
+            targetUserId,
           });
         }
       }
@@ -254,10 +293,11 @@ export const GET = withError("google/linking/callback", async (request) => {
         }
       }
 
-      await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-      return createAccountLinkingRedirect({
-        query: { success: "account_created_and_linked" },
-        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "account_created_and_linked",
+        targetUserId,
       });
     }
 
@@ -285,10 +325,11 @@ export const GET = withError("google/linking/callback", async (request) => {
         providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
       });
 
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "tokens_updated",
+        targetUserId,
       });
     }
 
@@ -299,6 +340,8 @@ export const GET = withError("google/linking/callback", async (request) => {
       targetUserId,
     });
 
+    assertVerifiedGoogleEmail(payload);
+
     const mergeType = await mergeAccount({
       sourceAccountId: linkingResult.sourceAccountId,
       sourceUserId: linkingResult.sourceUserId,
@@ -306,6 +349,12 @@ export const GET = withError("google/linking/callback", async (request) => {
       email: providerEmail,
       name: existingAccount?.user.name || null,
       logger,
+    });
+
+    await updateGoogleAccount({
+      accountId: linkingResult.sourceAccountId,
+      providerAccountId,
+      tokens,
     });
 
     const successMessage =
@@ -326,10 +375,11 @@ export const GET = withError("google/linking/callback", async (request) => {
       sourceUserId: linkingResult.sourceUserId,
     });
 
-    await setOAuthCodeResult(code, { success: successMessage });
-    return createAccountLinkingRedirect({
-      query: { success: successMessage },
-      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    return completeGoogleAccountLinking({
+      code,
+      logger,
+      success: successMessage,
+      targetUserId,
     });
   } catch (error) {
     await clearOAuthCode(code);
@@ -350,6 +400,43 @@ interface GoogleTokens {
   token_type?: string | null;
 }
 
+async function completeGoogleAccountLinking({
+  code,
+  logger,
+  success,
+  targetUserId,
+}: {
+  code: string;
+  logger: Parameters<typeof handleOAuthCallbackError>[0]["logger"];
+  success: "account_created_and_linked" | "account_merged" | "tokens_updated";
+  targetUserId: string;
+}) {
+  await setOAuthCodeResult(code, { success });
+
+  after(() =>
+    ensureEmailAccountsWatched({ userIds: [targetUserId], logger })
+      .finally(() =>
+        clearAccountDisconnectedErrorIfResolved({
+          userId: targetUserId,
+          logger,
+        }),
+      )
+      .catch((error) => {
+        logger.error(
+          "Failed to re-register email watches after account linking",
+          {
+            error,
+          },
+        );
+      }),
+  );
+
+  return createAccountLinkingRedirect({
+    query: { success },
+    stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+  });
+}
+
 async function updateGoogleAccount({
   accountId,
   providerAccountId,
@@ -365,6 +452,7 @@ async function updateGoogleAccount({
       ...(providerAccountId && {
         providerAccountId,
       }),
+      disconnectedAt: null,
       access_token: tokens.access_token,
       ...(tokens.refresh_token != null && {
         refresh_token: tokens.refresh_token,
@@ -375,6 +463,12 @@ async function updateGoogleAccount({
       id_token: tokens.id_token,
     },
   });
+}
+
+function assertVerifiedGoogleEmail(payload: { email_verified?: boolean }) {
+  if (payload.email_verified !== true) {
+    throw new SafeError("Google email claim is not verified.");
+  }
 }
 
 async function getGoogleProfilePayload({

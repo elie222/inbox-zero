@@ -19,6 +19,10 @@ const ENCRYPTED_FIELDS = {
   messagingChannel: ["accessToken", "refreshToken"],
   mcpConnection: ["accessToken", "refreshToken", "apiKey"],
   mcpIntegration: ["oauthClientSecret"],
+  // The raw join link carries the meeting password for Zoom and Teams. Dedup
+  // queries use normalizedMeetingUrl and activeKey, never this field, so
+  // encrypting it does not break any lookup.
+  meetingRecording: ["meetingUrl"],
   user: ["aiApiKey", "webhookSecret"],
 } as const satisfies Record<string, readonly string[]>;
 

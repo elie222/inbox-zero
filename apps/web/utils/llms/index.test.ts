@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isTransientNetworkError, withNetworkRetry } from "./retry";
 
-vi.mock("server-only", () => ({}));
-
 // Mock sleep to avoid waiting in tests
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
@@ -51,6 +49,16 @@ describe("isTransientNetworkError", () => {
       message: "terminated",
       name: "TypeError",
     };
+    expect(isTransientNetworkError(error)).toBe(true);
+  });
+
+  it("should return true when a successful provider response is truncated JSON", () => {
+    const error = new Error("Invalid JSON response");
+    error.name = "AI_APICallError";
+    error.cause = new Error(
+      "JSON parsing failed: Unexpected end of JSON input",
+    );
+
     expect(isTransientNetworkError(error)).toBe(true);
   });
 

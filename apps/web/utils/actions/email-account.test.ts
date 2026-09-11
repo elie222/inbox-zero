@@ -2,29 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { updateEmailAccountRoleAction } from "./email-account";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
 }));
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-
-  return {
-    ...actual,
-    after: vi.fn((callback: () => Promise<void> | void) => callback()),
-  };
-});
-vi.mock("@sentry/nextjs", () => ({
-  setTag: vi.fn(),
-  setUser: vi.fn(),
-  captureException: vi.fn(),
-  withServerActionInstrumentation: vi.fn(
-    async (_name: string, callback: () => Promise<unknown>) => callback(),
-  ),
-}));
+vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 
 const { updateContactRoleMock } = vi.hoisted(() => ({
   updateContactRoleMock: vi.fn().mockResolvedValue(undefined),
@@ -79,6 +63,21 @@ describe("updateEmailAccountRoleAction", () => {
     expect(updateContactRoleMock).toHaveBeenCalledWith({
       email: "user@example.com",
       role: "Founder",
+    });
+  });
+
+  it("can skip writing onboarding answers when another flow owns the transcript", async () => {
+    const result = await updateEmailAccountRoleAction("email-account-1", {
+      role: "Founder",
+      writeOnboardingAnswers: false,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        surveyRole: "Founder",
+      },
     });
   });
 

@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
-vi.mock("server-only", () => ({}));
+const { mockGetModel, mockOpenRouterWebSearch } = vi.hoisted(() => ({
+  mockGetModel: vi.fn(),
+  mockOpenRouterWebSearch: vi.fn(() => ({ type: "provider" })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",
-    DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_LLMS: "openai:gpt-5.4-mini",
     EMAIL_ENCRYPT_SECRET: "test-encrypt-secret-for-testing",
     EMAIL_ENCRYPT_SALT: "test-encrypt-salt-for-testing",
   },
 }));
-vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
+vi.mock("@/utils/llms/model", () => ({
+  getModel: mockGetModel,
+}));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
+vi.mock("@openrouter/ai-sdk-provider", () => ({
+  openrouter: { tools: { webSearch: mockOpenRouterWebSearch } },
+}));
 vi.mock("@/utils/ai/helpers", () => ({
   getUserInfoPrompt: vi.fn(
     ({ emailAccount }) =>
@@ -39,10 +48,18 @@ vi.mock("@/utils/get-email-from-message", () => ({
 vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
+import { getWebSearchConfigForProvider } from "@/utils/ai/web-search";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetModel.mockReturnValue({
+    provider: "openai",
+    modelName: "gpt-5.4-mini",
+    model: { id: "model" },
+    fallbackModels: [],
+    hasUserApiKey: false,
+  });
 });
 
 describe("buildPrompt timezone handling", () => {
@@ -86,7 +103,10 @@ describe("buildPrompt timezone handling", () => {
       ],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
     expect(prompt).toMatchInlineSnapshot(`
@@ -147,7 +167,10 @@ describe("buildPrompt timezone handling", () => {
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     expect(prompt).toMatchInlineSnapshot(`
       "Prepare a concise briefing for this upcoming meeting.
@@ -180,5 +203,46 @@ describe("buildPrompt timezone handling", () => {
       2. Use search tools to find their professional background
       3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
+  });
+
+  it("only advertises the search tools built for the account", () => {
+    const briefingData: MeetingBriefingData = {
+      event: {
+        id: "upcoming",
+        title: "Intro Meeting",
+        startTime: new Date("2024-12-31T21:00:00Z"),
+        endTime: new Date("2024-12-31T22:00:00Z"),
+        attendees: [
+          { email: "user@company.com" },
+          { email: "newcontact@other.com", name: "New Person" },
+        ],
+      },
+      externalGuests: [{ email: "newcontact@other.com", name: "New Person" }],
+      internalTeamMembers: [],
+      emailThreads: [],
+      pastMeetings: [],
+    };
+
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+    ]);
+
+    expect(prompt).toContain("Available search tools: perplexitySearch");
+    expect(prompt).not.toContain("webSearch");
+  });
+
+  it("requires one OpenRouter server web search", () => {
+    const config = getWebSearchConfigForProvider("openrouter");
+    const tools = config?.tools;
+
+    expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
+      engine: "auto",
+      maxResults: 5,
+    });
+    expect(tools).toHaveProperty("web_search");
+    expect(config?.providerOptions).toEqual({
+      openrouter: { max_tool_calls: 1 },
+    });
+    expect(config?.toolChoice).toBe("required");
   });
 });

@@ -10,6 +10,195 @@ export function createTestLogger() {
   return createScopedLogger("test");
 }
 
+type WithErrorTestHandler<TContext extends unknown[]> = (
+  request: Request,
+  ...context: TContext
+) => Promise<Response>;
+
+type TestRequestWithLogger = Request & {
+  logger: ReturnType<typeof createTestLogger>;
+};
+
+type TestAuth = {
+  userId: string;
+};
+
+type TestEmailAccountAuth = {
+  email: string;
+  emailAccountId: string;
+  userId: string;
+};
+
+type TestMiddlewareHandler = (
+  request: Request,
+  ...context: unknown[]
+) => Promise<Response>;
+
+type TestSafeErrorOptions = {
+  handleSafeErrors?: boolean;
+};
+
+export function createWithErrorTestMiddleware({
+  logger = createTestLogger(),
+  handleSafeErrors = false,
+}: {
+  logger?: ReturnType<typeof createTestLogger>;
+  handleSafeErrors?: boolean;
+} = {}) {
+  const wrap =
+    <TContext extends unknown[]>(handler: WithErrorTestHandler<TContext>) =>
+    async (request: Request, ...context: TContext) => {
+      (request as TestRequestWithLogger).logger = logger;
+      return runTestMiddlewareHandler(
+        () => handler(request, ...context),
+        handleSafeErrors,
+      );
+    };
+
+  return {
+    withError: <TContext extends unknown[]>(
+      scopeOrHandler: string | WithErrorTestHandler<TContext>,
+      handler?: WithErrorTestHandler<TContext>,
+    ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
+  };
+}
+
+export function createWithAuthTestMiddleware(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
+) {
+  return { withAuth: createAuthTestMiddlewareWrapper(options) };
+}
+
+export function createWithAdminTestMiddleware(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
+) {
+  return { withAdmin: createAuthTestMiddlewareWrapper(options) };
+}
+
+export function createWithEmailAccountTestMiddleware(
+  options?: Parameters<typeof addTestEmailAccountAuth>[1] &
+    TestSafeErrorOptions,
+) {
+  const { handleSafeErrors = false, ...authOptions } = options ?? {};
+
+  const wrap =
+    (handler: TestMiddlewareHandler) =>
+    async (request: Request, ...context: unknown[]) =>
+      runTestMiddlewareHandler(
+        () =>
+          handler(addTestEmailAccountAuth(request, authOptions), ...context),
+        handleSafeErrors,
+      );
+
+  return {
+    withEmailAccount: (
+      scopeOrHandler: string | TestMiddlewareHandler,
+      handler?: TestMiddlewareHandler,
+    ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
+  };
+}
+
+export function createWithEmailProviderTestMiddleware(
+  emailProvider: unknown,
+  options?: Parameters<typeof addTestEmailAccountAuth>[1] &
+    TestSafeErrorOptions,
+) {
+  const { withEmailAccount } = createWithEmailAccountTestMiddleware(options);
+
+  return {
+    withEmailProvider: (
+      scopeOrHandler: string | TestMiddlewareHandler,
+      handler?: TestMiddlewareHandler,
+    ) => {
+      const wrapped =
+        typeof scopeOrHandler === "string" ? handler! : scopeOrHandler;
+
+      return withEmailAccount((request, ...context) =>
+        wrapped(Object.assign(request, { emailProvider }), ...context),
+      );
+    },
+  };
+}
+
+export function addTestAuth<TRequest extends Request>(
+  request: TRequest,
+  {
+    auth = {
+      userId: "user-1",
+    },
+    logger = createTestLogger(),
+  }: {
+    auth?: TestAuth;
+    logger?: ReturnType<typeof createTestLogger>;
+  } = {},
+) {
+  return Object.assign(request, { auth, logger });
+}
+
+export function addTestEmailAccountAuth<TRequest extends Request>(
+  request: TRequest,
+  {
+    auth = {
+      userId: "user-1",
+      emailAccountId: "email-account-1",
+      email: "user@example.com",
+    },
+    logger = createTestLogger(),
+  }: {
+    auth?: TestEmailAccountAuth;
+    logger?: ReturnType<typeof createTestLogger>;
+  } = {},
+) {
+  return Object.assign(request, { auth, logger });
+}
+
+function createAuthTestMiddlewareWrapper(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
+) {
+  const { handleSafeErrors = false, ...authOptions } = options ?? {};
+
+  const wrap =
+    (handler: TestMiddlewareHandler) =>
+    async (request: Request, ...context: unknown[]) =>
+      runTestMiddlewareHandler(
+        () => handler(addTestAuth(request, authOptions), ...context),
+        handleSafeErrors,
+      );
+
+  return (
+    scopeOrHandler: string | TestMiddlewareHandler,
+    handler?: TestMiddlewareHandler,
+  ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler);
+}
+
+async function runTestMiddlewareHandler(
+  handler: () => Promise<Response>,
+  handleSafeErrors: boolean,
+) {
+  try {
+    return await handler();
+  } catch (error) {
+    const response = handleSafeErrors ? getSafeErrorTestResponse(error) : null;
+    if (response) return response;
+
+    throw error;
+  }
+}
+
+function getSafeErrorTestResponse(error: unknown) {
+  if (!(error instanceof Error) || error.name !== "SafeError") return null;
+
+  const safeError = error as Error & {
+    safeMessage?: string;
+    statusCode?: number;
+  };
+
+  return Response.json(
+    { error: safeError.safeMessage, isKnownError: true },
+    { status: safeError.statusCode ?? 400 },
+  );
+}
+
 type EmailAccountSelect = {
   id: string;
   email: string;
@@ -39,6 +228,7 @@ export function getEmailAccount(
     email: overrides.email || "user@test.com",
     about: null,
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
+    sensitiveDataPolicy: overrides.sensitiveDataPolicy ?? "ALLOW",
     timezone: null,
     calendarBookingLink: null,
     draftReplyConfidence: overrides.draftReplyConfidence ?? "MEDIUM",
@@ -139,6 +329,8 @@ export function getRule(
     conditionalOperator: LogicalOperator.AND,
     systemType: null,
     promptText: null,
+    organizationRuleId: null,
+    organizationRuleMemberEnabled: null,
   };
 }
 
@@ -322,5 +514,32 @@ export function getCalendarConnection({
     createdAt: new Date(),
     updatedAt: new Date(),
     calendars: calendarIds.map((id) => ({ calendarId: id })),
+  };
+}
+
+export function getMockOrganizationMembership({
+  role,
+  ownerUserId = "org-owner",
+  ownerPremiumId = null,
+}: {
+  role: string;
+  ownerUserId?: string;
+  ownerPremiumId?: string | null;
+}) {
+  return {
+    role,
+    organization: {
+      members: [
+        {
+          emailAccount: {
+            user: {
+              id: ownerUserId,
+              premiumId: ownerPremiumId,
+              premiumAdminId: null,
+            },
+          },
+        },
+      ],
+    },
   };
 }

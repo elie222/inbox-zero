@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterAll } from "vitest";
+import { describe, test, expect, afterAll } from "vitest";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -9,8 +9,6 @@ import { defaultCategory } from "@/utils/categories";
 
 // pnpm test-ai eval/categorize-senders
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/categorize-senders
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
@@ -319,7 +317,7 @@ const testCases = [
     ],
     expected: "Notification",
   },
-  // Single email from a SaaS — onboarding/welcome. Promotional intent despite helpful tone.
+  // Onboarding plus an upgrade prompt spans notification and marketing intent.
   {
     sender: "hello@resend.com",
     emails: [
@@ -329,7 +327,7 @@ const testCases = [
           "Thanks for signing up! Here's a quick guide: 1) Verify your domain in Settings. 2) Send your first email with our REST API or Node SDK. 3) Set up webhooks for delivery tracking. Need help? Reply to this email or check our docs. Pro tip: upgrade to the Pro plan for dedicated IPs and higher sending limits.",
       },
     ],
-    expected: "Marketing",
+    expected: null,
   },
   // Single email that's clearly a newsletter — first issue received
   {
@@ -359,7 +357,7 @@ const testCases = [
 ];
 
 describe.runIf(shouldRunEval)("Eval: Categorize Senders", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "categorize-senders" });
 
   describeEvalMatrix("categorize", (model, emailAccount) => {
     for (const tc of testCases) {

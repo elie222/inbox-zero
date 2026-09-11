@@ -1,0 +1,35 @@
+NODE received_emails
+DESCRIPTION >
+    Filter received emails for user.
+
+SQL >
+
+%
+    SELECT "from", "fromDomain" FROM email
+    WHERE sent = false
+      AND draft = false
+      AND ownerEmail = {{ String(ownerEmail) }}
+      {% if defined(fromDate) %}
+        AND "timestamp" >= {{ Int64(fromDate) }}
+      {% end %}
+      {% if defined(toDate) %}
+        AND "timestamp" <= {{ Int64(toDate) }}
+      {% end %}
+
+
+
+NODE get_most_received_from
+DESCRIPTION >
+    Get most active senders for a given period of time.
+
+SQL >
+
+%
+    SELECT "from", COUNT(*) as count FROM received_emails
+    GROUP BY "from"
+    ORDER BY count DESC
+    LIMIT {{ Int64(limit, 50) }}
+
+TYPE endpoint
+
+

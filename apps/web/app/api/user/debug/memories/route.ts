@@ -17,21 +17,45 @@ async function getMemoriesDebugData({
 }: {
   emailAccountId: string;
 }) {
-  const [memories, totalCount] = await Promise.all([
-    prisma.chatMemory.findMany({
-      where: { emailAccountId },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        updatedAt: true,
-        chatId: true,
-      },
-    }),
-    prisma.chatMemory.count({ where: { emailAccountId } }),
-  ]);
+  const [chatMemories, chatMemoryCount, replyMemories, replyMemoryCount] =
+    await Promise.all([
+      prisma.chatMemory.findMany({
+        where: { emailAccountId },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          chatId: true,
+        },
+      }),
+      prisma.chatMemory.count({ where: { emailAccountId } }),
+      prisma.replyMemory.findMany({
+        where: { emailAccountId },
+        orderBy: { updatedAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          kind: true,
+          scopeType: true,
+          scopeValue: true,
+          isLearnedStyleEvidence: true,
+          _count: { select: { sources: true } },
+        },
+      }),
+      prisma.replyMemory.count({ where: { emailAccountId } }),
+    ]);
 
-  return { memories, totalCount };
+  return {
+    chatMemories,
+    replyMemories,
+    chatMemoryCount,
+    replyMemoryCount,
+    totalCount: chatMemoryCount + replyMemoryCount,
+  };
 }

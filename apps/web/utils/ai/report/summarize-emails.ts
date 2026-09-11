@@ -4,7 +4,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { getEmailListPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("email-report-summarize-emails");
@@ -80,7 +80,10 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 2000 })}
 
 Return the analysis as a JSON array of objects.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.EmailReportSummaryGeneration,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

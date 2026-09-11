@@ -3,18 +3,48 @@ import {
   getOutlookFolderTree,
   getOutlookRootFolders,
   getOutlookChildFolders,
+  addOutlookSystemFolderTypes,
+  deleteOutlookFolder,
+  renameOutlookFolder,
 } from "./folders";
 import type { OutlookClient } from "./client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("outlook/folders");
-
-vi.mock("server-only", () => ({}));
+const logger = createTestLogger();
 
 // Mock the retry wrapper to just execute the function directly
-vi.mock("@/utils/outlook/retry", () => ({
-  withOutlookRetry: <T>(fn: () => Promise<T>) => fn(),
+vi.mock("@/utils/microsoft/retry", () => ({
+  withMicrosoftGraphRetry: <T>(fn: () => Promise<T>) => fn(),
+  withMicrosoftGraphWriteRetry: <T>(fn: () => Promise<T>) => fn(),
 }));
+
+describe("Outlook folder mutations", () => {
+  it("renames the selected folder", async () => {
+    const patch = vi.fn().mockResolvedValue(undefined);
+    const api = vi.fn().mockReturnValue({ patch });
+    const client = {
+      getClient: () => ({ api }),
+    } as unknown as OutlookClient;
+
+    await renameOutlookFolder(client, "folder/id", "Projects", logger);
+
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid");
+    expect(patch).toHaveBeenCalledWith({ displayName: "Projects" });
+  });
+
+  it("deletes the selected folder", async () => {
+    const deleteFolder = vi.fn().mockResolvedValue(undefined);
+    const api = vi.fn().mockReturnValue({ delete: deleteFolder });
+    const client = {
+      getClient: () => ({ api }),
+    } as unknown as OutlookClient;
+
+    await deleteOutlookFolder(client, "folder/id", logger);
+
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid");
+    expect(deleteFolder).toHaveBeenCalledOnce();
+  });
+});
 
 function createMockClient(
   mockResponses: Record<string, { value: unknown[] }>,
@@ -384,11 +414,15 @@ describe("getOutlookRootFolders", () => {
             id: "folder-id",
             displayName: "TestFolder",
             childFolderCount: 1,
+            totalItemCount: 8,
+            unreadItemCount: 3,
             childFolders: [
               {
                 id: "child-id",
                 displayName: "ChildFolder",
                 childFolderCount: 0,
+                totalItemCount: 2,
+                unreadItemCount: 1,
                 childFolders: [],
               },
             ],
@@ -404,11 +438,15 @@ describe("getOutlookRootFolders", () => {
         id: "folder-id",
         displayName: "TestFolder",
         childFolderCount: 1,
+        totalItemCount: 8,
+        unreadItemCount: 3,
         childFolders: [
           {
             id: "child-id",
             displayName: "ChildFolder",
             childFolderCount: 0,
+            totalItemCount: 2,
+            unreadItemCount: 1,
             childFolders: [],
           },
         ],
@@ -438,8 +476,29 @@ describe("getOutlookRootFolders", () => {
         displayName: "",
         childFolderCount: 0,
         childFolders: [],
+        totalItemCount: 0,
+        unreadItemCount: 0,
       },
     ]);
+  });
+});
+
+describe("addOutlookSystemFolderTypes", () => {
+  it("marks well-known folders by id without relying on localized names", () => {
+    const [inbox, custom] = addOutlookSystemFolderTypes(
+      [
+        {
+          id: "inbox-id",
+          displayName: "Boîte de réception",
+          childFolders: [],
+        },
+        { id: "custom-id", displayName: "Projects", childFolders: [] },
+      ],
+      { inbox: "inbox-id" },
+    );
+
+    expect(inbox?.systemType).toBe("INBOX");
+    expect(custom?.systemType).toBeUndefined();
   });
 });
 

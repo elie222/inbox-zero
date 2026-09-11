@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("qstash-test");
+const logger = createTestLogger();
 
 function createRequest(headers?: Record<string, string>) {
   const request = new Request("https://example.com/api/test", {

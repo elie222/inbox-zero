@@ -2,8 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { resolveLabelNameAndId } from "./resolve-label";
 import type { EmailProvider } from "@/utils/email/types";
 
-vi.mock("server-only", () => ({}));
-
 describe("resolveLabelNameAndId", () => {
   it("should skip resolution for AI templates", async () => {
     const mockEmailProvider = {

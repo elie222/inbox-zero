@@ -8,12 +8,14 @@ import { program } from "commander";
 import * as p from "@clack/prompts";
 import {
   generateSecret,
+  generateEncryptionSecrets,
   generateEnvFile,
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
   updateEnvValue,
   redactValue,
+  getEnvFileName,
   type EnvConfig,
 } from "./utils";
 import { LLM_PROVIDER_OPTIONS, promptLlmCredentials } from "./llm";
@@ -118,7 +120,7 @@ function fixComposeEnvPaths(composeContent: string): string {
 }
 
 function findEnvFile(name?: string): string | null {
-  const envFileName = name ? `.env.${name}` : ".env";
+  const envFileName = getEnvFileName(name);
 
   if (REPO_ROOT) {
     const repoEnv = resolve(REPO_ROOT, "apps/web", envFileName);
@@ -391,26 +393,36 @@ async function runSetupQuick(options: { name?: string }) {
 
     p.note(
       "You need a Google OAuth app to connect your Gmail.\n\n" +
-        "First, set up the OAuth consent screen:\n" +
-        "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
-        "2. User type:\n" +
+        "First, enable the required APIs (otherwise sign-in will fail):\n" +
+        "1. Open: https://console.cloud.google.com/apis/library\n" +
+        "2. Enable each of these for your project:\n" +
+        "   - Gmail API (gmail.googleapis.com)\n" +
+        "   - People API (people.googleapis.com)\n" +
+        "   - Google Calendar API (optional)\n" +
+        "   - Google Drive API (optional)\n\n" +
+        "Then, set up the OAuth consent screen:\n" +
+        "3. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
+        '4. Click "Get Started" (if shown)\n' +
+        "5. User type:\n" +
         '   - "Internal" — Google Workspace only, all org members can sign in\n' +
         '   - "External" — works with any Google account (including personal Gmail)\n' +
-        "     You'll need to add yourself as a test user (step 5)\n" +
-        "3. Fill in the app name and your email\n" +
-        '4. Click "Save and Continue" through the scopes section\n' +
-        "5. If External: add your email as a test user\n" +
-        "6. Complete the wizard\n\n" +
+        "     You'll need to add yourself as a test user (step 8)\n" +
+        "6. Fill in the app name and your email\n" +
+        '7. Click "Save and Continue" through the scopes section\n' +
+        "8. If External: add your email as a test user\n" +
+        "9. Complete the wizard\n\n" +
         "Then, create OAuth credentials:\n" +
-        "7. Open: https://console.cloud.google.com/apis/credentials\n" +
-        `8. Click "Create Credentials" → "OAuth client ID"\n` +
-        `9. Select "Web application"\n` +
-        `10. Under "Authorized redirect URIs" add:\n` +
+        "10. Open: https://console.cloud.google.com/apis/credentials\n" +
+        `11. Click "Create Credentials" → "OAuth client ID"\n` +
+        `12. Select "Web application"\n` +
+        `13. Under "Authorized redirect URIs" add:\n` +
         `    ${callbackUrl}\n` +
         `    ${linkingCallbackUrl}\n` +
-        "11. Copy the Client ID and Client Secret\n\n" +
+        "14. Copy the Client ID and Client Secret\n\n" +
         "If External: you'll see a \"This app isn't verified\" warning when\n" +
         'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
+        "Tip: if you have the gcloud CLI, run 'inbox-zero setup-google'\n" +
+        "to enable APIs and set up Pub/Sub automatically.\n\n" +
         "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
       "Google OAuth",
     );
@@ -507,7 +519,7 @@ async function runSetupQuick(options: { name?: string }) {
   const selectedLlmProvider = String(llmProvider);
 
   // Gather LLM credentials before generating config
-  const llmEnv: EnvConfig = { DEFAULT_LLM_PROVIDER: selectedLlmProvider };
+  const llmEnv: EnvConfig = {};
   await promptLlmCredentials(selectedLlmProvider, llmEnv);
 
   // Generate token early so we can show it in the instructions
@@ -552,7 +564,7 @@ async function runSetupQuick(options: { name?: string }) {
 
   // Determine file paths first so we can read existing config
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
-  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFileName = getEnvFileName(configName);
   const envFile = REPO_ROOT
     ? resolve(REPO_ROOT, "apps/web", envFileName)
     : resolve(STANDALONE_CONFIG_DIR, envFileName);
@@ -578,10 +590,10 @@ async function runSetupQuick(options: { name?: string }) {
   spinner.start("Generating configuration...");
 
   // Reuse existing database password to avoid mismatch with Docker volume
-  const existingDbPassword = readExistingDbPassword(envFile);
+  const existingEnv = readExistingEnv(envFile);
 
   const redisToken = generateSecret(32);
-  const dbPassword = existingDbPassword || generateSecret(16);
+  const dbPassword = existingEnv.POSTGRES_PASSWORD || generateSecret(16);
   const env: EnvConfig = {
     NODE_ENV: "production",
     // Database (Docker internal networking)
@@ -592,14 +604,14 @@ async function runSetupQuick(options: { name?: string }) {
     REDIS_PORT: redisPort,
     REDIS_HTTP_PORT: redisHttpPort,
     WEB_PORT: webPort,
-    DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
+    DATABASE_URL: `postgresql://postgres:${encodeURIComponent(dbPassword)}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    QUEUE_BACKEND: "internal",
     INTERNAL_API_URL: "http://web:3000",
     // Secrets
     AUTH_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SALT: generateSecret(16),
+    ...generateEncryptionSecrets(existingEnv),
     INTERNAL_API_KEY: generateSecret(32),
     API_KEY_SALT: generateSecret(32),
     CRON_SECRET: generateSecret(32),
@@ -874,7 +886,7 @@ async function runSetupAdvanced(options: { name?: string }) {
 
   // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
-  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFileName = getEnvFileName(configName);
   const envFile = REPO_ROOT
     ? resolve(REPO_ROOT, "apps/web", envFileName)
     : resolve(STANDALONE_CONFIG_DIR, envFileName);
@@ -897,6 +909,8 @@ async function runSetupAdvanced(options: { name?: string }) {
     }
   }
 
+  const pubsubVerificationToken = generateSecret(32);
+  const existingEnv = readExistingEnv(envFile);
   const env: EnvConfig = {};
   const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
     await resolveSetupPorts({ useDockerInfra });
@@ -934,12 +948,20 @@ async function runSetupAdvanced(options: { name?: string }) {
   // Google OAuth
   if (wantsGoogle) {
     p.note(
-      `1. Go to Google Cloud Console: https://console.cloud.google.com/apis/credentials
-2. Create OAuth 2.0 Client ID (Web application)
-3. Add redirect URIs:
+      `1. Enable required APIs (Gmail, People; Calendar/Drive optional):
+   https://console.cloud.google.com/apis/library
+2. Configure the OAuth consent screen:
+   https://console.cloud.google.com/apis/credentials/consent
+   Click "Get Started" if shown, then complete the wizard.
+3. Create OAuth 2.0 Client ID (Web application):
+   https://console.cloud.google.com/apis/credentials
+4. Add redirect URIs:
    - http://localhost:${webPort}/api/auth/callback/google
    - http://localhost:${webPort}/api/google/linking/callback
-4. Copy Client ID and Client Secret
+5. Copy Client ID and Client Secret
+
+Tip: with the gcloud CLI installed, run 'inbox-zero setup-google'
+to enable APIs and provision Pub/Sub automatically.
 
 Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
       "Google OAuth Setup",
@@ -981,7 +1003,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
    - Add: gmail-api-push@system.gserviceaccount.com
    - Role: Pub/Sub Publisher
 4. Create a push subscription pointing to your webhook URL:
-   - Endpoint: https://yourdomain.com/api/google/webhook
+   - Endpoint: https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}
 5. Copy the full topic name (e.g., projects/my-project-123/topics/inbox-zero-emails)
 
 Full guide: https://docs.getinboxzero.com/self-hosting/google-pubsub`,
@@ -1080,7 +1102,6 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (p.isCancel(llmProvider)) cancelSetup();
   const selectedLlmProvider = String(llmProvider);
 
-  env.DEFAULT_LLM_PROVIDER = selectedLlmProvider;
   await promptLlmCredentials(selectedLlmProvider, env);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1100,7 +1121,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     // Using Docker Compose for Postgres/Redis
     env.POSTGRES_USER = "postgres";
     env.POSTGRES_PASSWORD =
-      readExistingDbPassword(envFile) ||
+      existingEnv.POSTGRES_PASSWORD ||
       (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
     env.POSTGRES_PORT = postgresPort;
@@ -1108,16 +1129,17 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.REDIS_HTTP_PORT = redisHttpPort;
     env.WEB_PORT = webPort;
     env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.QUEUE_BACKEND = "internal";
 
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
-      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+      env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@db:5432/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
       env.INTERNAL_API_URL = "http://web:3000";
     } else {
       // Web app runs on host: containers expose ports to localhost
-      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
+      env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
@@ -1132,12 +1154,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   // Secrets (same for both modes)
   env.AUTH_SECRET = generateSecret(32);
-  env.EMAIL_ENCRYPT_SECRET = generateSecret(32);
-  env.EMAIL_ENCRYPT_SALT = generateSecret(16);
+  Object.assign(env, generateEncryptionSecrets(existingEnv));
   env.INTERNAL_API_KEY = generateSecret(32);
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
-  env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
+  env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = pubsubVerificationToken;
   // Google PubSub topic - only set placeholder if not already configured during Google OAuth setup
   if (!env.GOOGLE_PUBSUB_TOPIC_NAME) {
     env.GOOGLE_PUBSUB_TOPIC_NAME =
@@ -1570,8 +1591,11 @@ const CONFIG_CATEGORIES: Record<
   "AI Provider": {
     description: "LLM provider and API keys",
     keys: [
-      "DEFAULT_LLM_PROVIDER",
-      "DEFAULT_LLM_MODEL",
+      "DEFAULT_LLMS",
+      "ECONOMY_LLMS",
+      "CHAT_LLMS",
+      "NANO_LLMS",
+      "DRAFT_LLMS",
       "LLM_API_KEY",
       "BEDROCK_ACCESS_KEY",
       "BEDROCK_SECRET_KEY",
@@ -1593,7 +1617,11 @@ const CONFIG_CATEGORIES: Record<
   },
   "App Settings": {
     description: "Application URL and feature flags",
-    keys: ["NEXT_PUBLIC_BASE_URL", "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"],
+    keys: [
+      "NEXT_PUBLIC_BASE_URL",
+      "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
+      "NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED",
+    ],
   },
 };
 
@@ -1800,10 +1828,9 @@ function logPortConflictGuidance() {
   );
 }
 
-function readExistingDbPassword(envFile: string): string | undefined {
-  if (!existsSync(envFile)) return;
-  const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
-  return existing.POSTGRES_PASSWORD || undefined;
+function readExistingEnv(envFile: string): EnvConfig {
+  if (!existsSync(envFile)) return {};
+  return parseEnvFile(readFileSync(envFile, "utf-8"));
 }
 
 function checkContainersRunning(composeArgs: string[]): boolean {

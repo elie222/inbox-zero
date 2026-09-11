@@ -8,6 +8,7 @@ import type { StatsByPeriodQuery } from "@/app/api/user/stats/by-period/validati
 import type { StatsByPeriodResponse } from "@/app/api/user/stats/by-period/controller";
 import { getDateRangeParams } from "./params";
 import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart";
+import { createSearchParams } from "@/utils/url";
 
 export function StatsSummary(props: {
   dateRange?: DateRange;
@@ -24,16 +25,9 @@ export function StatsSummary(props: {
   const { data, isLoading, error } = useOrgSWR<
     StatsByPeriodResponse,
     { error: string }
-  >(
-    `/api/user/stats/by-period?${new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(params).map(([k, v]) => [k, v?.toString() ?? ""]),
-      ) as Record<string, string>,
-    )}`,
-    {
-      refreshInterval: props.refreshInterval,
-    },
-  );
+  >(`/api/user/stats/by-period?${createSearchParams(params)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent

@@ -66,20 +66,19 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     expect(rewrittenHtml).not.toContain("&amp;s=");
   });
 
-  it("does not rewrite data-src attributes", async () => {
-    const html = '<img data-src="https://cdn.example.com/photo.png" />';
-
-    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
-
-    expect(rewrittenHtml).toBe(html);
-  });
-
-  it("does not rewrite attribute-like text content", async () => {
-    const html = '<p>src="https://cdn.example.com/photo.png"</p>';
-
-    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
-
-    expect(rewrittenHtml).toBe(html);
+  it.each([
+    {
+      name: "data-src attributes",
+      html: '<img data-src="https://cdn.example.com/photo.png" />',
+    },
+    {
+      name: "attribute-like text content",
+      html: '<p>src="https://cdn.example.com/photo.png"</p>',
+    },
+  ])("does not rewrite $name", async ({ html }) => {
+    await expect(rewriteHtmlRemoteAssetUrls(html, proxyOptions)).resolves.toBe(
+      html,
+    );
   });
 
   it("decodes numeric HTML entities before rewriting asset URLs", async () => {
@@ -110,45 +109,36 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     );
   });
 
-  it("preserves srcset candidates when a url contains commas", async () => {
-    const html =
-      '<img srcset="https://cdn.example.com/photo,name.png 1x, https://cdn.example.com/photo@2x.png 2x" />';
-
+  it.each([
+    {
+      name: "url contains commas",
+      html: '<img srcset="https://cdn.example.com/photo,name.png 1x, https://cdn.example.com/photo@2x.png 2x" />',
+      expectedUrls: [
+        "https://cdn.example.com/photo,name.png",
+        "https://cdn.example.com/photo@2x.png",
+      ],
+    },
+    {
+      name: "compact candidates omit whitespace after commas",
+      html: '<img srcset="https://cdn.example.com/photo.png 1x,https://cdn.example.com/photo@2x.png 2x" />',
+      expectedUrls: [
+        "https://cdn.example.com/photo.png",
+        "https://cdn.example.com/photo@2x.png",
+      ],
+    },
+    {
+      name: "compact list contains relative urls",
+      html: '<img srcset="https://cdn.example.com/photo.png 1x,photo@2x.png 2x,https://cdn.example.com/photo@3x.png 3x" />',
+      expectedUrls: [
+        "https://cdn.example.com/photo.png",
+        "https://cdn.example.com/photo@3x.png",
+      ],
+    },
+  ])("rewrites srcset when $name", async ({ html, expectedUrls }) => {
     const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
 
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo,name.png"),
-    );
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo@2x.png"),
-    );
-  });
-
-  it("splits compact srcset candidates without whitespace after commas", async () => {
-    const html =
-      '<img srcset="https://cdn.example.com/photo.png 1x,https://cdn.example.com/photo@2x.png 2x" />';
-
-    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
-
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo.png"),
-    );
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo@2x.png"),
-    );
-  });
-
-  it("keeps splitting srcset candidates when a compact list contains relative urls", async () => {
-    const html =
-      '<img srcset="https://cdn.example.com/photo.png 1x,photo@2x.png 2x,https://cdn.example.com/photo@3x.png 3x" />';
-
-    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
-
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo.png"),
-    );
-    expect(rewrittenHtml).toContain(
-      encodeURIComponent("https://cdn.example.com/photo@3x.png"),
-    );
+    for (const expectedUrl of expectedUrls) {
+      expect(rewrittenHtml).toContain(encodeURIComponent(expectedUrl));
+    }
   });
 });

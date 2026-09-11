@@ -3,6 +3,7 @@ import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 import {
   aiDraftReply,
   aiDraftReplyWithConfidence,
+  normalizeDraftReplyFormatting,
 } from "@/utils/ai/reply/draft-reply";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
@@ -12,8 +13,6 @@ const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   const mockCreateGenerateObject = vi.fn(() => mockGenerateObject);
   return { mockCreateGenerateObject, mockGenerateObject };
 });
-
-vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(() => ({
@@ -35,13 +34,9 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("preserves existing blank-line paragraph spacing", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
+    );
 
     expect(result).toBe(
       "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
@@ -49,13 +44,9 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("converts single-line paragraph separators into blank-line separators", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "First paragraph.\nSecond paragraph.\nThird paragraph.",
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\nSecond paragraph.\nThird paragraph.",
+    );
 
     expect(result).toBe(
       "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
@@ -63,26 +54,27 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("converts two single-line paragraphs into blank-line paragraphs", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "First paragraph.\nSecond paragraph.",
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\nSecond paragraph.",
+    );
 
     expect(result).toBe("First paragraph.\n\nSecond paragraph.");
   });
 
-  it("decodes escaped newline sequences from model output", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply:
-          "First paragraph.\\nSecond paragraph.\\nThird paragraph.\\r\\nFourth paragraph.",
-      },
-    });
+  it("normalizes carriage returns and unicode line separators", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\r\nSecond paragraph.\rThird paragraph.\u2028Fourth paragraph.\u2029Fifth paragraph.",
+    );
 
-    const result = await aiDraftReply(getDraftParams());
+    expect(result).toBe(
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\nFourth paragraph.\n\nFifth paragraph.",
+    );
+  });
+
+  it("decodes escaped newline sequences from model output", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\\nSecond paragraph.\\nThird paragraph.\\r\\nFourth paragraph.",
+    );
 
     expect(result).toBe(
       "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\nFourth paragraph.",
@@ -90,28 +82,61 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("decodes escaped newline sequences in mixed newline output", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "First paragraph.\nSecond paragraph.\\nThird paragraph.",
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\nSecond paragraph.\\nThird paragraph.",
+    );
 
     expect(result).toBe(
       "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
     );
   });
 
-  it("normalizes mixed single and double newline paragraph separators", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply:
-          "First paragraph.\nSecond paragraph.\n\nThird paragraph.\nFourth paragraph.",
-      },
-    });
+  it("decodes escaped carriage return sequences", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\\rSecond paragraph.",
+    );
 
-    const result = await aiDraftReply(getDraftParams());
+    expect(result).toBe("First paragraph.\n\nSecond paragraph.");
+  });
+
+  it("trims trailing whitespace and collapses excessive blank lines", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "  First paragraph.   \n\n\n\nSecond paragraph. \t ",
+    );
+
+    expect(result).toBe("First paragraph.\n\nSecond paragraph.");
+  });
+
+  it("repairs paragraph breaks collapsed without spaces", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "First sentence in the opening paragraph.Second sentence starts the next paragraph.Third sentence starts another paragraph.",
+    );
+
+    expect(result).toBe(
+      "First sentence in the opening paragraph.\n\nSecond sentence starts the next paragraph.\n\nThird sentence starts another paragraph.",
+    );
+  });
+
+  it("does not split a single ordinary glued abbreviation-like boundary", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "The draft uses v1.Release wording for the note.",
+    );
+
+    expect(result).toBe("The draft uses v1.Release wording for the note.");
+  });
+
+  it("leaves ordinary single-line text unchanged", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "One short sentence with no paragraph breaks.",
+    );
+
+    expect(result).toBe("One short sentence with no paragraph breaks.");
+  });
+
+  it("normalizes mixed single and double newline paragraph separators", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "First paragraph.\nSecond paragraph.\n\nThird paragraph.\nFourth paragraph.",
+    );
 
     expect(result).toBe(
       "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\nFourth paragraph.",
@@ -119,15 +144,9 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("normalizes long replies with more than 8 single-line paragraphs", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: Array.from({ length: 9 }, (_, i) => `Paragraph ${i + 1}.`).join(
-          "\n",
-        ),
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      Array.from({ length: 9 }, (_, i) => `Paragraph ${i + 1}.`).join("\n"),
+    );
 
     expect(result).toBe(
       Array.from({ length: 9 }, (_, i) => `Paragraph ${i + 1}.`).join("\n\n"),
@@ -135,15 +154,19 @@ describe("aiDraftReply formatting", () => {
   });
 
   it("does not convert list output into double-spaced paragraphs", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "- First item\n- Second item\n- Third item",
-      },
-    });
-
-    const result = await aiDraftReply(getDraftParams());
+    const result = normalizeDraftReplyFormatting(
+      "- First item\n- Second item\n- Third item",
+    );
 
     expect(result).toBe("- First item\n- Second item\n- Third item");
+  });
+
+  it("does not convert low-punctuation line breaks into paragraphs", async () => {
+    const result = normalizeDraftReplyFormatting(
+      "Heading\nShort detail\nAnother detail.",
+    );
+
+    expect(result).toBe("Heading\nShort detail\nAnother detail.");
   });
 
   it("retries once then rejects persistent repetitive output", async () => {
@@ -234,6 +257,74 @@ describe("aiDraftReply formatting", () => {
     expect(callArgs.prompt).not.toContain("<reply_memories>");
   });
 
+  it("uses the active Inbox Zero booking link ahead of the external calendar link", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Please use my booking link.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    const params = getDraftParams();
+
+    await aiDraftReplyWithConfidence({
+      ...params,
+      emailAccount: {
+        ...params.emailAccount,
+        calendarBookingLink: "https://cal.com/user",
+        bookingLinks: [{ slug: "user-booking-link" }],
+      },
+      calendarAvailability: {
+        noAvailability: true,
+        suggestedTimes: [],
+        timezone: "UTC",
+      },
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain(
+      "http://localhost:3000/book/user-booking-link",
+    );
+    expect(callArgs.prompt).not.toContain("https://cal.com/user");
+  });
+
+  it("formats each available slot with its own timezone label", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Here are a couple of times.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    const params = getDraftParams();
+
+    await aiDraftReplyWithConfidence({
+      ...params,
+      emailAccount: {
+        ...params.emailAccount,
+        timezone: "America/New_York",
+      },
+      calendarAvailability: {
+        suggestedTimes: [
+          { start: "2026-01-15 10:00", end: "2026-01-15 10:30" },
+          { start: "2026-07-15 10:00", end: "2026-07-15 10:30" },
+        ],
+        timezone: "America/New_York",
+      },
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain(
+      "2026-01-15 10:00 to 2026-01-15 10:30 (EST;",
+    );
+    expect(callArgs.prompt).toContain(
+      "2026-07-15 10:00 to 2026-07-15 10:30 (EDT;",
+    );
+    expect(callArgs.prompt).toContain("Available time slots are in EST/EDT");
+  });
+
   it("uses learned writing style as the primary style block when explicit style is absent", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
@@ -255,6 +346,49 @@ Representative edits:
     expect(callArgs.prompt).toContain("<writing_style>");
     expect(callArgs.prompt).toContain("Keep replies terse and low ceremony.");
     expect(callArgs.prompt).not.toContain("<learned_writing_style>");
+  });
+
+  /**
+   * Length guidance used to live only in the default style, which a user's own
+   * style replaces outright. In production that is 97.5% of accounts receiving
+   * drafts, so almost none of them got it, and their drafts ran roughly four
+   * times longer than ones where the default applied.
+   */
+  it("keeps length discipline when an explicit writing style replaces the default", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      writingStyle: "Be warm and expansive. Explain your reasoning at length.",
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain("Be warm and expansive.");
+    expect(callArgs.prompt).toContain("Match the length of the reply");
+  });
+
+  it("keeps length discipline when only a learned writing style is present", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      learnedWritingStyle: "Observed patterns:\n- Keep replies terse.",
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain("Match the length of the reply");
   });
 
   it("treats whitespace-only explicit writing style as absent", async () => {
@@ -338,6 +472,19 @@ Representative edits:
     const result = await aiDraftReplyWithConfidence(getDraftParams());
 
     expect(result.confidence).toBe(DraftReplyConfidence.ALL_EMAILS);
+  });
+
+  it("maps model-facing confidence levels to product settings", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: "MEDIUM",
+      },
+    });
+
+    const result = await aiDraftReplyWithConfidence(getDraftParams());
+
+    expect(result.confidence).toBe(DraftReplyConfidence.STANDARD);
   });
 
   it("returns the actual provider and model used for the successful draft generation", async () => {

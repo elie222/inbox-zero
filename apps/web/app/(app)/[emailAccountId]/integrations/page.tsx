@@ -1,26 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { ZapIcon } from "lucide-react";
+import { ListChecksIcon, PenLineIcon, ZapIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { Integrations } from "@/app/(app)/[emailAccountId]/integrations/Integrations";
+import { FeatureIcon } from "@/components/FeatureIcon";
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
+import {
+  Item,
+  ItemCard,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { cn } from "@/utils";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 import { IntegrationsPremiumAlert } from "./IntegrationsPremiumAlert";
-import { useIntegrationsEnabled } from "@/hooks/useFeatureFlags";
+import {
+  useIntegrationActionsEnabled,
+  useIntegrationsEnabled,
+} from "@/hooks/useFeatureFlags";
 
 export default function IntegrationsPage() {
   const integrationsEnabled = useIntegrationsEnabled();
-  const { tier } = usePremium();
+  const { tier, isLoading: isPremiumLoading } = usePremium();
 
   const hasAccess = hasTierAccess({
     tier: tier || null,
     minimumTier: "PLUS_MONTHLY",
   });
+
+  // The feature flag is undefined while PostHog bootstraps
+  if (integrationsEnabled === undefined) return null;
 
   if (!integrationsEnabled) {
     return (
@@ -28,7 +44,7 @@ export default function IntegrationsPage() {
         <div className="flex items-center justify-between gap-2">
           <PageHeader
             title="Integrations"
-            description="Connect to external services to help the AI assistant draft better replies by accessing relevant data from your tools."
+            description="Connect the tools you already use."
           />
         </div>
 
@@ -54,7 +70,7 @@ export default function IntegrationsPage() {
       <div className="flex items-center justify-between gap-2">
         <PageHeader
           title="Integrations"
-          description="Connect to external services to help the AI assistant draft better replies by accessing relevant data from your tools."
+          description="Connect the tools you already use."
         />
         {hasAccess && (
           <div className="shrink-0">
@@ -68,9 +84,47 @@ export default function IntegrationsPage() {
       </div>
 
       <div className="mt-8 space-y-4">
-        {!hasAccess && <IntegrationsPremiumAlert />}
+        {!isPremiumLoading && !hasAccess && <IntegrationsPremiumAlert />}
+        <Capabilities />
         <Integrations />
       </div>
     </PageWrapper>
+  );
+}
+
+function Capabilities() {
+  const actionsEnabled = useIntegrationActionsEnabled();
+
+  return (
+    <ItemCard className={cn(actionsEnabled && "sm:grid sm:grid-cols-2")}>
+      <Item>
+        <ItemMedia>
+          <FeatureIcon>
+            <PenLineIcon className="h-4 w-4" />
+          </FeatureIcon>
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>Better drafts</ItemTitle>
+          <ItemDescription>
+            Replies arrive knowing the sender's plan, tickets, and history.
+          </ItemDescription>
+        </ItemContent>
+      </Item>
+      {actionsEnabled && (
+        <Item>
+          <ItemMedia>
+            <FeatureIcon>
+              <ListChecksIcon className="h-4 w-4" />
+            </FeatureIcon>
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>Rule actions</ItemTitle>
+            <ItemDescription>
+              Rules can write back, like adding a Todoist task.
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      )}
+    </ItemCard>
   );
 }

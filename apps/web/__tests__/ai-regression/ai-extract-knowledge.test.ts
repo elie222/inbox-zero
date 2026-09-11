@@ -8,8 +8,6 @@ const logger = createTestLogger();
 
 // Run with: pnpm test-ai ai-regression/ai-extract-knowledge
 
-vi.mock("server-only", () => ({}));
-
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

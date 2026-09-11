@@ -266,12 +266,12 @@ async function scheduleMessage({
   deduplicationId: string;
 }) {
   const client = getQstashClient();
-  const url = `${getInternalApiUrl()}/api/scheduled-actions/execute`;
-
   const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
 
   try {
     if (client) {
+      const url = `${getInternalApiUrl()}/api/scheduled-actions/execute`;
+
       const response = await client.publishJSON({
         url,
         body: payload,

@@ -1,4 +1,5 @@
 import { prefixPath } from "@/utils/path";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 export const STEP_KEYS = {
   CHAT: "chat",
@@ -38,12 +39,21 @@ const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
   ...onboardingStepOrder,
 ];
 
+// Sales/marketing survey steps that are irrelevant for self-hosted deployments.
+const salesSurveyStepKeys: readonly StepKey[] = [
+  STEP_KEYS.WHO,
+  STEP_KEYS.COMPANY_SIZE,
+  STEP_KEYS.HOW_YOU_HEARD,
+];
+
 export function getVisibleOnboardingStepKeys({
   canInviteTeam,
   autoDraftDisabled,
+  isSelfHosted,
 }: {
   canInviteTeam: boolean;
   autoDraftDisabled: boolean;
+  isSelfHosted?: boolean;
 }) {
   return onboardingStepOrder.filter((stepKey) => {
     if (
@@ -57,8 +67,31 @@ export function getVisibleOnboardingStepKeys({
       return false;
     }
 
+    if (isSelfHosted && salesSurveyStepKeys.includes(stepKey)) {
+      return false;
+    }
+
     return true;
   });
+}
+
+type RuleDraftState = {
+  systemType: SystemType | null;
+  actions: readonly { type: ActionType }[];
+};
+
+export function isDraftRepliesDisabledByRuleState(
+  rules: readonly RuleDraftState[] | undefined,
+) {
+  const toReplyRule = rules?.find(
+    (rule) => rule.systemType === SystemType.TO_REPLY,
+  );
+
+  if (!toReplyRule) return false;
+
+  return !toReplyRule.actions.some(
+    (action) => action.type === ActionType.DRAFT_EMAIL,
+  );
 }
 
 export function getOnboardingStepHref(

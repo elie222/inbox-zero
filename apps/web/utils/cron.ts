@@ -1,4 +1,6 @@
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
+import { isValidInternalApiKey } from "@/utils/internal-api";
 import type { RequestWithLogger } from "@/utils/middleware";
 
 export function hasCronSecret(request: RequestWithLogger) {
@@ -7,13 +9,25 @@ export function hasCronSecret(request: RequestWithLogger) {
     return false;
   }
 
-  const authHeader = request.headers.get("authorization");
-  const valid = authHeader === `Bearer ${env.CRON_SECRET}`;
+  const valid = isValidCronSecret(request);
 
   if (!valid)
-    request.logger.error("Unauthorized cron request:", { authHeader });
+    request.logger.error("Unauthorized cron request:", {
+      authHeader: request.headers.get("authorization"),
+    });
 
   return valid;
+}
+
+/**
+ * For routes reached both by cron and by an internal queue forward. The cron
+ * secret is checked quietly because a queue request only carries the internal
+ * API key, and logging that as unauthorized before the key is even checked
+ * floods the error logs.
+ */
+export function isAuthorizedCronOrInternalRequest(request: RequestWithLogger) {
+  if (isValidCronSecret(request)) return true;
+  return isValidInternalApiKey(request.headers, request.logger);
 }
 
 export async function hasPostCronSecret(request: RequestWithLogger) {
@@ -25,7 +39,7 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
   // Clone the request before consuming the body
   const clonedRequest = request.clone();
   const body = await clonedRequest.json();
-  const valid = body.CRON_SECRET === env.CRON_SECRET;
+  const valid = secureCompare(body.CRON_SECRET, env.CRON_SECRET);
 
   if (!valid) request.logger.error("Unauthorized cron request:", { body });
 
@@ -34,4 +48,12 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
 
 export function getCronSecretHeader() {
   return new Headers({ authorization: `Bearer ${env.CRON_SECRET}` });
+}
+
+function isValidCronSecret(request: RequestWithLogger) {
+  if (!env.CRON_SECRET) return false;
+  return secureCompare(
+    request.headers.get("authorization"),
+    `Bearer ${env.CRON_SECRET}`,
+  );
 }

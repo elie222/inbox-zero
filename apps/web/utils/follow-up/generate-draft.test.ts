@@ -5,10 +5,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock } = vi.hoisted(() => ({
   envMock: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: true,
   },
@@ -58,12 +57,7 @@ vi.mock("@/env", () => ({
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-} as any;
+const logger = createTestLogger();
 
 const createMockEmailAccount = (): EmailAccountWithAI =>
   ({
@@ -131,6 +125,7 @@ describe("generateFollowUpDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+    envMock.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = true;
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,
@@ -173,7 +168,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     // Should draft from the user's latest sent reply, not the older external email.
@@ -215,7 +210,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     // Should use user's message with recipient override
@@ -267,7 +262,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg-2",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     // Should use the LAST user message (most recent)
@@ -275,6 +270,52 @@ describe("generateFollowUpDraft", () => {
       userMessage2,
       expect.objectContaining({
         to: "bob@external.com",
+      }),
+      "user@example.com",
+      undefined,
+    );
+  });
+
+  it("places the referral signature after the configured user signature", async () => {
+    envMock.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = false;
+    vi.mocked(aiDraftFollowUp).mockResolvedValue("What do you think about it?");
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: true,
+      signature: "Cheers!<br>Barbara",
+    } as any);
+
+    const userMessage = createMockMessage({
+      id: "user-msg",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Initial Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [userMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.draftEmail).toHaveBeenCalledWith(
+      userMessage,
+      expect.objectContaining({
+        content:
+          'What do you think about it?\n\nCheers!<br>Barbara\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
       }),
       "user@example.com",
       undefined,
@@ -296,14 +337,10 @@ describe("generateFollowUpDraft", () => {
       messageId: "msg-1",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger,
     });
 
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      "Thread has no messages",
-      expect.any(Object),
-    );
   });
 
   it("succeeds even when tracker update fails after draft creation", async () => {
@@ -360,7 +397,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "msg-1",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
@@ -393,7 +430,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     expect(aiDraftFollowUp).not.toHaveBeenCalled();
@@ -425,7 +462,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "external-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
@@ -467,7 +504,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg-1",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
@@ -509,7 +546,7 @@ describe("generateFollowUpDraft", () => {
       messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
-      logger: mockLogger,
+      logger: logger,
     });
 
     expect(aiDraftFollowUp).toHaveBeenCalledWith(

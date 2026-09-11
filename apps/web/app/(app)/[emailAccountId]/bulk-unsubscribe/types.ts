@@ -16,6 +16,7 @@ export type Row = {
   unsubscribeLink?: string | null;
   status?: NewsletterStatus | null;
   autoArchived?: { id?: string | null };
+  labelFilters?: { id: string; labelId: string }[];
 };
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];

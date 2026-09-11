@@ -3,14 +3,54 @@ import type { Logger } from "@/utils/logger";
 import type {
   createRuleSchema,
   CreateOrUpdateRuleSchema,
+  RuleActionFields,
 } from "@/utils/ai/rule/create-rule-schema";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import type { RuleReadState } from "../../chat-rule-state";
+import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
+import { hideToolErrorFromUser } from "../../tool-error-visibility";
+import {
+  type AssistantRuleSnapshot,
+  buildRuleReadState,
+  loadAssistantRuleSnapshot,
+  type RuleReadState,
+} from "../../chat-rule-state";
 
 export const emptyInputSchema = z.object({});
 
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
+const RULE_NOT_FOUND_ERROR =
+  "Rule not found. Try listing the rules again. The user may have made changes since you last checked.";
+
+type RuleActionFieldValues = RuleActionFields;
+
+const providerRuleActionFieldBuilders: Record<
+  string,
+  (fields: RuleActionFieldValues) => RuleActionFieldValues
+> = {
+  microsoft: (fields) => ({
+    folderName: fields.folderName ?? null,
+  }),
+};
+
+export function buildProviderRuleActionFields({
+  provider,
+  fields,
+}: {
+  provider: string;
+  fields: RuleActionFieldValues;
+}): RuleActionFieldValues {
+  return {
+    ...fields,
+    content: fields.content ?? null,
+    to: fields.to ?? null,
+    subject: fields.subject ?? null,
+    label: fields.label ?? null,
+    webhookUrl: fields.webhookUrl ?? null,
+    cc: fields.cc ?? null,
+    bcc: fields.bcc ?? null,
+    ...(providerRuleActionFieldBuilders[provider]?.(fields) ?? {}),
+  };
+}
 
 export function buildCreateRuleSchemaFromChatToolInput(
   input: z.infer<ReturnType<typeof createRuleSchema>>,
@@ -22,20 +62,9 @@ export function buildCreateRuleSchemaFromChatToolInput(
     actions: input.actions.map((action) => ({
       type: action.type,
       fields: action.fields
-        ? {
-            content: action.fields.content ?? null,
-            to: action.fields.to ?? null,
-            subject: action.fields.subject ?? null,
-            label: action.fields.label ?? null,
-            webhookUrl: action.fields.webhookUrl ?? null,
-            cc: action.fields.cc ?? null,
-            bcc: action.fields.bcc ?? null,
-            ...(isMicrosoftProvider(provider) && {
-              folderName: action.fields.folderName ?? null,
-            }),
-          }
+        ? buildProviderRuleActionFields({ provider, fields: action.fields })
         : null,
-      delayInMinutes: null,
+      delayInMinutes: action.delayInMinutes ?? null,
     })),
   };
 }
@@ -55,6 +84,30 @@ export async function trackRuleToolCall({
 }) {
   logger.info("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
+}
+
+export async function loadRuleSnapshotAfterWrite({
+  emailAccountId,
+  logger,
+  setRuleReadState,
+  onRulesStateExposed,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+  setRuleReadState?: (state: RuleReadState) => void;
+  onRulesStateExposed?: (rulesRevision: number) => void;
+}): Promise<AssistantRuleSnapshot | null> {
+  try {
+    const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
+    setRuleReadState?.(buildRuleReadState(snapshot));
+    onRulesStateExposed?.(snapshot.rulesRevision);
+    return snapshot;
+  } catch (error) {
+    logger.warn("Failed to refresh rule read state after rule write", {
+      error,
+    });
+    return null;
+  }
 }
 
 export function validateRuleWasReadRecently({
@@ -99,4 +152,18 @@ export function validateRuleWasReadRecently({
   }
 
   return null;
+}
+
+export function buildHiddenRuleNotFoundError() {
+  return hideToolErrorFromUser({
+    success: false,
+    error: RULE_NOT_FOUND_ERROR,
+  });
+}
+
+export function buildVisibleOrgManagedRuleError() {
+  return {
+    success: false as const,
+    error: RULE_MANAGED_BY_ORGANIZATION_ERROR,
+  };
 }

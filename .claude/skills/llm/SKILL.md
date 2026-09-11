@@ -16,7 +16,12 @@ LLM-related code is organized in specific directories:
 
 - `utils/llms/index.ts` - Core LLM functionality
 - `utils/llms/model.ts` - Model definitions and configurations
+- `utils/llms/use-cases.ts` - Product use-case to model-role routing
 - `utils/usage.ts` - Usage tracking and monitoring
+
+## Model Routing
+
+For product features with a static model choice, use `getModelForUseCase(emailAccount.user, LlmUseCase.FeatureName)` from `utils/llms/use-cases.ts`. Keep direct `getModel(user, modelType)` calls for generic helpers where the model role is intentionally passed from upstream. When adding or changing a use case, update `utils/llms/use-cases.test.ts`.
 
 ## Implementation Pattern
 
@@ -28,6 +33,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createGenerateObject } from "@/utils/llms";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 export async function featureFunction(options: {
   inputData: InputType;
@@ -50,7 +56,10 @@ export async function featureFunction(options: {
 
 ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.FeatureName,
+  );
 
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
@@ -124,7 +133,8 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
    - Only add deterministic filters when the product truly needs a hard rule outside the model
    - Do not add prompt examples that closely mirror eval fixtures just to make a test pass
 9. **Draft Attribution Versioning**:
-   - When changing draft-generation prompt inputs, retrieval context, routing, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
+   - When changing draft-generation prompt inputs, retrieval context, model routing behavior, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
+   - Do not bump it for behavior-preserving refactors that keep the same prompt, context, model role, and output processing
    - Treat that version as analytics attribution for reply-draft quality comparisons
 
 ## Testing

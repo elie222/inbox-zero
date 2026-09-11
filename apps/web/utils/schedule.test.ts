@@ -19,29 +19,41 @@ import {
   dayOfWeekToBitmask,
 } from "./schedule";
 
-// Store original timezone
 const originalTimezone = process.env.TZ;
+const DAY_CASES = [
+  ["Sunday", 0, DAYS.SUNDAY, 0b100_0000],
+  ["Monday", 1, DAYS.MONDAY, 0b010_0000],
+  ["Tuesday", 2, DAYS.TUESDAY, 0b001_0000],
+  ["Wednesday", 3, DAYS.WEDNESDAY, 0b000_1000],
+  ["Thursday", 4, DAYS.THURSDAY, 0b000_0100],
+  ["Friday", 5, DAYS.FRIDAY, 0b000_0010],
+  ["Saturday", 6, DAYS.SATURDAY, 0b000_0001],
+] as const;
+const ALL_DAYS =
+  DAYS.SUNDAY |
+  DAYS.MONDAY |
+  DAYS.TUESDAY |
+  DAYS.WEDNESDAY |
+  DAYS.THURSDAY |
+  DAYS.FRIDAY |
+  DAYS.SATURDAY;
 
-// Set timezone to UTC for all tests to ensure consistent behavior
 beforeAll(() => {
   process.env.TZ = "UTC";
 });
 
 afterAll(() => {
-  // Restore original timezone
   process.env.TZ = originalTimezone || "UTC";
 });
 
-// Helper function to create timezone-independent test dates
 function createTestDate(isoString: string): Date {
   return new Date(isoString);
 }
 
-// Test to verify timezone setup is working
 describe("timezone setup", () => {
   it("should use UTC timezone for consistent test behavior", () => {
     const testDate = new Date("2024-01-15T10:00:00Z");
-    expect(testDate.getTimezoneOffset()).toBe(0); // UTC has 0 offset
+    expect(testDate.getTimezoneOffset()).toBe(0);
   });
 });
 
@@ -74,14 +86,10 @@ describe("createCanonicalTimeOfDay", () => {
 });
 
 describe("DAYS constant", () => {
-  it("should have correct bitmask values", () => {
-    expect(DAYS.SUNDAY).toBe(0b100_0000); // 64
-    expect(DAYS.MONDAY).toBe(0b010_0000); // 32
-    expect(DAYS.TUESDAY).toBe(0b001_0000); // 16
-    expect(DAYS.WEDNESDAY).toBe(0b000_1000); // 8
-    expect(DAYS.THURSDAY).toBe(0b000_0100); // 4
-    expect(DAYS.FRIDAY).toBe(0b000_0010); // 2
-    expect(DAYS.SATURDAY).toBe(0b000_0001); // 1
+  it.each(
+    DAY_CASES,
+  )("should have correct bitmask value for %s", (_, __, bitmask, expected) => {
+    expect(bitmask).toBe(expected);
   });
 
   it("should allow combining days with bitwise OR", () => {
@@ -94,14 +102,10 @@ describe("DAYS constant", () => {
 });
 
 describe("dayOfWeekToBitmask", () => {
-  it("should convert JavaScript day of week to correct bitmask", () => {
-    expect(dayOfWeekToBitmask(0)).toBe(DAYS.SUNDAY); // 64
-    expect(dayOfWeekToBitmask(1)).toBe(DAYS.MONDAY); // 32
-    expect(dayOfWeekToBitmask(2)).toBe(DAYS.TUESDAY); // 16
-    expect(dayOfWeekToBitmask(3)).toBe(DAYS.WEDNESDAY); // 8
-    expect(dayOfWeekToBitmask(4)).toBe(DAYS.THURSDAY); // 4
-    expect(dayOfWeekToBitmask(5)).toBe(DAYS.FRIDAY); // 2
-    expect(dayOfWeekToBitmask(6)).toBe(DAYS.SATURDAY); // 1
+  it.each(
+    DAY_CASES,
+  )("should convert %s to the correct bitmask", (_, day, bitmask) => {
+    expect(dayOfWeekToBitmask(day)).toBe(bitmask);
   });
 
   it("should throw error for invalid day values", () => {
@@ -118,14 +122,10 @@ describe("dayOfWeekToBitmask", () => {
 });
 
 describe("bitmaskToDayOfWeek", () => {
-  it("should convert individual day bitmasks to JavaScript day of week", () => {
-    expect(bitmaskToDayOfWeek(DAYS.SUNDAY)).toBe(0);
-    expect(bitmaskToDayOfWeek(DAYS.MONDAY)).toBe(1);
-    expect(bitmaskToDayOfWeek(DAYS.TUESDAY)).toBe(2);
-    expect(bitmaskToDayOfWeek(DAYS.WEDNESDAY)).toBe(3);
-    expect(bitmaskToDayOfWeek(DAYS.THURSDAY)).toBe(4);
-    expect(bitmaskToDayOfWeek(DAYS.FRIDAY)).toBe(5);
-    expect(bitmaskToDayOfWeek(DAYS.SATURDAY)).toBe(6);
+  it.each(
+    DAY_CASES,
+  )("should convert %s bitmask to JavaScript day of week", (_, day, bitmask) => {
+    expect(bitmaskToDayOfWeek(bitmask)).toBe(day);
   });
 
   it("should return null for empty bitmask", () => {
@@ -146,27 +146,15 @@ describe("bitmaskToDayOfWeek", () => {
   });
 
   it("should handle all days set", () => {
-    const allDays =
-      DAYS.SUNDAY |
-      DAYS.MONDAY |
-      DAYS.TUESDAY |
-      DAYS.WEDNESDAY |
-      DAYS.THURSDAY |
-      DAYS.FRIDAY |
-      DAYS.SATURDAY;
-    expect(bitmaskToDayOfWeek(allDays)).toBe(0); // Should return Sunday (first day)
+    expect(bitmaskToDayOfWeek(ALL_DAYS)).toBe(0);
   });
 });
 
 describe("bitmaskToDaysOfWeek", () => {
-  it("should convert individual day bitmasks to array with single day", () => {
-    expect(bitmaskToDaysOfWeek(DAYS.SUNDAY)).toEqual([0]);
-    expect(bitmaskToDaysOfWeek(DAYS.MONDAY)).toEqual([1]);
-    expect(bitmaskToDaysOfWeek(DAYS.TUESDAY)).toEqual([2]);
-    expect(bitmaskToDaysOfWeek(DAYS.WEDNESDAY)).toEqual([3]);
-    expect(bitmaskToDaysOfWeek(DAYS.THURSDAY)).toEqual([4]);
-    expect(bitmaskToDaysOfWeek(DAYS.FRIDAY)).toEqual([5]);
-    expect(bitmaskToDaysOfWeek(DAYS.SATURDAY)).toEqual([6]);
+  it.each(
+    DAY_CASES,
+  )("should convert %s bitmask to array with single day", (_, day, bitmask) => {
+    expect(bitmaskToDaysOfWeek(bitmask)).toEqual([day]);
   });
 
   it("should return empty array for empty bitmask", () => {
@@ -187,15 +175,7 @@ describe("bitmaskToDaysOfWeek", () => {
   });
 
   it("should handle all days set", () => {
-    const allDays =
-      DAYS.SUNDAY |
-      DAYS.MONDAY |
-      DAYS.TUESDAY |
-      DAYS.WEDNESDAY |
-      DAYS.THURSDAY |
-      DAYS.FRIDAY |
-      DAYS.SATURDAY;
-    expect(bitmaskToDaysOfWeek(allDays)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(bitmaskToDaysOfWeek(ALL_DAYS)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   it("should return days in order from Sunday to Saturday", () => {
@@ -242,10 +222,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(16);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 16, hours: 0, minutes: 0 });
     });
 
     it("should calculate next occurrence for weekly schedule", () => {
@@ -259,10 +236,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next week's same day at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(22);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 22, hours: 0, minutes: 0 });
     });
 
     it("should handle multiple occurrences within interval", () => {
@@ -276,10 +250,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be 3.5 days from start of interval
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(18);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 18, hours: 0, minutes: 0 });
     });
 
     it("should set specific time of day when provided", () => {
@@ -311,10 +282,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day at 9:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(16);
-      expect(result!.getHours()).toBe(9);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 16, hours: 9, minutes: 0 });
     });
   });
 
@@ -333,10 +301,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be same day at 10:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(15);
-      expect(result!.getHours()).toBe(10);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 15, hours: 10, minutes: 0 });
     });
 
     it("should find next occurrence on next week when time has passed today", () => {
@@ -353,10 +318,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Current time is 2 PM UTC, but 10 AM scheduled time has already passed today, so schedule for next Monday at 10:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(22); // Next Monday
-      expect(result!.getHours()).toBe(10);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 22, hours: 10, minutes: 0 });
     });
 
     it("should handle multiple days of week", () => {
@@ -373,10 +335,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be Wednesday at 9:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(17);
-      expect(result!.getHours()).toBe(9);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 17, hours: 9, minutes: 0 });
     });
 
     it("should default to midnight when no timeOfDay is set", () => {
@@ -392,10 +351,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be Tuesday at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(16);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 16, hours: 0, minutes: 0 });
     });
 
     it("should skip to next week when current day midnight has passed", () => {
@@ -411,10 +367,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next Monday at midnight (since it's 10 AM, midnight has already passed today)
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(22);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 22, hours: 0, minutes: 0 });
     });
 
     it("should handle weekend schedule", () => {
@@ -431,10 +384,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be Saturday at 11:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(20);
-      expect(result!.getHours()).toBe(11);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 20, hours: 11, minutes: 0 });
     });
   });
 
@@ -451,11 +401,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day (Feb 29) at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(1); // February
-      expect(result!.getDate()).toBe(29);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 1,
+        date: 29,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle year boundary", () => {
@@ -470,12 +421,13 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day (Jan 1) at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getFullYear()).toBe(2025);
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(1);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        year: 2025,
+        month: 0,
+        date: 1,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle daylight saving time transitions", () => {
@@ -507,10 +459,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be 3 days later at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(18);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 18, hours: 0, minutes: 0 });
     });
   });
 
@@ -528,10 +477,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be same day at 9:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(15);
-      expect(result!.getHours()).toBe(9);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 15, hours: 9, minutes: 0 });
     });
 
     it("should handle weekly digest on Monday mornings", () => {
@@ -547,10 +493,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be Monday at 8:00 AM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(15);
-      expect(result!.getHours()).toBe(8);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 15, hours: 8, minutes: 0 });
     });
 
     it("should handle bi-weekly schedule with 2 occurrences", () => {
@@ -565,10 +508,7 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be 7 days later at midnight
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(22);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 22, hours: 0, minutes: 0 });
     });
 
     it("should handle monthly schedule when time has passed today", () => {
@@ -585,11 +525,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Current time is 4 PM UTC, but 9 AM scheduled time has already passed today, so schedule for next interval (30 days later)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(1); // February
-      expect(result!.getDate()).toBe(9);
-      expect(result!.getHours()).toBe(9);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 1,
+        date: 9,
+        hours: 9,
+        minutes: 0,
+      });
     });
 
     it("should handle monthly schedule when current day is past the 15th", () => {
@@ -605,11 +546,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Current time is 10 AM UTC, but 3:30 PM scheduled time hasn't passed yet, so schedule for same day at 3:30 PM
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(20);
-      expect(result!.getHours()).toBe(15);
-      expect(result!.getMinutes()).toBe(30);
+      expectScheduleDate(result, {
+        month: 0,
+        date: 20,
+        hours: 15,
+        minutes: 30,
+      });
     });
 
     it("should handle monthly schedule with time that has passed today", () => {
@@ -625,11 +567,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be February 14th at 10:00 AM (30 days later, since 10 AM has passed today)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(1); // February
-      expect(result!.getDate()).toBe(14);
-      expect(result!.getHours()).toBe(10);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 1,
+        date: 14,
+        hours: 10,
+        minutes: 0,
+      });
     });
 
     it("should handle monthly schedule across year boundary", () => {
@@ -644,12 +587,13 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be January 14th at midnight (30 days later, crosses year boundary)
-      expect(result).not.toBeNull();
-      expect(result!.getFullYear()).toBe(2025);
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(14);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        year: 2025,
+        month: 0,
+        date: 14,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle monthly schedule with leap year", () => {
@@ -664,11 +608,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be February 14th at midnight (30 days later, accounting for leap year)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(1); // February
-      expect(result!.getDate()).toBe(14);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 1,
+        date: 14,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle monthly schedule with multiple occurrences", () => {
@@ -683,11 +628,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be January 30th at midnight (15 days later, first occurrence)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(30);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 0,
+        date: 30,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle very long intervals efficiently", () => {
@@ -702,12 +648,13 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next year at midnight (365 days later, accounting for leap year)
-      expect(result).not.toBeNull();
-      expect(result!.getFullYear()).toBe(2025);
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(14); // 365 days from Jan 15 = Jan 14 (leap year)
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        year: 2025,
+        month: 0,
+        date: 14,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle very long intervals with many occurrences", () => {
@@ -722,11 +669,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day at midnight (first occurrence within the year)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(16); // Next day
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 0,
+        date: 16,
+        hours: 0,
+        minutes: 0,
+      });
     });
 
     it("should handle extreme intervals efficiently", () => {
@@ -741,11 +689,12 @@ describe("calculateNextScheduleDate", () => {
       });
 
       // Should be next day at midnight (first occurrence within the interval)
-      expect(result).not.toBeNull();
-      expect(result!.getMonth()).toBe(0); // January
-      expect(result!.getDate()).toBe(16); // Next day
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, {
+        month: 0,
+        date: 16,
+        hours: 0,
+        minutes: 0,
+      });
     });
   });
 });
@@ -768,11 +717,12 @@ describe("calculateNextScheduleDate - Bug Fix Tests", () => {
       const result = calculateNextScheduleDate(schedule);
 
       // Should be next day at midnight (2024-01-16T00:00:00Z)
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(16);
-      expect(result!.getHours()).toBe(0);
-      expect(result!.getMinutes()).toBe(0);
-      expect(result!.getSeconds()).toBe(0);
+      expectScheduleDate(result, {
+        date: 16,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+      });
     });
 
     it("should handle missing lastOccurrenceAt by using current time", () => {
@@ -808,9 +758,7 @@ describe("calculateNextScheduleDate - Bug Fix Tests", () => {
 
       // Both calls should produce the same result
       expect(result1).toEqual(result2);
-      expect(result1!.getDate()).toBe(16); // Next day
-      expect(result1!.getHours()).toBe(14);
-      expect(result1!.getMinutes()).toBe(30);
+      expectScheduleDate(result1, { date: 16, hours: 14, minutes: 30 });
     });
 
     it("should prevent schedule drift in digest processing scenario", () => {
@@ -828,13 +776,44 @@ describe("calculateNextScheduleDate - Bug Fix Tests", () => {
       const result = calculateNextScheduleDate(schedule);
 
       // Should be next day at midnight, NOT at 12:36 PM
-      expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(16); // Next day
-      expect(result!.getHours()).toBe(0); // Midnight, not 12:36 PM
-      expect(result!.getMinutes()).toBe(0);
+      expectScheduleDate(result, { date: 16, hours: 0, minutes: 0 });
 
       // This prevents the 30-minute cron from finding the account "due" again
       // because the next occurrence is at midnight, not at 12:36 PM
     });
   });
 });
+
+function expectScheduleDate(
+  result: Date | null | undefined,
+  expected: {
+    year?: number;
+    month?: number;
+    date?: number;
+    hours?: number;
+    minutes?: number;
+    seconds?: number;
+  },
+) {
+  expect(result).not.toBeNull();
+  expect(result).toBeDefined();
+
+  if (expected.year !== undefined) {
+    expect(result!.getFullYear()).toBe(expected.year);
+  }
+  if (expected.month !== undefined) {
+    expect(result!.getMonth()).toBe(expected.month);
+  }
+  if (expected.date !== undefined) {
+    expect(result!.getDate()).toBe(expected.date);
+  }
+  if (expected.hours !== undefined) {
+    expect(result!.getHours()).toBe(expected.hours);
+  }
+  if (expected.minutes !== undefined) {
+    expect(result!.getMinutes()).toBe(expected.minutes);
+  }
+  if (expected.seconds !== undefined) {
+    expect(result!.getSeconds()).toBe(expected.seconds);
+  }
+}

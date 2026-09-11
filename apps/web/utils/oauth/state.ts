@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
 import type { IntegrationKey } from "@/utils/mcp/integrations";
 import crypto from "node:crypto";
 
@@ -30,14 +31,7 @@ export function parseSignedOAuthState<T extends Record<string, unknown>>(
   }
 
   const expectedSignature = signOAuthStatePayload(payloadEncoded);
-  const expected = Buffer.from(expectedSignature);
-  const actual = Buffer.from(signature);
-
-  if (expected.length !== actual.length) {
-    throw new Error("Invalid OAuth state signature");
-  }
-
-  if (!crypto.timingSafeEqual(expected, actual)) {
+  if (!secureCompare(expectedSignature, signature)) {
     throw new Error("Invalid OAuth state signature");
   }
 
@@ -128,10 +122,15 @@ export const getMcpOAuthStateType = (integration: IntegrationKey) =>
   `${integration}-mcp`;
 
 function signOAuthStatePayload(payloadEncoded: string): string {
-  return crypto
+  // OAuth state needs an HMAC signature for integrity, not a password hashing
+  // algorithm.
+  // codeql[js/insufficient-password-hash]
+  const signature = crypto
     .createHmac("sha256", getOAuthStateSigningSecret())
     .update(payloadEncoded)
     .digest("base64url");
+
+  return signature;
 }
 
 function getOAuthStateSigningSecret(): string {

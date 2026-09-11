@@ -1,13 +1,13 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowUpIcon,
   HistoryIcon,
   Loader2,
   PaperclipIcon,
   PlusIcon,
-  SquareIcon,
+  XIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
@@ -32,8 +32,16 @@ import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
+import {
+  type ChatHistoryEntry,
+  getChatHistoryLabel,
+} from "@/components/assistant-chat/chat-history-types";
+import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
+import { randomUuid } from "@/utils/uuid";
+import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -44,7 +52,13 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/gif",
 ];
 
-export function Chat({ open }: { open: boolean }) {
+export function Chat({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose?: () => void;
+}) {
   const analytics = useProductAnalytics("assistant_chat");
   const {
     chat,
@@ -101,7 +115,7 @@ export function Chat({ open }: { open: boolean }) {
         const reader = new FileReader();
         reader.onload = () => {
           resolve({
-            id: crypto.randomUUID(),
+            id: randomUuid(),
             name: file.name,
             url: reader.result as string,
             contentType: file.type,
@@ -176,7 +190,7 @@ export function Chat({ open }: { open: boolean }) {
     <PromptInput
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasContent && status === "ready") {
+        if (hasContent && (status === "ready" || status === "error")) {
           analytics.captureAction("chat_message_submitted", {
             has_text: input.trim().length > 0,
             attachment_count: attachments.length,
@@ -184,10 +198,8 @@ export function Chat({ open }: { open: boolean }) {
             message_count: messages.length,
           });
           handleSubmit();
-          setLocalStorageInput("");
         }
       }}
-      className="relative divide-y-0 rounded-2xl"
     >
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex gap-2 overflow-x-auto p-2 pb-0">
@@ -214,7 +226,9 @@ export function Chat({ open }: { open: boolean }) {
         data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"
-        onChange={(e) => setInput(e.currentTarget.value)}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+          setInput(e.currentTarget.value)
+        }
         onPaste={handlePaste}
         className="pr-24"
       />
@@ -235,6 +249,7 @@ export function Chat({ open }: { open: boolean }) {
             type="button"
             variant="ghost"
             size="icon"
+            aria-label="Attach images"
             className="size-9 rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
@@ -256,8 +271,9 @@ export function Chat({ open }: { open: boolean }) {
                 ? "submitted"
                 : "ready"
           }
-          disabled={status === "ready" ? !hasContent : status === "error"}
-          className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
+          disabled={
+            status === "ready" || status === "error" ? !hasContent : false
+          }
           onClick={(e) => {
             if (status === "streaming" || status === "submitted") {
               analytics.captureAction("chat_generation_stopped", {
@@ -268,15 +284,7 @@ export function Chat({ open }: { open: boolean }) {
               setMessages((messages) => messages);
             }
           }}
-        >
-          {status === "submitted" ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : status === "streaming" ? (
-            <SquareIcon className="size-4" />
-          ) : (
-            <ArrowUpIcon className="size-5" />
-          )}
-        </PromptInputSubmit>
+        />
       </div>
     </PromptInput>
   );
@@ -291,7 +299,7 @@ export function Chat({ open }: { open: boolean }) {
         } as React.CSSProperties
       }
     >
-      <ChatTopBar hasMessages={hasMessages} />
+      <ChatTopBar hasMessages={hasMessages} onClose={onClose} />
       {hasMessages ? (
         <ChatMessagesView
           status={status}
@@ -423,18 +431,19 @@ function NewChatView({
   );
 }
 
-function ChatTopBar({ hasMessages }: { hasMessages: boolean }) {
+function ChatTopBar({
+  hasMessages,
+  onClose,
+}: {
+  hasMessages: boolean;
+  onClose?: () => void;
+}) {
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
       <div className="flex items-center justify-end gap-1">
-        {hasMessages ? (
-          <>
-            <NewChatButton />
-            <ChatHistoryDropdown />
-          </>
-        ) : (
-          <ChatHistoryDropdown />
-        )}
+        {hasMessages ? <NewChatButton /> : null}
+        <ChatHistoryDropdown />
+        {onClose ? <CloseChatButton onClose={onClose} /> : null}
       </div>
     </div>
   );
@@ -453,62 +462,127 @@ function NewChatButton() {
   );
 }
 
+function CloseChatButton({ onClose }: { onClose: () => void }) {
+  return (
+    <Tooltip content="Close assistant">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onClose}
+        aria-label="Close assistant"
+      >
+        <XIcon className="size-5" aria-hidden="true" />
+      </Button>
+    </Tooltip>
+  );
+}
+
 function ChatHistoryDropdown() {
-  const { setChatId } = useChat();
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<ChatHistoryEntry | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] = useState<ChatHistoryEntry | null>(
+    null,
+  );
+  const { chatId, setChatId } = useChat();
   const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
 
   return (
-    <DropdownMenu>
-      <Tooltip content="View previous conversations">
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseEnter={() => setShouldLoadChats(true)}
-            onClick={() => mutate()}
-          >
-            <HistoryIcon className="size-5" />
-            <span className="sr-only">Chat History</span>
-          </Button>
-        </DropdownMenuTrigger>
-      </Tooltip>
-      <DropdownMenuContent align="end">
-        <LoadingContent
-          loading={isLoading}
-          error={error}
-          loadingComponent={
-            <DropdownMenuItem
-              disabled
-              className="flex items-center justify-center"
+    <>
+      <DropdownMenu
+        open={open}
+        onOpenChange={(value) => {
+          setOpen(value);
+          if (value) setShouldLoadChats(true);
+        }}
+      >
+        <Tooltip content="View previous conversations">
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onMouseEnter={() => setShouldLoadChats(true)}
+              onClick={() => {
+                setShouldLoadChats(true);
+                mutate();
+              }}
             >
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading chats...
-            </DropdownMenuItem>
-          }
-          errorComponent={
-            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
-          }
-        >
-          {data && data.chats.length > 0 ? (
-            data.chats.map((chatItem) => (
+              <HistoryIcon className="size-5" />
+              <span className="sr-only">Chat History</span>
+            </Button>
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-72">
+          <LoadingContent
+            loading={isLoading}
+            error={error}
+            loadingComponent={
               <DropdownMenuItem
-                key={chatItem.id}
-                onSelect={() => {
-                  setChatId(chatItem.id);
-                }}
+                disabled
+                className="flex items-center justify-center"
               >
-                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading chats...
               </DropdownMenuItem>
-            ))
-          ) : (
-            <DropdownMenuItem disabled>
-              No previous chats found
-            </DropdownMenuItem>
-          )}
-        </LoadingContent>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            }
+            errorComponent={
+              <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+            }
+          >
+            {data && data.chats.length > 0 ? (
+              data.chats.map((chatItem) => (
+                <ChatHistoryItem
+                  key={chatItem.id}
+                  chat={chatItem}
+                  onSelect={() => {
+                    setOpen(false);
+                    setChatId(chatItem.id);
+                  }}
+                  onRename={() => {
+                    setOpen(false);
+                    setRenameTarget(chatItem);
+                  }}
+                  onDelete={() => {
+                    setOpen(false);
+                    setDeleteTarget(chatItem);
+                  }}
+                />
+              ))
+            ) : (
+              <DropdownMenuItem disabled>
+                No previous chats found
+              </DropdownMenuItem>
+            )}
+          </LoadingContent>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <RenameChatDialog
+        open={renameTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setRenameTarget(null);
+        }}
+        chatId={renameTarget?.id ?? ""}
+        currentName={renameTarget?.name ?? ""}
+        defaultLabel={renameTarget ? getChatHistoryLabel(renameTarget) : ""}
+        onRenamed={mutate}
+      />
+      <DeleteChatDialog
+        open={deleteTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setDeleteTarget(null);
+        }}
+        chatId={deleteTarget?.id ?? ""}
+        label={deleteTarget ? getChatHistoryLabel(deleteTarget) : ""}
+        onDeleted={() => {
+          if (deleteTarget && chatId === deleteTarget.id) setChatId(null);
+          mutate();
+        }}
+      />
+    </>
   );
 }
 

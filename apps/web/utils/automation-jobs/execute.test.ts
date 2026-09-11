@@ -6,7 +6,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -14,7 +14,6 @@ import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { executeAutomationJobRun } from "@/utils/automation-jobs/execute";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/premium", () => ({
   isActivePremium: vi.fn(),
@@ -32,7 +31,7 @@ vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: vi.fn(),
 }));
 
-const logger = createScopedLogger("automation-job-execute-test");
+const logger = createTestLogger();
 const mockGetUserPremium = vi.mocked(getUserPremium);
 const mockIsActivePremium = vi.mocked(isActivePremium);
 const mockCreateEmailProvider = vi.mocked(createEmailProvider);

@@ -1,13 +1,13 @@
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
 import { processOutlookLifecycleNotification } from "@/app/api/outlook/webhook/process-lifecycle";
 import type { Logger } from "@/utils/logger";
 import { env } from "@/env";
 import {
   type OutlookWebhookNotification,
   webhookBodySchema,
-} from "@/app/api/outlook/webhook/types";
+} from "@/utils/webhook/outlook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";

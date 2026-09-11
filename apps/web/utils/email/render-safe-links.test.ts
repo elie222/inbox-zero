@@ -78,44 +78,51 @@ describe("renderEmailTextWithSafeLinks", () => {
     expect(result).not.toContain("<a href=");
   });
 
-  it("discloses the actual destination when the label contains a different domain", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [getinboxzero.com](https://attacker.tld/login) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://attacker.tld/login">getinboxzero.com - attacker.tld</a>',
-    );
-  });
-
-  it("discloses the actual destination when the label contains a different subdomain", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [login.example.com](https://evil.example.com/login) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://evil.example.com/login">login.example.com - evil.example.com</a>',
-    );
-  });
-
-  it("discloses the full destination when a URL label contains a different path", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [https://example.com/login](https://example.com/phish) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://example.com/phish">https://example.com/login - https://example.com/phish</a>',
-    );
-  });
-
-  it("discloses the full destination when a scheme-less URL label contains a different path", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [example.com/login](https://example.com/phish) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://example.com/phish">example.com/login - https://example.com/phish</a>',
-    );
+  it.each([
+    {
+      name: "label contains a different domain",
+      text: "Use [getinboxzero.com](https://attacker.tld/login) to continue.",
+      expected:
+        '<a href="https://attacker.tld/login">getinboxzero.com - attacker.tld</a>',
+    },
+    {
+      name: "label contains a different subdomain",
+      text: "Use [login.example.com](https://evil.example.com/login) to continue.",
+      expected:
+        '<a href="https://evil.example.com/login">login.example.com - evil.example.com</a>',
+    },
+    {
+      name: "URL label contains a different path",
+      text: "Use [https://example.com/login](https://example.com/phish) to continue.",
+      expected:
+        '<a href="https://example.com/phish">https://example.com/login - https://example.com/phish</a>',
+    },
+    {
+      name: "scheme-less URL label contains a different path",
+      text: "Use [example.com/login](https://example.com/phish) to continue.",
+      expected:
+        '<a href="https://example.com/phish">example.com/login - https://example.com/phish</a>',
+    },
+    {
+      name: "scheme-less label specifies a different port",
+      text: "Use [example.com:8080](http://example.com:9090/path) to continue.",
+      expected:
+        '<a href="http://example.com:9090/path">example.com:8080 - http://example.com:9090/path</a>',
+    },
+    {
+      name: "scheme-less label specifies a fragment",
+      text: "Use [example.com#section](https://example.com/other) to continue.",
+      expected:
+        '<a href="https://example.com/other">example.com#section - https://example.com/other</a>',
+    },
+    {
+      name: "URL label explicitly includes the root slash",
+      text: "Use [https://example.com/](https://example.com/phish) to continue.",
+      expected:
+        '<a href="https://example.com/phish">https://example.com/ - https://example.com/phish</a>',
+    },
+  ])("discloses the full destination when $name", ({ text, expected }) => {
+    expect(renderEmailTextWithSafeLinks(text)).toContain(expected);
   });
 
   it("treats scheme-less URL labels as protocol-agnostic matches", () => {
@@ -125,36 +132,6 @@ describe("renderEmailTextWithSafeLinks", () => {
 
     expect(result).toContain(
       '<a href="http://example.com/login">example.com/login</a>',
-    );
-  });
-
-  it("discloses the full destination when a scheme-less label specifies a different port", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [example.com:8080](http://example.com:9090/path) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="http://example.com:9090/path">example.com:8080 - http://example.com:9090/path</a>',
-    );
-  });
-
-  it("discloses the full destination when a scheme-less label specifies a fragment", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [example.com#section](https://example.com/other) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://example.com/other">example.com#section - https://example.com/other</a>',
-    );
-  });
-
-  it("discloses the full destination when a URL label explicitly includes the root slash", () => {
-    const result = renderEmailTextWithSafeLinks(
-      "Use [https://example.com/](https://example.com/phish) to continue.",
-    );
-
-    expect(result).toContain(
-      '<a href="https://example.com/phish">https://example.com/ - https://example.com/phish</a>',
     );
   });
 

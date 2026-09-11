@@ -14,7 +14,12 @@ export function hash(
 
   const normalized = value.trim().toLowerCase();
 
-  return createHmac("sha256", env.EMAIL_ENCRYPT_SALT)
+  // This is a keyed HMAC for deterministic log identifiers, not password
+  // storage or verification.
+  // codeql[js/insufficient-password-hash]
+  const digest = createHmac("sha256", env.EMAIL_ENCRYPT_SALT)
     .update(normalized)
     .digest("hex");
+
+  return digest;
 }

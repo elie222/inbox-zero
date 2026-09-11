@@ -1,11 +1,53 @@
 import he from "he";
 
-export function escapeHtml(text: string): string {
+export function escapeHtml(text: string | null | undefined): string {
+  if (!text) return "";
   return he.escape(text);
+}
+
+// Blank lines separate paragraphs, single newlines become line breaks. Escaped
+// because the text is usually model- or user-written and ends up in sent HTML.
+export function textToHtmlParagraphs(text?: string | null): string {
+  if (!text) return "";
+
+  return text
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph !== "")
+    .map(
+      (paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`,
+    )
+    .join("");
 }
 
 export function truncate(str: string, length: number) {
   return str.length > length ? `${str.slice(0, length)}...` : str;
+}
+
+const HEAD_TAIL_ELLIPSIS = "\n...\n";
+
+// Keep the start and end of a long string so closing asks/CTAs survive truncation.
+export function truncateHeadTail(
+  str: string,
+  maxLength: number,
+  tailLength: number,
+) {
+  if (str.length <= maxLength) return str;
+
+  const ellipsis = HEAD_TAIL_ELLIPSIS;
+  if (maxLength <= ellipsis.length) return str.slice(0, maxLength);
+
+  const clampedTailLength = Math.max(
+    0,
+    Math.min(tailLength, maxLength - ellipsis.length),
+  );
+  const headLength = maxLength - clampedTailLength - ellipsis.length;
+  if (headLength <= 0) {
+    return `${ellipsis}${str.slice(-(maxLength - ellipsis.length))}`;
+  }
+
+  return `${str.slice(0, headLength)}${ellipsis}${str.slice(-clampedTailLength)}`;
 }
 
 export function trimToNonEmptyString(value: unknown): string | undefined {

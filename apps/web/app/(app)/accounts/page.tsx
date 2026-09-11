@@ -3,7 +3,7 @@
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import { Trash2, MoreVertical, Settings } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AlertError } from "@/components/Alert";
@@ -39,6 +39,9 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { clearOfflineMailCache } from "@/utils/offline/clear-mail-cache";
+import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
+import { clearPersistedSwrCacheForAccount } from "@/utils/swr-persistence";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -122,9 +125,9 @@ function AccountHeader({
         <CardDescription>{emailAccount.email}</CardDescription>
       </div>
       <div
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
+        onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+        onMouseDown={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+        onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === "Enter" || e.key === " ") {
             e.stopPropagation();
           }
@@ -159,6 +162,10 @@ function AccountOptionsDropdown({
       onAccountDeleted();
       if (emailAccount.isPrimary) {
         await logOut("/login");
+      } else {
+        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
+        clearPersistedSwrCacheForAccount(emailAccount.id);
+        await clearOfflineMailCache();
       }
     },
     onError: (error) => {
@@ -173,16 +180,19 @@ function AccountOptionsDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" aria-label="Account options">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuContent
+        align="end"
+        onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+      >
         <DropdownMenuItem asChild>
           <Link
             href={prefixPath(emailAccount.id, "/setup")}
             className="flex items-center gap-2"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
           >
             <Settings className="size-4" />
             Setup
@@ -191,11 +201,11 @@ function AccountOptionsDropdown({
         <ConfirmDialog
           trigger={
             <DropdownMenuItem
-              onSelect={(e) => {
+              onSelect={(e: Event) => {
                 e?.preventDefault();
                 e?.stopPropagation?.();
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
               className="flex items-center gap-2 text-destructive focus:text-destructive"
               disabled={isExecuting}
             >
@@ -304,10 +314,10 @@ function getAccountErrorMessage(
       description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
       toastDescription: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
     },
-    account_already_exists_use_merge: {
+    account_already_exists: {
       title: "Account already exists",
-      description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
-      toastDescription: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
+      description: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
+      toastDescription: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
     },
     already_linked_to_self: {
       title: "Account already linked",
@@ -390,6 +400,11 @@ function buildMicrosoftPermissionHelp(summary: string) {
         Ask your Microsoft 365 admin to approve {BRAND_NAME} for the Microsoft
         Graph permissions below, then try again.
       </p>
+      <Button asChild size="sm">
+        <Link href="/login/microsoft-admin-consent">
+          Open Microsoft admin approval
+        </Link>
+      </Button>
       <div>
         <p className="font-medium">Email and inbox connection</p>
         <PermissionList scopes={MICROSOFT_EMAIL_SCOPES} />

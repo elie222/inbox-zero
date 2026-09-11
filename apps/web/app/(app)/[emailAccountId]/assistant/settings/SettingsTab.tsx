@@ -1,4 +1,5 @@
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
+import { SensitiveDataPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftConfidenceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
@@ -8,6 +9,7 @@ import { HiddenAiDraftLinksSetting } from "@/app/(app)/[emailAccountId]/assistan
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
+import { SentWithSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { SyncToExtensionSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
@@ -37,6 +39,7 @@ export function SettingsTab() {
         <WritingStyleSetting />
         <AboutSetting />
         <PersonalSignatureSetting />
+        <SentWithSignatureSetting />
       </div>
 
       {!autoDraftDisabled && (
@@ -53,6 +56,9 @@ export function SettingsTab() {
         <MultiRuleSetting />
         <ReferralSignatureSetting />
         <HiddenAiDraftLinksSetting />
+        {!env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED && (
+          <SensitiveDataPolicySetting />
+        )}
       </div>
     </div>
   );

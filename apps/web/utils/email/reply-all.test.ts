@@ -416,6 +416,27 @@ describe("buildReplyAllRecipients", () => {
     expect(result.cc).toContain("manager@example.com");
     expect(result.cc).toHaveLength(2);
   });
+
+  it("should exclude current user aliases from CC", () => {
+    const headers: ParsedMessageHeaders = {
+      from: "sender@example.com",
+      to: "User Alias <alias@example.com>, colleague@example.com",
+      cc: "other-alias@example.com, manager@example.com",
+      subject: "Test",
+      date: "2024-01-01",
+    };
+
+    const result = buildReplyAllRecipients(headers, undefined, [
+      "primary@example.com",
+      "alias@example.com",
+      "Other Alias <other-alias@example.com>",
+    ]);
+
+    expect(result.to).toBe("sender@example.com");
+    expect(result.cc).not.toContain("alias@example.com");
+    expect(result.cc).not.toContain("other-alias@example.com");
+    expect(result.cc).toEqual(["manager@example.com", "colleague@example.com"]);
+  });
 });
 
 describe("formatCcList", () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 interface AccountLinkingParams {
@@ -26,9 +27,9 @@ export async function handleAccountLinking({
   | { type: "continue_create" }
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
+  | { type: "update_existing_account"; existingAccountId: string }
   | { type: "update_tokens"; existingAccountId: string }
 > {
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const hasActiveTargetUser = await hasActiveAccountLinkingUser({
     targetUserId,
     logger,
@@ -58,27 +59,68 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { id: true, userId: true, email: true },
+      select: {
+        accountId: true,
+        userId: true,
+        account: { select: { provider: true } },
+      },
     });
 
-    if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
+    if (!existingEmailAccount) return { type: "continue_create" };
+
+    if (existingEmailAccount.userId !== targetUserId) {
       logger.warn(
         "Create failed: account with this email already exists for a different user",
         {
           provider,
           email: providerEmail,
+          existingProvider: existingEmailAccount.account.provider,
           existingUserId: existingEmailAccount.userId,
           targetUserId,
         },
       );
-      redirectUrl.searchParams.set("error", "account_already_exists_use_merge");
+
       return {
         type: "redirect",
-        response: NextResponse.redirect(redirectUrl),
+        response: createAccountLinkingRedirect({
+          query: { error: "account_already_exists" },
+        }),
       };
     }
 
-    return { type: "continue_create" };
+    if (existingEmailAccount.account.provider !== provider) {
+      logger.warn(
+        "Create failed: account with this email already exists for a different provider",
+        {
+          provider,
+          email: providerEmail,
+          existingProvider: existingEmailAccount.account.provider,
+          targetUserId,
+        },
+      );
+
+      return {
+        type: "redirect",
+        response: createAccountLinkingRedirect({
+          query: { error: "account_already_exists" },
+        }),
+      };
+    }
+
+    logger.info(
+      "providerAccountId changed but EmailAccount exists for same user. Updating existing account.",
+      {
+        provider,
+        email: providerEmail,
+        targetUserId,
+        accountId: existingEmailAccount.accountId,
+      },
+    );
+
+    return {
+      type: "update_existing_account",
+      existingAccountId: existingEmailAccount.accountId,
+    };
   }
 
   if (existingUserId === targetUserId) {

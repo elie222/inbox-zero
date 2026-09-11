@@ -1,53 +1,11 @@
 import { ReactRenderer } from "@tiptap/react";
 import { Mention } from "@tiptap/extension-mention";
+import type { MarkdownToken } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import { MentionList, type MentionListRef } from "./MentionList";
 import type { EmailLabel } from "@/providers/email-label-types";
 
 const MAX_SUGGESTIONS = 10;
-
-interface MarkdownSerializerState {
-  write: (text: string) => void;
-}
-
-interface MarkdownNode {
-  attrs: {
-    id?: string;
-    label?: string;
-    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-    [key: string]: any;
-  };
-}
-
-interface MarkdownItState {
-  pos: number;
-  posMax: number;
-  push: (type: string, tag: string, nesting: number) => MarkdownItToken;
-  src: string;
-}
-
-interface MarkdownItToken {
-  attrs: Array<[string, string]>;
-  content?: string;
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  [key: string]: any;
-}
-
-interface MarkdownItInstance {
-  inline: {
-    ruler: {
-      push: (
-        name: string,
-        fn: (state: MarkdownItState, silent: boolean) => boolean,
-      ) => void;
-    };
-  };
-  renderer: {
-    rules: {
-      [key: string]: (tokens: MarkdownItToken[], idx: number) => string;
-    };
-  };
-}
 
 export const createLabelMentionExtension = (labels: EmailLabel[]) => {
   return Mention.configure({
@@ -213,86 +171,38 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
       },
     },
   }).extend({
-    addStorage() {
+    markdownTokenName: "mention",
+    markdownTokenizer: {
+      name: "mention",
+      level: "inline",
+      start: "@[",
+      tokenize: (source) => {
+        if (!source.startsWith("@[")) return;
+
+        const end = source.indexOf("]", 2);
+        if (end < 3) return;
+
+        const raw = source.slice(0, end + 1);
+        return {
+          type: "mention",
+          raw,
+          label: raw.slice(2, -1),
+        };
+      },
+    },
+    parseMarkdown(token: MarkdownToken) {
+      const labelName = typeof token.label === "string" ? token.label : "";
+      const label = labels.find((item) => item.name === labelName);
       return {
-        markdown: {
-          serialize: (state: MarkdownSerializerState, node: MarkdownNode) => {
-            state.write(`@[${node.attrs.label || node.attrs.id}]`);
-          },
-          parse: {
-            // Register a custom markdown-it rule to parse @[labelName] back to mention nodes
-            setup: (markdownIt: MarkdownItInstance) => {
-              markdownIt.inline.ruler.push(
-                "mention",
-                (state: MarkdownItState, silent: boolean) => {
-                  const start = state.pos;
-                  const max = state.posMax;
-
-                  // Check if we're at @[
-                  if (start + 2 >= max) return false;
-                  if (state.src.charCodeAt(start) !== 0x40 /* @ */)
-                    return false;
-                  if (state.src.charCodeAt(start + 1) !== 0x5b /* [ */)
-                    return false;
-
-                  // Find the closing ]
-                  let pos = start + 2;
-                  while (
-                    pos < max &&
-                    state.src.charCodeAt(pos) !== 0x5d /* ] */
-                  ) {
-                    pos++;
-                  }
-
-                  if (pos >= max) return false;
-
-                  const labelName = state.src.slice(start + 2, pos);
-
-                  // Find the label in our labels array
-                  const label = labels.find((l) => l.name === labelName);
-
-                  // Create mention node even if label doesn't exist yet
-                  // This allows examples to work even when labels haven't been created in Gmail
-                  if (!silent) {
-                    const token = state.push("mention_open", "mention", 1);
-                    token.attrs = [
-                      [
-                        "id",
-                        label?.id ||
-                          `__placeholder__${labelName.toLowerCase()}`,
-                      ],
-                      ["label", labelName],
-                    ];
-
-                    const textToken = state.push("text", "", 0);
-                    textToken.content = labelName;
-
-                    state.push("mention_close", "mention", -1);
-                  }
-
-                  state.pos = pos + 1;
-                  return true;
-                },
-              );
-
-              // Add renderer for mention tokens to create proper HTML structure
-              markdownIt.renderer.rules.mention_open = (
-                tokens: MarkdownItToken[],
-                idx: number,
-              ) => {
-                const token = tokens[idx];
-                const id =
-                  token.attrs.find((attr) => attr[0] === "id")?.[1] || "";
-                const label =
-                  token.attrs.find((attr) => attr[0] === "label")?.[1] || "";
-                return `<span class="mention-label" data-type="mention" data-id="${id}" data-label="${label}" data-mention-suggestion-char="@" contenteditable="false">`;
-              };
-
-              markdownIt.renderer.rules.mention_close = () => "</span>";
-            },
-          },
+        type: this.name,
+        attrs: {
+          id: label?.id ?? `__placeholder__${labelName.toLowerCase()}`,
+          label: labelName,
         },
       };
+    },
+    renderMarkdown(node) {
+      return `@[${node.attrs?.label ?? node.attrs?.id ?? ""}]`;
     },
   });
 };

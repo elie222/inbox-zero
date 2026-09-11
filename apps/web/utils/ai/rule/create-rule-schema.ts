@@ -3,6 +3,10 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import {
+  getOnlyIntegrationToolSpec,
+  type IntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
+import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
 } from "@/utils/ai/rule/action-availability";
@@ -13,39 +17,128 @@ import {
   isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
+import { isIntegrationActionGloballyEnabled } from "@/utils/integration-action";
+
+const conditionalOperatorSchema = z
+  .enum([LogicalOperator.AND, LogicalOperator.OR])
+  .nullable()
+  .describe(
+    "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
+  );
+
+const optionalAiInstructionsSchema = z
+  .string()
+  .nullish()
+  .transform((v) => (v?.trim() ? v : null))
+  .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION);
+
+const requiredAiInstructionsSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION);
+
+const optionalStaticFromSchema = z
+  .string()
+  .nullish()
+  .transform((v) => (v?.trim() ? v : null))
+  .refine((value) => !isInvalidStaticFromValue(value), {
+    message: INVALID_STATIC_FROM_MESSAGE,
+  })
+  .describe(STATIC_FROM_CONDITION_DESCRIPTION);
+
+const requiredStaticFromSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !isInvalidStaticFromValue(value), {
+    message: INVALID_STATIC_FROM_MESSAGE,
+  })
+  .describe(STATIC_FROM_CONDITION_DESCRIPTION);
+
+const optionalStaticToSchema = z
+  .string()
+  .nullish()
+  .describe("The to email address to match");
+
+const requiredStaticToSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe("The to email address to match");
+
+const optionalStaticSubjectSchema = z
+  .string()
+  .nullish()
+  .describe(
+    "Subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+  );
+
+const requiredStaticSubjectSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe(
+    "Subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+  );
+
+const optionalStaticConditionSchema = z
+  .object({
+    from: optionalStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: optionalStaticSubjectSchema,
+  })
+  .nullish()
+  .describe(
+    "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
+  );
+
+const semanticConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: requiredAiInstructionsSchema,
+  static: optionalStaticConditionSchema,
+});
+
+const staticFromConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: requiredStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: optionalStaticSubjectSchema,
+  }),
+});
+
+const staticToConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: optionalStaticFromSchema,
+    to: requiredStaticToSchema,
+    subject: optionalStaticSubjectSchema,
+  }),
+});
+
+const staticSubjectConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: optionalStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: requiredStaticSubjectSchema,
+  }),
+});
 
 const conditionSchema = z
-  .object({
-    conditionalOperator: z
-      .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullable()
-      .describe(
-        "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
-      ),
-    aiInstructions: z
-      .string()
-      .nullish()
-      .transform((v) => (v?.trim() ? v : null))
-      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
-    static: z
-      .object({
-        from: z
-          .string()
-          .nullish()
-          .transform((v) => (v?.trim() ? v : null))
-          .refine((value) => !isInvalidStaticFromValue(value), {
-            message: INVALID_STATIC_FROM_MESSAGE,
-          })
-          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
-        to: z.string().nullish().describe("The to email address to match"),
-        subject: z.string().nullish().describe("The subject to match"),
-      })
-      .nullish()
-      .describe(
-        "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
-      ),
-  })
-  .describe("The conditions to match");
+  .union([
+    semanticConditionSchema,
+    staticFromConditionSchema,
+    staticToConditionSchema,
+    staticSubjectConditionSchema,
+  ])
+  .describe(
+    "The conditions to match. Include at least one semantic condition in aiInstructions or one static condition in from, to, or subject.",
+  );
 
 export function getAvailableActions(provider: string) {
   const availableActions = getAvailableActionsForRuleEditor({
@@ -54,8 +147,17 @@ export function getAvailableActions(provider: string) {
   return availableActions as [ActionType, ...ActionType[]];
 }
 
-export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
-  getExtraAvailableActionsForRuleEditor(existingActionTypes);
+export const getExtraActions = ({
+  existingActionTypes = [],
+  integrationActionsEnabled,
+}: {
+  existingActionTypes?: ActionType[];
+  integrationActionsEnabled: boolean;
+}) =>
+  getExtraAvailableActionsForRuleEditor({
+    existingActionTypes,
+    integrationActionsEnabled,
+  });
 
 export type RuleActionFields = {
   label?: string | null;
@@ -76,11 +178,13 @@ export type RuleAction = {
 
 export const createRuleActionSchema = (
   provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
 ): z.ZodType<RuleAction> => {
   const allowedActionTypes = new Set([
     ...getAvailableActionsForRuleEditor({ provider }),
-    ...getExtraAvailableActionsForRuleEditor(),
+    ...getExtraAvailableActionsForRuleEditor({ integrationActionsEnabled }),
   ]);
+  const integrationToolSpec = getOnlyIntegrationToolSpec();
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
   const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
@@ -131,12 +235,24 @@ export const createRuleActionSchema = (
           ),
         ]
       : []),
+    ...(allowedActionTypes.has(ActionType.INTEGRATION) && integrationToolSpec
+      ? [
+          createActionObjectSchema(
+            ActionType.INTEGRATION,
+            createIntegrationFieldsSchema(integrationToolSpec),
+            integrationToolSpec.llmDescription,
+          ),
+        ]
+      : []),
   ];
 
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
 };
 
-export const createRuleSchema = (provider: string) =>
+export const createRuleSchema = (
+  provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
+) =>
   z.object({
     name: z
       .string()
@@ -145,7 +261,7 @@ export const createRuleSchema = (provider: string) =>
       ),
     condition: conditionSchema,
     actions: z
-      .array(createRuleActionSchema(provider))
+      .array(createRuleActionSchema(provider, integrationActionsEnabled))
       .describe("The actions to take"),
   });
 
@@ -154,12 +270,18 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
 
-function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
-  return z.object({
-    type: z.literal(type).describe(getActionTypeDescription(type)),
-    fields,
-    delayInMinutes: delayInMinutesLlmSchema,
-  });
+function createActionObjectSchema(
+  type: ActionType,
+  fields: z.ZodTypeAny,
+  description?: string,
+) {
+  return z
+    .object({
+      type: z.literal(type),
+      fields,
+      delayInMinutes: delayInMinutesLlmSchema,
+    })
+    .describe(description ?? getActionTypeDescription(type));
 }
 
 function getActionTypeDescription(type: ActionType) {
@@ -185,7 +307,7 @@ function getActionTypeDescription(type: ActionType) {
     case ActionType.DIGEST:
       return "Include the matching email in a digest.";
     case ActionType.CALL_WEBHOOK:
-      return "Call a webhook for the matching email.";
+      return "Call a webhook for the matching email. Only use this when the user explicitly asks for a webhook, external HTTP callback, or integration URL and provides the webhook URL. Do not use this for ordinary labeling, archiving, categorization, notifications, folders, or other email automation.";
     case ActionType.MOVE_FOLDER:
       return "Move the matching email to a folder.";
     default:
@@ -221,7 +343,7 @@ function createRequiredWebhookFieldsSchema(provider: string) {
   return z.object({
     ...createActionFieldShape(provider),
     webhookUrl: requiredStringField(
-      "The webhook URL to call",
+      "The webhook URL to call. Required for CALL_WEBHOOK; use CALL_WEBHOOK only when the user explicitly supplies a webhook URL.",
       "CALL_WEBHOOK requires fields.webhookUrl.",
     ),
   });
@@ -243,6 +365,20 @@ function createRequiredFolderFieldsSchema(provider: string) {
   });
 }
 
+/** Exposes exactly the args the spec marks as LLM-settable. */
+function createIntegrationFieldsSchema(spec: IntegrationToolSpec) {
+  return z.object(
+    Object.fromEntries(
+      spec.args
+        .filter((arg) => arg.llmDescription)
+        .map((arg) => [
+          arg.key,
+          optionalStringField(arg.llmDescription as string),
+        ]),
+    ),
+  );
+}
+
 function createActionFieldShape(provider: string) {
   return {
     label: optionalStringField("The label to apply to the email"),
@@ -253,7 +389,9 @@ function createActionFieldShape(provider: string) {
     bcc: optionalStringField("The bcc email address to send the email to"),
     subject: optionalStringField("The subject of the email"),
     content: optionalStringField("The content of the email"),
-    webhookUrl: optionalStringField("The webhook URL to call"),
+    webhookUrl: optionalStringField(
+      "The webhook URL to call. Only relevant for explicit webhook or external HTTP callback requests.",
+    ),
     ...(isMicrosoftProvider(provider) && {
       folderName: optionalStringField("The folder to move the email to"),
     }),

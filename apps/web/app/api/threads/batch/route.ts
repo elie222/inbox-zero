@@ -64,11 +64,15 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
             );
             if (!filteredMessages.length) return null;
 
+            // This route doesn't join executed rules, but the shared response
+            // type promises them, so send the empty case rather than nothing.
             return {
               id: thread.id,
+              messageIds: thread.messages.map((message) => message.id),
               messages: filteredMessages,
               snippet: thread.snippet,
               plan: undefined,
+              plans: [],
             };
           }),
       )

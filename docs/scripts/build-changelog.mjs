@@ -57,6 +57,6 @@ const entries = files.map((f) => {
   return buildUpdate(f, parseFrontmatter(raw));
 });
 
-writeFileSync(outputFile, HEADER + entries.join("\n\n") + "\n");
+writeFileSync(outputFile, `${HEADER}${entries.join("\n\n")}\n`);
 
 console.log(`Built changelog.mdx from ${files.length} entries`);

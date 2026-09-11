@@ -80,6 +80,10 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         totalSteps: survey.questions.length,
         destination: isPremium ? "setup" : "welcome-upgrade",
       });
+      // Index-based `$survey_response` / `$survey_response_N` keys — legacy PostHog
+      // format still supported. Migrating to ID-based keys needs question UUIDs from
+      // the PostHog survey and would break historical response mapping.
+      if (!surveyId) return;
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
     [posthog, analytics, questionIndex, currentQuestion.key, isPremium],
@@ -227,52 +231,10 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             {question.skippable ? "Skip" : "Next"}
           </Button>
         )}
-
-        {/* {!isFinalQuestion && (
-          <SkipOnboardingButton
-            searchParams={searchParams}
-            submitPosthog={submitPosthog}
-            posthog={posthog}
-            router={router}
-          />
-        )} */}
       </div>
     </form>
   );
 };
-
-// function SkipOnboardingButton({
-//   searchParams,
-//   submitPosthog,
-//   posthog,
-//   router,
-// }: {
-//   searchParams: URLSearchParams;
-//   submitPosthog: (responses: Properties) => void;
-//   posthog: PostHog;
-//   router: AppRouterInstance;
-// }) {
-//   // // A/B test whether to show skip onboarding button
-//   // if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
-//   //   return null;
-
-//   return (
-//     <Button
-//       variant="ghost"
-//       className="mt-8"
-//       type="button"
-//       onClick={async () => {
-//         const responses = getResponses(searchParams);
-//         submitPosthog(responses);
-//         posthog.capture("survey dismissed", { $survey_id: surveyId });
-//         await completedOnboardingAction();
-//         router.push("/setup");
-//       }}
-//     >
-//       Skip Onboarding
-//     </Button>
-//   );
-// }
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
   const responses = survey.questions.reduce(

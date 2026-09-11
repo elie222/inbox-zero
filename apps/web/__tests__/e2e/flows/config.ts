@@ -6,7 +6,7 @@
  * - E2E_OUTLOOK_EMAIL: Outlook test account email
  * - E2E_RUN_ID: Unique run identifier (auto-generated if not set)
  * - E2E_WEBHOOK_URL: Tunnel URL for webhook delivery
- * - E2E_AI_MODEL: AI model to use (defaults to gpt-4o-mini for cost)
+ * - E2E_AI_MODEL: AI model to use (defaults to gpt-5.4-nano for cost)
  */
 
 // Test account configuration
@@ -30,7 +30,7 @@ export function getNextMessageSequence(): string {
 export const E2E_WEBHOOK_URL = process.env.E2E_WEBHOOK_URL;
 
 // AI model for tests - use cheap model
-export const E2E_AI_MODEL = process.env.E2E_AI_MODEL || "gpt-4o-mini";
+export const E2E_AI_MODEL = process.env.E2E_AI_MODEL || "gpt-5.4-nano";
 
 // Timeouts
 export const TIMEOUTS = {

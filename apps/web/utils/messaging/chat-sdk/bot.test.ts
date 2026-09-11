@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildAffirmativeReactionMessage,
   buildHandledPendingEmailCard,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
+  buildMessagingUserMessages,
+  getMessagingAiGeneratedPostPayload,
   getPendingEmailHandledOpenText,
   getPendingEmailHandledStatus,
   getPendingEmailHandledTitle,
@@ -16,7 +19,6 @@ import {
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("ensureSlackTeamInstallation", () => {
@@ -43,11 +45,7 @@ describe("ensureSlackTeamInstallation", () => {
       teamName: "Team",
     } as any);
 
-    const logger = {
-      warn: vi.fn(),
-    } as any;
-
-    await ensureSlackTeamInstallation("T-TEAM", logger);
+    await ensureSlackTeamInstallation("T-TEAM", createTestLogger());
 
     expect(prisma.messagingChannel.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,6 +84,71 @@ describe("normalizeMessagingAssistantText", () => {
     const input =
       "I prepared that reply for you. This draft is pending confirmation.";
     expect(normalizeMessagingAssistantText({ text: input })).toBe(input);
+  });
+
+  it("formats inline rule suggestions as readable messaging text", () => {
+    const output = normalizeMessagingAssistantText({
+      text: [
+        "Here are a few suggestions.",
+        "",
+        "<rule-suggestions>",
+        "<rule-suggestion",
+        'name="Monitoring"',
+        'when="mention alerts from monitoring tools"',
+        'label="Monitoring"',
+        'archive="true" />',
+        "<rule-suggestion",
+        'name="Digest Updates"',
+        'when="summary emails from Inbox Zero"',
+        'label="Notification"',
+        "archive={false}",
+        "/>",
+        "</rule-suggestions>",
+        "",
+        "Want me to create either one?",
+      ].join("\n"),
+    });
+
+    expect(output).toContain("Here are a few suggestions.");
+    expect(output).toContain("Suggested rules:");
+    expect(output).toContain("**Monitoring**");
+    expect(output).toContain("When: mention alerts from monitoring tools");
+    expect(output).toContain("Then: Label as 'Monitoring', Archive");
+    expect(output).toContain("**Digest Updates**");
+    expect(output).toContain("When: summary emails from Inbox Zero");
+    expect(output).toContain("Then: Label as 'Notification'");
+    expect(output).toContain("Want me to create either one?");
+    expect(output).not.toContain("<rule-suggestion");
+    expect(output).not.toContain("</rule-suggestions>");
+    expect(output).not.toContain("Then: Label as 'Notification', Archive");
+  });
+
+  it("formats standalone free-form rule suggestions", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<rule-suggestion name="Road Trip Plans" when="emails discussing road trips" do="move to Travels and notify Telegram" />',
+      }),
+    ).toBe(
+      "Suggested rule:\n**Road Trip Plans**\nWhen: emails discussing road trips\nThen: move to Travels and notify Telegram",
+    );
+  });
+
+  it("formats differently-cased rule suggestion tags", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<Rule-Suggestion name="Monitoring" when="alerts" archive="true" />',
+      }),
+    ).toBe("Suggested rule:\n**Monitoring**\nWhen: alerts\nThen: Archive");
+  });
+
+  it("treats shorthand boolean rule suggestion attributes as enabled", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<rule-suggestion name="Updates" when="low-priority updates" archive draft markread />',
+      }),
+    ).toBe(
+      "Suggested rule:\n**Updates**\nWhen: low-priority updates\nThen: Archive, Draft Reply, Mark Read",
+    );
   });
 });
 
@@ -195,6 +258,53 @@ describe("buildPendingEmailCardFallbackText", () => {
   });
 });
 
+describe("buildMessagingUserMessages", () => {
+  it("keeps unsupported attachment context out of persisted user-visible parts", () => {
+    const { userMessageId, newUserMessage, modelUserMessage } =
+      buildMessagingUserMessages({
+        hasUnsupportedAttachments: true,
+        imageParts: [],
+        messageId: "message-1",
+        messageText: "Please draft a reply about this file.",
+        provider: "telegram",
+      });
+
+    expect(userMessageId).toBe("telegram-message-1");
+    expect(newUserMessage.parts).toEqual([
+      { type: "text", text: "Please draft a reply about this file." },
+    ]);
+    expect(modelUserMessage.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: expect.stringContaining("unsupported non-image file attachments"),
+      }),
+      { type: "text", text: "Please draft a reply about this file." },
+    ]);
+  });
+
+  it("does not inject hidden context when attachments are supported", () => {
+    const imagePart = {
+      type: "file" as const,
+      url: "data:image/png;base64,abc",
+      mediaType: "image/png",
+      filename: "image.png",
+    };
+    const { newUserMessage, modelUserMessage } = buildMessagingUserMessages({
+      hasUnsupportedAttachments: false,
+      imageParts: [imagePart],
+      messageId: "message-2",
+      messageText: "Summarize this image.",
+      provider: "slack",
+    });
+
+    expect(newUserMessage).toEqual(modelUserMessage);
+    expect(modelUserMessage.parts).toEqual([
+      imagePart,
+      { type: "text", text: "Summarize this image." },
+    ]);
+  });
+});
+
 describe("buildPendingEmailConfirmationCard", () => {
   it("escapes Telegram Markdown control characters in pending email cards", () => {
     const card = buildPendingEmailConfirmationCard({
@@ -220,8 +330,8 @@ describe("buildPendingEmailConfirmationCard", () => {
       .map((child) => child.content);
 
     expect(textChildren[0]).toContain("first\\_last@outlook.com");
-    expect(textChildren[0]).toContain("Plan \\[draft]");
-    expect(textChildren[1]).toContain("foo\\_bar \\*soon\\* \\[ok]");
+    expect(textChildren[0]).toContain("Plan \\[draft\\]");
+    expect(textChildren[1]).toContain("foo\\_bar \\*soon\\* \\[ok\\]");
   });
 
   it("leaves non-Telegram pending email card text unchanged", () => {
@@ -250,13 +360,75 @@ describe("buildPendingEmailConfirmationCard", () => {
     expect(textChildren[0]).toContain("first_last@outlook.com");
     expect(textChildren[0]).toContain("Plan [draft]");
     expect(textChildren[1]).toContain("foo_bar *soon* [ok]");
+
+    const cardText = JSON.stringify(card.children);
+    expect(cardText).not.toContain("AI-generated content may be inaccurate");
+  });
+
+  it("adds an AI content disclosure to Teams pending email cards", () => {
+    const card = buildPendingEmailConfirmationCard({
+      chatMessageId: "chat-message-1",
+      part: {
+        type: "tool-sendEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            to: "first_last@outlook.com",
+            subject: "Plan",
+            messageHtml: "<p>Use foo soon</p>",
+          },
+        },
+      },
+      provider: "teams",
+    });
+
+    const cardText = JSON.stringify(card.children);
+    expect(cardText).toContain("AI-generated content may be inaccurate");
+    expect(cardText).toContain("Report objectionable AI-generated content");
+  });
+});
+
+describe("getMessagingAiGeneratedPostPayload", () => {
+  it("adds an AI content disclosure to Teams assistant messages", () => {
+    expect(
+      getMessagingAiGeneratedPostPayload({
+        provider: "teams",
+        text: "Here is your summary.",
+      }),
+    ).toEqual({
+      markdown: expect.stringContaining(
+        "AI-generated content may be inaccurate",
+      ),
+    });
+  });
+
+  it("uses Slack text instead of markdown_text for assistant messages", () => {
+    expect(
+      getMessagingAiGeneratedPostPayload({
+        provider: "slack",
+        text: "**Here is your summary.**",
+      }),
+    ).toEqual({
+      raw: "*Here is your summary.*",
+    });
+  });
+
+  it("does not add the Teams disclosure to Telegram assistant messages", () => {
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "telegram",
+      text: "Here is your summary.",
+    });
+
+    expect(payload).toBe("Here is your summary.");
   });
 });
 
 describe("pending email handled state helpers", () => {
   it("uses reply-specific sent copy", () => {
     expect(getPendingEmailHandledTitle("reply_email")).toBe("Reply sent");
-    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent.");
+    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent. ✅");
   });
 
   it("builds a mailbox deep link when confirmation ids are present", () => {
@@ -357,13 +529,13 @@ describe("pending email handled state helpers", () => {
           expect.objectContaining({
             type: "link-button",
             label: "Open in Outlook",
-            url: "https://outlook.live.com/mail/0/inbox/id/message-1",
+            url: "https://outlook.office.com/mail/inbox/id/message-1",
           }),
         ],
       }),
     ]);
     expect(JSON.stringify(textChildren)).not.toContain(
-      "https://outlook.live.com/mail/0/inbox/id/message-1",
+      "https://outlook.office.com/mail/inbox/id/message-1",
     );
   });
 

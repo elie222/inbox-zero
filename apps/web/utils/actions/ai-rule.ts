@@ -11,23 +11,42 @@ import {
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
 import { setRuleRunOnThreads } from "@/utils/rule/rule";
+import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { actionClient } from "@/utils/actions/safe-action";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { checkHasAccess } from "@/utils/premium/server";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
   .inputSchema(runRulesBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider, logger: ctxLogger },
+      ctx: { emailAccountId, userId, provider, logger: ctxLogger },
       parsedInput: { messageId, threadId, rerun, isTest },
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
       logger.info("runRulesAction started", { isTest, rerun });
+
+      // Re-running discards the existing result and pays for a fresh LLM call,
+      // so it's limited to the top tier.
+      if (rerun && !isTest) {
+        const hasAccess = await checkHasAccess({
+          userId,
+          minimumTier: RERUN_MINIMUM_TIER,
+        });
+        if (!hasAccess) {
+          logger.warn("Blocked rerun without Professional access");
+          throw new SafeError(RERUN_UPGRADE_MESSAGE);
+        }
+      }
 
       logger.info("Loading email account for rule execution");
       const emailAccount = await getEmailAccountForRuleExecution({
@@ -36,7 +55,12 @@ export const runRulesAction = actionClient
         logger.error("Failed to load email account for rule execution", {
           error,
         });
-        throw error;
+        return flushAndRethrowRunRulesActionError({
+          logger,
+          error,
+          isTest,
+          stage: "load-email-account",
+        });
       });
       logger.info("Loaded email account for rule execution", {
         emailAccountFound: Boolean(emailAccount),
@@ -51,8 +75,13 @@ export const runRulesAction = actionClient
         provider,
         logger,
       }).catch((error) => {
-        logger.error("Failed to create email provider", { error });
-        throw error;
+        logger.warn("Failed to create email provider", { error });
+        return flushAndRethrowRunRulesActionError({
+          logger,
+          error,
+          isTest,
+          stage: "create-email-provider",
+        });
       });
       logger.info("Created email provider");
 
@@ -60,8 +89,13 @@ export const runRulesAction = actionClient
       const message = await emailProvider
         .getMessage(messageId)
         .catch((error) => {
-          logger.error("Failed to fetch message for rule execution", { error });
-          throw error;
+          logger.warn("Failed to fetch message for rule execution", { error });
+          return flushAndRethrowRunRulesActionError({
+            logger,
+            error,
+            isTest,
+            stage: "fetch-message",
+          });
         });
       logger.info("Fetched message for rule execution", {
         fetchedThreadId: message.threadId,
@@ -89,7 +123,12 @@ export const runRulesAction = actionClient
         : Promise.resolve([])
       ).catch((error) => {
         logger.error("Failed to load existing executed rules", { error });
-        throw error;
+        return flushAndRethrowRunRulesActionError({
+          logger,
+          error,
+          isTest,
+          stage: "load-existing-executed-rules",
+        });
       });
       logger.info("Loaded existing executed rules", {
         executedRuleCount: executedRules.length,
@@ -121,7 +160,12 @@ export const runRulesAction = actionClient
         })
         .catch((error) => {
           logger.error("Failed to load enabled rules for execution", { error });
-          throw error;
+          return flushAndRethrowRunRulesActionError({
+            logger,
+            error,
+            isTest,
+            stage: "load-enabled-rules",
+          });
         });
       logger.info("Loaded enabled rules for execution", {
         ruleCount: rules.length,
@@ -138,7 +182,12 @@ export const runRulesAction = actionClient
         modelType: "chat",
       }).catch((error) => {
         logger.error("runRules failed", { error });
-        throw error;
+        return flushAndRethrowRunRulesActionError({
+          logger,
+          error,
+          isTest,
+          stage: "run-rules",
+        });
       });
 
       logger.info("runRules completed", {
@@ -166,71 +215,80 @@ export const testAiCustomContentAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { content },
     }) => {
-      const emailAccount = await getEmailAccountForRuleExecution({
-        emailAccountId,
-      });
-
-      if (!emailAccount) throw new SafeError("Email account not found");
-
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
-
-      const rules = await prisma.rule.findMany({
-        where: {
+      try {
+        const emailAccount = await getEmailAccountForRuleExecution({
           emailAccountId,
-          enabled: true,
-          instructions: { not: null },
-        },
-        include: {
-          actions: true,
-        },
-      });
+        });
 
-      const testId = `testMessageId-${Date.now()}`;
+        if (!emailAccount) throw new SafeError("Email account not found");
 
-      const result = await runRules({
-        isTest: true,
-        provider: emailProvider,
-        logger,
-        message: {
-          id: testId,
-          // Match id so Gmail's isReplyInThread (which compares id !== threadId)
-          // treats this synthetic test message as the first message in a thread.
-          threadId: testId,
-          snippet: content,
-          textPlain: content,
-          headers: {
-            date: new Date().toISOString(),
-            from: "",
-            to: "",
-            subject: "",
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        const rules = await prisma.rule.findMany({
+          where: {
+            emailAccountId,
+            enabled: true,
+            instructions: { not: null },
           },
-          historyId: "",
-          inline: [],
-          internalDate: new Date().toISOString(),
-          subject: "",
-          date: new Date().toISOString(),
-        },
-        rules,
-        emailAccount,
-        modelType: "chat",
-      });
+          include: {
+            actions: true,
+          },
+        });
 
-      logger.info("testAiCustomContent completed", {
-        resultCount: result.length,
-        matchedCount: result.filter((item) => !!item.rule).length,
-        skippedCount: result.filter((item) => !item.rule).length,
-      });
+        const testId = `testMessageId-${Date.now()}`;
 
-      await flushLoggerSafely(logger, {
-        action: "testAiCustomContent",
-        flushReason: "test-mode",
-      });
+        const result = await runRules({
+          isTest: true,
+          provider: emailProvider,
+          logger,
+          message: {
+            id: testId,
+            // Match id so Gmail's isReplyInThread (which compares id !== threadId)
+            // treats this synthetic test message as the first message in a thread.
+            threadId: testId,
+            snippet: content,
+            textPlain: content,
+            headers: {
+              date: new Date().toISOString(),
+              from: "",
+              to: "",
+              subject: "",
+            },
+            historyId: "",
+            inline: [],
+            internalDate: new Date().toISOString(),
+            subject: "",
+            date: new Date().toISOString(),
+          },
+          rules,
+          emailAccount,
+          modelType: "chat",
+        });
 
-      return result;
+        logger.info("testAiCustomContent completed", {
+          resultCount: result.length,
+          matchedCount: result.filter((item) => !!item.rule).length,
+          skippedCount: result.filter((item) => !item.rule).length,
+        });
+
+        await flushLoggerSafely(logger, {
+          action: "testAiCustomContent",
+          flushReason: "test-mode",
+        });
+
+        return result;
+      } catch (error) {
+        logger.warn("testAiCustomContent failed", { error });
+        await flushLoggerSafely(logger, {
+          action: "testAiCustomContent",
+          flushReason: "test-mode-error",
+        });
+        throw error;
+      }
     },
   );
 
@@ -242,6 +300,31 @@ export const setRuleRunOnThreadsAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { ruleId, runOnThreads },
     }) => {
+      await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
       await setRuleRunOnThreads({ ruleId, emailAccountId, runOnThreads });
     },
   );
+
+type FlushableLogger = Parameters<typeof flushLoggerSafely>[0];
+
+async function flushAndRethrowRunRulesActionError({
+  logger,
+  error,
+  isTest,
+  stage,
+}: {
+  logger: FlushableLogger;
+  error: unknown;
+  isTest?: boolean;
+  stage: string;
+}): Promise<never> {
+  if (isTest) {
+    await flushLoggerSafely(logger, {
+      action: "runRules",
+      flushReason: "test-mode-error",
+      stage,
+    });
+  }
+
+  throw error;
+}
