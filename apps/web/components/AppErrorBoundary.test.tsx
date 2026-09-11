@@ -28,9 +28,9 @@ describe("AppErrorBoundary", () => {
 
     expect(screen.getByText("event-reference")).toBeTruthy();
     expect(screen.queryByText(error.message)).toBeNull();
-    const href = screen
-      .getByRole("link", { name: "support@example.com" })
-      .getAttribute("href")!;
+    const { href } = screen.getByRole<HTMLAnchorElement>("link", {
+      name: "support@example.com",
+    });
     const body = new URL(href).searchParams.get("body");
     expect(body).toContain("event-reference");
     expect(body).not.toContain(error.message);
@@ -42,5 +42,27 @@ describe("AppErrorBoundary", () => {
     expect(reset).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Back to inbox" }));
     expect(onBack).toHaveBeenCalledOnce();
+  });
+  it("hides the previous reference while capturing a replacement error", () => {
+    vi.mocked(Sentry.captureException).mockReturnValueOnce("previous-event");
+    const reset = vi.fn();
+    const { rerender } = render(
+      <AppErrorBoundary error={new Error("First failure")} reset={reset} />,
+    );
+    expect(screen.getByText("previous-event")).toBeTruthy();
+    vi.mocked(Sentry.captureException).mockImplementationOnce(() => {
+      expect(screen.queryByText("previous-event")).toBeNull();
+      const { href } = screen.getByRole<HTMLAnchorElement>("link", {
+        name: "support@example.com",
+      });
+      expect(new URL(href).searchParams.get("body")).not.toContain(
+        "previous-event",
+      );
+      return "replacement-event";
+    });
+    rerender(
+      <AppErrorBoundary error={new Error("Second failure")} reset={reset} />,
+    );
+    expect(screen.getByText("replacement-event")).toBeTruthy();
   });
 });

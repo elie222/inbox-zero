@@ -30,7 +30,12 @@ export function AppErrorBoundary({
   description?: string;
   onBack?: () => void;
 }) {
-  const [supportReference, setSupportReference] = useState<string>();
+  const [capturedError, setCapturedError] = useState<{
+    error: Error;
+    eventId: string;
+  }>();
+  const supportReference =
+    capturedError?.error === error ? capturedError.eventId : undefined;
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams<{
@@ -49,7 +54,7 @@ export function AppErrorBoundary({
     });
     // Correlate with the exception details without copying raw error text into Axiom.
     const sentryEventId = Sentry.captureException(error, { extra: context });
-    setSupportReference(sentryEventId);
+    setCapturedError({ error, eventId: sentryEventId });
     logger.error("App error boundary triggered", {
       ...context,
       sentryEventId,
@@ -76,7 +81,7 @@ export function AppErrorBoundary({
             Try again
           </Button>
           {onBack && (
-            <Button onClick={onBack} variant="outline">
+            <Button type="button" onClick={onBack} variant="outline">
               Back to inbox
             </Button>
           )}
