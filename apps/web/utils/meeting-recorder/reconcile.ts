@@ -659,6 +659,47 @@ export async function releaseAutomaticAccountBookings({
   });
 }
 
+// Calendar APIs omit events after their scheduled end, so an ongoing call must
+// be cancellable from the account-scoped snapshot we already verified earlier.
+export async function releaseMeetingBooking({
+  emailAccountId,
+  calendarEventId,
+  logger,
+}: {
+  emailAccountId: string;
+  calendarEventId: string;
+  logger: Logger;
+}): Promise<boolean> {
+  const meeting = await prisma.meeting.findFirst({
+    where: {
+      emailAccountId,
+      calendarEventId,
+      recordingId: { not: null },
+      recording: { status: { in: CANCELLABLE_STATUSES } },
+    },
+    select: { id: true, recordingId: true },
+  });
+  if (!meeting?.recordingId) return false;
+
+  const updated = await prisma.meeting.updateMany({
+    where: {
+      id: meeting.id,
+      emailAccountId,
+      calendarEventId,
+      recordingId: meeting.recordingId,
+    },
+    data: { joinOverride: false },
+  });
+  if (updated.count === 0) return false;
+
+  await releaseMeeting({
+    meetingId: meeting.id,
+    recordingId: meeting.recordingId,
+    logger,
+  });
+  return true;
+}
+
 async function releaseAccountBookingsMatching({
   emailAccountId,
   automaticOnly,
@@ -717,10 +758,14 @@ async function releaseMeeting({
   if (!recordingId) return;
 
   // Only detach the recording we were asked about. `recordingId` is a snapshot,
-  // so a concurrent pass may already have linked a different one, and clearing
-  // unconditionally would drop that new booking on the floor.
+  // so a concurrent pass may already have linked a different one or completed
+  // the call, and clearing unconditionally would drop that recording.
   const detached = await prisma.meeting.updateMany({
-    where: { id: meetingId, recordingId },
+    where: {
+      id: meetingId,
+      recordingId,
+      recording: { status: { in: CANCELLABLE_STATUSES } },
+    },
     data: { recordingId: null },
   });
   if (detached.count === 0) return;
