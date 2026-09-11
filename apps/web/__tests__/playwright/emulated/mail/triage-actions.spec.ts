@@ -98,7 +98,18 @@ test("advances the split reader after archiving an open conversation", async ({
   let archived = false;
   let restoreSucceeded: boolean | undefined;
   try {
-    await page.getByRole("button", { name: /^Archive/ }).click();
+    const emailBody = page
+      .frameLocator('iframe[title="Email content preview"]')
+      .last()
+      .locator("body");
+    await emailBody.click();
+    await page.keyboard.press("h");
+    await expect(
+      page.getByPlaceholder("When should it return? Try Friday at 3pm"),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await emailBody.click();
+    await page.keyboard.press("e");
     archived = true;
     await expect(
       page
