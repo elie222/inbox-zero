@@ -11,7 +11,13 @@ export const runAiRules = async (
     { id: string; messages: Array<{ id: string }> } | null | undefined
   >,
   rerun: boolean,
-  signal?: AbortSignal,
+  {
+    signal,
+    skipDraftReplies = false,
+  }: {
+    signal?: AbortSignal;
+    skipDraftReplies?: boolean;
+  } = {},
 ) => {
   const threads = threadsArray.filter(isDefined);
   const threadIds = threads.map((t) => t.id);
@@ -47,6 +53,7 @@ export const runAiRules = async (
                 threadId: thread.id,
                 rerun,
                 isTest: false,
+                skipDraftReplies,
               });
 
               if (result?.serverError) throw new Error(result.serverError);

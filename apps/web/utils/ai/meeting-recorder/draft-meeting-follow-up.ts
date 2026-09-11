@@ -31,19 +31,19 @@ const draftSchema = z.object({
 
 type MeetingFollowUpDraft = z.infer<typeof draftSchema>;
 
-export async function aiDraftMeetingFollowUp({
-  emailAccount,
-  eventTitle,
-  summary,
-  recipients,
-  writingStyle,
-}: {
+export type MeetingFollowUpInput = {
   emailAccount: EmailAccountWithAI;
   eventTitle: string;
   summary: MeetingSummary;
   recipients: MeetingAttendee[];
   writingStyle: string | null;
-}): Promise<MeetingFollowUpDraft> {
+  currentDate?: Date;
+};
+
+export async function aiDraftMeetingFollowUp(
+  input: MeetingFollowUpInput,
+): Promise<MeetingFollowUpDraft> {
+  const { emailAccount, recipients } = input;
   logger.info("Drafting meeting follow-up", {
     recipientCount: recipients.length,
   });
@@ -67,32 +67,21 @@ export async function aiDraftMeetingFollowUp({
   const result = await generateObject({
     ...modelOptions,
     system: systemPrompt,
-    prompt: getUserPrompt({
-      emailAccount,
-      eventTitle,
-      summary,
-      recipients,
-      writingStyle,
-    }),
+    prompt: buildMeetingFollowUpModelInput(input),
     schema: draftSchema,
   });
 
   return result.object;
 }
 
-function getUserPrompt({
+export function buildMeetingFollowUpModelInput({
   emailAccount,
   eventTitle,
   summary,
   recipients,
   writingStyle,
-}: {
-  emailAccount: EmailAccountWithAI;
-  eventTitle: string;
-  summary: MeetingSummary;
-  recipients: MeetingAttendee[];
-  writingStyle: string | null;
-}): string {
+  currentDate = new Date(),
+}: MeetingFollowUpInput): string {
   const userAbout = emailAccount.about
     ? `Context about the user:
 
@@ -131,6 +120,6 @@ Meeting summary:
 ${JSON.stringify(summary, null, 2)}
 </summary>
 
-${getTodayForLLM()}
+${getTodayForLLM(currentDate)}
 Write the follow-up email as ${emailAccount.email}.`;
 }

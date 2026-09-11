@@ -5,7 +5,7 @@ services:
     restart: always
     # container_name: inbox-zero
     env_file:
-      - path: ./apps/web/.env
+      - path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}
         required: false
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -44,7 +44,7 @@ services:
       - "${REDIS_HTTP_BIND_HOST:-127.0.0.1}:${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
-      - path: ./apps/web/.env
+      - path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}
         required: false
     environment:
       SRH_MODE: env
@@ -61,7 +61,7 @@ services:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: always
     env_file:
-      - path: ./apps/web/.env
+      - path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}
         required: false
     depends_on:
       db:
@@ -90,7 +90,7 @@ services:
     pull_policy: always
     command: ["/app/docker/scripts/start-worker.sh"]
     env_file:
-      - path: ./apps/web/.env
+      - path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}
         required: false
     depends_on:
       web:
@@ -164,7 +164,7 @@ services:
         }
       "
     env_file:
-      - path: ./apps/web/.env
+      - path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}
         required: false
     depends_on:
       - web

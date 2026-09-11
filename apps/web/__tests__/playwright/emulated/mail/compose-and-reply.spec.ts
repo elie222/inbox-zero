@@ -15,12 +15,12 @@ test("keeps keyboard focus in the composer and follows the message field order",
   await page.getByRole("button", { name: /^Compose/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
-  const toField = dialog.getByRole("textbox", { name: "To" });
+  const toField = dialog.getByRole("combobox", { name: "To" });
   await expect(toField).toBeFocused();
 
   for (const field of [
-    dialog.getByRole("textbox", { exact: true, name: "Cc" }),
-    dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
+    dialog.getByRole("combobox", { exact: true, name: "Cc" }),
+    dialog.getByRole("combobox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
     dialog.getByRole("button", { name: "Show signature" }),
@@ -129,7 +129,7 @@ test("restores a new message draft after closing the composer", async ({
   await page.getByRole("button", { name: /^Compose/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
-  const toField = dialog.getByRole("textbox", { name: "To" });
+  const toField = dialog.getByRole("combobox", { name: "To" });
   const subjectField = dialog.getByPlaceholder("Subject");
   const messageField = dialog.getByRole("textbox", { name: "Email message" });
   await toField.fill("recipient@example.com");
@@ -140,7 +140,9 @@ test("restores a new message draft after closing the composer", async ({
   await expect(dialog).toBeHidden();
   await page.getByRole("button", { name: /^Compose/ }).click();
 
-  await expect(toField).toHaveValue("recipient@example.com");
+  await expect(
+    dialog.getByRole("button", { name: "Remove recipient@example.com" }),
+  ).toBeVisible();
   await expect(subjectField).toHaveValue("Preserved compose draft");
   await expect(messageField).toContainText("Keep this message after closing.");
   await capturePlaywrightCheckpoint(
@@ -154,6 +156,9 @@ test("restores a new message draft after closing the composer", async ({
 
   await page.getByRole("button", { name: /^Compose/ }).click();
   await expect(toField).toHaveValue("");
+  await expect(
+    dialog.getByRole("button", { name: "Remove recipient@example.com" }),
+  ).toHaveCount(0);
   await expect(subjectField).toHaveValue("");
   await expect(messageField).not.toContainText(
     "Keep this message after closing.",
@@ -220,7 +225,7 @@ test("keeps editing state stable across formatting, links, paste, and files", as
     dialog.getByRole("button", { name: "Expand compose" }),
   ).toBeVisible();
   await dialog
-    .getByRole("textbox", { name: "To" })
+    .getByRole("combobox", { name: "To" })
     .fill("teammate@example.com");
   await dialog.getByPlaceholder("Subject").fill("Project update");
   await editor.pressSequentially("Alpha omega");
@@ -340,7 +345,7 @@ test("does not add a line break for the send shortcut", async ({
   const dialog = page.getByRole("dialog", { name: "New Message" });
   const editor = dialog.locator("[contenteditable='true']");
   await dialog
-    .getByRole("textbox", { name: "To" })
+    .getByRole("combobox", { name: "To" })
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
@@ -416,7 +421,7 @@ test("composes, sends, and reads a new message from Sent", async ({
   await page.getByRole("button", { name: /^Compose/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Message" });
   await dialog
-    .getByRole("textbox", { name: "To" })
+    .getByRole("combobox", { name: "To" })
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   const composeEditor = dialog.locator("[contenteditable='true']");
@@ -698,7 +703,7 @@ test("opens a sent forward in its provider thread", async ({
     .getByRole("button", { name: "Forward", exact: true })
     .click();
   await sourceMessage
-    .getByRole("textbox", { name: "To" })
+    .getByRole("combobox", { name: "To" })
     .fill("recipient@example.com");
   const editor = sourceMessage.getByRole("textbox", {
     name: "Email message",
@@ -742,19 +747,25 @@ test("keeps reply and forward drafts in separate composer sessions", async ({
 
   await message.getByRole("button", { name: "Forward", exact: true }).click();
   await expect(editor).not.toContainText("Reply-only draft text");
-  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("combobox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("button", { name: /^Remove / })).toHaveCount(
+    0,
+  );
   await editor.fill("Forward-only draft text");
 
   await message.getByRole("button", { name: "Reply", exact: true }).click();
   await expect(editor).toContainText("Reply-only draft text");
   await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
-  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue(
-    /leslie@example\.com/i,
-  );
+  await expect(
+    message.getByRole("button", { name: /^Remove .*leslie@example\.com/i }),
+  ).toBeVisible();
 
   await message.getByRole("button", { name: "Forward", exact: true }).click();
   await expect(editor).toContainText("Forward-only draft text");
-  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("combobox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("button", { name: /^Remove / })).toHaveCount(
+    0,
+  );
 });
 
 async function selectEditorText(editor: Locator, text: string) {

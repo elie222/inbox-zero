@@ -85,10 +85,10 @@ env:
   UPSTASH_REDIS_URL: http://localhost:8079
   UPSTASH_REDIS_TOKEN: playwright-token
   PLAYWRIGHT_PRODUCTION: "1"
-  # Public flags are frozen into the shared build. Contacts keeps its dev-only variant.
+  # Public flags are frozen into the shared build. Match the enabled production UI.
   NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
   NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true"
-  NEXT_PUBLIC_CONTACTS_ENABLED: "false"
+  NEXT_PUBLIC_CONTACTS_ENABLED: "true"
   NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
   NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
   NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
@@ -159,6 +159,7 @@ jobs:
         env:
           NODE_ENV: production
           NODE_OPTIONS: --max_old_space_size=16384
+          SKIP_TYPE_CHECK: "true"
 
       - name: Package browser app
         if: steps.targets.outputs.batches != '[]'

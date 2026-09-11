@@ -84,6 +84,54 @@ describe("loadThreads", () => {
     );
   });
 
+  it("keeps the latest execution of a rule separately for each message", async () => {
+    const emailProvider = {
+      getThreadsWithQuery: vi.fn().mockResolvedValue({
+        threads: [
+          {
+            id: "thread-1",
+            snippet: "Thread",
+            messages: [
+              {
+                id: "message-1",
+                threadId: "thread-1",
+                headers: { from: "sender@example.com" },
+              },
+            ],
+          },
+        ],
+        nextPageToken: null,
+      }),
+    };
+    prisma.executedRule.findMany.mockResolvedValue([
+      {
+        ...executedRule("latest", new Date("2026-08-14T12:00:00Z")),
+        messageId: "message-2",
+        rule: { id: "rule-1" },
+      },
+      {
+        ...executedRule("earlier-message", new Date("2026-08-14T11:00:00Z")),
+        messageId: "message-1",
+        rule: { id: "rule-1" },
+      },
+      {
+        ...executedRule("superseded", new Date("2026-08-14T10:00:00Z")),
+        messageId: "message-2",
+        rule: { id: "rule-1" },
+      },
+    ] as never);
+    const result = await loadThreads({
+      query: { type: "inbox" },
+      emailAccountId: "account-1",
+      emailProvider: emailProvider as never,
+      messageFormat: "metadata",
+    });
+    expect(result.threads[0]?.plans.map((plan) => plan.id)).toEqual([
+      "latest",
+      "earlier-message",
+    ]);
+  });
+
   it("keeps every provider message ID when ignored messages are hidden", async () => {
     const emailProvider = {
       getThreadsWithQuery: vi.fn().mockResolvedValue({
