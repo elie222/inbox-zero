@@ -76,5 +76,8 @@ module.exports = {
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
     "@biomejs/biome",
+
+    "next",
+    "@next/*",
   ],
 };
