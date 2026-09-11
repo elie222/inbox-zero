@@ -30,14 +30,16 @@ export function Header({ className }: HeaderProps) {
       </div>
       <HeaderLinks />
       <div className="flex items-center gap-3">
-        <Button variant="secondary" asChild>
-          <Link
-            href="/login"
-            onClick={() => landingPageAnalytics.logInClicked(posthog)}
-          >
-            Log in
-          </Link>
-        </Button>
+        <div className="hidden md:block">
+          <Button variant="secondary" asChild>
+            <Link
+              href="/login"
+              onClick={() => landingPageAnalytics.logInClicked(posthog)}
+            >
+              Log in
+            </Link>
+          </Button>
+        </div>
         <Button asChild>
           <Link
             href="/login"

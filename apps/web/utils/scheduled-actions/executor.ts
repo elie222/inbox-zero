@@ -1,4 +1,5 @@
 import {
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -13,6 +14,14 @@ import type {
   EmailForAction,
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  getActionResultError,
+  getSentMessageIds,
+  isActionResultSkipped,
+  normalizeActionExecutionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "scheduled-actions-executor";
 
@@ -49,6 +58,7 @@ export async function executeScheduledAction(
         log,
         "Email no longer exists",
       );
+      await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
       return { success: true, reason: "Email no longer exists" };
     }
 
@@ -95,6 +105,7 @@ export async function executeScheduledAction(
     });
 
     await markActionFailed(scheduledAction.id, error, log);
+    await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
     return { success: false, error };
   }
 }
@@ -177,6 +188,9 @@ async function executeDelayedAction({
       staticAttachments: actionItem.staticAttachments ?? undefined,
       selectedAttachments: actionItem.selectedAttachments ?? undefined,
       executedRuleId: scheduledAction.executedRuleId,
+      ...(isSendingActionType(actionItem.type)
+        ? { executionStartedAt: new Date() }
+        : {}),
     },
   });
 
@@ -208,12 +222,62 @@ async function executeDelayedAction({
     messageId: email.id,
   });
 
-  await runActionFunction({
-    client,
-    email,
-    action: executedAction,
-    emailAccount,
-    executedRule,
+  let actionResult: unknown;
+  try {
+    actionResult = await runActionFunction({
+      client,
+      email,
+      action: executedAction,
+      emailAccount,
+      executedRule,
+      logger: log,
+    });
+  } catch (error) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: normalizeActionExecutionError(error),
+      sentMessageIds: getSentMessageIds(error),
+      logger: log,
+    });
+    throw error;
+  }
+
+  if (isActionResultSkipped(actionResult)) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.SKIPPED,
+      error: null,
+      logger: log,
+    });
+    log.info("Skipped delayed action", {
+      actionType: executedAction.type,
+      executedActionId: executedAction.id,
+    });
+    return executedAction;
+  }
+
+  const actionResultError = getActionResultError(
+    executedAction.type,
+    actionResult,
+  );
+  if (actionResultError) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: actionResultError,
+      logger: log,
+    });
+    throw Object.assign(new Error(actionResultError.message), {
+      code: actionResultError.code,
+    });
+  }
+
+  await persistExecutedActionOutcome({
+    actionId: executedAction.id,
+    status: ExecutedActionStatus.SUCCEEDED,
+    error: null,
+    sentMessageIds: getSentMessageIds(actionResult),
     logger: log,
   });
 
@@ -275,7 +339,7 @@ async function markActionFailed(
  * Check if all scheduled actions for an ExecutedRule are complete
  * and update the ExecutedRule status accordingly
  */
-async function checkAndCompleteExecutedRule(
+export async function checkAndCompleteExecutedRule(
   executedRuleId: string,
   log: Logger,
 ) {
@@ -289,13 +353,35 @@ async function checkAndCompleteExecutedRule(
   });
 
   if (pendingActions === 0) {
-    await prisma.executedRule.update({
-      where: { id: executedRuleId },
-      data: { status: ExecutedRuleStatus.APPLIED },
+    const failedActions = await prisma.scheduledAction.count({
+      where: {
+        executedRuleId,
+        status: ScheduledActionStatus.FAILED,
+      },
     });
 
-    log.info("Completed ExecutedRule - all scheduled actions finished", {
-      executedRuleId,
-    });
+    if (failedActions > 0) {
+      await prisma.executedRule.update({
+        where: { id: executedRuleId },
+        data: {
+          status: ExecutedRuleStatus.ERROR,
+          reason: "One or more scheduled actions failed",
+        },
+      });
+
+      log.info("ExecutedRule errored - some scheduled actions failed", {
+        executedRuleId,
+        failedActions,
+      });
+    } else {
+      await prisma.executedRule.update({
+        where: { id: executedRuleId },
+        data: { status: ExecutedRuleStatus.APPLIED },
+      });
+
+      log.info("Completed ExecutedRule - all scheduled actions finished", {
+        executedRuleId,
+      });
+    }
   }
 }

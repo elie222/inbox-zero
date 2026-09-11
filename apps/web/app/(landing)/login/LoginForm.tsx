@@ -3,54 +3,65 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type SVGProps, useState } from "react";
+import { usePostHog } from "posthog-js/react";
+import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { signIn, signInWithOauth2 } from "@/utils/auth-client";
+import {
+  getInboxZeroDesktopApp,
+  type DesktopAuthProvider,
+} from "@/utils/desktop-app";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
-import { buildRedirectUrl } from "@/utils/redirect";
-import { getPossessiveBrandName } from "@/utils/branding";
-import { AlertBasic } from "@/components/Alert";
+import { buildRedirectUrl, redirectToSafeUrl } from "@/utils/redirect";
 import { createClientLogger } from "@/utils/logger-client";
+import type { LoginProvider } from "@/utils/oauth/login-providers";
+import {
+  trackAuthFailure,
+  trackAuthStarted,
+} from "@/utils/analytics/auth-funnel";
 
 const logger = createClientLogger("login/LoginForm");
 const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 
 export function LoginForm({
-  showAppleLogin,
+  enabledProviders,
   useGoogleOauthEmulator,
-  showMicrosoftLogin,
-  showSsoLogin,
+  otherOptions = false,
 }: {
-  showAppleLogin?: boolean;
+  enabledProviders: readonly LoginProvider[];
   useGoogleOauthEmulator: boolean;
-  showMicrosoftLogin?: boolean;
-  showSsoLogin?: boolean;
+  otherOptions?: boolean;
 }) {
+  const posthog = usePostHog();
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
   const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
+  const showOtherOptions =
+    otherOptions ||
+    !enabledProviders.some(
+      (provider) => provider === "google" || provider === "microsoft",
+    );
+  const showAppleLogin = showOtherOptions && enabledProviders.includes("apple");
+  const showGoogleLogin = !otherOptions && enabledProviders.includes("google");
+  const showMicrosoftLogin =
+    !otherOptions && enabledProviders.includes("microsoft");
+  const showSsoLogin = showOtherOptions && enabledProviders.includes("sso");
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
-    setGoogleError(null);
+    trackAuthStarted(posthog, "google");
     try {
+      if (await startDesktopAuthIfAvailable("google", callbackURL)) {
+        return;
+      }
       if (useGoogleOauthEmulator) {
         const result = await signInWithOauth2({
           providerId: "google",
@@ -60,7 +71,7 @@ export function LoginForm({
         if (!result.url) {
           throw new Error("Missing Google sign-in redirect URL");
         }
-        window.location.href = result.url;
+        redirectToSafeUrl(result.url, { allowExternal: true });
       } else {
         await signIn.social({
           provider: "google",
@@ -69,9 +80,13 @@ export function LoginForm({
         });
       }
     } catch (error) {
+      trackAuthFailure(posthog, {
+        provider: "google",
+        stage: "start",
+        errorCode: getSignInErrorCode(error),
+      });
       const description = getSocialSignInErrorMessage(error);
       logger.error("Error signing in with Google", { error });
-      setGoogleError(description);
       toastError({
         title: "Error signing in with Google",
         description,
@@ -88,76 +103,26 @@ export function LoginForm({
       callbackURL,
       errorCallbackURL,
       setLoading: setLoadingMicrosoft,
+      posthog,
     });
   };
 
   return (
-    <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
-      {showAppleLogin ? (
-        <Button
-          size="2xl"
-          loading={loadingApple}
-          onClick={() =>
-            handleSocialSignIn({
-              provider: "apple",
-              providerName: "Apple",
-              callbackURL: appleCallbackURL,
-              errorCallbackURL,
-              setLoading: setLoadingApple,
-            })
-          }
-        >
+    <div className="flex flex-col justify-center gap-2 px-4">
+      {showGoogleLogin ? (
+        <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
           <span className="flex items-center justify-center">
-            <AppleLogo className="size-6" aria-hidden="true" />
-            <span className="ml-2">Sign in with Apple</span>
+            <Image
+              src="/images/google.svg"
+              alt="Google"
+              width={24}
+              height={24}
+              unoptimized
+            />
+            <span className="ml-2">Sign in with Google</span>
           </span>
         </Button>
       ) : null}
-
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button size="2xl">
-            <span className="flex items-center justify-center">
-              <Image
-                src="/images/google.svg"
-                alt="Google"
-                width={24}
-                height={24}
-                unoptimized
-              />
-              <span className="ml-2">Sign in with Google</span>
-            </span>
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Sign in</DialogTitle>
-          </DialogHeader>
-          <DialogDescription className="mt-1 text-sm leading-6 text-slate-700 dark:text-foreground">
-            {getPossessiveBrandName()} use and transfer of information received
-            from Google APIs to any other app will adhere to{" "}
-            <a
-              href="https://developers.google.com/terms/api-services-user-data-policy"
-              className="underline underline-offset-4 hover:text-gray-900"
-            >
-              Google API Services User Data
-            </a>{" "}
-            Policy, including the Limited Use requirements.
-          </DialogDescription>
-          {googleError ? (
-            <AlertBasic
-              variant="destructive"
-              title="Failed to start Google sign-in"
-              description={googleError}
-            />
-          ) : null}
-          <div>
-            <Button loading={loadingGoogle} onClick={handleGoogleSignIn}>
-              I agree
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {showMicrosoftLogin ? (
         <Button
@@ -178,16 +143,61 @@ export function LoginForm({
         </Button>
       ) : null}
 
-      {showSsoLogin ? (
+      {showAppleLogin ? (
         <UIButton
-          variant="ghost"
+          variant="outline"
           size="lg"
-          className="w-full hover:scale-105 transition-transform"
-          asChild
+          loading={loadingApple}
+          onClick={() =>
+            handleSocialSignIn({
+              provider: "apple",
+              providerName: "Apple",
+              callbackURL: appleCallbackURL,
+              errorCallbackURL,
+              setLoading: setLoadingApple,
+              posthog,
+            })
+          }
         >
-          <Link href="/login/sso">Sign in with SSO</Link>
+          Continue with Apple
         </UIButton>
       ) : null}
+
+      {showOtherOptions ? (
+        <>
+          <UIButton variant="outline" size="lg" asChild>
+            <Link
+              href={buildRedirectUrl("/login/email", { next: callbackURL })}
+            >
+              Email code (existing accounts)
+            </Link>
+          </UIButton>
+          {showSsoLogin && (
+            <UIButton variant="outline" size="lg" asChild>
+              <Link
+                href={buildRedirectUrl("/login/sso", { next: callbackURL })}
+              >
+                Continue with SSO
+              </Link>
+            </UIButton>
+          )}
+          {otherOptions && (
+            <UIButton variant="ghost" size="lg" asChild>
+              <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
+                Back
+              </Link>
+            </UIButton>
+          )}
+        </>
+      ) : (
+        <UIButton variant="ghost" size="lg" asChild>
+          <Link
+            href={buildRedirectUrl("/login/options", { next: callbackURL })}
+          >
+            Other options
+          </Link>
+        </UIButton>
+      )}
     </div>
   );
 }
@@ -217,21 +227,32 @@ async function handleSocialSignIn({
   callbackURL,
   errorCallbackURL,
   setLoading,
+  posthog,
 }: {
   provider: "apple" | "google" | "microsoft";
   providerName: "Apple" | "Google" | "Microsoft";
   callbackURL: string;
   errorCallbackURL: string;
   setLoading: (loading: boolean) => void;
+  posthog: ReturnType<typeof usePostHog>;
 }) {
   setLoading(true);
+  trackAuthStarted(posthog, provider);
   try {
+    if (await startDesktopAuthIfAvailable(provider, callbackURL)) {
+      return;
+    }
     await signIn.social({
       provider,
       errorCallbackURL,
       callbackURL,
     });
   } catch (error) {
+    trackAuthFailure(posthog, {
+      provider,
+      stage: "start",
+      errorCode: getSignInErrorCode(error),
+    });
     const description = getSocialSignInErrorMessage(error);
     logger.error(`Error signing in with ${providerName}`, { error });
     toastError({
@@ -245,16 +266,38 @@ async function handleSocialSignIn({
 
 function getSocialSignInErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
+    if (isNetworkSignInError(error.message)) {
+      return "Could not start sign-in. Please check that this app is opened from its configured public URL, then try again.";
+    }
+
     return error.message;
   }
 
   return "Please try again or contact support.";
 }
 
-function AppleLogo(props: SVGProps<SVGSVGElement>) {
+function getSignInErrorCode(error: unknown) {
+  return error instanceof Error && isNetworkSignInError(error.message)
+    ? "network_error"
+    : "client_error";
+}
+
+function isNetworkSignInError(message: string) {
+  const normalizedMessage = message.toLowerCase();
+
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.091zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.56-1.701z" />
-    </svg>
+    normalizedMessage === "load failed" ||
+    normalizedMessage === "failed to fetch" ||
+    normalizedMessage === "networkerror when attempting to fetch resource."
   );
+}
+
+async function startDesktopAuthIfAvailable(
+  provider: DesktopAuthProvider,
+  callbackPath: string,
+) {
+  const desktopApp = getInboxZeroDesktopApp();
+  if (!desktopApp) return false;
+  await desktopApp.startAuth(provider, { callbackPath });
+  return true;
 }

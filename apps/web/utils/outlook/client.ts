@@ -1,4 +1,9 @@
-import { Client } from "@microsoft/microsoft-graph-client";
+import {
+  Client,
+  MiddlewareFactory,
+  type Context,
+  type Middleware,
+} from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
@@ -10,7 +15,7 @@ import {
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
-import { SafeError } from "@/utils/error";
+import { isInvalidGrantError, SafeError } from "@/utils/error";
 
 // Add buffer time to prevent token expiry during long-running operations
 const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
@@ -27,20 +32,38 @@ export class OutlookClient {
     this.accessToken = accessToken;
     this.logger = logger;
     const graphClientOptions = getMicrosoftGraphClientOptions(accessToken);
+    const fetchOptions = {
+      headers: {
+        Prefer: 'IdType="ImmutableId"',
+      },
+    };
+
+    if (graphClientOptions.baseUrl?.startsWith("http://")) {
+      const authProvider = {
+        getAccessToken: async () => this.accessToken,
+      };
+      const middleware =
+        MiddlewareFactory.getDefaultMiddlewareChain(authProvider);
+      middleware.splice(
+        1,
+        0,
+        new OutlookEmulatorUrlMiddleware(graphClientOptions.baseUrl),
+      );
+      this.client = Client.initWithMiddleware({
+        defaultVersion: graphClientOptions.defaultVersion,
+        fetchOptions,
+        middleware,
+      });
+      return;
+    }
+
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
       },
       defaultVersion: "v1.0",
       ...graphClientOptions,
-      // Use immutable IDs to ensure message IDs remain stable
-      // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
-      fetchOptions: {
-        headers: {
-          ...(graphClientOptions.fetchOptions?.headers ?? {}),
-          Prefer: 'IdType="ImmutableId"',
-        },
-      },
+      fetchOptions,
     });
   }
 
@@ -97,6 +120,38 @@ export class OutlookClient {
   }
 }
 
+class OutlookEmulatorUrlMiddleware implements Middleware {
+  private next?: Middleware;
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  setNext(next: Middleware) {
+    this.next = next;
+  }
+
+  async execute(context: Context) {
+    const requestUrl =
+      typeof context.request === "string"
+        ? context.request
+        : context.request.url;
+    const rewrittenUrl = requestUrl.replace(
+      "https://graph.microsoft.com",
+      this.baseUrl,
+    );
+    context.request =
+      typeof context.request === "string"
+        ? rewrittenUrl
+        : new Request(rewrittenUrl, context.request);
+
+    if (!this.next)
+      throw new Error("Outlook emulator middleware is incomplete");
+    await this.next.execute(context);
+  }
+}
+
 // Helper to create OutlookClient instance
 export const createOutlookClient = (accessToken: string, logger: Logger) => {
   if (!accessToken) throw new SafeError("No access token provided");
@@ -118,7 +173,17 @@ export const getOutlookClientWithRefresh = async ({
   logger: Logger;
 }): Promise<OutlookClient> => {
   if (!refreshToken) {
-    logger.error("No refresh token", { emailAccountId });
+    // expected for disconnected accounts
+    logger.warn("No refresh token", { emailAccountId });
+    await cleanupInvalidTokens({
+      emailAccountId,
+      reason: "invalid_grant",
+      failedAccessToken: accessToken ?? undefined,
+      failedRefreshToken: null,
+      logger,
+    }).catch((error) =>
+      logger.warn("Failed to record missing refresh token", { error }),
+    );
     throw new SafeError("No refresh token");
   }
 
@@ -169,27 +234,25 @@ export const getOutlookClientWithRefresh = async ({
       // AADSTS70008 = Refresh token expired due to inactivity
       // AADSTS70011 = Invalid scope
       // AADSTS700082 = Refresh token expired
-      // AADSTS50173 = Invalid grant (refresh token revoked)
       // AADSTS65001 = User hasn't consented to permissions
       // AADSTS500011 = Resource principal not found (scope issue)
       // AADSTS54005 = Authorization code already redeemed
       // AADSTS50076 = MFA required (Conditional Access policy)
       // AADSTS50079 = MFA registration required
       // AADSTS50158 = External security challenge not satisfied
-      // invalid_grant = General token refresh failure
+      // Invalid grants are handled by isInvalidGrantError.
       const requiresReauth =
+        isInvalidGrantError(errorMessage) ||
         errorMessage.includes("AADSTS70000") ||
         errorMessage.includes("AADSTS70008") ||
         errorMessage.includes("AADSTS70011") ||
         errorMessage.includes("AADSTS700082") ||
-        errorMessage.includes("AADSTS50173") ||
         errorMessage.includes("AADSTS65001") ||
         errorMessage.includes("AADSTS500011") ||
         errorMessage.includes("AADSTS54005") ||
         errorMessage.includes("AADSTS50076") ||
         errorMessage.includes("AADSTS50079") ||
-        errorMessage.includes("AADSTS50158") ||
-        errorMessage.includes("invalid_grant");
+        errorMessage.includes("AADSTS50158");
 
       if (requiresReauth) {
         logger.warn(
@@ -203,8 +266,14 @@ export const getOutlookClientWithRefresh = async ({
         await cleanupInvalidTokens({
           emailAccountId,
           reason: "invalid_grant",
+          failedAccessToken: accessToken ?? undefined,
+          failedRefreshToken: refreshToken,
           logger,
-        });
+        }).catch((cleanupError) =>
+          logger.warn("Failed to clean up invalid Outlook tokens", {
+            cleanupError,
+          }),
+        );
 
         throw new SafeError(
           "Your Microsoft authorization has expired. Please sign out and log in again to reconnect your account.",
@@ -228,12 +297,7 @@ export const getOutlookClientWithRefresh = async ({
 
     return createOutlookClient(tokens.access_token, logger);
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error &&
-      (error.message.includes("invalid_grant") ||
-        error.message.includes("AADSTS50173"));
-
-    if (isInvalidGrantError) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Outlook access token", { error });
     }
 

@@ -8,9 +8,8 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
-import { createScopedLogger } from "@/utils/logger";
-
-vi.mock("server-only", () => ({}));
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/ai/reply/draft-reply", () => ({
   aiDraftReplyWithConfidence: vi.fn(),
@@ -28,6 +27,9 @@ vi.mock("@/utils/prisma", () => ({
       findUnique: vi.fn(),
     },
     knowledge: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    bookingLink: {
       findMany: vi.fn().mockResolvedValue([]),
     },
   },
@@ -75,6 +77,11 @@ vi.mock("@/utils/meeting-briefs/recipient-context", () => ({
   formatMeetingContextForPrompt: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/utils/meeting-recorder/reply-context", () => ({
+  getRecordedMeetingContext: vi.fn().mockResolvedValue([]),
+  formatRecordedMeetingContextForPrompt: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
     selectedAttachments: [],
@@ -88,17 +95,24 @@ vi.mock("@/utils/ai/knowledge/extract-from-email-history", () => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: false,
   },
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
+import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
+import {
+  getRecordedMeetingContext,
+  formatRecordedMeetingContextForPrompt,
+} from "@/utils/meeting-recorder/reply-context";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
-const logger = createScopedLogger("reply-tracker/generate-draft-test");
+const logger = createTestLogger();
 
 type EmailAccountSignatureSettings = {
   allowHiddenAiDraftLinks: boolean;
@@ -145,6 +159,10 @@ const createMockClient = (): EmailProvider =>
   ({
     getThreadMessages: vi.fn(),
     getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
+    getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
+    isSentMessage: vi.fn((message: ParsedMessage) =>
+      message.labelIds?.includes("SENT"),
+    ),
   }) as EmailProvider;
 
 const createMockEmailAccountSettings = (
@@ -234,7 +252,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
 
     expect(getReplyMemoriesForPrompt).toHaveBeenCalledWith({
-      emailAccountId: "test-account-id",
+      emailAccount: expect.objectContaining({ id: "test-account-id" }),
       senderEmail: "sender@example.com",
       emailContent: expect.stringContaining("Hello, how are you?"),
       logger,
@@ -245,6 +263,38 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
           "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
       }),
     );
+  });
+
+  it("preserves link URLs and image alt text in draft prompt messages", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "I will fill that out.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      {
+        ...createMockMessage(),
+        textPlain: "Can you add your billing info here?",
+        textHtml:
+          '<p>Can you add your billing info <a href="https://example.com/billing">here</a>?</p><p><img src="https://tracker.example.com/pixel.png" alt="Billing form screenshot" /></p>',
+      },
+      logger,
+    );
+
+    const [draftArgs] = vi.mocked(aiDraftReplyWithConfidence).mock.calls[0]!;
+    const [message] = draftArgs.messages;
+
+    expect(message.content).toContain("billing info here");
+    expect(message.content).toContain("https://example.com/billing");
+    expect(message.content).toContain("[image: Billing form screenshot]");
+    expect(message.content).not.toContain("https://tracker.example.com");
   });
 
   it("escapes zero-size font attacks in AI content", async () => {
@@ -370,6 +420,31 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
   });
 
+  it("places the referral signature after the configured user signature", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "What do you think about it?",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings({
+        includeReferralSignature: true,
+        signature: "Cheers!<br>Barbara",
+      }),
+    );
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(result).toBe(
+      'What do you think about it?\n\nCheers!<br>Barbara\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
+    );
+  });
+
   it("converts AI link markup into provider-ready draft content for the reply-tracker flow", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply:
@@ -478,6 +553,222 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       "msg-new",
     ]);
   });
+
+  it("does not summarize the current thread as historical email context", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const olderMessage: ParsedMessage = {
+      ...createMockMessage(),
+      id: "msg-previous",
+      threadId: "thread-previous",
+      internalDate: "2023-12-31T10:00:00Z",
+      textPlain: "Earlier context from another thread",
+      textHtml: "<p>Earlier context from another thread</p>",
+    };
+
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
+      currentMessage,
+      olderMessage,
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+    );
+
+    expect(aiExtractFromEmailHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        historicalMessages: [
+          expect.objectContaining({
+            id: "msg-previous",
+            content: expect.stringContaining("Earlier context"),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("skips historical email extraction when only current-thread messages are returned", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
+      currentMessage,
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+    );
+
+    expect(aiExtractFromEmailHistory).not.toHaveBeenCalled();
+  });
+
+  it("passes recent sent replies to the same sender into the draft prompt", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const sentReply: ParsedMessage = {
+      ...createMockMessage(),
+      id: "sent-reply",
+      threadId: "previous-thread",
+      internalDate: "2024-01-02T10:00:00Z",
+      labelIds: ["SENT"],
+      headers: {
+        ...createMockMessage().headers,
+        from: "user@example.com",
+        to: "sender@example.com",
+        subject: "Previous note",
+      },
+      textPlain: "Short previous reply.",
+      textHtml: "<p>Short previous reply.</p>",
+    };
+
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getThreadsWithParticipant).mockResolvedValue([
+      {
+        id: "previous-thread",
+        messages: [currentMessage, sentReply],
+        snippet: "",
+      },
+    ]);
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(client.getThreadsWithParticipant).toHaveBeenCalledWith({
+      participantEmail: "sender@example.com",
+      maxThreads: 8,
+    });
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderReplyExamples: expect.stringContaining("Short previous reply"),
+      }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderReplyExamples: expect.not.stringContaining("Hello, how are you?"),
+      }),
+    );
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        senderHistory: expect.objectContaining({
+          sameSenderReplyExamplesInjected: true,
+          sameSenderReplyExampleCount: 1,
+        }),
+      }),
+    );
+  });
+
+  it("passes booking link availability into calendar availability analysis", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(prisma.bookingLink.findMany).mockResolvedValue([
+      { slug: "user-booking-link", minimumNoticeMinutes: 240 },
+    ] as any);
+
+    await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(aiGetCalendarAvailability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingLinkAvailable: true,
+        minimumNoticeMinutes: 240,
+      }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccount: expect.objectContaining({
+          bookingLinks: [
+            { slug: "user-booking-link", minimumNoticeMinutes: 240 },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("passes recorded meeting notes into the draft prompt", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(getRecordedMeetingContext).mockResolvedValueOnce([
+      {
+        eventTitle: "Project kickoff",
+        startTime: new Date("2024-01-01T10:00:00Z"),
+        summary: {
+          overview: "Discussed the rollout plan.",
+          keyDecisions: [],
+          actionItems: [],
+          openQuestions: null,
+          nextSteps: null,
+        },
+      },
+    ]);
+    vi.mocked(formatRecordedMeetingContextForPrompt).mockReturnValueOnce(
+      "Recorded meeting notes",
+    );
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(getRecordedMeetingContext).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientEmail: "sender@example.com" }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recordedMeetingContext: "Recorded meeting notes",
+      }),
+    );
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        recordedMeetings: { injected: true, count: 1 },
+      }),
+    );
+  });
 });
 
 describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
@@ -499,6 +790,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: createDraftContextMetadata(),
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -518,6 +810,9 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.STANDARD },
+      }),
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
@@ -571,6 +866,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -588,6 +884,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -627,6 +924,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -644,6 +942,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -780,3 +1079,28 @@ reason: Matched the requested property packet
     );
   });
 });
+
+function createDraftContextMetadata(): DraftContextMetadata {
+  return {
+    replyMemories: { count: 0, ids: [], kinds: [], scopeTypes: [] },
+    knowledgeBase: { availableCount: 0, injected: false },
+    senderHistory: {
+      summaryInjected: false,
+      summarySourceMessageCount: 0,
+      precedentThreadsInjected: false,
+      precedentThreadCount: 0,
+      sameSenderReplyExamplesInjected: false,
+      sameSenderReplyExampleCount: 0,
+    },
+    calendar: {
+      injected: false,
+      noAvailability: false,
+      suggestedTimesCount: 0,
+    },
+    writingStyle: { custom: false },
+    externalTools: { injected: false },
+    meetings: { injected: false, count: 0 },
+    recordedMeetings: { injected: false, count: 0 },
+    attachments: { injected: false, selectedCount: 0 },
+  };
+}

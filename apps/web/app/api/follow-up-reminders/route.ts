@@ -9,7 +9,7 @@ import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
-import { getEligibleFollowUpReminderEmailAccountIds } from "./process";
+import { getEligibleFollowUpReminderEmailAccountIds } from "@/utils/follow-up/process";
 
 export const maxDuration = 800;
 const FOLLOW_UP_REMINDER_ACCOUNT_PATH = "/api/follow-up-reminders/account";

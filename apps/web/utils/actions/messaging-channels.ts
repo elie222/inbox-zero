@@ -13,6 +13,7 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
 import { isNotFoundError } from "@/utils/prisma-helpers";
 import {
   ActionType,
@@ -21,7 +22,10 @@ import {
   type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
-import { MESSAGING_CHANNEL_ACTION_TYPES } from "@/utils/actions/draft-reply";
+import {
+  DRAFT_REPLY_ACTION_TYPES,
+  MESSAGING_CHANNEL_ACTION_TYPES,
+} from "@/utils/actions/draft-reply";
 import { env } from "@/env";
 import {
   getMessagingChannelReconnectMessage,
@@ -38,6 +42,8 @@ import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+import { isTeamsBotConfigured } from "@/utils/messaging/chat-sdk/teams-config";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const updateSlackRouteAction = actionClient
   .metadata({ name: "updateSlackRoute" })
@@ -94,9 +100,13 @@ export const updateMessagingFeatureRouteAction = actionClient
   .inputSchema(updateMessagingFeatureRouteBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, userId },
       parsedInput: { channelId, purpose, enabled },
     }) => {
+      if (enabled && purpose === MessagingRoutePurpose.DIGESTS) {
+        await assertCanUseDigests(userId);
+      }
+
       const where = {
         id_emailAccountId: { id: channelId, emailAccountId },
       };
@@ -151,12 +161,18 @@ export const updateMeetingBriefsEmailDeliveryAction = actionClient
 export const updateDigestEmailDeliveryAction = actionClient
   .metadata({ name: "updateDigestEmailDelivery" })
   .inputSchema(updateDigestEmailDeliveryBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { digestSendEmail: sendEmail },
-    });
-  });
+  .action(
+    async ({ ctx: { emailAccountId, userId }, parsedInput: { sendEmail } }) => {
+      if (sendEmail) {
+        await assertCanUseDigests(userId);
+      }
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { digestSendEmail: sendEmail },
+      });
+    },
+  );
 
 export const disconnectChannelAction = actionClient
   .metadata({ name: "disconnectChannel" })
@@ -277,6 +293,7 @@ export const linkSlackWorkspaceAction = actionClient
       await sendSlackOnboardingDirectMessageWithLogging({
         accessToken: orgMateChannel.accessToken,
         userId: slackUser.id,
+        botUserId: orgMateChannel.botUserId,
         teamId,
         logger,
       });
@@ -290,7 +307,7 @@ export const createMessagingLinkCodeAction = actionClient
   .inputSchema(createMessagingLinkCodeBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { provider } }) => {
     if (provider === "TEAMS") {
-      if (!env.TEAMS_BOT_APP_ID || !env.TEAMS_BOT_APP_PASSWORD) {
+      if (!isTeamsBotConfigured()) {
         throw new SafeError("Teams integration is not configured");
       }
     } else if (!env.TELEGRAM_BOT_TOKEN) {
@@ -302,7 +319,7 @@ export const createMessagingLinkCodeAction = actionClient
       provider,
     });
     const botUrl =
-      provider === "TELEGRAM" ? await getTelegramBotUrl() : undefined;
+      provider === "TELEGRAM" ? await getTelegramBotUrl() : getTeamsBotUrl();
 
     return {
       code,
@@ -334,8 +351,9 @@ export const toggleRuleChannelAction = actionClient
             },
           },
           select: {
+            organizationRuleId: true,
             actions: {
-              where: { type: ActionType.DRAFT_EMAIL },
+              where: { type: { in: [...DRAFT_REPLY_ACTION_TYPES] } },
               select: { id: true },
               take: 1,
             },
@@ -367,16 +385,19 @@ export const toggleRuleChannelAction = actionClient
       if (!rule) {
         throw new SafeError("Rule not found");
       }
+      if (rule.organizationRuleId) {
+        throw new SafeError(RULE_MANAGED_BY_ORGANIZATION_ERROR);
+      }
       if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
       let actionType: ActionType =
         requestedType ?? ActionType.NOTIFY_MESSAGING_CHANNEL;
-      const hasDraftEmailAction = (rule.actions?.length ?? 0) > 0;
+      const hasDraftReplyAction = (rule.actions?.length ?? 0) > 0;
       if (
         actionType === ActionType.DRAFT_MESSAGING_CHANNEL &&
-        !hasDraftEmailAction
+        !hasDraftReplyAction
       ) {
         actionType = ActionType.NOTIFY_MESSAGING_CHANNEL;
       }
@@ -444,6 +465,20 @@ async function getTelegramBotUrl() {
   } catch {
     return;
   }
+}
+
+function getTeamsBotUrl() {
+  if (!env.TEAMS_BOT_APP_ID) return;
+
+  const url = new URL(
+    `https://teams.microsoft.com/l/app/${env.TEAMS_BOT_APP_ID}`,
+  );
+
+  if (env.TEAMS_BOT_APP_TENANT_ID) {
+    url.searchParams.set("tenantId", env.TEAMS_BOT_APP_TENANT_ID);
+  }
+
+  return url.toString();
 }
 
 async function syncMessagingFeatureRoute({

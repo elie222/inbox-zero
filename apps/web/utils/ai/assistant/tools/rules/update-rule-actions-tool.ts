@@ -5,21 +5,28 @@ import prisma from "@/utils/prisma";
 import { filterNullProperties } from "@/utils";
 import { createRuleActionSchema } from "@/utils/ai/rule/create-rule-schema";
 import { updateRuleActions } from "@/utils/rule/rule";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildProviderRuleActionFields,
+  buildHiddenRuleNotFoundError,
+  buildVisibleOrgManagedRuleError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const updateRuleActionsTool = ({
   email,
   emailAccountId,
   provider,
+  integrationActionsEnabled,
   logger,
   getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
+  integrationActionsEnabled: boolean;
   logger: Logger;
   getRuleReadState?: () => RuleReadState | null;
 }) =>
@@ -29,7 +36,7 @@ export const updateRuleActionsTool = ({
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z
-        .array(createRuleActionSchema(provider))
+        .array(createRuleActionSchema(provider, integrationActionsEnabled))
         .min(1, "Rules must have at least one action.")
         .describe("The full replacement list of actions for the rule."),
     }),
@@ -54,6 +61,7 @@ export const updateRuleActionsTool = ({
             id: true,
             name: true,
             updatedAt: true,
+            organizationRuleId: true,
             emailAccount: {
               select: {
                 rulesRevision: true,
@@ -77,11 +85,11 @@ export const updateRuleActionsTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
+        }
+
+        if (rule.organizationRuleId) {
+          return buildVisibleOrgManagedRuleError();
         }
 
         const staleReadError = validateRuleWasReadRecently({
@@ -99,18 +107,21 @@ export const updateRuleActionsTool = ({
 
         const originalActions = rule.actions.map((action) => ({
           type: action.type,
-          fields: filterNullProperties({
-            label: action.label,
-            content: action.content,
-            to: action.to,
-            cc: action.cc,
-            bcc: action.bcc,
-            subject: action.subject,
-            webhookUrl: action.url,
-            ...(isMicrosoftProvider(provider) && {
-              folderName: action.folderName,
+          fields: filterNullProperties(
+            buildProviderRuleActionFields({
+              provider,
+              fields: {
+                label: action.label,
+                content: action.content,
+                to: action.to,
+                cc: action.cc,
+                bcc: action.bcc,
+                subject: action.subject,
+                webhookUrl: action.url,
+                folderName: action.folderName,
+              },
             }),
-          }),
+          ),
           delayInMinutes: action.delayInMinutes,
         }));
 
@@ -118,18 +129,10 @@ export const updateRuleActionsTool = ({
           ruleId: rule.id,
           actions: actions.map((action) => ({
             type: action.type,
-            fields: {
-              label: action.fields?.label ?? null,
-              to: action.fields?.to ?? null,
-              cc: action.fields?.cc ?? null,
-              bcc: action.fields?.bcc ?? null,
-              subject: action.fields?.subject ?? null,
-              content: action.fields?.content ?? null,
-              webhookUrl: action.fields?.webhookUrl ?? null,
-              ...(isMicrosoftProvider(provider) && {
-                folderName: action.fields?.folderName ?? null,
-              }),
-            },
+            fields: buildProviderRuleActionFields({
+              provider,
+              fields: action.fields ?? {},
+            }),
             delayInMinutes: action.delayInMinutes ?? null,
           })),
           provider,

@@ -9,36 +9,44 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { MutedText } from "@/components/Typography";
 
 export function EmailViewer() {
   const { provider } = useAccount();
 
-  const { threadId, showEmail, showReplyButton, autoOpenReplyForMessageId } =
-    useDisplayedEmail();
+  const {
+    threadId,
+    showEmail,
+    showReplyButton,
+    autoOpenForwardForMessageId,
+    autoOpenReplyForMessageId,
+  } = useDisplayedEmail();
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
+  const supportsViewerReplies = isGoogleProvider(provider);
 
   return (
     <Sheet open={!!threadId} onOpenChange={hideEmail}>
       <SheetContent
         side="right"
         size="5xl"
-        className="overflow-y-auto bg-slate-100 p-0"
+        className="overflow-y-auto bg-background p-6"
         overlay="transparent"
       >
-        {isGoogleProvider(provider) ? (
-          threadId && (
-            <ThreadContent
-              threadId={threadId}
-              showReplyButton={showReplyButton}
-              autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
-            />
-          )
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <MutedText>This feature isn't enabled for Outlook.</MutedText>
-          </div>
+        {threadId && (
+          <ThreadContent
+            threadId={threadId}
+            showReplyButton={supportsViewerReplies && showReplyButton}
+            autoOpenReplyForMessageId={
+              supportsViewerReplies
+                ? (autoOpenReplyForMessageId ?? undefined)
+                : undefined
+            }
+            autoOpenForwardForMessageId={
+              supportsViewerReplies
+                ? (autoOpenForwardForMessageId ?? undefined)
+                : undefined
+            }
+          />
         )}
       </SheetContent>
     </Sheet>
@@ -49,21 +57,18 @@ export function ThreadContent({
   threadId,
   showReplyButton,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   topRightComponent,
   onSendSuccess,
 }: {
   threadId: string;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
 }) {
-  const { data, isLoading, error, mutate } = useThread(
-    { id: threadId },
-    {
-      includeDrafts: true,
-    },
-  );
+  const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
     <ErrorBoundary extra={{ component: "ThreadContent", threadId }}>
@@ -75,6 +80,7 @@ export function ThreadContent({
             refetch={mutate}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            autoOpenForwardForMessageId={autoOpenForwardForMessageId}
             topRightComponent={topRightComponent}
             onSendSuccess={onSendSuccess}
             withHeader

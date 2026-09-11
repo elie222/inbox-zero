@@ -66,7 +66,11 @@ export function CategorizeWithAiButton({
               },
               {
                 loading: "Categorizing senders... This might take a while.",
-                success: (data) => {
+                success: (
+                  data:
+                    | { totalUncategorizedSenders: number | undefined }
+                    | undefined,
+                ) => {
                   if (!data) {
                     return "Categorization started.";
                   }
@@ -75,7 +79,7 @@ export function CategorizeWithAiButton({
                     ? `Categorizing ${data.totalUncategorizedSenders} senders...`
                     : "No more senders to categorize right now.";
                 },
-                error: (err) => {
+                error: (err: unknown) => {
                   const message =
                     err instanceof Error
                       ? err.message

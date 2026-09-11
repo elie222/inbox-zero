@@ -3,6 +3,8 @@ import { request as httpsRequest } from "node:https";
 import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/types";
+import { findAutoArchiveFilters } from "@/utils/senders/filters";
 import {
   extractEmailOrThrow,
   upsertSenderRecord,
@@ -32,29 +34,93 @@ export type AutomaticUnsubscribeResult = {
 
 export async function setSenderStatus({
   emailAccountId,
-  newsletterEmail,
+  senderEmail,
   status,
 }: {
   emailAccountId: string;
-  newsletterEmail: string;
+  senderEmail: string;
   status: NewsletterStatus | null;
 }) {
   return upsertSenderRecord({
     emailAccountId,
-    newsletterEmail,
+    senderEmail,
     changes: { status },
   });
 }
 
+/**
+ * Records the status and brings the provider-side auto-archive filters in line
+ * with it: `AUTO_ARCHIVED` creates a filter, `APPROVED` and `null` remove every
+ * filter for the sender, and `UNSUBSCRIBED` leaves existing ones alone. Pass
+ * `labelId`/`labelName` to also label the sender's mail while archiving it.
+ *
+ * The status is written first so a provider failure leaves the sender in the
+ * state the user asked for rather than leaving an unreferenced filter behind.
+ */
+export async function setSenderStatusWithAutoArchive({
+  emailAccountId,
+  emailProvider,
+  senderEmail: rawSenderEmail,
+  status,
+  labelId,
+  labelName,
+}: {
+  emailAccountId: string;
+  emailProvider: EmailProvider;
+  senderEmail: string;
+  status: NewsletterStatus | null;
+  labelId?: string;
+  labelName?: string;
+}) {
+  const senderEmail = extractEmailOrThrow(rawSenderEmail);
+
+  // Deliberately not `getEmailFilters`, which returns [] on provider errors so
+  // the stats page still renders. Here that would read as "no filter exists".
+  const filters = await emailProvider.getFiltersList();
+  const existingFilters = findAutoArchiveFilters(
+    filters,
+    senderEmail,
+    emailProvider,
+  );
+
+  const shouldAutoArchive = status === NewsletterStatus.AUTO_ARCHIVED;
+  const shouldRemoveFilters =
+    status === NewsletterStatus.APPROVED || status === null;
+
+  await setSenderStatus({ emailAccountId, senderEmail, status });
+
+  if (shouldAutoArchive) {
+    // Create even when a filter exists, so a newly requested label reaches the
+    // provider. Providers treat an identical filter as success.
+    await emailProvider.createAutoArchiveFilter({
+      from: senderEmail,
+      gmailLabelId: labelId,
+      labelName,
+    });
+  } else if (shouldRemoveFilters) {
+    for (const filter of existingFilters) {
+      await emailProvider.deleteFilter(filter.id);
+    }
+  }
+
+  return {
+    senderEmail,
+    status,
+    autoArchived: shouldRemoveFilters
+      ? false
+      : shouldAutoArchive || existingFilters.length > 0,
+  };
+}
+
 export async function unsubscribeSenderAndMark({
   emailAccountId,
-  newsletterEmail,
+  senderEmail: rawSenderEmail,
   unsubscribeLink,
   listUnsubscribeHeader,
   logger,
 }: {
   emailAccountId: string;
-  newsletterEmail: string;
+  senderEmail: string;
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
   logger: Logger;
@@ -63,7 +129,7 @@ export async function unsubscribeSenderAndMark({
     throw new Error("Logger is required for unsubscribeSenderAndMark");
   }
 
-  const senderEmail = extractEmailOrThrow(newsletterEmail);
+  const senderEmail = extractEmailOrThrow(rawSenderEmail);
 
   const log = logger.with({
     action: "unsubscribe-sender",
@@ -79,7 +145,7 @@ export async function unsubscribeSenderAndMark({
   if (status) {
     await setSenderStatus({
       emailAccountId,
-      newsletterEmail: senderEmail,
+      senderEmail: senderEmail,
       status,
     });
     log.trace("Marked sender as unsubscribed", { senderEmail });

@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getBatch } from "@/utils/gmail/batch";
+import { getBatchWithRetry } from "@/utils/gmail/batch-with-retry";
 import {
   isDefined,
   type ThreadWithPayloadMessages,
@@ -91,14 +91,42 @@ export async function getThreadsWithNextPageToken({
 export async function getThreadsBatch(
   threadIds: string[],
   accessToken: string,
+  logger: Logger,
+  options?: { format: "metadata" },
 ): Promise<ThreadWithPayloadMessages[]> {
-  const batch = await getBatch(
-    threadIds,
-    "/gmail/v1/users/me/threads",
-    accessToken,
-  );
+  if (!threadIds.length) return [];
 
-  return batch;
+  return getBatchWithRetry<
+    ThreadWithPayloadMessages,
+    ThreadWithPayloadMessages
+  >({
+    ids: threadIds,
+    endpoint: "/gmail/v1/users/me/threads",
+    accessToken,
+    parse: (thread) => thread,
+    logger,
+    queryString:
+      options?.format === "metadata" ? getMetadataQueryString() : undefined,
+  });
+}
+
+function getMetadataQueryString() {
+  const searchParams = new URLSearchParams({ format: "metadata" });
+  for (const header of [
+    "From",
+    "To",
+    "Cc",
+    "Bcc",
+    "Subject",
+    "Date",
+    "Message-ID",
+    "In-Reply-To",
+    "References",
+    "Reply-To",
+  ]) {
+    searchParams.append("metadataHeaders", header);
+  }
+  return searchParams.toString();
 }
 
 async function getThreadsFromSender(
@@ -131,6 +159,7 @@ export async function getThreadsFromSenderWithSubject(
   accessToken: string,
   sender: string,
   limit: number,
+  logger: Logger,
 ): Promise<
   Array<{
     id: string;
@@ -140,7 +169,11 @@ export async function getThreadsFromSenderWithSubject(
 > {
   const threads = await getThreadsFromSender(gmail, sender, limit);
   const threadIds = threads.map((t) => t.id).filter(isDefined);
-  const threadsWithSubject = await getThreadsBatch(threadIds, accessToken);
+  const threadsWithSubject = await getThreadsBatch(
+    threadIds,
+    accessToken,
+    logger,
+  );
   return threadsWithSubject
     .map((t) =>
       t.id

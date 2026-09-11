@@ -8,6 +8,7 @@ export async function getHistory(
     startHistoryId: string;
     historyTypes?: string[];
     maxResults?: number;
+    pageToken?: string;
   },
   logger?: Logger,
 ) {
@@ -18,6 +19,7 @@ export async function getHistory(
         startHistoryId: options.startHistoryId,
         historyTypes: options.historyTypes,
         maxResults: options.maxResults,
+        pageToken: options.pageToken,
       }),
     5,
     { logger },

@@ -25,14 +25,17 @@ import {
   type ReactionEvent,
   type Thread,
 } from "chat";
+import { load } from "cheerio";
 import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  ActionType,
   MessagingProvider,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
+import { getActionDisplay } from "@/utils/action-display";
+import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat-confirmation";
 import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
@@ -44,6 +47,7 @@ import {
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import { getSlackTeamId } from "@/utils/messaging/action-event-identifiers";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import {
@@ -54,6 +58,8 @@ import {
   expandPromptCommand,
   getHelpText,
   isHelpCommand,
+  isTelegramStartCommand,
+  isUnsupportedSlashCommand,
 } from "@/utils/messaging/prompt-commands";
 import {
   FOLLOW_UP_REMINDER_ACTION_IDS,
@@ -88,6 +94,7 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
+const TEAMS_AI_GENERATED_CONTENT_NOTICE = `AI-generated content may be inaccurate. Review before using it. Report objectionable AI-generated content to ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`;
 const AFFIRMATIVE_REACTION_EMOJI_TOKENS = new Set(["👍", "✅", "☑", "✔"]);
 const AFFIRMATIVE_REACTION_ALIASES = new Set([
   "+1",
@@ -164,6 +171,14 @@ type ResolvedMessagingContext = {
   threadLogContext: Record<string, unknown>;
 };
 
+type MessagingUserMessagesInput = {
+  hasUnsupportedAttachments: boolean;
+  imageParts: ImagePart[];
+  messageId: string;
+  messageText: string;
+  provider: SupportedPlatform;
+};
+
 type LinkedProviderIdentity = {
   hasUnsupportedAttachments: boolean;
   messageText: string;
@@ -221,10 +236,6 @@ type PendingEmailActionResolution = {
 type ParsedPendingEmailActionValue =
   | { kind: "legacy"; payload: LegacyPendingEmailActionPayload }
   | { kind: "token"; token: string };
-
-type SlackActionRawPayload = {
-  team?: { id?: string };
-};
 
 declare global {
   var inboxZeroMessagingChatSdk: MessagingChatSdkContext | undefined;
@@ -564,6 +575,13 @@ async function processMessagingAssistantMessage({
   });
   if (helpCommandHandled) return true;
 
+  const unsupportedCommandHandled = await handleUnsupportedCommand({
+    thread,
+    message,
+    logger,
+  });
+  if (unsupportedCommandHandled) return true;
+
   const clearProcessingReaction = await startSlackProcessingReaction({
     adapters,
     thread,
@@ -642,30 +660,14 @@ async function processMessagingAssistantMessage({
         parts: chatMessage.parts as UIMessage["parts"],
       }));
 
-    const userMessageId = `${context.provider}-${message.id}`;
-    const userParts: UIMessage["parts"] = [
-      ...context.imageParts,
-      ...(context.messageText
-        ? [{ type: "text" as const, text: context.messageText }]
-        : []),
-    ];
-    const newUserMessage: UIMessage = {
-      id: userMessageId,
-      role: "user",
-      parts: userParts,
-    };
-    const modelUserMessage: UIMessage = context.hasUnsupportedAttachments
-      ? {
-          ...newUserMessage,
-          parts: [
-            {
-              type: "text" as const,
-              text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
-            },
-            ...newUserMessage.parts,
-          ],
-        }
-      : newUserMessage;
+    const { userMessageId, newUserMessage, modelUserMessage } =
+      buildMessagingUserMessages({
+        hasUnsupportedAttachments: context.hasUnsupportedAttachments,
+        imageParts: context.imageParts,
+        messageId: message.id,
+        messageText: context.messageText,
+        provider: context.provider,
+      });
 
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
@@ -801,7 +803,7 @@ async function processMessagingAssistantMessage({
         if (!postedCard) {
           const fallbackText = buildPendingEmailCardFallbackText(fullText);
           await thread.post(
-            getMessagingAssistantPostPayload({
+            getMessagingAiGeneratedPostPayload({
               provider: context.provider,
               text: fallbackText,
             }),
@@ -809,7 +811,7 @@ async function processMessagingAssistantMessage({
         }
       } else {
         await thread.post(
-          getMessagingAssistantPostPayload({
+          getMessagingAiGeneratedPostPayload({
             provider: context.provider,
             text: fullText,
           }),
@@ -1095,6 +1097,7 @@ export function buildPendingEmailConfirmationCard({
       CardText(getMessagingCardText({ provider, text: preview })),
     );
   }
+  addTeamsAiGeneratedContentNotice({ children: cardChildren, provider });
   cardChildren.push(
     Actions([
       Button({
@@ -1197,7 +1200,7 @@ function getPendingEmailToolParts(parts: unknown[]): PendingEmailToolPart[] {
 
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index] as PendingEmailToolPart | undefined;
-    if (!part || part.state !== "output-available") continue;
+    if (part?.state !== "output-available") continue;
     if (
       part.type !== "tool-sendEmail" &&
       part.type !== "tool-replyEmail" &&
@@ -1336,6 +1339,10 @@ export function buildHandledPendingEmailCard({
       ),
     );
   }
+  addTeamsAiGeneratedContentNotice({
+    children,
+    provider: messagingProvider,
+  });
 
   children.push(
     CardText(
@@ -1373,7 +1380,7 @@ export function getPendingEmailHandledStatus(
   actionType: AssistantPendingEmailActionType,
 ) {
   if (actionType === "send_email") return "Email sent.";
-  if (actionType === "reply_email") return "Reply sent.";
+  if (actionType === "reply_email") return "Reply sent. ✅";
   return "Email forwarded.";
 }
 
@@ -1442,13 +1449,6 @@ function getMessagingCardText({
   if (provider !== "telegram") return text;
 
   return escapeTelegramMarkdown(text);
-}
-
-function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
-  const teamId =
-    (raw as SlackActionRawPayload | null | undefined)?.team?.id ||
-    (raw as { team_id?: string } | null | undefined)?.team_id;
-  return teamId?.trim() || null;
 }
 
 async function postPendingEmailActionFeedback({
@@ -1566,7 +1566,7 @@ function getTeamIdFromActionEvent({
   provider: SupportedPlatform;
   event: ActionEvent;
 }): string | null {
-  if (provider === "slack") return getSlackTeamIdFromActionRaw(event.raw);
+  if (provider === "slack") return getSlackTeamId(event.raw);
 
   if (provider === "teams") {
     const rawEvent = event.raw as TeamsRawActivity | null | undefined;
@@ -1679,7 +1679,7 @@ function getEmailToolPartByToolCallId(
 ): PendingEmailToolPart | null {
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index] as PendingEmailToolPart | undefined;
-    if (!part || part.state !== "output-available") continue;
+    if (part?.state !== "output-available") continue;
     if (part.toolCallId !== toolCallId) continue;
     if (
       part.type !== "tool-sendEmail" &&
@@ -1852,9 +1852,19 @@ async function handleMessagingLinkCommand({
     },
   });
 
-  await thread.post(
-    `Connected successfully. You can now chat with your Inbox Zero assistant in this ${provider} DM.`,
-  );
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message: `Connected successfully. You can now chat with your Inbox Zero assistant in this ${provider === "teams" ? "Microsoft Teams" : "Telegram"} direct message. Type \`/help\` to see what I can do.`,
+    errorLogMessage: "Failed to send messaging link confirmation",
+    logMeta: {
+      provider,
+      emailAccountId: emailAccount.id,
+      messagingChannelId: messagingChannel.id,
+      teamId: identity.teamId,
+      providerUserId: identity.providerUserId,
+    },
+  });
 
   return true;
 }
@@ -1992,7 +2002,10 @@ async function handleHelpCommand({
 }): Promise<boolean> {
   const provider = thread.adapter.name;
   if (provider !== "telegram" && provider !== "teams") return false;
-  if (!isHelpCommand(message.text)) return false;
+  const isHelp =
+    isHelpCommand(message.text) ||
+    (provider === "telegram" && isTelegramStartCommand(message.text));
+  if (!isHelp) return false;
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
@@ -2002,8 +2015,41 @@ async function handleHelpCommand({
   await postMessagingThreadMessage({
     thread,
     logger,
-    message: getHelpText(provider),
+    message: getHelpText(provider, {
+      baseUrl: env.NEXT_PUBLIC_BASE_URL,
+      supportEmail: env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    }),
     errorLogMessage: `Failed to send ${provider} help command response`,
+    logMeta: { provider },
+  });
+
+  return true;
+}
+
+async function handleUnsupportedCommand({
+  thread,
+  message,
+  logger,
+}: {
+  thread: MessagingThread;
+  message: Message;
+  logger: Logger;
+}): Promise<boolean> {
+  const provider = thread.adapter.name;
+  if (provider !== "telegram" && provider !== "teams") return false;
+  if (!isUnsupportedSlashCommand(message.text)) return false;
+
+  if (!thread.isDM) {
+    await sendDmRequiredMessage({ provider, thread, logger });
+    return true;
+  }
+
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message:
+      "Sorry, I don't recognize that command. Type `/help` to see the commands I support.",
+    errorLogMessage: `Failed to send ${provider} unsupported command response`,
     logMeta: { provider },
   });
 
@@ -2561,12 +2607,23 @@ async function sendLinkRequiredMessage({
   thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
-  const providerName = provider === "teams" ? "Teams" : "Telegram";
+  const providerName = provider === "teams" ? "Microsoft Teams" : "Telegram";
+  const baseUrl = env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
 
   await postMessagingThreadMessage({
     thread,
     logger,
-    message: `Your ${providerName} account is not linked yet. In Inbox Zero settings, generate a ${providerName} connect code and send \`/connect <code>\` in this DM.`,
+    message: [
+      `Welcome to Inbox Zero for ${providerName}. I can help you summarize, organize, and draft replies to email from this chat.`,
+      "An active Inbox Zero account is required.",
+      "",
+      "To get started:",
+      `1. Sign in or create an account at ${baseUrl}.`,
+      `2. Open ${baseUrl}/channels and choose ${providerName}.`,
+      "3. Generate a connect code and send `/connect <code>` in this direct message.",
+      "",
+      `Type \`/help\` for supported commands or contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for help.`,
+    ].join("\n"),
     errorLogMessage: "Failed to send link-required message",
     logMeta: { provider },
   });
@@ -2670,6 +2727,7 @@ export function stripLeadingSlackMention(text: string): string {
 export function normalizeMessagingAssistantText({ text }: { text: string }) {
   let normalized = text;
 
+  normalized = formatRuleSuggestionMarkupForMessaging(normalized);
   normalized = normalized.replace(
     /(?:you can|please)\s+click [^.]*button[^.]*\./gi,
     "This draft is pending confirmation.",
@@ -2739,6 +2797,40 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   }
 
   return `${normalizedText}\n\n${failureGuidance}`;
+}
+
+export function buildMessagingUserMessages({
+  hasUnsupportedAttachments,
+  imageParts,
+  messageId,
+  messageText,
+  provider,
+}: MessagingUserMessagesInput) {
+  const userMessageId = `${provider}-${messageId}`;
+  const userParts: UIMessage["parts"] = [
+    ...imageParts,
+    ...(messageText ? [{ type: "text" as const, text: messageText }] : []),
+  ];
+  const newUserMessage: UIMessage = {
+    id: userMessageId,
+    role: "user",
+    parts: userParts,
+  };
+
+  const modelUserMessage: UIMessage = hasUnsupportedAttachments
+    ? {
+        ...newUserMessage,
+        parts: [
+          {
+            type: "text" as const,
+            text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
+          },
+          ...newUserMessage.parts,
+        ],
+      }
+    : newUserMessage;
+
+  return { userMessageId, newUserMessage, modelUserMessage };
 }
 
 function isAffirmativeReactionEvent(event: ReactionEvent) {
@@ -2814,10 +2906,46 @@ function getMessagingAssistantPostPayload({
   }
 
   if (provider === "slack") {
-    return { markdown: markdownToSlackMrkdwn(text) };
+    return { raw: markdownToSlackMrkdwn(text) };
   }
 
   return { markdown: text };
+}
+
+export function getMessagingAiGeneratedPostPayload({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  return getMessagingAssistantPostPayload({
+    provider,
+    text: appendTeamsAiGeneratedContentNotice({ provider, text }),
+  });
+}
+
+function addTeamsAiGeneratedContentNotice({
+  children,
+  provider,
+}: {
+  children: CardChild[];
+  provider: SupportedPlatform;
+}) {
+  if (provider !== "teams") return;
+  children.push(CardText(TEAMS_AI_GENERATED_CONTENT_NOTICE));
+}
+
+function appendTeamsAiGeneratedContentNotice({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  if (provider !== "teams") return text;
+  if (text.includes(TEAMS_AI_GENERATED_CONTENT_NOTICE)) return text;
+  return `${text}\n\n${TEAMS_AI_GENERATED_CONTENT_NOTICE}`;
 }
 
 function toMessagingProvider(provider: SupportedPlatform) {
@@ -2837,4 +2965,119 @@ function prependAccountIndicator({
 }) {
   if (!hasMultipleAccounts) return text;
   return `[${email}]\n${text}`;
+}
+
+type ParsedRuleSuggestion = {
+  title: string;
+  when: string;
+  actions: string;
+  summary: string;
+};
+
+const ruleSuggestionPattern =
+  /<rule-suggestions\b[^>]*>[\s\S]*?<\/rule-suggestions>|<rule-suggestion\b[^>]*?\/\s*>|<rule-suggestion\b[^>]*>[\s\S]*?<\/rule-suggestion>/gi;
+
+function formatRuleSuggestionMarkupForMessaging(text: string) {
+  if (!/<rule-suggestion/i.test(text)) return text;
+
+  return text
+    .replace(ruleSuggestionPattern, (markup) => {
+      const suggestions = parseRuleSuggestionsMarkup(markup);
+      return suggestions.length
+        ? renderRuleSuggestionsForMessaging(suggestions)
+        : markup;
+    })
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+function parseRuleSuggestionsMarkup(markup: string): ParsedRuleSuggestion[] {
+  const $ = load(markup, null, false);
+
+  return $("rule-suggestion")
+    .toArray()
+    .map((element) => {
+      const attrs = element.attribs ?? {};
+      const structuredActions = buildStructuredRuleActions(attrs).map(
+        (action) => getActionDisplay(action, "", []),
+      );
+      const freeFormAction = attrs.do?.trim() ?? "";
+
+      return {
+        title: attrs.name?.trim() || "Suggested rule",
+        when: attrs.when?.trim() ?? "",
+        actions: [...structuredActions, freeFormAction]
+          .filter(Boolean)
+          .join(", "),
+        summary: $(element).text().trim(),
+      };
+    });
+}
+
+function buildStructuredRuleActions(attrs: Record<string, string>) {
+  const actions: Array<{
+    type: ActionType;
+    label?: string;
+    notificationDestination?: string;
+  }> = [];
+  const label = attrs.label?.trim();
+  if (label) actions.push({ type: ActionType.LABEL, label });
+  if (isTrueAttribute(attrs.archive))
+    actions.push({ type: ActionType.ARCHIVE });
+  if (isTrueAttribute(attrs.draft)) {
+    actions.push({ type: ActionType.DRAFT_EMAIL });
+  }
+  const notify = attrs.notify?.trim();
+  if (notify && !isFalseAttribute(notify)) {
+    actions.push({
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      notificationDestination: isTrueAttribute(notify) ? undefined : notify,
+    });
+  }
+  if (isTrueAttribute(attrs.markread)) {
+    actions.push({ type: ActionType.MARK_READ });
+  }
+  return actions;
+}
+
+function renderRuleSuggestionsForMessaging(
+  suggestions: ParsedRuleSuggestion[],
+) {
+  const heading =
+    suggestions.length === 1 ? "Suggested rule:" : "Suggested rules:";
+
+  return [
+    heading,
+    suggestions.map(renderRuleSuggestionForMessaging).join("\n\n"),
+  ].join("\n");
+}
+
+function renderRuleSuggestionForMessaging(suggestion: ParsedRuleSuggestion) {
+  return [
+    `**${suggestion.title}**`,
+    suggestion.when ? `When: ${suggestion.when}` : null,
+    suggestion.actions ? `Then: ${suggestion.actions}` : null,
+    suggestion.summary ? `Context: ${suggestion.summary}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Tolerates shorthand and JSX-style booleans the model occasionally emits.
+function normalizeBooleanAttribute(value: string | undefined) {
+  return (
+    value
+      ?.trim()
+      .replace(/^\{(.+)\}$/, "$1")
+      .toLowerCase() ?? ""
+  );
+}
+
+function isTrueAttribute(value: string | undefined) {
+  const v = normalizeBooleanAttribute(value);
+  return value !== undefined && (v === "" || v === "true" || v === "yes");
+}
+
+function isFalseAttribute(value: string | undefined) {
+  const v = normalizeBooleanAttribute(value);
+  return v === "false" || v === "no";
 }

@@ -22,6 +22,7 @@ import {
 } from "@/app/(app)/premium/PricingFrequencyToggle";
 import { generateCheckoutSessionAction } from "@/utils/actions/premium";
 import { toastError } from "@/components/Toast";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 const PRICING_FEATURES = [
   "Briefs for every external meeting",
@@ -51,7 +52,7 @@ export function StepReady() {
         return;
       }
 
-      window.location.href = result.data.url;
+      redirectToSafeUrl(result.data.url, { allowExternal: true });
     } catch {
       toastError({ description: "Error creating checkout session" });
     } finally {

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { secureCompare } from "@/utils/crypto-compare";
 
 const MAX_SLACK_REQUEST_AGE_SECONDS = 60 * 5;
 
@@ -32,13 +33,7 @@ export function validateSlackWebhookRequest({
     .update(sigBasestring)
     .digest("hex")}`;
 
-  const expectedBuffer = Buffer.from(expectedSignature);
-  const receivedBuffer = Buffer.from(signature ?? "");
-  if (expectedBuffer.length !== receivedBuffer.length) {
-    return { valid: false, reason: "invalid_signature" };
-  }
-
-  if (!crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
+  if (!secureCompare(expectedSignature, signature)) {
     return { valid: false, reason: "invalid_signature" };
   }
 

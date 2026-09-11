@@ -3,7 +3,7 @@ import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-m
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
-import type { OutlookWebhookNotification } from "@/app/api/outlook/webhook/types";
+import type { OutlookWebhookNotification } from "@/utils/webhook/outlook/types";
 
 const OUTLOOK_LIFECYCLE_RECONCILE_FALLBACK_MS = 3 * 24 * 60 * 60 * 1000;
 const OUTLOOK_LIFECYCLE_RECONCILE_BUFFER_MS = 60 * 60 * 1000;

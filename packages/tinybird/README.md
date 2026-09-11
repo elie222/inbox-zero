@@ -1,67 +1,47 @@
-## Getting Started
+# Tinybird
 
-First time:
+The [`project`](project) directory is the canonical Tinybird Forward project
+for the `InboxZero` workspace. It contains all analytics resources, including
+the AI analytics resources consumed by `@inboxzero/tinybird-ai-analytics`.
 
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install tinybird-cli
-tb auth
-```
+## CLI setup
 
-More notes: [Quickstart](https://www.tinybird.co/docs/quick-start-cli.html)
-
-Thereafter:
+Run the current Forward CLI without conflicting with a Classic CLI already on
+your `PATH`:
 
 ```sh
-source .venv/bin/activate
+uvx --from tinybird@latest tb --version
 ```
 
-Then change into the directory
+Authenticate and select the production workspace:
 
 ```sh
-cd packages/tinybird
+cd packages/tinybird/project
+uvx --from tinybird@latest tb login --host https://api.us-east.tinybird.co --workspace InboxZero
 ```
 
-### Docker
+## Development workflow
 
-You can also use the Docker image. This worked a lot better for me.
-
-Run the following from this directory:
+Pull the current cloud definitions:
 
 ```sh
-docker run -v .:/mnt/data -it tinybirdco/tinybird-cli-docker
+uvx --from tinybird@latest tb --cloud pull
 ```
 
-Then within Docker:
+Start Tinybird Local and validate the project locally:
 
 ```sh
-cd mnt/data
+uvx --from tinybird@latest tb local start
+uvx --from tinybird@latest tb build
+uvx --from tinybird@latest tb test run
 ```
 
-Now you can run `tb` commands. First you'll want to run `tb auth` to sign in.
-
-## Datasource
+Validate and deploy the project to Tinybird Cloud:
 
 ```sh
-tb push datasources
-# or:
-tb push datasources/email.datasource
+uvx --from tinybird@latest tb --cloud deploy --check
 ```
 
-## Pipe
-
-```sh
-tb push pipes
-# or:
-tb push pipes/get_emails_by_period.pipe
-# or to force changes:
-tb push pipes --force --no-check
-```
-
-## Switch workspace
-
-```sh
-tb workspace ls # list workspaces
-tb workspace use <workspace_name>
-```
+Tinybird Forward deployments replace the Classic `tb push` workflow. Keep
+resource definitions and `TOKEN` directives in `packages/tinybird/project` so
+deployments remain reproducible from Git.

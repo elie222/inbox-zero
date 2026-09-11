@@ -35,11 +35,17 @@ export const generateNudgeReplyAction = actionClient
       const messages = inputMessages.map((msg) => ({
         ...msg,
         date: new Date(msg.date),
-        content: emailToContentForAI({
-          textPlain: msg.textPlain,
-          textHtml: msg.textHtml,
-          snippet: "",
-        }),
+        content: emailToContentForAI(
+          {
+            textPlain: msg.textPlain,
+            textHtml: msg.textHtml,
+            snippet: "",
+          },
+          {
+            includeLinkUrls: true,
+            includeImageAltText: true,
+          },
+        ),
       }));
 
       const { text, attribution } = await aiGenerateNudge({

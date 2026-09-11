@@ -2,8 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Suspense, useEffect } from "react";
-import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
+import { Suspense, useEffect, useRef } from "react";
+import { usePostHog } from "posthog-js/react";
+import {
+  getEmailAlreadyLinkedDescription,
+  getRequiresReconsentDescription,
+} from "@/app/(landing)/login/messages";
 import { Button } from "@/components/ui/button";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -13,7 +17,11 @@ import { Loading } from "@/components/Loading";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
-import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
+import { SUPPORT_EMAIL } from "@/utils/branding";
+import {
+  getPendingAuthProvider,
+  trackAuthFailure,
+} from "@/utils/analytics/auth-funnel";
 
 const errorMessages: Record<string, { title: string; description: string }> = {
   email_not_found: {
@@ -28,7 +36,7 @@ const errorMessages: Record<string, { title: string; description: string }> = {
   },
   email_already_linked: {
     title: "Email Already Linked",
-    description: `This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address.`,
+    description: getEmailAlreadyLinkedDescription(),
   },
   org_invite_invalid_code: {
     title: "Organization Invite Sign-in Failed",
@@ -47,12 +55,25 @@ const errorMessages: Record<string, { title: string; description: string }> = {
 };
 
 function LoginErrorContent() {
+  const posthog = usePostHog();
+  const hasTrackedAuthFailure = useRef(false);
   const { data, isLoading, error } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const errorCode = searchParams.get("error")?.toLowerCase();
   const reason = searchParams.get("reason")?.toLowerCase();
   const resolvedErrorCode = resolveErrorCode({ errorCode, reason });
+
+  useEffect(() => {
+    if (isLoading || data?.id || hasTrackedAuthFailure.current) return;
+
+    hasTrackedAuthFailure.current = true;
+    trackAuthFailure(posthog, {
+      provider: getPendingAuthProvider(),
+      stage: "callback",
+      errorCode: resolvedErrorCode,
+    });
+  }, [data?.id, isLoading, posthog, resolvedErrorCode]);
 
   // For some reason users are being sent to this page when logged in
   // This will redirect them out of this page to the app

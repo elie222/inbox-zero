@@ -15,6 +15,7 @@ import {
 } from "@/__tests__/eval/semantic-judge";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { DraftEmailStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
@@ -22,11 +23,11 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-microsoft-search-feedback.test.ts
 // Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-microsoft-search-feedback.test.ts
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-microsoft-search-feedback",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-microsoft-search-feedback",
 );
@@ -78,13 +79,15 @@ vi.mock("@/utils/redis", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 describe.runIf(shouldRunEval)(
   "Eval: assistant chat microsoft search feedback retry",
@@ -593,7 +596,7 @@ describe.runIf(shouldRunEval)(
                     url: null,
                     folderName: null,
                     draftId: "draft-contract-terms-1",
-                    wasDraftSent: false,
+                    draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
                   },
                 ],
                 rule: {
@@ -740,7 +743,7 @@ describe.runIf(shouldRunEval)(
                     url: null,
                     folderName: null,
                     draftId: "draft-renewal-quote-1",
-                    wasDraftSent: false,
+                    draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
                   },
                 ],
                 rule: {

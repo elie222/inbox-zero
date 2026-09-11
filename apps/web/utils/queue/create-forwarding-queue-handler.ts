@@ -15,6 +15,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   path,
   invalidPayloadMessage,
   visibilityTimeoutSeconds,
+  maxDeliveryAttempts,
   getLoggerContext,
   getTraceContext,
 }: {
@@ -23,6 +24,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   path: string;
   invalidPayloadMessage: string;
   visibilityTimeoutSeconds: number;
+  maxDeliveryAttempts?: number;
   getLoggerContext?: (
     payload: z.infer<TSchema>,
     metadata: QueueMetadata,
@@ -34,7 +36,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
 }) {
   const logger = createScopedLogger(loggerScope);
 
-  return handleCallback<z.infer<TSchema>>(
+  const queueHandler = handleCallback<z.infer<TSchema>>(
     async (message, metadata) => {
       const parseResult = schema.safeParse(message);
       if (!parseResult.success) {
@@ -64,11 +66,26 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
     },
     {
       visibilityTimeoutSeconds,
-      retry: (_error, metadata) => ({
-        afterSeconds: getQueueRetryBackoffSeconds({
-          deliveryCount: metadata.deliveryCount,
-        }),
-      }),
+      retry: (_error, metadata) => {
+        if (
+          maxDeliveryAttempts &&
+          metadata.deliveryCount >= maxDeliveryAttempts
+        ) {
+          logger.warn("Queue retry limit reached; acknowledging message", {
+            queueMessageId: metadata.messageId,
+            deliveryCount: metadata.deliveryCount,
+          });
+          return { acknowledge: true };
+        }
+
+        return {
+          afterSeconds: getQueueRetryBackoffSeconds({
+            deliveryCount: metadata.deliveryCount,
+          }),
+        };
+      },
     },
   );
+
+  return (request: Request) => queueHandler(request);
 }

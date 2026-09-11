@@ -9,7 +9,6 @@ const { mockEnv } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({

@@ -8,32 +8,32 @@ import {
   withEmailAccount,
   withEmailProvider,
   type RequestWithAuth,
+  type RequestWithEmailAccount,
+  type RequestWithEmailProvider,
   type NextHandler,
 } from "./middleware";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
+import { auth } from "@/utils/auth";
+import { isAdmin } from "@/utils/admin";
+import { getEmailAccount } from "@/utils/redis/account-validation";
+import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { getAuditContext } from "@/utils/audit/context";
 
-// --- Mocks ---
-
-// Mock server-only as per rule
-vi.mock("server-only", () => ({}));
-
-// Mock external dependencies
 vi.mock("better-auth", () => {
-  // Define the mock function INSIDE the factory
   const mockAuthFn = vi.fn();
   return {
-    // Mock the default export (the betterAuth function)
     betterAuth: vi.fn(() => ({
-      // This is the object returned when betterAuth() is called
-      api: { getSession: mockAuthFn }, // Mock API methods
+      api: { getSession: mockAuthFn },
       signIn: vi.fn(),
       signOut: vi.fn(),
     })),
   };
 });
 
-// Mock the auth function from @/utils/auth
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(),
 }));
@@ -53,31 +53,18 @@ vi.mock("@/utils/email/rate-limit-mode-error", () => ({
   isProviderRateLimitModeError: vi.fn(),
 }));
 
-// Mock specific functions from @/utils/error, keep original SafeError
 vi.mock("@/utils/error", async (importActual) => {
   const actual = await importActual<typeof import("@/utils/error")>();
   return {
-    ...actual, // Keep original exports like SafeError
-    captureException: vi.fn(), // Mock only specific functions
+    ...actual,
+    captureException: vi.fn(),
     checkCommonErrors: vi.fn(),
   };
 });
 
 vi.mock("@/utils/error.server");
 
-// Import from the local path as before
-import { auth } from "@/utils/auth";
-import { isAdmin } from "@/utils/admin";
-import { getEmailAccount } from "@/utils/redis/account-validation";
-import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
-import { createEmailProvider } from "@/utils/email/provider";
-import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
-import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
-import { getAuditContext } from "@/utils/audit/context";
-
-// This should now correctly reference mockAuthFn
 const mockAuth = vi.mocked(auth);
-
 const mockGetEmailAccount = vi.mocked(getEmailAccount);
 const mockCheckCommonErrors = vi.mocked(checkCommonErrors);
 const mockCaptureException = vi.mocked(captureException);
@@ -91,22 +78,9 @@ const mockIsProviderRateLimitModeError = vi.mocked(
 );
 const mockRecordRateLimitFromApiError = vi.mocked(recordRateLimitFromApiError);
 
-// Helper to create a mock NextRequest
-const createMockRequest = (
-  method = "GET",
-  url = "http://localhost/test",
-  headers?: Record<string, string>,
-): NextRequest => {
-  const request = new NextRequest(url, {
-    method,
-    headers: new Headers(headers),
-  });
-  // Add clone method mock if needed, NextRequest handles it mostly
-  request.clone = vi.fn(() => request) as any; // Basic clone mock
-  return request;
+type RequestWithAuthAndEmail = RequestWithAuth & {
+  auth: { emailAccountId: string; email: string };
 };
-
-// --- Test Suite ---
 
 describe("Middleware", () => {
   let mockReq: NextRequest;
@@ -117,7 +91,6 @@ describe("Middleware", () => {
     mockReq = createMockRequest();
   });
 
-  // --- withError Tests ---
   describe("withError", () => {
     it("uses valid UUID v4 request IDs from the request header", async () => {
       const requestId = "123e4567-e89b-42d3-a456-426614174000";
@@ -166,6 +139,31 @@ describe("Middleware", () => {
       expect(responseBody).toEqual({ success: true });
     });
 
+    it("logs the request path without query parameters", async () => {
+      const verificationToken = "google-webhook-secret";
+      mockReq = createMockRequest(
+        "POST",
+        `http://localhost/api/google/webhook?token=${verificationToken}`,
+      );
+      const consoleLogSpy = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+      try {
+        const wrappedHandler = withError("google/webhook", async (request) => {
+          request.logger.info("Processing webhook");
+          return NextResponse.json({ ok: true });
+        });
+
+        await wrappedHandler(mockReq, mockContext);
+
+        const loggedMessage = consoleLogSpy.mock.calls.flat().join(" ");
+        expect(loggedMessage).toContain('"url": "/api/google/webhook"');
+        expect(loggedMessage).not.toContain(verificationToken);
+      } finally {
+        consoleLogSpy.mockRestore();
+      }
+    });
+
     it("should return 400 for ZodError", async () => {
       const zodError = new ZodError([
         { path: ["field"], message: "Required" },
@@ -195,6 +193,25 @@ describe("Middleware", () => {
       expect(responseBody).toEqual({
         error: "User-friendly message",
         isKnownError: true,
+      });
+    });
+
+    it("should return structured JSON errors for public API SafeError responses", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/v1/rules");
+      const safeError = new SafeError("Missing API key", 401);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(responseBody).toEqual({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing API key",
+          hint: expect.stringContaining("API-Key"),
+        },
       });
     });
 
@@ -231,13 +248,22 @@ describe("Middleware", () => {
     it("should handle common errors using checkCommonErrors", async () => {
       const commonError = { message: "API Error", code: 409, type: "Conflict" };
       mockCheckCommonErrors.mockReturnValue(commonError);
-      const handler = vi.fn().mockRejectedValue(new Error("Some API error"));
+      const apiError = new Error("Some API error");
+      mockReq = createMockRequest(
+        "GET",
+        "http://localhost/api/google/webhook?token=webhook-secret",
+      );
+      const handler = vi.fn().mockRejectedValue(apiError);
       const wrappedHandler = withError(handler);
 
       const response = await wrappedHandler(mockReq, mockContext);
       const responseBody = await response.json();
 
-      expect(checkCommonErrors).toHaveBeenCalled();
+      expect(checkCommonErrors).toHaveBeenCalledWith(
+        apiError,
+        "/api/google/webhook",
+        expect.anything(),
+      );
       expect(response.status).toBe(commonError.code);
       expect(responseBody).toEqual({
         error: commonError.message,
@@ -278,7 +304,11 @@ describe("Middleware", () => {
 
     it("should return 500 and capture unhandled errors", async () => {
       const unexpectedError = new Error("Something went very wrong");
-      mockCheckCommonErrors.mockReturnValue(null); // Ensure it's not a common error
+      mockCheckCommonErrors.mockReturnValue(null);
+      mockReq = createMockRequest(
+        "GET",
+        "http://localhost/api/slack/callback?code=oauth-code&state=oauth-state",
+      );
       const handler = vi.fn().mockRejectedValue(unexpectedError);
       const wrappedHandler = withError(handler);
 
@@ -287,20 +317,18 @@ describe("Middleware", () => {
 
       expect(checkCommonErrors).toHaveBeenCalled();
       expect(mockCaptureException).toHaveBeenCalledWith(unexpectedError, {
-        extra: { url: mockReq.url },
+        extra: { url: "/api/slack/callback" },
       });
       expect(response.status).toBe(500);
       expect(responseBody).toEqual({ error: "An unexpected error occurred" });
     });
   });
 
-  // --- withAuth Tests ---
   describe("withAuth", () => {
     const mockUserId = "user-123";
 
     it("should call the handler with auth info if session exists", async () => {
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
-      // Adjust handler mock signature
       const handler = vi.fn(async (_req: RequestWithAuth, _ctx: any) =>
         NextResponse.json({ ok: true }),
       );
@@ -315,6 +343,28 @@ describe("Middleware", () => {
         }),
         mockContext,
       );
+    });
+
+    it("preserves NextRequest APIs when adding auth info", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/test?view=all", {
+        cookie: "display=compact",
+      });
+      mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+      const handler = vi.fn(async (request: RequestWithAuth) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+        }),
+      );
+
+      const response = await withAuth(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/test",
+        view: "all",
+        display: "compact",
+      });
     });
 
     it("should return 401 if session does not exist", async () => {
@@ -346,7 +396,7 @@ describe("Middleware", () => {
       expect(auth).toHaveBeenCalledTimes(1);
       expect(handler).not.toHaveBeenCalled();
       expect(mockCaptureException).toHaveBeenCalledWith(authError, {
-        extra: { url: mockReq.url },
+        extra: { url: "/test" },
       });
       expect(response.status).toBe(500);
       expect(responseBody).toEqual({
@@ -427,18 +477,12 @@ describe("Middleware", () => {
     });
   });
 
-  // --- withEmailAccount Tests ---
   describe("withEmailAccount", () => {
-    type RequestWithAuthAndEmail = RequestWithAuth & {
-      auth: { emailAccountId: string; email: string };
-    };
-
     const mockUserId = "user-123";
     const mockAccountId = "acc-456";
     const mockEmail = "test@example.com";
 
     beforeEach(() => {
-      // Mock auth middleware part for these tests
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
     });
 
@@ -471,24 +515,37 @@ describe("Middleware", () => {
       );
     });
 
-    it("should return 403 if email account header is missing", async () => {
-      // No header added to mockReq in beforeEach
-      // Provide a typed mock implementation to satisfy the wrapper
-      const handler = vi.fn(
-        async (
-          _req: RequestWithAuthAndEmail,
-          _ctx: { params: Promise<Record<string, string>> },
-        ): Promise<NextResponse> => {
-          // Implementation won't run, just for types
-          return NextResponse.json({});
-        },
+    it("preserves NextRequest APIs when adding email account info", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/test?view=all", {
+        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+        cookie: "display=compact",
+      });
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      const handler = vi.fn(async (request: RequestWithEmailAccount) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+        }),
       );
+
+      const response = await withEmailAccount(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/api/test",
+        view: "all",
+        display: "compact",
+      });
+    });
+
+    it("should return 403 if email account header is missing", async () => {
+      const handler = createEmailAccountHandler();
       const wrappedHandler = withEmailAccount(handler);
 
       const response = await wrappedHandler(mockReq, mockContext);
       const responseBody = await response.json();
 
-      expect(auth).toHaveBeenCalledTimes(1); // Auth middleware runs first
+      expect(auth).toHaveBeenCalledTimes(1);
       expect(getEmailAccount).not.toHaveBeenCalled();
       expect(handler).not.toHaveBeenCalled();
       expect(response.status).toBe(403);
@@ -502,18 +559,9 @@ describe("Middleware", () => {
       mockReq = createMockRequest("GET", "http://localhost/api/test", {
         [EMAIL_ACCOUNT_HEADER]: mockAccountId,
       });
-      mockGetEmailAccount.mockResolvedValue(null); // Simulate invalid account
+      mockGetEmailAccount.mockResolvedValue(null);
 
-      // Provide a typed mock implementation to satisfy the wrapper
-      const handler = vi.fn(
-        async (
-          _req: RequestWithAuthAndEmail,
-          _ctx: { params: Promise<Record<string, string>> },
-        ): Promise<NextResponse> => {
-          // Implementation won't run, just for types
-          return NextResponse.json({});
-        },
-      );
+      const handler = createEmailAccountHandler();
       const wrappedHandler = withEmailAccount(handler);
 
       const response = await wrappedHandler(mockReq, mockContext);
@@ -533,7 +581,6 @@ describe("Middleware", () => {
     });
   });
 
-  // --- withEmailProvider Tests ---
   describe("withEmailProvider", () => {
     const mockUserId = "user-123";
     const mockAccountId = "acc-456";
@@ -543,64 +590,68 @@ describe("Middleware", () => {
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
     });
 
-    it("should return 429 for Gmail rate-limit mode errors from provider initialization", async () => {
-      mockReq = createMockRequest("GET", "http://localhost/api/labels", {
-        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
-      });
+    it("preserves NextRequest APIs when adding an email provider", async () => {
+      mockReq = createMockRequest(
+        "GET",
+        "http://localhost/api/labels?view=all",
+        {
+          [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+          cookie: "display=compact",
+        },
+      );
       mockGetEmailAccount.mockResolvedValue(mockEmail);
       mockPrismaEmailAccountFindUnique.mockResolvedValue({
         id: mockAccountId,
         account: { provider: "google" },
       } as any);
-
-      const rateLimitError = new Error("Rate-limit mode active");
-      mockCreateEmailProvider.mockRejectedValue(rateLimitError);
-      mockIsProviderRateLimitModeError.mockImplementation(
-        (error) => error === rateLimitError,
-      );
-
-      const commonError = {
-        type: "Gmail Rate Limit Exceeded",
-        message: "Gmail error: retry later",
-        code: 429,
-      } as const;
-      mockCheckCommonErrors.mockReturnValue(commonError);
-
-      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
-      const wrappedHandler = withEmailProvider("labels", handler);
-
-      const response = await wrappedHandler(mockReq, mockContext);
-      const responseBody = await response.json();
-
-      expect(handler).not.toHaveBeenCalled();
-      expect(checkCommonErrors).toHaveBeenCalledWith(
-        rateLimitError,
-        mockReq.url,
-        expect.anything(),
-      );
-      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiErrorType: commonError.type,
-          error: rateLimitError,
-          emailAccountId: mockAccountId,
-          source: "labels",
+      const emailProvider = { name: "provider" };
+      mockCreateEmailProvider.mockResolvedValue(emailProvider as any);
+      const handler = vi.fn(async (request: RequestWithEmailProvider) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+          hasEmailProvider: request.emailProvider === emailProvider,
         }),
       );
-      expect(response.status).toBe(429);
-      expect(responseBody).toEqual({
-        error: commonError.message,
-        isKnownError: true,
+
+      const response = await withEmailProvider(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/api/labels",
+        view: "all",
+        display: "compact",
+        hasEmailProvider: true,
       });
     });
 
-    it("should return 429 for Outlook rate-limit mode errors from provider initialization", async () => {
+    it.each([
+      [
+        "Gmail",
+        "google",
+        {
+          type: "Gmail Rate Limit Exceeded",
+          message: "Gmail error: retry later",
+          code: 429,
+        },
+      ],
+      [
+        "Outlook",
+        "microsoft",
+        {
+          type: "Outlook Rate Limit",
+          message: "Microsoft is temporarily limiting requests.",
+          code: 429,
+        },
+      ],
+    ] as const)("should return 429 for %s rate-limit mode errors from provider initialization", async (_caseName, provider, commonError) => {
       mockReq = createMockRequest("GET", "http://localhost/api/labels", {
         [EMAIL_ACCOUNT_HEADER]: mockAccountId,
       });
       mockGetEmailAccount.mockResolvedValue(mockEmail);
       mockPrismaEmailAccountFindUnique.mockResolvedValue({
         id: mockAccountId,
-        account: { provider: "microsoft" },
+        account: { provider },
       } as any);
 
       const rateLimitError = new Error("Rate-limit mode active");
@@ -608,12 +659,6 @@ describe("Middleware", () => {
       mockIsProviderRateLimitModeError.mockImplementation(
         (error) => error === rateLimitError,
       );
-
-      const commonError = {
-        type: "Outlook Rate Limit",
-        message: "Microsoft is temporarily limiting requests.",
-        code: 429,
-      } as const;
       mockCheckCommonErrors.mockReturnValue(commonError);
 
       const handler = vi.fn(async () => NextResponse.json({ ok: true }));
@@ -625,7 +670,7 @@ describe("Middleware", () => {
       expect(handler).not.toHaveBeenCalled();
       expect(checkCommonErrors).toHaveBeenCalledWith(
         rateLimitError,
-        mockReq.url,
+        "/api/labels",
         expect.anything(),
       );
       expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
@@ -644,3 +689,24 @@ describe("Middleware", () => {
     });
   });
 });
+
+function createMockRequest(
+  method = "GET",
+  url = "http://localhost/test",
+  headers?: Record<string, string>,
+): NextRequest {
+  const request = new NextRequest(url, {
+    method,
+    headers: new Headers(headers),
+  });
+  return request;
+}
+
+function createEmailAccountHandler() {
+  return vi.fn(
+    async (
+      _req: RequestWithAuthAndEmail,
+      _ctx: { params: Promise<Record<string, string>> },
+    ): Promise<NextResponse> => NextResponse.json({}),
+  );
+}

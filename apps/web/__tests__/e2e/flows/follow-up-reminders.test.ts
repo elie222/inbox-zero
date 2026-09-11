@@ -35,7 +35,7 @@ import {
   enableAllRules,
 } from "./helpers/accounts";
 import type { TestAccount } from "./helpers/accounts";
-import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
+import { processAccountFollowUps } from "@/utils/follow-up/process";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";

@@ -4,6 +4,11 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { trackStripeCheckoutCompleted } from "@/utils/posthog";
+import {
+  CONVERSION_EVENT_ID_PARAM,
+  CONVERSION_EVENT_PARAM,
+} from "@/utils/analytics/conversion-events";
+import { buildRedirectUrl } from "@/utils/redirect";
 
 export const GET = withAuth("stripe/success", async (request) => {
   const userId = request.auth.userId;
@@ -19,9 +24,15 @@ export const GET = withAuth("stripe/success", async (request) => {
 
   if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
+  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
+    "session_id",
+  );
+
   after(async () => {
     if (!user?.email) return;
-    trackStripeCheckoutCompleted(user.email, { source: "success_redirect" });
+    await trackStripeCheckoutCompleted(user.email, {
+      source: "success_redirect",
+    });
   });
 
   await syncStripeDataToDb({
@@ -29,5 +40,10 @@ export const GET = withAuth("stripe/success", async (request) => {
     logger,
   });
 
-  redirect("/setup");
+  redirect(
+    buildRedirectUrl("/setup", {
+      [CONVERSION_EVENT_PARAM]: "trial_started",
+      [CONVERSION_EVENT_ID_PARAM]: stripeCheckoutSessionId ?? undefined,
+    }),
+  );
 });

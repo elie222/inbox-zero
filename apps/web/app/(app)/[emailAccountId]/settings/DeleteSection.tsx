@@ -64,7 +64,10 @@ export function DeleteSection() {
       {
         loading: "Deleting account...",
         success: "Account deleted!",
-        error: (err) => `Error deleting account: ${err.message}`,
+        error: (err: unknown) =>
+          `Error deleting account: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`,
       },
     );
   };

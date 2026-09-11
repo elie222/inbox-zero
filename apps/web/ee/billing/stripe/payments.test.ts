@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcessorType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const { mockFindUnique, mockUpsert } = vi.hoisted(() => ({
   mockFindUnique: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-const logger = createScopedLogger("stripe-payments-test");
+const logger = createTestLogger();
 
 describe("syncStripeInvoicePayment", () => {
   beforeEach(() => {

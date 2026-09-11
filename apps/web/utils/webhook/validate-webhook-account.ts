@@ -29,6 +29,7 @@ const webhookEmailAccountSelect = {
   userId: true,
   about: true,
   multiRuleSelectionEnabled: true,
+  sensitiveDataPolicy: true,
   timezone: true,
   calendarBookingLink: true,
   draftReplyConfidence: true,
@@ -117,6 +118,8 @@ export async function getWebhookEmailAccount(
     await logErrorWithDedupe({
       logger,
       message: "Account not found",
+      // expected: providers keep sending webhooks for a while after an account is deleted
+      level: "warn",
       context: {
         hasSubscriptionIdLookup: "watchEmailsSubscriptionId" in where,
       },

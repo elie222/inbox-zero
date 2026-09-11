@@ -7,8 +7,6 @@ import { getEmailAccount, getEmail } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-regression/ai-mcp-agent
 
-vi.mock("server-only", () => ({}));
-
 // Mock the MCP tools creation to return actual tools for testing
 vi.mock("@/utils/ai/mcp/mcp-tools", () => ({
   createMcpToolsForAgent: vi.fn(),

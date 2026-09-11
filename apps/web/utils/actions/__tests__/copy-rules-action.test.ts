@@ -8,7 +8,6 @@ import {
 } from "@/__tests__/helpers";
 import { ActionType } from "@/generated/prisma/enums";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "user1", email: "test@test.com" } })),

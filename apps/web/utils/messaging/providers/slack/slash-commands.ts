@@ -17,6 +17,7 @@ import {
 import type { Logger } from "@/utils/logger";
 import { normalizeMessagingAssistantText } from "@/utils/messaging/chat-sdk/bot";
 import { PROMPT_COMMANDS } from "@/utils/messaging/prompt-commands";
+import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import { disableSlackLinkUnfurls } from "@/utils/messaging/providers/slack/send";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -91,7 +92,7 @@ export async function processSlackSlashCommand({
 
     await postToSlackResponseUrl(responseUrl, {
       response_type: "ephemeral",
-      text: responseText,
+      text: markdownToSlackMrkdwn(responseText),
     });
   } catch (error) {
     logger.error("Slack slash command AI processing failed", {

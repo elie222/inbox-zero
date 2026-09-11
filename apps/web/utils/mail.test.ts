@@ -1,53 +1,53 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   getEmailClient,
   emailToContent,
   convertEmailHtmlToText,
   parseReply,
+  hasQuotedReplyContent,
 } from "./mail";
-
-vi.mock("server-only", () => ({}));
 
 describe("emailToContent", () => {
   describe("content source fallback", () => {
-    it("uses textHtml when available", () => {
-      const email = {
-        textHtml: "<p>Hello World</p>",
-        textPlain: "Plain text",
-        snippet: "Snippet",
-      };
-      const result = emailToContent(email);
-      expect(result).toContain("Hello World");
-    });
-
-    it("falls back to textPlain when textHtml is empty", () => {
-      const email = {
-        textHtml: "",
-        textPlain: "Plain text content",
-        snippet: "Snippet",
-      };
-      const result = emailToContent(email);
-      expect(result).toBe("Plain text content");
-    });
-
-    it("falls back to snippet when both textHtml and textPlain are empty", () => {
-      const email = {
-        textHtml: "",
-        textPlain: "",
-        snippet: "Email snippet here",
-      };
-      const result = emailToContent(email);
-      expect(result).toBe("Email snippet here");
-    });
-
-    it("returns empty string when all content sources are empty", () => {
-      const email = {
-        textHtml: "",
-        textPlain: "",
-        snippet: "",
-      };
-      const result = emailToContent(email);
-      expect(result).toBe("");
+    it.each([
+      {
+        name: "textHtml when available",
+        email: {
+          textHtml: "<p>Hello World</p>",
+          textPlain: "Plain text",
+          snippet: "Snippet",
+        },
+        expected: "Hello World",
+      },
+      {
+        name: "textPlain when textHtml is empty",
+        email: {
+          textHtml: "",
+          textPlain: "Plain text content",
+          snippet: "Snippet",
+        },
+        expected: "Plain text content",
+      },
+      {
+        name: "snippet when textHtml and textPlain are empty",
+        email: {
+          textHtml: "",
+          textPlain: "",
+          snippet: "Email snippet here",
+        },
+        expected: "Email snippet here",
+      },
+      {
+        name: "empty string when all content sources are empty",
+        email: {
+          textHtml: "",
+          textPlain: "",
+          snippet: "",
+        },
+        expected: "",
+      },
+    ])("uses $name", ({ email, expected }) => {
+      expect(emailToContent(email)).toBe(expected);
     });
   });
 
@@ -87,63 +87,155 @@ describe("emailToContent", () => {
       expect(result.length).toBe(2003);
       expect(result.endsWith("...")).toBe(true);
     });
+
+    it("keeps the closing ask when keepTailLength is set", () => {
+      const email = {
+        textPlain: `${"Feature list. ".repeat(200)}Can you send the updated timeline when you have it?`,
+        textHtml: undefined,
+        snippet: "",
+      };
+
+      const result = emailToContent(email, {
+        maxLength: 200,
+        keepTailLength: 80,
+      });
+
+      expect(result.length).toBeLessThanOrEqual(200);
+      expect(result).toContain("Feature list.");
+      expect(result).toContain("send the updated timeline");
+    });
+
+    it("strips a plain-text signature before truncating", () => {
+      const email = {
+        textPlain: `${"Please review the proposal. ".repeat(80)}\n-- \nBest regards,\nAlex\nThis email is confidential and intended only for the addressee.`,
+        textHtml: undefined,
+        snippet: "",
+      };
+
+      const result = emailToContent(email, {
+        maxLength: 200,
+        keepTailLength: 80,
+        stripSignature: true,
+      });
+
+      expect(result).toContain("Please review the proposal.");
+      expect(result).not.toContain("confidential");
+      expect(result).not.toContain("Best regards");
+    });
   });
 
   describe("removeForwarded option", () => {
-    it("removes Gmail-style forwarded content", () => {
-      const email = {
+    it.each([
+      {
+        name: "Gmail-style forwarded content",
         textPlain:
           "My response here\n\n---------- Forwarded message ----------\nFrom: someone@example.com\nSubject: Original",
-        textHtml: undefined,
-        snippet: "",
-      };
-      const result = emailToContent(email, { removeForwarded: true });
-      expect(result).toBe("My response here");
-      expect(result).not.toContain("Forwarded message");
-    });
-
-    it("removes iOS-style forwarded content", () => {
-      const email = {
+        expected: "My response here",
+      },
+      {
+        name: "iOS-style forwarded content",
         textPlain:
           "Here is my reply\n\nBegin forwarded message:\n\nFrom: other@test.com",
-        textHtml: undefined,
-        snippet: "",
-      };
-      const result = emailToContent(email, { removeForwarded: true });
-      expect(result).toBe("Here is my reply");
-    });
-
-    it("removes Outlook-style forwarded content", () => {
-      const email = {
+        expected: "Here is my reply",
+      },
+      {
+        name: "Outlook-style forwarded content",
         textPlain: "My comments\n\nOriginal Message\nFrom: sender@example.com",
-        textHtml: undefined,
-        snippet: "",
-      };
-      const result = emailToContent(email, { removeForwarded: true });
-      expect(result).toBe("My comments");
+        expected: "My comments",
+      },
+      {
+        name: "content with no forward marker",
+        textPlain: "Regular email content without forwards",
+        expected: "Regular email content without forwards",
+      },
+    ])("handles $name", ({ textPlain, expected }) => {
+      expect(
+        emailToContent(createPlainTextEmail(textPlain), {
+          removeForwarded: true,
+        }),
+      ).toBe(expected);
     });
 
-    it("preserves content when no forward marker found", () => {
-      const email = {
-        textPlain: "Regular email content without forwards",
-        textHtml: undefined,
-        snippet: "",
-      };
-      const result = emailToContent(email, { removeForwarded: true });
-      expect(result).toBe("Regular email content without forwards");
+    it("does not treat inline From and Subject text as a forwarded message", () => {
+      const textPlain =
+        "Please update the From: field and Subject: line before sending.";
+
+      expect(
+        emailToContent(createPlainTextEmail(textPlain), {
+          removeForwarded: true,
+        }),
+      ).toBe(textPlain);
     });
   });
 
   describe("whitespace handling", () => {
     it("removes excessive whitespace", () => {
-      const email = {
-        textPlain: "Hello    World\n\n\n\nTest",
-        textHtml: undefined,
-        snippet: "",
-      };
-      const result = emailToContent(email);
+      const result = emailToContent(
+        createPlainTextEmail("Hello    World\n\n\n\nTest"),
+      );
+
       expect(result).not.toContain("    ");
       expect(result).not.toContain("\n\n\n\n");
+    });
+  });
+
+  describe("HTML link and image context", () => {
+    it("removes link URLs by default", () => {
+      const result = emailToContent({
+        textHtml:
+          '<p>Add your billing info <a href="https://example.com/billing">here</a>.</p>',
+        textPlain: "",
+        snippet: "",
+      });
+
+      expect(result).toContain("billing info here");
+      expect(result).not.toContain("https://example.com/billing");
+    });
+
+    it("preserves link URLs when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>Add your billing info <a href="https://example.com/billing">here</a>.</p>',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeLinkUrls: true },
+      );
+
+      expect(result).toContain("billing info here");
+      expect(result).toContain("https://example.com/billing");
+    });
+
+    it("preserves image alt text without exposing image sources when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>See below.</p><img src="https://tracker.example.com/pixel.png" alt="Billing form screenshot" />',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeImageAltText: true },
+      );
+
+      expect(result).toContain("[image: Billing form screenshot]");
+      expect(result).not.toContain("https://tracker.example.com");
+    });
+
+    it("uses a placeholder for images without useful alt text when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>See below.</p><img src="https://tracker.example.com/pixel.png" alt="image" />',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeImageAltText: true },
+      );
+
+      expect(result).toContain("See below.");
+      expect(result).toContain("[image]");
+      expect(result).not.toContain("https://tracker.example.com");
     });
   });
 });
@@ -238,28 +330,54 @@ On Jan 1, 2024, someone@example.com wrote:
   });
 });
 
-describe("getEmailClient", () => {
-  it("identifies Gmail", () => {
-    expect(getEmailClient("<abc123@mail.gmail.com>")).toBe("gmail");
+describe("hasQuotedReplyContent", () => {
+  it("returns true for a reply quoting an earlier message", () => {
+    const plainText = `Thanks, that works for me.
+
+On Jan 1, 2024, someone@example.com wrote:
+> Does tomorrow work?`;
+
+    expect(hasQuotedReplyContent(plainText)).toBe(true);
   });
 
-  it("identifies Superhuman", () => {
-    expect(getEmailClient("<msg@we.are.superhuman.com>")).toBe("superhuman");
-  });
-
-  it("identifies Shortwave", () => {
-    expect(getEmailClient("<email@mail.shortwave.com>")).toBe("shortwave");
-  });
-
-  it("extracts domain for generic email clients", () => {
-    expect(getEmailClient("<message@company.com>")).toBe("company.com");
-  });
-
-  it("handles message IDs with multiple @ symbols", () => {
-    expect(getEmailClient("<test@something@domain.com>")).toBe("something");
-  });
-
-  it("extracts domain from Outlook-style message IDs", () => {
-    expect(getEmailClient("<BLUPR01MB1234@outlook.com>")).toBe("outlook.com");
+  it("returns false for a freshly composed message", () => {
+    const plainText = "Hey team, just wanted to check in on the project.";
+    expect(hasQuotedReplyContent(plainText)).toBe(false);
   });
 });
+
+describe("getEmailClient", () => {
+  it.each([
+    ["Gmail", "<abc123@mail.gmail.com>", "gmail"],
+    ["Superhuman", "<msg@we.are.superhuman.com>", "superhuman"],
+    ["Shortwave", "<email@mail.shortwave.com>", "shortwave"],
+    [
+      "lookalike Gmail host",
+      "<abc123@mail.gmail.com.attacker.example>",
+      "mail.gmail.com.attacker.example",
+    ],
+    [
+      "Gmail string in URL path",
+      "<abc123@attacker.example/mail.gmail.com>",
+      "attacker.example",
+    ],
+    ["generic email client", "<message@company.com>", "company.com"],
+    [
+      "message IDs with multiple @ symbols",
+      "<test@something@domain.com>",
+      "something",
+    ],
+    ["Outlook-style message IDs", "<BLUPR01MB1234@outlook.com>", "outlook.com"],
+    ["missing host", "not-a-message-id", "unknown"],
+  ])("identifies %s", (_name, messageId, expected) => {
+    expect(getEmailClient(messageId)).toBe(expected);
+  });
+});
+
+function createPlainTextEmail(textPlain: string) {
+  return {
+    textPlain,
+    textHtml: undefined,
+    snippet: "",
+  };
+}

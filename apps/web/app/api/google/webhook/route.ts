@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
+import { processHistoryForUser } from "@/utils/webhook/google/process-history";
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
@@ -47,6 +47,9 @@ export const POST = withError("google/webhook", async (request) => {
   logger = logger.with({
     email: decodedData.emailAddress,
     historyId: decodedData.historyId,
+    queueMessageId: body.message?.messageId,
+    subscriptionId: body.subscription,
+    sentAt: body.message?.publishTime,
   });
 
   logger.info("Received webhook - acknowledging immediately");
@@ -55,6 +58,12 @@ export const POST = withError("google/webhook", async (request) => {
     { email: decodedData.emailAddress.toLowerCase() },
     logger,
   );
+
+  logger = logger.with({ emailAccountId: emailAccount?.id });
+  logger.info("Gmail webhook account lookup completed", {
+    emailAccountFound: !!emailAccount,
+    lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
+  });
 
   if (emailAccount) {
     const activeRateLimit = await getEmailProviderRateLimitState({
@@ -74,13 +83,11 @@ export const POST = withError("google/webhook", async (request) => {
             "Failed to cleanup webhook account during rate-limit skip",
             {
               error: error instanceof Error ? error.message : error,
-              emailAccountId: emailAccount.id,
             },
           );
         },
       );
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
-        emailAccountId: emailAccount.id,
         retryAt: activeRateLimit.retryAt.toISOString(),
         rateLimitSource: activeRateLimit.source,
       });

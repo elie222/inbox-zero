@@ -7,24 +7,23 @@ import {
   isFilebotNotificationMessage,
 } from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
-import {
-  processAttachment,
-  getFilableAttachments,
-} from "@/utils/drive/filing-engine";
+import { getFilableAttachments } from "@/utils/drive/filing-engine";
+import { processAttachmentsForFiling } from "@/utils/drive/process-filing-attachments";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
-import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { canonicalizeEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { sendOtpPushNotification } from "@/utils/otp-push";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -147,11 +146,11 @@ export async function processHistoryItem(
     }
 
     // check if unsubscribed
-    const email = extractEmailAddress(parsedMessage.headers.from);
+    const email = canonicalizeEmailAddress(parsedMessage.headers.from);
     const sender = await prisma.newsletter.findFirst({
       where: {
         emailAccountId,
-        email,
+        email: { equals: email, mode: "insensitive" },
         status: NewsletterStatus.UNSUBSCRIBED,
       },
     });
@@ -162,6 +161,17 @@ export async function processHistoryItem(
       return;
     }
 
+    try {
+      await sendOtpPushNotification({
+        emailAccountId,
+        userId: emailAccount.userId,
+        message: parsedMessage,
+        logger,
+      });
+    } catch (error) {
+      logger.warn("OTP push notification processing failed", { error });
+    }
+
     if (!hasAiAccess) {
       logger.info("Skipping. No AI access.");
       return;
@@ -170,21 +180,29 @@ export async function processHistoryItem(
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
     if (emailAccount.autoCategorizeSenders) {
-      const sender = extractEmailAddress(parsedMessage.headers.from);
+      const sender = email;
       const senderName = extractNameFromEmail(parsedMessage.headers.from);
-      const existingSender = await prisma.newsletter.findUnique({
+      const displayName =
+        canonicalizeEmailAddress(senderName) === sender
+          ? undefined
+          : senderName;
+      const existingSenders = await prisma.newsletter.findMany({
         where: {
-          email_emailAccountId: { email: sender, emailAccountId },
+          emailAccountId,
+          email: { equals: sender, mode: "insensitive" },
         },
-        select: { category: true },
+        select: { categoryId: true },
       });
-      if (!existingSender?.category) {
+      if (
+        existingSenders.length === 0 ||
+        existingSenders.some(({ categoryId }) => !categoryId)
+      ) {
         await categorizeSender(
           sender,
           emailAccount,
           provider,
           undefined,
-          senderName !== sender ? senderName : undefined,
+          displayName,
         );
       }
     }
@@ -222,28 +240,20 @@ export async function processHistoryItem(
                 count: extractableAttachments.length,
               });
 
-              // Process each attachment (don't await all - let them run in background)
-              for (const attachment of extractableAttachments) {
-                await processAttachment({
-                  emailAccount: {
-                    ...emailAccount,
-                    filingEnabled: emailAccount.filingEnabled,
-                    filingPrompt: emailAccount.filingPrompt,
-                    filingConfirmationSendEmail:
-                      emailAccount.filingConfirmationSendEmail,
-                    email: emailAccount.email,
-                  },
-                  message: parsedMessage,
-                  attachment,
-                  emailProvider: provider,
-                  logger,
-                }).catch((error) => {
-                  logger.error("Failed to process attachment", {
-                    filename: attachment.filename,
-                    error,
-                  });
-                });
-              }
+              await processAttachmentsForFiling({
+                attachments: extractableAttachments,
+                emailAccount: {
+                  ...emailAccount,
+                  filingEnabled: emailAccount.filingEnabled,
+                  filingPrompt: emailAccount.filingPrompt,
+                  filingConfirmationSendEmail:
+                    emailAccount.filingConfirmationSendEmail,
+                  email: emailAccount.email,
+                },
+                message: parsedMessage,
+                emailProvider: provider,
+                logger,
+              });
             }
           },
           extra: { operation: "process-attachments" },
@@ -257,6 +267,7 @@ export async function processHistoryItem(
       await clearFollowUpLabel({
         emailAccountId,
         threadId: actualThreadId,
+        triggerMessageId: parsedMessage.id,
         provider,
         logger,
       });
@@ -310,6 +321,11 @@ export async function processHistoryItem(
         logger.info("Message not found");
         return;
       }
+    }
+
+    if (error instanceof SafeError) {
+      logger.info("Skipping. Known processing error.");
+      return;
     }
 
     await logErrorWithDedupe({

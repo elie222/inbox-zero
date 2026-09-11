@@ -1,30 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { saveOnboardingAnswersAction } from "./onboarding";
+import {
+  saveOnboardingAnswersAction,
+  saveOnboardingChatAnswersAction,
+} from "./onboarding";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
 }));
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-
-  return {
-    ...actual,
-    after: vi.fn((callback: () => Promise<void> | void) => callback()),
-  };
-});
-vi.mock("@sentry/nextjs", () => ({
-  setTag: vi.fn(),
-  setUser: vi.fn(),
-  captureException: vi.fn(),
-  withServerActionInstrumentation: vi.fn(
-    async (_name: string, callback: () => Promise<unknown>) => callback(),
-  ),
-}));
+vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 
 const { updateContactRoleMock, updateContactCompanySizeMock } = vi.hoisted(
   () => ({
@@ -100,6 +87,66 @@ describe("saveOnboardingAnswersAction", () => {
     expect(result?.serverError).toBeDefined();
     expect(updateContactRoleMock).not.toHaveBeenCalled();
     expect(updateContactCompanySizeMock).not.toHaveBeenCalled();
+    expect(trackOnboardingAnswerMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveOnboardingChatAnswersAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.user.update.mockResolvedValue({ id: "user-1" } as any);
+  });
+
+  it("tracks the chat survey goal only when the struggle answer is first saved", async () => {
+    const result = await saveOnboardingChatAnswersAction({
+      answers: [
+        {
+          key: "role",
+          question: "What do you do?",
+          answer: "Founder",
+          isFreeform: false,
+        },
+        {
+          key: "struggle",
+          question: "What about your inbox is driving you up the wall?",
+          answer: "Too many newsletters",
+          isFreeform: false,
+        },
+      ],
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(trackOnboardingAnswerMock).toHaveBeenCalledTimes(1);
+    expect(trackOnboardingAnswerMock).toHaveBeenCalledWith("user@example.com", {
+      surveyGoal: "Too many newsletters",
+    });
+  });
+
+  it("does not re-track the chat survey goal on later transcript saves", async () => {
+    const result = await saveOnboardingChatAnswersAction({
+      answers: [
+        {
+          key: "role",
+          question: "What do you do?",
+          answer: "Founder",
+          isFreeform: false,
+        },
+        {
+          key: "struggle",
+          question: "What about your inbox is driving you up the wall?",
+          answer: "Too many newsletters",
+          isFreeform: false,
+        },
+        {
+          key: "volume",
+          question: "How much email hits your inbox on a normal day?",
+          answer: "50-100",
+          isFreeform: false,
+        },
+      ],
+    });
+
+    expect(result?.serverError).toBeUndefined();
     expect(trackOnboardingAnswerMock).not.toHaveBeenCalled();
   });
 });

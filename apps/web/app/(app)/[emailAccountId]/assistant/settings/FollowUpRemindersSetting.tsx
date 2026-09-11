@@ -244,7 +244,8 @@ function FollowUpSettingsDialog({
           Get reminded about conversations that need attention.
           <br />
           We'll add a <Badge color="blue">Follow-up</Badge>{" "}
-          {terminology.label.singular} so you can easily find them.
+          {terminology.label.singular} so you can easily find them. Saturdays
+          and Sundays do not count.
         </DialogDescription>
       </DialogHeader>
 

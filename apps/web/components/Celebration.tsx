@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Confetti from "react-dom-confetti";
 import Image from "next/image";
+import { Confetti } from "@/components/Confetti";
 import { getCelebrationImage } from "@/utils/celebration";
 import { Button } from "@/components/Button";
 

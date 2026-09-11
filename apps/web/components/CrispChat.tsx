@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Crisp } from "crisp-sdk-web";
+import { usePathname } from "next/navigation";
 import { env } from "@/env";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 const CrispChat = () => {
   const { state } = useSidebar();
+  const pathname = usePathname();
 
   const [isConfigured, setIsConfigured] = useState(false);
   const isChatOpen = state.includes("chat-sidebar");
+  const isMailRoute = pathname?.includes("/mail");
 
   useEffect(() => {
     if (!env.NEXT_PUBLIC_CRISP_WEBSITE_ID) return;
@@ -31,12 +34,12 @@ const CrispChat = () => {
   useEffect(() => {
     if (!env.NEXT_PUBLIC_CRISP_WEBSITE_ID || !isConfigured) return;
 
-    if (isChatOpen) {
+    if (isChatOpen || isMailRoute) {
       Crisp.chat.hide();
     } else {
       Crisp.chat.show();
     }
-  }, [isConfigured, isChatOpen]);
+  }, [isConfigured, isChatOpen, isMailRoute]);
 
   return null;
 };

@@ -63,6 +63,19 @@ describe("useLabels", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
+  it("scopes label requests to the conversation's account", async () => {
+    mockUseAccount.mockReturnValue({
+      emailAccount: { id: "account-1" },
+      isLoading: false,
+      providerRateLimit: null,
+    });
+    const { useLabels } = await import("./useLabels");
+    renderHook(() => useLabels("account-2"));
+    expect(mockUseSWR).toHaveBeenCalledWith(["/api/labels", "account-2"], {
+      shouldRetryOnError: false,
+    });
+  });
+
   it("fetches labels once the selected account is clear", async () => {
     mockUseAccount.mockReturnValue({
       emailAccount: { id: "account-1" },

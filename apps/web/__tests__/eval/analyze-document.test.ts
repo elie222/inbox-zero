@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -8,8 +8,6 @@ import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
 
 // pnpm test-ai eval/analyze-document
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/analyze-document
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 30_000;
@@ -81,7 +79,7 @@ const testCases = [
 ] as const;
 
 describe.runIf(shouldRunEval)("Eval: Analyze Document", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "analyze-document" });
 
   describeEvalMatrix("analyze-document", (model, emailAccount) => {
     for (const testCase of testCases) {

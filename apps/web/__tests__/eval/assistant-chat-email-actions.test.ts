@@ -16,6 +16,7 @@ import {
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -24,11 +25,11 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai eval/assistant-chat-email-actions
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-email-actions
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-email-actions",
+});
 const logger = createScopedLogger("eval-assistant-chat-email-actions");
 const scenarios: EvalScenario[] = [
   {
@@ -174,13 +175,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
   beforeEach(() => {
@@ -232,32 +235,44 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
       test(
         scenario.title,
         async () => {
-          if (scenario.searchMessages) {
-            mockSearchMessages.mockResolvedValueOnce({
-              messages: scenario.searchMessages,
-              nextPageToken: undefined,
-            });
-          }
+          const messages = [
+            { role: "user" as const, content: scenario.prompt },
+          ];
+          const record = await evalReporter.recordCached(
+            {
+              testName: scenario.reportName,
+              model: model.label,
+              cacheKeyParts: [
+                { model, scenario: getScenarioCacheKey(scenario), messages },
+              ],
+            },
+            async () => {
+              if (scenario.searchMessages) {
+                mockSearchMessages.mockResolvedValueOnce({
+                  messages: scenario.searchMessages,
+                  nextPageToken: undefined,
+                });
+              }
 
-          const result = await runAssistantChat({
-            emailAccount,
-            messages: [{ role: "user", content: scenario.prompt }],
-          });
+              const result = await runAssistantChat({
+                emailAccount,
+                messages,
+              });
 
-          const evaluation = await evaluateScenario(
-            result,
-            scenario.prompt,
-            scenario.expectation,
+              const evaluation = await evaluateScenario(
+                result,
+                scenario.prompt,
+                scenario.expectation,
+              );
+
+              return {
+                pass: evaluation.pass,
+                actual: evaluation.actual,
+              };
+            },
           );
 
-          evalReporter.record({
-            testName: scenario.reportName,
-            model: model.label,
-            pass: evaluation.pass,
-            actual: evaluation.actual,
-          });
-
-          expect(evaluation.pass).toBe(true);
+          expect(record.pass, record.actual).toBe(true);
         },
         TIMEOUT,
       );
@@ -349,6 +364,13 @@ type EvalScenario = {
   searchMessages?: ReturnType<typeof getMockMessage>[];
   expectation: ScenarioExpectation;
 };
+
+function getScenarioCacheKey(scenario: EvalScenario) {
+  return {
+    ...scenario,
+    searchMessages: getStableMessageCacheKey(scenario.searchMessages),
+  };
+}
 
 function isSearchInboxInput(input: unknown): input is SearchInboxInput {
   return (
@@ -531,7 +553,7 @@ async function evaluateScenario(
             criterion: {
               name: "Forward note semantics",
               description:
-                "The forwarded note should semantically capture the requested message even if the wording differs from the prompt.",
+                "Judge only whether the forwarded note text semantically captures the note requested by the user. The recipient, source message, tool execution, and forwarding success are verified separately and must not affect this judgment.",
             },
           })
         : null;

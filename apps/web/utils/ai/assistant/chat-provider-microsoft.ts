@@ -1,0 +1,38 @@
+import {
+  createOrGetFolderTool,
+  listFoldersTool,
+  moveThreadsToFolderTool,
+} from "./chat-folder-tools";
+import {
+  createOrGetCategoryTool,
+  listCategoriesTool,
+} from "./chat-label-tools";
+import type { AssistantChatProviderConfig } from "./chat-provider-shared";
+
+export const microsoftChatProviderConfig: AssistantChatProviderConfig = {
+  taxonomy: {
+    actionVerb: "categorize",
+    noun: "category",
+    entity: "category or folder",
+    plural: "categories",
+    scopePlural: "categories and folders",
+    hiddenIdName: "categoryId or folderId",
+    ruleCardActionEncoding:
+      "boolean actions in archive/draft/markread, the notification provider in notify, and use do for category/folder actions or any action that cannot be represented by those attributes",
+  },
+  searchSyntaxPolicy: `Provider search syntax:
+- Keep Outlook queries to one simple clause whenever possible.
+- For date or age filters, use the received field with a comparison operator and an ISO date, like \`received<2024-01-31\` or \`received>=2024-01-01\`. There is no colon between the field and the operator; convert relative ages ("older than 3 years") to a concrete date first.
+- Do not use Gmail-specific operators.`,
+  inboxTriagePolicy: `Provider inbox defaults:
+- For inbox triage summaries, include the literal token \`unread\` in the query unless the user asks to include read messages. Do not add unread/read to direct cleanup action searches unless the user asks for that read state.
+- For reply triage, use plain reply-focused search terms like \`reply OR respond OR subject:"question" OR subject:"approval"\`. Do not use Gmail-only operators.
+- For retroactive cleanup sampling, keyword queries like "newsletter", "promotion", or "unsubscribe" are useful.`,
+  getTaxonomyTools: (options) => ({
+    listCategories: listCategoriesTool(options),
+    createOrGetCategory: createOrGetCategoryTool(options),
+    listFolders: listFoldersTool(options),
+    createOrGetFolder: createOrGetFolderTool(options),
+    moveThreadsToFolder: moveThreadsToFolderTool(options),
+  }),
+};

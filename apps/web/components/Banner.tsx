@@ -7,7 +7,7 @@ interface BannerProps {
 
 export function Banner({ title, children }: BannerProps) {
   return (
-    <div className="relative border border-[#E7E7E7A3] rounded-3xl my-10 px-6 py-24 sm:py-32 lg:px-8 overflow-hidden">
+    <div className="relative my-10 overflow-hidden rounded-3xl border border-[#E7E7E7A3] px-6 py-24 sm:py-32 lg:px-8">
       <UnicornScene className="opacity-10" />
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="font-title text-3xl text-gray-900 sm:text-4xl">

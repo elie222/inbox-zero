@@ -1,0 +1,57 @@
+---
+title: 'Troubleshooting'
+description: 'Resolve common mailbox, rule, draft, calendar, and channel problems.'
+icon: 'life-ring'
+---
+
+## Mail is not being processed
+
+1. Confirm the correct mailbox is selected in the account switcher.
+2. Open **Settings → Email Accounts** and make sure rules are not globally disabled.
+3. Check whether Gmail or Outlook access was revoked or requires new permissions.
+4. Open **Assistant → History** to see whether the message was evaluated.
+5. Reconnect the mailbox if the app reports a permission or subscription error.
+
+## A rule matched the wrong message
+
+Open **Assistant → History**, find the message, and select **Fix**. Explain what should have happened. You can also open the rule directly to adjust its static conditions, AI instructions, actions, or learned patterns.
+
+Use the **Test** tab before re-enabling a rule that sends, replies, forwards, deletes, or calls a webhook.
+
+## A rule did not match
+
+- Check whether the rule is enabled.
+- Check **Apply to threads** if the message was a reply in an existing conversation.
+- Review overlapping rules and the multi-rule setting.
+- Confirm that referenced labels, folders, channels, files, or calendars still exist.
+- Test the rule against the message text and inspect the explanation.
+
+## A draft was not created
+
+Check that auto-drafting is enabled and that the message meets your configured draft-confidence threshold. A message may also be excluded because it does not need a reply, the relevant rule is disabled, or the provider no longer has permission to create drafts.
+
+## Calendar or availability is wrong
+
+- Verify the correct calendars are connected and enabled.
+- Confirm your timezone and weekly availability.
+- Check that the destination calendar for a booking link still exists.
+- Reconnect the calendar if events are not updating.
+
+## Channel notifications are missing
+
+Open **Channels** and check that the provider is connected and the relevant delivery type is enabled.
+
+For Slack notifications, choose a private channel you belong to and manually invite the Inbox Zero bot to that channel. Teams and Telegram delivery uses the linked direct-message conversation.
+
+## Attachment filing failed
+
+Confirm that the drive connection is active and that the destination is within the folders you approved. If the AI requested clarification, reply through the configured channel or correct the filing from the Attachments page.
+
+## A bulk action is taking longer than expected
+
+Large inbox operations can take time. Keep the page open while it reports progress, avoid starting the same operation again, and review the resulting history or sender state before applying another bulk action.
+
+## Still stuck?
+
+Contact [support@getinboxzero.com](mailto:support@getinboxzero.com) with the affected feature, email provider, approximate time of the problem, and any visible error message. Do not send passwords, API keys, OAuth tokens, or full sensitive email content.
+

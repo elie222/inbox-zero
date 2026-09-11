@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
-import type { PremiumTier } from "@/generated/prisma/enums";
+import type { ActionType, PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { isAddingDigestAction } from "@/utils/premium/digest";
 
 const logger = createScopedLogger("premium");
 
@@ -162,6 +163,29 @@ export async function cancelPremiumLemon({
     data: { lemonSqueezyRenewsAt: lemonSqueezyEndsAt },
     select: { users: { select: { email: true } } },
   });
+}
+
+export async function assertCanUseDigests(userId: string) {
+  const hasDigestAccess = await checkHasAccess({
+    userId,
+    minimumTier: "PLUS_MONTHLY",
+  });
+
+  if (!hasDigestAccess) {
+    throw new SafeError("Digests are available on the Plus plan.", 403);
+  }
+}
+
+export async function assertCanUseDigestsIfNeeded(
+  userId: string,
+  actions: { type: ActionType }[],
+  existingActions?: { type: ActionType }[],
+) {
+  if (!isAddingDigestAction({ requestedActions: actions, existingActions })) {
+    return;
+  }
+
+  await assertCanUseDigests(userId);
 }
 
 export async function checkHasAccess({

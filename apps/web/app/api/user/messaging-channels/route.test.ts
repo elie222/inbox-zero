@@ -2,15 +2,17 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
-import type { RequestWithEmailAccount } from "@/utils/middleware";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount: (_name: string, handler: unknown) => handler,
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware();
+});
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
   listChannels: vi.fn(),
 }));
@@ -23,6 +25,7 @@ const mockEnv = vi.hoisted(() => ({
   SLACK_CLIENT_SECRET: "slack-client-secret" as string | undefined,
   TEAMS_BOT_APP_ID: undefined as string | undefined,
   TEAMS_BOT_APP_PASSWORD: undefined as string | undefined,
+  TEAMS_BOT_APP_TENANT_ID: undefined as string | undefined,
   TELEGRAM_BOT_TOKEN: undefined as string | undefined,
 }));
 
@@ -66,11 +69,15 @@ type MessagingChannelRecord = Prisma.MessagingChannelGetPayload<{
   select: typeof messagingChannelSelect;
 }>;
 
-const logger = createScopedLogger("test");
-
 describe("GET /api/user/messaging-channels", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.SLACK_CLIENT_ID = "slack-client-id";
+    mockEnv.SLACK_CLIENT_SECRET = "slack-client-secret";
+    mockEnv.TEAMS_BOT_APP_ID = undefined;
+    mockEnv.TEAMS_BOT_APP_PASSWORD = undefined;
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = undefined;
+    mockEnv.TELEGRAM_BOT_TOKEN = undefined;
   });
 
   it("omits provider user ids while returning route summaries", async () => {
@@ -118,7 +125,7 @@ describe("GET /api/user/messaging-channels", () => {
       },
     ]);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(body.channels).toEqual([
@@ -175,6 +182,60 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.availableProviders).toEqual(["SLACK"]);
   });
 
+  it("includes Teams as an available provider when app id, password, and tenant id are configured", async () => {
+    mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
+    mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-app-password";
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = "teams-tenant-id";
+
+    prisma.messagingChannel.findMany.mockResolvedValue([]);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.availableProviders).toEqual(["SLACK", "TEAMS"]);
+  });
+
+  it("labels saved Slack channel routes as unavailable when the bot can no longer access the target", async () => {
+    const channels = [
+      {
+        id: "channel-1",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: "U123",
+        accessToken: "xoxb-token",
+        isConnected: true,
+        routes: [
+          {
+            purpose: "RULE_NOTIFICATIONS",
+            targetType: "CHANNEL",
+            targetId: "C_REMOVED",
+          },
+        ],
+        actions: [],
+      },
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(listChannels).mockResolvedValue([
+      {
+        id: "C234",
+        name: "finance-alerts",
+        isPrivate: true,
+      },
+    ]);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.channels[0].destinations.ruleNotifications).toEqual({
+      enabled: true,
+      targetId: "C_REMOVED",
+      targetLabel: "Channel unavailable",
+      isDm: false,
+    });
+  });
+
   it("reuses a workspace target lookup for channels with the same Slack token", async () => {
     const channels = [
       {
@@ -222,7 +283,7 @@ describe("GET /api/user/messaging-channels", () => {
       },
     ]);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(createSlackClient).toHaveBeenCalledTimes(1);
@@ -340,7 +401,7 @@ describe("GET /api/user/messaging-channels", () => {
     ] satisfies MessagingChannelRecord[];
     prisma.messagingChannel.findMany.mockResolvedValue(channels);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(createSlackClient).not.toHaveBeenCalled();
@@ -360,16 +421,6 @@ describe("GET /api/user/messaging-channels", () => {
   });
 });
 
-function createRequest(emailAccountId: string): RequestWithEmailAccount {
-  return Object.assign(
-    new NextRequest("http://localhost:3000/api/user/messaging-channels"),
-    {
-      logger,
-      auth: {
-        userId: "user-1",
-        emailAccountId,
-        email: "user@example.com",
-      },
-    },
-  );
+function createRequest() {
+  return new NextRequest("http://localhost:3000/api/user/messaging-channels");
 }

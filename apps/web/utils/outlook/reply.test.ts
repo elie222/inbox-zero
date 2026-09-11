@@ -83,6 +83,73 @@ describe("Outlook email formatting", () => {
     );
   });
 
+  it("preserves source newlines inside an HTML signature", () => {
+    const textContent = `Thanks for your email.
+
+<table cellspacing="0" cellpadding="0">
+  <tr>
+    <td>
+      <img src="https://example.com/logo.jpg" width="262" height="109" alt="Company logo" />
+    </td>
+    <td>
+      <div>Employee Name</div>
+      <div>Job Title</div>
+    </td>
+  </tr>
+</table>`;
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createOutlookReplyContent({
+      textContent,
+      message,
+    });
+
+    expect(html).toContain(
+      'Thanks for your email.<br><br><table cellspacing="0" cellpadding="0">',
+    );
+    expect(html).toContain(
+      '<img src="https://example.com/logo.jpg" width="262" height="109" alt="Company logo">',
+    );
+    expect(html).not.toMatch(/<table[^>]*><br>/);
+    expect(html).not.toMatch(/<tr><br>/);
+    expect(html).not.toMatch(/<td><br>/);
+  });
+
+  it("keeps escaped markup in text content escaped", () => {
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createOutlookReplyContent({
+      textContent:
+        'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;\nNext line',
+      message,
+    });
+
+    expect(html).toContain(
+      'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;<br>Next line',
+    );
+    expect(html).not.toContain("<script>");
+  });
+
   it("formats reply email correctly for RTL content with Outlook styling", () => {
     const textContent = "שלום, מה שלומך?"; // "Hello, how are you?" in Hebrew
     const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {

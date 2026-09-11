@@ -8,7 +8,7 @@ import {
   DEFAULT_FOLLOW_UP_DAYS,
 } from "@/utils/actions/follow-up-reminders.validation";
 import prisma from "@/utils/prisma";
-import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
+import { processAccountFollowUps } from "@/utils/follow-up/process";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 
@@ -62,6 +62,7 @@ export const scanFollowUpRemindersAction = actionClient
         email: true,
         about: true,
         multiRuleSelectionEnabled: true,
+        sensitiveDataPolicy: true,
         timezone: true,
         calendarBookingLink: true,
         followUpAwaitingReplyDays: true,

@@ -1,6 +1,6 @@
 import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
-import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
+import type { AiCategorizeSenders } from "@/utils/categorize/senders/batch-validation";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");

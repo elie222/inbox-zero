@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { GetChannelTargetsResponse } from "@/app/api/user/messaging-channels/[channelId]/targets/route";
+import { getAccountScopedKey } from "@/utils/swr";
 
 export function useMessagingChannels(emailAccountId?: string | null) {
   return useSWR<GetMessagingChannelsResponse>(
@@ -20,10 +21,4 @@ export function useChannelTargets(
         )
       : null,
   );
-}
-
-function getAccountScopedKey(path: string, emailAccountId?: string | null) {
-  if (emailAccountId === undefined) return path;
-
-  return emailAccountId ? ([path, emailAccountId] as const) : null;
 }

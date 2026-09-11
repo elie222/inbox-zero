@@ -1,7 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { isReceiptSubject, isReceiptSender } from "./find-receipts";
-
-vi.mock("server-only", () => ({}));
 
 describe("isReceiptSubject", () => {
   it("should match exact receipt subjects", () => {

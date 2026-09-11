@@ -9,8 +9,6 @@ import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 const TIMEOUT = 15_000;
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
-
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

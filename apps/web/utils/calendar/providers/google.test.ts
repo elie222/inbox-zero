@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createGoogleCalendarProvider } from "@/utils/calendar/providers/google";
-import { getCalendarOAuth2Client } from "@/utils/calendar/client";
+import {
+  fetchGoogleCalendars,
+  getCalendarClientWithRefresh,
+  getCalendarOAuth2Client,
+} from "@/utils/calendar/client";
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 
+const logger = createTestLogger();
 const getToken = vi.fn();
 const verifyIdToken = vi.fn();
 
@@ -54,13 +61,7 @@ describe("google calendar oauth", () => {
       email: "user@example.com",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(logger);
 
     await expect(provider.exchangeCodeForTokens("code")).resolves.toEqual({
       accessToken: "access-token",
@@ -84,17 +85,69 @@ describe("google calendar oauth", () => {
       sub: "sub-1",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(logger);
 
     await expect(provider.exchangeCodeForTokens("code")).rejects.toThrow(
       "Could not get email from Google profile",
     );
     expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it("syncs Google calendars enabled by default while preserving user toggles on update", async () => {
+    vi.mocked(getCalendarClientWithRefresh).mockResolvedValue(
+      "calendar-client" as any,
+    );
+    vi.mocked(fetchGoogleCalendars).mockResolvedValue([
+      {
+        id: "user@example.com",
+        summary: "Primary calendar",
+        primary: true,
+        timeZone: "Asia/Jerusalem",
+      },
+      {
+        id: "en-gb.usa#holiday@group.v.calendar.google.com",
+        summary: "Holidays in the United States",
+        description: "Holidays and Observances in the United States",
+        timeZone: "Asia/Jerusalem",
+      },
+    ] as any);
+
+    const provider = createGoogleCalendarProvider(logger);
+
+    await provider.syncCalendars(
+      "connection-id",
+      "access-token",
+      "refresh-token",
+      "email-account-id",
+      new Date("2026-05-08T00:00:00.000Z"),
+    );
+
+    const upsertCalls = vi.mocked(prisma.calendar.upsert).mock.calls;
+    const primaryUpsert = upsertCalls.find(
+      ([call]) =>
+        (call as any).where.connectionId_calendarId.calendarId ===
+        "user@example.com",
+    )?.[0] as any;
+    const virtualUpsert = upsertCalls.find(
+      ([call]) =>
+        (call as any).where.connectionId_calendarId.calendarId ===
+        "en-gb.usa#holiday@group.v.calendar.google.com",
+    )?.[0] as any;
+
+    expect(primaryUpsert.create).toMatchObject({
+      isEnabled: true,
+      primary: true,
+    });
+    expect(primaryUpsert.update).toMatchObject({ primary: true });
+    expect(primaryUpsert.update).not.toHaveProperty("isEnabled");
+
+    expect(virtualUpsert.create).toMatchObject({
+      isEnabled: true,
+      primary: false,
+    });
+    expect(virtualUpsert.update).toMatchObject({ primary: false });
+    // Re-syncing must not overwrite a user's manual toggle of isEnabled on a
+    // virtual calendar.
+    expect(virtualUpsert.update).not.toHaveProperty("isEnabled");
   });
 });

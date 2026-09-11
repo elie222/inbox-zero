@@ -21,6 +21,7 @@ import { switchedPremiumPlan, startedTrial } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
 import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
 import type { Logger } from "@/utils/logger";
+import { secureCompare } from "@/utils/crypto-compare";
 
 export const POST = withError("lemon-squeezy/webhook", async (request) => {
   const logger = request.logger;
@@ -115,14 +116,10 @@ async function getPayload(request: Request): Promise<Payload> {
 
   const text = await request.text();
   const hmac = crypto.createHmac("sha256", env.LEMON_SQUEEZY_SIGNING_SECRET);
-  const digest = Buffer.from(hmac.update(text).digest("hex"), "utf8");
-  const signature = Buffer.from(
-    request.headers.get("x-signature") as string,
-    "utf8",
-  );
+  const digest = hmac.update(text).digest("hex");
+  const signature = request.headers.get("x-signature");
 
-  if (!crypto.timingSafeEqual(digest, signature))
-    throw new Error("Invalid signature.");
+  if (!secureCompare(digest, signature)) throw new Error("Invalid signature.");
 
   const payload: Payload = JSON.parse(text);
 

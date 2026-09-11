@@ -25,7 +25,6 @@ vi.mock("@/utils/redis/outbound-thread-status", () => ({
   clearOutboundThreadStatusLock: vi.fn(),
   markOutboundThreadStatusProcessed: vi.fn(),
 }));
-vi.mock("server-only", () => ({}));
 
 describe("handleOutboundReply", () => {
   const logger = createTestLogger();

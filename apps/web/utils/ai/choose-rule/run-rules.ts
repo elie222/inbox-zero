@@ -24,7 +24,7 @@ import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
-import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import { analyzeSenderPattern } from "@/utils/ai/choose-rule/analyze-sender-pattern";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import {
   scheduleDelayedActions,
@@ -53,6 +53,7 @@ import {
 import {
   isDraftReplyActionType,
   isMessagingChannelActionType,
+  isMessagingDraftActionType,
 } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai/choose-rule";
@@ -480,6 +481,10 @@ async function executeMatchedRule(
                       item.staticAttachments != null
                         ? (item.staticAttachments as Prisma.InputJsonValue)
                         : undefined,
+                    integrationArgs:
+                      item.integrationArgs != null
+                        ? (item.integrationArgs as Prisma.InputJsonValue)
+                        : undefined,
                     selectedAttachments:
                       item.selectedAttachments != null
                         ? (item.selectedAttachments as Prisma.InputJsonValue)
@@ -520,7 +525,15 @@ async function executeMatchedRule(
     }),
   );
 
-  if (rule.systemType === SystemType.COLD_EMAIL) {
+  // Re-saving a pattern that was itself the match teaches us nothing, and it would
+  // overwrite how the pattern was originally learned. Taking a message out of junk
+  // relies on that provenance to undo what junking it taught us.
+  if (
+    rule.systemType === SystemType.COLD_EMAIL &&
+    !matchReasons?.some(
+      (matchReason) => matchReason.type === ConditionType.LEARNED_PATTERN,
+    )
+  ) {
     const from =
       extractEmailAddress(message.headers.from) || message.headers.from;
     await saveLearnedPattern({
@@ -847,11 +860,10 @@ function isConversationRule(ruleId: string): boolean {
 /**
  * Limits drafting to a single rule selection.
  * If there are multiple rules with draft reply actions, we prefer the first static
- * drafting rule (fixed content) over a fully dynamic drafting rule. Once a rule is
- * selected, all of its draft reply actions are preserved so the generated draft can
- * fan out to multiple destinations.
- * If there are no draft reply actions, we return the matches as is.
- * If only one rule contains draft reply actions, we return the matches as is.
+ * drafting rule (fixed content) over a fully dynamic drafting rule. Configured
+ * messaging destinations from the other matched draft rules are moved onto the
+ * selected draft rule so the single generated draft can still fan out to every
+ * matched channel.
  */
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
@@ -860,7 +872,7 @@ export function limitDraftEmailActions<
     match.rule.actions
       .filter((action) => isDraftReplyActionType(action.type))
       .map((action) => ({
-        ruleId: match.rule.id,
+        match,
         action,
         hasFixedContent: Boolean(action.content?.trim()),
       })),
@@ -876,16 +888,34 @@ export function limitDraftEmailActions<
     draftCandidates.find((candidate) => candidate.hasFixedContent) ||
     draftCandidates[0];
 
-  const selectedDraftRuleId = preferredCandidate.ruleId;
+  const selectedMatch = preferredCandidate.match;
+  const selectedDraftRuleId = selectedMatch.rule.id;
+  const selectedDraftAction = preferredCandidate.action;
 
   logger.info("Limiting draft actions to a single rule selection", {
     module: MODULE,
     selectedDraftRuleId,
   });
 
+  const copiedMessagingActions = collectMessagingChannelsFromOtherRules({
+    matches,
+    selectedMatch,
+    selectedDraftAction,
+  });
+
   return matches.map((match) => {
     if (match.rule.id === selectedDraftRuleId) {
-      return match;
+      if (!copiedMessagingActions.length) {
+        return match;
+      }
+
+      return {
+        ...match,
+        rule: {
+          ...match.rule,
+          actions: [...match.rule.actions, ...copiedMessagingActions],
+        },
+      };
     }
 
     const hasExtraDrafts = match.rule.actions.some((action) =>
@@ -906,4 +936,52 @@ export function limitDraftEmailActions<
       },
     };
   });
+}
+
+function collectMessagingChannelsFromOtherRules<
+  T extends { rule: RuleWithActions },
+>({
+  matches,
+  selectedMatch,
+  selectedDraftAction,
+}: {
+  matches: T[];
+  selectedMatch: T;
+  selectedDraftAction: RuleWithActions["actions"][number];
+}) {
+  const seenChannelIds = new Set(
+    selectedMatch.rule.actions
+      .filter((action) => isMessagingDraftActionType(action.type))
+      .map((action) => action.messagingChannelId?.trim())
+      .filter((channelId): channelId is string => Boolean(channelId)),
+  );
+
+  const actions: RuleWithActions["actions"] = [];
+
+  for (const match of matches) {
+    if (match === selectedMatch) continue;
+
+    for (const action of match.rule.actions) {
+      if (!isMessagingDraftActionType(action.type)) continue;
+
+      const messagingChannelId = action.messagingChannelId?.trim();
+      if (!messagingChannelId || seenChannelIds.has(messagingChannelId)) {
+        continue;
+      }
+
+      seenChannelIds.add(messagingChannelId);
+      actions.push({
+        ...action,
+        subject: selectedDraftAction.subject,
+        content: selectedDraftAction.content,
+        to: selectedDraftAction.to,
+        cc: selectedDraftAction.cc,
+        bcc: selectedDraftAction.bcc,
+        delayInMinutes: selectedDraftAction.delayInMinutes,
+        staticAttachments: selectedDraftAction.staticAttachments,
+      });
+    }
+  }
+
+  return actions;
 }

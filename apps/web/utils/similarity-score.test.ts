@@ -1,33 +1,80 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { calculateSimilarity } from "./similarity-score";
 
-vi.mock("server-only", () => ({}));
-
 describe("calculateSimilarity - basic tests", () => {
-  it("should return 0.0 if either text is null or undefined", () => {
-    expect(calculateSimilarity(null, "text2")).toBe(0.0);
-    expect(calculateSimilarity("text1", undefined)).toBe(0.0);
-    expect(calculateSimilarity(null, null)).toBe(0.0);
-  });
-
-  it("should return 1.0 for identical texts", () => {
-    const score = calculateSimilarity("Hello world", "Hello world");
-    expect(score).toBe(1.0);
-  });
-
-  it("should be case-insensitive", () => {
-    const score = calculateSimilarity("Hello World", "hello world");
-    expect(score).toBe(1.0);
-  });
-
-  it("should return 0.0 for completely different texts", () => {
-    const score = calculateSimilarity("abc", "xyz");
-    expect(score).toBe(0.0);
-  });
-
-  it("should handle whitespace normalization", () => {
-    const score = calculateSimilarity("  Hello world  ", "Hello world");
-    expect(score).toBe(1.0);
+  it.each([
+    {
+      name: "first text is null",
+      firstText: null,
+      secondText: "text2",
+      expected: 0.0,
+    },
+    {
+      name: "second text is undefined",
+      firstText: "text1",
+      secondText: undefined,
+      expected: 0.0,
+    },
+    {
+      name: "both texts are null",
+      firstText: null,
+      secondText: null,
+      expected: 0.0,
+    },
+    {
+      name: "texts are identical",
+      firstText: "Hello world",
+      secondText: "Hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts differ only by case",
+      firstText: "Hello World",
+      secondText: "hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts are completely different",
+      firstText: "abc",
+      secondText: "xyz",
+      expected: 0.0,
+    },
+    {
+      name: "texts differ only by surrounding whitespace",
+      firstText: "  Hello world  ",
+      secondText: "Hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts differ only by special character case",
+      firstText: "Text with $pecial chars!",
+      secondText: "text with $pecial chars!",
+      expected: 1.0,
+    },
+    {
+      name: "first text is empty after normalization",
+      firstText: "",
+      secondText: "text2",
+      expected: 0.0,
+    },
+    {
+      name: "second text is empty after normalization",
+      firstText: "text1",
+      secondText: "",
+      expected: 0.0,
+    },
+    {
+      name: "both texts are whitespace-only",
+      firstText: "   ",
+      secondText: "   ",
+      expected: 1.0,
+    },
+  ])("should return $expected when $name", ({
+    firstText,
+    secondText,
+    expected,
+  }) => {
+    expect(calculateSimilarity(firstText, secondText)).toBe(expected);
   });
 
   it("should return partial score for similar texts", () => {
@@ -37,30 +84,6 @@ describe("calculateSimilarity - basic tests", () => {
     );
     expect(score).toBeGreaterThan(0.5);
     expect(score).toBeLessThan(1.0);
-  });
-
-  it("should handle special characters", () => {
-    const score = calculateSimilarity(
-      "Text with $pecial chars!",
-      "text with $pecial chars!",
-    );
-    expect(score).toBe(1.0);
-  });
-
-  it("should return 0.0 if first text is empty after normalization", () => {
-    const score = calculateSimilarity("", "text2");
-    expect(score).toBe(0.0);
-  });
-
-  it("should return 0.0 if second text is empty after normalization", () => {
-    const score = calculateSimilarity("text1", "");
-    expect(score).toBe(0.0);
-  });
-
-  it("should return 1.0 if both normalized texts are empty", () => {
-    // Both whitespace-only strings should normalize to empty and match
-    const score = calculateSimilarity("   ", "   ");
-    expect(score).toBe(1.0);
   });
 
   it("should handle a realistic email with minor changes", () => {
@@ -171,6 +194,17 @@ describe("calculateSimilarity - integration tests with ParsedMessage", () => {
       const score = realCalculateSimilarity(storedContent, outlookMessage);
       expect(score).toBe(1.0);
     });
+
+    it("should ignore Outlook signature containers in sent message HTML", () => {
+      const storedContent = "Short reply body.";
+      const outlookMessage = createParsedMessage(
+        `<html><body><div>Short reply body.</div><br><div id="Signature-abcd"><div>Company award line</div><div>Role and credential line</div><div>Office | 555-0100</div><div>Long confidentiality disclaimer.</div></div></body></html>`,
+        "html",
+      );
+
+      const score = realCalculateSimilarity(storedContent, outlookMessage);
+      expect(score).toBe(1.0);
+    });
   });
 
   describe("Gmail content handling (with ParsedMessage)", () => {
@@ -204,6 +238,41 @@ Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.`;
         textPlain: undefined,
         textHtml: `<div dir="ltr">Checking on this now.<br><br>Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender &lt;<a href="mailto:sender@example.com">sender@example.com</a>&gt; a écrit:<br></div><blockquote class="gmail_quote"><div dir="ltr">Previous message</div></blockquote></div>`,
       };
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should ignore Gmail signature containers in sent message HTML", () => {
+      const storedContent = "Thanks, I handled this now.";
+      const gmailMessage = {
+        ...createParsedMessage(""),
+        textPlain: undefined,
+        textHtml: `<div dir="ltr">Thanks, I handled this now.</div><br><span class="gmail_signature_prefix">-- </span><br><div class="gmail_signature"><div>Sender Name</div><div>Company</div><div>555-0100</div><div>Street address</div></div>`,
+      };
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should ignore standard plain text signature delimiters", () => {
+      const storedContent = "Thanks, I handled this now.";
+      const gmailMessage = createParsedMessage(`Thanks, I handled this now.
+
+-- 
+Sender Name
+Company
+555-0100`);
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should decode named HTML entities before comparing plain text signatures", () => {
+      const storedContent = "Thanks for the update.\n\n&lt;3 Team";
+      const gmailMessage = createParsedMessage(
+        "Thanks for the update.\n\n<3 Team",
+      );
 
       const score = realCalculateSimilarity(storedContent, gmailMessage);
       expect(score).toBe(1.0);
@@ -255,6 +324,19 @@ On Tue, 1 Apr 2026 at 10:00, Sender <sender@example.com> wrote:
 
       const score = realCalculateSimilarity(storedContent, gmailMessage);
       expect(score).toBe(1.0);
+    });
+
+    it("should return 0.0 when the sent message has no comparable body", () => {
+      const storedContent = `Thanks, I handled this now.
+
+--
+Sender Name
+Company
+555-0100`;
+      const gmailMessage = createParsedMessage("");
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(0.0);
     });
 
     it("should preserve plain text angle brackets that are not real HTML", () => {
@@ -338,6 +420,50 @@ On Mon, Jan 1, 2024 at 9:00 AM <someone@example.com> wrote:
       const score = realCalculateSimilarity(originalDraft, sentMessage);
       expect(score).toBe(1.0);
     });
+
+    it("should exclude the account signature from the comparison score", () => {
+      const signature = Array.from(
+        { length: 40 },
+        (_value, index) =>
+          `Generic signature policy line ${index + 1}: this footer is not authored reply content.`,
+      ).join("\n");
+      const originalDraft = `There are three files total.
+
+${signature}`;
+      const sentMessage = createParsedMessage(`There will not be another file.
+
+The three runs are grouped into one export.
+
+${signature}
+
+------------------------------------------------------------
+
+Repeated gateway footer. This repeated footer is added outside the user's authored reply.
+
+------------------------------------------------------------
+
+Repeated gateway footer. This repeated footer is added outside the user's authored reply.`);
+
+      const score = realCalculateSimilarity(originalDraft, sentMessage, {
+        excludedSignatures: [signature],
+      });
+
+      expect(score).toBeLessThan(0.5);
+    });
+
+    it("should ignore forwarded payloads below the authored reply", () => {
+      const originalDraft = "Can you take a look at this?";
+      const sentMessage = createParsedMessage(`Can you take a look at this?
+
+---------- Forwarded message ----------
+From: sender@example.com
+Subject: Original request
+
+The original request has a lot of unrelated detail.`);
+
+      const score = realCalculateSimilarity(originalDraft, sentMessage);
+      expect(score).toBe(1.0);
+    });
   });
 
   describe("Backwards compatibility with plain strings", () => {
@@ -359,5 +485,23 @@ On Mon, Jan 1, 2024 wrote:
       const score = realCalculateSimilarity(storedContent, plainString);
       expect(score).toBe(1.0);
     });
+  });
+});
+
+describe("branding footer normalization", () => {
+  it.each([
+    "Drafted by Inbox Zero.",
+    "Sent with Inbox Zero",
+    'Drafted by <a href="https://example.com/?ref=test">Inbox Zero</a>.',
+    "Sent with Inbox Zero [https://example.com/?ref=test]",
+    "Drafted by Inbox Zero [https://example.com/?ref=test].",
+    "Drafted by Inbox Zero.\n\nSent with Inbox Zero",
+  ])("ignores adding or deleting %s", (footer) => {
+    const body = "Thanks for the update.";
+    expect(calculateSimilarity(`${body}\n\n${footer}`, body)).toBe(1);
+    expect(calculateSimilarity(body, `${body}\n\n${footer}`)).toBe(1);
+    expect(
+      calculateSimilarity(`${body}\n\n${footer}`, "A different reply."),
+    ).toBeLessThan(1);
   });
 });

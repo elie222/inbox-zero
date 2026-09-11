@@ -1,0 +1,44 @@
+{{- if .Values.cron.enabled -}}
+{{- range $name, $job := .Values.cron.jobs }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "inbox-zero.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "inbox-zero.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: cron
+spec:
+  schedule: {{ $job.schedule | quote }}
+  concurrencyPolicy: {{ $.Values.cron.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ $.Values.cron.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $.Values.cron.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "inbox-zero.selectorLabels" $ | nindent 12 }}
+            app.kubernetes.io/component: cron
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: "{{ $.Values.cron.image.repository }}:{{ $.Values.cron.image.tag }}"
+              imagePullPolicy: {{ $.Values.cron.image.pullPolicy }}
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "inbox-zero.secretName" $ }}
+                      key: CRON_SECRET
+                - name: URL
+                  value: {{ printf "%s%s" (include "inbox-zero.internalApiUrl" $) $job.path | quote }}
+              command:
+                - sh
+                - -ec
+                - curl --fail --silent --show-error --location "$URL" -H "Authorization: Bearer $CRON_SECRET"
+              resources:
+                {{- toYaml $.Values.cron.resources | nindent 16 }}
+{{- end }}
+{{- end }}

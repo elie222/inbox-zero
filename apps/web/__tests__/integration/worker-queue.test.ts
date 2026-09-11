@@ -17,8 +17,6 @@ import { once } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 const bullmqState = vi.hoisted(() => {
   let nextJobId = 1;
   const processors = new Map<string, Set<(job: any) => Promise<void>>>();

@@ -4,6 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import type { Logger } from "@/utils/logger";
+import { resolveSensitiveDataPolicy } from "@/utils/dlp/policy.server";
 
 export type EmailAccountFullResponse = Awaited<
   ReturnType<typeof getEmailAccount>
@@ -27,12 +28,14 @@ async function getEmailAccount({
       userId: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       draftReplyConfidence: true,
       allowHiddenAiDraftLinks: true,
       timezone: true,
       calendarBookingLink: true,
       signature: true,
       includeReferralSignature: true,
+      includeSentWithSignature: true,
       writingStyle: true,
       filingEnabled: true,
       filingPrompt: true,
@@ -50,9 +53,11 @@ async function getEmailAccount({
     emailAccountId,
     logger,
   });
-
   return {
     ...emailAccount,
+    sensitiveDataPolicy: resolveSensitiveDataPolicy(
+      emailAccount.sensitiveDataPolicy,
+    ),
     providerRateLimit: providerRateLimit
       ? {
           provider: providerRateLimit.provider,

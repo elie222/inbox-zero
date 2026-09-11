@@ -332,14 +332,13 @@ export function InlineEmailCard({
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
   const isMarkedRead = !!threadId && !!listState?.readThreadIds.has(threadId);
 
-  const externalUrl = threadId
-    ? getEmailUrlForMessage(
-        meta?.messageId ?? threadId,
-        threadId,
-        userEmail,
-        provider,
-      )
-    : null;
+  const externalUrl = getInlineEmailExternalUrl({
+    threadId,
+    messageId: meta?.messageId,
+    externalUrl: meta?.externalUrl,
+    userEmail,
+    provider,
+  });
 
   async function handleArchive() {
     if (!threadId || actionState !== "idle") return;
@@ -551,14 +550,13 @@ export function InlineEmailDetail({
   const { provider, userEmail } = useAccount();
   const threadId = resolveInlineEmailThreadId({ id, threadid });
   const meta = threadId ? emailLookup.get(threadId) : undefined;
-  const externalUrl = threadId
-    ? getEmailUrlForMessage(
-        meta?.messageId ?? threadId,
-        threadId,
-        userEmail,
-        provider,
-      )
-    : null;
+  const externalUrl = getInlineEmailExternalUrl({
+    threadId,
+    messageId: meta?.messageId,
+    externalUrl: meta?.externalUrl,
+    userEmail,
+    provider,
+  });
 
   return (
     <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -624,6 +622,7 @@ function EmailPreview({
   compact?: boolean;
   showDetails?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useThread({ id: threadId });
 
   if (isLoading) {
@@ -655,7 +654,12 @@ function EmailPreview({
   const body = (
     <>
       {lastMessage.textHtml ? (
-        <HtmlEmail html={lastMessage.textHtml} />
+        <HtmlEmail
+          emailAccountId={emailAccountId}
+          html={lastMessage.textHtml}
+          inlineAttachments={lastMessage.inline}
+          messageId={lastMessage.id}
+        />
       ) : (
         <PlainEmail
           text={
@@ -701,6 +705,31 @@ function resolveInlineEmailThreadId({
     return id.slice("user-content-".length) || undefined;
   }
   return id;
+}
+
+function getInlineEmailExternalUrl({
+  threadId,
+  messageId,
+  externalUrl,
+  userEmail,
+  provider,
+}: {
+  threadId?: string;
+  messageId?: string;
+  externalUrl?: string;
+  userEmail?: string | null;
+  provider?: string;
+}) {
+  if (externalUrl) return externalUrl;
+  if (!threadId) return null;
+  if (provider === "microsoft") return null;
+
+  return getEmailUrlForMessage(
+    messageId ?? threadId,
+    threadId,
+    userEmail,
+    provider,
+  );
 }
 
 function addThreadIds(current: Set<string>, threadIds: string[]) {

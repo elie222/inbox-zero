@@ -1,0 +1,35 @@
+NODE sent_emails
+DESCRIPTION >
+    Filter sent emails for user.
+
+SQL >
+
+%
+    SELECT "to", "toDomain" FROM email
+    WHERE sent = true
+      AND draft = false
+      AND ownerEmail = {{ String(ownerEmail) }}
+      {% if defined(fromDate) %}
+        AND "timestamp" >= {{ Int64(fromDate) }}
+      {% end %}
+      {% if defined(toDate) %}
+        AND "timestamp" <= {{ Int64(toDate) }}
+      {% end %}
+
+
+
+NODE get_most_sent_to
+DESCRIPTION >
+    Get most active recipients for a given period of time.
+
+SQL >
+
+%
+    SELECT "to", COUNT(*) as count FROM sent_emails
+    GROUP BY "to"
+    ORDER BY count DESC
+    LIMIT {{ Int64(limit, 50) }}
+
+TYPE endpoint
+
+

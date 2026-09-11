@@ -1,5 +1,5 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphWriteRetry } from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -27,7 +27,7 @@ export async function markSpam(
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withOutlookRetry(
+        withMicrosoftGraphWriteRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}/move`).post({
               destinationId: "junkemail",
@@ -36,6 +36,7 @@ export async function markSpam(
         ),
       failureMessage: "Failed to move message to spam",
       continueOnError: true,
+      throwIfAllFail: true,
     });
   } catch (error) {
     // If the filter fails, try a different approach
@@ -50,7 +51,7 @@ export async function markSpam(
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphWriteRetry(
             () =>
               client
                 .getClient()
@@ -60,6 +61,7 @@ export async function markSpam(
           ),
         noMessagesMessage:
           "No messages found for conversationId, skipping spam move",
+        throwIfAllFail: true,
       });
     } catch (directError) {
       logger.error("Failed to mark message as spam", {

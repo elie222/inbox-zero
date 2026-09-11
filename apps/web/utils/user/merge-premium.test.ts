@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PremiumTier } from "@/generated/prisma/enums";
-import { transferPremiumDuringMerge } from "./merge-premium";
+import { getPremiumTransferOperations } from "./merge-premium";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
-vi.mock("server-only", () => ({}));
 
-describe("transferPremiumDuringMerge", () => {
+describe("getPremiumTransferOperations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -49,7 +48,11 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not call premium.update since we use atomic user.update
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -93,7 +96,11 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not make any premium updates since target has higher tier
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -134,7 +141,11 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not call premium.update since we use atomic user.update
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -180,7 +191,11 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not make any updates since they share the same premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -218,7 +233,11 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should update target user to use source's premium
       expect(prisma.user.update).toHaveBeenCalledWith({
@@ -254,7 +273,11 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not make any updates since target already has premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -284,7 +307,11 @@ describe("transferPremiumDuringMerge", () => {
           premium: null,
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not make any updates since neither has premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -322,7 +349,11 @@ describe("transferPremiumDuringMerge", () => {
       prisma.premium.update.mockResolvedValue({} as any);
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should connect target user as admin
       expect(prisma.premium.update).toHaveBeenCalledWith({
@@ -370,7 +401,11 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.premium.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should connect target user as admin
       expect(prisma.premium.update).toHaveBeenCalledWith({
@@ -400,7 +435,11 @@ describe("transferPremiumDuringMerge", () => {
         premium: null,
       } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
+      await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
 
       // Should not make any updates when source user is not found
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -424,15 +463,15 @@ describe("transferPremiumDuringMerge", () => {
 
       // Should not throw an error, but should complete gracefully
       await expect(
-        transferPremiumDuringMerge({ sourceUserId, targetUserId, logger }),
-      ).resolves.toBeUndefined();
+        getPremiumTransferOperations({ sourceUserId, targetUserId, logger }),
+      ).resolves.toEqual([]);
 
       // Should not make any updates when target user is not found
       expect(prisma.premium.update).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
-    it("should handle database errors gracefully", async () => {
+    it("returns mutation failures for the merge transaction to handle", async () => {
       const sourceUserId = "source-user-id";
       const targetUserId = "target-user-id";
       const sourcePremiumId = "source-premium-id";
@@ -464,10 +503,14 @@ describe("transferPremiumDuringMerge", () => {
         new Error("Database connection failed"),
       );
 
-      // Should not throw an error, but should complete gracefully
-      await expect(
-        transferPremiumDuringMerge({ sourceUserId, targetUserId, logger }),
-      ).resolves.toBeUndefined();
+      const operations = await getPremiumTransferOperations({
+        sourceUserId,
+        targetUserId,
+        logger,
+      });
+      await expect(Promise.all(operations)).rejects.toThrow(
+        "Database connection failed",
+      );
     });
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FolderIcon, Loader2Icon, PlusIcon } from "lucide-react";
@@ -25,11 +25,7 @@ import {
   TreeLabel,
   useTree,
 } from "@/components/kibo-ui/tree";
-import {
-  addFilingFolderAction,
-  removeFilingFolderAction,
-  createDriveFolderAction,
-} from "@/utils/actions/drive";
+import { createDriveFolderAction } from "@/utils/actions/drive";
 import {
   createDriveFolderBody,
   type CreateDriveFolderBody,
@@ -62,6 +58,11 @@ import {
 import { Input } from "@/components/Input";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
+import {
+  folderSelection,
+  type FolderChildrenMap,
+} from "./allowed-folder-selection";
+import { useFolderSelection } from "./use-folder-selection";
 
 export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
   const { data, isLoading, error, mutate } = useDriveFolders(emailAccountId);
@@ -99,119 +100,19 @@ function AllowedFoldersContent({
   staleFolderCount: number;
   mutateFolders: () => void;
 }) {
-  const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
-    () => new Set(savedFolders.map((f) => f.folderId)),
-  );
+  const {
+    optimisticFolderIds,
+    childrenByParentId,
+    rootFolders,
+    handleFolderToggle,
+    handleChildrenLoaded,
+  } = useFolderSelection({
+    emailAccountId,
+    availableFolders,
+    savedFolders,
+    mutateFolders,
+  });
 
-  const serverFolderIds = useMemo(
-    () => savedFolders.map((f) => f.folderId).join(","),
-    [savedFolders],
-  );
-  const prevServerFolderIds = useRef(serverFolderIds);
-
-  useEffect(() => {
-    if (serverFolderIds === prevServerFolderIds.current) return;
-    prevServerFolderIds.current = serverFolderIds;
-    setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
-  }, [savedFolders, serverFolderIds]);
-
-  const handleFolderToggle = useCallback(
-    async (folder: FolderItem, isChecked: boolean) => {
-      const folderPath = folder.path || folder.name;
-
-      setOptimisticFolderIds((prev) => {
-        const next = new Set(prev);
-        if (isChecked) next.add(folder.id);
-        else next.delete(folder.id);
-        return next;
-      });
-
-      try {
-        if (isChecked) {
-          const result = await addFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-            folderName: folder.name,
-            folderPath,
-            driveConnectionId: folder.driveConnectionId,
-          });
-
-          if (result?.serverError) {
-            setOptimisticFolderIds((prev) => {
-              const next = new Set(prev);
-              next.delete(folder.id);
-              return next;
-            });
-            toastError({
-              title: "Error adding folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        } else {
-          const result = await removeFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-          });
-
-          if (result?.serverError) {
-            setOptimisticFolderIds((prev) => {
-              const next = new Set(prev);
-              next.add(folder.id);
-              return next;
-            });
-            toastError({
-              title: "Error removing folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        }
-      } catch {
-        setOptimisticFolderIds((prev) => {
-          const next = new Set(prev);
-          if (isChecked) next.delete(folder.id);
-          else next.add(folder.id);
-          return next;
-        });
-        toastError({
-          title: isChecked ? "Error adding folder" : "Error removing folder",
-          description: "Please try again.",
-        });
-      }
-    },
-    [emailAccountId, mutateFolders],
-  );
-
-  const rootFolders = useMemo(() => {
-    const folderMap = new Map<string, FolderItem>();
-    const roots: FolderItem[] = [];
-
-    for (const folder of availableFolders) {
-      folderMap.set(folder.id, folder);
-    }
-
-    for (const folder of availableFolders) {
-      if (!folder.parentId || !folderMap.has(folder.parentId)) {
-        roots.push(folder);
-      }
-    }
-
-    return roots;
-  }, [availableFolders]);
-
-  const folderChildrenMap = useMemo(() => {
-    const map = new Map<string, FolderItem[]>();
-    for (const folder of availableFolders) {
-      if (folder.parentId) {
-        if (!map.has(folder.parentId)) map.set(folder.parentId, []);
-        map.get(folder.parentId)!.push(folder);
-      }
-    }
-    return map;
-  }, [availableFolders]);
-
-  const savedFolderIds = optimisticFolderIds;
   const hasFolders = rootFolders.length > 0;
 
   return (
@@ -244,11 +145,13 @@ function AllowedFoldersContent({
                     key={folder.id}
                     folder={folder}
                     isLast={index === rootFolders.length - 1}
-                    selectedFolderIds={savedFolderIds}
+                    selectedFolderIds={optimisticFolderIds}
                     onToggle={handleFolderToggle}
                     level={0}
                     parentPath=""
-                    knownChildren={folderChildrenMap.get(folder.id)}
+                    childrenByParentId={childrenByParentId}
+                    onChildrenLoaded={handleChildrenLoaded}
+                    knownChildren={childrenByParentId.get(folder.id)}
                   />
                 ))}
               </TreeView>
@@ -283,21 +186,24 @@ export function FolderNode({
   isLast,
   selectedFolderIds,
   onToggle,
+  onChildrenLoaded,
   level,
   parentPath,
+  childrenByParentId,
   knownChildren,
 }: {
   folder: FolderItem;
   isLast: boolean;
   selectedFolderIds: Set<string>;
   onToggle: (folder: FolderItem, isChecked: boolean) => void;
+  onChildrenLoaded: (parent: FolderItem, children: FolderItem[]) => void;
   level: number;
   parentPath: string;
+  childrenByParentId: FolderChildrenMap;
   knownChildren?: FolderItem[];
 }) {
   const { expandedIds } = useTree();
   const isExpanded = expandedIds.has(folder.id);
-  const isSelected = selectedFolderIds.has(folder.id);
   const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
 
   const { data: subfoldersData, isLoading: isLoadingSubfolders } =
@@ -310,8 +216,33 @@ export function FolderNode({
         : null,
     );
 
-  const subfolders = subfoldersData?.folders ?? knownChildren ?? [];
+  const rawSubfolders = knownChildren ?? subfoldersData?.folders ?? [];
+  const subfolders = useMemo(
+    () =>
+      rawSubfolders.map((subfolder) => ({
+        ...subfolder,
+        parentId: folder.id,
+        path: `${currentPath}/${subfolder.name}`,
+      })),
+    [currentPath, folder.id, rawSubfolders],
+  );
+  const checkboxState = folderSelection.getSelectionState({
+    item: folder,
+    selectedKeys: selectedFolderIds,
+    childrenByParentId,
+  });
   const hasLoadedChildren = subfolders.length > 0;
+
+  useEffect(() => {
+    if (!subfoldersData?.folders || knownChildren) return;
+    onChildrenLoaded(folder, subfolders);
+  }, [
+    folder,
+    knownChildren,
+    onChildrenLoaded,
+    subfolders,
+    subfoldersData?.folders,
+  ]);
 
   return (
     <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
@@ -327,7 +258,7 @@ export function FolderNode({
         <div className="flex flex-1 items-center gap-2">
           <Checkbox
             id={`folder-${folder.id}`}
-            checked={isSelected}
+            checked={checkboxState}
             onCheckedChange={(checked) =>
               onToggle({ ...folder, path: currentPath }, checked === true)
             }
@@ -346,15 +277,15 @@ export function FolderNode({
           subfolders.map((subfolder, index) => (
             <FolderNode
               key={subfolder.id}
-              folder={{
-                ...subfolder,
-                path: `${currentPath}/${subfolder.name}`,
-              }}
+              folder={subfolder}
               isLast={index === subfolders.length - 1}
               selectedFolderIds={selectedFolderIds}
               onToggle={onToggle}
+              onChildrenLoaded={onChildrenLoaded}
               level={level + 1}
               parentPath={currentPath}
+              childrenByParentId={childrenByParentId}
+              knownChildren={childrenByParentId.get(subfolder.id)}
             />
           ))
         ) : isExpanded && !isLoadingSubfolders ? (

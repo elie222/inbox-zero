@@ -3,7 +3,6 @@ import { createMicrosoftAvailabilityProvider } from "./microsoft-availability";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/outlook/calendar-client", () => ({
   getCalendarClientWithRefresh: vi.fn(),
 }));
@@ -257,6 +256,81 @@ describe("createMicrosoftAvailabilityProvider", () => {
       });
 
       expect(result).toEqual([]);
+    });
+
+    it("should skip calendar errors by default", async () => {
+      mockApiResponse.get.mockRejectedValue(new Error("calendar failed"));
+
+      const provider = createMicrosoftAvailabilityProvider(logger);
+
+      const result = await provider.fetchBusyPeriods({
+        accessToken: "token",
+        refreshToken: "refresh",
+        expiresAt: Date.now() + 3_600_000,
+        emailAccountId: "email-account-id",
+        calendarIds: ["cal-1"],
+        timeMin: "2025-11-17T00:00:00Z",
+        timeMax: "2025-11-17T23:59:59Z",
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it("should fail closed on calendar errors when requested", async () => {
+      mockApiResponse.get.mockRejectedValue(new Error("calendar failed"));
+
+      const provider = createMicrosoftAvailabilityProvider(logger);
+
+      await expect(
+        provider.fetchBusyPeriods({
+          accessToken: "token",
+          refreshToken: "refresh",
+          expiresAt: Date.now() + 3_600_000,
+          emailAccountId: "email-account-id",
+          calendarIds: ["cal-1"],
+          failOnCalendarError: true,
+          timeMin: "2025-11-17T00:00:00Z",
+          timeMax: "2025-11-17T23:59:59Z",
+        }),
+      ).rejects.toThrow("calendar failed");
+    });
+
+    it("should ignore a missing calendar when failing closed", async () => {
+      mockApiResponse.get
+        .mockRejectedValueOnce(
+          Object.assign(new Error("Calendar not found"), {
+            code: "ErrorItemNotFound",
+            statusCode: 404,
+          }),
+        )
+        .mockResolvedValueOnce({
+          value: [
+            {
+              showAs: "busy",
+              start: { dateTime: "2025-11-17T14:00:00.0000000" },
+              end: { dateTime: "2025-11-17T15:00:00.0000000" },
+            },
+          ],
+        });
+
+      const provider = createMicrosoftAvailabilityProvider(logger);
+      const result = await provider.fetchBusyPeriods({
+        accessToken: "token",
+        refreshToken: "refresh",
+        expiresAt: Date.now() + 3_600_000,
+        emailAccountId: "email-account-id",
+        calendarIds: ["disconnected-calendar", "connected-calendar"],
+        failOnCalendarError: true,
+        timeMin: "2025-11-17T00:00:00Z",
+        timeMax: "2025-11-17T23:59:59Z",
+      });
+
+      expect(result).toEqual([
+        {
+          start: "2025-11-17T14:00:00.0000000Z",
+          end: "2025-11-17T15:00:00.0000000Z",
+        },
+      ]);
     });
   });
 });

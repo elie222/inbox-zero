@@ -1,5 +1,6 @@
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
-import { deleteContact as deleteResendContact } from "@inboxzero/resend";
+import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import {
@@ -7,12 +8,20 @@ import {
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "@/utils/posthog";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
+import {
+  DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  getDeletableOrganizationIdsOrThrow,
+  getDeletedAccountOwnershipImpact,
+  getDeleteSoloOrganizationsOperation,
+  isMemberEmailAccountForeignKeyError,
+  isOrganizationOwnerInvariantError,
+} from "@/utils/organizations/ownership";
 
 export async function deleteUser({
   userId,
@@ -37,28 +46,15 @@ export async function deleteUser({
       },
     },
   });
-
-  const resourcesPromise = accounts.map(async (account) => {
-    if (!account.emailAccount) return Promise.resolve();
-
-    // Create email provider for unwatching
-    const emailProvider = account.access_token
-      ? await createEmailProvider({
-          emailAccountId: account.emailAccount.id,
-          provider: account.provider,
-          logger,
-        })
-      : null;
-
-    return deleteResources({
-      emailAccountId: account.emailAccount.id,
-      email: account.emailAccount.email,
-      userId,
-      emailProvider,
-      subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
-      logger,
-    });
-  });
+  const emailAccountIds = accounts
+    .map((account) => account.emailAccount?.id)
+    .filter((id): id is string => Boolean(id));
+  const ownershipImpact =
+    await getDeletedAccountOwnershipImpact(emailAccountIds);
+  const organizationIdsToDelete = getDeletableOrganizationIdsOrThrow(
+    ownershipImpact,
+    DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  );
 
   logger.info("Deleting user resources");
 
@@ -81,30 +77,76 @@ export async function deleteUser({
       captureException(error);
     });
 
-    // Then proceed with the regular deletion process
-    const results = await Promise.allSettled(resourcesPromise);
-
-    logger.info("User resources deleted");
-
-    // Log any failures
-    const failures = results.filter((r) => r.status === "rejected");
-    if (failures.length > 0) {
-      logger.error("Some deletion operations failed", {
-        failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+    await withThreadPageBufferDeletion(emailAccountIds, async () => {
+      await deleteSoloOrganizations({
+        organizationIds: organizationIdsToDelete,
+        deletedEmailAccountIds: emailAccountIds,
       });
 
-      const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-      const customError = new Error("User deletion error");
-      customError.cause = originalError;
+      const resourcesPromise = accounts.map(async (account) => {
+        if (!account.emailAccount) return Promise.resolve();
 
-      captureException(customError, { extra: { failures } });
-    }
+        // Create email provider for unwatching
+        const emailProvider = account.access_token
+          ? await createEmailProvider({
+              emailAccountId: account.emailAccount.id,
+              provider: account.provider,
+              logger,
+            })
+          : null;
+
+        return deleteResources({
+          emailAccountId: account.emailAccount.id,
+          email: account.emailAccount.email,
+          userId,
+          emailProvider,
+          subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+      });
+
+      // Then proceed with the regular deletion process
+      const results = await Promise.allSettled(resourcesPromise);
+
+      logger.info("User resources deleted");
+
+      // Log any failures
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        logger.error("Some deletion operations failed", {
+          failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+        });
+
+        const originalError = (failures[0] as PromiseRejectedResult)?.reason;
+        const customError = new Error("User deletion error");
+        customError.cause = originalError;
+
+        captureException(customError, { extra: { failures } });
+        throw originalError;
+      }
+    });
   } catch (error) {
     logger.error("Error during user resources deletion process", {
       error,
     });
     captureException(error);
+    throw error;
   }
+}
+
+async function deleteSoloOrganizations({
+  organizationIds,
+  deletedEmailAccountIds,
+}: {
+  organizationIds: string[];
+  deletedEmailAccountIds: string[];
+}) {
+  if (organizationIds.length === 0) return;
+
+  await getDeleteSoloOrganizationsOperation(
+    organizationIds,
+    deletedEmailAccountIds,
+  );
 }
 
 async function deleteResources({
@@ -143,11 +185,18 @@ async function deleteResources({
     await deleteExecutedRulesInBatches({ emailAccountId, logger });
 
     logger.info("Deleting user");
-    await prisma.user.delete({ where: { id: userId } });
+    const deletedUser = await prisma.user.deleteMany({ where: { id: userId } });
 
     // PostHog tracks the completed delete after the database delete succeeds.
-    await trackUserDeleted(userId);
+    if (deletedUser.count > 0) await trackUserDeleted(userId);
   } catch (error) {
+    if (
+      isOrganizationOwnerInvariantError(error) ||
+      isMemberEmailAccountForeignKeyError(error)
+    ) {
+      throw new SafeError(DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
+    }
+
     logger.error("Error during database user deletion process", {
       error,
     });

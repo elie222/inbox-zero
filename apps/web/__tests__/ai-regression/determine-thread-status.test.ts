@@ -9,8 +9,6 @@ import { SystemType } from "@/generated/prisma/enums";
 
 // Run with: pnpm test-ai ai-regression/determine-thread-status
 
-vi.mock("server-only", () => ({}));
-
 const TIMEOUT = 15_000;
 
 // Skip tests unless explicitly running AI tests

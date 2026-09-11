@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import { generateSecret } from "./utils";
+import { setupPubSubSubscription } from "./google-pubsub";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -135,16 +136,17 @@ export async function runGoogleSetup(options: GoogleSetupOptions) {
       `Before creating OAuth credentials, you need to configure the consent screen.
 
 Steps:
-1. User type:
+1. Click "Get Started" if the banner is shown
+2. User type:
    - "Internal" — Google Workspace only, all org members can sign in
    - "External" — any Google account (including personal Gmail)
-     You'll need to add yourself as a test user (step 6)
-2. App name: "Inbox Zero" (or your preferred name)
-3. User support email: Your email
-4. Developer contact: Your email
-5. Click "Save and Continue" through the scopes section
-6. If External: add your email as a test user
-7. Complete the wizard
+     You'll need to add yourself as a test user (step 7)
+3. App name: "Inbox Zero" (or your preferred name)
+4. User support email: Your email
+5. Developer contact: Your email
+6. Click "Save and Continue" through the scopes section
+7. If External: add your email as a test user
+8. Complete the wizard
 
 The console will open in your browser.`,
       "OAuth Consent Screen",
@@ -429,43 +431,6 @@ function setupPubSubTopic(projectId: string, topicName: string): SetupResult {
     return {
       success: false,
       error: bindingResult.stderr?.toString() || "Failed to add IAM binding",
-    };
-  }
-
-  return { success: true };
-}
-
-function setupPubSubSubscription(
-  projectId: string,
-  topicName: string,
-  subscriptionName: string,
-  webhookUrl: string,
-): SetupResult {
-  const createResult = spawnSync(
-    "gcloud",
-    [
-      "pubsub",
-      "subscriptions",
-      "create",
-      subscriptionName,
-      "--topic",
-      topicName,
-      "--push-endpoint",
-      webhookUrl,
-      "--project",
-      projectId,
-    ],
-    { stdio: "pipe" },
-  );
-
-  // Ignore "already exists" error
-  if (
-    createResult.status !== 0 &&
-    !createResult.stderr?.toString().includes("ALREADY_EXISTS")
-  ) {
-    return {
-      success: false,
-      error: createResult.stderr?.toString() || "Failed to create subscription",
     };
   }
 

@@ -3,7 +3,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/actions/assistant-chat", () => ({
   confirmAssistantCreateRule: vi.fn(),
   confirmAssistantEmailAction: vi.fn(),

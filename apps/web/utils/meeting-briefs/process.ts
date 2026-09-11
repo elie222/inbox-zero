@@ -10,7 +10,7 @@ import { aiGenerateMeetingBriefing } from "@/utils/ai/meeting-briefs/generate-br
 import { sendBriefing } from "./send-briefing";
 import type { Logger } from "@/utils/logger";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
-import { extractDomainFromEmail } from "@/utils/email";
+import { partitionAttendeesForBriefing } from "./attendees";
 
 export type EmailAccountForBrief = {
   id: string;
@@ -18,6 +18,7 @@ export type EmailAccountForBrief = {
   email: string;
   about: string | null;
   multiRuleSelectionEnabled: boolean;
+  sensitiveDataPolicy: string | null;
   timezone: string | null;
   calendarBookingLink: string | null;
   user: {
@@ -95,6 +96,7 @@ export async function processMeetingBriefings({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       user: {
@@ -153,11 +155,9 @@ export async function runMeetingBrief({
 
   const eventLog = logger.with({ eventId: event.id });
 
-  const userDomain = extractDomainFromEmail(userEmail);
-  const externalGuestCount = event.attendees.filter((attendee) => {
-    const attendeeDomain = extractDomainFromEmail(attendee.email ?? "");
-    return attendeeDomain && attendeeDomain !== userDomain;
-  }).length;
+  const { external: externalAttendees, internal: internalAttendees } =
+    partitionAttendeesForBriefing(event, userEmail);
+  const externalGuestCount = externalAttendees.length;
 
   if (!isTestSend) {
     const claimed = await claimMeetingBriefing({
@@ -178,8 +178,8 @@ export async function runMeetingBrief({
     const briefingData = await gatherContextForEvent({
       event,
       emailAccountId,
-      userEmail,
-      userDomain,
+      externalAttendees,
+      internalAttendees,
       provider,
       logger: eventLog,
     });

@@ -33,7 +33,9 @@ export async function getEmailProviderRateLimitStateFromRedis({
   if (!isEmailProviderRateLimitRedisConfigured()) return null;
 
   const key = getRateLimitKey(emailAccountId);
-  const value = await redis.get<string>(key);
+  const value = await redis.get<StoredEmailProviderRateLimitState | string>(
+    key,
+  );
   if (!value) return null;
 
   const parsed = parseStoredEmailProviderRateLimitState(value);
@@ -97,12 +99,13 @@ export function isEmailProviderRateLimitRedisConfigured() {
 }
 
 function parseStoredEmailProviderRateLimitState(
-  value: string,
+  value: StoredEmailProviderRateLimitState | string,
 ): StoredEmailProviderRateLimitState | null {
   try {
-    const parsed = JSON.parse(
-      value,
-    ) as Partial<StoredEmailProviderRateLimitState>;
+    const parsed =
+      typeof value === "string"
+        ? (JSON.parse(value) as Partial<StoredEmailProviderRateLimitState>)
+        : value;
     const provider = toRateLimitProvider(parsed.provider);
     if (!provider) return null;
     if (!parsed.retryAt || typeof parsed.retryAt !== "string") return null;
@@ -111,7 +114,7 @@ function parseStoredEmailProviderRateLimitState(
     return {
       provider,
       retryAt: parsed.retryAt,
-      source: parsed.source,
+      source: typeof parsed.source === "string" ? parsed.source : undefined,
       detectedAt: parsed.detectedAt || new Date().toISOString(),
     };
   } catch {

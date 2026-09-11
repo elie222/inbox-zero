@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { messagesBatchQuery } from "@/app/api/messages/validation";
-import { parseReply } from "@/utils/mail";
 import type { EmailProvider } from "@/utils/email/types";
+import { parseMessageReply } from "@/utils/email/parse-message-reply";
 
 export type MessagesBatchResponse = {
   messages: Awaited<ReturnType<typeof getMessagesBatch>>;
@@ -20,11 +20,7 @@ async function getMessagesBatch({
   const messages = await emailProvider.getMessagesBatch(messageIds);
 
   if (parseReplies) {
-    return messages.map((message) => ({
-      ...message,
-      textPlain: parseReply(message.textPlain || ""),
-      textHtml: parseReply(message.textHtml || ""),
-    }));
+    return messages.map(parseMessageReply);
   }
 
   return messages;

@@ -3,6 +3,7 @@ export const DEFAULT_PROVIDER = "DEFAULT";
 export const Provider = {
   OPEN_AI: "openai",
   AZURE: "azure",
+  AZURE_FOUNDRY: "azure-foundry",
   VERTEX: "vertex",
   ANTHROPIC: "anthropic",
   BEDROCK: "bedrock",

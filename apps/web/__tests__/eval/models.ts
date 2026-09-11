@@ -1,93 +1,12 @@
 import { describe } from "vitest";
-import { getEmailAccount } from "@/__tests__/helpers";
+import {
+  EVAL_MODEL_CATALOG,
+  getEmailAccountForModel,
+  getEvalModels,
+  type EvalModel,
+} from "@/__tests__/eval/model-catalog";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { Provider } from "@/utils/llms/config";
-
-export interface EvalModel {
-  label: string;
-  model: string;
-  provider: string;
-}
-
-const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
-  "gemini-3-flash": {
-    provider: "openrouter",
-    model: "google/gemini-3-flash-preview",
-    label: "Gemini 3 Flash",
-  },
-  "gemini-2.5-flash": {
-    provider: "openrouter",
-    model: "google/gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-  },
-  "gemini-3.1-flash-lite": {
-    provider: "openrouter",
-    model: "google/gemini-3.1-flash-lite-preview",
-    label: "Gemini 3.1 Flash Lite",
-  },
-  "gpt-5.4-nano": {
-    provider: "openrouter",
-    model: "openai/gpt-5.4-nano",
-    label: "GPT-5.4 Nano",
-  },
-  "gpt-5.4-mini": {
-    provider: "openrouter",
-    model: "openai/gpt-5.4-mini",
-    label: "GPT-5.4 Mini",
-  },
-};
-
-/**
- * Returns the list of models to evaluate against.
- *
- * - Not set:                         single run with default env-configured model
- * - EVAL_MODELS=all                  every model in the catalog
- * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
- * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks
- * - EVAL_MODELS=[{...}]             custom JSON array
- */
-export function getEvalModels(): EvalModel[] {
-  const envModels = process.env.EVAL_MODELS;
-  if (!envModels) return [];
-  if (envModels === "all") return Object.values(EVAL_MODEL_CATALOG);
-
-  if (envModels.startsWith("[")) {
-    try {
-      return JSON.parse(envModels);
-    } catch {
-      return [];
-    }
-  }
-
-  return envModels
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .map((name) => {
-      const preset = EVAL_MODEL_CATALOG[name];
-      if (!preset) {
-        console.warn(
-          `Unknown eval model shorthand: "${name}". Available: ${Object.keys(EVAL_MODEL_CATALOG).join(", ")}`,
-        );
-      }
-      return preset;
-    })
-    .filter((m): m is EvalModel => m != null);
-}
-
-export function getEmailAccountForModel(
-  model: EvalModel,
-  overrides: Partial<EmailAccountWithAI> = {},
-): EmailAccountWithAI {
-  return {
-    ...getEmailAccount(overrides),
-    user: {
-      aiProvider: model.provider,
-      aiModel: model.model,
-      aiApiKey: getApiKeyForProvider(model.provider),
-    },
-  };
-}
 
 export function shouldRunEvalTests(): boolean {
   if (process.env.RUN_AI_TESTS !== "true") return false;
@@ -97,7 +16,7 @@ export function shouldRunEvalTests(): boolean {
     return models.every((model) => hasConfiguredProvider(model.provider));
   }
 
-  const defaultProvider = process.env.DEFAULT_LLM_PROVIDER;
+  const defaultProvider = getDefaultEvalProvider();
   return defaultProvider
     ? hasConfiguredProvider(defaultProvider)
     : hasAnyConfiguredProvider();
@@ -106,8 +25,9 @@ export function shouldRunEvalTests(): boolean {
 /**
  * Runs a describe block for each model in the eval matrix.
  *
- * When EVAL_MODELS is not set, runs a single block using the default
- * env-configured model (identical to normal test behavior).
+ * When EVAL_MODELS is not set, runs a single block using the catalog's
+ * default model (gpt-5.6-luna), so results are comparable across
+ * machines regardless of local env model configuration.
  *
  * When EVAL_MODELS=all or a JSON array, runs one block per model
  * with the emailAccount configured to route through that model.
@@ -128,7 +48,7 @@ export function describeEvalMatrix(
   const models = getEvalModels();
 
   if (models.length === 0) {
-    const fallback = EVAL_MODEL_CATALOG["gemini-3-flash"];
+    const fallback = EVAL_MODEL_CATALOG["gpt-5.6-luna"];
     describe(name, () => {
       fn(fallback, getEmailAccountForModel(fallback, overrides));
     });
@@ -142,18 +62,13 @@ export function describeEvalMatrix(
   }
 }
 
-function getApiKeyForProvider(provider: string): string | null {
-  const keys: Record<string, string | undefined> = {
-    openrouter: process.env.OPENROUTER_API_KEY,
-    openai: process.env.OPENAI_API_KEY,
-    anthropic: process.env.ANTHROPIC_API_KEY,
-    google: process.env.GOOGLE_API_KEY,
-    groq: process.env.GROQ_API_KEY,
-  };
-  return keys[provider] ?? null;
+function getDefaultEvalProvider(): string | undefined {
+  return process.env.DEFAULT_LLMS?.split(",").find(Boolean)?.split(":", 1)[0];
 }
 
 function hasConfiguredProvider(provider: string): boolean {
+  if (provider === Provider.AZURE_FOUNDRY) return hasAzureFoundryCredentials();
+
   if (process.env.LLM_API_KEY) return true;
 
   switch (provider) {
@@ -165,6 +80,8 @@ function hasConfiguredProvider(provider: string): boolean {
       return Boolean(
         process.env.AZURE_API_KEY && process.env.AZURE_RESOURCE_NAME,
       );
+    case Provider.AZURE_FOUNDRY:
+      return hasAzureFoundryCredentials();
     case Provider.ANTHROPIC:
       return Boolean(process.env.ANTHROPIC_API_KEY);
     case Provider.GOOGLE:
@@ -181,8 +98,8 @@ function hasConfiguredProvider(provider: string): boolean {
       );
     case Provider.AI_GATEWAY:
       return Boolean(process.env.AI_GATEWAY_API_KEY);
-    case Provider.OLLAMA:
     case Provider.OPENAI_COMPATIBLE:
+    case Provider.OLLAMA:
       return true;
     default:
       return hasAnyConfiguredProvider();
@@ -199,11 +116,18 @@ function hasAnyConfiguredProvider(): boolean {
       process.env.GOOGLE_VERTEX_PROJECT ||
       process.env.GROQ_API_KEY ||
       process.env.OPENROUTER_API_KEY ||
+      hasAzureFoundryCredentials() ||
       process.env.AI_GATEWAY_API_KEY ||
       (process.env.BEDROCK_ACCESS_KEY &&
         process.env.BEDROCK_SECRET_KEY &&
         process.env.BEDROCK_REGION) ||
-      process.env.OLLAMA_BASE_URL ||
-      process.env.OPENAI_COMPATIBLE_BASE_URL,
+      process.env.OPENAI_COMPATIBLE_BASE_URL ||
+      process.env.OLLAMA_BASE_URL,
+  );
+}
+
+function hasAzureFoundryCredentials(): boolean {
+  return Boolean(
+    process.env.AZURE_FOUNDRY_API_KEY && process.env.AZURE_FOUNDRY_BASE_URL,
   );
 }

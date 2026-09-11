@@ -5,11 +5,13 @@ import {
   MessagingRouteTargetType,
   ThreadTrackerType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "./send-follow-up-notification";
+import { parseFollowUpNotificationDeliveries } from "./notification-deliveries";
+import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "./follow-up-actions";
 import {
   resolveSlackRouteDestination,
   sendFollowUpReminderToSlack,
@@ -19,7 +21,6 @@ import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({ default: {} }));
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),
@@ -39,7 +40,7 @@ vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
   }),
 }));
 
-const logger = createScopedLogger("send-follow-up-test");
+const logger = createTestLogger();
 
 const baseArgs = {
   subject: "Project update",
@@ -105,6 +106,11 @@ describe("sendFollowUpNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (resolveSlackRouteDestination as any).mockResolvedValue("C1");
+    (sendFollowUpReminderToSlack as any).mockResolvedValue("1700000000.000100");
+    (sendAutomationMessage as any).mockResolvedValue({
+      channelId: "teams-thread-1",
+      messageId: "teams-message-1",
+    });
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
@@ -127,10 +133,12 @@ describe("sendFollowUpNotification", () => {
 
   it("delivers Telegram follow-ups with a thread link button instead of raw URL text", async () => {
     const threadLink = "https://outlook.live.com/mail/0/inbox/id/thread-1";
+    const trackerId = "tracker-telegram-1";
 
     await sendFollowUpNotification({
       channels: [telegramChannel],
       ...baseArgs,
+      trackerId,
       threadLink,
       threadLinkLabel: "Open in Outlook",
     });
@@ -144,7 +152,40 @@ describe("sendFollowUpNotification", () => {
     expect(serializedCard).toContain("Follow-up nudge");
     expect(serializedCard).toContain("Open in Outlook");
     expect(serializedCard).toContain(threadLink);
+    expect(serializedCard).toContain(FOLLOW_UP_MARK_DONE_ACTION_ID);
+    expect(serializedCard).toContain("Mark done");
+    expect(serializedCard).toContain(trackerId);
     expect(serializedCard).not.toContain(`Open: ${threadLink}`);
+  });
+
+  it("preserves multi-line Telegram snippets past the old short preview cap", async () => {
+    const body =
+      "I hope you're doing well. I'm reaching out because I'd like to find some time for us to reunite and discuss the new ebook. ";
+    const snippet = [
+      "Hi Barbara,",
+      "",
+      body.repeat(3).trim(),
+      "Please let me know when you might be available to chat.",
+      "",
+      "Best regards,",
+    ].join("\n");
+
+    expect(snippet.length).toBeGreaterThan(280);
+
+    await sendFollowUpNotification({
+      channels: [telegramChannel],
+      ...baseArgs,
+      snippet,
+    });
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const snippetChild = (card as any).children.find(
+      (child: any) =>
+        child.type === "text" && child.content.includes("Your sent email:"),
+    );
+
+    expect(snippetChild.content).toContain("> Hi Barbara,\n>\n> I hope");
+    expect(snippetChild.content).toContain("Best regards,");
   });
 
   it("fans out across multiple channels in parallel", async () => {
@@ -156,6 +197,34 @@ describe("sendFollowUpNotification", () => {
     expect(sendAutomationMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("returns provider message handles for delivered notifications", async () => {
+    const deliveries = await sendFollowUpNotification({
+      channels: [slackChannel, teamsChannel, telegramChannel],
+      ...baseArgs,
+    });
+
+    expect(deliveries).toEqual([
+      {
+        messagingChannelId: "channel-1",
+        provider: MessagingProvider.SLACK,
+        providerThreadId: "C1",
+        providerMessageId: "1700000000.000100",
+      },
+      {
+        messagingChannelId: "channel-2",
+        provider: MessagingProvider.TEAMS,
+        providerThreadId: "teams-thread-1",
+        providerMessageId: "teams-message-1",
+      },
+      {
+        messagingChannelId: "channel-3",
+        provider: MessagingProvider.TELEGRAM,
+        providerThreadId: "telegram-thread-1",
+        providerMessageId: "telegram-message-1",
+      },
+    ]);
+  });
+
   it("swallows per-channel failures so the caller continues", async () => {
     (sendFollowUpReminderToSlack as any).mockRejectedValue(new Error("boom"));
     (sendAutomationMessage as any).mockRejectedValue(new Error("boom"));
@@ -164,7 +233,7 @@ describe("sendFollowUpNotification", () => {
         channels: [slackChannel, teamsChannel],
         ...baseArgs,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual([]);
   });
 
   it("skips Slack channel when access token is missing", async () => {
@@ -173,5 +242,40 @@ describe("sendFollowUpNotification", () => {
       ...baseArgs,
     });
     expect(sendFollowUpReminderToSlack).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseFollowUpNotificationDeliveries", () => {
+  it("keeps valid persisted delivery handles", () => {
+    const deliveries = [
+      {
+        messagingChannelId: "channel-1",
+        provider: MessagingProvider.SLACK,
+        providerThreadId: "C1",
+        providerMessageId: "1700000000.000100",
+      },
+      {
+        messagingChannelId: "channel-2",
+        provider: MessagingProvider.TELEGRAM,
+        providerThreadId: "telegram-thread-1",
+        providerMessageId: "telegram-message-1",
+      },
+    ];
+
+    expect(parseFollowUpNotificationDeliveries(deliveries)).toEqual(deliveries);
+  });
+
+  it("drops malformed persisted delivery handles", () => {
+    expect(
+      parseFollowUpNotificationDeliveries([
+        {
+          messagingChannelId: "channel-1",
+          provider: MessagingProvider.SLACK,
+          providerThreadId: "C1",
+        },
+      ]),
+    ).toEqual([]);
+    expect(parseFollowUpNotificationDeliveries({})).toEqual([]);
+    expect(parseFollowUpNotificationDeliveries(null)).toEqual([]);
   });
 });

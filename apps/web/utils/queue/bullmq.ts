@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Queue } from "bullmq";
+import { Queue, type JobsOptions } from "bullmq";
 import IORedis from "ioredis";
 import { env } from "@/env";
 
@@ -10,12 +10,20 @@ type BullmqHttpJob = {
   path: string;
 };
 
+type BullmqHttpQueue = {
+  add: (
+    name: string,
+    data: BullmqHttpJob,
+    opts?: JobsOptions,
+  ) => Promise<unknown>;
+};
+
 const DEFAULT_JOB_ATTEMPTS = 3;
 const DEFAULT_REMOVE_ON_COMPLETE = 1000;
 const DEFAULT_REMOVE_ON_FAIL = 1000;
 
 let connection: IORedis | null = null;
-const queues = new Map<string, Queue<BullmqHttpJob>>();
+const queues = new Map<string, BullmqHttpQueue>();
 
 export async function enqueueBullmqHttpJob({
   queueName,
@@ -55,7 +63,7 @@ function getBullmqQueue(queueName: string) {
 
   const queue = new Queue<BullmqHttpJob>(queueName, {
     connection: getBullmqConnection(),
-  });
+  }) as unknown as BullmqHttpQueue;
   queues.set(queueName, queue);
   return queue;
 }

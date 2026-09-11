@@ -2,14 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { trackError } from "@/utils/posthog";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
   recordRateLimitFromApiError: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
+  cleanupInvalidTokens: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("handleWebhookError", () => {
@@ -28,8 +31,19 @@ describe("handleWebhookError", () => {
   const mockRecordRateLimitFromApiError = vi.mocked(
     recordRateLimitFromApiError,
   );
+  const mockCleanupInvalidTokens = vi.mocked(cleanupInvalidTokens);
 
   describe("Gmail errors", () => {
+    it("does not clean up invalid grants without a credential snapshot", async () => {
+      const error = new Error("invalid_grant");
+
+      await handleWebhookError(error, baseOptions);
+
+      expect(mockCleanupInvalidTokens).not.toHaveBeenCalled();
+      expect(trackError).not.toHaveBeenCalled();
+      expect(mockRecordRateLimitFromApiError).not.toHaveBeenCalled();
+    });
+
     it("tracks Gmail rate limit errors", async () => {
       const error = Object.assign(new Error("Rate limit exceeded"), {
         errors: [

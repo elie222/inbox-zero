@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -6,8 +6,6 @@ import { getEmailAccount } from "@/__tests__/helpers";
 const TIMEOUT = 60_000;
 
 // Run with: pnpm test-ai ai-regression/reply/draft-reply
-
-vi.mock("server-only", () => ({}));
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 const TEST_TIMEOUT = 15_000;

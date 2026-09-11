@@ -10,8 +10,6 @@ const logger = createTestLogger();
 
 // Run with: pnpm test-ai ai-regression/ai-calendar-availability
 
-vi.mock("server-only", () => ({}));
-
 const TIMEOUT = 45_000;
 
 // Skip tests unless explicitly running AI tests

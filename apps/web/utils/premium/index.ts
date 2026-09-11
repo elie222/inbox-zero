@@ -25,6 +25,10 @@ function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   return activeStatuses.includes(stripeSubscriptionStatus);
 }
 
+function isActiveStripe(stripeSubscriptionStatus: string | null): boolean {
+  return stripeSubscriptionStatus === "active";
+}
+
 function isPremiumLemonSqueezy(
   lemonSqueezyRenewsAt: Date | string | null,
 ): boolean {
@@ -97,13 +101,9 @@ export const isPremiumRecord = (
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
   if (!premium) return false;
 
-  return isPremium(
-    premium.lemonSqueezyRenewsAt ?? null,
-    premium.stripeSubscriptionStatus ?? null,
-    premium.appleExpiresAt ?? null,
-    premium.appleRevokedAt ?? null,
-    premium.appleSubscriptionStatus ?? null,
-    premium.adminGrantExpiresAt ?? null,
+  return (
+    hasProcessorPremiumEntitlement(premium) ||
+    hasAdminGrantPremiumEntitlement(premium)
   );
 };
 
@@ -115,14 +115,8 @@ export const isActivePremium = (
   if (!premium) return false;
 
   return (
-    premium.stripeSubscriptionStatus === "active" ||
-    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
-    isPremiumAdminGrant(premium.adminGrantExpiresAt ?? null) ||
-    hasActiveAppleSubscription(
-      premium.appleExpiresAt ?? null,
-      premium.appleRevokedAt ?? null,
-      premium.appleSubscriptionStatus,
-    )
+    hasActiveProcessorPremiumEntitlement(premium) ||
+    hasAdminGrantPremiumEntitlement(premium)
   );
 };
 
@@ -202,6 +196,24 @@ function getTiersAtOrAbove(minimumTier: PremiumTier): PremiumTier[] {
     .map(([tier]) => tier as PremiumTier);
 }
 
+// Legacy rows hold a bare 1-12 month, which never matches a period, so they
+// get one reset on next use.
+export const getUnsubscribePeriod = (now = new Date()): number =>
+  now.getFullYear() * 100 + now.getMonth() + 1;
+
+export const getRemainingUnsubscribeCredits = ({
+  unsubscribeCredits,
+  unsubscribeMonth,
+  now = new Date(),
+}: {
+  unsubscribeCredits?: number | null;
+  unsubscribeMonth?: number | null;
+  now?: Date;
+}): number =>
+  unsubscribeMonth === getUnsubscribePeriod(now)
+    ? (unsubscribeCredits ?? 0)
+    : env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS;
+
 export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
@@ -209,8 +221,7 @@ export const hasUnsubscribeAccess = (
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   if (tier) return true;
-  if (unsubscribeCredits && unsubscribeCredits > 0) return true;
-  return false;
+  return (unsubscribeCredits ?? 0) > 0;
 };
 
 export const hasAiAccess = (
@@ -267,10 +278,12 @@ export function getPremiumUserFilter({
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return {};
 
   const minimumTiers = minimumTier ? getTiersAtOrAbove(minimumTier) : undefined;
-  const tierFilter = minimumTiers ? [{ tier: { in: minimumTiers } }] : [];
+  const tierFilter = minimumTiers
+    ? [{ tier: { in: minimumTiers } }]
+    : [{ tier: { not: null } }];
   const adminGrantTierFilter = minimumTiers
     ? [{ adminGrantTier: { in: minimumTiers } }]
-    : [];
+    : [{ adminGrantTier: { not: null } }];
   const now = new Date();
 
   return {
@@ -303,4 +316,38 @@ export function getPremiumUserFilter({
       },
     },
   };
+}
+
+function hasProcessorPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.tier) return false;
+
+  return (
+    isPremiumStripe(premium.stripeSubscriptionStatus ?? null) ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
+      premium.appleSubscriptionStatus,
+    )
+  );
+}
+
+function hasActiveProcessorPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.tier) return false;
+
+  return (
+    isActiveStripe(premium.stripeSubscriptionStatus ?? null) ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
+      premium.appleSubscriptionStatus,
+    )
+  );
+}
+
+function hasAdminGrantPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.adminGrantTier) return false;
+
+  return isPremiumAdminGrant(premium.adminGrantExpiresAt ?? null);
 }

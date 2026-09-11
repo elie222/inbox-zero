@@ -1,6 +1,4 @@
-import { createHmac } from "node:crypto";
 import { createUIMessageStream } from "ai";
-import { createEmulator, type Emulator } from "emulate";
 import { WebClient } from "@slack/web-api";
 import {
   afterAll,
@@ -16,9 +14,13 @@ import {
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
+import {
+  createSignedSlackRequest,
+  createSlackTestHarness,
+  type SlackTestHarness,
+} from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const aiProcessAssistantChatMock = vi.fn();
@@ -71,71 +73,64 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4118;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Slack chat webhook",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
+    let slackHarness: SlackTestHarness;
     let emulatorClient: WebClient;
     let teamId: string;
     let userId: string;
     let channelId: string;
     let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, "fetch">>;
+    let slackApiCallSpy: ReturnType<typeof vi.spyOn>;
+    let originalSlackApiUrl: string | undefined;
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "slack",
+      originalSlackApiUrl = process.env.SLACK_API_URL;
+
+      slackHarness = await createSlackTestHarness({
         port: TEST_PORT,
-        seed: {
-          slack: {
-            team: { name: "TestWorkspace", domain: "test-workspace" },
-            users: [
-              {
-                name: "alice",
-                real_name: "Alice Smith",
-                email: "alice@example.com",
-              },
-            ],
-            channels: [
-              {
-                name: "assistant-chat",
-                is_private: false,
-                topic: "Assistant chat tests",
-              },
-            ],
+        team: { name: "TestWorkspace", domain: "test-workspace" },
+        users: [
+          {
+            name: "alice",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
           },
-        },
+        ],
+        channels: [
+          {
+            name: "assistant-chat",
+            is_private: false,
+            topic: "Assistant chat tests",
+          },
+        ],
       });
 
-      emulatorClient = new WebClient("emulator-token", {
-        slackApiUrl: `${emulator.url}/api/`,
-      });
+      process.env.SLACK_API_URL = `${slackHarness.emulator.url}/api/`;
+      emulatorClient = slackHarness.client;
 
-      const auth = await emulatorClient.auth.test();
-      teamId = auth.team_id!;
-
-      const users = await emulatorClient.users.list();
-      const alice = users.members?.find((member) => member.name === "alice");
-      if (!alice?.id) throw new Error("Slack emulator user not found");
-      userId = alice.id;
-
-      const channels = await emulatorClient.conversations.list({
-        types: "public_channel,private_channel",
-      });
-      const assistantChannel = channels.channels?.find(
-        (channel) => channel.name === "assistant-chat",
-      );
-      if (!assistantChannel?.id) {
+      teamId = slackHarness.teamId;
+      userId = slackHarness.usersByName.alice;
+      channelId = slackHarness.channelsByName["assistant-chat"];
+      if (!userId) throw new Error("Slack emulator user not found");
+      if (!channelId) {
         throw new Error("Slack emulator channel not found");
       }
-      channelId = assistantChannel.id;
     });
 
     afterAll(async () => {
       fetchSpy?.mockRestore();
-      await emulator?.close();
+      slackApiCallSpy?.mockRestore();
+      if (originalSlackApiUrl === undefined) {
+        delete process.env.SLACK_API_URL;
+      } else {
+        process.env.SLACK_API_URL = originalSlackApiUrl;
+      }
+      await slackHarness?.emulator.close();
     });
 
     beforeEach(async () => {
@@ -155,6 +150,27 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       ).inboxZeroMessagingChatSdk = undefined;
 
       fetchSpy?.mockRestore();
+      slackApiCallSpy?.mockRestore();
+      const originalSlackApiCall = WebClient.prototype.apiCall;
+      slackApiCallSpy = vi
+        .spyOn(WebClient.prototype, "apiCall")
+        .mockImplementation(function (
+          this: WebClient,
+          method: string,
+          options?: Parameters<WebClient["apiCall"]>[1],
+        ) {
+          const response = mockUnsupportedSlackApiCall({
+            channelId,
+            method,
+            options,
+            userId,
+          });
+
+          if (response) return Promise.resolve(response);
+
+          return originalSlackApiCall.call(this, method, options);
+        });
+
       const originalFetch = globalThis.fetch.bind(globalThis);
       fetchSpy = vi
         .spyOn(globalThis, "fetch")
@@ -169,7 +185,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           if (url.startsWith("https://slack.com/api/")) {
             const rewrittenUrl = url.replace(
               "https://slack.com/api/",
-              `${emulator.url}/api/`,
+              `${slackHarness.emulator.url}/api/`,
             );
 
             if (input instanceof Request) {
@@ -285,7 +301,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const { bot } = getMessagingChatSdkBot();
       const backgroundTasks: Promise<unknown>[] = [];
       const response = await bot.webhooks.slack(
-        createSignedSlackRequest(body),
+        createSignedSlackRequest({ body }),
         {
           waitUntil: (promise) => {
             backgroundTasks.push(promise);
@@ -351,7 +367,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const { bot } = getMessagingChatSdkBot();
       const backgroundTasks: Promise<unknown>[] = [];
       const response = await bot.webhooks.slack(
-        createSignedSlackRequest(body),
+        createSignedSlackRequest({ body }),
         {
           waitUntil: (promise) => {
             backgroundTasks.push(promise);
@@ -373,19 +389,75 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   },
 );
 
-function createSignedSlackRequest(body: string) {
-  const timestamp = `${Math.floor(Date.now() / 1000)}`;
-  const signature = `v0=${createHmac("sha256", "test-signing-secret")
-    .update(`v0:${timestamp}:${body}`)
-    .digest("hex")}`;
+function mockUnsupportedSlackApiCall({
+  channelId,
+  method,
+  options,
+  userId,
+}: {
+  channelId: string;
+  method: string;
+  options?: Parameters<WebClient["apiCall"]>[1];
+  userId: string;
+}) {
+  switch (method) {
+    case "assistant.threads.setStatus":
+    case "chat.appendStream":
+    case "chat.startStream":
+    case "chat.stopStream":
+    case "reactions.add":
+    case "reactions.remove":
+      return { ok: true, ts: getSlackApiCallValue(options, "ts") };
+    case "conversations.info":
+      return {
+        ok: true,
+        channel: {
+          id: channelId,
+          name: "assistant-chat",
+          is_private: false,
+          is_ext_shared: false,
+        },
+      };
+    case "conversations.replies": {
+      const ts = getSlackApiCallValue(options, "ts");
+      return {
+        ok: true,
+        messages: [
+          {
+            type: "message",
+            user: "UAPP123",
+            channel: channelId,
+            text: "Parent message",
+            ts,
+            thread_ts: ts,
+          },
+        ],
+      };
+    }
+    case "users.info":
+      return {
+        ok: true,
+        user: {
+          id: userId,
+          name: "alice",
+          real_name: "Alice Smith",
+          profile: {
+            display_name: "Alice Smith",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
+          },
+        },
+      };
+    default:
+      return null;
+  }
+}
 
-  return new Request("https://example.com/api/slack/events", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-slack-request-timestamp": timestamp,
-      "x-slack-signature": signature,
-    },
-    body,
-  });
+function getSlackApiCallValue(
+  options: Parameters<WebClient["apiCall"]>[1] | undefined,
+  key: string,
+) {
+  return typeof options === "object" && options && key in options
+    ? String(options[key as keyof typeof options])
+    : undefined;
 }

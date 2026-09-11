@@ -4,42 +4,36 @@ import { ActionType } from "@/generated/prisma/enums";
 
 describe("sortActionsByPriority", () => {
   describe("basic sorting", () => {
-    it("sorts LABEL before ARCHIVE", () => {
-      const actions = [
-        { type: ActionType.ARCHIVE },
-        { type: ActionType.LABEL },
-      ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted[0].type).toBe(ActionType.LABEL);
-      expect(sorted[1].type).toBe(ActionType.ARCHIVE);
-    });
-
-    it("sorts ARCHIVE before REPLY", () => {
-      const actions = [
-        { type: ActionType.REPLY },
-        { type: ActionType.ARCHIVE },
-      ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted[0].type).toBe(ActionType.ARCHIVE);
-      expect(sorted[1].type).toBe(ActionType.REPLY);
-    });
-
-    it("sorts draft and email actions together", () => {
-      const actions = [
-        { type: ActionType.FORWARD },
-        { type: ActionType.DRAFT_MESSAGING_CHANNEL },
-        { type: ActionType.DRAFT_EMAIL },
-        { type: ActionType.SEND_EMAIL },
-        { type: ActionType.REPLY },
-      ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted.map((a) => a.type)).toEqual([
-        ActionType.DRAFT_EMAIL,
-        ActionType.DRAFT_MESSAGING_CHANNEL,
-        ActionType.REPLY,
-        ActionType.SEND_EMAIL,
-        ActionType.FORWARD,
-      ]);
+    it.each([
+      {
+        name: "LABEL before ARCHIVE",
+        actions: [{ type: ActionType.ARCHIVE }, { type: ActionType.LABEL }],
+        expected: [ActionType.LABEL, ActionType.ARCHIVE],
+      },
+      {
+        name: "ARCHIVE before REPLY",
+        actions: [{ type: ActionType.REPLY }, { type: ActionType.ARCHIVE }],
+        expected: [ActionType.ARCHIVE, ActionType.REPLY],
+      },
+      {
+        name: "draft and email actions together",
+        actions: [
+          { type: ActionType.FORWARD },
+          { type: ActionType.DRAFT_MESSAGING_CHANNEL },
+          { type: ActionType.DRAFT_EMAIL },
+          { type: ActionType.SEND_EMAIL },
+          { type: ActionType.REPLY },
+        ],
+        expected: [
+          ActionType.DRAFT_EMAIL,
+          ActionType.DRAFT_MESSAGING_CHANNEL,
+          ActionType.REPLY,
+          ActionType.SEND_EMAIL,
+          ActionType.FORWARD,
+        ],
+      },
+    ])("sorts $name", ({ actions, expected }) => {
+      expectSortedActionTypes(actions, expected);
     });
 
     it("sorts CALL_WEBHOOK last among known types", () => {
@@ -48,8 +42,11 @@ describe("sortActionsByPriority", () => {
         { type: ActionType.LABEL },
         { type: ActionType.ARCHIVE },
       ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted[sorted.length - 1].type).toBe(ActionType.CALL_WEBHOOK);
+      expectSortedActionTypes(actions, [
+        ActionType.LABEL,
+        ActionType.ARCHIVE,
+        ActionType.CALL_WEBHOOK,
+      ]);
     });
   });
 
@@ -72,8 +69,7 @@ describe("sortActionsByPriority", () => {
         { type: ActionType.LABEL },
       ];
 
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted.map((a) => a.type)).toEqual([
+      expectSortedActionTypes(actions, [
         ActionType.LABEL,
         ActionType.MOVE_FOLDER,
         ActionType.ARCHIVE,
@@ -93,29 +89,28 @@ describe("sortActionsByPriority", () => {
   });
 
   describe("edge cases", () => {
-    it("handles empty array", () => {
-      const sorted = sortActionsByPriority([]);
-      expect(sorted).toEqual([]);
-    });
-
-    it("handles single action", () => {
-      const actions = [{ type: ActionType.LABEL }];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted).toEqual(actions);
-    });
-
-    it("handles already sorted array", () => {
-      const actions = [
-        { type: ActionType.LABEL },
-        { type: ActionType.ARCHIVE },
-        { type: ActionType.REPLY },
-      ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted.map((a) => a.type)).toEqual([
-        ActionType.LABEL,
-        ActionType.ARCHIVE,
-        ActionType.REPLY,
-      ]);
+    it.each([
+      {
+        name: "empty array",
+        actions: [],
+        expected: [],
+      },
+      {
+        name: "single action",
+        actions: [{ type: ActionType.LABEL }],
+        expected: [ActionType.LABEL],
+      },
+      {
+        name: "already sorted array",
+        actions: [
+          { type: ActionType.LABEL },
+          { type: ActionType.ARCHIVE },
+          { type: ActionType.REPLY },
+        ],
+        expected: [ActionType.LABEL, ActionType.ARCHIVE, ActionType.REPLY],
+      },
+    ])("handles $name", ({ actions, expected }) => {
+      expectSortedActionTypes(actions, expected);
     });
 
     it("handles duplicate action types", () => {
@@ -162,17 +157,16 @@ describe("sortActionsByPriority", () => {
 
   describe("NOTIFY_SENDER action type", () => {
     it("places NOTIFY_SENDER before CALL_WEBHOOK", () => {
-      // NOTIFY_SENDER is in the priority list, just before CALL_WEBHOOK
       const actions = [
         { type: ActionType.CALL_WEBHOOK },
         { type: ActionType.NOTIFY_SENDER },
         { type: ActionType.LABEL },
       ];
-      const sorted = sortActionsByPriority(actions);
-      // LABEL first, NOTIFY_SENDER second, CALL_WEBHOOK last
-      expect(sorted[0].type).toBe(ActionType.LABEL);
-      expect(sorted[1].type).toBe(ActionType.NOTIFY_SENDER);
-      expect(sorted[2].type).toBe(ActionType.CALL_WEBHOOK);
+      expectSortedActionTypes(actions, [
+        ActionType.LABEL,
+        ActionType.NOTIFY_SENDER,
+        ActionType.CALL_WEBHOOK,
+      ]);
     });
   });
 
@@ -183,9 +177,8 @@ describe("sortActionsByPriority", () => {
         { type: ActionType.DIGEST },
         { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
       ];
-      const sorted = sortActionsByPriority(actions);
 
-      expect(sorted.map((action) => action.type)).toEqual([
+      expectSortedActionTypes(actions, [
         ActionType.DIGEST,
         ActionType.NOTIFY_MESSAGING_CHANNEL,
         ActionType.MARK_SPAM,
@@ -193,3 +186,12 @@ describe("sortActionsByPriority", () => {
     });
   });
 });
+
+function expectSortedActionTypes(
+  actions: Array<{ type: ActionType }>,
+  expectedTypes: ActionType[],
+) {
+  expect(sortActionsByPriority(actions).map((action) => action.type)).toEqual(
+    expectedTypes,
+  );
+}

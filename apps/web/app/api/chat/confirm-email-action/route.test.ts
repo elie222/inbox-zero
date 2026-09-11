@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { addTestEmailAccountAuth } from "@/__tests__/helpers";
 import type { ConfirmAssistantEmailActionBody } from "@/utils/actions/assistant-chat.validation";
 
 const { mockConfirmAssistantEmailActionForAccount, mockGetEmailAccountWithAi } =
@@ -8,14 +8,21 @@ const { mockConfirmAssistantEmailActionForAccount, mockGetEmailAccountWithAi } =
     mockGetEmailAccountWithAi: vi.fn(),
   }));
 
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (_scope: string, handler: (request: Request) => Promise<Response>) =>
-    async (request: Request) =>
-      handler(request),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-vi.mock("@/utils/actions/assistant-chat", () => ({
+  return createWithEmailAccountTestMiddleware({
+    auth: {
+      userId: "user-1",
+      emailAccountId: "email-account-1",
+      email: "user@example.com",
+    },
+  });
+});
+
+vi.mock("@/utils/actions/assistant-chat-confirmation", () => ({
   confirmAssistantEmailActionForAccount:
     mockConfirmAssistantEmailActionForAccount,
 }));
@@ -35,15 +42,18 @@ describe("confirm email action route", () => {
   });
 
   it("returns 400 when the request body is malformed JSON", async () => {
-    const request = Object.assign(
+    const request = addTestEmailAccountAuth(
       new Request("http://localhost/api/chat/confirm-email-action", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: "{invalid",
       }),
       {
-        auth: { emailAccountId: "email-account-1" },
-        logger: createScopedLogger("test/confirm-email-action"),
+        auth: {
+          userId: "user-1",
+          emailAccountId: "email-account-1",
+          email: "user@example.com",
+        },
       },
     );
 
@@ -68,15 +78,18 @@ describe("confirm email action route", () => {
       success: true,
     });
 
-    const request = Object.assign(
+    const request = addTestEmailAccountAuth(
       new Request("http://localhost/api/chat/confirm-email-action", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       }),
       {
-        auth: { emailAccountId: "email-account-1" },
-        logger: createScopedLogger("test/confirm-email-action"),
+        auth: {
+          userId: "user-1",
+          emailAccountId: "email-account-1",
+          email: "user@example.com",
+        },
       },
     );
 

@@ -5,10 +5,8 @@ import { buildVercelEnvValues } from "./setup-vercel";
 describe("buildVercelEnvValues", () => {
   it("seeds required placeholders and target-specific base urls", () => {
     const llmEnv = {
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
-      ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
+      DEFAULT_LLMS: "openai:gpt-5.4-mini",
+      ECONOMY_LLMS: "openai:gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 
@@ -61,10 +59,8 @@ describe("buildVercelEnvValues", () => {
 
   it("marks generated secrets as sensitive and includes optional microsoft envs", () => {
     const llmEnv = {
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
-      ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
+      DEFAULT_LLMS: "openai:gpt-5.4-mini",
+      ECONOMY_LLMS: "openai:gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 
@@ -112,21 +108,33 @@ describe("buildVercelEnvValues", () => {
       ),
     ).toMatchObject({
       createValue: expect.any(Function),
-      sensitive: true,
+      sensitive: false,
     });
   });
 });
 
 describe("seedLlmPlaceholderCredentials", () => {
+  it("fills ollama placeholder credentials with the API base URL", () => {
+    const env = {};
+
+    seedLlmPlaceholderCredentials("ollama", env);
+
+    expect(env).toMatchObject({
+      DEFAULT_LLMS: "ollama:qwen3.5:4b",
+      ECONOMY_LLMS: "ollama:qwen3.5:4b",
+      OLLAMA_BASE_URL: "http://localhost:11434/api",
+      OLLAMA_MODEL: "qwen3.5:4b",
+    });
+  });
+
   it("fills bedrock placeholder credentials with defaults", () => {
-    const env = { DEFAULT_LLM_PROVIDER: "bedrock" };
+    const env = {};
 
     seedLlmPlaceholderCredentials("bedrock", env);
 
     expect(env).toMatchObject({
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
-      ECONOMY_LLM_PROVIDER: "bedrock",
-      ECONOMY_LLM_MODEL: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
+      ECONOMY_LLMS: "bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0",
       BEDROCK_ACCESS_KEY: "replace-me",
       BEDROCK_SECRET_KEY: "replace-me",
       BEDROCK_REGION: "us-west-2",
@@ -138,4 +146,33 @@ describe("seedLlmPlaceholderCredentials", () => {
       seedLlmPlaceholderCredentials("unknown-provider", {}),
     ).toThrowError("Unsupported LLM provider: unknown-provider");
   });
+});
+
+it("uses supported variable types for each Vercel environment", () => {
+  const values = buildVercelEnvValues({
+    baseUrl: "https://mail.example.com",
+    llmEnv: { LLM_API_KEY: "key" },
+  });
+  for (const key of [
+    "AUTH_SECRET",
+    "EMAIL_ENCRYPT_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+    "LLM_API_KEY",
+  ]) {
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "development",
+      )?.sensitive,
+    ).toBe(false);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "production",
+      )?.sensitive,
+    ).toBe(true);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "preview",
+      )?.sensitive,
+    ).toBe(true);
+  }
 });

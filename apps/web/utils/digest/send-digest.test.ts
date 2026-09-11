@@ -5,16 +5,15 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { sendDigest } from "./send-digest";
 import {
   resolveSlackRouteDestination,
   sendDigestToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
-import { sendDigestEmail } from "@inboxzero/resend";
+import { sendDigestEmail } from "@inboxzero/transactional-email";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),
@@ -23,11 +22,11 @@ vi.mock("@/utils/messaging/providers/slack/send", () => ({
 vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: vi.fn(),
 }));
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendDigestEmail: vi.fn(),
 }));
 
-const logger = createScopedLogger("send-digest-test");
+const logger = createTestLogger();
 
 const baseArgs = {
   emailAccountId: "email-account-1",

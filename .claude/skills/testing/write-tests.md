@@ -97,7 +97,7 @@ describe("yourFunction", () => {
 ### Step 3: Run Tests
 
 ```bash
-cd apps/web && pnpm test --run
+pnpm test path/to/file.test.ts
 ```
 
 Do NOT use sandbox for test commands.

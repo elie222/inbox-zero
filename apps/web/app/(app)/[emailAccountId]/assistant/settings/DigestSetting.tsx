@@ -13,18 +13,26 @@ import {
 } from "@/components/ui/dialog";
 import { Toggle } from "@/components/Toggle";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import { DigestSettingsForm } from "@/app/(app)/[emailAccountId]/settings/DigestSettingsForm";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { toggleDigestAction } from "@/utils/actions/settings";
 import { toastError } from "@/components/Toast";
 import { createCanonicalTimeOfDay } from "@/utils/schedule";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
 
 export function DigestSetting() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
 
   const enabled = data?.digestSchedule != null;
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
 
   const { execute: executeToggle } = useAction(
     toggleDigestAction.bind(null, data?.id ?? ""),
@@ -55,33 +63,43 @@ export function DigestSetting() {
     [data, mutate, executeToggle],
   );
 
+  const renderRight = () => {
+    if (isLoading || isLoadingPremium) {
+      return <Skeleton className="h-5 w-9" />;
+    }
+
+    if (!hasDigestAccess) {
+      return (
+        <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to enable daily digest emails." />
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        {enabled && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                Configure
+              </Button>
+            </DialogTrigger>
+            <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
+          </Dialog>
+        )}
+        <Toggle
+          name="digest-enabled"
+          enabled={enabled}
+          onChange={handleToggle}
+        />
+      </div>
+    );
+  };
+
   return (
     <SettingCard
       title="Digest"
       description="Get a daily summary of your newsletter emails."
-      right={
-        isLoading ? (
-          <Skeleton className="h-5 w-9" />
-        ) : (
-          <div className="flex items-center gap-2">
-            {enabled && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Configure
-                  </Button>
-                </DialogTrigger>
-                <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
-              </Dialog>
-            )}
-            <Toggle
-              name="digest-enabled"
-              enabled={enabled}
-              onChange={handleToggle}
-            />
-          </div>
-        )
-      }
+      right={renderRight()}
     />
   );
 }

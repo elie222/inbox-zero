@@ -4,7 +4,6 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { recordLabelRemovalLearning } from "./record-label-removal-learning";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));

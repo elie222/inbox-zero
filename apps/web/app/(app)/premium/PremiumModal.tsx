@@ -21,7 +21,8 @@ function EnterpriseFooter() {
       <div>
         <h3 className="font-semibold text-gray-900">Enterprise</h3>
         <p className="text-sm text-gray-600">
-          SSO, on-premise deployment, and dedicated support for large teams.
+          SSO, SCIM, on-premise deployment, and dedicated support for large
+          teams.
         </p>
       </div>
       <Button variant="outline" asChild>
@@ -34,13 +35,13 @@ function EnterpriseFooter() {
 export function usePremiumModal() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const openModal = () => setIsOpen(true);
+  const openModal = useCallback(() => setIsOpen(true), []);
 
   const PremiumModal = useCallback(() => {
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         {/* premium upgrade doesn't support dark mode yet as it appears on homepage */}
-        <DialogContent className="max-w-4xl bg-white">
+        <DialogContent className="max-w-6xl bg-white">
           <Pricing
             header={<PricingDialogHeader />}
             displayTiers={modalTiers}

@@ -2,21 +2,18 @@
 
 import { ExternalLinkIcon, MailIcon, TagsIcon } from "lucide-react";
 import Link from "next/link";
-import { getEmailUrlForMessage } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Tooltip } from "@/components/Tooltip";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
-import { Badge } from "@/components/ui/badge";
 import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
-import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
-
-const MAX_VISIBLE_LABELS = 2;
+import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
+import { LabelBadges } from "@/components/LabelBadges";
 
 export function EmailMessageCell({
   sender,
@@ -26,6 +23,7 @@ export function EmailMessageCell({
   threadId,
   messageId,
   hideViewEmailButton,
+  externalUrl,
   labelIds,
   filterReplyTrackerLabels,
   collapseLabels,
@@ -37,6 +35,7 @@ export function EmailMessageCell({
   threadId: string;
   messageId: string;
   hideViewEmailButton?: boolean;
+  externalUrl?: string;
   labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
   collapseLabels?: boolean;
@@ -56,10 +55,14 @@ export function EmailMessageCell({
     [labelIds, userLabels, filterReplyTrackerLabels, provider],
   );
 
-  const showIcons = !hideViewEmailButton && isGoogleProvider(provider);
-  const visibleLabels = labelsToDisplay?.slice(0, MAX_VISIBLE_LABELS) ?? [];
-  const overflowLabels = labelsToDisplay?.slice(MAX_VISIBLE_LABELS) ?? [];
-
+  const emailActions = getEmailMessageCellActions({
+    externalUrl,
+    hideViewEmailButton,
+    messageId,
+    provider,
+    threadId,
+    userEmail,
+  });
   return (
     <div className="min-w-0 break-words text-sm text-slate-700 dark:text-foreground">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -82,58 +85,37 @@ export function EmailMessageCell({
                 </Tooltip>
               </div>
             )
-          : visibleLabels.length > 0 && (
-              <div className="order-5 flex shrink-0 items-center gap-1 sm:order-3">
-                {visibleLabels.map((label) => (
-                  <Badge
-                    variant="outline"
-                    key={label.id}
-                    className="max-w-[140px] truncate font-normal text-muted-foreground"
-                  >
-                    {label.name}
-                  </Badge>
-                ))}
-                {overflowLabels.length > 0 && (
-                  <Tooltip
-                    content={overflowLabels.map((l) => l.name).join(", ")}
-                  >
-                    <span>
-                      <Badge
-                        variant="outline"
-                        className="font-normal text-muted-foreground"
-                      >
-                        +{overflowLabels.length}
-                      </Badge>
-                    </span>
-                  </Tooltip>
-                )}
-              </div>
+          : labelsToDisplay && (
+              <LabelBadges
+                labels={labelsToDisplay}
+                className="order-5 sm:order-3"
+              />
             )}
-        {showIcons && (
+        {emailActions && (
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">
-            <Link
-              className="hover:text-foreground"
-              href={getEmailUrlForMessage(
-                messageId,
-                threadId,
-                userEmail,
-                provider,
-              )}
-              target="_blank"
-              aria-label="Open in Gmail"
-            >
-              <ExternalLinkIcon className="h-4 w-4" />
-            </Link>
-            <Tooltip content="View email">
-              <button
-                type="button"
+            {emailActions.openUrl && (
+              <Link
                 className="hover:text-foreground"
-                onClick={() => showEmail({ threadId, messageId })}
-                aria-label="View email"
+                href={emailActions.openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open in email"
               >
-                <MailIcon className="h-4 w-4" />
-              </button>
-            </Tooltip>
+                <ExternalLinkIcon className="h-4 w-4" />
+              </Link>
+            )}
+            {emailActions.showViewEmailButton && (
+              <Tooltip content="View email">
+                <button
+                  type="button"
+                  className="hover:text-foreground"
+                  onClick={() => showEmail({ threadId, messageId })}
+                  aria-label="View email"
+                >
+                  <MailIcon className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            )}
           </div>
         )}
       </div>
@@ -182,6 +164,7 @@ export function EmailMessageCellWithData({
       }
       threadId={threadId}
       messageId={messageId}
+      externalUrl={firstMessage?.externalUrl}
       labelIds={firstMessage?.labelIds}
       hideViewEmailButton={emailNotFound || !!error}
     />

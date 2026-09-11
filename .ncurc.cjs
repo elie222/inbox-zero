@@ -1,5 +1,12 @@
+"use strict";
+
 module.exports = {
+  peer: true,
   reject: [
+    // 1.7 requires a SCIM connection configuration migration; keep the family aligned.
+    "better-auth",
+    "@better-auth/*",
+
     // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
     "jsdom",
 
@@ -39,6 +46,39 @@ module.exports = {
     // See https://github.com/dubinc/dub-ts/issues/301
     "dub",
 
+    // Keep the chat SDK family aligned with the Slack WebClient version to avoid
+    // bypassing Slack integration test API mocks.
+    "chat",
+    "@chat-adapter/slack",
+    "@chat-adapter/state-ioredis",
+    "@chat-adapter/state-memory",
+    "@chat-adapter/teams",
+    "@chat-adapter/telegram",
+    "@slack/web-api",
+
+    // Vite 8/Rolldown breaks TSX parsing in Vitest.
+    "vite",
+
+    // Keep aligned with BullMQ's ioredis dependency to avoid protected type
+    // mismatches when passing Redis connections into queues.
+    "ioredis",
+
+    // AI SDK v7-only provider lines; app remains on ai@6 / zod@3
+    "@openrouter/ai-sdk-provider",
+    "ollama-ai-provider-v2",
+
+    // TypeScript 7 is the native Go compiler without the classic Compiler API;
+    // stay on 6 until the monorepo tooling ecosystem is ready.
+    "typescript",
+
+    // @slack/web-api@7 depends on @slack/types ^2
+    "@slack/types",
+
     "@types/node",
+
+    // Ultracite 7.10+/Biome 2.5.6 enable mass useSortedKeys failures across the repo.
+    // Stay pinned until a dedicated formatting migration.
+    "ultracite",
+    "@biomejs/biome",
   ],
 };

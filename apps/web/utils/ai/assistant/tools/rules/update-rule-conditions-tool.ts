@@ -6,7 +6,12 @@ import { updateRuleConditionSchema } from "@/utils/actions/rule.validation";
 import { partialUpdateRule } from "@/utils/rule/rule";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildHiddenRuleNotFoundError,
+  buildVisibleOrgManagedRuleError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const updateRuleConditionsTool = ({
   email,
@@ -44,6 +49,7 @@ export const updateRuleConditionsTool = ({
             id: true,
             name: true,
             updatedAt: true,
+            organizationRuleId: true,
             emailAccount: {
               select: {
                 rulesRevision: true,
@@ -58,11 +64,11 @@ export const updateRuleConditionsTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
+        }
+
+        if (rule.organizationRuleId) {
+          return buildVisibleOrgManagedRuleError();
         }
 
         const staleReadError = validateRuleWasReadRecently({

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
@@ -11,6 +11,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { DateRange } from "react-day-picker";
 import {
   useBulkUnsubscribe,
   useBulkApprove,
@@ -18,6 +19,10 @@ import {
   useBulkArchive,
   useBulkDelete,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import {
+  UnsubscribeCelebrationDialog,
+  type UnsubscribeCelebration,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -91,6 +96,7 @@ export function BulkActions({
   newsletters,
   filter,
   totalCount,
+  dateRange,
 }: {
   selected: Map<string, boolean>;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
@@ -100,16 +106,27 @@ export function BulkActions({
   newsletters?: Newsletter[];
   filter: NewsletterFilterType;
   totalCount: number;
+  dateRange?: DateRange;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [autoArchiveDialogOpen, setAutoArchiveDialogOpen] = useState(false);
+  const [celebration, setCelebration] = useState<UnsubscribeCelebration | null>(
+    null,
+  );
 
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
   const { emailAccountId } = useAccount();
-  const { onBulkUnsubscribe } = useBulkUnsubscribe({
+  const onBulkUnsubscribeSuccess = useCallback((items: Newsletter[]) => {
+    if (items.length === 0) return;
+    setCelebration({
+      senderCount: items.length,
+      emailCount: items.reduce((sum, item) => sum + item.value, 0),
+    });
+  }, []);
+  const { onBulkUnsubscribe } = useBulkUnsubscribe<Newsletter>({
     hasUnsubscribeAccess,
     mutate,
     posthog,
@@ -117,6 +134,7 @@ export function BulkActions({
     emailAccountId,
     onDeselectItem: deselectItem,
     filter,
+    onSuccess: onBulkUnsubscribeSuccess,
   });
 
   const { onBulkApprove } = useBulkApprove({
@@ -171,9 +189,14 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
-  const allSelectedCanUnsubscribe = selectedNewsletters.every(
-    (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
-  );
+  // The selection map can hold senders no longer in the fetched rows (e.g.
+  // after a search or date-range change), so only offer unsubscribe when we
+  // have full rows to act on.
+  const allSelectedCanUnsubscribe =
+    selectedNewsletters.length > 0 &&
+    selectedNewsletters.every(
+      (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
+    );
 
   const hasUnsubscribeLinks = selectedNewsletters.some((n) =>
     getHttpUnsubscribeLink({ unsubscribeLink: n.unsubscribeLink }),
@@ -228,7 +251,7 @@ export function BulkActions({
                       icon={MailXIcon}
                       label={unsubscribeLabel}
                       showLabelOnMobile
-                      onClick={() => onBulkUnsubscribe(getSelectedValues())}
+                      onClick={() => onBulkUnsubscribe(selectedNewsletters)}
                     />
                   )}
                   <ActionButton
@@ -426,6 +449,12 @@ export function BulkActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UnsubscribeCelebrationDialog
+        celebration={celebration}
+        dateRange={dateRange}
+        onClose={() => setCelebration(null)}
+      />
 
       <PremiumModal />
     </>

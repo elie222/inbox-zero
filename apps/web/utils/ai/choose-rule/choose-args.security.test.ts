@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { getAction } from "@/__tests__/helpers";
 import {
@@ -7,8 +7,6 @@ import {
   mergeTemplateWithVars,
   parseTemplate,
 } from "./choose-args";
-
-vi.mock("server-only", () => ({}));
 
 describe("Template Variable Containment", () => {
   it("ignores AI-injected cc/bcc when only content has a template variable", () => {

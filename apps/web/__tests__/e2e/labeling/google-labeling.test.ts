@@ -17,7 +17,7 @@
  * - Clean up all test labels at the end
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
@@ -33,8 +33,6 @@ const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
 let _TEST_GMAIL_THREAD_ID = process.env.TEST_GMAIL_THREAD_ID;
 let _TEST_GMAIL_MESSAGE_ID = process.env.TEST_GMAIL_MESSAGE_ID;
-
-vi.mock("server-only", () => ({}));
 
 // Helper to ensure test IDs are available
 function getTestMessageId(): string {

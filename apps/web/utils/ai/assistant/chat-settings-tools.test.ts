@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  DigestStatus,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
@@ -22,7 +22,7 @@ vi.mock("@/utils/user/get", () => ({
   getUserPremium: vi.fn(),
 }));
 
-const logger = createScopedLogger("chat-settings-tools-test");
+const logger = createTestLogger();
 const mockGetUserPremium = vi.mocked(getUserPremium);
 const mockIsActivePremium = vi.mocked(isActivePremium);
 const slackRulesRoute = {
@@ -53,6 +53,7 @@ const baseAccountSnapshot = {
   followUpAwaitingReplyDays: 3,
   followUpNeedsReplyDays: 2,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     id: "digest-1",
     intervalDays: 1,
@@ -116,6 +117,12 @@ describe("chat settings tools", () => {
     prisma.automationJob.findUnique.mockResolvedValue(
       baseAccountSnapshot.automationJob,
     );
+    prisma.digestItem.count.mockResolvedValue(2);
+    prisma.digest.findFirst.mockResolvedValue({
+      status: DigestStatus.SENT,
+      sentAt: new Date("2026-02-20T09:05:00.000Z"),
+      updatedAt: new Date("2026-02-20T09:05:00.000Z"),
+    } as never);
   });
 
   it("returns writable and read-only capability metadata", async () => {
@@ -131,13 +138,19 @@ describe("chat settings tools", () => {
     const result = await toolInstance.execute({});
 
     expect(result).toMatchObject({
-      snapshotVersion: "2026-02-20",
+      snapshotVersion: "2026-07-30",
       account: {
         email: "user@example.com",
         provider: "google",
         timezone: "America/Los_Angeles",
       },
     });
+
+    expect(result.capabilities).not.toContainEqual(
+      expect.objectContaining({
+        path: "assistant.ruleExecutionRuntime",
+      }),
+    );
 
     const multiRuleCapability = result.capabilities.find(
       (capability) =>
@@ -159,12 +172,24 @@ describe("chat settings tools", () => {
       canWrite: false,
       value: {
         enabled: true,
+        combinesIncludedRules: true,
         schedule: {
           intervalDays: 1,
           occurrences: 1,
           daysOfWeek: 127,
           timeOfDay: "1970-01-01T09:00:00.000Z",
           nextOccurrenceAt: "2026-02-21T09:00:00.000Z",
+        },
+        delivery: {
+          emailEnabled: true,
+          destinationEmail: "user@example.com",
+          dispatchIntervalMinutes: 5,
+          estimatedNextDeliveryAt: "2026-02-21T09:00:00.000Z",
+          queuedItemCount: 2,
+          lastDelivery: {
+            status: DigestStatus.SENT,
+            occurredAt: "2026-02-20T09:05:00.000Z",
+          },
         },
         includedRules: [
           {
@@ -176,6 +201,9 @@ describe("chat settings tools", () => {
       },
     });
     expect(digestCapability?.reason).toContain("not yet exposed");
+    expect(digestCapability?.description).toContain(
+      "sent automatically to delivery.destinationEmail",
+    );
 
     const scheduledCheckInsCapability = result.capabilities.find(
       (capability) => capability.path === "assistant.scheduledCheckIns",
@@ -215,7 +243,7 @@ describe("chat settings tools", () => {
         ],
       },
       writePaths: [
-        "assistant.draftKnowledgeBase.upsert",
+        "assistant.draftKnowledgeBase.update",
         "assistant.draftKnowledgeBase.delete",
       ],
     });
@@ -293,6 +321,47 @@ describe("chat settings tools", () => {
       success: true,
     });
     expect(result.appliedChanges).toHaveLength(2);
+  });
+
+  it("normalizes a blank attachment filing prompt to null", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      filingPrompt: "File attachments by project.",
+    });
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.attachmentFiling.prompt",
+          value: "   ",
+        },
+      ],
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: {
+        filingPrompt: null,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      appliedChanges: [
+        {
+          path: "assistant.attachmentFiling.prompt",
+          previous: "File attachments by project.",
+          next: null,
+        },
+      ],
+    });
   });
 
   it("returns a validation error for invalid updateAssistantSettings payload values", async () => {
@@ -587,9 +656,9 @@ describe("chat settings tools", () => {
     });
   });
 
-  it("upserts and deletes draft knowledge base entries", async () => {
+  it("updates and deletes existing draft knowledge base entries", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.knowledge.upsert.mockResolvedValue({});
+    prisma.knowledge.update.mockResolvedValue({});
     prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
 
     const toolInstance = updateAssistantSettingsTool({
@@ -602,7 +671,7 @@ describe("chat settings tools", () => {
     await toolInstance.execute({
       changes: [
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Keep responses concise.",
@@ -618,19 +687,14 @@ describe("chat settings tools", () => {
       ],
     });
 
-    expect(prisma.knowledge.upsert).toHaveBeenCalledWith({
+    expect(prisma.knowledge.update).toHaveBeenCalledWith({
       where: {
         emailAccountId_title: {
           emailAccountId: "email-account-1",
           title: "Reply style",
         },
       },
-      create: {
-        emailAccountId: "email-account-1",
-        title: "Reply style",
-        content: "Use concise bullet points.\nKeep responses concise.",
-      },
-      update: {
+      data: {
         content: "Use concise bullet points.\nKeep responses concise.",
       },
     });
@@ -642,10 +706,10 @@ describe("chat settings tools", () => {
     });
   });
 
-  it("preserves operation order for delete then upsert on knowledge entries", async () => {
+  it("writes account and knowledge changes in one transaction", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.knowledge.upsert.mockResolvedValue({});
-    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
+    prisma.emailAccount.update.mockResolvedValue({});
+    prisma.knowledge.update.mockResolvedValue({});
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -654,7 +718,71 @@ describe("chat settings tools", () => {
       logger,
     });
 
-    await toolInstance.execute({
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.attachmentFiling.enabled",
+          value: true,
+        },
+        {
+          path: "assistant.draftKnowledgeBase.update",
+          value: {
+            title: "Reply style",
+            content: "Keep responses concise.",
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
+  });
+
+  it("rejects draft knowledge updates when the entry does not exist", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      knowledge: [],
+    });
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.draftKnowledgeBase.update",
+          value: {
+            title: "New note",
+            content: "Create this content.",
+          },
+          mode: "replace",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      error:
+        'Draft knowledge item "New note" does not exist. Use addToKnowledgeBase to create a new entry.',
+    });
+    expect(prisma.knowledge.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating an entry deleted earlier in the same batch", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
       changes: [
         {
           path: "assistant.draftKnowledgeBase.delete",
@@ -663,7 +791,7 @@ describe("chat settings tools", () => {
           },
         },
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Recreated entry.",
@@ -673,87 +801,12 @@ describe("chat settings tools", () => {
       ],
     });
 
-    expect(prisma.knowledge.deleteMany).toHaveBeenCalledTimes(1);
-    expect(prisma.knowledge.upsert).toHaveBeenCalledTimes(1);
-    expect(
-      prisma.knowledge.deleteMany.mock.invocationCallOrder[0],
-    ).toBeLessThan(prisma.knowledge.upsert.mock.invocationCallOrder[0]);
-    expect(prisma.knowledge.upsert).toHaveBeenCalledWith({
-      where: {
-        emailAccountId_title: {
-          emailAccountId: "email-account-1",
-          title: "Reply style",
-        },
-      },
-      create: {
-        emailAccountId: "email-account-1",
-        title: "Reply style",
-        content: "Recreated entry.",
-      },
-      update: {
-        content: "Recreated entry.",
-      },
+    expect(result).toEqual({
+      error:
+        'Draft knowledge item "Reply style" does not exist. Use addToKnowledgeBase to create a new entry.',
     });
-  });
-
-  it("preserves operation order for upsert-delete-upsert sequences", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.knowledge.upsert.mockResolvedValue({});
-    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
-
-    const toolInstance = updateAssistantSettingsTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      userId: "user-1",
-      logger,
-    });
-
-    await toolInstance.execute({
-      changes: [
-        {
-          path: "assistant.draftKnowledgeBase.upsert",
-          value: {
-            title: "Reply style",
-            content: "First update.",
-          },
-          mode: "replace",
-        },
-        {
-          path: "assistant.draftKnowledgeBase.delete",
-          value: {
-            title: "Reply style",
-          },
-        },
-        {
-          path: "assistant.draftKnowledgeBase.upsert",
-          value: {
-            title: "Reply style",
-            content: "Final update.",
-          },
-          mode: "replace",
-        },
-      ],
-    });
-
-    expect(prisma.knowledge.upsert).toHaveBeenCalledTimes(2);
-    expect(prisma.knowledge.deleteMany).toHaveBeenCalledTimes(1);
-
-    const [firstUpsertOrder, secondUpsertOrder] =
-      prisma.knowledge.upsert.mock.invocationCallOrder;
-    const [deleteOrder] = prisma.knowledge.deleteMany.mock.invocationCallOrder;
-
-    expect(firstUpsertOrder).toBeLessThan(deleteOrder);
-    expect(deleteOrder).toBeLessThan(secondUpsertOrder);
-
-    expect(prisma.knowledge.upsert.mock.calls[1][0]).toMatchObject({
-      create: {
-        title: "Reply style",
-        content: "Final update.",
-      },
-      update: {
-        content: "Final update.",
-      },
-    });
+    expect(prisma.knowledge.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.knowledge.update).not.toHaveBeenCalled();
   });
 
   it("returns a validation error for invalid loosely typed payload values", async () => {

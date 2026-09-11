@@ -3,7 +3,6 @@ import { verifyEmailAccountAccess } from "./verify";
 import { RedirectError } from "./redirect";
 import prisma from "@/utils/__mocks__/prisma";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(),

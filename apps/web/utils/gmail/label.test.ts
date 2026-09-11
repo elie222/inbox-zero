@@ -55,6 +55,32 @@ describe("createLabel conflict handling", () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it("returns existing nested label when the requested name uses punctuation separators", async () => {
+    const list = vi.fn().mockResolvedValue(
+      labelsResponse([
+        { id: "parent", name: "Projects", type: "user" },
+        {
+          id: "existing",
+          name: "Projects/Client updates",
+          type: "user",
+        },
+      ]),
+    );
+    const create = vi
+      .fn()
+      .mockRejectedValue(new Error("Label name exists or conflicts"));
+    const gmail = gmailClient({ create, list });
+
+    const label = await createLabel({
+      gmail,
+      name: "Projects-Client_updates",
+    });
+
+    expect(label.id).toBe("existing");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
   it("returns existing label when creation fails with Precondition check failed", async () => {
     const list = vi
       .fn()

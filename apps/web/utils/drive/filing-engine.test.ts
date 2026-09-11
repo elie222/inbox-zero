@@ -5,10 +5,10 @@ import {
   createMockEmailProvider,
   getMockParsedMessage,
 } from "@/__tests__/mocks/email-provider.mock";
-import { createScopedLogger } from "@/utils/logger";
+import { Prisma } from "@/generated/prisma/client";
+import { createTestLogger } from "@/__tests__/helpers";
 import { getFilableAttachments, processAttachment } from "./filing-engine";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/drive/provider", () => ({
   createDriveProviderWithRefresh: vi.fn(),
@@ -36,7 +36,7 @@ import {
 import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 
-const logger = createScopedLogger("filing-engine-test");
+const logger = createTestLogger();
 
 describe("processAttachment", () => {
   beforeEach(() => {
@@ -72,6 +72,7 @@ describe("processAttachment", () => {
         folderPath: data.folderPath,
       }),
     );
+    prisma.documentFiling.updateMany.mockResolvedValue({ count: 1 } as any);
     prisma.documentFiling.findFirst.mockResolvedValue(null);
 
     vi.mocked(extractTextFromDocument).mockResolvedValue({
@@ -105,6 +106,33 @@ describe("processAttachment", () => {
       }),
     );
     expect(sendAskNotification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { kind: "filed", confidence: 0.95, mock: () => sendFiledNotification },
+    { kind: "ask", confidence: 0.4, mock: () => sendAskNotification },
+  ])("passes the platform message id in sourceMessage for $kind notifications so Outlook can thread the reply", async ({
+    confidence,
+    mock,
+  }) => {
+    const { attachment, emailAccount, emailProvider, message } =
+      setupSuccessfulFiling({ confidence });
+
+    await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(mock()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceMessage: expect.objectContaining({
+          messageId: message.id,
+        }),
+      }),
+    );
   });
 
   it("skips filed confirmation emails when disabled", async () => {
@@ -197,6 +225,216 @@ describe("processAttachment", () => {
     expect(analyzeDocument).not.toHaveBeenCalled();
   });
 
+  it("does not download, analyze, or upload when a concurrent process already claimed the attachment", async () => {
+    const existingFiling = {
+      id: "filing-existing",
+      filename: "invoice.pdf",
+      folderPath: "Invoices",
+      fileId: "drive-file-existing",
+      status: "FILED",
+      wasAsked: false,
+      confidence: 0.95,
+      reasoning: "Already filed",
+      driveConnection: { provider: "google" },
+    };
+    prisma.documentFiling.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingFiling as any);
+    prisma.documentFiling.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: {
+          target: ["emailAccountId", "messageId", "attachmentId"],
+        },
+      }),
+    );
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      filing: {
+        id: "filing-existing",
+        filename: "invoice.pdf",
+        folderPath: "Invoices",
+        fileId: "drive-file-existing",
+        wasAsked: false,
+        confidence: 0.95,
+        provider: "google",
+      },
+      filingId: "filing-existing",
+    });
+    expect(emailProvider.getAttachment).not.toHaveBeenCalled();
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(analyzeDocument).not.toHaveBeenCalled();
+  });
+
+  it("continues filing when a duplicate claim conflict finds a stale claim that can be reclaimed", async () => {
+    prisma.documentFiling.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "filing-stale-processing",
+        filename: "invoice.pdf",
+        folderPath: "",
+        fileId: null,
+        status: "PROCESSING",
+        updatedAt: new Date(Date.now() - 60 * 60 * 1000),
+        wasAsked: false,
+        confidence: null,
+        reasoning: null,
+        driveConnection: { provider: "google" },
+      } as any);
+    prisma.documentFiling.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: {
+          target: ["emailAccountId", "messageId", "attachmentId"],
+        },
+      }),
+    );
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result.success).toBe(true);
+    expect(uploadFile).toHaveBeenCalled();
+    expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+      where: { id: "filing-stale-processing" },
+      data: expect.objectContaining({
+        status: "FILED",
+        fileId: "drive-file-1",
+      }),
+    });
+  });
+
+  it("does not download, analyze, or upload while a filing claim is fresh", async () => {
+    prisma.documentFiling.findFirst.mockResolvedValue({
+      id: "filing-processing",
+      filename: "invoice.pdf",
+      folderPath: "",
+      fileId: null,
+      status: "PROCESSING",
+      updatedAt: new Date(),
+      wasAsked: false,
+      confidence: null,
+      reasoning: null,
+      driveConnection: { provider: "google" },
+    } as any);
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Attachment is already being filed",
+      filingId: "filing-processing",
+    });
+    expect(emailProvider.getAttachment).not.toHaveBeenCalled();
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(analyzeDocument).not.toHaveBeenCalled();
+  });
+
+  it("reclaims a stale filing claim before downloading it", async () => {
+    prisma.documentFiling.findFirst.mockResolvedValue({
+      id: "filing-stale-processing",
+      filename: "invoice.pdf",
+      folderPath: "",
+      fileId: null,
+      status: "PROCESSING",
+      updatedAt: new Date(Date.now() - 60 * 60 * 1000),
+      wasAsked: false,
+      confidence: null,
+      reasoning: null,
+      driveConnection: { provider: "google" },
+    } as any);
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result.success).toBe(true);
+    expect(uploadFile).toHaveBeenCalled();
+    expect(prisma.documentFiling.create).not.toHaveBeenCalled();
+    expect(prisma.documentFiling.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "filing-stale-processing",
+        status: "PROCESSING",
+        updatedAt: { lte: expect.any(Date) },
+      },
+      data: expect.objectContaining({
+        reasoning: null,
+      }),
+    });
+    expect(prisma.documentFiling.updateMany).toHaveBeenCalledBefore(
+      emailProvider.getAttachment as any,
+    );
+  });
+
+  it("claims an attachment before downloading it", async () => {
+    const { attachment, emailAccount, emailProvider, message } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(prisma.documentFiling.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        attachmentId: attachment.attachmentId,
+        status: "PROCESSING",
+      }),
+    });
+    expect(prisma.documentFiling.create).toHaveBeenCalledBefore(
+      emailProvider.getAttachment as any,
+    );
+  });
+
   it("retries an error filing record without creating a duplicate row", async () => {
     prisma.documentFiling.findFirst.mockResolvedValue({
       id: "filing-error",
@@ -226,6 +464,19 @@ describe("processAttachment", () => {
     expect(uploadFile).toHaveBeenCalled();
     expect(analyzeDocument).toHaveBeenCalled();
     expect(prisma.documentFiling.create).not.toHaveBeenCalled();
+    expect(prisma.documentFiling.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "filing-error",
+        status: "ERROR",
+      },
+      data: expect.objectContaining({
+        reasoning: null,
+        status: "PROCESSING",
+      }),
+    });
+    expect(prisma.documentFiling.updateMany).toHaveBeenCalledBefore(
+      emailProvider.getAttachment as any,
+    );
     expect(prisma.documentFiling.update).toHaveBeenCalledWith({
       where: { id: "filing-error" },
       data: expect.objectContaining({
@@ -234,9 +485,112 @@ describe("processAttachment", () => {
       }),
     });
   });
+
+  it("does not duplicate expensive work when another retry already reclaimed an error filing", async () => {
+    prisma.documentFiling.findFirst
+      .mockResolvedValueOnce({
+        id: "filing-error",
+        filename: "invoice.pdf",
+        folderPath: "Invoices",
+        fileId: null,
+        status: "ERROR",
+        updatedAt: new Date(Date.now() - 60 * 60 * 1000),
+        wasAsked: false,
+        confidence: null,
+        reasoning: "Previous attempt failed",
+        driveConnection: { provider: "google" },
+      } as any)
+      .mockResolvedValueOnce({
+        id: "filing-error",
+        filename: "invoice.pdf",
+        folderPath: "",
+        fileId: null,
+        status: "PROCESSING",
+        updatedAt: new Date(),
+        wasAsked: false,
+        confidence: null,
+        reasoning: null,
+        driveConnection: { provider: "google" },
+      } as any);
+    prisma.documentFiling.updateMany.mockResolvedValueOnce({
+      count: 0,
+    } as any);
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Attachment is already being filed",
+      filingId: "filing-error",
+    });
+    expect(emailProvider.getAttachment).not.toHaveBeenCalled();
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(analyzeDocument).not.toHaveBeenCalled();
+  });
 });
 
 describe("getFilableAttachments", () => {
+  it("excludes inline images embedded in the email body", () => {
+    const documentAttachment = createAttachment({
+      attachmentId: "attachment-1",
+      filename: "receipt.pdf",
+      mimeType: "application/pdf",
+    });
+    const inlineImage = {
+      ...createAttachment({
+        attachmentId: "attachment-2",
+        filename: "signature-logo.png",
+        mimeType: "image/png",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'inline; filename="signature-logo.png"',
+        "content-id": "<signature-logo>",
+        "content-transfer-encoding": "base64",
+        "content-type": 'image/png; name="signature-logo.png"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment, inlineImage],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
+  it("keeps attachments when inline appears only in a disposition parameter", () => {
+    const documentAttachment = {
+      ...createAttachment({
+        attachmentId: "attachment-1",
+        filename: "inline-report.pdf",
+        mimeType: "application/pdf",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'attachment; filename="inline-report.pdf"',
+        "content-id": "",
+        "content-transfer-encoding": "base64",
+        "content-type": 'application/pdf; name="inline-report.pdf"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
   it("excludes calendar invite attachments", () => {
     const documentAttachment = createAttachment({
       attachmentId: "attachment-1",

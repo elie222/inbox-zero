@@ -15,6 +15,7 @@ import {
 import { List } from "@/components/List";
 import { differenceInDays, subDays } from "date-fns";
 import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function getRelativeDateLabel(days: number) {
   if (days === 1) return "Last day";
@@ -42,6 +43,7 @@ export function DatePickerWithRange({
   onSetDateDropdown,
 }: DatePickerWithRangeProps) {
   const now = useMemo(() => new Date(), []);
+  const isMobile = useIsMobile();
   const days =
     dateRange?.from && dateRange?.to
       ? differenceInDays(dateRange.to, dateRange.from)
@@ -78,14 +80,14 @@ export function DatePickerWithRange({
           <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
+      <PopoverContent className="w-auto max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-0">
         <Calendar
           initialFocus
           mode="range"
           defaultMonth={dateRange?.from}
           selected={dateRange}
           onSelect={onSetDateRange}
-          numberOfMonths={2}
+          numberOfMonths={isMobile ? 1 : 2}
           rightContent={
             <List
               value={

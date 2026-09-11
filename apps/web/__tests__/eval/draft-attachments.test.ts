@@ -13,15 +13,10 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 // pnpm test-ai eval/draft-attachments
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/draft-attachments
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/user/get", () => ({
-  getUserPremium: vi.fn().mockResolvedValue({
-    tier: "PLUS_MONTHLY",
-    lemonSqueezyRenewsAt: null,
-    stripeSubscriptionStatus: "active",
-  }),
+vi.mock("@/utils/premium/server", () => ({
+  checkHasAccess: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/drive/provider", () => ({
@@ -30,7 +25,7 @@ vi.mock("@/utils/drive/provider", () => ({
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({ evalName: "draft-attachments" });
 const logger = createScopedLogger("eval-draft-attachments");
 const recentDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

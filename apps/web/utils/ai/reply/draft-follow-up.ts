@@ -4,7 +4,7 @@ import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const logger = createScopedLogger("DraftFollowUp");
 
@@ -93,7 +93,10 @@ export async function aiDraftFollowUp({
     writingStyle,
   });
 
-  const modelOptions = getModel(emailAccount.user, "draft");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.DraftFollowUp,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

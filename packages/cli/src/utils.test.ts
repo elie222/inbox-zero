@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   generateSecret,
+  generateEncryptionSecrets,
   generateEnvFile,
+  getEnvFileName,
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
@@ -34,6 +36,22 @@ describe("generateSecret", () => {
   });
 });
 
+describe("getEnvFileName", () => {
+  it("should reject names with path traversal characters", () => {
+    expect(() => getEnvFileName("../../secrets")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+    expect(() => getEnvFileName("nested/config")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+  });
+
+  it("should build env file names for safe config names", () => {
+    expect(getEnvFileName()).toBe(".env");
+    expect(getEnvFileName("staging_1-prod")).toBe(".env.staging_1-prod");
+  });
+});
+
 describe("generateEnvFile", () => {
   const baseTemplate = `# Test template
 DATABASE_URL=placeholder
@@ -41,8 +59,11 @@ UPSTASH_REDIS_URL=placeholder
 AUTH_SECRET=
 GOOGLE_CLIENT_ID=
 MICROSOFT_CLIENT_ID=
-DEFAULT_LLM_PROVIDER=
-DEFAULT_LLM_MODEL=
+DEFAULT_LLMS=
+ECONOMY_LLMS=
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=
 `;
 
@@ -55,10 +76,8 @@ LLM_API_KEY=
     GOOGLE_CLIENT_SECRET: "google-secret",
     MICROSOFT_CLIENT_ID: "microsoft-id",
     MICROSOFT_CLIENT_SECRET: "microsoft-secret",
-    DEFAULT_LLM_PROVIDER: "anthropic",
-    DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
-    ECONOMY_LLM_PROVIDER: "anthropic",
-    ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
+    DEFAULT_LLMS: "anthropic:claude-sonnet-4-6",
+    ECONOMY_LLMS: "anthropic:claude-haiku-4-5-20251001",
     LLM_API_KEY: "sk-ant-xxx",
   };
 
@@ -75,6 +94,24 @@ LLM_API_KEY=
     );
     expect(result).toContain("AUTH_SECRET=secret123");
     expect(result).toContain("GOOGLE_CLIENT_ID=google-id");
+  });
+
+  it("should preserve replacement tokens and escape quoted values", () => {
+    const result = generateEnvFile({
+      env: {
+        DATABASE_URL: 'postgresql://user:$&"pa\\ss@db:5432/test',
+        AUTH_SECRET: "secret-$&-value",
+      },
+      useDockerInfra: false,
+      llmProvider: "anthropic",
+      template: "DATABASE_URL=placeholder\nAUTH_SECRET=old\n",
+    });
+
+    expect(result).toContain(
+      'DATABASE_URL="postgresql://user:$&\\"pa\\\\ss@db:5432/test"',
+    );
+    expect(result).toContain("AUTH_SECRET=secret-$&-value");
+    expect(result).not.toContain("AUTH_SECRET=secret-AUTH_SECRET=old-value");
   });
 
   it("should set Docker-specific values when useDockerInfra is true", () => {
@@ -124,15 +161,14 @@ WEB_PORT=
     });
 
     expect(result).toContain("LLM_API_KEY=sk-ant-xxx");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=anthropic");
+    expect(result).toContain("DEFAULT_LLMS=anthropic:claude-sonnet-4-6");
   });
 
   it("should handle OpenAI provider", () => {
     const openaiEnv: EnvConfig = {
       ...baseEnv,
       LLM_API_KEY: undefined,
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-4.1",
+      DEFAULT_LLMS: "openai:gpt-4.1",
       OPENAI_API_KEY: "sk-openai-xxx",
     };
 
@@ -144,14 +180,13 @@ WEB_PORT=
     });
 
     expect(result).toContain("LLM_API_KEY=sk-openai-xxx");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=openai");
+    expect(result).toContain("DEFAULT_LLMS=openai:gpt-4.1");
   });
 
   it("should handle Bedrock provider with multiple keys", () => {
     const bedrockEnv: EnvConfig = {
       ...baseEnv,
-      DEFAULT_LLM_PROVIDER: "bedrock",
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
       BEDROCK_ACCESS_KEY: "AKIA-xxx",
       BEDROCK_SECRET_KEY: "secret-xxx",
       BEDROCK_REGION: "us-west-2",
@@ -179,8 +214,7 @@ BEDROCK_REGION=
     const openaiCompatibleEnv: EnvConfig = {
       ...baseEnv,
       LLM_API_KEY: "lm-studio-key",
-      DEFAULT_LLM_PROVIDER: "openai-compatible",
-      DEFAULT_LLM_MODEL: "llama-3.2-3b-instruct",
+      DEFAULT_LLMS: "openai-compatible:llama-3.2-3b-instruct",
       OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
       OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     };
@@ -203,7 +237,9 @@ OPENAI_COMPATIBLE_MODEL=
     expect(result).toContain("OPENAI_COMPATIBLE_MODEL=llama-3.2-3b-instruct");
     expect(result).toContain("LLM_API_KEY=lm-studio-key");
     expect(result).not.toContain("OPENAI_COMPATIBLE_API_KEY=");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=openai-compatible");
+    expect(result).toContain(
+      "DEFAULT_LLMS=openai-compatible:llama-3.2-3b-instruct",
+    );
   });
 
   it("should handle commented lines in template", () => {
@@ -322,16 +358,19 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=
 # =============================================================================
 # LLM Configuration
 # =============================================================================
-DEFAULT_LLM_PROVIDER=
-DEFAULT_LLM_MODEL=
-ECONOMY_LLM_PROVIDER=
-ECONOMY_LLM_MODEL=
+DEFAULT_LLMS=
+ECONOMY_LLMS=
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=
 
 # =============================================================================
 # Redis
 # =============================================================================
 UPSTASH_REDIS_TOKEN=
+REDIS_URL= # used for subscriptions and BullMQ worker
+QUEUE_BACKEND= # bullmq | qstash | internal
 `;
 
     const fullEnv: EnvConfig = {
@@ -343,6 +382,7 @@ UPSTASH_REDIS_TOKEN=
         "postgresql://postgres:supersecretpassword123@db:5432/inboxzero",
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
       UPSTASH_REDIS_TOKEN: "redis-token-abc123",
+      QUEUE_BACKEND: "internal",
       // App
       NEXT_PUBLIC_BASE_URL: "https://mail.example.com",
       NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
@@ -364,10 +404,8 @@ UPSTASH_REDIS_TOKEN=
       MICROSOFT_TENANT_ID: "common",
       MICROSOFT_WEBHOOK_CLIENT_STATE: "webhook-state-hex",
       // LLM
-      DEFAULT_LLM_PROVIDER: "anthropic",
-      DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
-      ECONOMY_LLM_PROVIDER: "anthropic",
-      ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
+      DEFAULT_LLMS: "anthropic:claude-sonnet-4-6",
+      ECONOMY_LLMS: "anthropic:claude-haiku-4-5-20251001",
       LLM_API_KEY: "sk-ant-api-key-value",
     };
 
@@ -422,16 +460,19 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=webhook-state-hex
 # =============================================================================
 # LLM Configuration
 # =============================================================================
-DEFAULT_LLM_PROVIDER=anthropic
-DEFAULT_LLM_MODEL=claude-sonnet-4-6
-ECONOMY_LLM_PROVIDER=anthropic
-ECONOMY_LLM_MODEL=claude-haiku-4-5-20251001
+DEFAULT_LLMS=anthropic:claude-sonnet-4-6
+ECONOMY_LLMS=anthropic:claude-haiku-4-5-20251001
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=sk-ant-api-key-value
 
 # =============================================================================
 # Redis
 # =============================================================================
 UPSTASH_REDIS_TOKEN=redis-token-abc123
+REDIS_URL= # used for subscriptions and BullMQ worker
+QUEUE_BACKEND=internal
 `;
 
     expect(result).toBe(expectedOutput);
@@ -545,6 +586,19 @@ describe("updateEnvValue", () => {
     const result = updateEnvValue(content, "FOO", 'hello"world');
     expect(result).toContain('FOO="hello\\"world"');
   });
+
+  it("should preserve replacement tokens when updating values", () => {
+    const content = "FOO=old";
+    const result = updateEnvValue(content, "FOO", "new-$&-value");
+    expect(result).toBe("FOO=new-$&-value");
+  });
+
+  it("matches keys with regex metacharacters literally", () => {
+    const content = "FOO_BAR=old\nFOO.BAR=old";
+    const result = updateEnvValue(content, "FOO.BAR", "new");
+
+    expect(result).toBe("FOO_BAR=old\nFOO.BAR=new");
+  });
 });
 
 describe("redactValue", () => {
@@ -562,7 +616,9 @@ describe("redactValue", () => {
   });
 
   it("should show non-sensitive values in full", () => {
-    expect(redactValue("DEFAULT_LLM_PROVIDER", "anthropic")).toBe("anthropic");
+    expect(redactValue("DEFAULT_LLMS", "anthropic:claude-sonnet-4-6")).toBe(
+      "anthropic:claude-sonnet-4-6",
+    );
     expect(redactValue("NEXT_PUBLIC_BASE_URL", "http://localhost:3000")).toBe(
       "http://localhost:3000",
     );
@@ -596,7 +652,7 @@ describe("isSensitiveKey", () => {
   });
 
   it("should not flag non-sensitive keys", () => {
-    expect(isSensitiveKey("DEFAULT_LLM_PROVIDER")).toBe(false);
+    expect(isSensitiveKey("DEFAULT_LLMS")).toBe(false);
     expect(isSensitiveKey("NEXT_PUBLIC_BASE_URL")).toBe(false);
   });
 });
@@ -629,4 +685,42 @@ describe("parsePortConflict", () => {
     expect(parsePortConflict("network timeout")).toBeNull();
     expect(parsePortConflict("")).toBeNull();
   });
+});
+
+describe("setup encryption secrets", () => {
+  it("preserves existing encryption material when reconfiguring", () => {
+    const existing = parseEnvFile(
+      'EMAIL_ENCRYPT_SECRET="existing#secret" # keep\nEMAIL_ENCRYPT_SALT=existing-salt # keep',
+    );
+    expect(generateEncryptionSecrets(existing)).toEqual({
+      EMAIL_ENCRYPT_SECRET: "existing#secret",
+      EMAIL_ENCRYPT_SALT: "existing-salt",
+    });
+  });
+
+  it("generates missing material for a fresh installation", () => {
+    expect(generateEncryptionSecrets({})).toEqual({
+      EMAIL_ENCRYPT_SECRET: expect.stringMatching(/^[a-f0-9]{64}$/),
+      EMAIL_ENCRYPT_SALT: expect.stringMatching(/^[a-f0-9]{32}$/),
+    });
+  });
+
+  it("ignores inline comments when reusing a database password", () => {
+    expect(
+      parseEnvFile("POSTGRES_PASSWORD=password # change this for production")
+        .POSTGRES_PASSWORD,
+    ).toBe("password");
+  });
+});
+
+it("preserves hashes in unquoted Compose database passwords", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD=abc#def # comment").POSTGRES_PASSWORD,
+  ).toBe("abc#def");
+});
+
+it("keeps a commented empty database password empty", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD= # set a password").POSTGRES_PASSWORD,
+  ).toBe("");
 });

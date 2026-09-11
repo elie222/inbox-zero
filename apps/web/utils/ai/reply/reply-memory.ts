@@ -3,25 +3,31 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   extractDomainFromEmail,
   extractEmailAddress,
   isPublicEmailDomain,
+  messageRepliesToSourceSender,
 } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
+import { stripForwardedContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
+import { selectReplyMemoriesForEmail } from "./select-reply-memories";
 import { aiSummarizeLearnedWritingStyle } from "./summarize-learned-writing-style";
 
 const REPLY_MEMORY_RETENTION_DAYS = 7;
 const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 16;
 const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 8;
-const MAX_RETRIEVED_REPLY_MEMORIES = 6;
-const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
+// Candidate pool sizes for AI relevance selection. Wider than the injected
+// cap so relevant older memories can still surface.
+const MAX_SCOPED_MEMORY_CANDIDATES = 10;
+const MAX_BROAD_MEMORY_CANDIDATES = 100;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
   ReplyMemoryKind.PROCEDURE,
@@ -133,34 +139,13 @@ export async function syncReplyMemoriesFromDraftSendLogs({
   }
 }
 
-export async function getReplyMemoryContent({
-  emailAccountId,
-  senderEmail,
-  emailContent,
-  logger,
-}: {
-  emailAccountId: string;
-  senderEmail: string;
-  emailContent: string;
-  logger: Logger;
-}): Promise<string | null> {
-  const result = await getReplyMemoriesForPrompt({
-    emailAccountId,
-    senderEmail,
-    emailContent,
-    logger,
-  });
-
-  return result.content;
-}
-
 export async function getReplyMemoriesForPrompt({
-  emailAccountId,
+  emailAccount,
   senderEmail,
   emailContent,
   logger,
 }: {
-  emailAccountId: string;
+  emailAccount: EmailAccountWithAI;
   senderEmail: string;
   emailContent: string;
   logger: Logger;
@@ -168,19 +153,28 @@ export async function getReplyMemoriesForPrompt({
   content: string | null;
   selectedMemories: Array<Pick<ReplyMemory, "id" | "kind" | "scopeType">>;
 }> {
+  const emailAccountId = emailAccount.id;
+
   try {
     const normalizedSenderEmail = senderEmail.trim().toLowerCase();
     const senderDomain = extractDomainFromEmail(
       normalizedSenderEmail,
     ).toLowerCase();
     const normalizedEmailContent = emailContent.trim().toLowerCase();
-    const [senderMemories, domainMemories, globalMemories] = await Promise.all([
+    const [
+      senderMemories,
+      domainMemories,
+      globalMemories,
+      recentTopicMemories,
+      matchingTopicMemories,
+    ] = await Promise.all([
       normalizedSenderEmail
         ? fetchReplyMemoriesByScope({
             emailAccountId,
             kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: normalizedSenderEmail,
+            take: MAX_SCOPED_MEMORY_CANDIDATES,
           })
         : Promise.resolve([]),
       senderDomain && !isPublicEmailDomain(senderDomain)
@@ -189,40 +183,55 @@ export async function getReplyMemoriesForPrompt({
             kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
             scopeType: ReplyMemoryScopeType.DOMAIN,
             scopeValue: senderDomain,
+            take: MAX_SCOPED_MEMORY_CANDIDATES,
           })
         : Promise.resolve([]),
       fetchReplyMemoriesByScope({
         emailAccountId,
         kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
         scopeType: ReplyMemoryScopeType.GLOBAL,
+        take: MAX_BROAD_MEMORY_CANDIDATES,
       }),
+      fetchReplyMemoriesByScope({
+        emailAccountId,
+        kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        take: MAX_BROAD_MEMORY_CANDIDATES,
+      }),
+      normalizedEmailContent
+        ? prisma.$queryRaw<ReplyMemory[]>`
+            SELECT *
+            FROM "ReplyMemory"
+            WHERE "emailAccountId" = ${emailAccountId}
+              AND (
+                "kind" = CAST(${ReplyMemoryKind.FACT} AS "ReplyMemoryKind")
+                OR "kind" = CAST(${ReplyMemoryKind.PROCEDURE} AS "ReplyMemoryKind")
+              )
+              AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
+              AND "scopeValue" <> ''
+              AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
+            ORDER BY LENGTH("scopeValue") DESC, "updatedAt" DESC
+            LIMIT ${MAX_SCOPED_MEMORY_CANDIDATES}
+          `
+        : Promise.resolve([]),
     ]);
 
-    const topicMemories = normalizedEmailContent
-      ? await prisma.$queryRaw<ReplyMemory[]>`
-          SELECT *
-          FROM "ReplyMemory"
-          WHERE "emailAccountId" = ${emailAccountId}
-            AND (
-              "kind" = CAST(${ReplyMemoryKind.FACT} AS "ReplyMemoryKind")
-              OR "kind" = CAST(${ReplyMemoryKind.PROCEDURE} AS "ReplyMemoryKind")
-            )
-            AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
-            AND "scopeValue" <> ''
-            AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
-          ORDER BY LENGTH("scopeValue") DESC, "updatedAt" DESC
-          LIMIT ${MAX_RETRIEVED_TOPIC_REPLY_MEMORIES}
-        `
-      : [];
-
-    const selected = dedupeReplyMemories(
+    const candidates = dedupeReplyMemories(
       sortReplyMemories([
         ...senderMemories,
         ...domainMemories,
+        ...matchingTopicMemories,
+        ...recentTopicMemories,
         ...globalMemories,
-        ...topicMemories,
       ]),
-    ).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
+    );
+
+    const selected = await selectReplyMemoriesForEmail({
+      prioritizedCandidates: candidates,
+      emailContent,
+      emailAccount,
+      logger,
+    });
 
     if (!selected.length) {
       return {
@@ -297,20 +306,26 @@ async function processReplyMemoryDraftSendLog({
   const emailAccountId =
     draftSendLog.executedAction.executedRule.emailAccountId;
   const draftText = draftSendLog.executedAction.content ?? "";
+  const sentText = stripForwardedContent(
+    draftSendLog.replyMemorySentText ?? "",
+  );
 
-  const incomingMessage = await provider
-    .getMessage(sourceMessageId)
-    .catch((error) => {
+  const [incomingMessage, sentMessage] = await Promise.all([
+    provider.getMessage(sourceMessageId).catch((error) => {
       logger.warn("Failed to load source message for reply memory learning", {
         error,
         sourceMessageId,
       });
       return null;
-    });
-
-  const senderEmail = extractEmailAddress(incomingMessage?.headers.from || "");
-  const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
-  const normalizedSenderEmail = senderEmail.toLowerCase();
+    }),
+    provider.getMessage(draftSendLog.sentMessageId).catch((error) => {
+      logger.warn("Failed to load sent message for reply memory learning", {
+        error,
+        sentMessageId: draftSendLog.sentMessageId,
+      });
+      return null;
+    }),
+  ]);
 
   if (!incomingMessage) {
     logger.warn(
@@ -323,6 +338,38 @@ async function processReplyMemoryDraftSendLog({
     await recordDraftSendLogReplyMemoryFailure(draftSendLog);
     return;
   }
+
+  if (!sentMessage) {
+    logger.warn(
+      "Retrying reply memory extraction after sent email lookup failed",
+      {
+        draftSendLogId: draftSendLog.id,
+        sentMessageId: draftSendLog.sentMessageId,
+      },
+    );
+    await recordDraftSendLogReplyMemoryFailure(draftSendLog);
+    return;
+  }
+
+  if (
+    messageRepliesToSourceSender({
+      sentMessage,
+      sourceMessage: incomingMessage,
+    }) === false
+  ) {
+    logger.info(
+      "Skipping reply memory extraction because sent message did not reply to source sender",
+      {
+        draftSendLogId: draftSendLog.id,
+      },
+    );
+    await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
+    return;
+  }
+
+  const senderEmail = extractEmailAddress(incomingMessage.headers.from || "");
+  const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
+  const normalizedSenderEmail = senderEmail.toLowerCase();
 
   if (!senderEmail) {
     logger.warn(
@@ -383,11 +430,11 @@ async function processReplyMemoryDraftSendLog({
       ? getEmailForLLM(incomingMessage, {
           maxLength: 2500,
           extractReply: true,
-          removeForwarded: false,
+          removeForwarded: true,
         }).content
       : "",
     draftText,
-    sentText: draftSendLog.replyMemorySentText ?? "",
+    sentText,
     senderEmail: normalizedSenderEmail,
     existingMemories,
     writingStyle: writingContext?.writingStyle ?? null,
@@ -545,11 +592,13 @@ async function fetchReplyMemoriesByScope({
   kinds,
   scopeType,
   scopeValue,
+  take,
 }: {
   emailAccountId: string;
   kinds: ReplyMemoryKind[];
   scopeType: ReplyMemoryScopeType;
   scopeValue?: string;
+  take: number;
 }) {
   return prisma.replyMemory.findMany({
     where: {
@@ -559,7 +608,7 @@ async function fetchReplyMemoriesByScope({
       ...(scopeValue !== undefined ? { scopeValue } : {}),
     },
     orderBy: { updatedAt: "desc" },
-    take: MAX_RETRIEVED_REPLY_MEMORIES,
+    take,
   });
 }
 

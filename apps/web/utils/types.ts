@@ -29,10 +29,8 @@ export type BatchError = {
   };
 };
 
-export function isBatchError(
-  message: MessageWithPayload | BatchError,
-): message is BatchError {
-  return (message as BatchError).error !== undefined;
+export function isBatchError<T>(item: T | BatchError): item is BatchError {
+  return (item as BatchError).error !== undefined;
 }
 
 export type MessageWithPayload = {
@@ -54,13 +52,16 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
 export interface ParsedMessage {
   attachments?: Attachment[];
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
+  calendarContent?: string;
   conversationIndex?: string | null;
   date: string;
+  externalUrl?: string;
   headers: ParsedMessageHeaders;
   historyId: string;
   id: string;
   inline: Inline[];
   internalDate?: string | null;
+  isMeetingInvitation?: boolean;
   labelIds?: string[];
   parentFolderId?: string;
   // For Outlook: store raw recipient data to avoid double conversion
@@ -86,6 +87,7 @@ export interface Attachment {
 
 interface Headers {
   "content-description": string;
+  "content-disposition"?: string;
   "content-id": string;
   "content-transfer-encoding": string;
   "content-type": string;

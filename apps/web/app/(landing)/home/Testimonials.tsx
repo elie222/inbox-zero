@@ -2,7 +2,8 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import Script from "next/script";
+import NextScript from "next/script";
+import type { ComponentType } from "react";
 import { useTestimonialsVariant } from "@/hooks/useFeatureFlags";
 import { BRAND_NAME } from "@/utils/branding";
 
@@ -24,6 +25,11 @@ const featuredTestimonial = {
     logoUrl: "/images/logos/resend.svg",
   },
 };
+
+const ExternalScript = NextScript as unknown as ComponentType<{
+  src: string;
+  strategy: "lazyOnload";
+}>;
 
 const stevenTestimonial: Testimonial = {
   body: "Love this new open-source app by @elie2222: getinboxzero.com",
@@ -298,7 +304,7 @@ function TestimonialsContent() {
 function SenjaWidgetContent() {
   return (
     <div className="mt-16">
-      <Script
+      <ExternalScript
         src="https://widget.senja.io/widget/321e14fc-aa08-41f8-8dfd-ed3cd75d1308/platform.js"
         strategy="lazyOnload"
       />

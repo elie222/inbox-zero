@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
@@ -17,10 +18,9 @@ import type {
   UpdateRuleTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
 import type {
-  UpdateRuleStateOutput,
-  UpdateRuleStateTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
-import type { ManageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
+  DeleteRuleOutput,
+  DeleteRuleTool,
+} from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -64,12 +64,13 @@ import { InlineEmailCard } from "@/components/assistant-chat/inline-email-card";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/Badge";
+import { Badge, type Color } from "@/components/Badge";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
+import { decodeHtmlEntities } from "@/utils/gmail/decode";
 import { getEmailSearchUrl, getEmailUrlForOptionalMessage } from "@/utils/url";
 import {
   isManageInboxAction,
@@ -80,15 +81,37 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
+type LegacyRuleStateInput = {
+  ruleName: string;
+  operation?: "enable" | "disable" | "delete";
+};
+
+type LegacyRuleStateOutput = DeleteRuleOutput & {
+  operation?: "enable" | "disable" | "delete";
+  enabled?: boolean;
+  previousEnabled?: boolean;
+};
 import {
   RuleSummaryCard,
   RuleSummaryCardHeader,
   RuleSummaryLabel,
   RuleSummaryRow,
+  RuleSummaryText,
 } from "@/components/assistant-chat/rule-summary-card";
 import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
 
 export type ThreadLookup = EmailLookup;
+
+type ManageInboxResultInput = {
+  action?: string;
+  categoryName?: string | null;
+  fromEmails?: string[] | null;
+  label?: string | null;
+  labelName?: string | null;
+  read?: boolean | null;
+  threadIds?: string[] | null;
+};
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
@@ -190,6 +213,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
       snippet: string;
       date: string;
       isUnread: boolean;
+      externalUrl?: string;
     }>
   >(output, "messages");
 
@@ -219,7 +243,7 @@ export function ManageInboxResult({
   threadLookup,
   isInProgress = false,
 }: {
-  input?: ManageInboxTool["input"];
+  input?: ManageInboxResultInput;
   output: unknown;
   threadIds?: string[];
   threadLookup: ThreadLookup;
@@ -413,9 +437,11 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   const content = getOutputField<string>(output, "content");
   const messageId = getOutputField<string>(output, "messageId");
   const threadId = getOutputField<string>(output, "threadId");
+  const outputExternalUrl = getOutputField<string>(output, "externalUrl");
   const externalUrl = getExternalMessageUrl({
     messageId,
     threadId,
+    externalUrl: outputExternalUrl,
     userEmail,
     provider,
   });
@@ -586,7 +612,7 @@ function EmailActionResult({
   const recipient =
     to || (actionType === "reply_email" ? referenceFrom : undefined);
   const referenceSubject = getPendingString(reference, "subject");
-  const displaySubject = subject || referenceSubject;
+  const displaySubject = decodeHtmlEntities(subject || referenceSubject);
   const body = getActionBodyText({ actionType, pendingAction });
   const [editedBody, setEditedBody] = useState(body || "");
 
@@ -703,7 +729,9 @@ function EmailActionResult({
             <div className="space-y-2">
               <Textarea
                 value={editedBody}
-                onChange={(e) => setEditedBody(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                  setEditedBody(e.target.value)
+                }
                 className="min-h-[140px] resize-y text-sm leading-relaxed"
               />
               <div className="flex justify-end gap-2">
@@ -812,25 +840,35 @@ export function CreatedRuleToolCard({
   args,
   ruleId,
   preview,
+  status,
 }: {
   args: CreateRuleTool["input"];
   ruleId?: string;
   preview?: boolean;
+  status?: "created" | "pending";
 }) {
   const conditionText = buildConditionText(args.condition);
+  const isCreated = status ? status === "created" : Boolean(ruleId);
 
   return (
     <RuleSummaryCard
       title={args.name}
+      status={
+        <RuleStatusBadge
+          label={isCreated ? "Created" : "Pending"}
+          color={isCreated ? "green" : "yellow"}
+        />
+      }
       actions={
-        <>
-          {ruleId && <RuleActions ruleId={ruleId} />}
-          {preview && <RuleActionsPreview />}
-        </>
+        preview ? (
+          <RuleActionsPreview />
+        ) : ruleId ? (
+          <RuleActions ruleId={ruleId} />
+        ) : null
       }
     >
       <RuleSummaryRow label="When">
-        <p>{conditionText}</p>
+        <RuleSummaryText>{conditionText}</RuleSummaryText>
       </RuleSummaryRow>
 
       <RuleSummaryRow label="Then">
@@ -1156,8 +1194,9 @@ export function UpdatedRuleConditions({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={args.ruleName}
+        status={<RuleStatusBadge label="Updated" color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1166,7 +1205,7 @@ export function UpdatedRuleConditions({
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
           <FieldLabel className="pt-0.5">When</FieldLabel>
-          <p>{conditionText}</p>
+          <RuleSummaryText>{conditionText}</RuleSummaryText>
         </div>
 
         {actions && actions.length > 0 && (
@@ -1222,8 +1261,9 @@ export function UpdatedRuleActions({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={args.ruleName}
+        status={<RuleStatusBadge label="Updated" color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1233,7 +1273,7 @@ export function UpdatedRuleActions({
         {conditionText && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">When</FieldLabel>
-            <p>{conditionText}</p>
+            <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
@@ -1267,15 +1307,40 @@ export function UpdatedRule({
 }) {
   const ruleId = output.ruleId;
   const title = output.updatedName || args.updates.name || args.ruleName;
-  const conditionText = args.updates.condition
-    ? buildConditionText(args.updates.condition)
+  const conditionText = output.updatedConditions
+    ? buildConditionText(
+        output.currentRule?.conditions ||
+          mergeUpdatedConditionsForDisplay({
+            originalConditions: output.originalConditions,
+            updatedConditions: output.updatedConditions,
+          }),
+      )
     : null;
-  const actions = args.updates.actions;
+  const actions = output.updatedActions;
+  const nameChanged =
+    output.originalName &&
+    output.updatedName &&
+    output.originalName !== output.updatedName;
+  const enabledChanged =
+    output.originalEnabled !== undefined &&
+    output.updatedEnabled !== undefined &&
+    output.originalEnabled !== output.updatedEnabled;
+  const onlyEnabledChanged =
+    enabledChanged &&
+    !nameChanged &&
+    !output.updatedConditions &&
+    !output.updatedActions;
+  const status = getRuleUpdateStatus({
+    alreadyApplied: output.alreadyApplied,
+    onlyEnabledChanged,
+    updatedEnabled: output.updatedEnabled,
+  });
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={title}
+        status={<RuleStatusBadge label={status.label} color={status.color} />}
         actions={
           preview ? (
             <RuleActionsPreview />
@@ -1286,24 +1351,24 @@ export function UpdatedRule({
       />
 
       <CardContent className="space-y-3 px-4 py-3.5">
-        {args.updates.name && (
+        {nameChanged && output.updatedName && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">Name</FieldLabel>
-            <p>{args.updates.name}</p>
+            <p>{output.updatedName}</p>
           </div>
         )}
 
         {conditionText && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">When</FieldLabel>
-            <p>{conditionText}</p>
+            <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
-        {args.updates.enabled !== undefined && (
+        {enabledChanged && output.updatedEnabled !== undefined && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">Status</FieldLabel>
-            <p>{args.updates.enabled ? "Enabled" : "Disabled"}</p>
+            <p>{output.updatedEnabled ? "Enabled" : "Disabled"}</p>
           </div>
         )}
 
@@ -1314,17 +1379,15 @@ export function UpdatedRule({
           </div>
         )}
 
-        {output.originalName &&
-          output.updatedName &&
-          output.originalName !== output.updatedName && (
-            <ViewChangesCollapsible>
-              <CollapsibleDiffContent
-                title="Name:"
-                originalText={output.originalName}
-                updatedText={output.updatedName}
-              />
-            </ViewChangesCollapsible>
-          )}
+        {nameChanged && output.originalName && output.updatedName && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Name:"
+              originalText={output.originalName}
+              updatedText={output.updatedName}
+            />
+          </ViewChangesCollapsible>
+        )}
       </CardContent>
     </Card>
   );
@@ -1355,7 +1418,11 @@ export function UpdatedLearnedPatterns({
 
   return (
     <Card>
-      <RuleToolCardHeader title={args.ruleName} actions={actions} />
+      <RuleSummaryCardHeader
+        title={args.ruleName}
+        status={<RuleStatusBadge label="Patterns updated" color="blue" />}
+        actions={actions}
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
@@ -1385,8 +1452,8 @@ export function UpdatedRuleState({
   output,
   preview,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: LegacyRuleStateInput;
+  output: LegacyRuleStateOutput;
   preview?: boolean;
 }) {
   const ruleId = output.ruleId;
@@ -1396,8 +1463,11 @@ export function UpdatedRuleState({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={ruleName}
+        status={
+          <RuleStatusBadge label={label} color={enabled ? "green" : "gray"} />
+        }
         actions={
           preview ? (
             <RuleActionsPreview enabled={enabled} />
@@ -1421,8 +1491,8 @@ export function PendingDeleteRuleToolCard({
   output,
   disableConfirm,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
   disableConfirm: boolean;
 }) {
   const { emailAccountId } = useAccount();
@@ -1432,7 +1502,6 @@ export function PendingDeleteRuleToolCard({
   );
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   const handleDelete = async () => {
     if (!ruleId) {
@@ -1471,9 +1540,6 @@ export function PendingDeleteRuleToolCard({
           <Badge color="green" className="shrink-0">
             Deleted
           </Badge>
-        )}
-        {!deleted && ruleId && (
-          <RuleEditToggleActions ruleId={ruleId} initialEnabled={wasEnabled} />
         )}
       </CardHeader>
 
@@ -1518,12 +1584,11 @@ export function PendingDeleteRulePreviewCard({
   args,
   output,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
 }) {
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   return (
     <Card>
@@ -1540,7 +1605,6 @@ export function PendingDeleteRulePreviewCard({
             Deleted
           </Badge>
         )}
-        {!deleted && <RuleEditToggleActionsPreview enabled={wasEnabled} />}
       </CardHeader>
 
       {!deleted && (
@@ -1779,14 +1843,31 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
   );
 }
 
-function RuleToolCardHeader({
-  title,
-  actions,
+function RuleStatusBadge({ label, color }: { label: string; color: Color }) {
+  return (
+    <Badge color={color} className="shrink-0 text-[10px]">
+      {label}
+    </Badge>
+  );
+}
+
+function getRuleUpdateStatus({
+  alreadyApplied,
+  onlyEnabledChanged,
+  updatedEnabled,
 }: {
-  title: string;
-  actions: React.ReactNode;
-}) {
-  return <RuleSummaryCardHeader title={title} actions={actions} />;
+  alreadyApplied: boolean | undefined;
+  onlyEnabledChanged: boolean;
+  updatedEnabled: boolean | undefined;
+}): { label: string; color: Color } {
+  if (alreadyApplied) return { label: "Already applied", color: "gray" };
+
+  if (onlyEnabledChanged) {
+    return updatedEnabled
+      ? { label: "Enabled", color: "green" }
+      : { label: "Disabled", color: "gray" };
+  }
+  return { label: "Updated", color: "blue" };
 }
 
 function ExpandedToolCard({
@@ -1870,6 +1951,7 @@ function CollapsibleDiffContent({
 function parseManageInboxAction(
   action: string | undefined,
 ): ManageInboxAction | undefined {
+  if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
 }
 
@@ -1903,6 +1985,9 @@ export function getManageInboxActionLabel({
   }
   if (action === "label_threads") {
     return inProgress ? "Labeling emails" : "Labeled emails";
+  }
+  if (action === "remove_label_threads") {
+    return inProgress ? "Removing labels" : "Removed labels";
   }
   if (action === "mark_read_threads") {
     if (inProgress) {
@@ -2052,7 +2137,7 @@ function getActionBodyText({
     return htmlToText(messageHtml);
   }
 
-  return getPendingString(pendingAction, "content");
+  return decodeHtmlEntities(getPendingString(pendingAction, "content"));
 }
 
 function getEmailActionLabel(actionType: PendingEmailActionType) {
@@ -2076,14 +2161,19 @@ function getAssistantEmailSuccessMessage(actionType: PendingEmailActionType) {
 function getExternalMessageUrl({
   messageId,
   threadId,
+  externalUrl,
   userEmail,
   provider,
 }: {
   messageId?: string;
   threadId?: string;
+  externalUrl?: string;
   userEmail?: string | null;
   provider?: string;
 }) {
+  if (externalUrl) return externalUrl;
+  if (provider === "microsoft") return null;
+
   return getEmailUrlForOptionalMessage({
     messageId,
     threadId,
@@ -2092,14 +2182,15 @@ function getExternalMessageUrl({
   });
 }
 
-function htmlToText(html: string) {
-  return html
+export function htmlToText(html: string) {
+  const strippedText = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/[<>]/g, "")
+    .replace(/[<>]/g, "");
+
+  return decodeHtmlEntities(strippedText)
+    .replace(/\u00a0/g, " ")
     .replace(/ {2,}/g, " ")
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -2190,6 +2281,7 @@ type ToolEmailRow = {
   snippet?: string;
   date: string;
   isUnread: boolean;
+  externalUrl?: string;
 };
 
 function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
@@ -2210,6 +2302,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
         snippet: email.snippet || "",
         date: email.date,
         isUnread: email.isUnread,
+        externalUrl: email.externalUrl,
       },
     ]),
   );
@@ -2225,7 +2318,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
   );
 }
 
-function buildConditionText(condition: {
+type ConditionTextInput = {
   aiInstructions?: string | null;
   static?: {
     from?: string | null;
@@ -2233,7 +2326,9 @@ function buildConditionText(condition: {
     subject?: string | null;
   } | null;
   conditionalOperator?: string | null;
-}): string {
+};
+
+function buildConditionText(condition: ConditionTextInput): string {
   const parts: string[] = [];
   if (condition.aiInstructions) parts.push(condition.aiInstructions);
   if (condition.static) {
@@ -2246,6 +2341,44 @@ function buildConditionText(condition: {
     if (staticParts.length > 0) parts.push(staticParts.join(", "));
   }
   return parts.join(` ${condition.conditionalOperator || "AND"} `);
+}
+
+function mergeUpdatedConditionsForDisplay({
+  originalConditions,
+  updatedConditions,
+}: {
+  originalConditions: UpdateRuleOutput["originalConditions"];
+  updatedConditions: NonNullable<UpdateRuleOutput["updatedConditions"]>;
+}) {
+  let staticCondition: ConditionTextInput["static"] =
+    originalConditions?.static;
+  if ("static" in updatedConditions) {
+    staticCondition =
+      updatedConditions.static === null
+        ? null
+        : {
+            ...(originalConditions?.static || {}),
+            ...(updatedConditions.static || {}),
+          };
+  }
+
+  let aiInstructions = originalConditions?.aiInstructions;
+  if ("aiInstructions" in updatedConditions) {
+    aiInstructions = updatedConditions.aiInstructions;
+  } else if (updatedConditions.clearAiInstructions) {
+    aiInstructions = null;
+  }
+
+  const conditionalOperator =
+    updatedConditions.conditionalOperator != null
+      ? updatedConditions.conditionalOperator
+      : originalConditions?.conditionalOperator;
+
+  return {
+    aiInstructions,
+    static: staticCondition,
+    conditionalOperator,
+  };
 }
 
 function formatActionsForDiff(

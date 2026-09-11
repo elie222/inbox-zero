@@ -1,13 +1,27 @@
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { ExecutedRuleStatus, ActionType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
+import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
+import { flushLoggerSafely } from "@/utils/logger-flush";
+import {
+  getActionResultError,
+  getSentMessageIds,
+  isActionResultSkipped,
+  normalizeActionExecutionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "ai-execute-act";
 
@@ -18,6 +32,7 @@ type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
 type ActionFailure = {
   type: ActionType;
   errorCode: string;
+  errorMessage: string;
 };
 
 export async function executeAct({
@@ -45,6 +60,31 @@ export async function executeAct({
 
   for (const action of executedRule.actionItems) {
     try {
+      if (
+        shouldSkipAutomatedArchiveForSender({
+          actionType: action.type,
+          from: message.headers.from,
+        })
+      ) {
+        log.info("Skipping automated archive for protected company sender", {
+          actionId: action.id,
+        });
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SKIPPED,
+          error: null,
+          logger: log,
+        });
+        continue;
+      }
+
+      if (isSendingActionType(action.type)) {
+        await prisma.executedAction.update({
+          where: { id: action.id },
+          data: { executionStartedAt: new Date() },
+        });
+      }
+
       const actionResult = await runActionFunction({
         client,
         email: message,
@@ -54,9 +94,37 @@ export async function executeAct({
         logger: log,
       });
 
-      const actionFailure = getActionFailure(action.type, actionResult);
-      if (actionFailure) {
-        actionFailures.push(actionFailure);
+      if (isActionResultSkipped(actionResult)) {
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SKIPPED,
+          error: null,
+          logger: log,
+        });
+        continue;
+      }
+
+      const actionResultError = getActionResultError(action.type, actionResult);
+      if (actionResultError) {
+        actionFailures.push({
+          type: action.type,
+          errorCode: actionResultError.code,
+          errorMessage: actionResultError.message,
+        });
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.FAILED,
+          error: actionResultError,
+          logger: log,
+        });
+      } else {
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SUCCEEDED,
+          error: null,
+          sentMessageIds: getSentMessageIds(actionResult),
+          logger: log,
+        });
       }
 
       const draftId =
@@ -70,8 +138,19 @@ export async function executeAct({
           draftId,
           logger,
         });
+      } else if (action.type === ActionType.DRAFT_EMAIL) {
+        log.warn("Draft action completed without a draft ID", {
+          actionId: action.id,
+        });
       }
     } catch (error) {
+      await persistExecutedActionOutcome({
+        actionId: action.id,
+        status: ExecutedActionStatus.FAILED,
+        error: normalizeActionExecutionError(error),
+        sentMessageIds: getSentMessageIds(error),
+        logger: log,
+      });
       await logErrorWithDedupe({
         logger: log,
         message: "Error executing action",
@@ -81,6 +160,12 @@ export async function executeAct({
           emailAccountId: emailAccount.id,
           actionType: action.type,
         },
+      });
+      await flushLoggerSafely(log, {
+        action: "executeAct",
+        flushReason: "action-error",
+        executedRuleId: executedRule.id,
+        actionType: action.type,
       });
       await prisma.executedRule.update({
         where: { id: executedRule.id },
@@ -137,35 +222,6 @@ async function updateExecutedRuleOrThrow({
     log.error("Failed to update executed rule", { error });
     throw error;
   }
-}
-
-function getActionFailure(
-  actionType: ActionType,
-  actionResult: unknown,
-): ActionFailure | null {
-  if (actionType !== ActionType.NOTIFY_SENDER) return null;
-
-  if (
-    !actionResult ||
-    typeof actionResult !== "object" ||
-    !("success" in actionResult)
-  ) {
-    return null;
-  }
-
-  if (actionResult.success !== false) return null;
-
-  if (!("errorCode" in actionResult)) {
-    return { type: actionType, errorCode: "UNKNOWN_NOTIFY_FAILURE" };
-  }
-
-  return {
-    type: actionType,
-    errorCode:
-      typeof actionResult.errorCode === "string"
-        ? actionResult.errorCode
-        : "UNKNOWN_NOTIFY_FAILURE",
-  };
 }
 
 function buildFailureReason(

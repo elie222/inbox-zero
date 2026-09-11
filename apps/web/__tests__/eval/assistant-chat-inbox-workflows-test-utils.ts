@@ -1,7 +1,7 @@
 import type { ModelMessage } from "ai";
 import { beforeEach, vi } from "vitest";
 import {
-  captureAssistantChatToolCalls,
+  captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall as getSharedLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -11,10 +11,9 @@ import { shouldRunEvalTests } from "@/__tests__/eval/models";
 import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-
-vi.mock("server-only", () => ({}));
 
 export const shouldRunEval = shouldRunEvalTests();
 export const TIMEOUT = 120_000;
@@ -31,12 +30,10 @@ export const inboxWorkflowProviders = [
   {
     provider: "google",
     label: "google",
-    unreadSignal: "is:unread",
   },
   {
     provider: "microsoft",
     label: "microsoft",
-    unreadSignal: "unread",
   },
 ] as const;
 
@@ -51,6 +48,8 @@ const writeToolNames = new Set([
   "sendEmail",
   "replyEmail",
   "forwardEmail",
+  "createOrGetFolder",
+  "moveThreadsToFolder",
   "saveMemory",
   "addToKnowledgeBase",
 ]);
@@ -78,6 +77,9 @@ const hoisted = vi.hoisted(() => ({
   mockArchiveThreadWithLabel: vi.fn(),
   mockMarkReadThread: vi.fn(),
   mockBulkArchiveFromSenders: vi.fn(),
+  mockGetFolders: vi.fn(),
+  mockGetOrCreateFolderIdByName: vi.fn(),
+  mockMoveThreadToFolder: vi.fn(),
 }));
 
 const {
@@ -93,6 +95,11 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export { mockArchiveThreadWithLabel };
+export const mockGetFolders = hoisted.mockGetFolders;
+export const mockGetOrCreateFolderIdByName =
+  hoisted.mockGetOrCreateFolderIdByName;
+export const mockMoveThreadToFolder = hoisted.mockMoveThreadToFolder;
 
 vi.mock("@/utils/rule/rule", () => ({
   createRule: hoisted.mockCreateRule,
@@ -123,13 +130,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 export function setupInboxWorkflowEval() {
   beforeEach(() => {
@@ -177,6 +186,19 @@ export function setupInboxWorkflowEval() {
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
     });
+    mockGetFolders.mockResolvedValue(getDefaultFolders());
+    mockGetOrCreateFolderIdByName.mockImplementation(async (folderName) => {
+      const folder = flattenFolders(getDefaultFolders()).find(
+        (candidate) =>
+          candidate.displayName.toLowerCase() ===
+            String(folderName).trim().toLowerCase() ||
+          candidate.path.toLowerCase() ===
+            String(folderName).trim().toLowerCase(),
+      );
+
+      return folder?.id ?? "folder-created";
+    });
+    mockMoveThreadToFolder.mockResolvedValue(undefined);
 
     mockGetMessage.mockImplementation(async (messageId: string) =>
       getMessageById(messageId),
@@ -189,6 +211,9 @@ export function setupInboxWorkflowEval() {
       archiveThreadWithLabel: mockArchiveThreadWithLabel,
       markReadThread: mockMarkReadThread,
       bulkArchiveFromSenders: mockBulkArchiveFromSenders,
+      getFolders: mockGetFolders,
+      getOrCreateFolderIdByName: mockGetOrCreateFolderIdByName,
+      moveThreadToFolder: mockMoveThreadToFolder,
       getMessagesWithPagination: vi.fn().mockResolvedValue({
         messages: [],
         nextPageToken: undefined,
@@ -206,7 +231,7 @@ export async function runAssistantChat({
   messages: ModelMessage[];
   inboxStats?: { total: number; unread: number } | null;
 }) {
-  const toolCalls = await captureAssistantChatToolCalls({
+  const trace = await captureAssistantChatTrace({
     messages,
     emailAccount,
     inboxStats,
@@ -214,14 +239,25 @@ export async function runAssistantChat({
   });
 
   return {
-    toolCalls,
-    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    toolCalls: trace.toolCalls,
+    finalText: trace.finalText,
+    actual: summarizeRecordedToolCalls(trace.toolCalls, summarizeToolCall),
   };
 }
 
 export function getFirstSearchInboxCall(toolCalls: RecordedToolCall[]) {
   return getFirstMatchingToolCall(toolCalls, "searchInbox", isSearchInboxInput)
     ?.input;
+}
+
+export function getSearchInboxCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls
+    .filter(
+      (toolCall): toolCall is RecordedToolCall & { input: SearchInboxInput } =>
+        toolCall.toolName === "searchInbox" &&
+        isSearchInboxInput(toolCall.input),
+    )
+    .map((toolCall) => toolCall.input);
 }
 
 export const getLastMatchingToolCall = getSharedLastMatchingToolCall;
@@ -246,6 +282,7 @@ export function isManageInboxThreadActionInput(
 
   return (
     (value.action === "archive_threads" ||
+      value.action === "trash_threads" ||
       value.action === "mark_read_threads") &&
     Array.isArray(value.threadIds)
   );
@@ -271,31 +308,32 @@ export function hasNoWriteToolCalls(toolCalls: RecordedToolCall[]) {
 }
 
 export function hasUnreadTriageSignal(
-  query: string,
+  searchCall: SearchInboxInput,
   provider: "google" | "microsoft",
-  unreadSignal: string,
 ) {
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = searchCall.query.toLowerCase();
 
   if (provider === "microsoft") {
     return (
-      /\bunread\b/.test(normalizedQuery) &&
+      (searchCall.readState === "unread" ||
+        /\bunread\b/.test(normalizedQuery)) &&
       !containsForbiddenMicrosoftQueryOperator(normalizedQuery)
     );
   }
 
-  return normalizedQuery.includes(unreadSignal);
+  return normalizedQuery.includes("is:unread");
 }
 
 export function hasReplyTriageFocus(
-  query: string,
+  searchCall: SearchInboxInput,
   provider: "google" | "microsoft",
 ) {
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = searchCall.query.toLowerCase();
   if (provider === "microsoft") {
     return (
       !containsForbiddenMicrosoftQueryOperator(normalizedQuery) &&
-      ["reply", "respond"].some((term) => normalizedQuery.includes(term))
+      (searchCall.categoryName?.toLowerCase() === "to reply" ||
+        ["reply", "respond"].some((term) => normalizedQuery.includes(term)))
     );
   }
 
@@ -378,6 +416,8 @@ type SearchInboxInput = {
   query: string;
   limit?: number;
   pageToken?: string | null;
+  categoryName?: string | null;
+  readState?: "read" | "unread" | null;
 };
 
 type ReadEmailInput = {
@@ -385,7 +425,7 @@ type ReadEmailInput = {
 };
 
 type ManageInboxThreadActionInput = {
-  action: "archive_threads" | "mark_read_threads";
+  action: "archive_threads" | "trash_threads" | "mark_read_threads";
   threadIds: string[];
 };
 
@@ -404,7 +444,17 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
 
 function summarizeToolCall(toolCall: RecordedToolCall) {
   if (isSearchInboxInput(toolCall.input)) {
-    return `${toolCall.toolName}(query=${toolCall.input.query}, limit=${toolCall.input.limit ?? "default"})`;
+    const fields = [
+      `query=${toolCall.input.query}`,
+      `limit=${toolCall.input.limit ?? "default"}`,
+    ];
+    if (toolCall.input.readState) {
+      fields.push(`readState=${toolCall.input.readState}`);
+    }
+    if (toolCall.input.categoryName) {
+      fields.push(`categoryName=${toolCall.input.categoryName}`);
+    }
+    return `${toolCall.toolName}(${fields.join(", ")})`;
   }
 
   return toolCall.toolName;
@@ -421,6 +471,43 @@ function getDefaultLabels() {
     { id: "Label_To Reply", name: "To Reply" },
     { id: "Label_FYI", name: "FYI" },
   ];
+}
+
+function getDefaultFolders() {
+  return [
+    {
+      id: "folder-operations",
+      displayName: "Operations",
+      childFolderCount: 1,
+      childFolders: [
+        {
+          id: "folder-operations-reports",
+          displayName: "Reports",
+          childFolderCount: 0,
+          childFolders: [],
+        },
+      ],
+    },
+    {
+      id: "folder-vendor-updates",
+      displayName: "Vendor Updates",
+      childFolderCount: 0,
+      childFolders: [],
+    },
+  ];
+}
+
+function flattenFolders(
+  folders: ReturnType<typeof getDefaultFolders>,
+  parentPath?: string,
+): Array<ReturnType<typeof getDefaultFolders>[number] & { path: string }> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
+      : folder.displayName;
+
+    return [{ ...folder, path }, ...flattenFolders(folder.childFolders, path)];
+  });
 }
 
 function getDefaultSearchMessages() {

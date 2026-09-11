@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const createRuleMock = vi.hoisted(() => vi.fn());
 
@@ -11,17 +11,14 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
   };
 });
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "owner@example.com" } })),
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  confirmAssistantCreateRule,
-  confirmAssistantCreateRuleForAccount,
-} from "@/utils/actions/assistant-chat";
+import { confirmAssistantCreateRule } from "@/utils/actions/assistant-chat";
+import { confirmAssistantCreateRuleForAccount } from "@/utils/actions/assistant-chat-confirmation";
 
 function buildPendingCreateRulePart({
   output,
@@ -114,7 +111,7 @@ describe("confirmAssistantCreateRule", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("assistant-chat-create-rule.test"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -227,7 +224,7 @@ describe("confirmAssistantCreateRule", () => {
   });
 
   it("returns an error when confirmation persistence fails", async () => {
-    const logger = createScopedLogger("assistant-chat-create-rule.test");
+    const logger = createTestLogger();
 
     prisma.chatMessage.findFirst.mockResolvedValue({
       id: "cm-1",
@@ -258,7 +255,7 @@ describe("confirmAssistantCreateRule", () => {
   });
 
   it("does not clear processing when a newer confirmed state already exists", async () => {
-    const logger = createScopedLogger("assistant-chat-create-rule.test");
+    const logger = createTestLogger();
     const pendingPart = buildPendingCreateRulePart();
     const processingAt = "2026-02-23T00:01:00.000Z";
     const processingPart = buildPendingCreateRulePart({
@@ -332,5 +329,49 @@ describe("confirmAssistantCreateRule", () => {
       (storedMessage.parts[0] as { output: { confirmationState: string } })
         .output.confirmationState,
     ).toBe("confirmed");
+  });
+
+  it("returns the confirmed rule when another request wins the reservation race", async () => {
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce({
+        id: "cm-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingCreateRulePart()],
+      } as never)
+      .mockResolvedValueOnce({
+        id: "cm-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [
+          buildPendingCreateRulePart({
+            output: {
+              confirmationState: "confirmed",
+              ruleId: "rule-created-by-other-request",
+              confirmationResult: {
+                ruleId: "rule-created-by-other-request",
+                confirmedAt: "2026-02-23T00:01:00.000Z",
+              },
+            },
+          }),
+        ],
+      } as never);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    const result = await confirmAssistantCreateRuleForAccount({
+      chatId: "chat-1",
+      chatMessageId: "cm-1",
+      toolCallId: "tool-cr-1",
+      emailAccountId: "ea_1",
+      provider: "google",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toMatchObject({
+      confirmationState: "confirmed",
+      ruleId: "rule-created-by-other-request",
+    });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(createRuleMock).not.toHaveBeenCalled();
   });
 });

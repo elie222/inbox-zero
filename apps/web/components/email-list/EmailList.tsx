@@ -23,14 +23,15 @@ import {
 import { runAiRules } from "@/utils/queue/email-actions";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import {
-  archiveEmails,
-  deleteEmails,
-  markReadThreads,
-} from "@/store/archive-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import {
+  applyMailMutationOverlayToThreads,
+  useRetainedMailMutationOverlay,
+} from "@/hooks/useMailMutationOverlay";
+import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
 
 export function List({
   emails,
@@ -42,7 +43,7 @@ export function List({
 }: {
   emails: Thread[];
   type?: string;
-  refetch: (options?: { removedThreadIds?: string[] }) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => Promise<unknown>;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
@@ -145,10 +146,10 @@ export function List({
 }
 
 export function EmailList({
-  threads = [],
+  threads: sourceThreads = [],
   emptyMessage,
   hideActionBarWhenEmpty,
-  refetch = () => {},
+  refetch,
   showLoadMore,
   isLoadingMore,
   handleLoadMore,
@@ -156,12 +157,32 @@ export function EmailList({
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch?: (options?: { removedThreadIds?: string[] }) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => Promise<unknown>;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
   const { emailAccountId, userEmail, provider } = useAccount();
+  const reconcile = useCallback(() => refetch(), [refetch]);
+  const {
+    isReady: mutationOverlayReady,
+    mutations,
+    retainMutations,
+  } = useRetainedMailMutationOverlay({
+    emailAccountId,
+    onReconcile: reconcile,
+  });
+  const threads = useMemo(
+    () =>
+      mutationOverlayReady
+        ? applyMailMutationOverlayToThreads({
+            getEmailAccountId: () => emailAccountId,
+            mutations,
+            threads: sourceThreads,
+          })
+        : [],
+    [emailAccountId, mutationOverlayReady, mutations, sourceThreads],
+  );
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
@@ -207,20 +228,14 @@ export function EmailList({
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      const threadIds = [thread.id];
       toast.promise(
         async () => {
-          await new Promise<void>((resolve, reject) => {
-            archiveEmails({
-              threadIds,
-              onSuccess: () => {
-                refetch({ removedThreadIds: [thread.id] });
-                resolve();
-              },
-              onError: reject,
-              emailAccountId,
-            });
+          const queued = await enqueueThreadMailMutationBatch({
+            emailAccountId,
+            payload: { kind: "archive" },
+            threads: [thread],
           });
+          retainMutations(queued.mutations);
         },
         {
           loading: "Archiving...",
@@ -229,7 +244,7 @@ export function EmailList({
         },
       );
     },
-    [refetch, emailAccountId],
+    [emailAccountId, retainMutations],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -283,21 +298,16 @@ export function EmailList({
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const threadIds = Object.entries(selectedRows)
-          .filter(([, selected]) => selected)
-          .map(([id]) => id);
-
-        await new Promise<void>((resolve, reject) => {
-          archiveEmails({
-            threadIds,
-            onSuccess: () => {
-              refetch({ removedThreadIds: threadIds });
-              resolve();
-            },
-            onError: reject,
-            emailAccountId,
-          });
+        const selectedThreads = threads.filter(
+          (thread) => selectedRows[thread.id],
+        );
+        const queued = await enqueueThreadMailMutationBatch({
+          emailAccountId,
+          payload: { kind: "archive" },
+          threads: selectedThreads,
         });
+        retainMutations(queued.mutations);
+        setSelectedRows({});
       },
       {
         loading: "Archiving emails...",
@@ -305,26 +315,21 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [selectedRows, refetch, emailAccountId]);
+  }, [emailAccountId, retainMutations, selectedRows, threads]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const threadIds = Object.entries(selectedRows)
-          .filter(([, selected]) => selected)
-          .map(([id]) => id);
-
-        await new Promise<void>((resolve, reject) => {
-          deleteEmails({
-            threadIds,
-            onSuccess: () => {
-              refetch({ removedThreadIds: threadIds });
-              resolve();
-            },
-            onError: reject,
-            emailAccountId,
-          });
+        const selectedThreads = threads.filter(
+          (thread) => selectedRows[thread.id],
+        );
+        const queued = await enqueueThreadMailMutationBatch({
+          emailAccountId,
+          payload: { kind: "trash" },
+          threads: selectedThreads,
         });
+        retainMutations(queued.mutations);
+        setSelectedRows({});
       },
       {
         loading: "Deleting emails...",
@@ -332,7 +337,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, refetch, emailAccountId]);
+  }, [emailAccountId, retainMutations, selectedRows, threads]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -341,8 +346,7 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(emailAccountId, selectedThreads, false);
-        // runAiRules(threadIds, () => refetch(threadIds));
+        await runAiRules(emailAccountId, selectedThreads, false);
       },
       {
         success: "Running AI rules...",
@@ -353,12 +357,20 @@ export function EmailList({
 
   const isEmpty = threads.length === 0;
 
+  if (!mutationOverlayReady) return null;
+
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
         <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
-            <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+            <Checkbox
+              label={
+                isAllSelected ? "Deselect all emails" : "Select all emails"
+              }
+              checked={isAllSelected}
+              onChange={onToggleSelectAll}
+            />
           </div>
           <div className="ml-2">
             <ActionButtonsBulk
@@ -406,7 +418,7 @@ export function EmailList({
         <ResizeGroup
           left={
             <ul
-              className="divide-y divide-border overflow-y-auto scroll-smooth"
+              className="h-full min-w-0 divide-y divide-border overflow-x-hidden overflow-y-auto scroll-smooth"
               ref={listRef}
             >
               {threads.map((thread) => {
@@ -416,11 +428,19 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads({
-                    threadIds: [thread.id],
-                    onSuccess: () => refetch(),
-                    emailAccountId,
-                  });
+                  if (isThreadUnread(thread.messages)) {
+                    enqueueThreadMailMutationBatch({
+                      emailAccountId,
+                      payload: { kind: "set_read_state", read: true },
+                      threads: [thread],
+                    })
+                      .then((queued) => retainMutations(queued.mutations))
+                      .catch(() => {
+                        toast.error(
+                          "Couldn't queue marking this email as read",
+                        );
+                      });
+                  }
                 };
 
                 return (
@@ -498,11 +518,19 @@ function ResizeGroup({
 }) {
   const isMobile = useIsMobile();
 
-  if (!right) return left;
+  if (!right) return <div className="min-h-0 flex-1">{left}</div>;
 
   return (
-    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
+    <ResizablePanelGroup
+      className="min-h-0 flex-1"
+      direction={isMobile ? "vertical" : "horizontal"}
+    >
+      <ResizablePanel
+        style={{ overflow: "auto" }}
+        defaultSize={50}
+        minSize={0}
+        className="min-w-0"
+      >
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />

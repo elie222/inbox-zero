@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const { mockChargeRetrieve, mockPaymentIntentRetrieve, mockInvoiceRetrieve } =
   vi.hoisted(() => ({
@@ -23,7 +23,7 @@ vi.mock("@/ee/billing/stripe", () => ({
   }),
 }));
 
-const logger = createScopedLogger("stripe-refunds-test");
+const logger = createTestLogger();
 
 describe("getStripeCustomerIdForRefund", () => {
   beforeEach(() => {

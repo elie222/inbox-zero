@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -33,11 +34,14 @@ import {
   BarChartIcon,
   ShieldIcon,
   XIcon,
+  CrownIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   cancelInvitationAction,
   removeMemberAction,
+  transferOwnershipAction,
   updateMemberRoleAction,
 } from "@/utils/actions/organization";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -46,6 +50,11 @@ import { useExecutedRulesCount } from "@/hooks/useExecutedRulesCount";
 import { TypographyH3 } from "@/components/Typography";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+import {
+  RECENT_ACTIVITY_HOURS,
+  getMemberActivityStatus,
+  type MemberActivityStatus,
+} from "./member-activity";
 
 type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
@@ -53,19 +62,25 @@ type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
 export function Members({ organizationId }: { organizationId: string }) {
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
-  const { data: executedRulesData } = useExecutedRulesCount(organizationId);
   const { data: membership } = useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
+  const isOwner = membership?.role === "owner";
+  const { data: executedRulesData } = useExecutedRulesCount(
+    isAdmin ? organizationId : null,
+  );
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
 
   // Create a Map for O(1) lookups instead of O(n) Array.find for each member
-  const executedRulesCountMap = useMemo(() => {
+  const executedRulesStatsMap = useMemo(() => {
     if (!executedRulesData?.memberCounts) return new Map();
 
     return new Map(
       executedRulesData.memberCounts.map((item) => [
         item.emailAccountId,
-        item.executedRulesCount,
+        {
+          executedRulesCount: item.executedRulesCount,
+          lastProcessedEmailAt: item.lastProcessedEmailAt,
+        },
       ]),
     );
   }, [executedRulesData?.memberCounts]);
@@ -140,6 +155,18 @@ export function Members({ organizationId }: { organizationId: string }) {
     [handleAction],
   );
 
+  const handleTransferOwnership = useCallback(
+    (memberId: string) =>
+      handleAction(
+        memberId,
+        () => transferOwnershipAction({ organizationId, memberId }),
+        "Error transferring ownership",
+        "Ownership transferred successfully",
+        "Failed to transfer ownership",
+      ),
+    [handleAction, organizationId],
+  );
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div>
@@ -155,7 +182,7 @@ export function Members({ organizationId }: { organizationId: string }) {
 
         <div className="space-y-2 mt-4">
           {data?.members.map((member) => {
-            const executedRulesCount = executedRulesCountMap.get(
+            const executedRulesStats = executedRulesStatsMap.get(
               member.emailAccount.id,
             );
 
@@ -165,8 +192,13 @@ export function Members({ organizationId }: { organizationId: string }) {
                 member={member}
                 onRemove={handleRemoveMember}
                 onUpdateRole={handleUpdateRole}
-                executedRulesCount={executedRulesCount}
+                onTransferOwnership={handleTransferOwnership}
+                executedRulesCount={executedRulesStats?.executedRulesCount}
+                lastProcessedEmailAt={
+                  executedRulesStats?.lastProcessedEmailAt ?? null
+                }
                 isAdmin={isAdmin}
+                isOwner={isOwner}
                 isPending={pendingMemberId === member.id}
               />
             );
@@ -228,19 +260,31 @@ function MemberCard({
   member,
   onRemove,
   onUpdateRole,
+  onTransferOwnership,
   executedRulesCount,
+  lastProcessedEmailAt,
   isAdmin,
+  isOwner,
   isPending,
 }: {
   member: Member;
   onRemove: (memberId: string) => void;
   onUpdateRole: (memberId: string, role: "admin" | "member") => void;
+  onTransferOwnership: (memberId: string) => void;
   executedRulesCount?: number;
+  lastProcessedEmailAt?: Date | string | null;
   isAdmin: boolean;
+  isOwner: boolean;
   isPending: boolean;
 }) {
   const { emailAccountId } = useAccount();
   const canChangeRole = member.role !== "owner";
+  const canTransferOwnership = isOwner && canChangeRole;
+  const activityStatus = getMemberActivityStatus({
+    allowOrgAdminAnalytics: member.allowOrgAdminAnalytics,
+    disconnectedAt: member.emailAccount.disconnectedAt,
+    lastProcessedEmailAt,
+  });
 
   return (
     <CardWrapper
@@ -323,6 +367,26 @@ function MemberCard({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
+              {canTransferOwnership && (
+                <ConfirmDialog
+                  trigger={
+                    <DropdownMenuItem
+                      onSelect={(e: Event) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      disabled={isPending}
+                    >
+                      <CrownIcon className="mr-2 size-4" />
+                      Transfer ownership
+                    </DropdownMenuItem>
+                  }
+                  title="Transfer ownership"
+                  description={`Transfer organization ownership to ${member.emailAccount.name || member.emailAccount.email}? You will become an admin.`}
+                  confirmText="Transfer"
+                  onConfirm={() => onTransferOwnership(member.id)}
+                />
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => onRemove(member.id)}
@@ -336,7 +400,7 @@ function MemberCard({
         )
       }
     >
-      <div className="flex items-center space-x-3">
+      <div className="flex flex-wrap items-center gap-2">
         <p className="font-medium">{member.emailAccount.name || "No name"}</p>
         <Badge
           variant={
@@ -346,8 +410,15 @@ function MemberCard({
         >
           {capitalizeRole(member.role)}
         </Badge>
+        {isAdmin && (
+          <MemberActivityBadge
+            status={activityStatus}
+            disconnectedAt={member.emailAccount.disconnectedAt}
+            lastProcessedEmailAt={lastProcessedEmailAt}
+          />
+        )}
       </div>
-      <div className="flex items-center space-x-3 mt-1">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
         <span className="text-xs text-muted-foreground">
           {member.emailAccount.email}
         </span>
@@ -361,6 +432,33 @@ function MemberCard({
         )}
       </div>
     </CardWrapper>
+  );
+}
+
+function MemberActivityBadge({
+  disconnectedAt,
+  lastProcessedEmailAt,
+  status,
+}: {
+  disconnectedAt?: Date | string | null;
+  lastProcessedEmailAt?: Date | string | null;
+  status: MemberActivityStatus;
+}) {
+  const display = ACTIVITY_BADGE[status];
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant={display.variant} className="text-xs">
+            {display.label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{display.tooltip({ disconnectedAt, lastProcessedEmailAt })}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -429,4 +527,53 @@ function capitalizeRole(role: string) {
 
 function getInitials(name: string | null | undefined, email: string) {
   return name ? name.charAt(0).toUpperCase() : email.charAt(0).toUpperCase();
+}
+
+const ACTIVITY_BADGE: Record<
+  MemberActivityStatus,
+  {
+    label: string;
+    variant: "green" | "red" | "outline" | "secondary";
+    tooltip: (dates: {
+      disconnectedAt?: Date | string | null;
+      lastProcessedEmailAt?: Date | string | null;
+    }) => string;
+  }
+> = {
+  active: {
+    label: "Active",
+    variant: "green",
+    tooltip: ({ lastProcessedEmailAt }) =>
+      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+  },
+  disconnected: {
+    label: "Disconnected",
+    variant: "red",
+    tooltip: ({ disconnectedAt }) =>
+      disconnectedAt
+        ? `Email account disconnected ${formatRelativeDate(disconnectedAt)}.`
+        : "Email account is disconnected.",
+  },
+  hidden: {
+    label: "Activity hidden",
+    variant: "outline",
+    tooltip: () => "This member has not allowed org admin analytics.",
+  },
+  inactive: {
+    label: `No activity in ${RECENT_ACTIVITY_HOURS}h`,
+    variant: "secondary",
+    tooltip: ({ lastProcessedEmailAt }) =>
+      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+  },
+  none: {
+    label: "No activity yet",
+    variant: "secondary",
+    tooltip: () => "No assistant-processed email found for this account.",
+  },
+};
+
+function formatRelativeDate(date: Date | string | null | undefined) {
+  if (!date) return "unknown";
+
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
 }

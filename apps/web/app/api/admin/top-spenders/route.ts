@@ -2,9 +2,22 @@ import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withAdmin } from "@/utils/middleware";
-import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
+import {
+  getTopWeeklyUsageCosts,
+  getWeeklyUsageCostWindow,
+} from "@/utils/redis/usage";
+import { createScopedLogger } from "@/utils/logger";
+import {
+  getAdminAiModelSpendByPeriod,
+  getAdminAiUserModelSpendByPeriod,
+} from "@inboxzero/tinybird-ai-analytics";
 
 export type GetAdminTopSpendersResponse = Awaited<ReturnType<typeof getData>>;
+
+const logger = createScopedLogger("admin/top-spenders");
+const TOP_SPENDER_LIMIT = 25;
+const MODEL_SPEND_LIMIT = 25;
+const USER_MODEL_SPEND_LIMIT = 3;
 
 export const GET = withAdmin("admin/top-spenders", async () => {
   const result = await getData();
@@ -12,64 +25,78 @@ export const GET = withAdmin("admin/top-spenders", async () => {
 });
 
 async function getData() {
-  const topSpenders = await getTopWeeklyUsageCosts({ limit: 25 });
-  if (!topSpenders.length) return { topSpenders: [] };
+  const now = new Date();
+  const { startTimestampMs, endTimestampMs } = getWeeklyUsageCostWindow(now);
+  const [topSpenders, modelSpend] = await Promise.all([
+    getTopWeeklyUsageCosts({ limit: TOP_SPENDER_LIMIT, now }),
+    getModelSpend({ startTimestampMs, endTimestampMs }),
+  ]);
 
-  const emails = topSpenders.map((spender) => spender.email);
-  const emailAccounts = await prisma.emailAccount.findMany({
-    where: { email: { in: emails } },
-    select: { id: true, email: true, userId: true },
-  });
-
-  const userIds = [...new Set(emailAccounts.map((account) => account.userId))];
-  const allUserEmailAccounts = userIds.length
+  const emails = topSpenders.flatMap((spender) =>
+    "email" in spender ? [spender.email] : [],
+  );
+  const emailAccounts = emails.length
     ? await prisma.emailAccount.findMany({
-        where: { userId: { in: userIds } },
+        where: { email: { in: emails } },
         select: { id: true, email: true, userId: true },
       })
     : [];
-  const usersWithApiKey = userIds.length
+
+  const userIds = [
+    ...new Set([
+      ...topSpenders.flatMap((spender) =>
+        "userId" in spender ? [spender.userId] : [],
+      ),
+      ...emailAccounts.map((account) => account.userId),
+    ]),
+  ];
+  const users = userIds.length
     ? await prisma.user.findMany({
-        where: {
-          id: { in: userIds },
-          AND: [{ aiApiKey: { not: null } }, { aiApiKey: { not: "" } }],
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          email: true,
+          aiApiKey: true,
+          emailAccounts: {
+            select: { id: true, email: true },
+            orderBy: { createdAt: "asc" },
+          },
         },
-        select: { id: true },
       })
     : [];
 
   const emailAccountByEmail = new Map(
     emailAccounts.map((account) => [account.email, account]),
   );
-  const emailAccountsByUserId = new Map<
-    string,
-    Array<{ id: string; email: string }>
-  >();
-  for (const account of allUserEmailAccounts) {
-    const existingAccounts = emailAccountsByUserId.get(account.userId) ?? [];
-    existingAccounts.push({ id: account.id, email: account.email });
-    emailAccountsByUserId.set(account.userId, existingAccounts);
-  }
-  const userIdsWithApiKey = new Set(usersWithApiKey.map((user) => user.id));
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const userModelSpend = await getUserModelSpend({
+    userIds,
+    startTimestampMs,
+    endTimestampMs,
+  });
+  const userModelSpendByUserId = groupUserModelSpendByUserId(userModelSpend);
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
-  const nanoModelConfigured = !!env.NANO_LLM_PROVIDER && !!env.NANO_LLM_MODEL;
+  const nanoModelConfigured = !!env.NANO_LLMS;
   const nanoLimiterEnabled =
     nanoWeeklySpendLimitUsd !== null && nanoModelConfigured;
 
   return {
     topSpenders: topSpenders.map((spender) => {
-      const emailAccount = emailAccountByEmail.get(spender.email);
-      const hasUserApiKey = emailAccount
-        ? userIdsWithApiKey.has(emailAccount.userId)
-        : false;
+      const emailAccount =
+        "email" in spender ? emailAccountByEmail.get(spender.email) : null;
+      const userId =
+        "userId" in spender ? spender.userId : emailAccount?.userId;
+      const user = userId ? usersById.get(userId) : null;
+      const hasUserApiKey = !!user?.aiApiKey;
+      const primaryEmailAccount = emailAccount ?? user?.emailAccounts[0];
 
       return {
         ...spender,
-        emailAccountId: emailAccount?.id ?? null,
-        userEmailAccountCount: emailAccount
-          ? (emailAccountsByUserId.get(emailAccount.userId)?.length ?? 0)
-          : 0,
+        email: "email" in spender ? spender.email : (user?.email ?? null),
+        emailAccountId: primaryEmailAccount?.id ?? null,
+        userEmailAccountCount: user?.emailAccounts.length ?? 0,
+        modelSpend: userId ? (userModelSpendByUserId.get(userId) ?? []) : [],
         nanoLimitedBySpendGuard:
           nanoLimiterEnabled &&
           nanoWeeklySpendLimitUsd !== null &&
@@ -77,5 +104,51 @@ async function getData() {
           spender.cost >= nanoWeeklySpendLimitUsd,
       };
     }),
+    modelSpend,
   };
+}
+
+async function getModelSpend(options: {
+  startTimestampMs: number;
+  endTimestampMs: number;
+}) {
+  try {
+    return await getAdminAiModelSpendByPeriod({
+      ...options,
+      limit: MODEL_SPEND_LIMIT,
+    });
+  } catch (error) {
+    logger.error("Failed to load admin model spend", { error });
+    return [];
+  }
+}
+
+async function getUserModelSpend(options: {
+  userIds: string[];
+  startTimestampMs: number;
+  endTimestampMs: number;
+}) {
+  try {
+    return await getAdminAiUserModelSpendByPeriod({
+      ...options,
+      perUserLimit: USER_MODEL_SPEND_LIMIT,
+    });
+  } catch (error) {
+    logger.error("Failed to load admin user model spend", { error });
+    return [];
+  }
+}
+
+function groupUserModelSpendByUserId<T extends { userId: string }>(
+  userModelSpend: T[],
+) {
+  const userModelSpendByUserId = new Map<string, T[]>();
+
+  for (const spend of userModelSpend) {
+    const current = userModelSpendByUserId.get(spend.userId) ?? [];
+    current.push(spend);
+    userModelSpendByUserId.set(spend.userId, current);
+  }
+
+  return userModelSpendByUserId;
 }

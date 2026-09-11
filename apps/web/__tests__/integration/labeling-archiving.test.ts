@@ -22,8 +22,6 @@ import {
   GmailLabel,
 } from "@/utils/gmail/label";
 
-vi.mock("server-only", () => ({}));
-
 // Mock Tinybird — archiveThread publishes analytics
 vi.mock("@inboxzero/tinybird", () => ({
   publishArchive: vi.fn().mockResolvedValue(undefined),

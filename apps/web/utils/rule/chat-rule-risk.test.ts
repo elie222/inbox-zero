@@ -1,12 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-vi.mock("server-only", () => ({}));
 import { ActionType } from "@/generated/prisma/enums";
-import { outboundActionsNeedChatRiskConfirmation } from "@/utils/rule/rule";
+import { actionsNeedChatRiskConfirmation } from "@/utils/rule/rule";
 
-describe("outboundActionsNeedChatRiskConfirmation", () => {
+describe("actionsNeedChatRiskConfirmation", () => {
   it("returns needsConfirmation false when only label actions", () => {
-    const result = outboundActionsNeedChatRiskConfirmation({
+    const result = actionsNeedChatRiskConfirmation({
       name: "x",
       condition: {
         aiInstructions: null,
@@ -26,7 +25,7 @@ describe("outboundActionsNeedChatRiskConfirmation", () => {
   });
 
   it("returns needsConfirmation true for fully dynamic reply content and recipient", () => {
-    const result = outboundActionsNeedChatRiskConfirmation({
+    const result = actionsNeedChatRiskConfirmation({
       name: "x",
       condition: {
         aiInstructions: "when urgent",
@@ -46,7 +45,7 @@ describe("outboundActionsNeedChatRiskConfirmation", () => {
   });
 
   it("returns needsConfirmation false for static reply body and implicit recipient", () => {
-    const result = outboundActionsNeedChatRiskConfirmation({
+    const result = actionsNeedChatRiskConfirmation({
       name: "x",
       condition: {
         aiInstructions: null,
@@ -68,7 +67,7 @@ describe("outboundActionsNeedChatRiskConfirmation", () => {
   });
 
   it("returns needsConfirmation true for webhook actions", () => {
-    const result = outboundActionsNeedChatRiskConfirmation({
+    const result = actionsNeedChatRiskConfirmation({
       name: "x",
       condition: {
         aiInstructions: null,
@@ -90,5 +89,57 @@ describe("outboundActionsNeedChatRiskConfirmation", () => {
     expect(result.riskMessages).toEqual([
       expect.stringContaining("Webhook actions can send email data"),
     ]);
+  });
+
+  it("returns needsConfirmation true when an integration action uses AI-filled args", () => {
+    const result = actionsNeedChatRiskConfirmation({
+      name: "x",
+      condition: {
+        aiInstructions: null,
+        conditionalOperator: null,
+        static: { from: "@vendor.com", to: null, subject: null },
+      },
+      actions: [
+        {
+          type: ActionType.INTEGRATION,
+          fields: {
+            content: null,
+            description: null,
+            dueString: null,
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result.needsConfirmation).toBe(true);
+    expect(result.riskMessages).toEqual([
+      expect.stringContaining("creating unwanted or misleading tasks"),
+    ]);
+  });
+
+  it("returns needsConfirmation false for integration actions with static args", () => {
+    const result = actionsNeedChatRiskConfirmation({
+      name: "x",
+      condition: {
+        aiInstructions: null,
+        conditionalOperator: null,
+        static: { from: "@vendor.com", to: null, subject: null },
+      },
+      actions: [
+        {
+          type: ActionType.INTEGRATION,
+          fields: {
+            content: "Review the contract",
+            description: "Sent by the contracts team",
+            dueString: "today",
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result.needsConfirmation).toBe(false);
+    expect(result.riskMessages).toEqual([]);
   });
 });

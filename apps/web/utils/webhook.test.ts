@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { callWebhook } from "./webhook";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const {
@@ -36,7 +35,8 @@ vi.mock("@/utils/network/safe-http-url", () => ({
     resolveSafeExternalHttpUrlMock(...args),
 }));
 
-vi.mock("@/utils/webhook-validation", () => ({
+vi.mock("@/utils/webhook-validation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/webhook-validation")>()),
   validateWebhookUrl: (...args: unknown[]) => validateWebhookUrlMock(...args),
 }));
 
@@ -86,7 +86,8 @@ describe("callWebhook", () => {
     expect(validateWebhookUrlMock).toHaveBeenCalledWith(
       "https://example.com/webhook",
     );
-    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledWith(
+    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledTimes(1);
+    expect(resolveSafeExternalHttpUrlMock.mock.calls[0]?.[0]).toBe(
       "https://example.com/webhook",
     );
     expect(httpsRequestMock).toHaveBeenCalledWith(

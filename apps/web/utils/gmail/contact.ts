@@ -1,4 +1,8 @@
 import type { people_v1 } from "@googleapis/people";
+import {
+  MAX_CONTACT_RESULTS,
+  normalizeContactCandidates,
+} from "@/utils/email/contact";
 
 export async function searchContacts(client: people_v1.People, query: string) {
   const readMasks: (keyof people_v1.Schema$Person)[] = [
@@ -10,11 +14,25 @@ export async function searchContacts(client: people_v1.People, query: string) {
   const res = await client.people.searchContacts({
     query,
     readMask: readMasks.join(","),
-    pageSize: 10,
+    pageSize: MAX_CONTACT_RESULTS,
   });
 
-  const contacts =
-    res.data.results?.filter((c) => c.person?.emailAddresses?.[0]) || [];
+  return normalizeContactCandidates(
+    res.data.results?.flatMap((contact) => {
+      const person = contact.person;
+      if (!person) return [];
 
-  return contacts;
+      return (person.emailAddresses ?? []).flatMap((emailAddress) =>
+        emailAddress.value
+          ? [
+              {
+                emailAddress: emailAddress.value,
+                name: person.names?.[0]?.displayName ?? undefined,
+                profilePictureUrl: person.photos?.[0]?.url ?? undefined,
+              },
+            ]
+          : [],
+      );
+    }) ?? [],
+  );
 }

@@ -3,13 +3,14 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   confirmAssistantEmailAction,
-  confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemory,
-  confirmAssistantSaveMemoryForAccount,
 } from "@/utils/actions/assistant-chat";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  confirmAssistantEmailActionForAccount,
+  confirmAssistantSaveMemoryForAccount,
+} from "@/utils/actions/assistant-chat-confirmation";
+import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/auth", () => ({
@@ -23,6 +24,71 @@ describe("confirmAssistantEmailAction", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it.each([
+    ["send_email", buildPendingSendPart],
+    ["reply_email", buildPendingReplyPart],
+    ["forward_email", buildPendingForwardPart],
+  ] as const)("rejects %s prepared under another mailbox before creating a provider", async (actionType, buildPart) => {
+    const part = buildPart();
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date(),
+      parts: [
+        {
+          ...part,
+          output: { ...part.output, emailAccountId: "original-mailbox" },
+        },
+      ],
+    } as never);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      confirmAssistantEmailActionForAccount({
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: part.toolCallId,
+        actionType,
+        emailAccountId: "switched-mailbox",
+        provider: "microsoft",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Prepare the draft again");
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects old drafts without a mailbox binding before creating a provider", async () => {
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date(),
+      parts: [
+        {
+          ...buildPendingSendPart(),
+          output: {
+            ...buildPendingSendPart().output,
+            emailAccountId: undefined,
+          },
+        },
+      ],
+    } as never);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      confirmAssistantEmailActionForAccount({
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+        emailAccountId: "ea_1",
+        provider: "microsoft",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Prepare the draft again");
+    expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
   it("sends a pending prepared email and persists confirmed output", async () => {
@@ -800,7 +866,7 @@ describe("confirmAssistantEmailAction", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -860,7 +926,7 @@ describe("confirmAssistantEmailAction", () => {
       persistenceWaitMs: 10_000,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -977,7 +1043,7 @@ describe("confirmAssistantEmailAction", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -1038,43 +1104,9 @@ describe("confirmAssistantEmailAction", () => {
   });
 
   it("clears processing state when provider send fails", async () => {
-    (prisma.emailAccount.findUnique as any)
-      .mockResolvedValueOnce({
-        email: "owner@example.com",
-        account: { userId: "u1", provider: "google" },
-      })
-      .mockResolvedValueOnce({
-        name: "Owner",
-        email: "owner@example.com",
-      });
+    mockPendingSendFailure(new Error("send failed"), "google");
 
-    prisma.chatMessage.findFirst
-      .mockResolvedValueOnce({
-        id: "chat-message-1",
-        chatId: "chat-1",
-        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
-        parts: [buildPendingSendPart()],
-      } as any)
-      .mockResolvedValueOnce({
-        id: "chat-message-1",
-        parts: [buildProcessingSendPart()],
-      } as any);
-
-    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      sendEmailWithHtml: vi.fn().mockRejectedValue(new Error("send failed")),
-    } as any);
-
-    const result = await confirmAssistantEmailAction(
-      "ea_1" as any,
-      {
-        chatId: "chat-1",
-        chatMessageId: "chat-message-1",
-        toolCallId: "tool-1",
-        actionType: "send_email",
-      } as any,
-    );
+    const result = await confirmPendingSendEmail();
 
     expect(result?.serverError).toBe("Failed to send email");
     expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(2);
@@ -1082,6 +1114,42 @@ describe("confirmAssistantEmailAction", () => {
       prisma.chatMessage.updateMany.mock.calls[1][0] as any
     ).data.parts as any[];
     expect(revertedParts[0].output.confirmationState).toBe("pending");
+  });
+
+  it("shows a sanitized provider reason when an email send is rejected", async () => {
+    const providerError = Object.assign(new Error("Graph request failed"), {
+      statusCode: 403,
+      code: "ErrorSendAsDenied",
+      body: JSON.stringify({
+        error: {
+          code: "ErrorSendAsDenied",
+          message:
+            "The user does not have permission to send as owner@example.com.",
+        },
+      }),
+    });
+    mockPendingSendFailure(providerError);
+
+    const result = await confirmPendingSendEmail();
+
+    expect(result?.serverError).toBe(
+      "Failed to send email: The user does not have permission to send as [email].",
+    );
+  });
+
+  it("shows a sanitized plain-text provider reason when an email send is rejected", async () => {
+    const providerError = Object.assign(new Error("Graph request failed"), {
+      statusCode: 403,
+      code: "ErrorSendRejected",
+      body: "Mailbox disabled for owner@example.com.\nTry again later.",
+    });
+    mockPendingSendFailure(providerError);
+
+    const result = await confirmPendingSendEmail();
+
+    expect(result?.serverError).toBe(
+      "Failed to send email: Mailbox disabled for [email]. Try again later.",
+    );
   });
 
   it("merges confirmation into the latest message state before persisting", async () => {
@@ -1276,7 +1344,7 @@ describe("confirmAssistantSaveMemory", () => {
       toolCallId: "tool-1",
       waitForPersistence: true,
       emailAccountId: "ea_1",
-      logger: createScopedLogger("test/assistant-save-memory-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -1450,6 +1518,53 @@ describe("confirmAssistantSaveMemory", () => {
     expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
     expect(prisma.chatMemory.create).not.toHaveBeenCalled();
   });
+
+  it("returns the confirmed memory when another request wins the reservation race", async () => {
+    const confirmationResult = {
+      content: "Prefer formal replies with the standard confidential footer.",
+      confirmedAt: "2026-02-23T00:01:00.000Z",
+    };
+
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingSaveMemoryPart()],
+      } as any)
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [
+          {
+            ...buildPendingSaveMemoryPart(),
+            output: {
+              ...buildPendingSaveMemoryPart().output,
+              confirmationState: "confirmed",
+              confirmationResult,
+            },
+          },
+        ],
+      } as any);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 0 } as any);
+
+    const result = await confirmAssistantSaveMemoryForAccount({
+      chatId: "chat-1",
+      chatMessageId: "chat-message-1",
+      toolCallId: "tool-1",
+      emailAccountId: "ea_1",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toMatchObject({
+      confirmationState: "confirmed",
+      confirmationResult,
+    });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMemory.findFirst).not.toHaveBeenCalled();
+    expect(prisma.chatMemory.create).not.toHaveBeenCalled();
+  });
 });
 
 function buildPendingSendPart() {
@@ -1462,6 +1577,7 @@ function buildPendingSendPart() {
       actionType: "send_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "ea_1",
       pendingAction: {
         to: "recipient@example.com",
         cc: null,
@@ -1489,6 +1605,48 @@ function buildProcessingSendPart({
   };
 }
 
+function mockPendingSendFailure(error: unknown, provider = "microsoft") {
+  (prisma.emailAccount.findUnique as any)
+    .mockResolvedValueOnce({
+      email: "owner@example.com",
+      account: { userId: "u1", provider },
+    })
+    .mockResolvedValueOnce({
+      name: "Owner",
+      email: "owner@example.com",
+    });
+
+  prisma.chatMessage.findFirst
+    .mockResolvedValueOnce({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSendPart()],
+    } as any)
+    .mockResolvedValueOnce({
+      id: "chat-message-1",
+      parts: [buildProcessingSendPart()],
+    } as any);
+
+  prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+
+  vi.mocked(createEmailProvider).mockResolvedValue({
+    sendEmailWithHtml: vi.fn().mockRejectedValue(error),
+  } as any);
+}
+
+function confirmPendingSendEmail() {
+  return confirmAssistantEmailAction(
+    "ea_1" as any,
+    {
+      chatId: "chat-1",
+      chatMessageId: "chat-message-1",
+      toolCallId: "tool-1",
+      actionType: "send_email",
+    } as any,
+  );
+}
+
 function buildPendingReplyPart() {
   return {
     type: "tool-replyEmail",
@@ -1499,6 +1657,7 @@ function buildPendingReplyPart() {
       actionType: "reply_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "ea_1",
       pendingAction: {
         messageId: "source-message-1",
         content: "Thanks!",
@@ -1523,6 +1682,7 @@ function buildPendingForwardPart() {
       actionType: "forward_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "ea_1",
       pendingAction: {
         messageId: "source-message-1",
         to: "recipient@example.com",

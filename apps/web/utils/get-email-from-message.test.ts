@@ -1,8 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "./get-email-from-message";
-
-vi.mock("server-only", () => ({}));
 
 function makeParsedMessage(
   overrides: Partial<ParsedMessage> = {},
@@ -53,6 +51,40 @@ describe("getEmailForLLM", () => {
     expect(result.content).toContain("Visible");
     expect(result.content).toContain("Also visible");
     expect(result.content).not.toContain("hidden comment");
+  });
+
+  it("preserves URLs from descriptive HTML links when requested", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        '<p>Can you add your billing info <a href="https://example.com/billing">here</a>?</p>',
+    });
+    const result = getEmailForLLM(msg, { includeLinkUrls: true });
+
+    expect(result.content).toContain("billing info here");
+    expect(result.content).toContain("https://example.com/billing");
+  });
+
+  it("preserves image alt text without image source URLs when requested", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        '<p>See below.</p><img src="https://tracker.example.com/pixel.png" alt="Billing form screenshot" />',
+    });
+    const result = getEmailForLLM(msg, { includeImageAltText: true });
+
+    expect(result.content).toContain("[image: Billing form screenshot]");
+    expect(result.content).not.toContain("https://tracker.example.com");
+  });
+
+  it("uses a placeholder for images without alt text when image alt text is requested", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        '<p>See below.</p><img src="https://tracker.example.com/pixel.png" />',
+    });
+    const result = getEmailForLLM(msg, { includeImageAltText: true });
+
+    expect(result.content).toContain("See below.");
+    expect(result.content).toContain("[image]");
+    expect(result.content).not.toContain("https://tracker.example.com");
   });
 
   it("strips display:none elements from HTML content", () => {

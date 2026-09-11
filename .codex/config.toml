@@ -4,3 +4,7 @@ multi_agent = true
 [agents.reviewer]
 description = "Reviews completed diffs for security, DRY opportunities, simplification, and abstraction quality before PR."
 config_file = "agents/reviewer.toml"
+
+[agents.code-simplifier]
+description = "Simplifies recently modified code for clarity, consistency, and maintainability while preserving behavior."
+config_file = "agents/code-simplifier.toml"

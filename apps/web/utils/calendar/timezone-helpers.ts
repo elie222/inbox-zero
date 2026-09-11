@@ -13,27 +13,23 @@ export async function autoPopulateTimezone(
   }>,
   logger: Logger,
 ): Promise<void> {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { timezone: true },
+  // Try primary calendar first (Google uses 'primary', Microsoft uses 'isDefaultCalendar')
+  const primaryCalendar = calendars.find(
+    (cal) => cal.primary || cal.isDefaultCalendar,
+  );
+  const timezoneToSet = primaryCalendar?.timeZone || calendars[0]?.timeZone;
+
+  if (!timezoneToSet) return;
+
+  const result = await prisma.emailAccount.updateMany({
+    where: { id: emailAccountId, timezone: null },
+    data: { timezone: timezoneToSet },
   });
 
-  if (!emailAccount?.timezone) {
-    // Try primary calendar first (Google uses 'primary', Microsoft uses 'isDefaultCalendar')
-    const primaryCalendar = calendars.find(
-      (cal) => cal.primary || cal.isDefaultCalendar,
-    );
-    const timezoneToSet = primaryCalendar?.timeZone || calendars[0]?.timeZone;
+  if (result.count === 0) return;
 
-    if (timezoneToSet) {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { timezone: timezoneToSet },
-      });
-      logger.info("Auto-populated EmailAccount timezone", {
-        emailAccountId,
-        timezone: timezoneToSet,
-      });
-    }
-  }
+  logger.info("Auto-populated EmailAccount timezone", {
+    emailAccountId,
+    timezone: timezoneToSet,
+  });
 }

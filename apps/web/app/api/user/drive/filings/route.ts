@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 
-export const querySchema = z.object({
+const querySchema = z.object({
   limit: z.preprocess(
     (v) => (v === null ? undefined : v),
     z.coerce.number().min(1).max(100).default(20),
@@ -39,9 +39,14 @@ async function getFilings({
   limit: number;
   offset: number;
 }) {
+  const where = {
+    emailAccountId,
+    status: { not: "PROCESSING" as const },
+  };
+
   const [filings, total] = await Promise.all([
     prisma.documentFiling.findMany({
-      where: { emailAccountId },
+      where,
       select: {
         id: true,
         filename: true,
@@ -61,7 +66,7 @@ async function getFilings({
       take: limit,
       skip: offset,
     }),
-    prisma.documentFiling.count({ where: { emailAccountId } }),
+    prisma.documentFiling.count({ where }),
   ]);
 
   return {

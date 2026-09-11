@@ -1,16 +1,18 @@
 ---
 title: 'Environment Variables'
-description: 'Reference for all environment variables used in Inbox Zero'
+description: 'Reference for self-hosting environment variables used in Inbox Zero'
 ---
 
-Comprehensive reference for all environment variables relevant to self-hosting Inbox Zero.
+Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-only billing, analytics, and internal operations variables are intentionally omitted unless they affect common self-hosted deployments.
 
-## All Environment Variables
+## Self-Hosting Environment Variables
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | **Core** ||||
 | `DATABASE_URL` | Yes | PostgreSQL connection string | — |
+| `DIRECT_URL` | No* | Direct PostgreSQL connection used by Prisma migrations. Set this when your pooled `DATABASE_URL` cannot run migrations. Docker Compose sets it automatically. | `DATABASE_URL` |
+| `DATABASE_URL_UNPOOLED` | No | Alternative unpooled PostgreSQL URL used by the app runtime in preview-style environments | — |
 | `NEXT_PUBLIC_BASE_URL` | Yes | Public URL where app is hosted (e.g., `https://yourdomain.com`) | — |
 | `INTERNAL_API_KEY` | Yes | Secret key for internal API calls. Generate with `openssl rand -hex 32` | — |
 | `AUTH_SECRET` | Yes | better-auth secret. Generate with `openssl rand -hex 32` | — |
@@ -24,14 +26,19 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | **Microsoft OAuth** ||||
 | `MICROSOFT_CLIENT_ID` | No | OAuth client ID from Azure Portal | — |
 | `MICROSOFT_CLIENT_SECRET` | No | OAuth client secret from Azure Portal | — |
+| `MICROSOFT_TENANT_ID` | No | Microsoft tenant used for OAuth (`common` for multi-tenant/personal-account support, or your tenant ID for single tenant) | `common` |
 | `MICROSOFT_WEBHOOK_CLIENT_STATE` | No | Secret for Microsoft webhook verification. Generate with `openssl rand -hex 32` | — |
+| **Slack** ||||
+| `SLACK_CLIENT_ID` | No | Slack OAuth client ID | — |
+| `SLACK_CLIENT_SECRET` | No | Slack OAuth client secret | — |
+| `SLACK_SIGNING_SECRET` | No | Slack signing secret used to verify requests | — |
+| `NEXT_PUBLIC_SLACK_BOT_NAME` | No | Bot display name shown in the app | `Inbox Zero` |
 | **Messaging Adapters** ||||
 | `TEAMS_BOT_APP_ID` | No | Microsoft Teams bot app ID | — |
 | `TEAMS_BOT_APP_PASSWORD` | No | Microsoft Teams bot app password/secret | — |
-| `TEAMS_BOT_APP_TENANT_ID` | No | Tenant ID for single-tenant Teams bot setups | — |
-| `TEAMS_BOT_APP_TYPE` | No | Teams bot app type (`MultiTenant` or `SingleTenant`) | — |
+| `TEAMS_BOT_APP_TENANT_ID` | No | Tenant ID, required when Microsoft Teams integration is enabled | — |
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token from BotFather | — |
-| `TELEGRAM_BOT_SECRET_TOKEN` | No | Optional Telegram webhook secret token (sent in `x-telegram-bot-api-secret-token`) | — |
+| `TELEGRAM_BOT_SECRET_TOKEN` | No* | Telegram webhook secret token sent in `x-telegram-bot-api-secret-token`. Required when `TELEGRAM_BOT_TOKEN` is set. | — |
 | **Google PubSub** ||||
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | Yes* | Token for webhook verification | — |
@@ -44,22 +51,32 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE` | No | Set to `true` to proxy remote images through the app's own Next.js route at `/api/image-proxy` instead of a separate proxy service | `false` |
 | `IMAGE_PROXY_SIGNING_SECRET` | No | Shared HMAC secret used to sign proxy URLs for the bundled Cloudflare Worker or a compatible proxy. Proxy validators may use a comma-separated list, but each signer should still be configured with a single secret. | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`, `openai-compatible`, `codex-cli`, `claude-code`) | — |
-| `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
-| `DEFAULT_LLM_FALLBACKS` | No | Ordered fallback chain (`provider:model,provider:model`, explicit model required) | — |
+| `DEFAULT_LLMS` | Yes | Ordered default model list in `provider:model,provider:model` format. First valid entry is primary; later entries are fallbacks. | — |
+| `ECONOMY_LLMS` | No | Ordered model list for cheaper operations | Falls back to `DEFAULT_LLMS` |
+| `CHAT_LLMS` | No | Ordered model list for chat operations | Falls back to `DEFAULT_LLMS` |
+| `NANO_LLMS` | No | Ordered model list for lightweight classification/extraction tasks | Falls back to economy/default |
+| `DRAFT_LLMS` | No | Ordered model list for drafting replies | Falls back to `DEFAULT_LLMS` |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
-| `ECONOMY_LLM_PROVIDER` | No | Provider for cheaper operations | — |
-| `ECONOMY_LLM_MODEL` | No | Model for economy provider | — |
-| `ECONOMY_LLM_FALLBACKS` | No | Fallback chain for economy model type (`provider:model`, explicit model required) | — |
 | `ECONOMY_OPENROUTER_PROVIDERS` | No | OpenRouter providers for economy model | — |
-| `CHAT_LLM_PROVIDER` | No | Provider for chat operations | Falls back to default |
-| `CHAT_LLM_MODEL` | No | Model for chat provider | — |
-| `CHAT_LLM_FALLBACKS` | No | Fallback chain for chat model type (`provider:model`, explicit model required) | — |
 | `CHAT_OPENROUTER_PROVIDERS` | No | OpenRouter providers for chat | — |
+| `DEFAULT_LLM_PROVIDER` | Deprecated | Legacy primary LLM provider. Converted into `DEFAULT_LLMS` at startup. | — |
+| `DEFAULT_LLM_MODEL` | Deprecated | Legacy default model. Converted into `DEFAULT_LLMS` at startup. | Provider default |
+| `DEFAULT_LLM_FALLBACKS` | Deprecated | Legacy default fallback chain. Converted into `DEFAULT_LLMS` at startup. | — |
+| `ECONOMY_LLM_PROVIDER` | Deprecated | Legacy economy provider. Converted into `ECONOMY_LLMS` at startup. | — |
+| `ECONOMY_LLM_MODEL` | Deprecated | Legacy economy model. Converted into `ECONOMY_LLMS` at startup. | — |
+| `ECONOMY_LLM_FALLBACKS` | Deprecated | Legacy economy fallback chain. Converted into `ECONOMY_LLMS` at startup. | — |
+| `CHAT_LLM_PROVIDER` | Deprecated | Legacy chat provider. Converted into `CHAT_LLMS` at startup. | — |
+| `CHAT_LLM_MODEL` | Deprecated | Legacy chat model. Converted into `CHAT_LLMS` at startup. | — |
+| `CHAT_LLM_FALLBACKS` | Deprecated | Legacy chat fallback chain. Converted into `CHAT_LLMS` at startup. | — |
+| `NANO_LLM_PROVIDER` | Deprecated | Legacy nano provider. Converted into `NANO_LLMS` at startup. | — |
+| `NANO_LLM_MODEL` | Deprecated | Legacy nano model. Converted into `NANO_LLMS` at startup. | — |
+| `DRAFT_LLM_PROVIDER` | Deprecated | Legacy draft provider. Converted into `DRAFT_LLMS` at startup. | — |
+| `DRAFT_LLM_MODEL` | Deprecated | Legacy draft model. Converted into `DRAFT_LLMS` at startup. | — |
 | **LLM Provider Credentials** ||||
-| `LLM_API_KEY` | No | Shared fallback API key for LLM providers. Used when a provider-specific key is not set. | — |
+| `LLM_API_KEY` | No | Shared fallback API key for simple single-provider setups; use provider-specific keys when mixing providers. | — |
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
+| `OPENAI_ZERO_DATA_RETENTION` | No | Pass OpenAI zero-data-retention provider options when your OpenAI account is approved for it | `false` |
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
 | `GOOGLE_THINKING_BUDGET` | No | Override the thinking budget for Gemini 2.x/2.5 models used through Google, Vertex, or AI Gateway. Set to `0` to omit the budget. Gemini 3 models still use minimal thinking. | `128` |
 | `GROQ_API_KEY` | No | Groq API key | — |
@@ -70,6 +87,9 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `AZURE_API_KEY` | No | Azure OpenAI API key (required when `azure` is used and `LLM_API_KEY` is not set) | — |
 | `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name (required when `azure` is used as a default or fallback provider) | — |
 | `AZURE_API_VERSION` | No | Azure OpenAI API version override | — |
+| **Azure AI Foundry** ||||
+| `AZURE_FOUNDRY_API_KEY` | No | Azure AI Foundry API key required when `azure-foundry` is used | — |
+| `AZURE_FOUNDRY_BASE_URL` | No | Azure AI Foundry OpenAI-compatible base URL, such as `https://your-resource.services.ai.azure.com/openai/v1` | — |
 | **Google Vertex** ||||
 | `GOOGLE_VERTEX_PROJECT` | No | Google Cloud project ID for Vertex AI (required when `vertex` is used as a default or fallback provider) | — |
 | `GOOGLE_VERTEX_LOCATION` | No | Vertex AI location | `us-central1` |
@@ -82,12 +102,21 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | **Ollama (Local LLM)** ||||
 | `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
+| `OLLAMA_MODEL` | No | Ollama model name when configured separately from the selected LLM tier model | — |
 | **OpenAI-Compatible (Local LLM)** ||||
 | `OPENAI_COMPATIBLE_BASE_URL` | No | Base URL for an OpenAI-compatible server (e.g. LM Studio: `http://localhost:1234/v1`) | `http://localhost:1234/v1` |
+| `OPENAI_COMPATIBLE_MODEL` | No | OpenAI-compatible model name when configured separately from the selected LLM tier model | — |
+| `OPENAI_COMPATIBLE_AUTH_HEADER` | No | Header style for the OpenAI-compatible API key: `authorization` or `api-key` | `authorization` |
 | **CLI LLM Providers (Experimental)** ||||
 | `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`). Self-host only; requires installing optional provider packages. | `false` |
 | `CODEX_CLI_ALLOW_NPX` | No | Allows the Codex community provider to fall back to `npx @openai/codex` if `codex` is not on PATH. Leave disabled unless you trust that install path. | `false` |
 | `CODEX_CLI_PATH` | No | Optional path to the `codex` binary when using `codex-cli`. | — |
+| **AI Content Controls** ||||
+| `SENSITIVE_DATA_POLICY_DEFAULT` | No | Default policy for handling sensitive data matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
+| `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |
+| **Reasoning Retention** ||||
+| `REASONING_RETENTION_DAYS` | No | Number of days to keep stale AI reasoning fields before the daily reasoning-retention cron redacts them. Covers only `ExecutedRule.reason` and `DocumentFiling.reasoning`; group learnings and other stored content are not redacted. Leave unset to disable reasoning cleanup. | Disabled |
+| `DRAFT_SENT_TEXT_RETENTION_DAYS` | No | Number of days to keep captured sent draft text before the daily reasoning-retention cron redacts it. | `14` |
 | **Background Jobs (QStash, optional)** ||||
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
@@ -103,10 +132,21 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `RESEND_AUDIENCE_ID` | No | Audience ID for contacts | — |
 | `RESEND_FROM_EMAIL` | No | From email address | `Inbox Zero <updates@transactional.getinboxzero.com>` |
 | `NEXT_PUBLIC_IS_RESEND_CONFIGURED` | No | Client-side flag indicating if Resend is configured | — |
+| **Meeting Recorder (Recall.ai, Optional)** ||||
+| `RECALL_API_KEY` | No* | Recall.ai API key. Required with `RECALL_WEBHOOK_SECRET` when Meeting Recorder is enabled. | — |
+| `RECALL_WEBHOOK_SECRET` | No* | Signing secret for the Recall webhook at `/api/recall/webhook`. Required with `RECALL_API_KEY` when Meeting Recorder is enabled. | — |
+| `RECALL_REGION` | No | Recall workspace region | `us-west-2` |
+| `RECALL_BASE_URL` | No | Recall-compatible API base URL. Intended for local emulation; normal deployments should leave this unset. | Recall.ai regional API |
 | **Other** ||||
-| `CRON_SECRET` | No | Secret for cron job authentication | — |
+| `API_KEY_SALT` | No* | Salt used to hash external API keys. Generate with `openssl rand -hex 32`. Required when `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`. | — |
+| `CRON_SECRET` | No | Shared secret that authenticates calls to the scheduled-task endpoints (`/api/cron/*`, `/api/watch/all`, `/api/meeting-briefs`, `/api/meeting-recorder/schedule`, `/api/follow-up-reminders`, `/api/resend/digest/all`). Required if you trigger these endpoints yourself instead of using the bundled Docker Compose `cron` container. Generate with `openssl rand -hex 32`. See [Scheduled Tasks](/hosting/self-hosting#scheduled-tasks). | — |
 | `HEALTH_API_KEY` | No | API key for health checks | — |
 | `WEBHOOK_URL` | No | External webhook URL | — |
+| `WEBHOOK_ALLOW_PRIVATE_IPS` | No | Allow rule webhooks to target private, loopback, link-local, or Tailscale addresses. This disables SSRF protection for webhook delivery; enable it only on a trusted single-tenant deployment. | `false` |
+| `INTERNAL_API_URL` | No | Preferred callback base URL for QStash and server-side internal callbacks | `NEXT_PUBLIC_BASE_URL` |
+| `OAUTH_PROXY_URL` | No | OAuth proxy deployment URL used when callbacks should route through a separate proxy server | — |
+| `IS_OAUTH_PROXY_SERVER` | No | Marks this deployment as the OAuth proxy server | `false` |
+| `ADDITIONAL_TRUSTED_ORIGINS` | No | Comma-separated additional trusted origins for auth/CORS, including wildcard origins such as `https://*.vercel.app` | — |
 | **Digest Controls** ||||
 | `DIGEST_MAX_SUMMARIES_PER_24H` | No | Maximum digest summaries per email account in a rolling 24-hour window. Set to `0` to disable the cap. | `50` |
 | **Admin & Access Control** ||||
@@ -115,28 +155,43 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated list of email domains allowed to create new auth users (for example `company.com,subsidiary.org`). | Open sign-up |
 | `AUTO_JOIN_ORGANIZATION_ENABLED` | No | Automatically add new users to the single organization on sign-up. Only enable this if your deployment explicitly wants automatic org membership. | `false` |
 | `AUTO_ENABLE_ORG_ANALYTICS` | No | Default new organization memberships to analytics enabled | `false` |
-| `SSO_LOGIN_ENABLED` | No | Show the "Sign in with SSO" button on the login screen. Default is off. | `false` |
+| `SSO_LOGIN_ENABLED` | No | Show and allow SSO login. Configuring an SSO provider is a separate admin setup step. | `false` |
+| `NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT` | No | Self-hosted login footer notice. When unset, the default login footer notice is shown. Set to `none` to hide the notice. | Default notice |
 | **Feature Flags** ||||
-| `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
+| `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable Gmail and Outlook contact suggestions while composing | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
+| `NEXT_PUBLIC_EXTERNAL_API_ENABLED` | No | Enable external API endpoints, API keys, and API key UI. Also set `API_KEY_SALT`. | `false` |
+| `NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED` | No | Enable outgoing webhook rule actions and the webhook-secret UI | `true` |
+| `NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED` | No | Hide user AI model settings and reject account-level changes. | `false` |
 | `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | `true` |
 | `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Works without QStash (no retries). | `false` |
 | `NEXT_PUBLIC_MEETING_BRIEFS_ENABLED` | No | Enable meeting briefs, which automatically sends pre-meeting briefings to users. Requires the meeting briefs cron job to be running. | `false` |
+| `NEXT_PUBLIC_MEETING_RECORDER_ENABLED` | No | Show the Meeting Recorder in the app. Recording also requires Recall.ai credentials, its signed webhook, and the meeting-recorder scheduling job; without them nothing records. | `false` |
 | `NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED` | No | Enable follow-up reminders, which allows users to add labels to emails for automatic follow-up tracking. Requires the follow-up reminders cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
 | `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Enable the Smart Filing feature for automatic document organization from email attachments. | `false` |
+| `NEXT_PUBLIC_CLEANER_ENABLED` | No | Enable the newer cleaner/bulk cleanup experience | `false` |
+| `NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED` | No | Enable delete/trash actions for automation rules, including rules created through the external API. | `false` |
+| `NEXT_PUBLIC_BOOKING_LINKS_ENABLED` | No | Enable first-party booking links and availability pages. | `false` |
 | `NEXT_PUBLIC_AUTO_DRAFT_DISABLED` | No | Disable the auto-drafting feature, which automatically drafts replies based on assistant rules. | `false` |
+| `NEXT_PUBLIC_TABS_EXTENSION_ID` | No | Chrome extension ID used for Inbox Zero Tabs sync | Built-in extension ID |
 | **White Labeling (Optional)** ||||
 | `NEXT_PUBLIC_BRAND_NAME` | No | Brand name used in UI text and metadata | `Inbox Zero` |
 | `NEXT_PUBLIC_BRAND_LOGO_URL` | No | Custom logo URL or public asset path (for example `/images/brand-logo.svg`) | Built-in Inbox Zero logo |
 | `NEXT_PUBLIC_BRAND_ICON_URL` | No | Custom app icon URL or public asset path | `/icon.png` |
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | No | Contact email shown in support links and error messages | `elie@getinboxzero.com` |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | No | Contact email shown in support links and error messages | `support@getinboxzero.com` |
 | **Debugging** ||||
 | `DISABLE_LOG_ZOD_ERRORS` | No | Disable logging Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
 | `NEXT_PUBLIC_LOG_SCOPES` | No | Comma-separated log scopes | — |
 
-\* `GOOGLE_PUBSUB_VERIFICATION_TOKEN` is required when Gmail Pub/Sub push is enabled. If your deployment authenticates `/api/google/webhook` upstream, you can set it to an empty string to intentionally disable query-parameter verification.
+\* Conditional requirements:
+
+- `DIRECT_URL` is required only when Prisma migrations need a direct/unpooled database URL that differs from `DATABASE_URL`.
+- `API_KEY_SALT` is required only when external API keys are enabled with `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`.
+- `TELEGRAM_BOT_SECRET_TOKEN` is required only when `TELEGRAM_BOT_TOKEN` is set.
+- `RECALL_API_KEY` and `RECALL_WEBHOOK_SECRET` are both required when Meeting Recorder is enabled.
+- `GOOGLE_PUBSUB_VERIFICATION_TOKEN` is required when Gmail Pub/Sub push is enabled. If your deployment authenticates `/api/google/webhook` upstream, you can set it to an empty string to intentionally disable query-parameter verification.
 
 ## Setup Guides
 
@@ -144,6 +199,7 @@ For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
 
 - [Google OAuth](/hosting/google-oauth)
 - [Microsoft OAuth](/hosting/microsoft-oauth)
+- [Enterprise SSO and SCIM](/hosting/sso)
 - [Google PubSub](/hosting/google-pubsub)
 - [LLM](/hosting/llm-setup)
 

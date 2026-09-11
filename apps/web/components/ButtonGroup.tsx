@@ -6,7 +6,7 @@ export function ButtonGroup(props: {
   buttons: {
     text?: string;
     icon?: React.ReactNode;
-    tooltip?: string;
+    tooltip: string;
     onClick: () => void;
   }[];
   shadow?: boolean;
@@ -19,7 +19,12 @@ export function ButtonGroup(props: {
     >
       {props.buttons.map((button) => (
         <Tooltip key={button.text || button.tooltip} content={button.tooltip}>
-          <Button onClick={button.onClick} size="icon" variant="ghost">
+          <Button
+            aria-label={button.text ? undefined : button.tooltip}
+            onClick={button.onClick}
+            size="icon"
+            variant="ghost"
+          >
             {button.icon}
             {button.text}
           </Button>
