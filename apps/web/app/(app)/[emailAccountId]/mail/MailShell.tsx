@@ -429,6 +429,9 @@ export function MailShell() {
   const deferredReaderSelection = useDeferredValue(openThreadSelection);
   const readerThreadKey = getThreadSelectionKey(deferredReaderSelection);
   const openReaderThreadKey = getThreadSelectionKey(openThreadSelection);
+  useLayoutEffect(() => {
+    if (openReaderThreadKey) setIsMenuOpen(false);
+  }, [openReaderThreadKey]);
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
   const [visibleReaderThreadKey, setVisibleReaderThreadKey] =
     useState<string>();

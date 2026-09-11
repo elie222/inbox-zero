@@ -97,6 +97,29 @@ test("never paints an empty reader when moving between loaded HTML threads", asy
     testInfo,
     "reader-navigation-without-blank-frames",
   );
+  await page.evaluate(() => {
+    window.history.pushState(null, "", window.location.href);
+  });
+  await page.keyboard.press("j");
+  await expect(page).not.toHaveURL(initialUrl);
+  const historyDestination = page.url();
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(initialUrl);
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(historyDestination);
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(initialUrl);
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+
   // Simulate a readiness signal that never arrives, even after the body loads.
   await page.evaluate(() => {
     const blockReadiness = () => {
