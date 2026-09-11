@@ -48,6 +48,8 @@ export async function hasPriorContactOrAssumeYes({
           (action.label
             ? (await provider.getLabelByName(action.label))?.id
             : null);
+        // A name-only label may not exist until the first cold email action creates it.
+        // A failed lookup throws and reaches the fail-safe below instead.
         if (id) excludeLabelIds.push(id);
       } else if (action.type === "MOVE_FOLDER") {
         // The executor persists the ID after a successful move. Until then,
