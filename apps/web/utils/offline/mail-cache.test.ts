@@ -121,6 +121,23 @@ describe("offline mail cache", () => {
     expect(await (await response).text()).toBe("Saved mailbox");
   });
 
+  it("does not return saved mail if logout starts during the cache lookup", async () => {
+    const cache = makeCache();
+    const lookupStarted = Promise.withResolvers<void>();
+    const lookup = Promise.withResolvers<Response | undefined>();
+    vi.spyOn(storage, "match").mockImplementationOnce(() => {
+      lookupStarted.resolve();
+      return lookup.promise;
+    });
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    const loading = cache.handle(documentRequest(), waitUntil);
+    await lookupStarted.promise;
+    await cache.clear();
+    lookup.resolve(html("Previous session mailbox"));
+    await expect(loading).rejects.toThrow("Network unavailable");
+    await Promise.all(pending);
+  });
+
   it("bounds a stalled request even when there is no saved mailbox", async () => {
     vi.useFakeTimers();
     network.mockImplementation(
