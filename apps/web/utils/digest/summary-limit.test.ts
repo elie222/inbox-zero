@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   getDigestSummaryWindowStart,
@@ -151,6 +152,57 @@ describe("reserveDigestSummarySlot", () => {
       reservationSource: "prisma",
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a rolled-back fallback reservation after concurrent digest creation", async () => {
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
+    prisma.$transaction
+      .mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      )
+      .mockResolvedValueOnce("reservation-after-conflict");
+
+    await expect(
+      reserveDigestSummarySlot({
+        emailAccountId: "account-1",
+        maxSummariesPer24h: 50,
+      }),
+    ).resolves.toEqual({
+      reserved: true,
+      reservationId: "reservation-after-conflict",
+      reservationSource: "prisma",
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [
+      "persistent unique conflicts",
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
+      3,
+    ],
+    ["other database failures", new Error("Database unavailable"), 1],
+  ])("bounds fallback attempts for %s", async (_name, error, attempts) => {
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
+    prisma.$transaction.mockRejectedValue(error);
+
+    await expect(
+      reserveDigestSummarySlot({
+        emailAccountId: "account-1",
+        maxSummariesPer24h: 50,
+      }),
+    ).resolves.toEqual({
+      reserved: false,
+      reservationId: null,
+      reservationSource: null,
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(attempts);
   });
 
   it("returns not reserved when redis fails and prisma fallback cannot reserve", async () => {

@@ -1,3 +1,10 @@
+BEGIN;
+
+-- Keep cleanup and index creation atomic, excluding writers and digest claims.
+LOCK TABLE "Digest", "DigestItem" IN ACCESS EXCLUSIVE MODE;
+
+-- Keep the oldest digest and its existing item content/action metadata. For
+-- messages absent from it, keep the oldest duplicate item (id breaks ties).
 WITH duplicate_pending_digest AS (
     SELECT
         "id",
@@ -73,3 +80,5 @@ WHERE digest."id" = duplicate_pending_digest."id"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Digest_emailAccountId_pending_key" ON "Digest"("emailAccountId") WHERE "status" = 'PENDING';
+
+COMMIT;

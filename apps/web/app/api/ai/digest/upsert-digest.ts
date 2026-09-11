@@ -4,6 +4,49 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
 
+export async function upsertDigest({
+  messageId,
+  threadId,
+  emailAccountId,
+  actionId,
+  content,
+  logger,
+}: {
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  actionId?: string;
+  content: StoredDigestContent;
+  logger: Logger;
+}) {
+  try {
+    const digest = await findOrCreateDigest(
+      emailAccountId,
+      messageId,
+      threadId,
+    );
+    const existingItem = digest.items[0];
+    const contentString = JSON.stringify(content);
+
+    if (existingItem) {
+      logger.info("Updating existing digest item");
+      await updateDigestItem(existingItem.id, contentString, actionId);
+    } else {
+      logger.info("Creating new digest item");
+      await createDigestItem({
+        digestId: digest.id,
+        messageId,
+        threadId,
+        contentString,
+        actionId,
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to upsert digest", { error });
+    throw error;
+  }
+}
+
 async function findPendingDigestWithItem(
   emailAccountId: string,
   messageId: string,
@@ -116,47 +159,4 @@ async function createDigestItem({
       ...(actionId && { actionId }),
     },
   });
-}
-
-export async function upsertDigest({
-  messageId,
-  threadId,
-  emailAccountId,
-  actionId,
-  content,
-  logger,
-}: {
-  messageId: string;
-  threadId: string;
-  emailAccountId: string;
-  actionId?: string;
-  content: StoredDigestContent;
-  logger: Logger;
-}) {
-  try {
-    const digest = await findOrCreateDigest(
-      emailAccountId,
-      messageId,
-      threadId,
-    );
-    const existingItem = digest.items[0];
-    const contentString = JSON.stringify(content);
-
-    if (existingItem) {
-      logger.info("Updating existing digest item");
-      await updateDigestItem(existingItem.id, contentString, actionId);
-    } else {
-      logger.info("Creating new digest item");
-      await createDigestItem({
-        digestId: digest.id,
-        messageId,
-        threadId,
-        contentString,
-        actionId,
-      });
-    }
-  } catch (error) {
-    logger.error("Failed to upsert digest", { error });
-    throw error;
-  }
 }
