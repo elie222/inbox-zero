@@ -29,6 +29,7 @@ export function EmailThread({
   onOpenSenderContext,
   withHeader,
   renderToolbar,
+  renderMessageMenu,
   enableMessageNavigation = false,
 }: {
   messages: ThreadMessage[];
@@ -42,6 +43,7 @@ export function EmailThread({
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
+  renderMessageMenu?: (message: ThreadMessage) => ReactNode;
   renderToolbar?: (controls: {
     allExpanded: boolean;
     canExpand: boolean;
@@ -256,6 +258,7 @@ export function EmailThread({
               hasDraft={Boolean(draftMessage) || hasLocalDraft(message.id)}
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
+              menu={renderMessageMenu?.(message)}
               onOpenSenderContext={onOpenSenderContext}
               onMarkDone={onMarkDone}
               onSendSuccess={(messageId, sentThreadId) => {

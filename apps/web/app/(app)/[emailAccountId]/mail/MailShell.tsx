@@ -1,5 +1,7 @@
 "use client";
 
+import { MessageActionsMenu } from "@/app/(app)/[emailAccountId]/mail/MessageActionsMenu";
+
 import { GmailLabel } from "@/utils/gmail/label";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
@@ -1624,11 +1626,20 @@ export function MailShell() {
                 }}
                 autoOpenReplyForMessageId={replyToMessageId}
                 autoOpenForwardForMessageId={forwardToMessageId}
+                renderMessageMenu={(message) => (
+                  <MessageActionsMenu
+                    message={message}
+                    plans={openThread?.plans ?? []}
+                    setChatInput={setChatInput}
+                    showFixWithChat={
+                      !isAllAccounts ||
+                      openThreadSelection?.emailAccountId === emailAccountId
+                    }
+                  />
+                )}
                 menu={
                   <ThreadActionsMenu
-                    plans={openThread?.plans ?? []}
                     message={openMessages.at(-1) ?? null}
-                    setChatInput={setChatInput}
                     isUnread={isOpenThreadUnread}
                     isStarred={allStarred}
                     onToggleStar={starTargets}
@@ -1641,10 +1652,6 @@ export function MailShell() {
                       setReadState([openThreadKey], true);
                     }}
                     onMarkUnread={markUnreadTargets}
-                    showFixWithChat={
-                      !isAllAccounts ||
-                      openThreadSelection?.emailAccountId === emailAccountId
-                    }
                     open={isMenuOpen}
                     onOpenChange={setIsMenuOpen}
                   />
