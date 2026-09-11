@@ -1,6 +1,8 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
+import { createMailMutationOverlay } from "@/utils/email-cache/mail-mutation-overlay";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   readCachedThreadDetail,
@@ -108,9 +110,31 @@ export function useThread(
       ? lastResponse.current?.data
       : undefined);
 
+  const { mutations } = useRetainedMailMutationOverlay({
+    emailAccountId,
+    enabled: Boolean(request),
+    onReconcile: swr.mutate,
+  });
+  const overlaidData = useMemo(() => {
+    if (!data) return data;
+    const stateMutations = mutations.filter(
+      (mutation) =>
+        mutation.threadId === id &&
+        (mutation.kind === "set_read_state" ||
+          mutation.kind === "set_starred_state"),
+    );
+    if (!stateMutations.length) return data;
+    // The reader can outlive its list row while queued changes reach the server.
+    const messages = createMailMutationOverlay(stateMutations).applyToMessages(
+      emailAccountId,
+      data.thread.messages,
+    );
+    return { ...data, thread: { ...data.thread, messages } };
+  }, [data, emailAccountId, id, mutations]);
+
   return {
     ...swr,
-    data,
+    data: overlaidData,
     error: data ? undefined : swr.error,
     isLoading: !data && swr.isLoading,
     isValidating: swr.isValidating,

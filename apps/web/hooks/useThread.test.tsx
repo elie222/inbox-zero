@@ -4,11 +4,18 @@ import type { ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig, unstable_serialize } from "swr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
+import { useRetainedMailMutationOverlay } from "./useMailMutationOverlay";
 import { useThread } from "./useThread";
 
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
   write: vi.fn(),
+}));
+
+vi.mock("./useMailMutationOverlay", () => ({
+  useRetainedMailMutationOverlay: vi.fn(),
 }));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
@@ -25,7 +32,87 @@ describe("useThread", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useRetainedMailMutationOverlay).mockReturnValue({
+      mutations: [],
+      isReady: true,
+      isReadable: true,
+      retainMutations: vi.fn(),
+    });
     cache.write.mockResolvedValue(undefined);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("preserves pending starred=%s over an older detail response", async (starred) => {
+    const originalLabels = starred ? ["INBOX"] : ["INBOX", "STARRED"];
+    const data = {
+      thread: {
+        id: "thread-1",
+        messages: [{ id: "message-1", labelIds: originalLabels }],
+      },
+    };
+    cache.read.mockResolvedValue(undefined);
+    vi.mocked(useRetainedMailMutationOverlay).mockReturnValue({
+      mutations: [
+        mockDeep<MailMutation>({
+          id: "star-1",
+          emailAccountId: "account-1",
+          threadId: "thread-1",
+          messageIds: ["message-1"],
+          kind: "set_starred_state",
+          starred,
+          createdAt: 1,
+        }),
+      ],
+      isReady: true,
+      isReadable: true,
+      retainMutations: vi.fn(),
+    });
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(vi.fn().mockResolvedValue(data)),
+    });
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.labelIds).toEqual(
+        starred ? ["INBOX", "STARRED"] : ["INBOX"],
+      ),
+    );
+    expect(data.thread.messages[0]?.labelIds).toEqual(originalLabels);
+  });
+
+  it.each([
+    { kind: "archive" as const, emailAccountId: "account-1" },
+    { kind: "set_starred_state" as const, emailAccountId: "account-2" },
+  ])("keeps reader messages intact for $kind from $emailAccountId", async ({
+    kind,
+    emailAccountId,
+  }) => {
+    const data = {
+      thread: {
+        id: "thread-1",
+        messages: [{ id: "message-1", labelIds: ["INBOX"] }],
+      },
+    };
+    cache.read.mockResolvedValue(undefined);
+    vi.mocked(useRetainedMailMutationOverlay).mockReturnValue({
+      mutations: [
+        mockDeep<MailMutation>({
+          id: "mutation-1",
+          emailAccountId,
+          threadId: "thread-1",
+          messageIds: ["message-1"],
+          ...(kind === "archive" ? { kind } : { kind, starred: true }),
+          createdAt: 1,
+        }),
+      ],
+      isReady: true,
+      isReadable: true,
+      retainMutations: vi.fn(),
+    });
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(vi.fn().mockResolvedValue(data)),
+    });
+    await waitFor(() => expect(result.current.data).toEqual(data));
   });
 
   it("returns an idle response when no thread is selected", async () => {
