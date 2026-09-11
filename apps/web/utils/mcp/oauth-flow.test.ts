@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { betterAuth } from "better-auth";
@@ -42,7 +43,9 @@ describe("MCP OAuth flow", () => {
       flow.cookie,
     );
     expect(consent.status).toBe(302);
-    const consentUrl = new URL(consent.headers.get("location")!, origin);
+    const consentLocation = consent.headers.get("location");
+    assert(consentLocation);
+    const consentUrl = new URL(consentLocation, origin);
     expect(consentUrl.pathname).toBe("/mcp/consent");
     expect(consentUrl.searchParams.has("code")).toBe(false);
 
@@ -62,7 +65,8 @@ describe("MCP OAuth flow", () => {
     );
     expect(approved.status).toBe(200);
     const approval = await approved.json();
-    const code = new URL(approval.url).searchParams.get("code")!;
+    const code = new URL(approval.url).searchParams.get("code");
+    assert(code);
     const wrongResource = await flow.request("/oauth2/token", {
       grant_type: "authorization_code",
       code,
@@ -83,11 +87,12 @@ describe("MCP OAuth flow", () => {
       undefined,
       flow.cookie,
     );
-    const authorizedUrl = new URL(authorized.headers.get("location")!, origin);
-    const exchanged = await flow.token(
-      authorizedUrl.searchParams.get("code")!,
-      flow.verifier,
-    );
+    const authorizedLocation = authorized.headers.get("location");
+    assert(authorizedLocation);
+    const authorizedUrl = new URL(authorizedLocation, origin);
+    const authorizedCode = authorizedUrl.searchParams.get("code");
+    assert(authorizedCode);
+    const exchanged = await flow.token(authorizedCode, flow.verifier);
     expect(exchanged.status).toBe(200);
     const tokens = await exchanged.json();
     expect(tokens.refresh_token).toBeTruthy();
@@ -110,10 +115,7 @@ describe("MCP OAuth flow", () => {
       }),
     );
 
-    const replay = await flow.token(
-      authorizedUrl.searchParams.get("code")!,
-      flow.verifier,
-    );
+    const replay = await flow.token(authorizedCode, flow.verifier);
     expect(replay.ok).toBe(false);
     const expandedRefresh = await flow.request("/oauth2/token", {
       client_id: flow.clientId,
@@ -148,10 +150,9 @@ describe("MCP OAuth flow", () => {
       undefined,
       flow.cookie,
     );
-    const signed = new URL(
-      response.headers.get("location")!,
-      origin,
-    ).searchParams.toString();
+    const location = response.headers.get("location");
+    assert(location);
+    const signed = new URL(location, origin).searchParams.toString();
     const rejected = await flow.request(
       "/oauth2/consent",
       { accept: false, oauth_query: signed },

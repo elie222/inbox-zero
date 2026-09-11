@@ -6,8 +6,9 @@ import {
 } from "@/utils/actions/api-key";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { currentSession } = vi.hoisted(() => ({
+const { currentSession, mcpFlags } = vi.hoisted(() => ({
   currentSession: { emailOtp: false },
+  mcpFlags: { enabled: true },
 }));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -23,7 +24,9 @@ vi.mock("@/env", async (importOriginal) => {
     env: {
       ...actual.env,
       NEXT_PUBLIC_EXTERNAL_API_ENABLED: true,
-      MCP_SERVER_ENABLED: true,
+      get MCP_SERVER_ENABLED() {
+        return mcpFlags.enabled;
+      },
       API_KEY_SALT: "test-api-key-salt",
     },
   };
@@ -99,4 +102,19 @@ it("blocks MCP enablement from an email code session", async () => {
   const result = await updateMcpServerAccessAction({ enabled: true });
   expect(result?.serverError).toContain("connected provider");
   expect(prisma.user.update).not.toHaveBeenCalled();
+});
+
+it("allows revocation while the MCP server is unavailable", async () => {
+  vi.clearAllMocks();
+  currentSession.emailOtp = false;
+  mcpFlags.enabled = false;
+  try {
+    const result = await updateMcpServerAccessAction({ enabled: false });
+    expect(result?.data).toEqual({ enabled: false });
+    expect(prisma.oauthConsent.deleteMany).toHaveBeenCalled();
+    const enableResult = await updateMcpServerAccessAction({ enabled: true });
+    expect(enableResult?.serverError).toBe("MCP server is not enabled");
+  } finally {
+    mcpFlags.enabled = true;
+  }
 });

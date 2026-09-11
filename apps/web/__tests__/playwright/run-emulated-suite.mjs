@@ -159,7 +159,7 @@ for (const target of targets) {
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
-        ...(target.path.endsWith("settings/mcp-access.spec.ts")
+        ...(/[\\/]settings[\\/]mcp-access\.spec\.ts$/.test(target.path)
           ? { MCP_SERVER_ENABLED: "true" }
           : {}),
         ...(isSettingsTarget(target.path)

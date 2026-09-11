@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { expect } from "@playwright/test";
 import { Client } from "pg";
@@ -30,7 +31,8 @@ test("requires client consent, enforces read-only access, and disconnects existi
   const toggle = page.getByRole("switch", { name: "MCP", exact: true });
   await expect(toggle).not.toBeChecked();
 
-  const baseURL = process.env.NEXT_PUBLIC_BASE_URL!;
+  const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
+  assert(baseURL);
   const resource = `${baseURL}/api/mcp-server`;
   const metadata = await request.get("/.well-known/oauth-protected-resource");
   expect((await metadata.json()).resource).toBe(resource);
@@ -47,10 +49,11 @@ test("requires client consent, enforces read-only access, and disconnects existi
   });
   expect(registration.ok(), await registration.text()).toBe(true);
   clientId = (await registration.json()).client_id;
+  assert(clientId);
   const verifier =
     "playwright-pkce-verifier-with-at-least-forty-three-characters";
   const query = new URLSearchParams({
-    client_id: clientId!,
+    client_id: clientId,
     redirect_uri: "https://client.example.com/callback",
     response_type: "code",
     scope: "mcp:read offline_access",
@@ -79,12 +82,14 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await page.waitForURL("https://client.example.com/callback**");
   const callback = new URL(page.url());
   expect(callback.searchParams.get("state")).toBe("playwright-state");
+  const code = callback.searchParams.get("code");
+  assert(code);
   const response = await request.post("/api/auth/oauth2/token", {
     headers: { Origin: baseURL },
     form: {
       grant_type: "authorization_code",
-      code: callback.searchParams.get("code")!,
-      client_id: clientId!,
+      code,
+      client_id: clientId,
       redirect_uri: "https://client.example.com/callback",
       code_verifier: verifier,
       resource,

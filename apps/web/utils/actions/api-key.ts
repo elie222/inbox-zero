@@ -71,7 +71,7 @@ export const updateMcpServerAccessAction = actionClientUser
         "Sign in with your connected provider to manage MCP access.",
       );
     }
-    if (!isMcpServerAvailable()) {
+    if (enabled && !isMcpServerAvailable()) {
       throw new SafeError("MCP server is not enabled");
     }
 

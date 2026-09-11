@@ -91,7 +91,7 @@ export function ApiKeysSection() {
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        {mcpAvailable && (
+        {(mcpAvailable || mcpEnabled) && (
           <div className="flex items-center gap-2">
             <label
               htmlFor="mcp-access"
