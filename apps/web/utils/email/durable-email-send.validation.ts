@@ -8,7 +8,6 @@ import { sendEmailBody } from "@/utils/types/mail";
 export const durableEmailSendBody = z.object({
   mutationId: z.string().uuid(),
   queuedAt: z.number().int().nonnegative(),
-  // A scheduled new message has no thread or replied-to messages yet.
   threadId: z.string().min(1).max(512).nullable(),
   messageIds: z.array(z.string().min(1).max(512)).max(1000),
   email: sendEmailBody,

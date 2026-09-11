@@ -238,7 +238,6 @@ test("schedules a new message from the composer", async ({
         [emailAccountId, subject],
       ),
     );
-    // A new message has no thread until the provider accepts the send.
     expect(scheduled.rows).toEqual([{ status: "PENDING", threadId: null }]);
   } finally {
     await withClient((client) =>

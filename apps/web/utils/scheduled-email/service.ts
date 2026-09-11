@@ -196,8 +196,7 @@ export async function processScheduledEmail(
         data: {
           status: "SENT",
           sentAt: sentOperation.processingStartedAt,
-          // A scheduled new message only joins a thread once the provider
-          // accepts it, and the reminder needs that thread to check for replies.
+          // The reminder needs the thread the send actually landed in.
           threadId: row.threadId ?? getSentThreadId(outcome.result),
           error: null,
         },
