@@ -9,13 +9,18 @@ import {
   buildMailSplitFromPromptBody,
   createMailSplitBody,
   deleteMailSplitBody,
+  reorderMailSplitsBody,
   updateMailPreferencesBody,
   updateMailSplitBody,
 } from "@/utils/actions/mail-split.validation";
 import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { createMailSplit, toFilterRows } from "@/utils/mail/splits.server";
+import {
+  createMailSplit,
+  reorderMailSplits,
+  toFilterRows,
+} from "@/utils/mail/splits.server";
 import { lockMailSplits } from "@/utils/mail/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 
@@ -135,6 +140,13 @@ export const deleteMailSplitAction = actionClient
       }),
     ]);
     if (!count) throw new SafeError("Split not found or cannot be removed");
+  });
+
+export const reorderMailSplitsAction = actionClient
+  .metadata({ name: "reorderMailSplits" })
+  .inputSchema(reorderMailSplitsBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { ids } }) => {
+    await reorderMailSplits({ emailAccountId, ids });
   });
 
 export const updateMailPreferencesAction = actionClient

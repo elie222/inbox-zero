@@ -1,3 +1,4 @@
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
@@ -60,6 +61,19 @@ test("restores a deleted All tab and protects it from removal", async ({
       [emailAccountId, "All"],
     ),
   );
+  await withClient(async (client) => {
+    for (let index = 1; index < MAX_MAIL_SPLITS; index++) {
+      await client.query(
+        `WITH split AS (
+          INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
+          VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id
+        )
+        INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, "order")
+        SELECT gen_random_uuid()::text, id, 'UNREAD', 0 FROM split`,
+        [emailAccountId, `Split ${index}`, index + 1],
+      );
+    }
+  });
   await openMail(page);
   const allTab = page
     .locator("button[data-split-tab]")
@@ -70,6 +84,33 @@ test("restores a deleted All tab and protects it from removal", async ({
     page.getByRole("menuitem", { name: "Turn off split" }),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Move All down", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Move Unread up", exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator('[data-drag-split="all"]')).toHaveAttribute(
+    "draggable",
+    "false",
+  );
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original).toHaveLength(MAX_MAIL_SPLITS + 2);
+  await page
+    .getByRole("button", { name: "Move Unread down", exact: true })
+    .click();
+  const expected = [
+    original[0],
+    original[2],
+    original[1],
+    ...original.slice(3),
+  ];
+  await expect(tabs).toHaveText(expected);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
 });
 
 test("moves focus with the active split when cycling by keyboard", async ({
@@ -185,6 +226,38 @@ test("turns a prepared split on from the library", async ({
   await starredSplit.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Turn off split" }).click();
   await expect(starredSplit).toHaveCount(0);
+});
+
+test("reorders splits with arrows and dragging and persists tab order", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThan(1);
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  const list = page.getByRole("list", { name: "Split order" });
+  await page
+    .getByRole("button", { name: `Move ${original[0]} down`, exact: true })
+    .click();
+  await expect(list).toHaveAttribute("aria-busy", "false");
+  const expected = [original[1], original[0], ...original.slice(2)];
+  await expect(tabs).toHaveText(expected);
+  await expect(
+    page.getByRole("button", { name: "Turn off the All split", exact: true }),
+  ).toBeDisabled();
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-sortable-splits");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  const rows = list.getByRole("listitem");
+  await rows.nth(0).locator("[data-drag-split]").dragTo(rows.nth(1));
+  await expect(tabs).toHaveText(original);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(original);
 });
 
 test("Other excludes enabled splits and restores mail when a split is disabled", async ({

@@ -101,6 +101,7 @@ import {
   buildMailSplitFromPromptAction,
   createMailSplitAction,
   deleteMailSplitAction,
+  reorderMailSplitsAction,
   updateMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
@@ -1246,6 +1247,20 @@ export function MailShell() {
     [emailAccountId, splitCategoryChoices, splitLabelChoices, splitSenders],
   );
 
+  const onReorderSplits = useCallback(
+    async (ids: string[]) => {
+      const result = await reorderMailSplitsAction(emailAccountId, { ids });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        await mutateSettings();
+        return false;
+      }
+      await mutateSettings();
+      return true;
+    },
+    [emailAccountId, mutateSettings],
+  );
+
   const onDeleteSplit = useCallback(
     async (splitId: string) => {
       const result = await deleteMailSplitAction(emailAccountId, {
@@ -1653,6 +1668,8 @@ export function MailShell() {
           onCreate={onCreateSplit}
           onUpdate={onUpdateSplit}
           onDelete={onDeleteSplit}
+          onReorder={onReorderSplits}
+          onEdit={setEditingSplitId}
           onDescribe={onDescribeSplit}
         />
       )}
