@@ -378,6 +378,85 @@ describe("GmailProvider.getLatestMessageInThread", () => {
 
     expect(latest).toBeNull();
   });
+});
+
+describe("GmailProvider.replyToEmail", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    gmailMailMock.replyToEmail.mockReset();
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([]);
+  });
+
+  it("passes send-as aliases when sending a reply all", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+      },
+      {
+        email: "alias@example.com",
+        signature: "",
+        isDefault: false,
+      },
+    ]);
+    gmailMailMock.replyToEmail.mockResolvedValue({ data: { id: "sent-1" } });
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+    });
+
+    await provider.replyToEmail(message, "Thanks", {
+      from: "User <user@example.com>",
+      replyAll: true,
+    });
+
+    expect(gmailMailMock.replyToEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      message,
+      "Thanks",
+      "User <user@example.com>",
+      expect.objectContaining({
+        replyAll: true,
+        userEmails: ["user@example.com", "alias@example.com"],
+      }),
+    );
+  });
+
+  it("does not fetch send-as aliases for a sender-only reply", async () => {
+    gmailMailMock.replyToEmail.mockResolvedValue({ data: { id: "sent-1" } });
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+    });
+
+    await provider.replyToEmail(message, "Thanks", {
+      from: "User <user@example.com>",
+    });
+
+    expect(gmailSignatureMock.getGmailSignatures).not.toHaveBeenCalled();
+    expect(gmailMailMock.replyToEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      message,
+      "Thanks",
+      "User <user@example.com>",
+      expect.objectContaining({
+        replyAll: undefined,
+        userEmails: undefined,
+      }),
+    );
+  });
+});
+
+describe("GmailProvider.draftEmail", () => {
+  afterEach(() => {
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+    vi.clearAllMocks();
+    gmailMailMock.draftEmail.mockResolvedValue({ data: { id: "draft-1" } });
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([]);
+  });
 
   it("no-ops draftEmail when auto-drafting is disabled", async () => {
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = true;

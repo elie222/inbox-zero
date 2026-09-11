@@ -407,6 +407,172 @@ describe("replyToEmail", () => {
     expect(sendDraft).toHaveBeenCalledTimes(1);
     expect(result.id).toBe("draft-1");
   });
+
+  it("uses createReplyAll when sending a reply all", async () => {
+    const getOriginalReadStatus = vi.fn(async () => ({ isRead: true }));
+    const createReplyAllDraft = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+          from: {
+            emailAddress: {
+              address: "owner@example.com",
+            },
+          },
+        }) as Message,
+    );
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") {
+        return { get: getOriginalReadStatus };
+      }
+      if (path === "/me/messages/message-1/createReplyAll") {
+        return { post: createReplyAllDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await replyToEmail(
+      client,
+      {
+        id: "message-1",
+        threadId: "conversation-1",
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com, teammate@example.com",
+          cc: "manager@example.com",
+          subject: "Original subject",
+          date: "2026-01-01T12:00:00.000Z",
+        },
+        textPlain: "Original body",
+        textHtml: "<p>Original body</p>",
+      } as EmailForAction,
+      "Thanks for the update.",
+      createTestLogger(),
+      { replyAll: true },
+    );
+
+    expect(getOriginalReadStatus).toHaveBeenCalledTimes(1);
+    expect(createReplyAllDraft).toHaveBeenCalledWith({});
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          contentType: "html",
+          content: expect.stringContaining("Thanks for the update."),
+        }),
+      }),
+    );
+    expect(sendDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores unread status when reply-all send fails", async () => {
+    const getOriginalReadStatus = vi.fn(async () => ({ isRead: false }));
+    const createReplyAllDraft = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+          from: {
+            emailAddress: {
+              address: "owner@example.com",
+            },
+          },
+        }) as Message,
+    );
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => {
+      throw new Error("send failed");
+    });
+    const restoreUnread = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") {
+        return { get: getOriginalReadStatus, patch: restoreUnread };
+      }
+      if (path === "/me/messages/message-1/createReplyAll") {
+        return { post: createReplyAllDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await expect(
+      replyToEmail(
+        client,
+        {
+          id: "message-1",
+          threadId: "conversation-1",
+          headers: {
+            from: "sender@example.com",
+            to: "owner@example.com",
+            subject: "Original subject",
+            date: "2026-01-01T12:00:00.000Z",
+          },
+          textPlain: "Original body",
+          textHtml: "<p>Original body</p>",
+        } as EmailForAction,
+        "Thanks for the update.",
+        createTestLogger(),
+        { replyAll: true },
+      ),
+    ).rejects.toThrow("send failed");
+
+    expect(restoreUnread).toHaveBeenCalledWith({ isRead: false });
+  });
+
+  it("restores unread status after a successful reply-all send", async () => {
+    const getOriginalReadStatus = vi.fn(async () => ({ isRead: false }));
+    const restoreUnread = vi.fn(async () => ({}));
+    const createReplyAllDraft = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") {
+        return { get: getOriginalReadStatus, patch: restoreUnread };
+      }
+      if (path === "/me/messages/message-1/createReplyAll") {
+        return { post: createReplyAllDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await replyToEmail(
+      client,
+      {
+        id: "message-1",
+        threadId: "conversation-1",
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com",
+          subject: "Original subject",
+          date: "2026-01-01T12:00:00.000Z",
+        },
+        textPlain: "Original body",
+        textHtml: "<p>Original body</p>",
+      } as EmailForAction,
+      "Thanks for the update.",
+      createTestLogger(),
+      { replyAll: true },
+    );
+
+    expect(sendDraft).toHaveBeenCalledTimes(1);
+    expect(restoreUnread).toHaveBeenCalledWith({ isRead: false });
+  });
 });
 
 describe("forwardEmail", () => {
