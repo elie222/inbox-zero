@@ -1,8 +1,10 @@
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import { restoreReplyFromOutbox } from "@/utils/email-cache/reply-drafts";
-import type { ReplyDraftIdentity } from "@/utils/email-cache/reply-drafts";
+import {
+  restoreReplyFromOutbox,
+  type ReplyDraftIdentity,
+} from "@/utils/email-cache/reply-drafts";
 
 export const UNDO_SEND_DELAY_MS = 5000;
 
