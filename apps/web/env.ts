@@ -19,6 +19,7 @@ const llmProviderEnum = z.enum([
   "openai-compatible",
   "codex-cli",
   "claude-code",
+  "perplexity",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
