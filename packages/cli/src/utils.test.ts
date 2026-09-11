@@ -870,6 +870,19 @@ describe("syncManagedComposeEnv", () => {
     expect(existsSync(join(repoRoot, ".env.inbox-zero-managed"))).toBe(false);
   });
 
+  it("does not attach a standalone configuration to a detected repository", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const standaloneDir = join(repoRoot, "standalone");
+    mkdirSync(standaloneDir);
+    const envFile = join(standaloneDir, ".env");
+    writeFileSync(envFile, "FOO=standalone\n");
+
+    syncManagedComposeEnv({ envFile, repoRoot });
+
+    expect(existsSync(join(repoRoot, ".env"))).toBe(false);
+  });
+
   it("skips named env files because they use explicit compose env-file flags", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
     directories.push(repoRoot);

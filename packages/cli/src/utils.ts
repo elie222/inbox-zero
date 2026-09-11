@@ -8,7 +8,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { basename, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { parseEnv } from "node:util";
 
@@ -318,7 +318,7 @@ export function syncManagedComposeEnv({
   repoRoot: string | null;
 }) {
   if (!repoRoot) return;
-  if (basename(envFile) !== ".env") return;
+  if (resolve(envFile) !== resolve(repoRoot, "apps/web/.env")) return;
 
   const rootEnvFile = resolve(repoRoot, ".env");
   const markerFile = `${rootEnvFile}${MANAGED_COMPOSE_ENV_MARKER_SUFFIX}`;
