@@ -230,7 +230,7 @@ export const adminActionClient = baseClient.use(
     return runInstrumentedAction({
       actionName: metadata.name,
       logger,
-      run: () => next({ ctx: { ...ctx, logger } }),
+      run: () => next({ ctx: { ...ctx, logger, session } }),
     });
   },
 );

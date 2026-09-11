@@ -3,10 +3,6 @@
 module.exports = {
   peer: true,
   reject: [
-    // 1.7 requires a SCIM connection configuration migration; keep the family aligned.
-    "better-auth",
-    "@better-auth/*",
-
     // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
     "jsdom",
 

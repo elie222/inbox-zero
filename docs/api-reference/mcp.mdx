@@ -1,0 +1,65 @@
+---
+title: "MCP server"
+description: "Connect an external AI assistant to Inbox Zero rules and statistics with OAuth."
+---
+
+The optional MCP server lets external assistants list your linked inboxes, manage automation rules, and read email statistics. It uses OAuth authorization instead of API keys. It is separate from the integrations that let Inbox Zero call other services.
+
+## Enable the server
+
+For a deployment you administer, apply the database migrations and set both flags:
+
+```bash
+NEXT_PUBLIC_EXTERNAL_API_ENABLED=true
+MCP_SERVER_ENABLED=true
+```
+
+The server is disabled by default. Configure `NEXT_PUBLIC_BASE_URL` to your deployment's canonical public HTTPS origin. Restart the application after changing server configuration; changing the public API flag also requires rebuilding its client assets.
+
+## Connect an assistant
+
+Add a remote Streamable HTTP MCP connection in your assistant using:
+
+```text
+https://your-inbox-zero-host/api/mcp-server
+```
+
+The client must support OAuth authorization-code flow with S256 PKCE, dynamic client registration, and resource indicators. Use the MCP endpoint URL as the `resource` when authorizing, exchanging an authorization code, and refreshing a token. Opaque tokens and API keys are not accepted by this endpoint.
+
+Sign in with your connected provider, inspect the application's identity and requested permissions, and choose **Allow access**. If MCP access is off for your user, the consent screen offers **Enable MCP and allow**. Email-code sessions cannot authorize clients or change MCP access.
+
+Permissions apply to all inboxes linked to your user, including inboxes linked later:
+
+| Scope | Access |
+| --- | --- |
+| `mcp:read` | List inboxes, read automation rules, and read email statistics |
+| `mcp:write` | Create, replace, and delete automation rules |
+| `offline_access` | Obtain rotating refresh tokens |
+
+Clients registered without explicit scopes default to read access and refresh tokens. They must request `mcp:write` to manage rules. A write grant does not imply a read grant. Rule writes enforce the same digest-plan restrictions as the public API.
+
+## Available tools
+
+- `list_email_accounts`
+- `list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule`
+- `get_stats_by_period`, `get_response_time_stats`
+
+Rule and statistics tools accept either `emailAccountId` or `emailAddress`. If neither is supplied, they use the earliest linked account. Use `list_email_accounts` and supply a selector when working with multiple inboxes. Rule updates replace the rule definition.
+
+## Disconnect applications
+
+Turn off **MCP** under **Settings → Developer → API Access**. This revokes all MCP consents and refresh grants, and invalidates existing access tokens. Turning MCP back on does not restore those tokens; reconnect each application to grant access again. Expired or removed login sessions also prevent MCP requests.
+
+## Discovery
+
+- Protected resource metadata: `/.well-known/oauth-protected-resource`
+- Authorization server metadata: `/.well-known/oauth-authorization-server/api/auth`
+- Root discovery fallback: `/.well-known/oauth-authorization-server`
+
+Unauthenticated MCP requests return `401` with a `WWW-Authenticate` header pointing to the resource metadata. The MCP endpoint is stateless and accepts HTTP `POST`; it does not offer a persistent event stream.
+
+## Authentication dependency
+
+The server uses Better Auth 1.7.4, which includes the OAuth resource-binding security fix. It permits exactly its MCP endpoint, requires that resource during token issuance, and rejects access tokens with additional audiences. Existing deployments must follow the [Better Auth upgrade checklist](https://github.com/elie222/inbox-zero/blob/main/docs/better-auth-1.7-upgrade.md) before applying the authentication migration.
+
+MCP accepts HTTPS base URLs, with HTTP allowed only for local loopback development. Turning off the server flag suspends access; users can still revoke previously enabled access from Settings while the external API settings remain available.

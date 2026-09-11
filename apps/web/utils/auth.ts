@@ -1,3 +1,4 @@
+import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
@@ -31,13 +32,11 @@ import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthDiscoveryUrl,
-  getGoogleOauthIssuer,
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import {
   getMicrosoftOauthDiscoveryUrl,
-  getMicrosoftOauthIssuer,
   isMicrosoftEmulationEnabled,
 } from "@/utils/microsoft/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
@@ -50,7 +49,7 @@ import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
-import { assertCanGenerateScimToken } from "@/utils/auth/scim";
+import { getScimOptions, assertScimUserActive } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 import {
   getAuthProviderFromContext,
@@ -164,7 +163,6 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         {
           providerId: "google",
           discoveryUrl: getGoogleOauthDiscoveryUrl(),
-          issuer: getGoogleOauthIssuer(),
           clientId: env.GOOGLE_CLIENT_ID,
           clientSecret: env.GOOGLE_CLIENT_SECRET,
           scopes: [...GMAIL_SCOPES],
@@ -172,7 +170,7 @@ const genericOauthConfig: GenericOAuthConfig[] = [
           accessType: "offline" as const,
           prompt: "select_account consent" as const,
           ...(env.OAUTH_PROXY_URL && {
-            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
           }),
         },
       ]
@@ -182,14 +180,13 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         {
           providerId: "microsoft",
           discoveryUrl: getMicrosoftOauthDiscoveryUrl(),
-          issuer: getMicrosoftOauthIssuer(),
           clientId: env.MICROSOFT_CLIENT_ID!,
           clientSecret: env.MICROSOFT_CLIENT_SECRET!,
           scopes: [...OUTLOOK_SCOPES],
           pkce: true,
           prompt: "consent" as const,
           ...(env.OAUTH_PROXY_URL && {
-            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/microsoft`,
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
           }),
         },
       ]
@@ -228,6 +225,7 @@ export const betterAuthConfig = betterAuth({
     },
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
+  disabledPaths: ["/token"],
   trustedOrigins: [
     env.NEXT_PUBLIC_BASE_URL,
     "https://appleid.apple.com",
@@ -242,6 +240,7 @@ export const betterAuthConfig = betterAuth({
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
+    transaction: true,
   }),
   plugins: [
     emailOtpPlugin,
@@ -249,16 +248,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    scim({
-      providerOwnership: { enabled: true },
-      storeSCIMToken: "hashed",
-      beforeSCIMTokenGenerated: async ({ user, scimToken }) => {
-        await assertCanGenerateScimToken({
-          userEmail: user.email,
-          scimToken,
-        });
-      },
-    }),
+    ...(env.SCIM_CREDENTIAL_HASH_SECRET ? [scim(getScimOptions())] : []),
     ...(genericOauthPlugin ? [genericOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [safeExpo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
@@ -269,6 +259,7 @@ export const betterAuthConfig = betterAuth({
           }),
         ]
       : []),
+    ...mcpOAuthPlugins(),
     nextCookies(), // Must be last
   ],
   session: {
@@ -276,7 +267,7 @@ export const betterAuthConfig = betterAuth({
       emailOtp: { type: "boolean", defaultValue: false, input: false },
       emailOtpVersion: { type: "number", defaultValue: 0, input: false },
     },
-    modelName: "Session",
+    modelName: "session",
     fields: {
       token: "sessionToken",
       expiresAt: "expires",
@@ -290,7 +281,7 @@ export const betterAuthConfig = betterAuth({
     updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
   },
   account: {
-    modelName: "Account",
+    modelName: "account",
     fields: {
       accountId: "providerAccountId",
       providerId: "provider",
@@ -309,17 +300,29 @@ export const betterAuthConfig = betterAuth({
     },
   },
   verification: {
-    modelName: "VerificationToken",
+    modelName: "verificationToken",
     fields: {
       value: "token",
       expiresAt: "expires",
+    },
+  },
+  user: {
+    additionalFields: {
+      scimAccessDisabled: {
+        type: "boolean",
+        defaultValue: false,
+        input: false,
+      },
     },
   },
   socialProviders,
   databaseHooks: {
     session: {
       create: {
-        before: emailOtpSessionCreationHook,
+        before: async (session, context) => {
+          await assertScimUserActive(session.userId);
+          return emailOtpSessionCreationHook(session, context);
+        },
       },
     },
     user: {

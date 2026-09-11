@@ -165,6 +165,7 @@
             "pages": [
               "api-reference/introduction",
               "api-reference/cli",
+              "api-reference/mcp",
               "api-reference/endpoint/get-statsby-period",
               "api-reference/endpoint/get-statsresponse-time",
               "api-reference/endpoint/get-rules",

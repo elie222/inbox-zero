@@ -1,0 +1,57 @@
+diff --git a/dist/dist-ZHFKHW5R.js b/dist/dist-ZHFKHW5R.js
+index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4e975f618 100644
+--- a/dist/dist-ZHFKHW5R.js
++++ b/dist/dist-ZHFKHW5R.js
+@@ -1,5 +1,7 @@
+ import {
+-  SignJWT
++  SignJWT,
++  exportJWK,
++  generateKeyPair
+ } from "./chunk-U6ISZSHV.js";
+ import "./chunk-PZ5AY32C.js";
+ 
+@@ -3082,7 +3084,8 @@ function bodyStr(v) {
+   if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+   return "";
+ }
+-var JWT_SECRET = new TextEncoder().encode("emulate-google-jwt-secret");
++var keyPairPromise = generateKeyPair("RS256");
++var KID = "emulate-google-1";
+ var PENDING_CODE_TTL_MS = 10 * 60 * 1e3;
+ function getPendingCodes(store) {
+   let map = store.getData("google.oauth.pendingCodes");
+@@ -3116,8 +3119,9 @@ async function createIdToken(user, clientId, nonce, baseUrl) {
+     locale: user.locale,
+     ...user.hd ? { hd: user.hd } : {},
+     ...nonce ? { nonce } : {}
+-  }).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setIssuer(baseUrl).setAudience(clientId).setIssuedAt().setExpirationTime("1h");
+-  return builder.sign(JWT_SECRET);
++  }).setProtectedHeader({ alg: "RS256", kid: KID, typ: "JWT" }).setIssuer(baseUrl).setAudience(clientId).setIssuedAt().setExpirationTime("1h");
++  const { privateKey } = await keyPairPromise;
++  return builder.sign(privateKey);
+ }
+ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
+   const gs = getGoogleStore(store);
+@@ -3131,7 +3135,7 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
+       jwks_uri: `${baseUrl}/oauth2/v3/certs`,
+       response_types_supported: ["code"],
+       subject_types_supported: ["public"],
+-      id_token_signing_alg_values_supported: ["HS256"],
++      id_token_signing_alg_values_supported: ["RS256"],
+       scopes_supported: ["openid", "email", "profile"],
+       token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+       claims_supported: [
+@@ -3148,8 +3152,10 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
+       code_challenge_methods_supported: ["plain", "S256"]
+     });
+   });
+-  app.get("/oauth2/v3/certs", (c) => {
+-    return c.json({ keys: [] });
++  app.get("/oauth2/v3/certs", async (c) => {
++    const { publicKey } = await keyPairPromise;
++    const jwk = await exportJWK(publicKey);
++    return c.json({ keys: [{ ...jwk, kid: KID, use: "sig", alg: "RS256" }] });
+   });
+   app.get("/o/oauth2/v2/auth", (c) => {
+     const client_id = c.req.query("client_id") ?? "";

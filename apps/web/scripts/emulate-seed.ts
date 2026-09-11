@@ -24,7 +24,6 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-google-client.apps.googleusercontent.com",
           client_secret: "emulate-google-secret",
           redirect_uris: [
-            `${normalizedBaseUrl}/api/auth/oauth2/callback/google`,
             `${normalizedBaseUrl}/api/auth/callback/google`,
             `${normalizedBaseUrl}/api/google/linking/callback`,
             `${normalizedBaseUrl}/api/google/calendar/callback`,
@@ -64,7 +63,6 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-microsoft-client-id",
           client_secret: "emulate-microsoft-secret",
           redirect_uris: [
-            `${normalizedBaseUrl}/api/auth/oauth2/callback/microsoft`,
             `${normalizedBaseUrl}/api/auth/callback/microsoft`,
             `${normalizedBaseUrl}/api/outlook/linking/callback`,
             `${normalizedBaseUrl}/api/outlook/calendar/callback`,

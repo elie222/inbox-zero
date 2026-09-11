@@ -163,6 +163,11 @@ export default defineConfig({
         DATABASE_URL: databaseUrl,
         PREVIEW_DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
+        ...(process.env.PLAYWRIGHT_SCIM_TEST === "true" && {
+          ADMINS: playwrightTestEmail,
+          SCIM_CREDENTIAL_HASH_SECRET:
+            "playwright-only-scim-credential-secret-32-characters",
+        }),
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
         GOOGLE_CLIENT_SECRET:
           process.env.GOOGLE_CLIENT_SECRET ?? "client_secret",
@@ -217,7 +222,7 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   );
   const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
-  const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
+  const redirectUri = new URL("/api/auth/callback/google", baseURL).href;
   const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
   const profileImage = fs.readFileSync(

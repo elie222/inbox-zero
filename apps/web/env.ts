@@ -61,6 +61,7 @@ const parsedEnv = createEnv({
     ),
 
     AUTH_SECRET: z.string().optional(),
+    SCIM_CREDENTIAL_HASH_SECRET: z.string().min(32).optional(),
     NEXTAUTH_SECRET: z.string().optional(),
     AUTH_ALLOWED_EMAILS: z
       .string()
@@ -311,6 +312,7 @@ const parsedEnv = createEnv({
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    MCP_SERVER_ENABLED: booleanString.optional().default(false),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
