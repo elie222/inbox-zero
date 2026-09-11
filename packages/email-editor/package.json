@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "linkifyjs": "4.3.3",
-    "parse5": "8.0.0"
+    "parse5": "8.0.1"
   },
   "peerDependencies": {
     "@tiptap/core": "3.30.2",
@@ -46,8 +46,8 @@
     "@tiptap/pm": "3.30.2",
     "@tiptap/react": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
-    "react": ">=19",
-    "react-dom": ">=19"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "peerDependenciesMeta": {
     "@tiptap/core": {
