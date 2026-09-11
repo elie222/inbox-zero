@@ -2,6 +2,7 @@ import uniqBy from "lodash/uniqBy";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { GmailLabel } from "@/utils/gmail/label";
 import { captureException, isInvalidGrantError } from "@/utils/error";
 import {
@@ -158,6 +159,7 @@ export async function processHistoryForUser(
           await processHistory(
             {
               history: historyEntries,
+              spamLearnedThreadIds: new Set<string>(),
               gmail,
               accessToken: accountAccessToken,
               hasAutomationRules,
@@ -197,6 +199,17 @@ export async function processHistoryForUser(
   } catch (error) {
     if (isInvalidGrantError(error)) {
       logger.warn("Invalid grant", { email });
+      await cleanupInvalidTokens({
+        emailAccountId: validatedEmailAccount.id,
+        reason: "invalid_grant",
+        // Client creation can rotate the access token while retaining this grant.
+        failedRefreshToken: accountRefreshToken,
+        logger,
+      }).catch((cleanupError) =>
+        logger.error("Failed to clean up webhook authentication failure", {
+          cleanupError,
+        }),
+      );
       return NextResponse.json({ ok: true });
     }
 

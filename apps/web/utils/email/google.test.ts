@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -53,12 +54,40 @@ vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
 
+describe("GmailProvider.sendEmail", () => {
+  it("returns the provider message ID", async () => {
+    gmailMailMock.sendEmailWithPlainText.mockResolvedValueOnce({
+      data: { id: "sent-message-1" },
+    });
+    const provider = new GmailProvider({} as any);
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).resolves.toEqual({ messageId: "sent-message-1" });
+  });
+
+  it("fails when the provider omits the message ID", async () => {
+    gmailMailMock.sendEmailWithPlainText.mockResolvedValueOnce({ data: {} });
+    const provider = new GmailProvider({} as any);
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).rejects.toThrow("Provider did not return a sent message ID");
+  });
+});
+
 describe("GmailProvider.bulkArchiveThreads", () => {
   it("archives all supplied messages with one Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
 
     const result = await provider.bulkArchiveThreads(
       [
@@ -87,6 +116,209 @@ describe("GmailProvider.bulkArchiveThreads", () => {
       succeededThreadIds: ["thread-1", "thread-2"],
       failedThreadIds: [],
     });
+  });
+});
+
+describe("GmailProvider snapshot mutations", () => {
+  it("adds an archive label in the same Gmail batch modification", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+
+    await provider.archiveMessages(["one", "two"], "label-id");
+
+    expect(batchModify).toHaveBeenCalledOnce();
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: {
+        ids: ["one", "two"],
+        addLabelIds: ["label-id"],
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+  });
+
+  it("deduplicates and chunks archived message IDs", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+    const ids = Array.from({ length: 1001 }, (_, index) => `message-${index}`);
+
+    await provider.archiveMessages([...ids, "message-0"]);
+
+    expect(batchModify).toHaveBeenCalledTimes(2);
+    expect(batchModify.mock.calls[0]?.[0]).toEqual({
+      userId: "me",
+      requestBody: {
+        ids: ids.slice(0, 1000),
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+    expect(batchModify.mock.calls[1]?.[0]?.requestBody.ids).toEqual([
+      "message-1000",
+    ]);
+  });
+
+  it("trashes each unique captured message", async () => {
+    const trash = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ trash }));
+
+    await provider.trashMessages(["one", "one", "two"]);
+
+    expect(trash).toHaveBeenCalledTimes(2);
+    expect(trash).toHaveBeenCalledWith({ userId: "me", id: "one" });
+    expect(trash).toHaveBeenCalledWith({ userId: "me", id: "two" });
+  });
+
+  it("bounds concurrent captured-message trash requests", async () => {
+    let active = 0;
+    let peakActive = 0;
+    const trash = vi.fn().mockImplementation(async () => {
+      active += 1;
+      peakActive = Math.max(peakActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active -= 1;
+      return { data: {} };
+    });
+    const provider = new GmailProvider(createGmailClient({ trash }));
+
+    await provider.trashMessages(
+      Array.from({ length: 12 }, (_, index) => `message-${index}`),
+    );
+
+    expect(trash).toHaveBeenCalledTimes(12);
+    expect(peakActive).toBe(5);
+  });
+
+  it("restores captured archive and trash snapshots", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const untrash = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
+
+    await provider.unarchiveMessages(["one", "one", "two"]);
+    await provider.untrashMessages(["one", "one", "two"]);
+
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
+    });
+    expect(untrash).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("batches a thousand captured star updates with starred=%s", async (starred) => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+    const ids = Array.from({ length: 1000 }, (_, index) => `message-${index}`);
+    await provider.markMessagesStarredState([...ids, "message-0"], starred);
+    expect(batchModify).toHaveBeenCalledExactlyOnceWith({
+      userId: "me",
+      requestBody: starred
+        ? { ids, addLabelIds: [GmailLabel.STARRED] }
+        : { ids, removeLabelIds: [GmailLabel.STARRED] },
+    });
+  });
+
+  it.each([
+    [true, { removeLabelIds: [GmailLabel.UNREAD] }],
+    [false, { addLabelIds: [GmailLabel.UNREAD] }],
+  ])("sets captured messages read=%s", async (read, labels) => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+
+    await provider.markMessagesReadState(["one", "one", "two"], read);
+
+    expect(batchModify).toHaveBeenCalledOnce();
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], ...labels },
+    });
+  });
+});
+
+describe("GmailProvider.getThread", () => {
+  it("parses the messages returned with the thread without fetching them again", async () => {
+    const threadGet = vi.fn().mockResolvedValue({
+      data: {
+        historyId: "history-1",
+        id: "thread-1",
+        messages: [
+          {
+            historyId: "history-1",
+            id: "message-1",
+            internalDate: "1767225600000",
+            labelIds: [GmailLabel.INBOX],
+            payload: {
+              body: {},
+              headers: [
+                { name: "From", value: "sender@example.com" },
+                { name: "Subject", value: "Subject" },
+              ],
+              mimeType: "text/plain",
+            },
+            snippet: "Preview",
+            threadId: "thread-1",
+          },
+        ],
+        snippet: "Thread preview",
+      },
+    });
+    const messageGet = vi.fn();
+    const provider = new GmailProvider({
+      users: {
+        messages: { get: messageGet },
+        threads: { get: threadGet },
+      },
+    } as unknown as gmail_v1.Gmail);
+
+    const thread = await provider.getThread("thread-1");
+
+    expect(threadGet).toHaveBeenCalledOnce();
+    expect(messageGet).not.toHaveBeenCalled();
+    expect(thread).toMatchObject({
+      historyId: "history-1",
+      id: "thread-1",
+      messages: [{ id: "message-1", subject: "Subject" }],
+      snippet: "Thread preview",
+    });
+  });
+
+  it("excludes drafts by default and includes them when requested", async () => {
+    const threadGet = vi.fn().mockResolvedValue({
+      data: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            labelIds: [GmailLabel.INBOX],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+          {
+            id: "draft-1",
+            labelIds: [GmailLabel.DRAFT],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+        ],
+      },
+    });
+    const provider = new GmailProvider({
+      users: { threads: { get: threadGet } },
+    } as unknown as gmail_v1.Gmail);
+
+    const thread = await provider.getThread("thread-1");
+    const threadWithDrafts = await provider.getThread("thread-1", {
+      includeDrafts: true,
+    });
+
+    expect(thread.messages.map((message) => message.id)).toEqual(["message-1"]);
+    expect(threadWithDrafts.messages.map((message) => message.id)).toEqual([
+      "message-1",
+      "draft-1",
+    ]);
   });
 });
 
@@ -275,9 +507,170 @@ describe("GmailProvider.getThreadsWithQuery", () => {
       }),
     );
   });
+
+  it("uses Gmail metadata format for list requests", async () => {
+    vi.spyOn(
+      gmailThreadModule,
+      "getThreadsWithNextPageToken",
+    ).mockResolvedValue({
+      threads: [{ id: "thread-1" }],
+      nextPageToken: undefined,
+    });
+    const getThreadsBatch = vi
+      .spyOn(gmailThreadModule, "getThreadsBatch")
+      .mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.getThreadsWithQuery({ messageFormat: "metadata" });
+
+    expect(getThreadsBatch).toHaveBeenCalledWith(
+      ["thread-1"],
+      "access-token",
+      expect.anything(),
+      { format: "metadata" },
+    );
+  });
+});
+
+describe("GmailProvider.searchThreads", () => {
+  it("passes the free-text query through unscoped", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({ query: "invoice from:billing@example.com" });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice from:billing@example.com",
+        labelIds: [],
+      }),
+    );
+  });
 });
 
 describe("GmailProvider.updateDraft", () => {
+  it("does not write a draft that has been sent or deleted", async () => {
+    const update = vi.fn();
+    const provider = new GmailProvider({
+      users: { drafts: { update } },
+    } as any);
+    gmailDraftMock.getDraft.mockResolvedValueOnce(null);
+    await expect(
+      provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
+    ).rejects.toThrow("Could not find this draft to update.");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    true,
+    false,
+  ])("preserves attachments and inline images (explicit disposition: %s)", async (explicitDisposition) => {
+    const update = vi.fn().mockResolvedValue({ data: {} });
+    const get = vi.fn().mockResolvedValue({
+      data: { data: Buffer.from("attachment bytes").toString("base64url") },
+    });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({
+        id: "draft-message-1",
+        internalDate: "1000",
+        headers: { from: "alias@example.com" },
+      }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "text/html",
+            body: { data: "PHA-T2xkPC9wPg" },
+            headers: [{ name: "Content-ID", value: "<body@example.com>" }],
+          },
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+            headers: [{ name: "Content-Disposition", value: "attachment" }],
+          },
+          {
+            mimeType: "image/png",
+            filename: "logo.png",
+            body: { data: Buffer.from("inline bytes").toString("base64url") },
+            headers: [
+              ...(explicitDisposition
+                ? [{ name: "Content-Disposition", value: "inline" }]
+                : []),
+              { name: "Content-ID", value: "<logo@example.com>" },
+            ],
+          },
+        ],
+      },
+    });
+
+    await provider.updateDraft("r-123", {
+      messageHtml: '<p>Edited</p><img src="cid:logo@example.com">',
+    });
+
+    const mime = decodeBase64Url(
+      update.mock.calls[0][0].requestBody.message.raw,
+    );
+    expect(mime).toContain("From: alias@example.com");
+    expect(mime).toContain("filename=report.pdf");
+    expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
+    expect(mime).toContain("Content-ID: <logo@example.com>");
+    expect(mime).toContain("Content-Disposition: inline;");
+    expect(mime).not.toContain("Content-ID: <body@example.com>");
+    expect(mime).toContain(Buffer.from("inline bytes").toString("base64"));
+    expect(get).toHaveBeenCalledWith({
+      userId: "me",
+      messageId: "draft-message-1",
+      id: "file-1",
+    });
+  });
+
+  it("does not replace a draft when attachment bytes cannot be loaded", async () => {
+    const update = vi.fn();
+    const get = vi.fn().mockResolvedValue({ data: {} });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+          },
+        ],
+      },
+    });
+
+    await expect(
+      provider.updateDraft("r-123", { messageHtml: "<p>Edited</p>" }),
+    ).rejects.toThrow("Missing Gmail attachment data");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider({
@@ -294,6 +687,8 @@ describe("GmailProvider.updateDraft", () => {
         labelIds: [GmailLabel.DRAFT],
         headers: {
           to: "sender@example.com",
+          cc: "old-cc@example.com",
+          bcc: "old-bcc@example.com",
           subject,
           "in-reply-to": "<original@example.com>",
           references: "<root@example.com> <original@example.com>",
@@ -304,6 +699,9 @@ describe("GmailProvider.updateDraft", () => {
     await provider.updateDraft("r-123", {
       subject,
       messageHtml: "<p>Edited response.</p>",
+      to: "updated@example.com",
+      cc: "",
+      bcc: "",
     });
 
     expect(update).toHaveBeenCalledWith({
@@ -326,6 +724,12 @@ describe("GmailProvider.updateDraft", () => {
       "References: <root@example.com> <original@example.com>",
     );
     expect(decodedMessage).toContain("Edited response.");
+    expect(decodedMessage).toContain("To: updated@example.com");
+    expect(decodedMessage).not.toMatch(/^Cc:/im);
+    expect(decodedMessage).not.toMatch(/^Bcc:/im);
+    expect(decodedMessage).not.toContain("old-cc@example.com");
+    expect(decodedMessage).not.toContain("old-bcc@example.com");
+    expect(decodedMessage).not.toContain("To: sender@example.com");
   });
 });
 
@@ -410,6 +814,54 @@ describe("GmailProvider.getLabels", () => {
   });
 });
 
+describe("GmailProvider.deleteLabel", () => {
+  it("treats an already-deleted label as success", async () => {
+    const deleteLabel = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Label not found"), {
+        code: 404,
+      }),
+    );
+    const provider = new GmailProvider({
+      users: { labels: { delete: deleteLabel } },
+    } as any);
+
+    await expect(provider.deleteLabel("label-1")).resolves.toBeUndefined();
+    expect(deleteLabel).toHaveBeenCalledWith({
+      userId: "me",
+      id: "label-1",
+    });
+  });
+});
+
+describe("GmailProvider.updateLabel", () => {
+  it("updates a label name and Gmail color in one request", async () => {
+    const patch = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider({
+      users: { labels: { patch } },
+    } as any);
+
+    await provider.updateLabel("label-1", {
+      name: "Receipts",
+      color: {
+        backgroundColor: "#e66550",
+        textColor: "#000000",
+      },
+    });
+
+    expect(patch).toHaveBeenCalledWith({
+      userId: "me",
+      id: "label-1",
+      requestBody: {
+        name: "Receipts",
+        color: {
+          backgroundColor: "#e66550",
+          textColor: "#000000",
+        },
+      },
+    });
+  });
+});
+
 function createThread(messages: ParsedMessage[]): EmailThread {
   return {
     id: "thread-1",
@@ -457,4 +909,10 @@ function createParsedMessage({
 
 function decodeBase64Url(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
+}
+
+function createGmailClient(
+  messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
+) {
+  return { users: { messages } } as unknown as gmail_v1.Gmail;
 }

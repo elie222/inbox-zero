@@ -86,6 +86,7 @@ export type DraftReplyInput = {
   learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  recordedMeetingContext?: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
   currentDate?: Date;
@@ -106,6 +107,7 @@ type DraftReplyModelContextInput = {
   learnedWritingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  recordedMeetingContext: string | null;
   attachmentContext: string | null;
   hasConfiguredSignature: boolean;
 };
@@ -138,6 +140,7 @@ export function buildDraftReplyModelEvidence({
   learnedWritingStyle = null,
   attachmentContext = null,
   hasConfiguredSignature = false,
+  recordedMeetingContext = null,
   ...modelContextInput
 }: DraftReplyInput): DraftReplyModelEvidence {
   const modelContext = buildDraftReplyModelContext({
@@ -148,6 +151,7 @@ export function buildDraftReplyModelEvidence({
     learnedWritingStyle,
     attachmentContext,
     hasConfiguredSignature,
+    recordedMeetingContext,
   });
   const thread = getEmailListPrompt({ messages, messageMaxLength: 3000 });
   const temporalAndIdentityContext = `${getTodayForLLM(currentDate)}
@@ -177,6 +181,7 @@ export function buildDraftReplyModelContext({
   learnedWritingStyle,
   mcpContext,
   meetingContext,
+  recordedMeetingContext,
   attachmentContext,
   hasConfiguredSignature,
 }: DraftReplyModelContextInput): string {
@@ -293,6 +298,7 @@ ${mcpContext}
     !emailHistoryContext?.relevantEmails.length &&
     !mcpContext &&
     !meetingContext &&
+    !recordedMeetingContext &&
     !attachmentContext
       ? `No additional factual context was provided beyond the email thread.
 `
@@ -327,6 +333,7 @@ ${schedulingContext}
 ${mcpToolsContext}
 ${missingExternalContext}
 ${upcomingMeetingsContext}
+${recordedMeetingContext || ""}
 ${selectedAttachments}`;
 }
 

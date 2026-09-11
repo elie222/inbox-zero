@@ -43,6 +43,23 @@ describe("mailbox sync cursor", () => {
       InvalidMailboxSyncCursorError,
     );
   });
+
+  it("accepts the parenthesized mail folder path returned by Microsoft Graph", () => {
+    const encoded = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "microsoft",
+      deltaLink:
+        "https://graph.microsoft.com/v1.0/me/mailfolders('folder-id')/messages/delta?$deltatoken=secret",
+      after: "2026-07-01T00:00:00.000Z",
+      snapshot: false,
+    });
+
+    expect(decodeMailboxSyncCursor(encoded, "microsoft")).toMatchObject({
+      provider: "microsoft",
+      deltaLink:
+        "https://graph.microsoft.com/v1.0/me/mailfolders('folder-id')/messages/delta?$deltatoken=secret",
+    });
+  });
 });
 
 describe("compactMailboxSyncMessage", () => {

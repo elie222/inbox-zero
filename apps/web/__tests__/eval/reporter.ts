@@ -696,11 +696,12 @@ function hashUntrackedFiles(repoRoot: string): string | null {
     "ls-files",
     "--others",
     "--exclude-standard",
+    "-z",
   ]);
   if (output == null) return null;
 
   const hash = crypto.createHash("sha256");
-  for (const relativePath of output.split("\n").filter(Boolean).sort()) {
+  for (const relativePath of output.split("\0").filter(Boolean).sort()) {
     hash.update(relativePath);
     const fullPath = path.join(repoRoot, relativePath);
     hash.update(
@@ -716,7 +717,7 @@ function readGitOutput(cwd: string, args: string[]): string | null {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    }).replace(/\n$/, "");
   } catch {
     return null;
   }

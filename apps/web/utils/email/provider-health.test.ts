@@ -8,6 +8,7 @@ import {
   claimProviderIssueCleanupInRedis,
   releaseProviderIssueCleanupClaimInRedis,
 } from "@/utils/redis/provider-issue-cleanup";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
@@ -26,6 +27,24 @@ describe("provider health", () => {
     vi.mocked(releaseProviderIssueCleanupClaimInRedis).mockResolvedValue(
       undefined,
     );
+  });
+
+  it("releases cleanup deduplication when the failed credentials have been superseded", async () => {
+    vi.mocked(cleanupInvalidTokens).mockResolvedValueOnce({
+      status: "skipped",
+    });
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("invalid_grant"),
+      failedAccessToken: "old-token",
+      operation: "getMessage",
+      logger: createMockLogger(),
+    });
+    expect(releaseProviderIssueCleanupClaimInRedis).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+    });
   });
 
   it("records missing refresh token failures as reconnect-required issues", async () => {
@@ -138,22 +157,51 @@ describe("provider health", () => {
     );
   });
 
-  it("records Outlook access denied as action-required permission issues", async () => {
-    const logger = createMockLogger();
+  it("does not disconnect Outlook accounts for item access failures", async () => {
+    const logger = createScopedLogger("provider-health-test");
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
       provider: "microsoft",
-      error: new Error("Access is denied. Check credentials and try again."),
+      error: new Error(
+        "Access is denied. Check credentials and try again. CANNOT SAVE CHANGES MADE TO AN ITEM TO STORE.",
+      ),
+      logger,
+      operation: "removeThreadLabels",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
+  });
+
+  it("does not disconnect Outlook accounts for message access denials", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: new Error("ACCESS IS DENIED. CHECK CREDENTIALS AND TRY AGAIN."),
       logger,
       operation: "getMessage",
     });
 
-    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
+  });
+
+  it("does not disconnect Outlook accounts for code-only access denials", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
-      reason: "insufficient_permissions",
+      provider: "microsoft",
+      error: { code: "ErrorAccessDenied" },
       logger,
+      operation: "getMessage",
     });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
   it("does not treat malformed Outlook requests as permanent credential failures", () => {

@@ -20,7 +20,13 @@ export async function processHistoryItem(
   options: ProcessHistoryOptions,
   logger: Logger,
 ) {
-  const { emailAccount, hasAutomationRules, hasAiAccess, rules } = options;
+  const {
+    emailAccount,
+    hasAutomationRules,
+    hasAiAccess,
+    rules,
+    spamLearnedThreadIds,
+  } = options;
   const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
@@ -66,9 +72,14 @@ export async function processHistoryItem(
 
   // Handle Google-specific label events
   if (type === HistoryEventType.LABEL_REMOVED) {
+    const labelRemovedItem = item as gmail_v1.Schema$HistoryLabelRemoved;
+    if (labelRemovedItem.labelIds?.includes(GmailLabel.SPAM)) {
+      spamLearnedThreadIds.delete(threadId);
+    }
+
     logger.info("Processing label removed event for learning");
     return handleLabelRemovedEvent(
-      item as gmail_v1.Schema$HistoryLabelRemoved,
+      labelRemovedItem,
       {
         emailAccount,
         provider,
@@ -88,6 +99,7 @@ export async function processHistoryItem(
       {
         emailAccount,
         provider,
+        spamLearnedThreadIds,
       },
       logger,
     );

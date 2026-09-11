@@ -39,6 +39,15 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     enableStarted: "meeting_briefs_enable_started",
     toggled: "meeting_briefs_toggled",
   },
+  meetingRecorder: {
+    disabled: "meeting_recorder_disabled",
+    enabled: "meeting_recorder_enabled",
+    enableStarted: "meeting_recorder_enable_started",
+    followUpDraftOpened: "meeting_recorder_follow_up_draft_opened",
+    joinOverrideToggled: "meeting_recorder_join_override_toggled",
+    meetingOpened: "meeting_recorder_meeting_opened",
+    settingChanged: "meeting_recorder_setting_changed",
+  },
   bulkUnsubscribe: {
     bulkCompleted: "bulk_unsubscribe_completed",
     bulkStarted: "bulk_unsubscribe_started",
@@ -71,6 +80,7 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
   integrations: {
     connected: "integration_connected",
     connectFailed: "integration_connect_failed",
+    connectionPending: "integration_connection_pending",
     connectStarted: "integration_connect_started",
     disconnected: "integration_disconnected",
     disconnectStarted: "integration_disconnect_started",

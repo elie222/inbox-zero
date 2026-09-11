@@ -7,6 +7,7 @@ import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 
 const { envMock } = vi.hoisted(() => ({
   envMock: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: true,
   },

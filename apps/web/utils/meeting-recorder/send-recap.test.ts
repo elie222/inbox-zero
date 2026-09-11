@@ -26,10 +26,10 @@ vi.mock("@/utils/email/provider", () => ({
 vi.mock("@react-email/render", () => ({
   render: vi.fn().mockResolvedValue("<p>recap</p>"),
 }));
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendMeetingRecapEmail: vi.fn(),
 }));
-vi.mock("@inboxzero/resend/emails/meeting-recap", () => ({
+vi.mock("@inboxzero/transactional-email/emails/meeting-recap", () => ({
   default: vi.fn(() => null),
   generateMeetingRecapSubject: vi.fn(() => "Meeting recap"),
 }));
@@ -52,6 +52,8 @@ describe("sendMeetingRecapEmail", () => {
         overview: "Discussed the plan.",
         keyDecisions: [],
         actionItems: [],
+        openQuestions: null,
+        nextSteps: null,
       },
       followUpDraftCreated: false,
       logger: {

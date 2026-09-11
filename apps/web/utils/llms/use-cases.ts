@@ -38,6 +38,7 @@ export const LlmUseCase = {
   ParseFilingReply: "parse-filing-reply",
   PersonaAnalysis: "persona-analysis",
   PromptToRules: "prompt-to-rules",
+  PromptToSplit: "prompt-to-split",
   ReplyContextCollector: "reply-context-collector",
   ReplyMemoryExtraction: "reply-memory-extraction",
   ReplyMemorySelection: "reply-memory-selection",
@@ -85,6 +86,7 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ParseFilingReply]: "economy",
   [LlmUseCase.PersonaAnalysis]: "economy",
   [LlmUseCase.PromptToRules]: "chat",
+  [LlmUseCase.PromptToSplit]: "economy",
   [LlmUseCase.ReplyContextCollector]: "economy",
   [LlmUseCase.ReplyMemoryExtraction]: "economy",
   [LlmUseCase.ReplyMemorySelection]: "economy",
@@ -97,7 +99,6 @@ export const LLM_USE_CASE_MODEL_TYPES = {
 export function getModelForUseCase(
   userAi: UserAIFields,
   useCase: LlmUseCase,
-  online = false,
 ): SelectModel {
-  return getModel(userAi, LLM_USE_CASE_MODEL_TYPES[useCase], online);
+  return getModel(userAi, LLM_USE_CASE_MODEL_TYPES[useCase]);
 }

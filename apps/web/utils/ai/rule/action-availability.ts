@@ -34,13 +34,21 @@ export function getAvailableActionsForRuleEditor({
   ] as ActionType[];
 }
 
-export function getExtraAvailableActionsForRuleEditor(
-  _existingActionTypes: ActionType[] = [],
-) {
+export function getExtraAvailableActionsForRuleEditor({
+  existingActionTypes = [],
+  integrationActionsEnabled,
+}: {
+  existingActionTypes?: ActionType[];
+  integrationActionsEnabled: boolean;
+}) {
   return [
     ActionType.DIGEST,
     ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
       ? [ActionType.CALL_WEBHOOK]
+      : []),
+    ...(integrationActionsEnabled ||
+    existingActionTypes.includes(ActionType.INTEGRATION)
+      ? [ActionType.INTEGRATION]
       : []),
   ] as ActionType[];
 }

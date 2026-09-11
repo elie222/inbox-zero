@@ -23,6 +23,7 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
+  mockIsIntegrationActionEnabledForUserId,
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
@@ -64,6 +65,7 @@ const {
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+  mockIsIntegrationActionEnabledForUserId: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("@/utils/llms", () => ({
@@ -76,6 +78,10 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
+}));
+
+vi.mock("@/utils/integration-action.server", () => ({
+  isIntegrationActionEnabledForUserId: mockIsIntegrationActionEnabledForUserId,
 }));
 
 vi.mock("@/utils/senders/unsubscribe", () => ({
@@ -214,7 +220,7 @@ describe("aiProcessAssistantChat", () => {
   }, 30_000);
 
   it.each([
-    ["web", 240_000],
+    ["web", 720_000],
     ["messaging", 60_000],
   ] as const)(
     "continues %s tool calls without a step cap and reserves time for a final response",
@@ -1933,6 +1939,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "send_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         to: "recipient@example.test",
@@ -1950,7 +1957,10 @@ describe("aiProcessAssistantChat", () => {
     expect(sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
-  it("rejects unsupported from field in chat send params", async () => {
+  it.each([
+    "from",
+    "emailAccountId",
+  ])("rejects caller-supplied %s in chat send params", async (field) => {
     const tools = await captureToolSet(true, "google");
     mockCreateEmailProvider.mockResolvedValue({
       sendEmailWithHtml: vi.fn(),
@@ -1959,13 +1969,13 @@ describe("aiProcessAssistantChat", () => {
 
     const result = await tools.sendEmail.execute({
       to: "recipient@example.test",
-      from: "sender.alias@example.test",
+      [field]: "untrusted-mailbox",
       subject: "Subject line",
       messageHtml: "<p>Hello</p>",
     } as any);
 
     expect(result).toEqual({
-      error: 'Invalid sendEmail input: unsupported field "from"',
+      error: `Invalid sendEmail input: unsupported field "${field}"`,
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });
@@ -2008,6 +2018,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "send_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         to: "recipient@example.test",
@@ -2045,6 +2056,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "forward_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         messageId: "message-1",

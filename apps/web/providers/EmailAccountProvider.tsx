@@ -16,6 +16,8 @@ type Context = {
     | null;
 };
 
+type EmailAccount = GetEmailAccountsResponse["emailAccounts"][number];
+
 const EmailAccountContext = createContext<Context | undefined>(undefined);
 
 const previewContextValue: Context = {
@@ -36,6 +38,7 @@ export function EmailAccountProvider({
   const emailAccountId = params.emailAccountId;
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const lastKnownEmailAccountId = data?.lastEmailAccountId ?? null;
 
   useEffect(() => {
     async function fetchAccounts() {
@@ -58,12 +61,10 @@ export function EmailAccountProvider({
   }, []);
 
   useEffect(() => {
-    if (emailAccountId) {
+    if (data && emailAccountId && emailAccountId !== lastKnownEmailAccountId) {
       setLastEmailAccountAction({ emailAccountId }).catch(() => {});
     }
-  }, [emailAccountId]);
-
-  const lastKnownEmailAccountId = data?.lastEmailAccountId ?? null;
+  }, [data, emailAccountId, lastKnownEmailAccountId]);
 
   const emailAccount = useMemo(() => {
     if (data?.emailAccounts) {
@@ -102,6 +103,42 @@ export function EmailAccountPreviewProvider({
 }) {
   return (
     <EmailAccountContext.Provider value={previewContextValue}>
+      {children}
+    </EmailAccountContext.Provider>
+  );
+}
+
+/**
+ * Temporarily scopes account-aware descendants without changing the route,
+ * last-account cookie, or the app-wide SWR cache. This lets a combined inbox
+ * reader operate as the row's owning account while the surrounding page stays
+ * on All Accounts.
+ */
+export function EmailAccountScopeProvider({
+  children,
+  emailAccount,
+}: {
+  children: React.ReactNode;
+  emailAccount?: EmailAccount;
+}) {
+  const parent = useAccount();
+  const value = useMemo<Context>(
+    () =>
+      emailAccount
+        ? {
+            emailAccount,
+            emailAccountId: emailAccount.id,
+            userEmail: emailAccount.email,
+            isLoading: false,
+            provider: emailAccount.account.provider,
+            providerRateLimit: emailAccount.providerRateLimit,
+          }
+        : parent,
+    [emailAccount, parent],
+  );
+
+  return (
+    <EmailAccountContext.Provider value={value}>
       {children}
     </EmailAccountContext.Provider>
   );

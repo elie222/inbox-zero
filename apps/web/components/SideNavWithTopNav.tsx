@@ -19,15 +19,19 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
   const pathname = usePathname();
   const isAssistantRoute = pathname?.includes("/assistant");
+  const isMailRoute = pathname?.includes("/mail");
   const isRightSidebarOpen =
     !isAssistantRoute && state.includes("chat-sidebar");
 
-  const noTopPadding = isAssistantRoute;
+  // The padding only exists to clear the fixed MobileHeader, which neither of
+  // these routes renders — on mail it showed up as a blank strip above the
+  // screen's own sidebar and toolbar.
+  const noTopPadding = isAssistantRoute || isMailRoute;
 
   return (
     <div
       className={cn(
-        "flex-1 transition-all duration-200 ease-linear",
+        "min-w-0 flex-1 transition-all duration-200 ease-linear",
         isRightSidebarOpen && "lg:mr-[450px]",
       )}
     >
@@ -35,6 +39,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
         className={cn(
           "overflow-hidden bg-background pt-9 max-w-full",
           noTopPadding && "pt-0",
+          // The mail page fills the viewport and scrolls its thread list
+          // internally, so layout banners shrink it instead of overflowing
+          isMailRoute && "h-svh",
         )}
       >
         {children}
@@ -49,15 +56,19 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
 export function SideNavWithTopNav({
   children,
   defaultOpen,
+  feedbackEnabled,
 }: {
   children: React.ReactNode;
   defaultOpen: boolean;
+  feedbackEnabled: boolean;
 }) {
   const pathname = usePathname();
 
   if (!pathname) return null;
 
   const isAssistantRoute = pathname.includes("/assistant");
+  // The mail screen ships its own sidebar, so this one would be a second copy.
+  const isMailRoute = pathname.includes("/mail");
 
   // Ugly code. May change the onboarding path later so we don't need to do this.
   // Only return children for the onboarding or onboarding-brief pages: /[emailAccountId]/onboarding or /[emailAccountId]/onboarding-brief
@@ -72,9 +83,16 @@ export function SideNavWithTopNav({
     <SidebarProvider
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
+      keyboardShortcutName="left-sidebar"
     >
-      <MobileHeader />
-      <SideNav name="left-sidebar" />
+      {/* Mail supplies its own sidebar and trigger for this shared state, so
+          the global navigation and its mobile header would be duplicates. */}
+      {!isMailRoute && (
+        <>
+          <MobileHeader />
+          <SideNav name="left-sidebar" feedbackEnabled={feedbackEnabled} />
+        </>
+      )}
       <ContentWrapper>{children}</ContentWrapper>
       {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
     </SidebarProvider>

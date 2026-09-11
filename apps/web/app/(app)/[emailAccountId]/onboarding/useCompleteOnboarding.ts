@@ -41,7 +41,7 @@ export function useCompleteOnboarding() {
           { prefix: "There was an error finishing onboarding" },
         ),
       });
-      return;
+      return false;
     }
     if (result?.serverError || result?.validationErrors) {
       captureException(new Error("Failed to complete onboarding"), {
@@ -62,7 +62,7 @@ export function useCompleteOnboarding() {
           { prefix: "There was an error finishing onboarding" },
         ),
       });
-      return;
+      return false;
     }
 
     markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
@@ -72,6 +72,7 @@ export function useCompleteOnboarding() {
     } else {
       router.push("/welcome-upgrade");
     }
+    return true;
   }, [completeOnboarding, destination, emailAccountId, isPremium, router]);
 
   return { completeAndRedirect, destination };

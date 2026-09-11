@@ -17,6 +17,8 @@ node_modules
 
 # production
 /build
+/apps/desktop/release
+/apps/desktop/build/*.provisionprofile
 
 # misc
 .DS_Store

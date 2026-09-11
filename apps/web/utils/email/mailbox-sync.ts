@@ -84,7 +84,9 @@ function isAllowedMicrosoftDeltaLink(value: string): boolean {
     url.username === "" &&
     url.password === "" &&
     url.hash === "" &&
-    /^\/v1\.0\/me\/mailFolders\/[^/]+\/messages\/delta$/i.test(url.pathname) &&
+    /^\/v1\.0\/me\/mailFolders(?:\/[^/]+|\('[^']+'\))\/messages\/delta$/i.test(
+      url.pathname,
+    ) &&
     (url.searchParams.has("$skiptoken") || url.searchParams.has("$deltatoken"))
   );
 }

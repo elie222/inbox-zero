@@ -15,6 +15,9 @@ const {
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/error", () => ({ captureException: vi.fn() }));
+vi.mock("@/utils/posthog", () => ({
+  posthogCaptureEvent: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("@/utils/ai/meeting-recorder/summarize-meeting", () => ({
   aiSummarizeMeeting: (...args: unknown[]) => aiSummarizeMeetingMock(...args),
   parseMeetingSummary: () => null,

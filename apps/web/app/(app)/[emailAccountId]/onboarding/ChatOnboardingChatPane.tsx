@@ -1,11 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import type { ChangeEvent } from "react";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Response } from "@/components/ai-elements/response";
+import {
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input";
 import type { OnboardingChatMessage } from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingConfig";
 import { cn } from "@/utils";
 
@@ -21,7 +27,7 @@ export type ScanCard = {
   summary: string | null;
 };
 
-const ENTER_ANIMATION =
+export const ENTER_ANIMATION =
   "duration-300 animate-in fade-in slide-in-from-bottom-2";
 
 export function ChatOnboardingChatPane({
@@ -32,7 +38,7 @@ export function ChatOnboardingChatPane({
   scanCard,
   belowConversation,
   cta,
-  inlinePanel,
+  inlineCards,
   inputDisabled = false,
 }: {
   messages: OnboardingChatMessage[];
@@ -42,7 +48,7 @@ export function ChatOnboardingChatPane({
   scanCard: ScanCard | null;
   belowConversation?: React.ReactNode;
   cta?: { label: string; loading: boolean; onClick: () => void } | null;
-  inlinePanel?: React.ReactNode;
+  inlineCards?: Record<string, React.ReactNode>;
   inputDisabled?: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -80,7 +86,7 @@ export function ChatOnboardingChatPane({
 
           {visibleMessages.map((message) => (
             <Fragment key={message.id}>
-              <MessageItem message={message} />
+              <MessageItem message={message} inlineCards={inlineCards} />
               {scanCard?.afterMessageId === message.id && (
                 <ScanCardView
                   state={scanCard.state}
@@ -114,8 +120,6 @@ export function ChatOnboardingChatPane({
             </div>
           )}
 
-          {inlinePanel && <div className="lg:hidden">{inlinePanel}</div>}
-
           {!busy && chips.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {chips.map((chip) => (
@@ -137,35 +141,42 @@ export function ChatOnboardingChatPane({
       </div>
 
       <div className="shrink-0 pb-5 pt-3">
-        <div className="flex items-center gap-2 rounded-2xl border bg-background py-2 pl-4 pr-2 shadow-sm">
-          <input
+        <PromptInput
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendFreeform();
+          }}
+        >
+          <PromptInputTextarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                sendFreeform();
-              }
-            }}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+              setInput(e.currentTarget.value)
+            }
             placeholder="Message"
-            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/60"
+            disabled={inputDisabled}
+            className="pr-14"
           />
-          <Button
-            size="icon"
-            className="size-8 shrink-0 rounded-xl"
-            onClick={sendFreeform}
-            disabled={!input.trim() || busy || inputDisabled}
-            aria-label="Send message"
-          >
-            <ArrowUpIcon className="size-4" />
-          </Button>
-        </div>
+
+          <div className="absolute bottom-2 right-2">
+            <PromptInputSubmit
+              status={busy ? "submitted" : "ready"}
+              disabled={!input.trim() || busy || inputDisabled}
+              aria-label="Send message"
+            />
+          </div>
+        </PromptInput>
       </div>
     </div>
   );
 }
 
-function MessageItem({ message }: { message: OnboardingChatMessage }) {
+function MessageItem({
+  message,
+  inlineCards,
+}: {
+  message: OnboardingChatMessage;
+  inlineCards?: Record<string, React.ReactNode>;
+}) {
   if (message.role === "user") {
     const text = getMessageText(message);
     if (!text) return null;
@@ -180,19 +191,29 @@ function MessageItem({ message }: { message: OnboardingChatMessage }) {
 
   return (
     <>
-      {message.parts.map((part, index) =>
-        part.type === "text" && part.text ? (
-          <div
-            key={`${message.id}-${index}`}
-            className={cn(
-              "text-[15px] leading-relaxed text-foreground/90",
-              ENTER_ANIMATION,
-            )}
-          >
-            <Response>{part.text}</Response>
-          </div>
-        ) : null,
-      )}
+      {message.parts.map((part, index) => {
+        if (part.type === "text" && part.text) {
+          return (
+            <div
+              key={`${message.id}-${index}`}
+              className={cn(
+                "text-[15px] leading-relaxed text-foreground/90",
+                ENTER_ANIMATION,
+              )}
+            >
+              <Response>{part.text}</Response>
+            </div>
+          );
+        }
+
+        const card =
+          "toolCallId" in part ? inlineCards?.[part.toolCallId] : undefined;
+        if (card) {
+          return <Fragment key={`${message.id}-${index}`}>{card}</Fragment>;
+        }
+
+        return null;
+      })}
     </>
   );
 }

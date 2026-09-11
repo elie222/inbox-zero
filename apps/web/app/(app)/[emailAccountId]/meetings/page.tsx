@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { CalendarIcon, MicIcon, SettingsIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -15,11 +14,13 @@ import type { MeetingJoinRule } from "@/generated/prisma/enums";
 import { useCalendars } from "@/hooks/useCalendars";
 import { useMeetingRecorderEnabled } from "@/hooks/useFeatureFlags";
 import { useMeetingRecorderSettings } from "@/hooks/useMeetingRecorder";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { updateMeetingRecorderSettingsAction } from "@/utils/actions/meeting-recorder";
 import { getActionErrorMessage } from "@/utils/error";
 import { MeetingRecorderOnboarding } from "@/app/(app)/[emailAccountId]/meetings/MeetingRecorderOnboarding";
 import { MeetingRecorderSettingsDialog } from "@/app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog";
+import { MeetingDetail } from "@/app/(app)/[emailAccountId]/meetings/MeetingDetail";
 import { MeetingsList } from "@/app/(app)/[emailAccountId]/meetings/MeetingsList";
 import { UpcomingMeetingsToggleList } from "@/app/(app)/[emailAccountId]/meetings/UpcomingMeetingsToggleList";
 import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/calendar-connection-state";
@@ -37,13 +38,8 @@ export default function MeetingsPage() {
           <ActionCard
             variant="blue"
             icon={<MicIcon className="h-5 w-5" />}
-            title="Meeting notetaker is not enabled"
-            description="This feature is in limited rollout. Join early access to enable it for your account."
-            action={
-              <Button asChild variant="outline">
-                <Link href="/early-access">Join Early Access</Link>
-              </Button>
-            }
+            title="Meeting notetaker is disabled"
+            description="The meeting notetaker is turned off on this server. Set NEXT_PUBLIC_MEETING_RECORDER_ENABLED=true and see the self-hosting docs to configure it."
           />
         </div>
       </PageWrapper>
@@ -55,7 +51,9 @@ export default function MeetingsPage() {
 
 function MeetingRecorderPageContent() {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [openMeetingId, setOpenMeetingId] = useState<string | null>(null);
 
   const {
     data: calendarsData,
@@ -72,7 +70,10 @@ function MeetingRecorderPageContent() {
   const { execute, status } = useAction(
     updateMeetingRecorderSettingsAction.bind(null, emailAccountId),
     {
-      onSuccess: () => mutate(),
+      onSuccess: () => {
+        analytics.captureAction("meeting_recorder_enabled");
+        mutate();
+      },
       onError: ({ error }) => {
         toastError({
           description: getActionErrorMessage(error, {
@@ -98,6 +99,11 @@ function MeetingRecorderPageContent() {
 
   const hasCalendarConnected = hasConnectedCalendar(calendarsData?.connections);
 
+  const openMeeting = (meetingId: string) => {
+    analytics.captureAction("meeting_recorder_meeting_opened");
+    setOpenMeetingId(meetingId);
+  };
+
   // Enabling is entitlement-gated server-side, so a non-premium user needs the
   // upgrade path on the onboarding screen too, not just once they are set up.
   if (!settings?.enabled) {
@@ -110,9 +116,13 @@ function MeetingRecorderPageContent() {
         <MeetingRecorderOnboarding
           emailAccountId={emailAccountId}
           hasCalendarConnected={hasCalendarConnected}
-          onEnable={(joinRule: MeetingJoinRule) =>
-            execute({ enabled: true, joinRule })
-          }
+          onEnable={(joinRule: MeetingJoinRule) => {
+            analytics.captureAction("meeting_recorder_enable_started", {
+              join_rule: joinRule,
+              has_calendar_connected: hasCalendarConnected,
+            });
+            execute({ enabled: true, joinRule });
+          }}
           isEnabling={status === "executing"}
         />
       </PageWrapper>
@@ -156,10 +166,18 @@ function MeetingRecorderPageContent() {
           />
         )}
 
-        <UpcomingMeetingsToggleList emailAccountId={emailAccountId} />
+        <UpcomingMeetingsToggleList
+          emailAccountId={emailAccountId}
+          onOpenMeeting={openMeeting}
+        />
 
-        <MeetingsList />
+        <MeetingsList onOpenMeeting={openMeeting} />
       </div>
+
+      <MeetingDetail
+        meetingId={openMeetingId}
+        onClose={() => setOpenMeetingId(null)}
+      />
 
       <MeetingRecorderSettingsDialog
         emailAccountId={emailAccountId}

@@ -46,6 +46,15 @@ describe("describeContext", () => {
     expect(context).not.toContain("<booking_link>");
   });
 
+  it("includes recorded meeting evidence without claiming external context is absent", () => {
+    const fixture = evalCase({ calendarBookingLink: null, bookingLinks: [] });
+    fixture.input.context.recordedMeetingContext =
+      "The team agreed to send the report Friday.";
+    const context = describeContext(fixture);
+    expect(context).toContain(fixture.input.context.recordedMeetingContext);
+    expect(context).not.toContain("No additional factual context");
+  });
+
   it("uses the product thread formatting and truncation", () => {
     const fixture = evalCase({ calendarBookingLink: null, bookingLinks: [] });
     fixture.input.messages[0] = {

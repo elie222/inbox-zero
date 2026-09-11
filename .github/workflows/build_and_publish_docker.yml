@@ -7,6 +7,12 @@ on:
     tags: ["v*"] # Also build on version tags for releases
   workflow_dispatch: # Allow manual trigger
 
+# Dual-arch Next.js image builds are memory-heavy on Depot. Overlapping
+# pushes to main previously OOMed the builders (keepalive ping timeout).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -22,6 +28,7 @@ jobs:
     if: github.repository == 'elie222/inbox-zero'
     name: "Build Docker Image"
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code

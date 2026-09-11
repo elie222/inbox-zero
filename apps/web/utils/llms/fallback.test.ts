@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { APICallError } from "ai";
+import { APICallError, RetryError } from "ai";
 import { createGenerateText } from "./index";
 import type { SelectModel } from "./model";
 
@@ -141,6 +141,58 @@ describe("createGenerateText fallback chain", () => {
     );
   });
 
+  it("falls back when an SDK retry error wraps a retryable provider failure", async () => {
+    const { extractLLMErrorInfo } =
+      await vi.importActual<typeof import("./retry")>("./retry");
+    mockExtractLLMErrorInfo.mockImplementationOnce(extractLLMErrorInfo);
+
+    const primaryModel = createModel("primary-model");
+    const fallbackModel = createModel("fallback-model");
+    const modelOptions = createModelOptions({
+      provider: "bedrock",
+      modelName: "primary",
+      model: primaryModel,
+      fallbackModels: [
+        createResolvedModel({
+          provider: "google",
+          modelName: "fallback",
+          model: fallbackModel,
+        }),
+      ],
+    });
+    const retryError = new RetryError({
+      message: "Failed after multiple attempts",
+      reason: "maxRetriesExceeded",
+      errors: [
+        new APICallError({
+          message: "Provider temporarily unavailable",
+          url: "https://example.com",
+          requestBodyValues: {},
+          statusCode: 503,
+          responseHeaders: {},
+          responseBody: "",
+        }),
+      ],
+    });
+    mockGenerateText
+      .mockRejectedValueOnce(retryError)
+      .mockResolvedValueOnce(createTextResult({ text: "fallback success" }));
+
+    const generateText = createGenerateTextForTest({
+      label: "Wrapped provider fallback",
+      modelOptions,
+    });
+
+    const result = await generateText({
+      prompt: "hello",
+      model: primaryModel,
+    });
+
+    expect(result.text).toBe("fallback success");
+    expect(mockGenerateText).toHaveBeenCalledTimes(2);
+    expect(mockGenerateText.mock.calls[1][0].model).toBe(fallbackModel);
+  });
+
   it("falls back when the primary model is no longer available", async () => {
     const primaryModel = createModel("primary-model");
     const fallbackModel = createModel("fallback-model");
@@ -160,7 +212,7 @@ describe("createGenerateText fallback chain", () => {
     mockGenerateText
       .mockRejectedValueOnce(
         new APICallError({
-          message: "The configured model is deprecated",
+          message: "The configured model is not a valid model ID",
           url: "https://example.com",
           requestBodyValues: {},
           statusCode: 400,
@@ -169,6 +221,15 @@ describe("createGenerateText fallback chain", () => {
         }),
       )
       .mockResolvedValueOnce(createTextResult({ text: "fallback success" }));
+    mockWithLLMRetry.mockImplementationOnce(
+      async (operation: () => Promise<unknown>) => {
+        try {
+          return await operation();
+        } catch (error) {
+          throw Object.assign(new Error("LLM retry failed"), { error });
+        }
+      },
+    );
 
     const generateText = createGenerateTextForTest({
       label: "Unavailable model fallback",

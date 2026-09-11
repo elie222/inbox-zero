@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import { generateSecret } from "./utils";
+import { setupPubSubSubscription } from "./google-pubsub";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -430,43 +431,6 @@ function setupPubSubTopic(projectId: string, topicName: string): SetupResult {
     return {
       success: false,
       error: bindingResult.stderr?.toString() || "Failed to add IAM binding",
-    };
-  }
-
-  return { success: true };
-}
-
-function setupPubSubSubscription(
-  projectId: string,
-  topicName: string,
-  subscriptionName: string,
-  webhookUrl: string,
-): SetupResult {
-  const createResult = spawnSync(
-    "gcloud",
-    [
-      "pubsub",
-      "subscriptions",
-      "create",
-      subscriptionName,
-      "--topic",
-      topicName,
-      "--push-endpoint",
-      webhookUrl,
-      "--project",
-      projectId,
-    ],
-    { stdio: "pipe" },
-  );
-
-  // Ignore "already exists" error
-  if (
-    createResult.status !== 0 &&
-    !createResult.stderr?.toString().includes("ALREADY_EXISTS")
-  ) {
-    return {
-      success: false,
-      error: createResult.stderr?.toString() || "Failed to create subscription",
     };
   }
 

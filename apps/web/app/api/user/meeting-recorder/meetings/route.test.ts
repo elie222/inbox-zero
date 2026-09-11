@@ -33,7 +33,7 @@ describe("meeting recorder meetings route", () => {
     vi.useRealTimers();
   });
 
-  it("keeps ongoing and no-show bookings out of the recorded section", async () => {
+  it("keeps active calls out of the recorded section", async () => {
     await GET(
       new Request(
         "https://example.com/api/user/meeting-recorder/meetings",
@@ -49,8 +49,6 @@ describe("meeting recorder meetings route", () => {
           in: [
             MeetingRecordingStatus.JOINING,
             MeetingRecordingStatus.IN_WAITING_ROOM,
-            MeetingRecordingStatus.IN_CALL,
-            MeetingRecordingStatus.RECORDING,
             MeetingRecordingStatus.FAILED,
             MeetingRecordingStatus.CALL_ENDED,
             MeetingRecordingStatus.DONE,

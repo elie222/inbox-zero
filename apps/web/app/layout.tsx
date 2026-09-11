@@ -16,7 +16,12 @@ import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
-import { BRAND_ICON_URL, BRAND_NAME, toAbsoluteUrl } from "@/utils/branding";
+import {
+  BRAND_ICON_URL,
+  BRAND_NAME,
+  SUPPORT_EMAIL,
+  toAbsoluteUrl,
+} from "@/utils/branding";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -66,6 +71,7 @@ const jsonLd: WithContext<WebApplication> = {
   ],
   publisher: {
     "@type": "Organization",
+    "@id": toAbsoluteUrl("/#organization"),
     name: BRAND_NAME,
     url: env.NEXT_PUBLIC_BASE_URL,
     logo: {
@@ -76,6 +82,19 @@ const jsonLd: WithContext<WebApplication> = {
       "https://x.com/inboxzero_ai",
       "https://github.com/elie222/inbox-zero",
     ],
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: SUPPORT_EMAIL,
+      contactType: "customer support",
+    },
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "131 Continental Dr, Suite 305",
+      addressLocality: "Newark",
+      addressRegion: "DE",
+      postalCode: "19713",
+      addressCountry: "US",
+    },
   },
 };
 
@@ -135,6 +154,15 @@ export default async function RootLayout({
         className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
         <script
+          // Marks the Mac Electron shell before paint so traffic-light
+          // insets apply without a logo flash. Harmless in the browser.
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static UA check, no user input
+          dangerouslySetInnerHTML={{
+            __html:
+              'if(window.inboxZeroDesktop&&/Mac/i.test(navigator.userAgent))document.documentElement.dataset.macDesktop=""',
+          }}
+        />
+        <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
           dangerouslySetInnerHTML={{
@@ -147,7 +175,7 @@ export default async function RootLayout({
           </Suspense>
           <GlobalProviders>
             {children}
-            <Toaster closeButton richColors theme="light" visibleToasts={9} />
+            <Toaster />
           </GlobalProviders>
         </PostHogProvider>
         <Analytics />

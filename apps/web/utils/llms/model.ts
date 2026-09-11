@@ -64,14 +64,13 @@ type ModelEntryWarningMessages = {
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
-  online = false,
 ): SelectModel {
   const selectedModel = userAi.aiApiKey
     ? {
-        primaryModel: selectUserModel(userAi, modelType, online),
+        primaryModel: selectUserModel(userAi, modelType),
         fallbackModels: [],
       }
-    : selectDeploymentModelByType(modelType, online);
+    : selectDeploymentModelByType(modelType);
   const { primaryModel, fallbackModels } = selectedModel;
 
   logger.info("Using model", {
@@ -100,7 +99,6 @@ function selectModel(
   modelType: ModelType,
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>,
-  online = false,
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
@@ -228,8 +226,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      let modelName = aiModel || "anthropic/claude-sonnet-4.6";
-      if (online) modelName += ":online";
+      const modelName = aiModel || "anthropic/claude-sonnet-4.6";
 
       const openrouter = createOpenRouter({
         apiKey: resolveApiKey(aiApiKey, env.OPENROUTER_API_KEY),
@@ -374,14 +371,14 @@ function createOpenRouterProviderOptions(
   };
 }
 
-function selectDeploymentModelByType(
-  modelType: ModelType,
-  online = false,
-): { primaryModel: ResolvedModel; fallbackModels: ResolvedModel[] } {
+function selectDeploymentModelByType(modelType: ModelType): {
+  primaryModel: ResolvedModel;
+  fallbackModels: ResolvedModel[];
+} {
   const selectedModel =
-    resolveRoleModelList(modelType, online) ??
+    resolveRoleModelList(modelType) ??
     getDeploymentModelFallbackTypes(modelType)
-      .map((fallbackType) => resolveRoleModelList(fallbackType, online))
+      .map((fallbackType) => resolveRoleModelList(fallbackType))
       .find((modelList) => !!modelList);
 
   if (!selectedModel) {
@@ -407,7 +404,6 @@ function getDeploymentModelFallbackTypes(modelType: ModelType): ModelType[] {
 function selectUserModel(
   userAi: UserAIFields,
   modelType: ModelType,
-  online = false,
 ): ResolvedModel {
   const configuredDefault = getFirstSupportedModelListEntry("default");
   const aiProvider = userAi.aiProvider || configuredDefault?.provider;
@@ -427,21 +423,19 @@ function selectUserModel(
     },
     modelType,
     getOpenRouterProviderOptions(modelType, aiProvider),
-    online,
   );
 }
 
-function resolveRoleModelList(
-  modelType: ModelType,
-  online = false,
-): { primaryModel: ResolvedModel; fallbackModels: ResolvedModel[] } | null {
+function resolveRoleModelList(modelType: ModelType): {
+  primaryModel: ResolvedModel;
+  fallbackModels: ResolvedModel[];
+} | null {
   const modelListConfig = getConfiguredModelListByType(modelType);
   if (!modelListConfig) return null;
 
   const resolvedModels = resolveDeploymentModelEntries({
     entries: parseModelListConfig(modelListConfig),
     modelType,
-    online,
     getOpenRouterProviderOptions,
     warningMessages: {
       unsupportedProvider: "Skipping unsupported LLM list provider",
@@ -463,9 +457,8 @@ function resolveRoleModelList(
 
 export function getConfiguredRolePrimaryModel(
   modelType: ModelType,
-  online = false,
 ): ResolvedModel | null {
-  return resolveRoleModelList(modelType, online)?.primaryModel ?? null;
+  return resolveRoleModelList(modelType)?.primaryModel ?? null;
 }
 
 export function getConfiguredRolePrimaryModelEntry(
@@ -795,14 +788,12 @@ function resolveDeploymentModelEntries({
   entries,
   modelType,
   primaryModel,
-  online,
   getOpenRouterProviderOptions,
   warningMessages,
 }: {
   entries: ParsedModelEntry[];
   modelType: ModelType;
   primaryModel?: ResolvedModel;
-  online: boolean;
   getOpenRouterProviderOptions: (
     modelType: ModelType,
     provider: string,
@@ -851,7 +842,6 @@ function resolveDeploymentModelEntries({
       },
       modelType,
       providerOptions,
-      online,
     );
 
     if (

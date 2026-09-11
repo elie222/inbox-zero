@@ -22,10 +22,13 @@ import {
   isSameOrganization,
   splitRecipientList,
 } from "@/utils/email";
-import { captureException } from "@/utils/error";
+import { captureException, getErrorMessage } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
+import { callMcpTool } from "@/utils/mcp/call-tool";
+import { findIntegration } from "@/utils/mcp/integrations";
+import { getIntegrationToolSpec } from "@/utils/mcp/tool-specs";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import {
   getMessagingRuleNotificationResult,
@@ -34,6 +37,7 @@ import {
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 import { checkHasAccess } from "@/utils/premium/server";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
 const MODULE = "ai-actions";
 
@@ -116,6 +120,8 @@ export const runActionFunction = async (options: {
       return move_folder(opts);
     case ActionType.NOTIFY_SENDER:
       return notify_sender(opts);
+    case ActionType.INTEGRATION:
+      return integration(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -323,7 +329,7 @@ const reply: ActionFunction<{
     includeAiSelectedAttachments: false,
   });
 
-  await client.replyToEmail(
+  const { messageId } = await client.replyToEmail(
     {
       id: email.id,
       threadId: email.threadId,
@@ -340,6 +346,7 @@ const reply: ActionFunction<{
     args.content,
     { attachments },
   );
+  return { sentMessageIds: [messageId] };
 };
 
 const send_email: ActionFunction<{
@@ -370,7 +377,8 @@ const send_email: ActionFunction<{
     attachments,
   };
 
-  await client.sendEmail(emailArgs);
+  const { messageId } = await client.sendEmail(emailArgs);
+  return { sentMessageIds: [messageId] };
 };
 
 const forward: ActionFunction<{
@@ -428,25 +436,36 @@ const forward: ActionFunction<{
   if (!toRecipients.length && !ccRecipients.length) {
     // A primary recipient is required, so send BCC-only recipients separately
     // to avoid exposing them to each other.
+    const sentMessageIds = [];
     for (const recipient of bccRecipients) {
-      await client.forwardEmail(forwardMessage, {
-        ...forwardArgs,
-        to: recipient,
-      });
+      try {
+        const { messageId } = await client.forwardEmail(forwardMessage, {
+          ...forwardArgs,
+          to: recipient,
+        });
+        sentMessageIds.push(messageId);
+      } catch (error) {
+        throw attachSentMessageIds(error, sentMessageIds);
+      }
     }
-    return;
+    return { sentMessageIds };
   }
 
   if (!toRecipients.length) {
-    toRecipients.push(ccRecipients.shift()!);
+    const primaryRecipient = ccRecipients.shift();
+    if (!primaryRecipient) {
+      throw new Error("Forward requires a primary recipient");
+    }
+    toRecipients.push(primaryRecipient);
   }
 
-  await client.forwardEmail(forwardMessage, {
+  const { messageId } = await client.forwardEmail(forwardMessage, {
     ...forwardArgs,
     to: toRecipients.join(", "),
     cc: ccRecipients.join(", ") || undefined,
     bcc: bccRecipients.join(", ") || undefined,
   });
+  return { sentMessageIds: [messageId] };
 };
 
 const mark_spam: ActionFunction<Record<string, unknown>> = async ({
@@ -576,6 +595,102 @@ const move_folder: ActionFunction<{
         logger,
       }),
     );
+  }
+};
+
+const integration: ActionFunction<{
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: ActionItem["integrationArgs"];
+}> = async ({ args, emailAccount, logger }) => {
+  if (!(await isIntegrationActionEnabledForUserId(emailAccount.userId))) {
+    logger.info(
+      "Skipping integration action because integration actions are disabled",
+    );
+    return { skipped: true, reason: "INTEGRATION_ACTION_DISABLED" };
+  }
+
+  const { integrationName, integrationToolName } = args;
+  if (!integrationName || !integrationToolName) {
+    return {
+      success: false,
+      errorCode: "MISSING_INTEGRATION_CONFIG",
+      errorMessage: "Integration action is missing its integration or tool",
+    };
+  }
+
+  const integrationConfig = findIntegration(integrationName);
+  const ruleActionWriteTools = integrationConfig?.ruleActionWriteTools ?? [];
+  if (
+    !integrationConfig ||
+    !ruleActionWriteTools.includes(integrationToolName)
+  ) {
+    return {
+      success: false,
+      errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      errorMessage: `Unsupported integration tool: ${integrationName}/${integrationToolName}`,
+    };
+  }
+
+  const connection = await prisma.mcpConnection.findFirst({
+    where: {
+      emailAccountId: emailAccount.id,
+      isActive: true,
+      integration: { name: integrationName },
+    },
+    select: { id: true },
+  });
+  if (!connection) {
+    return {
+      success: false,
+      errorCode: "INTEGRATION_NOT_CONNECTED",
+      errorMessage: `${integrationConfig.displayName} is not connected. Connect it on the Integrations page.`,
+    };
+  }
+
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (!spec) {
+    return {
+      success: false,
+      errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      errorMessage: `Unsupported integration tool: ${integrationName}/${integrationToolName}`,
+    };
+  }
+
+  const resolvedArgs = readIntegrationArgs(args.integrationArgs);
+  const missingArg = spec.args.find(
+    (arg) => arg.required && !resolvedArgs[arg.key]?.trim(),
+  );
+  if (missingArg) {
+    return {
+      success: false,
+      errorCode: "MISSING_INTEGRATION_ARGS",
+      errorMessage: `The integration action has no ${missingArg.label.toLowerCase()}`,
+    };
+  }
+
+  const toolArgs = spec.buildPayload(resolvedArgs);
+
+  try {
+    await callMcpTool({
+      emailAccountId: emailAccount.id,
+      integration: integrationName,
+      toolName: integrationToolName,
+      args: toolArgs,
+    });
+    return { success: true };
+  } catch (error) {
+    logger.error("Integration action failed", {
+      error,
+      integration: integrationName,
+      toolName: integrationToolName,
+    });
+    return {
+      success: false,
+      errorCode: "INTEGRATION_CALL_FAILED",
+      errorMessage:
+        getErrorMessage(error) ?? "The integration tool call failed",
+    };
   }
 };
 
@@ -783,6 +898,24 @@ function isLegacyMessagingDraft({
   );
 }
 
+function readIntegrationArgs(
+  integrationArgs: ActionItem["integrationArgs"],
+): Record<string, string> {
+  if (
+    !integrationArgs ||
+    typeof integrationArgs !== "object" ||
+    Array.isArray(integrationArgs)
+  ) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(integrationArgs).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+}
+
 function removeMessageParticipants(
   recipientList: string | null | undefined,
   messageParticipants: string[],
@@ -793,4 +926,12 @@ function removeMessageParticipants(
         isSameEmailAddress(participant, recipient),
       ),
   );
+}
+
+function attachSentMessageIds(error: unknown, sentMessageIds: string[]) {
+  if (error && typeof error === "object") {
+    return Object.assign(error, { sentMessageIds });
+  }
+
+  return Object.assign(new Error(String(error)), { sentMessageIds });
 }

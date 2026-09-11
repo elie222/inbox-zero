@@ -3,12 +3,10 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowUpIcon,
   HistoryIcon,
   Loader2,
   PaperclipIcon,
   PlusIcon,
-  SquareIcon,
   XIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
@@ -42,6 +40,7 @@ import {
   getChatHistoryLabel,
 } from "@/components/assistant-chat/chat-history-types";
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
+import { randomUuid } from "@/utils/uuid";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -116,7 +115,7 @@ export function Chat({
         const reader = new FileReader();
         reader.onload = () => {
           resolve({
-            id: crypto.randomUUID(),
+            id: randomUuid(),
             name: file.name,
             url: reader.result as string,
             contentType: file.type,
@@ -201,7 +200,6 @@ export function Chat({
           handleSubmit();
         }
       }}
-      className="relative divide-y-0 rounded-2xl"
     >
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex gap-2 overflow-x-auto p-2 pb-0">
@@ -251,6 +249,7 @@ export function Chat({
             type="button"
             variant="ghost"
             size="icon"
+            aria-label="Attach images"
             className="size-9 rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
@@ -275,7 +274,6 @@ export function Chat({
           disabled={
             status === "ready" || status === "error" ? !hasContent : false
           }
-          className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
           onClick={(e) => {
             if (status === "streaming" || status === "submitted") {
               analytics.captureAction("chat_generation_stopped", {
@@ -286,15 +284,7 @@ export function Chat({
               setMessages((messages) => messages);
             }
           }}
-        >
-          {status === "submitted" ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : status === "streaming" ? (
-            <SquareIcon className="size-4" />
-          ) : (
-            <ArrowUpIcon className="size-5" />
-          )}
-        </PromptInputSubmit>
+        />
       </div>
     </PromptInput>
   );

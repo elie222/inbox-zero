@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemType, type GroupItemSource } from "@/generated/prisma/enums";
+import { type GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 /**
@@ -12,7 +12,7 @@ export async function saveLearnedPattern({
   emailAccountId,
   from,
   ruleId,
-  exclude = false,
+  exclude,
   logger,
   reason,
   threadId,
@@ -55,18 +55,21 @@ export async function saveLearnedPattern({
         value: from,
       },
     },
+    // Undefined fields are left untouched by Prisma, so inferred inclusions do not
+    // overwrite how the pattern was first learned. Explicit exclusions claim the row
+    // so later cleanup cannot mistake a correction for spam learning.
     update: {
       exclude,
       reason,
       threadId,
       messageId,
-      source,
+      source: exclude === true ? source : undefined,
     },
     create: {
       groupId,
       type: GroupItemType.FROM,
       value: from,
-      exclude,
+      exclude: exclude ?? false,
       reason,
       threadId,
       messageId,
@@ -136,14 +139,16 @@ export async function saveLearnedPatterns({
             value: pattern.value,
           },
         },
+        // Same rule as saveLearnedPattern: a pattern that says nothing about exclude
+        // must not reset one, which would re-block a sender the user had corrected.
         update: {
-          exclude: pattern.exclude || false,
+          exclude: pattern.exclude,
         },
         create: {
           groupId,
           type: pattern.type,
           value: pattern.value,
-          exclude: pattern.exclude || false,
+          exclude: pattern.exclude ?? false,
         },
       });
     } catch (error) {

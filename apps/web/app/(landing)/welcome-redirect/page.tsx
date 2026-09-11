@@ -5,7 +5,7 @@ import { redirectToEmailAccountPath } from "@/utils/account";
 import { isPremiumRecord, premiumEntitlementSelect } from "@/utils/premium";
 
 export default async function WelcomeRedirectPage(props: {
-  searchParams: Promise<{ force?: boolean }>;
+  searchParams: Promise<{ force?: boolean; mode?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await auth();
@@ -24,7 +24,9 @@ export default async function WelcomeRedirectPage(props: {
   if (!user) redirect("/logout");
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
-    await redirectToEmailAccountPath("/automation");
+    await redirectToEmailAccountPath(
+      searchParams.mode === "mail" ? "/mail" : "/automation",
+    );
   }
 
   if (user.premiumId) {

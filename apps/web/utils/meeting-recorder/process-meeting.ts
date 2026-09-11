@@ -22,6 +22,7 @@ import {
   STUCK_PROCESSING_MINUTES,
 } from "@/utils/meeting-recorder/config";
 import { sendMeetingRecapEmail } from "@/utils/meeting-recorder/send-recap";
+import { posthogCaptureEvent } from "@/utils/posthog";
 import { checkHasAccess } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
 import { textToHtmlParagraphs } from "@/utils/string";
@@ -207,6 +208,8 @@ async function runProcessingSteps({
         followUpDraftCreated: !!refreshedMeeting?.followUpDraftId,
         logger,
       });
+
+      await posthogCaptureEvent(emailAccount.email, "Meeting recap email sent");
     }
   }
 }
@@ -234,6 +237,10 @@ async function summarizeAndSave({
   await prisma.meeting.update({
     where: { id: meetingId },
     data: { summary },
+  });
+
+  await posthogCaptureEvent(emailAccount.email, "Meeting summary created", {
+    attendeeCount: attendees.length,
   });
 
   return summary;
@@ -299,4 +306,10 @@ async function createFollowUpDraft({
   });
 
   logger.info("Created meeting follow-up draft", { draftId: id });
+
+  await posthogCaptureEvent(
+    emailAccount.email,
+    "Meeting follow-up draft created",
+    { recipientCount: recipients.length },
+  );
 }

@@ -57,7 +57,7 @@ vi.mock("@/utils/unsubscribe", () => ({
     mockCreateUnsubscribeToken(...args),
 }));
 
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendSummaryEmail: (...args: unknown[]) => mockSendSummaryEmail(...args),
 }));
 

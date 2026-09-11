@@ -23,7 +23,6 @@ import {
   Paragraph,
   SectionHeading,
   SectionSubtitle,
-  Subheading,
 } from "@/components/new-landing/common/Typography";
 import {
   Badge,
@@ -86,12 +85,16 @@ const pricingTiers: PricingTier[] = [
   },
 ];
 
-const frequencies = ["annually", "monthly"];
+const frequencies = ["annually", "monthly"] as const;
+type PricingFrequency = (typeof frequencies)[number];
 
 export function Pricing() {
+  const pricingFrequencyDefaultVariant = usePricingFrequencyDefault();
   const defaultFrequency =
-    usePricingFrequencyDefault() === "annually" ? "annually" : "monthly";
-  const [chosenFrequency, setFrequency] = useState<string | null>(null);
+    pricingFrequencyDefaultVariant === "annually" ? "annually" : "monthly";
+  const [chosenFrequency, setFrequency] = useState<PricingFrequency | null>(
+    null,
+  );
   const frequency = chosenFrequency ?? defaultFrequency;
   const posthog = usePostHog();
 
@@ -105,7 +108,17 @@ export function Pricing() {
       >
         <RadioGroup
           value={frequency}
-          onChange={setFrequency}
+          onChange={(nextFrequency: PricingFrequency) => {
+            posthog.capture("pricing_frequency_changed", {
+              source: "landing_page",
+              previousFrequency: frequency,
+              frequency: nextFrequency,
+              defaultFrequency,
+              pricingFrequencyDefaultVariant:
+                pricingFrequencyDefaultVariant ?? null,
+            });
+            setFrequency(nextFrequency);
+          }}
           className="w-fit rounded-full p-1.5 text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200 mb-6 shadow-[0_0_7px_0_rgba(0,0,0,0.0.07)]"
         >
           <Label className="sr-only">Payment frequency</Label>
@@ -130,7 +143,12 @@ export function Pricing() {
               <PricingCard
                 tier={tier}
                 tierIndex={index}
-                isAnnual={frequency === "annually"}
+                frequency={frequency}
+                defaultFrequency={defaultFrequency}
+                frequencySource={chosenFrequency ? "user_selected" : "default"}
+                pricingFrequencyDefaultVariant={
+                  pricingFrequencyDefaultVariant ?? null
+                }
                 posthog={posthog}
               />
             </CardWrapper>
@@ -157,11 +175,17 @@ export function Pricing() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() =>
-                    landingPageAnalytics.pricingCtaClicked(
-                      posthog,
-                      "Enterprise",
-                      "Speak to sales",
-                    )
+                    landingPageAnalytics.pricingCtaClicked(posthog, {
+                      tier: "Enterprise",
+                      cta: "Speak to sales",
+                      frequency,
+                      defaultFrequency,
+                      frequencySource: chosenFrequency
+                        ? "user_selected"
+                        : "default",
+                      pricingFrequencyDefaultVariant:
+                        pricingFrequencyDefaultVariant ?? null,
+                    })
                   }
                 >
                   <Chat />
@@ -177,14 +201,26 @@ export function Pricing() {
 }
 
 interface PricingCardProps {
-  isAnnual: boolean;
+  defaultFrequency: PricingFrequency;
+  frequency: PricingFrequency;
+  frequencySource: "default" | "user_selected";
   posthog: PostHog;
+  pricingFrequencyDefaultVariant: string | null;
   tier: PricingTier;
   tierIndex: number;
 }
 
-function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
+function PricingCard({
+  tier,
+  tierIndex,
+  frequency,
+  defaultFrequency,
+  frequencySource,
+  pricingFrequencyDefaultVariant,
+  posthog,
+}: PricingCardProps) {
   const { name, description, features } = tier;
+  const isAnnual = frequency === "annually";
   const price = isAnnual ? tier.price.annually : tier.price.monthly;
   const isFirstTier = !tierIndex;
 
@@ -212,13 +248,17 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
           <div className="flex gap-2 items-end">
             {price ? (
               <>
-                <Subheading>${price}</Subheading>
+                <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
+                  ${price}
+                </div>
                 <Paragraph size="xs" color="light" className="-translate-y-1">
                   /user /month
                 </Paragraph>
               </>
             ) : (
-              <Subheading>Contact us</Subheading>
+              <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
+                Contact us
+              </div>
             )}
           </div>
           <Button auto size="lg" variant={tier.button.variant} asChild>
@@ -226,11 +266,14 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
               href={tier.button.href}
               target={tier.button.target}
               onClick={() =>
-                landingPageAnalytics.pricingCtaClicked(
-                  posthog,
-                  tier.name,
-                  tier.button.content,
-                )
+                landingPageAnalytics.pricingCtaClicked(posthog, {
+                  tier: tier.name,
+                  cta: tier.button.content,
+                  frequency,
+                  defaultFrequency,
+                  frequencySource,
+                  pricingFrequencyDefaultVariant,
+                })
               }
             >
               {tier.button.icon}

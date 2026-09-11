@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  deleteMeetingNotesAction,
   setMeetingJoinOverrideAction,
   updateMeetingRecorderSettingsAction,
 } from "./meeting-recorder";
@@ -13,6 +15,7 @@ const {
   mockReconcileSingleEvent,
   mockReleaseAccountBookings,
   mockReleaseAutomaticAccountBookings,
+  mockReleaseMeetingBooking,
   mockUpsertMeeting,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
@@ -21,6 +24,7 @@ const {
   mockReconcileSingleEvent: vi.fn(),
   mockReleaseAccountBookings: vi.fn(),
   mockReleaseAutomaticAccountBookings: vi.fn(),
+  mockReleaseMeetingBooking: vi.fn(),
   mockUpsertMeeting: vi.fn(),
 }));
 
@@ -39,10 +43,76 @@ vi.mock("@/utils/meeting-recorder/reconcile", () => ({
   reconcileSingleEvent: mockReconcileSingleEvent,
   releaseAccountBookings: mockReleaseAccountBookings,
   releaseAutomaticAccountBookings: mockReleaseAutomaticAccountBookings,
+  releaseMeetingBooking: mockReleaseMeetingBooking,
   upsertMeeting: mockUpsertMeeting,
 }));
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
+
+describe("deleteMeetingNotesAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.com" },
+    });
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: { userId: "user-1", provider: "google" },
+    } as never);
+  });
+
+  it("clears the summary and deletes the recording atomically", async () => {
+    const clearMeeting = Promise.resolve({}) as never;
+    const deleteRecording = Promise.resolve({}) as never;
+    prisma.meeting.findFirst.mockResolvedValue({
+      recordingId: "recording-1",
+    } as never);
+    prisma.meeting.update.mockReturnValue(clearMeeting);
+    prisma.meetingRecording.delete.mockReturnValue(deleteRecording);
+
+    const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
+      meetingId: "meeting-1",
+    });
+
+    expect(prisma.meeting.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "meeting-1",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        recording: { emailAccountId: EMAIL_ACCOUNT_ID },
+      },
+      select: { recordingId: true },
+    });
+    expect(prisma.meeting.update).toHaveBeenCalledWith({
+      where: {
+        id: "meeting-1",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        recordingId: "recording-1",
+      },
+      data: { recordingId: null, summary: Prisma.DbNull },
+    });
+    expect(prisma.meetingRecording.delete).toHaveBeenCalledWith({
+      where: { id: "recording-1" },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      clearMeeting,
+      deleteRecording,
+    ]);
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("does not delete notes that do not belong to the account", async () => {
+    prisma.meeting.findFirst.mockResolvedValue(null);
+
+    const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
+      meetingId: "another-account-meeting",
+    });
+
+    expect(prisma.meeting.update).not.toHaveBeenCalled();
+    expect(prisma.meetingRecording.delete).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(result?.serverError).toBe("Meeting not found");
+  });
+});
 
 describe("setMeetingJoinOverrideAction", () => {
   beforeEach(() => {
@@ -79,6 +149,7 @@ describe("setMeetingJoinOverrideAction", () => {
       ],
     });
     mockUpsertMeeting.mockResolvedValue({ id: "meeting-1" });
+    mockReleaseMeetingBooking.mockResolvedValue(false);
   });
 
   it("does not book a bot for an account without the paid tier", async () => {
@@ -122,6 +193,26 @@ describe("setMeetingJoinOverrideAction", () => {
       joinOverride: false,
     });
     expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("turns off an active booking after the calendar event has ended", async () => {
+    mockFetchEvents.mockResolvedValue({ complete: true, events: [] });
+    mockReleaseMeetingBooking.mockResolvedValue(true);
+
+    const result = await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
+      join: false,
+      calendarEventId: "event-1",
+    });
+
+    expect(mockReleaseMeetingBooking).toHaveBeenCalledWith({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      calendarEventId: "event-1",
+      logger: expect.anything(),
+    });
+    expect(mockFetchEvents).not.toHaveBeenCalled();
+    expect(mockUpsertMeeting).not.toHaveBeenCalled();
+    expect(mockReconcileSingleEvent).not.toHaveBeenCalled();
     expect(result?.serverError).toBeUndefined();
   });
 

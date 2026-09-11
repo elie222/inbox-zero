@@ -58,6 +58,12 @@ const features: {
     professional: true,
   },
   {
+    name: "AI meeting notetaker",
+    starter: false,
+    plus: true,
+    professional: true,
+  },
+  {
     name: "Email digests",
     starter: false,
     plus: true,

@@ -3,7 +3,6 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
-  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -27,12 +26,14 @@ export async function recordEmailAccountProviderIssue({
   error,
   logger,
   operation,
+  failedAccessToken,
 }: {
   emailAccountId: string;
   provider: "google" | "microsoft";
   error: unknown;
   logger: Logger;
   operation: string;
+  failedAccessToken?: string;
 }) {
   const issue = classifyEmailAccountProviderIssue({ error, provider });
   if (!issue) return;
@@ -54,11 +55,19 @@ export async function recordEmailAccountProviderIssue({
   if (!shouldRecord) return;
 
   try {
-    await cleanupInvalidTokens({
+    const result = await cleanupInvalidTokens({
       emailAccountId,
       reason: issue.reason,
+      failedAccessToken,
       logger,
     });
+    if (result?.status === "skipped") {
+      await releaseProviderIssueCleanupClaim({
+        emailAccountId,
+        reason: issue.reason,
+        logger,
+      });
+    }
   } catch (error) {
     logger.warn("Failed to clean up provider account issue", {
       error,
@@ -89,10 +98,6 @@ export function classifyEmailAccountProviderIssue({
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
   ) {
-    return { reason: "insufficient_permissions" };
-  }
-
-  if (provider === "microsoft" && isOutlookAccessDeniedError(error)) {
     return { reason: "insufficient_permissions" };
   }
 

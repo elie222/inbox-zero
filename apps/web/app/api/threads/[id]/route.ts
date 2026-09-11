@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
 import { parseMessageReply } from "@/utils/email/parse-message-reply";
+import { getEmailProviderRateLimitMessage, SafeError } from "@/utils/error";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -14,12 +16,9 @@ async function getThread(
   parseReplies: boolean,
   emailProvider: EmailProvider,
 ) {
-  const thread = await emailProvider.getThread(id);
+  const thread = await emailProvider.getThread(id, { includeDrafts });
 
-  let filteredMessages = includeDrafts
-    ? thread.messages
-    : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
-
+  let filteredMessages = thread.messages;
   if (parseReplies) {
     filteredMessages = filteredMessages.map(parseMessageReply);
   }
@@ -56,6 +55,17 @@ export const GET = withEmailProvider(
       );
       return NextResponse.json(thread);
     } catch (error) {
+      if (
+        isEmailProviderRateLimitError({
+          error,
+          provider: emailProvider.name,
+        })
+      ) {
+        throw new SafeError(
+          getEmailProviderRateLimitMessage(emailProvider.name),
+          429,
+        );
+      }
       request.logger.error("Error fetching thread", {
         error,
         emailAccountId,

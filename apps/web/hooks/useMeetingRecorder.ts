@@ -3,9 +3,12 @@ import type { GetMeetingRecorderSettingsResponse } from "@/app/api/user/meeting-
 import type { GetMeetingRecorderMeetingsResponse } from "@/app/api/user/meeting-recorder/meetings/route";
 import type { GetMeetingRecorderMeetingResponse } from "@/app/api/user/meeting-recorder/meetings/[meetingId]/route";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
+import { MeetingProcessingStatus } from "@/generated/prisma/enums";
+import { CAPTURED_MEETING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { getAccountScopedKey } from "@/utils/swr";
 
 const MEETING_STATUS_REFRESH_INTERVAL = 30_000;
+const MEETING_DETAIL_REFRESH_INTERVAL = 5000;
 
 export function useMeetingRecorderSettings(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderSettingsResponse>(
@@ -31,6 +34,10 @@ export function useMeetingRecorderMeeting(
           emailAccountId,
         )
       : null,
+    {
+      refreshInterval: (data) =>
+        shouldRefreshMeetingDetail(data) ? MEETING_DETAIL_REFRESH_INTERVAL : 0,
+    },
   );
 }
 
@@ -44,4 +51,18 @@ export function useMeetingRecorderUpcoming(emailAccountId?: string | null) {
         data && data.events.length === 0 ? 0 : MEETING_STATUS_REFRESH_INTERVAL,
     },
   );
+}
+
+function shouldRefreshMeetingDetail(
+  data: GetMeetingRecorderMeetingResponse | undefined,
+) {
+  if (!data?.recording) return false;
+  if (
+    data.processingStatus === MeetingProcessingStatus.COMPLETED ||
+    data.processingStatus === MeetingProcessingStatus.FAILED
+  ) {
+    return false;
+  }
+
+  return CAPTURED_MEETING_STATUSES.includes(data.recording.status);
 }

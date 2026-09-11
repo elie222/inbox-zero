@@ -30,13 +30,13 @@ export function Usage(props: { usage: RedisUsage | null }) {
           },
           {
             name: "LLM API Calls",
-            value: formatStat(props.usage?.openaiCalls),
+            value: formatStat(props.usage?.calls),
             subvalue: "calls",
             icon: <BotIcon className="h-4 w-4" />,
           },
           {
             name: "LLM Tokens Used",
-            value: formatStat(props.usage?.openaiTokensUsed),
+            value: formatStat(props.usage?.tokensUsed),
             subvalue: "tokens",
             icon: <CpuIcon className="h-4 w-4" />,
           },

@@ -48,15 +48,10 @@ export const onboardingScanSchema = z.object({
 });
 export type OnboardingScan = z.infer<typeof onboardingScanSchema>;
 
-const messagePartSchema = z
-  .looseObject({ type: z.string() })
-  .refine(
-    (part) =>
-      part.type !== "text" ||
-      (typeof part.text === "string" &&
-        part.text.length <= ONBOARDING_CHAT_MAX_TEXT_LENGTH),
-    { message: "Message text too long" },
-  );
+const messagePartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string().max(ONBOARDING_CHAT_MAX_TEXT_LENGTH),
+});
 
 export const ONBOARDING_CHAT_MAX_TOTAL_TEXT_LENGTH = 40_000;
 
@@ -79,11 +74,7 @@ export const onboardingChatInputSchema = z.object({
         messages.reduce(
           (total, message) =>
             total +
-            message.parts.reduce(
-              (sum, part) =>
-                sum + (typeof part.text === "string" ? part.text.length : 0),
-              0,
-            ),
+            message.parts.reduce((sum, part) => sum + part.text.length, 0),
           0,
         ) <= ONBOARDING_CHAT_MAX_TOTAL_TEXT_LENGTH,
       { message: "Conversation too long" },

@@ -47,12 +47,13 @@ import {
 } from "./chat-rule-state";
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 3;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 9;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
-  web: 240_000,
+  web: 720_000,
   messaging: 60_000,
 } satisfies Record<"web" | "messaging", number>;
 
@@ -115,6 +116,9 @@ export async function aiProcessAssistantChat({
   const draftReplyActionsEnabled = !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
   const webhookActionsEnabled =
     env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false;
+  const integrationActionsEnabled = await isIntegrationActionEnabledForUserId(
+    user.userId,
+  );
   let ruleReadState: RuleReadState | null = null;
   const pendingRuleDeletionNames = new Set<string>();
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
@@ -135,6 +139,7 @@ export async function aiProcessAssistantChat({
     emailAccountId,
     userId: user.userId,
     provider: user.account.provider,
+    integrationActionsEnabled,
     logger,
     setRuleReadState: (state: RuleReadState) => {
       ruleReadState = state;
@@ -748,8 +753,8 @@ export function buildResolvedSystemPrompt({
 - User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
-- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
-- When the sender or domain is known, prefer the provider's sender-focused syntax over a broad bare keyword.`,
+- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine to an exact sender search before writing when needed.
+- When the exact sender email address is known, prefer an exact sender search over a broad bare keyword.`,
     providerPolicy.inboxTriagePolicy,
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.

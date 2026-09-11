@@ -1,6 +1,6 @@
 import { ActionType } from "@/generated/prisma/enums";
 import { env } from "@/env";
-import { extractEmailAddress } from "@/utils/email";
+import { isWhitelistedSender } from "@/utils/email/whitelist";
 
 export function shouldSkipAutomatedArchiveForSender({
   actionType,
@@ -9,10 +9,8 @@ export function shouldSkipAutomatedArchiveForSender({
   actionType: ActionType;
   from: string;
 }) {
-  if (actionType !== ActionType.ARCHIVE || !env.WHITELIST_FROM) return false;
-
   return (
-    extractEmailAddress(from).toLowerCase() ===
-    extractEmailAddress(env.WHITELIST_FROM).toLowerCase()
+    actionType === ActionType.ARCHIVE &&
+    isWhitelistedSender(from, env.WHITELIST_FROM)
   );
 }

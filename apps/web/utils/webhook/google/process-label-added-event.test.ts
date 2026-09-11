@@ -102,10 +102,7 @@ describe("process-label-added-event", () => {
     hasPreviousCommunicationsWithSenderOrDomain: vi.fn(),
   } as any;
 
-  const defaultOptions = {
-    emailAccount: mockEmailAccount,
-    provider: mockProvider,
-  };
+  let defaultOptions: Parameters<typeof handleLabelAddedEvent>[1];
 
   // The junked message is always "123" so it is found in the thread.
   const mockThreadSenders = (...senders: string[]) => {
@@ -123,6 +120,11 @@ describe("process-label-added-event", () => {
 
   describe("handleLabelAddedEvent", () => {
     beforeEach(() => {
+      defaultOptions = {
+        emailAccount: mockEmailAccount,
+        provider: mockProvider,
+        spamLearnedThreadIds: new Set<string>(),
+      };
       mockThreadSenders("sender@example.com");
       vi.mocked(fetchSenderFromMessage).mockResolvedValue("sender@example.com");
       vi.mocked(
@@ -307,6 +309,24 @@ describe("process-label-added-event", () => {
         expect(saveLearnedPattern).not.toHaveBeenCalled();
       });
 
+      it("should not learn when the junked message date is missing", async () => {
+        vi.mocked(mockProvider.getThreadMessages).mockResolvedValue([
+          {
+            id: "123",
+            internalDate: undefined,
+            headers: { from: "cold@vendor.com" },
+          },
+        ]);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+
+        expect(
+          mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+        ).not.toHaveBeenCalled();
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
       it("should learn the sole sender of a one-way thread", async () => {
         mockThreadSenders("cold@vendor.com", "cold@vendor.com");
         vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
@@ -316,6 +336,40 @@ describe("process-label-added-event", () => {
         expect(saveLearnedPattern).toHaveBeenCalledWith(
           expect.objectContaining({ from: "cold@vendor.com" }),
         );
+      });
+
+      it("should only read the thread once when a whole thread is junked", async () => {
+        mockThreadSenders("cold@vendor.com", "cold@vendor.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+        // Gmail fires one event per message in the junked thread.
+        await junkMessage();
+        await handleLabelAddedEvent(
+          createLabelAddedItem("456", "thread-123"),
+          defaultOptions,
+          logger,
+        );
+
+        expect(mockProvider.getThreadMessages).toHaveBeenCalledTimes(1);
+        expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
+      });
+
+      it("retries spam learning after the first thread read fails", async () => {
+        vi.mocked(mockProvider.getThreadMessages)
+          .mockRejectedValueOnce(new Error("Temporary provider error"))
+          .mockResolvedValueOnce([
+            {
+              id: "123",
+              internalDate: "1700000000000",
+              headers: { from: "cold@vendor.com" },
+            },
+          ]);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+        await junkMessage();
+
+        expect(mockProvider.getThreadMessages).toHaveBeenCalledTimes(2);
+        expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
       });
 
       it.each([

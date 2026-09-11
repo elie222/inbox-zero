@@ -108,7 +108,7 @@ describe("buildVercelEnvValues", () => {
       ),
     ).toMatchObject({
       createValue: expect.any(Function),
-      sensitive: true,
+      sensitive: false,
     });
   });
 });
@@ -146,4 +146,33 @@ describe("seedLlmPlaceholderCredentials", () => {
       seedLlmPlaceholderCredentials("unknown-provider", {}),
     ).toThrowError("Unsupported LLM provider: unknown-provider");
   });
+});
+
+it("uses supported variable types for each Vercel environment", () => {
+  const values = buildVercelEnvValues({
+    baseUrl: "https://mail.example.com",
+    llmEnv: { LLM_API_KEY: "key" },
+  });
+  for (const key of [
+    "AUTH_SECRET",
+    "EMAIL_ENCRYPT_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+    "LLM_API_KEY",
+  ]) {
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "development",
+      )?.sensitive,
+    ).toBe(false);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "production",
+      )?.sensitive,
+    ).toBe(true);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "preview",
+      )?.sensitive,
+    ).toBe(true);
+  }
 });

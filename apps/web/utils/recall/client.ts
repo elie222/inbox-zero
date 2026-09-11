@@ -30,6 +30,22 @@ export function isRecallConfigured(): boolean {
 
 const DEFAULT_RECALL_REGION = "us-west-2";
 
+// Use participant presence to end successful recordings; a calendar duration
+// is not the call's actual lifetime.
+const EVERYONE_LEFT_TIMEOUT_SECONDS = 2;
+const MEETING_BOT_NAME_MATCHES = [
+  "notetaker",
+  "recorder",
+  "copilot",
+  "grain",
+  "fellow",
+  "tl;dv",
+  "read.ai",
+  "fathom",
+  "otter.ai",
+  "fireflies.ai",
+];
+
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
 function getRecallApiBase(): string {
   if (env.RECALL_BASE_URL) {
@@ -67,7 +83,13 @@ export class RecallBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
-    const cameraImage = await getMeetingBotCameraImage();
+    const cameraImage = await getMeetingBotCameraImage().catch((error) => {
+      this.logger.warn(
+        "Meeting bot camera image is unavailable; scheduling without video",
+        { error },
+      );
+      return null;
+    });
 
     // No transcript config here on purpose: `recallai_async` is not a
     // bot-creation provider. Async transcription is requested per recording,
@@ -78,13 +100,34 @@ export class RecallBotProvider implements MeetingBotProvider {
       body: {
         meeting_url: meetingUrl,
         bot_name: botName,
-        join_at: joinAt.toISOString(),
-        automatic_video_output: {
-          in_call_recording: {
-            kind: "jpeg",
-            b64_data: cameraImage,
+        // Recall rejects a past `join_at`. Omitting it creates an ad-hoc bot
+        // that joins an ongoing meeting immediately.
+        ...(joinAt.getTime() > Date.now() && { join_at: joinAt.toISOString() }),
+        automatic_leave: {
+          everyone_left_timeout: { timeout: EVERYONE_LEFT_TIMEOUT_SECONDS },
+          // Timings are in seconds.
+          bot_detection: {
+            using_participant_names: {
+              matches: MEETING_BOT_NAME_MATCHES,
+              activate_after: 1,
+              timeout: 10,
+            },
+            using_participant_events: {
+              // Give real attendees time to speak or share before using
+              // inactivity as a fallback signal for unfamiliar bots.
+              activate_after: 120,
+              timeout: 10,
+            },
           },
         },
+        ...(cameraImage && {
+          automatic_video_output: {
+            in_call_recording: {
+              kind: "jpeg",
+              b64_data: cameraImage,
+            },
+          },
+        }),
       },
     });
 
@@ -137,7 +180,7 @@ export class RecallBotProvider implements MeetingBotProvider {
         return;
       }
 
-      if (!isAlreadyJoining(error)) throw error;
+      if (!isDispatched(error)) throw error;
 
       try {
         await this.request(`/bot/${externalBotId}/leave_call/`, {
@@ -250,10 +293,10 @@ function isMissing(error: unknown): boolean {
   return error instanceof RecallApiError && error.status === 404;
 }
 
-function isAlreadyJoining(error: unknown): boolean {
+function isDispatched(error: unknown): boolean {
   return (
     error instanceof RecallApiError &&
-    error.status === 400 &&
+    (error.status === 400 || error.status === 405) &&
     getRecallErrorCode(error) === "cannot_delete_bot"
   );
 }
@@ -299,23 +342,36 @@ function getMeetingBotCameraImage(): Promise<string> {
 }
 
 async function readMeetingBotCameraImage(): Promise<string> {
-  const relativePath = join(
-    "public",
-    "images",
-    "meetings",
-    "inbox-zero-notetaker.jpg",
-  );
-  const candidatePaths = [
-    join(process.cwd(), relativePath),
-    join(process.cwd(), "apps", "web", relativePath),
-  ];
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
 
-  for (const path of candidatePaths) {
-    try {
-      return await readFile(path, "base64");
-    } catch (error) {
-      if (!isMissingFile(error)) throw error;
-    }
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "apps",
+        "web",
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
   }
 
   throw new Error("Recall meeting bot camera image is missing");

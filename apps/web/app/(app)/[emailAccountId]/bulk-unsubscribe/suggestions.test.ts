@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import {
+  getSuggestedModeRows,
   getUnsubscribeSuggestions,
   isUnsubscribeSuggestion,
 } from "./suggestions";
@@ -100,5 +101,23 @@ describe("getUnsubscribeSuggestions", () => {
         requireAutomaticUnsubscribeLink: true,
       }),
     ).toEqual([automatic]);
+  });
+});
+
+describe("getSuggestedModeRows", () => {
+  it("shows suggestions and retains other selected senders", () => {
+    const suggested = { name: "suggested", value: 10, readEmails: 1 };
+    const selected = { name: "selected", value: 10, readEmails: 8 };
+    const hidden = { name: "hidden", value: 10, readEmails: 7 };
+
+    expect(
+      getSuggestedModeRows(
+        [suggested, selected, hidden],
+        new Map([
+          [selected.name, true],
+          [hidden.name, false],
+        ]),
+      ),
+    ).toEqual([suggested, selected]);
   });
 });

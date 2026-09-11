@@ -67,6 +67,21 @@ describe("WelcomeRedirectPage", () => {
     expect(mocks.findPremium).not.toHaveBeenCalled();
   });
 
+  it("sends completed mail-mode users to mail without loading premium", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      premiumId: "premium-1",
+    });
+
+    await expect(
+      WelcomeRedirectPage({
+        searchParams: Promise.resolve({ mode: "mail" }),
+      }),
+    ).rejects.toThrow("account-redirect:/mail");
+
+    expect(mocks.findPremium).not.toHaveBeenCalled();
+  });
+
   it("sends mobile-paid users with active Apple premium to setup", async () => {
     mocks.findUser.mockResolvedValue({
       completedOnboardingAt: null,
@@ -99,14 +114,16 @@ describe("WelcomeRedirectPage", () => {
     expect(mocks.redirectToEmailAccountPath).toHaveBeenCalledWith("/setup");
   });
 
-  it("keeps incomplete users without premium in onboarding", async () => {
+  it("keeps incomplete mail-mode users without premium in onboarding", async () => {
     mocks.findUser.mockResolvedValue({
       completedOnboardingAt: null,
       premiumId: null,
     });
 
     await expect(
-      WelcomeRedirectPage({ searchParams: Promise.resolve({}) }),
+      WelcomeRedirectPage({
+        searchParams: Promise.resolve({ mode: "mail" }),
+      }),
     ).rejects.toThrow("redirect:/onboarding");
 
     expect(mocks.findPremium).not.toHaveBeenCalled();

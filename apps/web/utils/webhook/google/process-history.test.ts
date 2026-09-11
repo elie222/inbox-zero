@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryForUser } from "./process-history";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { getHistory } from "@/utils/gmail/history";
 import {
   getWebhookEmailAccount,
@@ -33,8 +34,13 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/error", () => ({
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
   captureException: vi.fn(),
+}));
+
+vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
+  cleanupInvalidTokens: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/email/rate-limit", () => ({
@@ -315,5 +321,86 @@ describe("processHistoryForUser - 404 Handling", () => {
       expect.any(Object),
     );
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("processHistoryForUser - authentication failures", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue(null);
+    vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          id: "account-123",
+          email: "user@example.com",
+          userId: "user-123",
+          lastSyncedHistoryId: "1000",
+          account: {
+            access_token: "original-access-token",
+            refresh_token: "failed-refresh-token",
+            expires_at: new Date(Date.now() + 3_600_000),
+          },
+          rules: [],
+        },
+        hasAutomationRules: false,
+        hasAiAccess: false,
+      },
+    } as any);
+  });
+
+  it.each([
+    "invalid_grant",
+    "Token refresh failed: invalid_grant",
+  ])("cleans up the failed grant before acknowledging %s from a Gmail API call", async (message) => {
+    vi.mocked(getHistory).mockRejectedValueOnce(new Error(message));
+
+    const response = await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 2000 },
+      {},
+      logger,
+    );
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledExactlyOnceWith({
+      emailAccountId: "account-123",
+      reason: "invalid_grant",
+      // Access tokens can rotate during client creation without changing the grant.
+      failedRefreshToken: "failed-refresh-token",
+      logger: expect.any(Object),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges invalid grants even if cleanup fails", async () => {
+    vi.mocked(getHistory).mockRejectedValueOnce(new Error("invalid_grant"));
+    vi.mocked(cleanupInvalidTokens).mockRejectedValueOnce(
+      new Error("Database unavailable"),
+    );
+
+    const response = await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 2000 },
+      {},
+      logger,
+    );
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it("does not disconnect accounts for transient Gmail API failures", async () => {
+    vi.mocked(getHistory).mockRejectedValueOnce(
+      new Error("Service unavailable"),
+    );
+
+    await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 2000 },
+      {},
+      logger,
+    );
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,11 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
-import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
+import {
+  FOLDER_SEPARATOR,
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 type FolderToolOptions = {
@@ -35,7 +39,7 @@ export const listFoldersTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "List Outlook mail folders for this account. Use this before moving threads to a folder when the exact folder name is unclear. Returns folder names and paths only; internal folder IDs are not shown.",
+      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox categoryName when names are ambiguous.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_folders", email, logger });
@@ -47,7 +51,7 @@ export const listFoldersTool = ({
           logger,
         });
         const folders = await emailProvider.getFolders();
-        const flattenedFolders = flattenFolders(folders).map(toVisibleFolder);
+        const flattenedFolders = flattenFolders(folders);
 
         return {
           folders: flattenedFolders,
@@ -221,24 +225,13 @@ type FolderReference = FlattenedFolder & {
   id: string;
 };
 
-function flattenFolders(
-  folders: OutlookFolder[],
-  parentPath?: string,
-): FolderReference[] {
-  return folders.flatMap((folder) => {
-    const path = parentPath
-      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
-      : folder.displayName;
-    return [
-      {
-        id: folder.id,
-        name: folder.displayName,
-        path,
-        childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
-      },
-      ...flattenFolders(folder.childFolders, path),
-    ];
-  });
+function flattenFolders(folders: OutlookFolder[]): FolderReference[] {
+  return flattenOutlookFolders(folders).map((folder) => ({
+    id: folder.id,
+    name: folder.displayName,
+    path: folder.path,
+    childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
+  }));
 }
 
 function toVisibleFolder(folder: FolderReference): FlattenedFolder {

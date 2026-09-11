@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Globe } from "lucide-react";
+import { Globe, Smartphone } from "lucide-react";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { Card } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
@@ -33,6 +33,10 @@ const platforms: {
     comingSoon: true,
   },
   {
+    name: "iOS & Android",
+    icon: <Smartphone className="size-10 text-gray-600" strokeWidth={1.5} />,
+  },
+  {
     name: "Web",
     icon: <Globe className="size-10 text-gray-600" strokeWidth={1.5} />,
   },
@@ -44,11 +48,11 @@ export function ManageFromAnywhere() {
       <SectionHeading>Your inbox, wherever you work</SectionHeading>
       <SectionSubtitle>
         Read emails, draft replies, and manage your inbox from Slack, Telegram,
-        or the web — without switching apps.
+        mobile, or the web, without switching apps.
       </SectionSubtitle>
       <SectionContent className="flex justify-center">
         <BlurFade inView>
-          <div className="flex items-start gap-6 sm:gap-10">
+          <div className="flex flex-wrap items-start justify-center gap-6 sm:gap-10">
             {platforms.map((platform) => (
               <PlatformIcon key={platform.name} {...platform} />
             ))}

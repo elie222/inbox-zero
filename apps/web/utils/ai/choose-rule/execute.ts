@@ -16,10 +16,12 @@ import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archiv
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import {
   getActionResultError,
+  getSentMessageIds,
   isActionResultSkipped,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "ai-execute-act";
 
@@ -76,6 +78,13 @@ export async function executeAct({
         continue;
       }
 
+      if (isSendingActionType(action.type)) {
+        await prisma.executedAction.update({
+          where: { id: action.id },
+          data: { executionStartedAt: new Date() },
+        });
+      }
+
       const actionResult = await runActionFunction({
         client,
         email: message,
@@ -113,6 +122,7 @@ export async function executeAct({
           actionId: action.id,
           status: ExecutedActionStatus.SUCCEEDED,
           error: null,
+          sentMessageIds: getSentMessageIds(actionResult),
           logger: log,
         });
       }
@@ -138,6 +148,7 @@ export async function executeAct({
         actionId: action.id,
         status: ExecutedActionStatus.FAILED,
         error: normalizeActionExecutionError(error),
+        sentMessageIds: getSentMessageIds(error),
         logger: log,
       });
       await logErrorWithDedupe({

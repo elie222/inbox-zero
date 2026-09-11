@@ -39,7 +39,7 @@ import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
 import { LogicalOperator } from "@/generated/prisma/enums";
-import type { ActionType } from "@/generated/prisma/client";
+import type { ActionType, MessagingProvider } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -151,6 +151,7 @@ export function Rules({
         actions: getDefaultActions(systemType, provider).map((action) => ({
           ...action,
           emailAccountId,
+          messagingChannel: null,
           messagingChannelEmailAccountId: null,
         })),
         group: null,
@@ -441,6 +442,7 @@ export function ActionBadges({
     folderName?: string | null;
     content?: string | null;
     to?: string | null;
+    messagingChannel?: { provider: MessagingProvider } | null;
   }[];
   provider: string;
   labels: Array<{ id: string; name: string }>;

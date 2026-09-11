@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Markdown } from "tiptap-markdown";
+import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
@@ -75,17 +75,11 @@ export const SimpleRichTextEditor = forwardRef<
               }),
             ]
           : []),
-        Markdown.configure({
-          html: false,
-          transformPastedText: true,
-          transformCopiedText: true,
-          breaks: false,
-          linkify: false,
-          bulletListMarker: "*",
-        }),
+        Markdown,
         ...(userLabels ? [createLabelMentionExtension(userLabels)] : []),
       ],
       content: defaultValue,
+      contentType: "markdown",
       editorProps: {
         attributes: {
           class: cn(
@@ -125,14 +119,16 @@ export const SimpleRichTextEditor = forwardRef<
       () => ({
         appendText: (text: string) => {
           if (editor) {
-            const currentContent = editor.storage.markdown.getMarkdown();
+            const currentContent = editor.getMarkdown();
             const newContent = currentContent
               ? `${currentContent}\n${text}`
               : text;
-            editor.commands.setContent(newContent);
+            editor.commands.setContent(newContent, {
+              contentType: "markdown",
+            });
           }
         },
-        getMarkdown: () => editor?.storage.markdown.getMarkdown() || "",
+        getMarkdown: () => editor?.getMarkdown() || "",
       }),
       [editor],
     );

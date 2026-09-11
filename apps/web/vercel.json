@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd ../.. && if [ \"$VERCEL_ENV\" = preview ] && [ \"$IS_OAUTH_PROXY_SERVER\" != true ]; then NEXT_PUBLIC_BASE_URL=https://$VERCEL_URL turbo run build --force --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
-  "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
+  "installCommand": "cd ../.. && bash clone-marketing.sh && corepack pnpm install --filter '!@inboxzero/desktop' --no-frozen-lockfile",
   "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
   "functions": {
     "app/api/follow-up-reminders/account/queue/route.ts": {
@@ -113,6 +113,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/resend/summary/all",
+      "schedule": "0 9 * * 1"
+    },
+    {
       "path": "/api/meeting-briefs",
       "schedule": "*/15 * * * *"
     },
@@ -135,6 +139,10 @@
     {
       "path": "/api/cron/mobile-push-retention",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/email-send-operation-retention",
+      "schedule": "45 3 * * *"
     },
     {
       "path": "/api/cron/draft-cleanup",

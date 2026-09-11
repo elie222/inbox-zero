@@ -19,17 +19,20 @@ const ACTION_RESULT_FAILURE_TYPES = new Set<ActionType>([
   ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
+  ActionType.INTEGRATION,
 ]);
 
 export async function persistExecutedActionOutcome({
   actionId,
   status,
   error,
+  sentMessageIds,
   logger,
 }: {
   actionId: string;
   status: ExecutedActionStatus;
   error: ActionExecutionError | null;
+  sentMessageIds?: string[];
   logger: Logger;
 }) {
   try {
@@ -39,6 +42,7 @@ export async function persistExecutedActionOutcome({
         executionStatus: status,
         executedAt: new Date(),
         executionError: error ?? Prisma.DbNull,
+        ...(sentMessageIds?.length ? { sentMessageIds } : {}),
       },
     });
   } catch (persistenceError) {
@@ -48,6 +52,16 @@ export async function persistExecutedActionOutcome({
       error: persistenceError,
     });
   }
+}
+
+export function getSentMessageIds(actionResult: unknown): string[] {
+  const sentMessageIds = asRecord(actionResult)?.sentMessageIds;
+  return Array.isArray(sentMessageIds)
+    ? sentMessageIds.filter(
+        (messageId): messageId is string =>
+          typeof messageId === "string" && !!messageId,
+      )
+    : [];
 }
 
 export function getActionResultError(
@@ -155,7 +169,8 @@ function truncate(value: string, maxLength: number) {
 }
 
 function getUnknownActionFailureCode(actionType: ActionType) {
-  return actionType === ActionType.NOTIFY_SENDER
-    ? "UNKNOWN_NOTIFY_FAILURE"
-    : "UNKNOWN_MESSAGING_FAILURE";
+  if (actionType === ActionType.NOTIFY_SENDER) return "UNKNOWN_NOTIFY_FAILURE";
+  if (actionType === ActionType.INTEGRATION)
+    return "UNKNOWN_INTEGRATION_FAILURE";
+  return "UNKNOWN_MESSAGING_FAILURE";
 }

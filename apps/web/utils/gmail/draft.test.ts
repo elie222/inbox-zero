@@ -1,5 +1,10 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { deleteDraft, getDraft } from "@/utils/gmail/draft";
+import type { gmail_v1 } from "@googleapis/gmail";
+import {
+  deleteDraft,
+  getDraft,
+  getDraftIdForMessage,
+} from "@/utils/gmail/draft";
 import { GmailLabel } from "@/utils/gmail/label";
 
 vi.mock("@/utils/gmail/retry", () => ({
@@ -69,6 +74,55 @@ describe("gmail/draft", () => {
     expect(result?.labelIds).toEqual([GmailLabel.DRAFT]);
   });
 
+  it("getDraftIdForMessage finds a draft across pages", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          drafts: [{ id: "r-1", message: { id: "m-1" } }],
+          nextPageToken: "next-page",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { drafts: [{ id: "r-2", message: { id: "m-2" } }] },
+      });
+    const gmail = createGmailDraftListClient(list);
+
+    await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBe("r-2");
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("getDraftIdForMessage returns null when the draft is absent", async () => {
+    const gmail = createGmailDraftListClient(
+      vi.fn().mockResolvedValue({
+        data: { drafts: [{ id: "r-1", message: { id: "m-1" } }] },
+      }),
+    );
+
+    await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBeNull();
+  });
+
+  it("getDraftIdForMessage stops when a page token repeats", async () => {
+    const list = vi.fn().mockResolvedValue({
+      data: { drafts: [], nextPageToken: "repeated-page" },
+    });
+    const gmail = createGmailDraftListClient(list);
+
+    await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("getDraftIdForMessage bounds the number of pages", async () => {
+    let pageNumber = 0;
+    const list = vi.fn().mockImplementation(async () => ({
+      data: { drafts: [], nextPageToken: `page-${pageNumber++}` },
+    }));
+    const gmail = createGmailDraftListClient(list);
+
+    await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
+    expect(list).toHaveBeenCalledTimes(10);
+  });
+
   it("deleteDraft skips drafts.delete when getDraft returns null", async () => {
     const draftsDelete = vi.fn().mockResolvedValue({ status: 204 });
     const gmail = {
@@ -89,7 +143,7 @@ describe("gmail/draft", () => {
       labelIds: [GmailLabel.SENT],
     });
 
-    await deleteDraft(gmail, "r-1");
+    await expect(deleteDraft(gmail, "r-1")).resolves.toBe(false);
     expect(draftsDelete).not.toHaveBeenCalled();
   });
 
@@ -119,7 +173,13 @@ describe("gmail/draft", () => {
       date: "",
     });
 
-    await deleteDraft(gmail, "r-1");
+    await expect(deleteDraft(gmail, "r-1")).resolves.toBe(true);
     expect(draftsDelete).toHaveBeenCalledTimes(1);
   });
 });
+
+function createGmailDraftListClient(
+  list: gmail_v1.Gmail["users"]["drafts"]["list"],
+) {
+  return { users: { drafts: { list } } } as unknown as gmail_v1.Gmail;
+}

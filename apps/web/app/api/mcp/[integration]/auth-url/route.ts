@@ -41,12 +41,10 @@ export const GET = withEmailAccount(
       },
     });
 
-    if (
-      !hasTierAccess({
-        tier: getUserTier(user?.premium),
-        minimumTier: "PLUS_MONTHLY",
-      })
-    ) {
+    const tier = getUserTier(user?.premium);
+
+    if (!hasTierAccess({ tier, minimumTier: "PLUS_MONTHLY" })) {
+      logger.warn("MCP auth URL rejected: tier too low", { tier });
       throw new SafeError(
         "Integrations require a Plus plan or higher. Please upgrade to continue.",
       );
@@ -55,10 +53,14 @@ export const GET = withEmailAccount(
     const integrationConfig = findIntegration(integration);
 
     if (!integrationConfig) {
+      logger.warn("MCP auth URL rejected: unknown integration");
       throw new SafeError(`Integration ${integration} not found`);
     }
 
     if (integrationConfig.authType !== "oauth") {
+      logger.warn("MCP auth URL rejected: integration is not OAuth", {
+        authType: integrationConfig.authType,
+      });
       throw new SafeError(`Integration ${integration} does not support OAuth`);
     }
 
@@ -76,6 +78,8 @@ export const GET = withEmailAccount(
         redirectUri,
         state,
       });
+
+      logger.info("Generated MCP auth URL");
 
       // Set secure cookies for state and PKCE verifier
       const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });

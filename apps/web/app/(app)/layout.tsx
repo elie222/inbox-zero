@@ -14,14 +14,18 @@ import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
+import { MailboxSyncManager } from "@/app/(app)/MailboxSyncManager";
+import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
+import { MailMutationOutboxManager } from "@/app/(app)/MailMutationOutboxManager";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
-import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
+import { SettingsDialog } from "@/app/(app)/settings/SettingsDialog";
 import { AnnouncementDialog } from "@/components/feature-announcements/AnnouncementDialog";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { booleanString } from "@/utils/zod";
 
 const logger = createScopedLogger("AppLayout");
 
@@ -63,6 +67,8 @@ export default async function AppLayout({
 
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
+  const bypassPremiumChecks =
+    booleanString.parse(process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) ?? false;
 
   after(async () => {
     const email = session.user.email;
@@ -81,19 +87,27 @@ export default async function AppLayout({
     <div className={inter.variable}>
       <div className="font-inter">
         <AppProviders>
-          <SideNavWithTopNav defaultOpen={!isClosed}>
+          <SideNavWithTopNav
+            defaultOpen={!isClosed}
+            feedbackEnabled={
+              !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL)
+            }
+          >
+            <MailboxSyncManager />
+            <DesktopMailIndicators />
+            <MailMutationOutboxManager />
             <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />
             {children}
           </SideNavWithTopNav>
           <EmailViewer />
+          <SettingsDialog />
           <AnnouncementDialog />
           <ErrorBoundary extra={{ component: "AppLayout" }}>
             <PostHogIdentify />
 
             <CommandK />
-            <QueueInitializer />
             <AssessUser />
             <SentryIdentify email={session.user.email} />
           </ErrorBoundary>

@@ -1,6 +1,11 @@
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { isSameDay } from "date-fns/isSameDay";
+import { isSameMonth } from "date-fns/isSameMonth";
+import { isSameYear } from "date-fns/isSameYear";
 import { isWeekend } from "date-fns/isWeekend";
+import { startOfDay } from "date-fns/startOfDay";
+import { subDays } from "date-fns/subDays";
 import { TZDate } from "@date-fns/tz";
 import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
@@ -54,6 +59,26 @@ export function formatShortDate(
   });
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();
+}
+
+/**
+ * Labels a date for grouping an email list into sections. The sections are
+ * deliberately coarse so a list only ever carries a handful of headings.
+ * - Today and yesterday get their own sections.
+ * - The rest of the past week is one "Last 7 days" section.
+ * - Older days in the current month are one "Earlier this month" section.
+ * - Earlier dates are labelled by month (e.g. "August", or "August 2024").
+ * - A date ahead of today keeps its own day, so a sender with a skewed clock
+ *   is never filed under a section that has already passed.
+ */
+export function formatDateGroupLabel(date: Date, now: Date = new Date()) {
+  if (isSameDay(date, now)) return "Today";
+  if (isSameDay(date, subDays(now, 1))) return "Yesterday";
+  if (date > now) return format(date, "MMMM do, yyyy");
+  if (date >= startOfDay(subDays(now, 6))) return "Last 7 days";
+  if (isSameMonth(date, now)) return "Earlier this month";
+  if (isSameYear(date, now)) return format(date, "MMMM");
+  return format(date, "MMMM yyyy");
 }
 
 export function dateToSeconds(date: Date) {

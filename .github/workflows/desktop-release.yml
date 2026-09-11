@@ -1,0 +1,271 @@
+name: Desktop Release
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --mac
+          - os: windows-latest
+            args: --win
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_LINK || secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || secrets.WIN_CSC_KEY_PASSWORD }}
+      APPLE_API_KEY_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_KEY_ID || '' }}
+      APPLE_API_ISSUER: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
+      APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Install desktop dependencies
+        run: pnpm install --frozen-lockfile --filter @inboxzero/desktop...
+
+      - name: Rebuild esbuild binary
+        run: pnpm --filter @inboxzero/desktop rebuild esbuild
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          pnpm --filter @inboxzero/desktop exec npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Write Apple notarization API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS'
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          certificate_path="$RUNNER_TEMP/desktop-signing.p12"
+          keychain_path="$RUNNER_TEMP/desktop-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$MAC_CSC_LINK" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$MAC_CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          # electron-builder 26.15.3 passes the certificate password here, but macOS requires the keychain password.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path" > /dev/null
+          security list-keychains -d user -s "$keychain_path" "$HOME/Library/Keychains/login.keychain-db"
+          echo "CSC_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Build and package
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+          fi
+          pnpm build
+          pnpm exec electron-builder ${{ matrix.args }} --publish never
+
+      - name: Require update metadata
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            test -f release/latest-mac.yml
+          else
+            test -f release/latest.yml
+          fi
+
+      - name: Verify macOS signature and notarization
+        if: runner.os == 'macOS'
+        working-directory: apps/desktop
+        run: |
+          verify_app() {
+            echo "Verifying $1"
+            codesign --verify --deep --strict --verbose=2 "$1"
+            codesign -dv --verbose=2 "$1"
+            xcrun stapler validate "$1"
+          }
+          mark_arch() {
+            local binary archs
+            binary="$(printf '%s\n' "$1/Contents/MacOS/"*)"
+            archs="$(lipo -archs "$binary")"
+            echo "Architectures in $1: $archs"
+            case " $archs " in
+              *" arm64 "*) has_arm=1 ;;
+            esac
+            case " $archs " in
+              *" x86_64 "*) has_x64=1 ;;
+            esac
+          }
+          has_arm=0
+          has_x64=0
+          echo "Mac output dirs:"
+          ls -d release/mac* 2>/dev/null || true
+          for app in \
+            "release/mac/Inbox Zero.app" \
+            "release/mac-arm64/Inbox Zero.app" \
+            "release/mac-x64/Inbox Zero.app"
+          do
+            if [ -d "$app" ]; then
+              verify_app "$app"
+              mark_arch "$app"
+            fi
+          done
+          if [ "$has_arm" -ne 1 ] || [ "$has_x64" -ne 1 ]; then
+            echo "Expected both arm64 and x64 app bundles (arm=$has_arm x64=$has_x64)" >&2
+            exit 1
+          fi
+
+      - name: Clean up macOS signing files
+        if: always() && runner.os == 'macOS'
+        run: |
+          cleanup_status=0
+          if [ -f "$RUNNER_TEMP/desktop-signing.keychain-db" ]; then
+            security delete-keychain "$RUNNER_TEMP/desktop-signing.keychain-db" || cleanup_status=$?
+          fi
+          rm -f "$RUNNER_TEMP/desktop-signing.p12" "$RUNNER_TEMP/AuthKey.p8" || cleanup_status=$?
+          exit "$cleanup_status"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    if: github.ref_type == 'tag' || inputs.publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="desktop-v$(node -p "require('./apps/desktop/package.json').version")"
+          fi
+          TITLE="Inbox Zero Desktop ${TAG#desktop-v}"
+          node --experimental-strip-types apps/desktop/src/update-feed-cli.ts dist "$TAG"
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.blockmap dist/latest*.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No desktop artifacts to publish" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            extra=(--latest=false)
+            if [ "${{ github.ref_type }}" != "tag" ]; then
+              extra+=(--target "${{ github.sha }}")
+            fi
+            gh release create "$TAG" "${files[@]}" --title "$TITLE" --generate-notes "${extra[@]}"
+          fi
+          feed=(dist/latest*.yml)
+          if [ ${#feed[@]} -eq 0 ]; then
+            echo "No electron-updater feed files to publish" >&2
+            exit 1
+          fi
+          should_upload_feed=1
+          next_feed=""
+          if [ -f dist/latest-mac.yml ]; then
+            next_feed=dist/latest-mac.yml
+          elif [ -f dist/latest.yml ]; then
+            next_feed=dist/latest.yml
+          fi
+          current_feed=""
+          if [ -n "$next_feed" ] && gh release view desktop-updates >/dev/null 2>&1; then
+            mkdir -p /tmp/current-desktop-feed
+            current_pattern=$(basename "$next_feed")
+            asset_names=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/desktop-updates" --jq '.assets[].name') || {
+              echo "Failed to list desktop-updates assets; not overwriting the feed" >&2
+              exit 1
+            }
+            if echo "$asset_names" | grep -Fxq "$current_pattern"; then
+              gh release download desktop-updates --pattern "$current_pattern" --dir /tmp/current-desktop-feed || {
+                echo "Failed to download the current desktop-updates feed; not overwriting it" >&2
+                exit 1
+              }
+              current_feed="/tmp/current-desktop-feed/$current_pattern"
+            fi
+          fi
+          if [ -n "$next_feed" ]; then
+            replace_status=0
+            if [ -n "$current_feed" ]; then
+              node --experimental-strip-types apps/desktop/src/update-feed-cli.ts --should-replace "$next_feed" "$current_feed" || replace_status=$?
+            else
+              node --experimental-strip-types apps/desktop/src/update-feed-cli.ts --should-replace "$next_feed" || replace_status=$?
+            fi
+            if [ "$replace_status" -eq 2 ]; then
+              echo "Keeping existing desktop-updates feed because it is newer than $TAG or this version is a prerelease"
+              should_upload_feed=0
+            elif [ "$replace_status" -ne 0 ]; then
+              exit "$replace_status"
+            fi
+          fi
+          if [ "$should_upload_feed" != 1 ]; then
+            exit 0
+          fi
+          if gh release view desktop-updates >/dev/null 2>&1; then
+            gh release upload desktop-updates "${feed[@]}" --clobber
+          else
+            gh release create desktop-updates "${feed[@]}" \
+              --title "Desktop auto-update feed" \
+              --notes "electron-updater metadata for Inbox Zero Desktop. Installers stay on desktop-v* releases." \
+              --prerelease \
+              --latest=false
+          fi

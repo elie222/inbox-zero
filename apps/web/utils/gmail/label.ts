@@ -415,7 +415,10 @@ export async function getOrCreateInboxZeroLabel({
 function normalizeLabelForConflictLookup(name: string) {
   const normalizedUnicode = name.normalize("NFKC");
   const normalizedPath = normalizeSlashPath(normalizedUnicode);
-  return normalizeLabelName(stripInvisibleCharacters(normalizedPath));
+  const collapsedSeparators = stripInvisibleCharacters(
+    normalizedPath,
+  ).replaceAll("/", " ");
+  return normalizeLabelName(collapsedSeparators);
 }
 
 function normalizeSlashPath(name: string) {

@@ -5,9 +5,13 @@ import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
 import {
   getRemainingUnsubscribeCredits,
-  isAdminForPremium,
   premiumEntitlementSelect,
 } from "@/utils/premium";
+import {
+  billingAccessPremiumSelect,
+  canManageBilling,
+  organizationBillingPrincipalsSelect,
+} from "@/utils/premium/billing-access";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -31,6 +35,7 @@ async function getUser({
       dismissedHints: true,
       premium: {
         select: {
+          ...billingAccessPremiumSelect,
           ...premiumEntitlementSelect,
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
@@ -43,7 +48,6 @@ async function getUser({
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
-          admins: { select: { id: true } },
         },
       },
       emailAccounts: {
@@ -58,6 +62,7 @@ async function getUser({
               role: true,
               organization: {
                 select: {
+                  ...organizationBillingPrincipalsSelect,
                   name: true,
                 },
               },
@@ -71,19 +76,22 @@ async function getUser({
   if (!user) throw new SafeError("User not found");
 
   const members = user.emailAccounts.flatMap((account) =>
-    account.members.map((member) => ({
-      ...member,
+    account.members.map(({ organizationId, role, organization }) => ({
+      organizationId,
+      role,
+      organization: { name: organization.name },
       emailAccountId: account.id,
     })),
   );
 
   const { aiApiKey, webhookSecret, emailAccounts } = user;
+  const canManageBillingAccess = canManageBilling(user.id, user);
   let premium = null;
   if (user.premium) {
-    const { admins, ...premiumData } = user.premium;
+    const { admins: _admins, id: _premiumId, ...premiumData } = user.premium;
     premium = {
       ...premiumData,
-      isAdmin: isAdminForPremium(admins, user.id),
+      isAdmin: canManageBillingAccess,
     };
   }
 
@@ -104,6 +112,7 @@ async function getUser({
     })),
     hasAiApiKey: !!aiApiKey,
     hasWebhookSecret: !!webhookSecret,
+    canManageBilling: canManageBillingAccess,
     members,
   };
 }

@@ -88,6 +88,34 @@ describe("publishToQstash", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("uses an explicit destination instead of the internal base URL", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: "token" });
+
+    await upstash.publishToQstash(
+      "/rill",
+      { id: "evt_paid" },
+      undefined,
+      { "x-conversion-analytics-secret": "secret_test" },
+      { destinationUrl: "https://public.example.com/rill" },
+    );
+
+    expect(mockPublishJSON).toHaveBeenCalledOnce();
+    const request = mockPublishJSON.mock.calls[0]?.[0];
+    expect(request).toEqual(
+      expect.objectContaining({
+        url: "https://public.example.com/rill",
+        body: { id: "evt_paid" },
+        retries: 3,
+      }),
+    );
+    expect(request?.headers.get("x-conversion-analytics-secret")).toBe(
+      "secret_test",
+    );
+    expect(request?.headers.get("Retry-After")).toBe("10");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("forwards custom delivery headers", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
@@ -133,6 +161,35 @@ describe("publishToQstash", () => {
       "https://worker.example.com/api/process",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("falls back to an explicit destination when QStash is unavailable", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: undefined });
+
+    await upstash.publishToQstash(
+      "/rill",
+      { id: "evt_paid" },
+      undefined,
+      { "x-conversion-analytics-secret": "secret_test" },
+      { destinationUrl: "https://public.example.com/rill" },
+    );
+
+    expect(mockPublishJSON).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://public.example.com/rill");
+    expect(request).toEqual(
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ id: "evt_paid" }),
+      }),
+    );
+    expect(request?.headers.get("x-conversion-analytics-secret")).toBe(
+      "secret_test",
+    );
+    expect(request?.headers.get("x-api-key")).toBeNull();
+    expect(request?.headers.get("x-inbox-zero-caller-id")).toBeNull();
   });
 
   it("falls back when the QStash callback URL resolves to loopback", async () => {

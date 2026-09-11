@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { Logger } from "@/utils/logger";
-import { mapWithConcurrency } from "./map-with-concurrency";
+import { mapWithConcurrency } from "@/utils/async";
 
 const INBOX_LABEL_ID = "INBOX";
 const TO_REPLY_LABEL_NAME = "To Reply";

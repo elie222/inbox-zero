@@ -59,6 +59,28 @@ describe("Logger", () => {
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
+  it("redacts encoded MIME in provider errors even when debug logging is enabled", () => {
+    mockedEnv.NODE_ENV = "production";
+    mockedEnv.AXIOM_TOKEN = "server-token";
+    mockedEnv.ENABLE_DEBUG_LOGS = true;
+    const raw = Buffer.from(
+      "To: recipient@example.com\r\n\r\nPrivate message",
+    ).toString("base64url");
+    createScopedLogger("test").error("Send failed", {
+      error: { message: "Bad Gateway", status: 502, config: { data: { raw } } },
+    });
+    expect(JSON.stringify(vi.mocked(log.error).mock.calls)).not.toContain(raw);
+    expect(log.error).toHaveBeenCalledWith(
+      "Send failed",
+      expect.objectContaining({
+        error: expect.objectContaining({
+          status: 502,
+          config: { data: { raw: true } },
+        }),
+      }),
+    );
+  });
+
   it("uses Axiom logging when the server token is configured", () => {
     mockedEnv.AXIOM_TOKEN = "server-token";
 
@@ -329,6 +351,17 @@ describe("Logger", () => {
     expect(loggedMessage).toContain("Unauthorized");
     expect(loggedMessage).toContain("Invalid token");
     expect(loggedMessage).toContain("/api/endpoint");
+  });
+
+  it("always redacts received OAuth state values", () => {
+    const logger = createScopedLogger("test");
+    const receivedState = "signed-oauth-state-secret";
+
+    logger.error("Invalid OAuth state", { receivedState });
+
+    const loggedMessage = consoleErrorSpy.mock.calls[0][0];
+    expect(loggedMessage).toContain('"receivedState": true');
+    expect(loggedMessage).not.toContain(receivedState);
   });
 
   it("should handle complex nested error objects without [object Object]", () => {

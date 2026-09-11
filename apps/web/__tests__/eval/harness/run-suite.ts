@@ -37,6 +37,12 @@ export type EvalJudgeOutcome = {
   criteriaFailures?: string[];
 };
 
+export type EvalJudgeIdentity = {
+  provider: string;
+  model: string;
+  fingerprint: string;
+};
+
 export type EvalResultRecord = {
   evalName: string;
   caseId: string;
@@ -72,6 +78,9 @@ export type EvalResultRecord = {
   actual: string | null;
   error: string | null;
   sourceRoot: string | null;
+  caseFingerprint: string | null;
+  judgeFingerprint: string | null;
+  environmentFingerprint: string;
   /**
    * Hash of the files that shape a draft, so a stored record says which build
    * produced it.
@@ -95,6 +104,11 @@ export type EvalRun = {
   startedAt: string;
   finishedAt: string;
   selectedCaseCount: number;
+  codeFingerprint: string;
+  judgeProvider: string | null;
+  judgeModel: string | null;
+  judgeFingerprint: string | null;
+  environmentFingerprint: string;
   records: EvalResultRecord[];
   historyPath: string | null;
 };
@@ -158,7 +172,8 @@ export async function runEvalSuite<
   describeOutput,
   confidenceOf,
   caseFingerprintOf,
-  judgeFingerprint,
+  cacheFingerprintOf,
+  judgeIdentity,
   model,
   variantId = defaultVariantId(),
   samples = defaultSamples(),
@@ -184,11 +199,13 @@ export async function runEvalSuite<
   describeOutput?: (output: TOutput) => string;
   confidenceOf?: (output: TOutput) => string | null;
   /**
-   * Enables the result cache. Both must be supplied: a cache keyed on the case
-   * but not the judge would reuse a verdict from a judge that no longer exists.
+   * Enables the result cache. Both the case fingerprint and judge identity must
+   * be supplied: omitting either could reuse a verdict for different evidence.
    */
   caseFingerprintOf?: (evalCase: TCase) => string;
-  judgeFingerprint?: string;
+  /** Cache dependencies may change across comparable runs of the same case. */
+  cacheFingerprintOf?: (evalCase: TCase) => string;
+  judgeIdentity?: EvalJudgeIdentity;
   model: string;
   variantId?: string;
   samples?: number;
@@ -200,6 +217,9 @@ export async function runEvalSuite<
 }): Promise<EvalRun> {
   const startedAt = new Date().toISOString();
   const selected = selectEvalCases({ cases, filters });
+  const codeFingerprint = getCodeFingerprint();
+  const environmentFingerprint = getEnvironmentFingerprint();
+  const judgeFingerprint = judgeIdentity?.fingerprint;
 
   const tasks = selected.flatMap((evalCase) =>
     Array.from({ length: evalCase.samples ?? samples }, (_, sampleIndex) => ({
@@ -220,7 +240,10 @@ export async function runEvalSuite<
       describeOutput,
       confidenceOf,
       caseFingerprintOf,
+      cacheFingerprintOf,
       judgeFingerprint,
+      codeFingerprint,
+      environmentFingerprint,
       ...task,
     });
     onRecord?.(record);
@@ -236,6 +259,11 @@ export async function runEvalSuite<
     startedAt,
     finishedAt,
     selectedCaseCount: selected.length,
+    codeFingerprint,
+    judgeProvider: judgeIdentity?.provider ?? null,
+    judgeModel: judgeIdentity?.model ?? null,
+    judgeFingerprint: judgeFingerprint ?? null,
+    environmentFingerprint,
     records,
     historyPath: null,
   };
@@ -273,7 +301,10 @@ async function runOne<
   describeOutput,
   confidenceOf,
   caseFingerprintOf,
+  cacheFingerprintOf,
   judgeFingerprint,
+  codeFingerprint,
+  environmentFingerprint,
 }: {
   evalName: string;
   evalCase: TCase;
@@ -283,7 +314,10 @@ async function runOne<
   timeoutMs: number;
   confidenceOf?: (output: TOutput) => string | null;
   caseFingerprintOf?: (evalCase: TCase) => string;
+  cacheFingerprintOf?: (evalCase: TCase) => string;
   judgeFingerprint?: string;
+  codeFingerprint: string;
+  environmentFingerprint: string;
   invoke: (args: {
     evalCase: TCase;
     sampleIndex: number;
@@ -298,6 +332,7 @@ async function runOne<
   describeOutput?: (output: TOutput) => string;
 }): Promise<EvalResultRecord> {
   const startedAt = Date.now();
+  const caseFingerprint = caseFingerprintOf?.(evalCase) ?? null;
   const base = {
     evalName,
     caseId: evalCase.id,
@@ -310,17 +345,21 @@ async function runOne<
     variantId,
     sampleIndex,
     sourceRoot: evalCase.__sourceRoot ?? null,
+    caseFingerprint,
+    judgeFingerprint: judgeFingerprint ?? null,
+    environmentFingerprint,
     // Safe to stamp the current fingerprint even on a rehydrated cache hit: the
     // fingerprint is part of the cache key, so a hit can only have been written
     // under this same one.
-    codeFingerprint: getCodeFingerprint(),
+    codeFingerprint,
   };
 
   const cacheKey =
-    caseFingerprintOf && judgeFingerprint
+    caseFingerprint !== null && judgeFingerprint
       ? buildCacheKey({
-          caseFingerprint: caseFingerprintOf(evalCase),
+          caseFingerprint: cacheFingerprintOf?.(evalCase) ?? caseFingerprint,
           judgeFingerprint,
+          environmentFingerprint,
           model,
           sampleIndex,
           variantId,
@@ -448,6 +487,18 @@ function errorMessage(error: unknown): string {
 function defaultSamples(): number {
   const raw = Number(process.env.EVAL_SAMPLES);
   return Number.isInteger(raw) && raw > 0 ? raw : 1;
+}
+
+function getEnvironmentFingerprint(): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        baseUrl: process.env.NEXT_PUBLIC_BASE_URL ?? null,
+        timezone: process.env.TZ ?? null,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
 }
 
 /**

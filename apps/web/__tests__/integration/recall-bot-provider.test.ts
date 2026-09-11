@@ -1,5 +1,6 @@
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -42,7 +43,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       provider = new RecallBotProvider(createTestLogger());
     });
 
-    beforeEach(() => emulator.reset());
+    beforeEach(() => {
+      emulator.reset();
+      vi.spyOn(Date, "now").mockReturnValue(
+        new Date("2026-05-04T08:00:00.000Z").getTime(),
+      );
+    });
+
+    afterEach(() => vi.restoreAllMocks());
 
     afterAll(() => emulator?.close());
 
@@ -87,6 +95,124 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // config belongs here. Sending one would be rejected or ignored, and
       // either way no transcript would ever be produced.
       expect(create?.body).not.toHaveProperty("recording_config");
+    });
+
+    test.each([
+      { joinAt: "2026-05-04T07:55:00.000Z", state: "past" },
+      { joinAt: "", state: "empty" },
+      { joinAt: "not-a-date", state: "malformed" },
+    ])("rejects a $state join time like Recall", async ({ joinAt }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          join_at: joinAt,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        join_at: expect.any(Array),
+      });
+    });
+
+    test.each([
+      {
+        field: "activate_after",
+        heuristic: "using_participant_names",
+        config: { matches: ["notetaker"], activate_after: 0, timeout: 10 },
+      },
+      {
+        field: "timeout",
+        heuristic: "using_participant_names",
+        config: { matches: ["notetaker"], activate_after: 1, timeout: 9 },
+      },
+      {
+        field: "activate_after",
+        heuristic: "using_participant_events",
+        config: { activate_after: 0, timeout: 10 },
+      },
+      {
+        field: "timeout",
+        heuristic: "using_participant_events",
+        config: { activate_after: 1, timeout: 9 },
+      },
+    ])("rejects $heuristic $field below Recall's minimum", async ({
+      field,
+      heuristic,
+      config,
+    }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          automatic_leave: {
+            bot_detection: {
+              [heuristic]: config,
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        automatic_leave: {
+          bot_detection: {
+            [heuristic]: {
+              [field]: expect.any(Array),
+            },
+          },
+        },
+      });
+    });
+
+    test.each([
+      { label: "false", value: false },
+      { label: "zero", value: 0 },
+      { label: "an empty string", value: "" },
+      { label: "null", value: null },
+      { label: "an array", value: [] },
+    ])("rejects $label as bot_detection", async ({ value }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          automatic_leave: { bot_detection: value },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        automatic_leave: {
+          bot_detection: expect.any(Array),
+        },
+      });
+    });
+
+    test("joins an ongoing meeting without scheduling it in the past", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T07:55:00.000Z"),
+      });
+
+      expect(emulator.getBot(externalBotId)?.join_at).toBeNull();
+      const create = emulator.requests.find(
+        (request) =>
+          request.method === "POST" && request.path === "/api/v1/bot/",
+      );
+      expect(create?.body).not.toHaveProperty("join_at");
     });
 
     test("requests async transcription for a finished recording", async () => {

@@ -547,6 +547,84 @@ describe("createRuleBody", () => {
   });
 });
 
+describe("INTEGRATION action validation", () => {
+  const validRule = {
+    name: "Todoist Rule",
+    conditions: [{ type: ConditionType.AI, instructions: "Action items" }],
+  };
+  const integrationAction = {
+    type: ActionType.INTEGRATION,
+    integrationName: "todoist",
+    integrationToolName: "add-tasks",
+    integrationArgs: {
+      content: "{{Short action item based on the email}}",
+      projectId: "inbox",
+      projectName: "Inbox",
+    },
+  };
+
+  it("accepts an integration action with task content", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [integrationAction],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts empty task content, which the AI fills at execution", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [
+        {
+          ...integrationAction,
+          integrationArgs: { content: "", projectId: "inbox" },
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unknown argument keys", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [
+        {
+          ...integrationAction,
+          integrationArgs: { content: "Review", labels: "urgent" },
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("Unknown argument");
+    }
+  });
+
+  it("rejects unknown integration names", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [{ ...integrationAction, integrationName: "not-a-real-app" }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("Unknown integration");
+    }
+  });
+
+  it("rejects tools that are not registered write tools", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [{ ...integrationAction, integrationToolName: "delete-tasks" }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain(
+        "Unsupported integration tool",
+      );
+    }
+  });
+});
+
 describe("updateRuleConditionSchema", () => {
   it("accepts null aiInstructions for sender-only updates", () => {
     const result = updateRuleConditionSchema.safeParse({

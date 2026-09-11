@@ -1,5 +1,10 @@
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Client } from "@microsoft/microsoft-graph-client";
+import {
+  Client,
+  type Context,
+  type Middleware,
+} from "@microsoft/microsoft-graph-client";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -16,6 +21,13 @@ import {
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
     init: vi.fn(),
+    initWithMiddleware: vi.fn(),
+  },
+  MiddlewareFactory: {
+    getDefaultMiddlewareChain: vi.fn(() => [
+      { execute: vi.fn(), setNext: vi.fn() },
+      { execute: vi.fn(), setNext: vi.fn() },
+    ]),
   },
 }));
 
@@ -56,28 +68,63 @@ vi.mock("@/env", () => ({
 }));
 
 describe("outlook client emulator configuration", () => {
+  it("records missing refresh tokens using the failed credential snapshot", async () => {
+    const logger = createTestLogger();
+    vi.mocked(cleanupInvalidTokens).mockResolvedValueOnce(undefined);
+    await expect(
+      getOutlookClientWithRefresh({
+        accessToken: "access-token",
+        refreshToken: null,
+        expiresAt: null,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("No refresh token");
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      reason: "invalid_grant",
+      failedAccessToken: "access-token",
+      failedRefreshToken: null,
+      logger,
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("passes emulator-aware Graph options into the client", () => {
+  it("uses a request-rewriting middleware for the HTTP emulator", async () => {
     createOutlookClient("emulator-token", createTestLogger());
 
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "emulator-token",
     );
-    expect(Client.init).toHaveBeenCalledWith({
-      authProvider: expect.any(Function),
-      baseUrl: "http://localhost:4003/",
-      customHosts: new Set(["localhost"]),
+    expect(Client.initWithMiddleware).toHaveBeenCalledWith({
       defaultVersion: "v1.0",
       fetchOptions: {
         headers: {
-          Authorization: "Bearer emulator-token",
           Prefer: 'IdType="ImmutableId"',
         },
       },
+      middleware: expect.any(Array),
     });
+    expect(Client.init).not.toHaveBeenCalled();
+
+    const clientOptions = vi.mocked(Client.initWithMiddleware).mock
+      .calls[0]?.[0];
+    const rewriteMiddleware = clientOptions?.middleware?.[1];
+    const executeNext = vi.fn();
+    const nextMiddleware: Middleware = { execute: executeNext };
+    const context: Context = {
+      request: "https://graph.microsoft.com/v1.0/me/messages",
+    };
+
+    expect(clientOptions?.middleware).toHaveLength(3);
+    rewriteMiddleware?.setNext?.(nextMiddleware);
+    await rewriteMiddleware?.execute(context);
+
+    expect(context.request).toBe("http://localhost:4003/v1.0/me/messages");
+    expect(executeNext).toHaveBeenCalledWith(context);
   });
 
   it("uses the emulator authorize URL for linking", () => {

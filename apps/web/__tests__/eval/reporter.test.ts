@@ -311,7 +311,7 @@ describe("eval reporter", () => {
       secondRun,
     );
 
-    fs.writeFileSync(path.join(workspaceRoot, "new-source.ts"), "export {};\n");
+    fs.writeFileSync(path.join(workspaceRoot, "new source.ts"), "export {};\n");
     const thirdRun = vi.fn().mockResolvedValue({ pass: true });
     await createEvalReporter({ evalName: "example eval" }).recordCached(
       options,

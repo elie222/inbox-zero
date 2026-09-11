@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms/index";
+import { strictOptional } from "@/utils/llms/strict-optional";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createScopedLogger } from "@/utils/logger";
@@ -24,6 +25,10 @@ Rules:
 
 Return your response in JSON format.`;
 
+// Strict structured-output providers require every declared property to be
+// required, so optional fields are required-but-nullable via strictOptional.
+// Its `value ?? null` preprocess also keeps previously stored summaries
+// parseable: fields absent in old rows come back as null.
 const summarySchema = z.object({
   overview: z
     .string()
@@ -35,21 +40,18 @@ const summarySchema = z.object({
     .array(
       z.object({
         description: z.string(),
-        owner: z
-          .string()
-          .optional()
-          .describe("Only set when the transcript shows who took this on"),
+        owner: strictOptional(z.string()).describe(
+          "Only set when the transcript shows who took this on",
+        ),
       }),
     )
     .describe("Concrete follow-up work agreed in the meeting"),
-  openQuestions: z
-    .array(z.string())
-    .optional()
-    .describe("Questions raised but left unresolved"),
-  nextSteps: z
-    .array(z.string())
-    .optional()
-    .describe("What happens next, including any agreed timing"),
+  openQuestions: strictOptional(z.array(z.string())).describe(
+    "Questions raised but left unresolved",
+  ),
+  nextSteps: strictOptional(z.array(z.string())).describe(
+    "What happens next, including any agreed timing",
+  ),
 });
 
 export type MeetingSummary = z.infer<typeof summarySchema>;

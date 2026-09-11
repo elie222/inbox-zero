@@ -46,6 +46,89 @@ const rules = [
   conversations,
 ];
 
+const promotionalBoundaryCases = [
+  {
+    name: "founder coordinating their own launch",
+    email: getEmail({
+      from: "partner@launchstudio.example",
+      subject: "Your launch campaign is ready for approval",
+      content:
+        "Hi, we've finished the landing page and promotional emails for your company's launch. Please review the attached campaign copy and confirm whether we can publish tomorrow. We still need your decision on the introductory offer before we send it to your subscribers.",
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    name: "agency client requesting campaign changes",
+    email: getEmail({
+      from: "client@retailer.example",
+      subject: "Changes to our summer sale ads",
+      content:
+        "Hi team, your agency manages our paid campaigns. Please replace the 20% discount with free shipping in this week's ads and send over the revised creative for approval. Can you also explain why conversions dropped yesterday? We need your recommendation before increasing the budget.",
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    name: "automated alert about the user's advertising campaign",
+    email: getEmail({
+      from: "alerts@adplatform.example",
+      subject: "Your launch ads have stopped running",
+      content:
+        "The campaign you manage, Spring Launch, has been paused because its payment method was declined. Your ads are no longer being served. Update your billing details to resume delivery. View affected campaigns in your advertising account.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    name: "subscriber dashboard magic link",
+    email: getEmail({
+      from: "Member Benefits <support@makersdigest.example>",
+      subject: "Your magic link to unlock your member benefits",
+      content:
+        "Thanks for being a paid member of Makers Digest! Open your dashboard to activate the partner apps included with your membership. Unlock your benefits: https://members.makersdigest.example/auth/callback#token=synthetic-example. Enjoy creating with your new apps!",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    name: "requested verification with an upsell",
+    email: getEmail({
+      from: "hello@canvascloud.example",
+      subject: "Confirm your email and start creating",
+      content:
+        "Enter code 123456 to verify the account you just created. It expires in 10 minutes. Once verified, explore our premium templates or upgrade for unlimited designs.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    name: "account recovery in Spanish with promotional footer",
+    email: getEmail({
+      from: "cuentas@studio.example",
+      subject: "Recupera el acceso a tu cuenta",
+      content:
+        "Recibimos tu solicitud para restablecer la contraseña. Continúa aquí: https://studio.example/reset?token=synthetic-example. El enlace caduca en 15 minutos. Descubre también nuestra oferta anual con un 30% de descuento.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    name: "optional member benefit promotion",
+    email: getEmail({
+      from: "Member Benefits <support@makersdigest.example>",
+      subject: "Explore this month's free member apps",
+      content:
+        "Your membership includes a growing collection of partner apps. This month, try a new design tool and a writing assistant at no extra cost. Browse the offers any time at https://members.makersdigest.example/benefits. Pick something new to try!",
+    }),
+    expectedRule: "Marketing",
+  },
+  {
+    name: "promotional urgency without an account obligation",
+    email: getEmail({
+      from: "offers@canvascloud.example",
+      subject: "Action required: your exclusive offer expires tonight",
+      content:
+        "Claim 40% off an optional upgrade before midnight. Sign in to view the deal and unlock premium templates. Your current plan continues as usual if you skip this offer.",
+    }),
+    expectedRule: "Marketing",
+  },
+];
+
 const multiRuleStressRules = [
   getRule(
     "Receipts, invoices, purchase confirmations, payment receipts, renewal receipts, and order summaries where a payment succeeded or an invoice is available.",
@@ -723,6 +806,39 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
       );
     }
   });
+
+  describeEvalMatrix(
+    "promotional boundary",
+    (model, emailAccount) => {
+      for (const tc of promotionalBoundaryCases) {
+        test(
+          tc.name,
+          async () => {
+            const result = await aiChooseRule({
+              email: tc.email,
+              rules,
+              emailAccount,
+              logger,
+            });
+            const actual = result.rules.map(({ rule }) => rule.name);
+            const pass = actual.length === 1 && actual[0] === tc.expectedRule;
+
+            evalReporter.record({
+              testName: `promotional boundary: ${tc.name}`,
+              model: model.label,
+              pass,
+              expected: tc.expectedRule,
+              actual: actual.join(", ") || "no match",
+            });
+
+            expect(actual).toEqual([tc.expectedRule]);
+          },
+          TIMEOUT,
+        );
+      }
+    },
+    { multiRuleSelectionEnabled: true },
+  );
 
   describeEvalMatrix(
     "choose-rule multi-rule false positives",

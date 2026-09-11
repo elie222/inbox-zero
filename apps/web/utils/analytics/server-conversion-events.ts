@@ -76,6 +76,9 @@ export async function trackServerConversionEvent({
       },
       undefined,
       headers,
+      {
+        destinationUrl: `${env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")}${path}`,
+      },
     );
   } catch (error) {
     logger.error("Server conversion tracking failed", {

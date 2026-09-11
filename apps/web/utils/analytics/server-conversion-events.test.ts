@@ -74,6 +74,7 @@ describe("trackServerConversionEvent", () => {
       expect.any(Object),
       undefined,
       undefined,
+      { destinationUrl: "https://example.com/rill" },
     );
 
     const body = publishToQstashMock.mock.calls[0]?.[1];
@@ -171,6 +172,7 @@ describe("trackServerConversionEvent", () => {
       expect.any(Object),
       undefined,
       { "x-conversion-analytics-secret": "secret_test" },
+      { destinationUrl: "https://example.com/rill" },
     );
   });
 

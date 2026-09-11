@@ -11,6 +11,7 @@ const { mockEnv } = vi.hoisted(() => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
@@ -34,6 +35,7 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [ActionType.MOVE_FOLDER],
+      integrationActionsEnabled: false,
     });
 
     expect(
@@ -47,6 +49,7 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [ActionType.NOTIFY_MESSAGING_CHANNEL],
+      integrationActionsEnabled: false,
     });
 
     expect(
@@ -62,6 +65,7 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [],
+      integrationActionsEnabled: false,
     });
 
     expect(options.some((option) => option.value === ActionType.STAR)).toBe(
@@ -75,12 +79,14 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [],
+      integrationActionsEnabled: false,
     });
     const coldEmailOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
       systemType: SystemType.COLD_EMAIL,
       existingActionTypes: [],
+      integrationActionsEnabled: false,
     });
 
     expect(
@@ -102,12 +108,14 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [],
+      integrationActionsEnabled: false,
     });
     const disabledExistingOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [ActionType.DELETE],
+      integrationActionsEnabled: false,
     });
     mockEnv.deleteEmailActionEnabled = true;
     const enabledOptions = getRuleActionTypeOptions({
@@ -115,6 +123,7 @@ describe("getRuleActionTypeOptions", () => {
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [],
+      integrationActionsEnabled: false,
     });
 
     expect(
@@ -127,6 +136,30 @@ describe("getRuleActionTypeOptions", () => {
     ).toBe(true);
     expect(
       enabledOptions.some((option) => option.value === ActionType.DELETE),
+    ).toBe(true);
+  });
+
+  it("exposes integration actions to early access users", () => {
+    const disabledOptions = getRuleActionTypeOptions({
+      provider: "google",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [],
+      integrationActionsEnabled: false,
+    });
+    const enabledOptions = getRuleActionTypeOptions({
+      provider: "google",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [],
+      integrationActionsEnabled: true,
+    });
+
+    expect(
+      disabledOptions.some((option) => option.value === ActionType.INTEGRATION),
+    ).toBe(false);
+    expect(
+      enabledOptions.some((option) => option.value === ActionType.INTEGRATION),
     ).toBe(true);
   });
 });

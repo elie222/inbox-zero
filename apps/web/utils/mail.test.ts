@@ -87,6 +87,41 @@ describe("emailToContent", () => {
       expect(result.length).toBe(2003);
       expect(result.endsWith("...")).toBe(true);
     });
+
+    it("keeps the closing ask when keepTailLength is set", () => {
+      const email = {
+        textPlain: `${"Feature list. ".repeat(200)}Can you send the updated timeline when you have it?`,
+        textHtml: undefined,
+        snippet: "",
+      };
+
+      const result = emailToContent(email, {
+        maxLength: 200,
+        keepTailLength: 80,
+      });
+
+      expect(result.length).toBeLessThanOrEqual(200);
+      expect(result).toContain("Feature list.");
+      expect(result).toContain("send the updated timeline");
+    });
+
+    it("strips a plain-text signature before truncating", () => {
+      const email = {
+        textPlain: `${"Please review the proposal. ".repeat(80)}\n-- \nBest regards,\nAlex\nThis email is confidential and intended only for the addressee.`,
+        textHtml: undefined,
+        snippet: "",
+      };
+
+      const result = emailToContent(email, {
+        maxLength: 200,
+        keepTailLength: 80,
+        stripSignature: true,
+      });
+
+      expect(result).toContain("Please review the proposal.");
+      expect(result).not.toContain("confidential");
+      expect(result).not.toContain("Best regards");
+    });
   });
 
   describe("removeForwarded option", () => {

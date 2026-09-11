@@ -3,7 +3,7 @@ import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { Logger } from "@/utils/logger";
 import { getRecentOtpThreads, OTP_MAX_AGE_MS } from "@/utils/otp";
-import { mapWithConcurrency } from "../all-inboxes/map-with-concurrency";
+import { mapWithConcurrency } from "@/utils/async";
 
 const ACCOUNT_CONCURRENCY = 4;
 const THREAD_PAGE_SIZE = 100;

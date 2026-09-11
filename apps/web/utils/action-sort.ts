@@ -26,6 +26,7 @@ const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
   ActionType.MARK_SPAM,
   ActionType.NOTIFY_SENDER,
   ActionType.CALL_WEBHOOK,
+  ActionType.INTEGRATION,
 ];
 
 /**

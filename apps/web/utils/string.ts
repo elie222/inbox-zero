@@ -25,6 +25,31 @@ export function truncate(str: string, length: number) {
   return str.length > length ? `${str.slice(0, length)}...` : str;
 }
 
+const HEAD_TAIL_ELLIPSIS = "\n...\n";
+
+// Keep the start and end of a long string so closing asks/CTAs survive truncation.
+export function truncateHeadTail(
+  str: string,
+  maxLength: number,
+  tailLength: number,
+) {
+  if (str.length <= maxLength) return str;
+
+  const ellipsis = HEAD_TAIL_ELLIPSIS;
+  if (maxLength <= ellipsis.length) return str.slice(0, maxLength);
+
+  const clampedTailLength = Math.max(
+    0,
+    Math.min(tailLength, maxLength - ellipsis.length),
+  );
+  const headLength = maxLength - clampedTailLength - ellipsis.length;
+  if (headLength <= 0) {
+    return `${ellipsis}${str.slice(-(maxLength - ellipsis.length))}`;
+  }
+
+  return `${str.slice(0, headLength)}${ellipsis}${str.slice(-clampedTailLength)}`;
+}
+
 export function trimToNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== "string") return;
 

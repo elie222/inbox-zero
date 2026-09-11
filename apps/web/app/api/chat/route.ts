@@ -20,6 +20,7 @@ import { captureException } from "@/utils/error";
 import {
   shouldCompact,
   compactMessages,
+  buildCompactionSummaryMessage,
   extractMemories,
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
@@ -43,7 +44,7 @@ import {
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -186,10 +187,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   if (latestCompaction) {
     modelMessages = [
-      {
-        role: "system" as const,
-        content: `Summary of earlier conversation:\n${latestCompaction.summary}`,
-      },
+      buildCompactionSummaryMessage(latestCompaction.summary),
       ...modelMessages,
     ];
   }

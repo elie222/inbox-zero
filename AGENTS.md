@@ -9,6 +9,7 @@
 - Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
 - Run single test: `pnpm test path/to/test-file.test.ts`
+- Run focused browser test: `pnpm -F inbox-zero-ai test:playwright:emulated <area-or-spec>`; for browser-facing UI changes, inspect the generated screenshots before finishing
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
@@ -52,11 +53,10 @@
 - Never use dynamic Prisma transactions (`prisma.$transaction(async (tx) => ...)`).
 
 ## Change Philosophy
+- Respect module boundaries: keep feature-specific logic in its owning feature and shared infrastructure generic.
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
-
-## Documentation
-- Treat code and tests as the source of truth for behavior; reserve docs for user guidance, workflows, runbooks, and durable decisions.
+- This is a public repository. Never include non-public data or internal details from private repositories or services in repository content or GitHub metadata; describe related private work only generically (for example, “updated the marketing repository”).
 
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
@@ -83,3 +83,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
 - Cursor Cloud VM setup: see `.claude/skills/cloud-dev-environment/SKILL.md`.
+- Opening a PR: `.claude/skills/create-pr/SKILL.md`. Watching one to green (CI, review bots, comments): `.claude/skills/pr-watch/SKILL.md`. Do not hand-roll `gh api` polling; `pr-watch` ships a `pr-digest` helper.

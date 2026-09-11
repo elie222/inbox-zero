@@ -141,6 +141,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ParseFilingReply]: "economy",
       [LlmUseCase.PersonaAnalysis]: "economy",
       [LlmUseCase.PromptToRules]: "chat",
+      [LlmUseCase.PromptToSplit]: "economy",
       [LlmUseCase.ReplyContextCollector]: "economy",
       [LlmUseCase.ReplyMemoryExtraction]: "economy",
       [LlmUseCase.ReplyMemorySelection]: "economy",
@@ -162,16 +163,6 @@ describe("LLM use cases", () => {
     expect(modelSnapshot(getModelForUseCase(userAi, useCase))).toEqual(
       modelSnapshot(getModel(userAi, modelType)),
     );
-  });
-
-  it("preserves the online model variant option", () => {
-    const userAi = defaultUserAi();
-
-    expect(
-      modelSnapshot(
-        getModelForUseCase(userAi, LlmUseCase.MeetingWebSearch, true),
-      ),
-    ).toEqual(modelSnapshot(getModel(userAi, "economy", true)));
   });
 });
 

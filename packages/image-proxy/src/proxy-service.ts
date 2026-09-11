@@ -118,7 +118,16 @@ export async function handleImageProxyRequest(
   const cacheKey = new Request(request.url, { method: "GET" });
   if (cache) {
     const cachedResponse = await cache.match(cacheKey);
-    if (cachedResponse) return cachedResponse;
+    if (cachedResponse) {
+      const cachedContentType =
+        cachedResponse.headers.get("content-type") || "";
+      if (isSvgContentType(cachedContentType)) {
+        cachedResponse.body?.cancel();
+        return new Response("Unsupported content type", { status: 415 });
+      }
+
+      return cachedResponse;
+    }
   }
 
   const fetchImpl = options?.fetchImpl || fetch;
@@ -137,7 +146,7 @@ export async function handleImageProxyRequest(
   }
 
   const contentType = upstreamResponse.headers.get("content-type") || "";
-  if (!isCacheableContentType(contentType)) {
+  if (isSvgContentType(contentType) || !isCacheableContentType(contentType)) {
     upstreamResponse.body?.cancel();
     return new Response("Unsupported content type", { status: 415 });
   }
@@ -312,6 +321,10 @@ function isCacheableContentType(contentType: string) {
   return CACHEABLE_CONTENT_TYPES.some((prefix) =>
     normalized.startsWith(prefix),
   );
+}
+
+function isSvgContentType(contentType: string) {
+  return contentType.split(";", 1)[0]?.trim().toLowerCase() === "image/svg+xml";
 }
 
 function isRedirectResponse(status: number) {

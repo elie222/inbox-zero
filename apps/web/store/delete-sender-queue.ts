@@ -1,7 +1,8 @@
-import { deleteEmails } from "./archive-queue";
 import { createSenderQueue } from "./sender-queue";
 
-const { addToQueue, useSenderStatus } = createSenderQueue(deleteEmails);
+const { addToQueue, useSenderStatus } = createSenderQueue(() => ({
+  kind: "trash",
+}));
 
 export const addToDeleteSenderQueue = addToQueue;
 export const useDeleteSenderStatus = useSenderStatus;

@@ -93,11 +93,15 @@ async function getEmailMessages(
       status: findNewsletterStatus(newsletterStatuses, from),
     };
   });
+  const searchedSenderStatus = options.search
+    ? findNewsletterStatus(newsletterStatuses, options.search)
+    : undefined;
 
-  if (!options.filters?.length) return { newsletters };
+  if (!options.filters?.length) return { newsletters, searchedSenderStatus };
 
   return {
     newsletters: filterNewsletters(newsletters, options.filters),
+    searchedSenderStatus,
   };
 }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DigestStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { redis } from "@/utils/redis";
 
 const DIGEST_SUMMARY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -190,66 +191,74 @@ async function reserveDigestSummarySlotWithPrisma({
   maxSummariesPer24h: number;
   now: Date;
 }) {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`
-      SELECT pg_advisory_xact_lock(hashtext(${emailAccountId}))
-    `;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${emailAccountId}))
+        `;
 
-    const summariesInWindow = await tx.digestItem.count({
-      where: {
-        digest: {
-          emailAccountId,
-        },
-        createdAt: {
-          gte: getDigestSummaryWindowStart(now),
-        },
-      },
-    });
+        const summariesInWindow = await tx.digestItem.count({
+          where: {
+            digest: {
+              emailAccountId,
+            },
+            createdAt: {
+              gte: getDigestSummaryWindowStart(now),
+            },
+          },
+        });
 
-    if (summariesInWindow >= maxSummariesPer24h) return null;
+        if (summariesInWindow >= maxSummariesPer24h) return null;
 
-    const pendingDigest = await tx.digest.findFirst({
-      where: {
-        emailAccountId,
-        status: DigestStatus.PENDING,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    const digestId =
-      pendingDigest?.id ||
-      (
-        await tx.digest.create({
-          data: {
+        const pendingDigest = await tx.digest.findFirst({
+          where: {
             emailAccountId,
             status: DigestStatus.PENDING,
+          },
+          orderBy: {
+            createdAt: "asc",
           },
           select: {
             id: true,
           },
-        })
-      ).id;
+        });
 
-    const reservationToken = randomUUID();
-    const reservation = await tx.digestItem.create({
-      data: {
-        digestId,
-        messageId: getPrismaReservationMessageId(reservationToken),
-        threadId: getPrismaReservationThreadId(reservationToken),
-        content: DIGEST_SUMMARY_RESERVATION_CONTENT,
-      },
-      select: {
-        id: true,
-      },
-    });
+        const digestId =
+          pendingDigest?.id ||
+          (
+            await tx.digest.create({
+              data: {
+                emailAccountId,
+                status: DigestStatus.PENDING,
+              },
+              select: {
+                id: true,
+              },
+            })
+          ).id;
 
-    return reservation.id;
-  });
+        const reservationToken = randomUUID();
+        const reservation = await tx.digestItem.create({
+          data: {
+            digestId,
+            messageId: getPrismaReservationMessageId(reservationToken),
+            threadId: getPrismaReservationThreadId(reservationToken),
+            content: DIGEST_SUMMARY_RESERVATION_CONTENT,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        return reservation.id;
+      });
+    } catch (error) {
+      // A competing writer does not take the reservation lock. Retry the whole
+      // transaction because PostgreSQL aborts it after a unique violation.
+      if (attempt >= 2 || !isDuplicateError(error)) throw error;
+    }
+  }
 }
 
 function getPrismaReservationMessageId(reservationToken: string) {

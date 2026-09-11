@@ -15,6 +15,11 @@ export interface EvalModel {
 }
 
 export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
+  "deepseek-v4-flash": {
+    provider: "openrouter",
+    model: "deepseek/deepseek-v4-flash",
+    label: "DeepSeek V4 Flash",
+  },
   "gemini-3-flash": {
     provider: "openrouter",
     model: "google/gemini-3-flash-preview",

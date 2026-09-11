@@ -1,18 +1,16 @@
 import { createHash } from "node:crypto";
 import type { Logger } from "@/utils/logger";
 import {
-  claimOAuthCode,
+  claimOAuthCodeAndWait,
   clearOAuthCode,
-  getOAuthCodeResult,
   isOAuthCodeStoreConfigured,
   type OAuthCodeResult,
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { WELCOME_PATH } from "@/utils/config";
+import { env } from "@/env";
 
 const CALLBACK_PATH_REGEX = /\/api\/auth\/(?:oauth2\/)?callback\/([^/]+)\/?$/;
-const CALLBACK_RESULT_POLL_INTERVAL_MS = 250;
-const CALLBACK_RESULT_WAIT_MS = 15_000;
 const CALLBACK_RESULT_TTL_SECONDS = 600;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const OAUTH_STATE_COOKIE_NAMES = new Set([
@@ -36,42 +34,39 @@ export async function deduplicateOAuthCallback({
   const requestFingerprint = getOAuthStateFingerprint(request);
   if (!requestFingerprint) return handleRequest();
 
-  let claim: Awaited<ReturnType<typeof claimOAuthCode>>;
-
-  try {
-    claim = await claimOAuthCode(code, requestFingerprint);
-  } catch (error) {
+  const claim = await claimOAuthCodeAndWait(code, requestFingerprint);
+  if (claim.status === "error" && claim.stage === "claim") {
     logger.warn("OAuth callback deduplication unavailable", {
-      error,
+      error: claim.error,
       provider,
     });
     return handleRequest();
   }
 
-  if (claim?.status === "success") {
-    logger.info("Reusing completed OAuth callback", { provider });
-    return createCachedRedirect({ request, requestFingerprint, result: claim });
-  }
-
-  if (claim?.status === "processing") {
-    logger.info("Waiting for in-flight OAuth callback", { provider });
-    const inFlightResult = await waitForOAuthCodeResult({
-      code,
-      logger,
+  if (claim.status === "error") {
+    logger.warn("Failed while waiting for OAuth callback result", {
+      error: claim.error,
       provider,
     });
+    return Response.redirect(getPublicRedirectUrl(), 302);
+  }
 
-    if (inFlightResult) {
-      logger.info("Reusing in-flight OAuth callback result", { provider });
-      return createCachedRedirect({
-        request,
-        requestFingerprint,
-        result: inFlightResult,
-      });
-    }
+  if (claim.status === "success") {
+    logger.info(
+      claim.waited
+        ? "Reusing in-flight OAuth callback result"
+        : "Reusing completed OAuth callback",
+      { provider },
+    );
+    return createCachedRedirect({
+      requestFingerprint,
+      result: claim.result,
+    });
+  }
 
+  if (claim.status === "timeout") {
     logger.warn("OAuth callback wait timed out", { provider });
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(getPublicRedirectUrl(), 302);
   }
 
   try {
@@ -129,43 +124,10 @@ function getOAuthCallback(request: Request) {
   return { code, provider };
 }
 
-async function waitForOAuthCodeResult({
-  code,
-  logger,
-  provider,
-}: {
-  code: string;
-  logger: Logger;
-  provider: string;
-}) {
-  const attempts = CALLBACK_RESULT_WAIT_MS / CALLBACK_RESULT_POLL_INTERVAL_MS;
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, CALLBACK_RESULT_POLL_INTERVAL_MS),
-    );
-
-    try {
-      const result = await getOAuthCodeResult(code);
-      if (result) return result;
-    } catch (error) {
-      logger.warn("Failed while waiting for OAuth callback result", {
-        error,
-        provider,
-      });
-      return null;
-    }
-  }
-
-  return null;
-}
-
 function createCachedRedirect({
-  request,
   requestFingerprint,
   result,
 }: {
-  request: Request;
   requestFingerprint?: string;
   result: OAuthCodeResult;
 }) {
@@ -174,10 +136,10 @@ function createCachedRedirect({
   const status = Number(params.status);
 
   if (!redirect) {
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(getPublicRedirectUrl(), 302);
   }
 
-  const redirectUrl = new URL(redirect, request.url);
+  const redirectUrl = getPublicRedirectUrl(redirect);
   const redirectStatus = REDIRECT_STATUSES.has(status) ? status : 302;
   const headers = new Headers({ location: redirectUrl.toString() });
 
@@ -229,4 +191,8 @@ function parseSetCookies(value: string) {
   } catch {
     return [];
   }
+}
+
+function getPublicRedirectUrl(path = WELCOME_PATH) {
+  return new URL(path, env.NEXT_PUBLIC_BASE_URL);
 }

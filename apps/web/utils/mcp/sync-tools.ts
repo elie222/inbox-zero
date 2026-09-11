@@ -39,26 +39,41 @@ export async function syncMcpTools(
 
     const allTools = await listMcpTools(integration, emailAccountId);
 
+    const writeToolNames = integrationConfig.ruleActionWriteTools ?? [];
+    const writeTools = allTools.filter((tool) =>
+      writeToolNames.includes(tool.name),
+    );
+
     // Filter to only allowed tools if specified in config
     const allowedToolNames = integrationConfig.allowedTools;
-    let tools = allowedToolNames
+    let readTools = allowedToolNames
       ? allTools.filter((tool) => allowedToolNames.includes(tool.name))
       : allTools;
+    readTools = readTools.filter((tool) => !writeToolNames.includes(tool.name));
 
-    // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
+    // Pipedream exposes a changing tool catalog. Require both its annotation
+    // and the operation name to indicate a read before storing the tool.
     if (integrationConfig.filterWriteTools) {
-      const beforeCount = tools.length;
-      tools = tools.filter((tool) => isReadOnlyTool(tool.name));
+      const beforeCount = readTools.length;
+      readTools = readTools.filter(
+        (tool) => tool.readOnlyHint === true && isReadOnlyTool(tool.name),
+      );
       logger.info("Filtered write tools", {
         before: beforeCount,
-        after: tools.length,
-        filtered: beforeCount - tools.length,
+        after: readTools.length,
+        filtered: beforeCount - readTools.length,
       });
     }
 
+    const tools = [
+      ...readTools.map((tool) => ({ ...tool, isWrite: false })),
+      ...writeTools.map((tool) => ({ ...tool, isWrite: true })),
+    ];
+
     logger.info("Fetched and filtered tools from MCP server", {
       totalToolsAvailable: allTools.length,
-      allowedToolsCount: tools.length,
+      allowedToolsCount: readTools.length,
+      writeToolsCount: writeTools.length,
       allowedTools: allowedToolNames,
     });
 
@@ -82,7 +97,8 @@ export async function syncMcpTools(
                 schema: tool.inputSchema as Prisma.InputJsonValue,
                 isEnabled:
                   existingEnabledByName.get(tool.name) ??
-                  !integrationConfig.defaultToolsDisabled,
+                  !integrationConfig.filterWriteTools,
+                isWrite: tool.isWrite,
               })),
             }),
           ]

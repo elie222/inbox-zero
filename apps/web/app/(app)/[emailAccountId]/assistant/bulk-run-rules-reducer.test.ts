@@ -11,6 +11,7 @@ import type { ThreadsResponse } from "@/app/api/threads/route";
 function createMockThread(id: string): ThreadsResponse["threads"][number] {
   return {
     id,
+    messageIds: [`${id}-msg`],
     snippet: "Test snippet",
     messages: [
       {

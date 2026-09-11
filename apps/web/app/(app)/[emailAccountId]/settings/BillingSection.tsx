@@ -28,7 +28,15 @@ import { getActionErrorMessage } from "@/utils/error";
 import { updateStripeInvoiceEmailsAction } from "@/utils/actions/premium";
 
 export function BillingSection() {
-  const { data, premium, isPremium, isLoading, tier, mutate } = usePremium();
+  const {
+    data,
+    premium,
+    isPremium,
+    isLoading,
+    tier,
+    mutate,
+    canManageBilling,
+  } = usePremium();
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
@@ -63,6 +71,8 @@ export function BillingSection() {
     );
     execute({ enabled });
   };
+
+  if (!canManageBilling) return null;
 
   return (
     <LoadingContent loading={isLoading}>
@@ -106,7 +116,7 @@ export function BillingSection() {
         </Item>
       )}
 
-      {premium?.stripeCustomerId && premium.isAdmin && (
+      {premium?.stripeCustomerId && (
         <>
           <ItemSeparator />
           <Item size="sm">

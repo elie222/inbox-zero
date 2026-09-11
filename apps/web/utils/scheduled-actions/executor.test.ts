@@ -86,6 +86,38 @@ describe("executor", () => {
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
+    it("persists provider message IDs for delayed sending actions", async () => {
+      mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
+      mockExecutedActionCreate({ type: ActionType.REPLY });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({
+        sentMessageIds: ["sent-message-1"],
+      });
+
+      await executeScheduledAction(
+        { ...mockScheduledAction, actionType: ActionType.REPLY },
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(prisma.executedAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          executionStartedAt: expect.any(Date),
+        }),
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+          sentMessageIds: ["sent-message-1"],
+        },
+      });
+    });
+
     it("records skipped delayed actions without failing the scheduled action", async () => {
       mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
       mockExecutedActionCreate({ type: ActionType.FORWARD });
@@ -200,6 +232,7 @@ describe("executor", () => {
           code: "ErrorTimeout",
           statusCode: 504,
           requestId: "graph-request-456",
+          sentMessageIds: ["sent-message-before-failure"],
         }),
       );
 
@@ -227,6 +260,7 @@ describe("executor", () => {
             statusCode: 504,
             requestId: "graph-request-456",
           },
+          sentMessageIds: ["sent-message-before-failure"],
         },
       });
       expectExecutedRuleStatus(
@@ -285,6 +319,50 @@ describe("executor", () => {
         ExecutedRuleStatus.ERROR,
         failedScheduledActionReason,
       );
+    });
+
+    it("links a deliberately skipped action to the completed scheduled action", async () => {
+      const scheduledNotificationAction = {
+        ...mockScheduledAction,
+        actionType: ActionType.NOTIFY_SENDER,
+      };
+      mockScheduledActionUpdate(
+        ScheduledActionStatus.COMPLETED,
+        scheduledNotificationAction,
+      );
+      mockExecutedActionCreate({ type: ActionType.NOTIFY_SENDER });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({ skipped: true });
+
+      const result = await executeScheduledAction(
+        scheduledNotificationAction,
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        executedActionId: "executed-action-123",
+      });
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: {
+          status: ScheduledActionStatus.COMPLETED,
+          executedAt: expect.any(Date),
+          executedActionId: "executed-action-123",
+        },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SKIPPED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+        },
+      });
+      expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
     it("should handle account not found errors", async () => {

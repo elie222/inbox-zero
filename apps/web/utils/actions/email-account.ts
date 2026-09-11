@@ -12,6 +12,7 @@ import { updateContactRole } from "@inboxzero/loops";
 import {
   updateHiddenAiDraftLinksBody,
   updateReferralSignatureBody,
+  updateSentWithSignatureBody,
 } from "@/utils/actions/email-account.validation";
 import { z } from "zod";
 
@@ -119,6 +120,20 @@ export const updateReferralSignatureAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { includeReferralSignature: enabled },
+      });
+    },
+  );
+
+export const updateSentWithSignatureAction = actionClient
+  .metadata({ name: "updateSentWithSignature" })
+  .inputSchema(updateSentWithSignatureBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating sent with signature", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { includeSentWithSignature: enabled },
       });
     },
   );

@@ -37,6 +37,30 @@ describe("api-auth", () => {
       ).rejects.toThrow("Invalid API key");
     });
 
+    it("rejects inactive keys", async () => {
+      mockApiKeyLookup(null);
+
+      await expect(
+        validateApiKey(getRequest("inactive-api-key")),
+      ).rejects.toThrow("Invalid API key");
+      expect(prisma.apiKey.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { hashedKey: "hashed-key", isActive: true },
+        }),
+      );
+    });
+
+    it("rejects expired keys", async () => {
+      mockApiKeyLookup(
+        buildApiKeyRecord({ expiresAt: new Date("2020-01-01T00:00:00Z") }),
+      );
+
+      await expect(
+        validateApiKey(getRequest("expired-api-key")),
+      ).rejects.toThrow("Invalid API key");
+      expect(prisma.apiKey.update).not.toHaveBeenCalled();
+    });
+
     it("returns the scoped api key and records last use", async () => {
       mockApiKeyLookup(buildApiKeyRecord());
 
@@ -68,7 +92,6 @@ describe("api-auth", () => {
       mockApiKeyLookup(
         buildApiKeyRecord({
           scopes: ["RULES_READ", "RULES_WRITE"],
-          emailAccount: null,
         }),
       );
 
@@ -77,6 +100,12 @@ describe("api-auth", () => {
         emailAccountId: "email-account-id",
         scopes: ["RULES_READ", "RULES_WRITE"],
       });
+    });
+
+    it("returns null when the scoped inbox relation is missing", async () => {
+      mockApiKeyLookup(buildApiKeyRecord({ emailAccount: null }));
+
+      await expect(getUserFromApiKey("orphaned-key")).resolves.toBeNull();
     });
 
     it("returns null for keys without an inbox scope", async () => {
@@ -118,6 +147,49 @@ describe("api-auth", () => {
         accountId: "account-id",
         scopes: ["RULES_READ", "RULES_WRITE"],
       });
+    });
+
+    it("rejects a key whose user no longer owns the email account", async () => {
+      mockApiKeyLookup(
+        buildApiKeyRecord({
+          emailAccount: buildEmailAccountRecord({
+            userId: "new-owner-id",
+          }),
+        }),
+      );
+
+      await expect(
+        validateAccountApiKey(getRequest("stale-key"), ["RULES_READ"]),
+      ).rejects.toThrow("Invalid API key");
+      expect(prisma.apiKey.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a key whose user no longer owns the provider account", async () => {
+      mockApiKeyLookup(
+        buildApiKeyRecord({
+          emailAccount: buildEmailAccountRecord({
+            accountUserId: "new-owner-id",
+          }),
+        }),
+      );
+
+      await expect(
+        validateAccountApiKey(getRequest("stale-key"), ["RULES_READ"]),
+      ).rejects.toThrow("Invalid API key");
+      expect(prisma.apiKey.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects keys without an account scope", async () => {
+      mockApiKeyLookup(
+        buildApiKeyRecord({
+          emailAccountId: null,
+          emailAccount: null,
+        }),
+      );
+
+      await expect(
+        validateAccountApiKey(getRequest("legacy-key"), ["RULES_READ"]),
+      ).rejects.toThrow("Account-scoped API key required");
     });
   });
 
@@ -181,14 +253,26 @@ function buildApiKeyRecord(overrides: Record<string, unknown> = {}) {
     emailAccountId: "email-account-id",
     expiresAt: null,
     scopes: ["RULES_READ"],
-    emailAccount: {
-      id: "email-account-id",
-      email: "user@example.com",
-      account: {
-        id: "account-id",
-        provider: "google",
-      },
-    },
+    emailAccount: buildEmailAccountRecord(),
     ...overrides,
+  };
+}
+
+function buildEmailAccountRecord({
+  userId = "user-id",
+  accountUserId = "user-id",
+}: {
+  userId?: string;
+  accountUserId?: string;
+} = {}) {
+  return {
+    id: "email-account-id",
+    userId,
+    email: "user@example.com",
+    account: {
+      id: "account-id",
+      userId: accountUserId,
+      provider: "google",
+    },
   };
 }

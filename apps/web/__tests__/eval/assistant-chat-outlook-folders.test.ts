@@ -192,7 +192,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
               cacheKeyParts: [{ model, provider: "microsoft", messages }],
             },
             async () => {
-              const { toolCalls, actual } = await runAssistantChat({
+              const { toolCalls, actual, finalText } = await runAssistantChat({
                 emailAccount: cloneEmailAccountForProvider(
                   emailAccount,
                   "microsoft",
@@ -203,12 +203,23 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
               const listCall = toolCalls.find(
                 (toolCall) => toolCall.toolName === "listFolders",
               );
-              const outputText = JSON.stringify(listCall?.output ?? {});
+              const output = listCall?.output as
+                | { folders: Array<{ id: string }> }
+                | undefined;
+              const outputText = JSON.stringify(output ?? {});
+              const folderIds =
+                output?.folders.map((folder) => folder.id) ?? [];
               const pass =
                 !!listCall &&
                 outputText.includes(`Operations${FOLDER_SEPARATOR}Reports`) &&
-                !outputText.includes("folder-operations") &&
-                !outputText.includes("folder-vendor-updates") &&
+                folderIds.length > 0 &&
+                finalText.trim().length > 0 &&
+                folderIds.every(
+                  (id) =>
+                    typeof id === "string" &&
+                    id.trim().length > 0 &&
+                    !finalText.includes(id),
+                ) &&
                 !toolCalls.some(
                   (toolCall) =>
                     toolCall.toolName === "listCategories" ||
@@ -217,7 +228,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
 
               return {
                 pass,
-                actual: `${actual} | output=${outputText}`,
+                actual: `${actual} | output=${outputText} | finalText=${finalText}`,
               };
             },
           );

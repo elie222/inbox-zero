@@ -136,6 +136,59 @@ describe.skipIf(!RUN_DB_TESTS)(
       );
     });
 
+    test("deletes an account's transcript when the email account is deleted", async () => {
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event: calendarEvent(),
+        logger,
+      });
+
+      const recording = await prisma.meetingRecording.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { transcript: [{ speakerName: "Speaker", text: "Private" }] },
+      });
+
+      await prisma.emailAccount.delete({ where: { id: accountAId } });
+
+      await expect(
+        prisma.meetingRecording.findUnique({ where: { id: recording.id } }),
+      ).resolves.toBeNull();
+    });
+
+    test("preserves the meeting when its recording is deleted", async () => {
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event: calendarEvent(),
+        logger,
+      });
+
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      const recording = await prisma.meetingRecording.findFirstOrThrow({
+        where: { meetings: { some: { id: meeting.id } } },
+      });
+      await prisma.meeting.update({
+        where: { id: meeting.id },
+        data: { summary: { overview: "Stored notes" } },
+      });
+
+      await prisma.meetingRecording.delete({
+        where: { id: recording.id },
+      });
+
+      await expect(
+        prisma.meeting.findUnique({ where: { id: meeting.id } }),
+      ).resolves.toMatchObject({
+        id: meeting.id,
+        recordingId: null,
+        summary: { overview: "Stored notes" },
+      });
+    });
+
     test("updates the bot name for an existing scheduled recording", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
@@ -292,6 +345,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // its bot is gone, so the reschedule cannot land there yet.
       const cancelling = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           botProvider: original.botProvider,
           externalBotId: "cancelling_bot",
           meetingUrl: original.meetingUrl,
@@ -351,6 +405,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       const movedTo = addMinutes(event.startTime, 45);
       const conflicting = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           botProvider: original.botProvider,
           externalBotId: "conflicting_bot",
           meetingUrl: original.meetingUrl,
@@ -518,6 +573,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       const normalizedMeetingUrl = "meet.google.com/abc-defg-hij";
       const recording = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           botProvider: "recall",
           externalBotId: "cancelling_during_link",
           meetingUrl: event.videoConferenceLink ?? "",
@@ -775,6 +831,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("deletes media for terminal recordings and for DONE recordings with transcripts", async () => {
       const withoutTranscript = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/aaa-bbbb-ccc",
           normalizedMeetingUrl: "meet.google.com/aaa-bbbb-ccc",
           meetingStartTime: new Date(),
@@ -784,6 +841,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       const withTranscript = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/ddd-eeee-fff",
           normalizedMeetingUrl: "meet.google.com/ddd-eeee-fff",
           meetingStartTime: new Date(),
@@ -795,6 +853,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       const failed = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/ggg-hhhh-iii",
           normalizedMeetingUrl: "meet.google.com/ggg-hhhh-iii",
           meetingStartTime: new Date(),
@@ -804,6 +863,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       const cancelled = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/jjj-kkkk-lll",
           normalizedMeetingUrl: "meet.google.com/jjj-kkkk-lll",
           meetingStartTime: new Date(),
@@ -927,6 +987,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=SuPerSecret";
       const recording = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl,
           normalizedMeetingUrl: "zoom.us/j/8123456789",
           activeKey: "zoom.us/j/8123456789",
@@ -1103,6 +1164,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("re-requests transcription when the first request never produced one", async () => {
       const recording = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/mmm-nnnn-ooo",
           normalizedMeetingUrl: "meet.google.com/mmm-nnnn-ooo",
           activeKey: "meet.google.com/mmm-nnnn-ooo",
@@ -1130,6 +1192,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("leaves a recent transcription request alone", async () => {
       await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/ppp-qqqq-rrr",
           normalizedMeetingUrl: "meet.google.com/ppp-qqqq-rrr",
           activeKey: "meet.google.com/ppp-qqqq-rrr",
@@ -1150,6 +1213,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("clears stale claims and closes recordings that never reported back by engagement", async () => {
       const stale = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/ggg-hhhh-iii",
           normalizedMeetingUrl: "meet.google.com/ggg-hhhh-iii",
           activeKey: "meet.google.com/ggg-hhhh-iii",
@@ -1162,6 +1226,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // closes it as a no-show instead of a failed recording.
       const noShow = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/jjj-kkkk-lll",
           normalizedMeetingUrl: "meet.google.com/jjj-kkkk-lll",
           activeKey: "meet.google.com/jjj-kkkk-lll",
@@ -1174,6 +1239,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // recording the user should see.
       const engaged = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/mmm-nnnn-ooo",
           normalizedMeetingUrl: "meet.google.com/mmm-nnnn-ooo",
           activeKey: "meet.google.com/mmm-nnnn-ooo",
@@ -1209,6 +1275,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // lost. Failing it here would be terminal.
       const recoverable = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/rrr-ssss-ttt",
           normalizedMeetingUrl: "meet.google.com/rrr-ssss-ttt",
           activeKey: "meet.google.com/rrr-ssss-ttt",
@@ -1222,6 +1289,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // transcript, so the sweep must finally fail the row.
       const expired = await prisma.meetingRecording.create({
         data: {
+          emailAccountId: accountAId,
           meetingUrl: "https://meet.google.com/uuu-vvvv-www",
           normalizedMeetingUrl: "meet.google.com/uuu-vvvv-www",
           activeKey: "meet.google.com/uuu-vvvv-www",

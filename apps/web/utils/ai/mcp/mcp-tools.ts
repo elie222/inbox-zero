@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { getMcpServerUrl } from "@/utils/mcp/server-url";
 
 type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
 
@@ -25,6 +26,7 @@ export async function createMcpToolsForAgent(
         tools: {
           some: {
             isEnabled: true,
+            isWrite: false,
           },
         },
       },
@@ -37,7 +39,7 @@ export async function createMcpToolsForAgent(
           },
         },
         tools: {
-          where: { isEnabled: true },
+          where: { isEnabled: true, isWrite: false },
           select: {
             name: true,
           },
@@ -71,7 +73,7 @@ export async function createMcpToolsForAgent(
       }
 
       // registeredServerUrl is the OAuth discovery base URL, not the MCP endpoint
-      const serverUrl = integrationConfig.serverUrl;
+      const serverUrl = getMcpServerUrl(integrationConfig);
       if (!serverUrl) {
         logger.warn("No server URL available", {
           integration: integration.name,

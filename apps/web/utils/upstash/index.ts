@@ -7,13 +7,17 @@ import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
 const logger = createScopedLogger("upstash");
 
-function getQstashClient() {
+type PublishToQstashOptions = {
+  destinationUrl?: string;
+};
+
+function getQstashClient(callbackUrl: string = getQstashCallbackBaseUrl()) {
   if (!env.QSTASH_TOKEN) return null;
-  if (!isSafeExternalHttpUrl(getQstashCallbackBaseUrl())) {
+  if (!isSafeExternalHttpUrl(callbackUrl)) {
     logger.warn(
       "Qstash callback URL is not externally reachable; using fallback",
       {
-        qstashCallbackBaseUrl: getQstashCallbackBaseUrl(),
+        qstashCallbackUrl: callbackUrl,
       },
     );
     return null;
@@ -26,13 +30,15 @@ export async function publishToQstash<T>(
   body: T,
   flowControl?: FlowControl,
   headers?: HeadersInit,
+  options?: PublishToQstashOptions,
 ) {
   const requestHeaders = createHeaders(headers);
   requestHeaders.set("Retry-After", "10");
 
-  const client = getQstashClient();
+  const qstashUrl =
+    options?.destinationUrl ?? `${getQstashCallbackBaseUrl()}${path}`;
+  const client = getQstashClient(qstashUrl);
   if (client) {
-    const qstashUrl = `${getQstashCallbackBaseUrl()}${path}`;
     return client.publishJSON({
       url: qstashUrl,
       body,
@@ -42,8 +48,14 @@ export async function publishToQstash<T>(
     });
   }
 
-  const fallbackUrl = `${getInternalApiUrl()}${path}`;
-  return fallbackPublishToQstash(fallbackUrl, body, requestHeaders);
+  const fallbackUrl =
+    options?.destinationUrl ?? `${getInternalApiUrl()}${path}`;
+  return fallbackPublishToQstash(
+    fallbackUrl,
+    body,
+    requestHeaders,
+    !options?.destinationUrl,
+  );
 }
 
 export async function bulkPublishToQstash<T>({
@@ -140,13 +152,16 @@ async function fallbackPublishToQstash<T>(
   url: string,
   body: T,
   headers?: HeadersInit,
+  includeInternalApiHeaders = true,
 ) {
   logger.warn("Qstash client not found");
 
   const internalHeaders = createHeaders(headers);
   internalHeaders.set("Content-Type", "application/json");
-  for (const [key, value] of Object.entries(getInternalApiHeaders())) {
-    internalHeaders.set(key, value);
+  if (includeInternalApiHeaders) {
+    for (const [key, value] of Object.entries(getInternalApiHeaders())) {
+      internalHeaders.set(key, value);
+    }
   }
 
   after(async () => {

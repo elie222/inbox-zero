@@ -162,7 +162,7 @@ describe("reply-memory", () => {
         scopeType: ReplyMemoryScopeType.GLOBAL,
       },
       orderBy: { updatedAt: "desc" },
-      take: 25,
+      take: 100,
     });
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(
       4,

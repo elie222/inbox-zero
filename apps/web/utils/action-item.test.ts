@@ -107,6 +107,70 @@ describe("getActionFields", () => {
     });
   });
 
+  it("labels integration args from the tool spec", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "Review the contract",
+        description: "From the legal team",
+        dueString: "tomorrow",
+        projectId: "6X7",
+        projectName: "Work",
+      },
+    } as any;
+
+    const result = getActionFields(action);
+
+    expect(result).toEqual({
+      Task: "Review the contract",
+      Description: "From the legal team",
+      "Due date": "Tomorrow",
+      Project: "Work",
+    });
+  });
+
+  it("shows AI-filled integration args as AI-generated", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "",
+        description: "",
+        dueString: "ai",
+        projectId: "inbox",
+        projectName: "Inbox",
+      },
+    } as any;
+
+    const result = getActionFields(action);
+
+    expect(result).toEqual({
+      Task: "AI-generated",
+      Description: "AI-generated",
+      "Due date": "AI-generated",
+      Project: "Inbox",
+    });
+  });
+
+  it("shows a custom due date instead of a preset label", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "Review the contract",
+        dueString: "next Friday",
+        projectId: "inbox",
+        projectName: "Inbox",
+      },
+    } as any;
+
+    expect(getActionFields(action)["Due date"]).toBe("next Friday");
+  });
+
   it("excludes falsy values except for defined nulls", () => {
     const action = {
       label: "",
@@ -120,6 +184,41 @@ describe("getActionFields", () => {
 });
 
 describe("sanitizeActionFields", () => {
+  describe("INTEGRATION", () => {
+    it("keeps integration fields and strips unrelated ones", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.INTEGRATION,
+        content: "should be stripped",
+        url: "https://example.com",
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "Do the thing", projectId: "inbox" },
+      });
+
+      expect(result.integrationName).toBe("todoist");
+      expect(result.integrationToolName).toBe("add-tasks");
+      expect(result.integrationArgs).toEqual({
+        content: "Do the thing",
+        projectId: "inbox",
+      });
+      expect(result.content).toBeNull();
+      expect(result.url).toBeNull();
+    });
+
+    it("strips integration fields from other action types", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.ARCHIVE,
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "Do the thing" },
+      });
+
+      expect(result.integrationName).toBeNull();
+      expect(result.integrationToolName).toBeNull();
+      expect(result.integrationArgs).toBeUndefined();
+    });
+  });
+
   describe("actions with no fields", () => {
     it("returns base fields for ARCHIVE", () => {
       const result = sanitizeActionFields({ type: ActionType.ARCHIVE });

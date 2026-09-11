@@ -97,8 +97,18 @@ export const landingPageAnalytics = {
   signUpClicked: (posthog: PostHog, position?: string) => {
     posthog?.capture?.("Clicked Sign Up", position ? { position } : undefined);
   },
-  pricingCtaClicked: (posthog: PostHog, tier: string, cta: string) => {
-    posthog?.capture?.("Clicked Pricing CTA", { tier, cta });
+  pricingCtaClicked: (
+    posthog: PostHog,
+    properties: {
+      tier: string;
+      cta: string;
+      frequency: "monthly" | "annually";
+      defaultFrequency: "monthly" | "annually";
+      frequencySource: "default" | "user_selected";
+      pricingFrequencyDefaultVariant: string | null;
+    },
+  ) => {
+    posthog?.capture?.("Clicked Pricing CTA", properties);
   },
   appDownloadClicked: (posthog: PostHog, platform: "ios" | "android") => {
     posthog?.capture?.("Clicked App Download", { platform });

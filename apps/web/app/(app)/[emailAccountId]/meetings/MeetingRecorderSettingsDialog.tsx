@@ -18,6 +18,7 @@ import {
   useMeetingRecorderSettings,
   useMeetingRecorderUpcoming,
 } from "@/hooks/useMeetingRecorder";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateMeetingRecorderSettingsAction } from "@/utils/actions/meeting-recorder";
 import type { UpdateMeetingRecorderSettingsBody } from "@/utils/actions/meeting-recorder.validation";
@@ -32,6 +33,7 @@ export function MeetingRecorderSettingsDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const analytics = useProductAnalytics();
   // Only mounted inside the page's `settings.enabled` branch, so the settings
   // are already loaded and SWR serves them from cache.
   const { data, mutate } = useMeetingRecorderSettings(emailAccountId);
@@ -78,7 +80,13 @@ export function MeetingRecorderSettingsDialog({
                 name="joinRule"
                 ariaLabel="Which meetings to join"
                 value={data.joinRule}
-                onChange={(joinRule) => save({ joinRule })}
+                onChange={(joinRule) => {
+                  analytics.captureAction("meeting_recorder_setting_changed", {
+                    setting: "join_rule",
+                    value: joinRule,
+                  });
+                  save({ joinRule });
+                }}
                 options={JOIN_RULE_OPTIONS}
               />
             </div>
@@ -92,7 +100,13 @@ export function MeetingRecorderSettingsDialog({
                   name="recapEmailEnabled"
                   ariaLabel="Email me the notes"
                   enabled={data.recapEmailEnabled}
-                  onChange={(recapEmailEnabled) => save({ recapEmailEnabled })}
+                  onChange={(recapEmailEnabled) => {
+                    analytics.captureAction(
+                      "meeting_recorder_setting_changed",
+                      { setting: "recap_email", value: recapEmailEnabled },
+                    );
+                    save({ recapEmailEnabled });
+                  }}
                 />
               </Item>
 
@@ -104,9 +118,16 @@ export function MeetingRecorderSettingsDialog({
                   name="followUpDraftEnabled"
                   ariaLabel="Draft a follow-up email"
                   enabled={data.followUpDraftEnabled}
-                  onChange={(followUpDraftEnabled) =>
-                    save({ followUpDraftEnabled })
-                  }
+                  onChange={(followUpDraftEnabled) => {
+                    analytics.captureAction(
+                      "meeting_recorder_setting_changed",
+                      {
+                        setting: "follow_up_draft",
+                        value: followUpDraftEnabled,
+                      },
+                    );
+                    save({ followUpDraftEnabled });
+                  }}
                 />
               </Item>
             </ListCard>
@@ -116,6 +137,7 @@ export function MeetingRecorderSettingsDialog({
               <Button
                 variant="outline"
                 onClick={() => {
+                  analytics.captureAction("meeting_recorder_disabled");
                   save({ enabled: false });
                   onClose();
                 }}

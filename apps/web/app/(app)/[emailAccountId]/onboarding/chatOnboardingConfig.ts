@@ -5,6 +5,7 @@ import type {
 } from "@/utils/ai/onboarding/chat";
 import {
   MAX_SETUP_RULES,
+  type OnboardingChatInput,
   type OnboardingRuleAction,
   type OnboardingSetup,
 } from "@/app/api/chat/onboarding/validation";
@@ -93,10 +94,19 @@ const STAGE_ORDER: OnboardingStage[] = [
   "close",
 ];
 
-export function getStageFromMessages(
+export type OnboardingFlow = {
+  stage: OnboardingStage;
+  setupCardToolCallId: string | null;
+  cleanupCardToolCallId: string | null;
+};
+
+export function deriveOnboardingFlow(
   messages: OnboardingChatMessage[],
-): OnboardingStage {
+): OnboardingFlow {
   let stage: OnboardingStage = "welcome";
+  let setupCardToolCallId: string | null = null;
+  let cleanupCardToolCallId: string | null = null;
+
   for (const message of messages) {
     for (const part of message.parts) {
       if (
@@ -112,11 +122,14 @@ export function getStageFromMessages(
         const isSkipCleanup = stage === "draft" && next === "close";
         if (nextIndex === currentIndex + 1 || isSkipCleanup) {
           stage = next;
+          if (next === "draft") setupCardToolCallId = part.toolCallId;
+          if (next === "cleanup") cleanupCardToolCallId = part.toolCallId;
         }
       }
     }
   }
-  return stage;
+
+  return { stage, setupCardToolCallId, cleanupCardToolCallId };
 }
 
 export function applySetupUpdate(
@@ -181,4 +194,20 @@ export function buildInitialSetup(provider: string): OnboardingSetup {
     })),
     status: "draft",
   };
+}
+
+export function serializeOnboardingChatMessages(
+  messages: OnboardingChatMessage[],
+): OnboardingChatInput["messages"] {
+  return messages.flatMap((message) => {
+    if (message.role === "system") return [];
+
+    const parts = message.parts.flatMap((part) =>
+      part.type === "text" ? [{ type: "text" as const, text: part.text }] : [],
+    );
+
+    return parts.length > 0
+      ? [{ id: message.id, role: message.role, parts }]
+      : [];
+  });
 }

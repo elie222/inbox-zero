@@ -9,6 +9,11 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  getIntegrationArgKeys,
+  getIntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
@@ -82,7 +87,12 @@ const zodActionType = z.enum([
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
   ActionType.NOTIFY_SENDER,
+  ActionType.INTEGRATION,
 ]);
+
+// Arg keys are owned and validated by the selected tool spec below.
+const zodIntegrationArgs = z.record(z.string(), z.string().nullish()).nullish();
+export type IntegrationActionArgs = z.infer<typeof zodIntegrationArgs>;
 
 const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);
 
@@ -144,6 +154,9 @@ const zodAction = z
     folderId: zodField,
     delayInMinutes: delayInMinutesSchema,
     staticAttachments: z.array(attachmentSourceInputSchema).optional(),
+    integrationName: z.string().nullish(),
+    integrationToolName: z.string().nullish(),
+    integrationArgs: zodIntegrationArgs,
   })
   .superRefine((data, ctx) => {
     if (
@@ -230,6 +243,14 @@ const zodAction = z
         path: ["folderName"],
       });
     }
+
+    addIntegrationActionIssues({
+      actionType: data.type,
+      integrationName: data.integrationName,
+      integrationToolName: data.integrationToolName,
+      integrationArgs: data.integrationArgs,
+      ctx,
+    });
   });
 
 export const createRuleBody = z.object({
@@ -387,6 +408,9 @@ const importedAction = z
     folderName: z.string().nullish(),
     url: z.string().nullish(),
     delayInMinutes: delayInMinutesSchema,
+    integrationName: z.string().nullish(),
+    integrationToolName: z.string().nullish(),
+    integrationArgs: zodIntegrationArgs,
   })
   .superRefine((data, ctx) => {
     if (addDisabledRuleActionIssue(data.type, ctx)) return;
@@ -438,6 +462,14 @@ const importedAction = z
         path: ["folderName"],
       });
     }
+
+    addIntegrationActionIssues({
+      actionType: data.type,
+      integrationName: data.integrationName,
+      integrationToolName: data.integrationToolName,
+      integrationArgs: data.integrationArgs,
+      ctx,
+    });
   });
 
 const importedRule = z
@@ -481,6 +513,73 @@ export const importRulesBody = z.object({
 });
 export type ImportRulesBody = z.infer<typeof importRulesBody>;
 export type ImportedRule = z.infer<typeof importedRule>;
+
+function addIntegrationActionIssues({
+  actionType,
+  integrationName,
+  integrationToolName,
+  integrationArgs,
+  ctx,
+}: {
+  actionType: ActionType;
+  integrationName: string | null | undefined;
+  integrationToolName: string | null | undefined;
+  integrationArgs: IntegrationActionArgs;
+  ctx: z.RefinementCtx;
+}) {
+  if (actionType !== ActionType.INTEGRATION) return;
+
+  const integration = integrationName
+    ? findIntegration(integrationName)
+    : undefined;
+  if (!integration) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Unknown integration",
+      path: ["integrationName"],
+    });
+    return;
+  }
+
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (
+    !spec ||
+    !integrationToolName ||
+    !integration.ruleActionWriteTools?.includes(integrationToolName)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Unsupported integration tool",
+      path: ["integrationToolName"],
+    });
+    return;
+  }
+
+  const args = (integrationArgs ?? {}) as Record<string, unknown>;
+  const knownKeys = new Set(getIntegrationArgKeys(spec));
+  for (const key of Object.keys(args)) {
+    if (args[key] == null || knownKeys.has(key)) continue;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Unknown argument for this integration tool: ${key}`,
+      path: ["integrationArgs", key],
+    });
+  }
+
+  for (const arg of spec.args) {
+    if (!arg.required) continue;
+    const value =
+      typeof args[arg.key] === "string" ? (args[arg.key] as string) : "";
+    // Empty is valid when the AI fills the value at execution time.
+    if (value.trim() || arg.aiPrompt) continue;
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Please enter a value for ${arg.label.toLowerCase()}`,
+      path: ["integrationArgs", arg.key],
+    });
+  }
+}
 
 function addRecipientRequirementIssue({
   actionType,
