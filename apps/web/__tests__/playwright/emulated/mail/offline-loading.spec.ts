@@ -6,8 +6,6 @@ import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
-// The emulated suite runs Next in development. Install the real worker with
-// the assets loaded by this page in place of the production precache manifest.
 test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
   context,
@@ -16,30 +14,34 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
   ).toBeVisible();
-  const assets = await page.evaluate(() =>
-    performance
-      .getEntriesByType("resource")
-      .map((entry) => entry.name)
-      .filter(
-        (url) =>
-          new URL(url).origin === location.origin &&
-          new URL(url).pathname.startsWith("/_next/static/"),
-      ),
-  );
-  const workerName = `sw-offline-test-${process.pid}.js`;
+  const production = process.env.PLAYWRIGHT_PRODUCTION === "1";
+  const workerName = production ? "sw.js" : `sw-offline-test-${process.pid}.js`;
   const workerFile = path.resolve("public", workerName);
   try {
-    await build({
-      entryPoints: ["app/sw.ts"],
-      bundle: true,
-      define: {
-        "process.env.NODE_ENV": JSON.stringify("production"),
-        "self.__SW_MANIFEST": JSON.stringify(
-          [...new Set(assets)].map((url) => ({ url, revision: null })),
-        ),
-      },
-      outfile: workerFile,
-    });
+    // Dev mode has no precache manifest; production uses the worker built for CI.
+    if (!production) {
+      const assets = await page.evaluate(() =>
+        performance
+          .getEntriesByType("resource")
+          .map((entry) => entry.name)
+          .filter(
+            (url) =>
+              new URL(url).origin === location.origin &&
+              new URL(url).pathname.startsWith("/_next/static/"),
+          ),
+      );
+      await build({
+        entryPoints: ["app/sw.ts"],
+        bundle: true,
+        define: {
+          "process.env.NODE_ENV": JSON.stringify("production"),
+          "self.__SW_MANIFEST": JSON.stringify(
+            [...new Set(assets)].map((url) => ({ url, revision: null })),
+          ),
+        },
+        outfile: workerFile,
+      });
+    }
 
     await page.evaluate(async (name) => {
       await navigator.serviceWorker.register(`/${name}`, { scope: "/" });
@@ -88,7 +90,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
 
     await context.setOffline(false);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
     await expect(
       conversationWithSubject(page, conversations, "Archive Action Message"),
     ).toBeVisible();
@@ -120,15 +122,6 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       .toBe(0);
   } finally {
     await context.setOffline(false);
-    await page
-      .evaluate(async () => {
-        await Promise.all(
-          (await navigator.serviceWorker.getRegistrations()).map(
-            (registration) => registration.unregister(),
-          ),
-        );
-      })
-      .catch(() => {});
-    await rm(workerFile, { force: true });
+    if (!production) await rm(workerFile, { force: true });
   }
 });
