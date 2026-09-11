@@ -2,7 +2,20 @@ import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
 import { describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
-import { createLabel, getLabel, getOrCreateLabels } from "./label";
+import {
+  createLabel,
+  getLabel,
+  getOrCreateLabels,
+  unarchiveThread,
+  untrashThread,
+} from "./label";
+
+const mockGetFolderIds = vi.fn();
+
+vi.mock("@/utils/outlook/message", () => ({
+  getFolderIds: (...args: Parameters<typeof mockGetFolderIds>) =>
+    mockGetFolderIds(...args),
+}));
 
 describe("createLabel", () => {
   it("sanitizes comma-containing category names before Graph API call", async () => {
@@ -91,6 +104,109 @@ describe("getOrCreateLabels", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe("unarchiveThread", () => {
+  it("moves every archived message back, following paged results", async () => {
+    mockGetFolderIds.mockResolvedValue({ archive: "archive-id" });
+    const { client, post, filters } = createPagingClient([
+      { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+      { value: [{ id: "m3" }] },
+    ]);
+
+    await unarchiveThread({
+      client,
+      threadId: "thread-1",
+      logger: createTestLogger(),
+    });
+
+    // Without following @odata.nextLink, m3 would silently stay archived.
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledWith({ destinationId: "inbox" });
+    expect(filters[0]).toContain("parentFolderId eq 'archive-id'");
+  });
+
+  it("refuses to run when the archive folder cannot be resolved", async () => {
+    mockGetFolderIds.mockResolvedValue({});
+    const { client, post } = createPagingClient([{ value: [] }]);
+
+    await expect(
+      unarchiveThread({
+        client,
+        threadId: "thread-1",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Archive folder not found");
+
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("untrashThread", () => {
+  it("moves every deleted message back, following paged results", async () => {
+    mockGetFolderIds.mockResolvedValue({ deleteditems: "deleted-id" });
+    const { client, post, filters } = createPagingClient([
+      { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+      { value: [{ id: "m3" }] },
+    ]);
+
+    await untrashThread({
+      client,
+      threadId: "thread-1",
+      logger: createTestLogger(),
+    });
+
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledWith({ destinationId: "inbox" });
+    // Scoping to Deleted Items is what keeps the thread's sent messages put.
+    expect(filters[0]).toContain("parentFolderId eq 'deleted-id'");
+  });
+
+  it("refuses to run when the deleted items folder cannot be resolved", async () => {
+    mockGetFolderIds.mockResolvedValue({ archive: "archive-id" });
+    const { client, post } = createPagingClient([{ value: [] }]);
+
+    await expect(
+      untrashThread({
+        client,
+        threadId: "thread-1",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Deleted items folder not found");
+
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+function createPagingClient(
+  pages: { value: { id: string }[]; next?: string }[],
+) {
+  const post = vi.fn().mockResolvedValue(undefined);
+  const filters: string[] = [];
+  let pageIndex = 0;
+
+  const api = vi.fn().mockImplementation((path: string) => {
+    if (path.includes("/move")) return { post };
+
+    const builder = {
+      filter: (value: string) => {
+        filters.push(value);
+        return builder;
+      },
+      select: () => builder,
+      top: () => builder,
+      get: vi.fn().mockImplementation(() => {
+        const page = pages[pageIndex++];
+        return Promise.resolve({
+          value: page.value,
+          ...(page.next ? { "@odata.nextLink": page.next } : {}),
+        });
+      }),
+    };
+    return builder;
+  });
+
+  return { client: createMockOutlookClient(api), api, post, filters };
+}
 
 function createMockOutlookClient(api: ReturnType<typeof vi.fn>) {
   return {

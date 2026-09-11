@@ -1,43 +1,84 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { formatEmailDate } from "@/utils/gmail/reply";
 
 import {
   buildReplyMessageText,
+  createMail,
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
 
+describe("createMail", () => {
+  it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
+    const raw = await createMail({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      bcc: "hidden@example.com",
+      subject: "Test",
+      text: "Message",
+    });
+
+    const message = Buffer.from(raw, "base64url").toString("utf8");
+
+    expect(message).toContain("Bcc: hidden@example.com");
+  });
+
+  it("encodes inline images with Content-ID MIME semantics", async () => {
+    const raw = await createMail({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Inline image",
+      html: '<p>Diagram <img src="cid:diagram@example"></p>',
+      attachments: [
+        {
+          filename: "diagram.png",
+          content: Buffer.from("image-bytes"),
+          contentType: "image/png",
+          contentDisposition: "inline",
+          cid: "diagram@example",
+        },
+      ],
+    });
+
+    const message = Buffer.from(raw, "base64url").toString("utf8");
+
+    expect(message).toContain("Content-ID: <diagram@example>");
+    expect(message).toContain("Content-Disposition: inline");
+    expect(message).toContain('src="cid:diagram@example"');
+  });
+});
+
+vi.mock("@/utils/mail", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/mail")>()),
+  ensureEmailSendingEnabled: vi.fn(),
+}));
+
 describe("convertTextToHtmlParagraphs", () => {
-  it("preserves paragraph spacing with double newlines", () => {
+  it("separates paragraphs on blank lines", () => {
     const input = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.";
     const result = convertTextToHtmlParagraphs(input);
 
-    // The output should have visual spacing between paragraphs using <br> tags
-    expect(result).toContain("<p>First paragraph.</p>");
-    expect(result).toContain("<p>Second paragraph.</p>");
-    expect(result).toContain("<p>Third paragraph.</p>");
-
-    // Should have <br> tags for spacing between paragraphs
-    expect(result).toContain("<br>");
-
-    // Verify the exact structure: paragraph, br (for empty line), paragraph
     expect(result).toBe(
-      "<html><body><p>First paragraph.</p><br><p>Second paragraph.</p><br><p>Third paragraph.</p></body></html>",
+      "<html><body><p>First paragraph.</p><p>Second paragraph.</p><p>Third paragraph.</p></body></html>",
     );
   });
 
-  it("handles CRLF line endings", () => {
+  it("turns single CRLF line endings into line breaks", () => {
     const input = "First line\r\nSecond line\r\nThird line";
     const result = convertTextToHtmlParagraphs(input);
 
-    // Should NOT have \r characters in output
     expect(result).not.toContain("\r");
+    expect(result).toBe(
+      "<html><body><p>First line<br />Second line<br />Third line</p></body></html>",
+    );
+  });
 
-    // Should properly separate into paragraphs
-    expect(result).toContain("<p>First line</p>");
-    expect(result).toContain("<p>Second line</p>");
-    expect(result).toContain("<p>Third line</p>");
+  it("escapes html in the text", () => {
+    const result = convertTextToHtmlParagraphs("<script>alert(1)</script>");
+
+    expect(result).not.toContain("<script>");
+    expect(result).toContain("&lt;script&gt;");
   });
 
   it("handles empty input", () => {

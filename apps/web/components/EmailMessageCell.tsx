@@ -8,14 +8,12 @@ import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
-import { Badge } from "@/components/ui/badge";
 import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
-
-const MAX_VISIBLE_LABELS = 2;
+import { LabelBadges } from "@/components/LabelBadges";
 
 export function EmailMessageCell({
   sender,
@@ -65,9 +63,6 @@ export function EmailMessageCell({
     threadId,
     userEmail,
   });
-  const visibleLabels = labelsToDisplay?.slice(0, MAX_VISIBLE_LABELS) ?? [];
-  const overflowLabels = labelsToDisplay?.slice(MAX_VISIBLE_LABELS) ?? [];
-
   return (
     <div className="min-w-0 break-words text-sm text-slate-700 dark:text-foreground">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -90,32 +85,11 @@ export function EmailMessageCell({
                 </Tooltip>
               </div>
             )
-          : visibleLabels.length > 0 && (
-              <div className="order-5 flex shrink-0 items-center gap-1 sm:order-3">
-                {visibleLabels.map((label) => (
-                  <Badge
-                    variant="outline"
-                    key={label.id}
-                    className="max-w-[140px] truncate font-normal text-muted-foreground"
-                  >
-                    {label.name}
-                  </Badge>
-                ))}
-                {overflowLabels.length > 0 && (
-                  <Tooltip
-                    content={overflowLabels.map((l) => l.name).join(", ")}
-                  >
-                    <span>
-                      <Badge
-                        variant="outline"
-                        className="font-normal text-muted-foreground"
-                      >
-                        +{overflowLabels.length}
-                      </Badge>
-                    </span>
-                  </Tooltip>
-                )}
-              </div>
+          : labelsToDisplay && (
+              <LabelBadges
+                labels={labelsToDisplay}
+                className="order-5 sm:order-3"
+              />
             )}
         {emailActions && (
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">

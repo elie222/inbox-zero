@@ -2,7 +2,15 @@ import "server-only";
 import EmailReplyParser from "email-reply-parser";
 import { convert, type FormatCallback } from "html-to-text";
 import type { ParsedMessage } from "@/utils/types";
-import { removeExcessiveWhitespace, truncate } from "@/utils/string";
+import {
+  stripPlainTextSignature,
+  stripProviderSignatureHtml,
+} from "@/utils/email/signature-normalization";
+import {
+  removeExcessiveWhitespace,
+  truncate,
+  truncateHeadTail,
+} from "@/utils/string";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 
@@ -117,8 +125,10 @@ export function stripForwardedContent(text: string): string {
 
 export type EmailToContentOptions = {
   maxLength?: number;
+  keepTailLength?: number;
   extractReply?: boolean;
   removeForwarded?: boolean;
+  stripSignature?: boolean;
   includeLinkUrls?: boolean;
   includeImageAltText?: boolean;
 };
@@ -127,8 +137,10 @@ export function emailToContent(
   email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
   {
     maxLength = 2000,
+    keepTailLength,
     extractReply = false,
     removeForwarded = false,
+    stripSignature = false,
     includeLinkUrls = false,
     includeImageAltText = false,
   }: EmailToContentOptions = {},
@@ -136,7 +148,10 @@ export function emailToContent(
   let content = "";
 
   if (email.textHtml) {
-    content = htmlToText(email.textHtml, {
+    const html = stripSignature
+      ? stripProviderSignatureHtml(email.textHtml)
+      : email.textHtml;
+    content = htmlToText(html, {
       includeLinkUrls,
       includeImageAltText,
     });
@@ -154,9 +169,17 @@ export function emailToContent(
     content = stripForwardedContent(content);
   }
 
+  if (stripSignature) {
+    content = stripPlainTextSignature(content);
+  }
+
   content = removeExcessiveWhitespace(content);
 
-  return maxLength ? truncate(content, maxLength) : content;
+  if (!maxLength) return content;
+  if (keepTailLength) {
+    return truncateHeadTail(content, maxLength, keepTailLength);
+  }
+  return truncate(content, maxLength);
 }
 
 export function convertEmailHtmlToText({

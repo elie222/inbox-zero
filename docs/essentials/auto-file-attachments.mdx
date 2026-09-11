@@ -1,76 +1,49 @@
 ---
 title: 'Auto-File Attachments'
-description: 'Automatically organize email attachments into your Google Drive or OneDrive.'
+description: 'Automatically organize email attachments in Google Drive or OneDrive.'
 icon: 'folder-open'
 ---
 
-## Overview
+Auto-File Attachments keeps your drive organized without you lifting a finger. Incoming email attachments are analyzed and saved to the right folders in Google Drive or Microsoft OneDrive/SharePoint automatically.
 
-Auto-File Attachments automatically saves and organizes email attachments to your Google Drive or OneDrive. When you receive an email with attachments, the AI determines the right folder and files it for you. No more manually downloading and sorting files.
+## Set Up Auto-Filing
 
-## Getting Started
+### Connect a Drive
 
-### 1. Connect your drive
+Open **Attachments** in the left sidebar and connect one of the supported storage providers:
 
-Navigate to **Attachments** in the left sidebar. You'll be prompted to connect either:
+- Google Drive
+- Microsoft OneDrive or SharePoint
 
-- **Google Drive**
-- **OneDrive / SharePoint**
+### Select Folders
 
-### 2. Set up folders
+Choose existing folders or create folders during setup. Give each folder a clear description so the assistant knows what belongs there.
 
-After connecting your drive, set up the folders you want files organized into. You can:
-
-- **Select existing folders** from your drive
-- **Create new folders** directly from the Inbox Zero interface
-
-Give each folder a description so the AI knows what types of files belong there. For example:
-
-| Folder | Description |
-|--------|-------------|
+| Folder | Example description |
+| --- | --- |
 | Receipts | Purchase receipts, invoices, and payment confirmations |
 | Contracts | Signed agreements, proposals, and legal documents |
 | Travel | Flight confirmations, hotel bookings, and itineraries |
 
-### 3. Enable auto-filing
+You can also add general filing instructions and exclusions. Start with a small set of distinct folders; overlapping descriptions make the destination harder to determine.
 
-Once your folders are configured, enable auto-filing. The AI will start processing attachments from incoming emails.
+### Review the Preview
 
-## How It Works
+The setup flow can preview recent attachments before auto-filing is enabled. Review the suggested destinations and correct them when needed, then enable the feature.
 
-1. When an email arrives with attachments, the AI analyzes the attachment (filename, content, and email context)
-2. It matches the attachment to one of your configured folders
-3. The file is uploaded to the correct folder in your drive
-4. You receive a notification (via email or Slack) confirming where it was filed
+## How Filing Works
 
-### When the AI is unsure
+When a new attachment arrives, the assistant files it in the matching folder. If it isn't sure where a file belongs, it asks you for a destination instead of filing automatically.
 
-If the AI can't confidently determine the right folder, it will ask you. You'll receive an email notification with the filename and the AI's reasoning. Simply reply to the email to tell it where to put the file, and it will learn from your correction for next time.
+## Corrections and Activity
 
-### Correcting a filing
+Open **Attachments** to review Filing Activity and move a file to a different folder. Notification emails arrive in the source email thread, so you can also reply to approve a filing, move the file, or undo it. The assistant learns from these corrections.
 
-If a file was put in the wrong folder, you can reply to the notification email with the correct location. The AI supports:
+## Delivery Settings
 
-- **Approve** the filing if it got it right
-- **Move** to a different folder
-- **Undo** the filing if it shouldn't have been filed at all
+Use the **Delivery** button on the Attachments page to configure updates:
 
-## Supported File Types
+- **Email confirmations**: Receive an email when a file is sorted.
+- **Connected apps**: Enable document-filing alerts for connected Slack, Microsoft Teams, or Telegram accounts. Configure or connect them on **Channels**.
 
-The AI can analyze the content of these file types to make smarter filing decisions:
-
-- PDF documents
-- Word documents (.docx)
-- Plain text files
-
-Other attachment types are filed based on filename and email context.
-
-## Slack Notifications
-
-If you've connected Slack (see [Slack Integration](/essentials/slack-integration)), you can receive filing notifications in a Slack channel. This gives you a quick log of everything being filed without cluttering your inbox.
-
-## Tips
-
-- Write clear folder descriptions. The more specific, the better the AI's filing accuracy
-- Start with a few broad folders and add more specific ones as needed
-- Check the filing history on the Attachments page to see what's been filed and correct any mistakes
+For Slack, select a direct message or an allowed private channel. The selected Slack bot must already be invited to a private channel before it can post there.

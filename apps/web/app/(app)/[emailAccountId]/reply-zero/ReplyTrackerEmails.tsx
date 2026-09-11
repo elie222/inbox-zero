@@ -233,7 +233,7 @@ export function ReplyTrackerEmails({
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={65} minSize={0} className="bg-secondary">
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto p-4">
             <ThreadContent
               threadId={selectedEmail.threadId}
               showReplyButton={true}

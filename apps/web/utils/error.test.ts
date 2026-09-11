@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { APICallError, NoObjectGeneratedError } from "ai";
+import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
 
 const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
@@ -17,18 +17,36 @@ import {
   attachLlmRepairMetadata,
   captureException,
   checkCommonErrors,
+  EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  EmailProviderRateLimitError,
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
   isContentFilterRefusal,
   isHandledUserKeyError,
+  isAiQuotaExceededError,
   isKnownApiError,
+  isInvalidAIModelError,
   isKnownOutlookError,
   isOutlookAccessDeniedError,
   isOutlookItemNotFoundError,
   isOutlookThrottlingError,
   markAsHandledUserKeyError,
 } from "./error";
+
+describe("isAiQuotaExceededError", () => {
+  it("detects quota errors wrapped by the AI SDK retry error", () => {
+    const error = new RetryError({
+      message: "Failed after multiple attempts",
+      reason: "maxRetriesExceeded",
+      errors: [
+        createAPICallError({ message: "Quota exceeded", statusCode: 429 }),
+      ],
+    });
+
+    expect(isAiQuotaExceededError(error)).toBe(true);
+  });
+});
 
 describe("assertActionSucceeded", () => {
   it("does not throw for a successful action result", () => {
@@ -39,6 +57,14 @@ describe("assertActionSucceeded", () => {
     expect(() =>
       assertActionSucceeded({ serverError: "Unable to update sender" }),
     ).toThrow("Unable to update sender");
+  });
+
+  it("preserves provider rate limits as a typed client error", () => {
+    expect(() =>
+      assertActionSucceeded({
+        serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+      }),
+    ).toThrow(EmailProviderRateLimitError);
   });
 
   it("throws flattened validation errors", () => {
@@ -326,6 +352,18 @@ describe("isInsufficientCreditsError", () => {
   });
 });
 
+describe("isInvalidAIModelError", () => {
+  it.each([
+    ["deprecated models", "The configured model is deprecated"],
+    ["models without endpoints", "No endpoints found for the configured model"],
+    ["invalid model IDs", "The configured model is not a valid model ID"],
+  ])("detects %s", (_caseName, message) => {
+    const error = createAPICallError({ message, statusCode: 400 });
+
+    expect(isInvalidAIModelError(error)).toBe(true);
+  });
+});
+
 describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
   it("marks and detects handled user key errors", () => {
     const error = createAPICallError({
@@ -508,6 +546,28 @@ describe("isContentFilterRefusal", () => {
 
 describe("checkCommonErrors", () => {
   const logger = createScopedLogger("error-test");
+
+  it("maps wrapped Gmail rate-limit errors to a safe 429 response", () => {
+    const error = new Error("User-rate limit exceeded");
+    error.cause = {
+      code: 429,
+      errors: [
+        {
+          reason: "rateLimitExceeded",
+          message: "User-rate limit exceeded",
+        },
+      ],
+      message: "User-rate limit exceeded",
+      status: "RESOURCE_EXHAUSTED",
+    };
+
+    expect(checkCommonErrors(error, "/api/messages", logger)).toEqual({
+      type: "Gmail Rate Limit Exceeded",
+      message:
+        "Gmail is temporarily limiting requests. Please try again shortly.",
+      code: 429,
+    });
+  });
 
   it.each([
     [

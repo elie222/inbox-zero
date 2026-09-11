@@ -34,6 +34,7 @@ import {
 import { createSearchParams } from "@/utils/url";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
+  getSuggestedModeRows,
   isUnsubscribeSuggestion,
   SUGGESTION_READ_RATE_THRESHOLD,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
@@ -247,12 +248,12 @@ export function BulkUnsubscribe() {
 
   // Data is now filtered, sorted, and limited by the backend
   const rows = data?.newsletters;
+  const [isSuggestedMode, setIsSuggestedMode] = useState(false);
 
   const {
     selected,
-    isAllSelected,
     onToggleSelect,
-    onToggleSelectAll,
+    onToggleSelectItems,
     selectItems,
     clearSelection,
     deselectItem,
@@ -263,17 +264,53 @@ export function BulkUnsubscribe() {
     [rows],
   );
 
-  const onSelectSuggested = useCallback(() => {
+  const visibleRows = useMemo(
+    () =>
+      isSuggestedMode
+        ? getSuggestedModeRows(rows ?? [], selected)
+        : (rows ?? []),
+    [isSuggestedMode, rows, selected],
+  );
+  const visibleRowIds = useMemo(
+    () => visibleRows.map((row) => row.name),
+    [visibleRows],
+  );
+  const isAllVisibleSelected =
+    visibleRows.length > 0 &&
+    visibleRows.every((row) => selected.get(row.name));
+  const isSomeVisibleSelected = visibleRows.some((row) =>
+    selected.get(row.name),
+  );
+
+  const onToggleSuggestedMode = useCallback(() => {
+    if (isSuggestedMode) {
+      setIsSuggestedMode(false);
+      return;
+    }
+
     selectItems(suggestedRows.map((row) => row.name));
+    setIsSuggestedMode(true);
     posthog?.capture("Clicked Select Suggested Unsubscribes", {
       count: suggestedRows.length,
     });
-  }, [selectItems, suggestedRows, posthog]);
+  }, [isSuggestedMode, selectItems, suggestedRows, posthog]);
+
+  const onToggleVisibleRow = useCallback(
+    (id: string, shiftKey = false) =>
+      onToggleSelect(id, shiftKey, visibleRowIds),
+    [onToggleSelect, visibleRowIds],
+  );
+
+  const onToggleSelectAllVisible = useCallback(
+    () => onToggleSelectItems(visibleRowIds),
+    [onToggleSelectItems, visibleRowIds],
+  );
 
   // Clear selection when filter changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing selection when filter changes
   useEffect(() => {
     clearSelection();
+    setIsSuggestedMode(false);
   }, [filter]);
 
   // Deep link (e.g. from the inbox health email or onboarding):
@@ -292,6 +329,7 @@ export function BulkUnsubscribe() {
 
     hasAppliedSelectParamRef.current = true;
     selectItems(rows.filter(isUnsubscribeSuggestion).map((row) => row.name));
+    setIsSuggestedMode(true);
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("select");
@@ -300,11 +338,8 @@ export function BulkUnsubscribe() {
     });
   }, [searchParams, rows, selectItems, router, pathname]);
 
-  const isSomeSelected =
-    Array.from(selected.values()).filter(Boolean).length > 0;
-
   // Backend now handles sorting, so we just map the rows in order
-  const tableRows = rows?.map((item) => {
+  const tableRows = visibleRows.map((item) => {
     const readPercentage =
       item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
 
@@ -324,7 +359,7 @@ export function BulkUnsubscribe() {
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}
         checked={selected.get(item.name) || false}
-        onToggleSelect={onToggleSelect}
+        onToggleSelect={onToggleVisibleRow}
         readPercentage={readPercentage}
         filter={filter}
       />
@@ -412,27 +447,29 @@ export function BulkUnsubscribe() {
             onSetDateDropdown={onSetDateDropdown}
           />
           <SearchBar onSearch={setSearch} />
-          {suggestedRows.length > 0 && (
+          {(suggestedRows.length > 0 || isSuggestedMode) && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant={isSuggestedMode ? "secondary" : "outline"}
                     size="sm"
                     className="h-10"
-                    onClick={onSelectSuggested}
+                    aria-pressed={isSuggestedMode}
+                    onClick={onToggleSuggestedMode}
                   >
                     <SparklesIcon className="size-4 text-amber-500" />
                     <span className="ml-2">
-                      Select {suggestedRows.length} suggested
+                      {isSuggestedMode ? "Showing" : "Select"}{" "}
+                      {suggestedRows.length} suggested
                     </span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">
-                    Selects senders you rarely read (under{" "}
-                    {SUGGESTION_READ_RATE_THRESHOLD}% read rate) so you can
-                    unsubscribe or archive them in one go.
+                    {isSuggestedMode
+                      ? "Shows suggested senders and any other senders you already selected. Click to show all senders."
+                      : `Selects and shows senders you rarely read (under ${SUGGESTION_READ_RATE_THRESHOLD}% read rate) so you can unsubscribe, block, or archive them in one go.`}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -473,9 +510,9 @@ export function BulkUnsubscribe() {
                   sortDirection={sortDirection}
                   onSort={handleSort}
                   tableRows={tableRows}
-                  isAllSelected={isAllSelected}
-                  isSomeSelected={isSomeSelected}
-                  onToggleSelectAll={onToggleSelectAll}
+                  isAllSelected={isAllVisibleSelected}
+                  isSomeSelected={isSomeVisibleSelected}
+                  onToggleSelectAll={onToggleSelectAllVisible}
                 />
                 {/* Only show expand/collapse when there might be more results */}
                 {(expanded || (rows && rows.length >= 50)) && (

@@ -8,6 +8,7 @@ import {
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
+import { runAssistantEpisode } from "@/__tests__/eval/assistant-chat-episode-utils";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -20,6 +21,10 @@ import {
   configureRuleMutationMocks,
   senderListHasValue,
 } from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
+import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
 import { getMockMessage, type getEmailAccount } from "@/__tests__/helpers";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import {
@@ -44,6 +49,28 @@ const logger = createScopedLogger(
 const ruleUpdatedAt = new Date("2026-03-13T00:00:00.000Z");
 const defaultRuleRows = buildDefaultSystemRuleRows(ruleUpdatedAt);
 const about = "I manage a company inbox.";
+
+const workspaceNoticeMessage = getMockMessage({
+  id: "message-workspace-notice",
+  threadId: "thread-workspace-notice",
+  from: "updates@workspace.example",
+  to: "assistant-user@account.example",
+  subject: "Workspace access setting changed",
+  snippet: "A workspace access setting was updated.",
+  textPlain: "A workspace access setting was updated for your account.",
+  textHtml: "<p>A workspace access setting was updated for your account.</p>",
+});
+
+const serviceNoticeMessage = getMockMessage({
+  id: "message-service-notice",
+  threadId: "thread-service-notice",
+  from: "notices@service.example",
+  to: "assistant-user@account.example",
+  subject: "Service status notice",
+  snippet: "A service status setting changed.",
+  textPlain: "A service status setting changed for your account.",
+  textHtml: "<p>A service status setting changed for your account.</p>",
+});
 
 const keepInInboxRule = {
   id: "keep-in-inbox-rule-id",
@@ -366,6 +393,106 @@ describe.runIf(shouldRunEval)("Eval: assistant chat overlap exceptions", () => {
         },
         TIMEOUT,
       );
+
+      test(
+        "repeated missed-rule feedback updates the existing rule without overclaiming",
+        async () => {
+          const episode = await runAssistantEpisode({
+            emailAccount,
+            logger,
+            turns: [
+              {
+                userMessage:
+                  "This workspace access notice should have matched my existing Notification rule, but it did not. Please correct that rule.",
+                context: buildMissedNotificationContext(workspaceNoticeMessage),
+              },
+              {
+                userMessage:
+                  "It happened again with this separate service status notice. It should also have matched the same existing Notification rule. Please correct the rule without creating a duplicate.",
+                context: buildMissedNotificationContext(serviceNoticeMessage),
+              },
+            ],
+          });
+
+          const firstTurnUpdate = getMatchingLearnedPatternsUpdate(
+            episode.traces[0]?.toolCalls ?? [],
+            {
+              ruleName: "Notification",
+              includes: ["updates@workspace.example"],
+            },
+          );
+          const secondTurnUpdate = getMatchingLearnedPatternsUpdate(
+            episode.traces[1]?.toolCalls ?? [],
+            {
+              ruleName: "Notification",
+              includes: ["notices@service.example"],
+            },
+          );
+          const toolCalls = episode.traces.flatMap((trace) => trace.toolCalls);
+          const assistantResponses = episode.traces
+            .map(
+              (trace, index) =>
+                `Turn ${index + 1}: ${trace.stepTexts.join("\n\n").trim() || trace.finalText.trim()}`,
+            )
+            .join("\n\n");
+
+          const [evidenceJudge, calibrationJudge] = await Promise.all([
+            judgeEvalOutput({
+              input: [
+                "Across two turns, the user reported two distinct synthetic notification emails that should have matched the existing Notification rule.",
+                'For each email, the only classification evidence says "No rules matched" and the expected outcome is the existing Notification rule.',
+                "No execution trace or diagnostic evidence establishes why either earlier match was missed.",
+                "The assistant successfully saved a learned sender pattern to the existing Notification rule for each email.",
+              ].join("\n"),
+              output: assistantResponses,
+              expected:
+                "Both responses may say what rule correction was made, but must keep the prior miss's root cause unknown rather than presenting a routing, pre-classification, filtering, model, or other mechanism as proven.",
+              criterion: {
+                name: "No invented cause across repeated feedback",
+                description:
+                  "For both turns, distinguish the observed no-match outcome from an explanation of why it happened. Do not state a specific root cause as fact when the supplied evidence does not establish one.",
+              },
+            }),
+            judgeEvalOutput({
+              input: [
+                "The assistant added learned sender patterns to an existing Notification rule for two reported misses.",
+                "A rule correction can improve future classification, but the available evidence cannot guarantee flawless execution or matching for every future message.",
+              ].join("\n"),
+              output: assistantResponses,
+              expected:
+                "Both responses should describe the correction in calibrated terms and avoid guaranteeing perfect, certain, or universal future matching.",
+              criterion: {
+                name: "No perfect future-matching promise",
+                description:
+                  "The assistant may confidently report the completed rule edits and say they should improve matching. It must not promise that future processing is infallible or that every future email is certain to match.",
+              },
+            }),
+          ]);
+
+          const pass =
+            !!firstTurnUpdate &&
+            !!secondTurnUpdate &&
+            ruleWritesOnlyTargetExistingRule(toolCalls, "Notification") &&
+            evidenceJudge.pass &&
+            calibrationJudge.pass;
+
+          evalReporter.record({
+            testName:
+              "repeated missed-rule feedback stays targeted and calibrated",
+            model: model.label,
+            pass,
+            actual: [
+              summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+              formatSemanticJudgeActual(assistantResponses, evidenceJudge),
+              formatSemanticJudgeActual(assistantResponses, calibrationJudge),
+            ].join(" | "),
+            criteria: [evidenceJudge, calibrationJudge],
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
     },
   );
 
@@ -531,6 +658,62 @@ function buildFixRuleContext(): MessageContext {
     ],
     expected: "new",
   };
+}
+
+function buildMissedNotificationContext(
+  message: ReturnType<typeof getMockMessage>,
+): MessageContext {
+  return {
+    type: "fix-rule",
+    message: {
+      id: message.id,
+      threadId: message.threadId,
+      snippet: message.snippet,
+      textPlain: message.textPlain,
+      textHtml: message.textHtml,
+      headers: {
+        from: message.headers.from,
+        to: message.headers.to,
+        subject: message.headers.subject,
+        date: message.headers.date,
+      },
+      internalDate: message.date,
+    },
+    results: [
+      {
+        ruleName: null,
+        systemType: null,
+        reason: "No rules matched.",
+      },
+    ],
+    expected: {
+      id: "notification-rule-id",
+      name: "Notification",
+    },
+  };
+}
+
+function ruleWritesOnlyTargetExistingRule(
+  toolCalls: RecordedToolCall[],
+  expectedRuleName: string,
+) {
+  const existingRuleWriteToolNames = new Set([
+    "updateLearnedPatterns",
+    "updateRule",
+    "updateRuleConditions",
+    "updateRuleActions",
+  ]);
+
+  return toolCalls.every((toolCall) => {
+    if (toolCall.toolName === "createRule") return false;
+    if (!existingRuleWriteToolNames.has(toolCall.toolName)) return true;
+
+    return (
+      typeof toolCall.input === "object" &&
+      toolCall.input !== null &&
+      (toolCall.input as { ruleName?: unknown }).ruleName === expectedRuleName
+    );
+  });
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {

@@ -2,7 +2,7 @@
 import { serwist } from "@serwist/next/config";
 
 // Built by `serwist build` after `next build` (see the build scripts).
-// The service worker is precache-only; runtime caching is disabled in app/sw.ts.
+// Static assets are precached; app/sw.ts also keeps an offline mailbox shell.
 export default serwist({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",

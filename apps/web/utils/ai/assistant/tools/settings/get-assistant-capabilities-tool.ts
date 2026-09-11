@@ -23,7 +23,7 @@ export const getAssistantCapabilitiesTool = ({
 }) =>
   tool({
     description:
-      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat. If the snapshot shows no writable path supports the user's request, explain that limitation instead of approximating the request through a different setting.",
+      "Get the authoritative capability and configuration snapshot for the connected email account. Chat can inspect recorded rule-execution evidence for a specific message, but cannot inspect or repair background rule-executor health or guarantee future processing. Use assistant.digest to answer digest recipient, combined-rule, schedule, estimated-delivery, queue, and last-delivery questions; digest email uses the connected account address and has no separate recipient setting. If no writable path supports the user's request, explain that limitation instead of approximating it through a different setting.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackSettingsToolCall({
@@ -36,7 +36,7 @@ export const getAssistantCapabilitiesTool = ({
         if (!snapshot) return { error: "Email account not found" };
 
         return {
-          snapshotVersion: "2026-02-20",
+          snapshotVersion: "2026-07-30",
           account: {
             email: snapshot.email,
             provider,

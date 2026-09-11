@@ -1,0 +1,165 @@
+import { formatDateGroupLabel } from "@/utils/date";
+import { getThreadTimestamp } from "@/utils/threads/sort";
+
+export const THREAD_PREFETCH_REMAINING = 8;
+export const THREAD_SCROLL_PADDING_PX = 8;
+export const THREAD_LOAD_MORE_ROOT_MARGIN = "400px 0px";
+
+export function getActiveThreadIndex({
+  threadIds,
+  focusedIndex,
+  openThreadId,
+}: {
+  threadIds: string[];
+  focusedIndex: number;
+  openThreadId: string | null;
+}): number {
+  const clampedFocusedIndex = Math.min(
+    Math.max(0, focusedIndex),
+    Math.max(0, threadIds.length - 1),
+  );
+  if (!openThreadId) return clampedFocusedIndex;
+
+  const openThreadIndex = threadIds.indexOf(openThreadId);
+  return openThreadIndex;
+}
+
+export function resolveThreadActionTargets<T extends { key: string }>({
+  focusedKey,
+  listTargets,
+  openTarget,
+  selectedKeys,
+}: {
+  focusedKey: string | undefined;
+  listTargets: T[];
+  openTarget: T | undefined;
+  selectedKeys: string[];
+}): T[] {
+  const targetsByKey = new Map(
+    listTargets.map((target) => [target.key, target]),
+  );
+
+  if (openTarget && !targetsByKey.has(openTarget.key)) return [openTarget];
+  if (selectedKeys.length) {
+    return selectedKeys.flatMap((key) => {
+      const target = targetsByKey.get(key);
+      return target ? [target] : [];
+    });
+  }
+  if (openTarget) return [targetsByKey.get(openTarget.key) ?? openTarget];
+  const focusedTarget = focusedKey ? targetsByKey.get(focusedKey) : undefined;
+  return focusedTarget ? [focusedTarget] : [];
+}
+
+export function getNextThreadAfterRemoval({
+  threadIds,
+  currentThreadId,
+  currentThreadIndex,
+  removedThreadIds,
+}: {
+  threadIds: string[];
+  currentThreadId: string;
+  currentThreadIndex: number;
+  removedThreadIds: string[];
+}): { id: string; index: number } | null {
+  const currentIndex = threadIds.indexOf(currentThreadId);
+
+  const removed = new Set(removedThreadIds);
+  let nextThreadId: string | undefined;
+  const nextIndex =
+    currentIndex >= 0 ? currentIndex + 1 : Math.max(0, currentThreadIndex);
+  for (let index = nextIndex; index < threadIds.length; index++) {
+    const threadId = threadIds[index];
+    if (threadId && !removed.has(threadId)) {
+      nextThreadId = threadId;
+      break;
+    }
+  }
+  if (!nextThreadId) {
+    const previousIndex =
+      currentIndex >= 0
+        ? currentIndex - 1
+        : Math.min(currentThreadIndex - 1, threadIds.length - 1);
+    for (let index = previousIndex; index >= 0; index--) {
+      const threadId = threadIds[index];
+      if (threadId && !removed.has(threadId)) {
+        nextThreadId = threadId;
+        break;
+      }
+    }
+  }
+  if (!nextThreadId) return null;
+
+  const remainingThreadIds = threadIds.filter(
+    (threadId) => !removed.has(threadId),
+  );
+  return {
+    id: nextThreadId,
+    index: remainingThreadIds.indexOf(nextThreadId),
+  };
+}
+
+export function shouldPrefetchMoreThreads({
+  hasMore,
+  isLoadingMore,
+  focusedIndex,
+  threadCount,
+  remainingThreshold = THREAD_PREFETCH_REMAINING,
+}: {
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  focusedIndex: number;
+  threadCount: number;
+  remainingThreshold?: number;
+}): boolean {
+  if (!hasMore || isLoadingMore || threadCount === 0) return false;
+  return focusedIndex >= threadCount - remainingThreshold;
+}
+
+export function scrollElementIntoContainer(
+  container: HTMLElement,
+  element: HTMLElement,
+  padding = THREAD_SCROLL_PADDING_PX,
+): void {
+  const containerRect = container.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+
+  const topOverflow = containerRect.top + padding - elementRect.top;
+  const bottomOverflow = elementRect.bottom - (containerRect.bottom - padding);
+
+  if (topOverflow > 0) {
+    container.scrollTop -= topOverflow;
+  } else if (bottomOverflow > 0) {
+    container.scrollTop += bottomOverflow;
+  }
+}
+
+/**
+ * Splits a date-ordered list into consecutive runs that share a date heading,
+ * keeping each thread's position in the flat list so selection and focus stay
+ * index-addressed. Runs are dated with the same timestamp the list is sorted
+ * by, so a heading can never disagree with where its rows sit; undated threads
+ * get no heading rather than a fabricated one.
+ */
+export function groupThreadsByDate<
+  T extends { messages: Array<{ internalDate?: string | null }> },
+>(threads: T[], now?: Date) {
+  const groups: {
+    label: string | null;
+    startIndex: number;
+    threads: T[];
+  }[] = [];
+
+  threads.forEach((thread, index) => {
+    const timestamp = getThreadTimestamp(thread);
+    const label = timestamp
+      ? formatDateGroupLabel(new Date(timestamp), now)
+      : null;
+
+    const openGroup = groups.at(-1);
+    if (openGroup?.label === label) openGroup.threads.push(thread);
+    else groups.push({ label, startIndex: index, threads: [thread] });
+  });
+
+  return groups;
+}

@@ -283,6 +283,7 @@ describe("process-label-removed-event", () => {
           type: GroupItemType.FROM,
           value: "sender@example.com",
           source: GroupItemSource.LABEL_ADDED,
+          exclude: false,
         },
       });
     });
@@ -343,6 +344,7 @@ describe("process-label-removed-event", () => {
           type: GroupItemType.FROM,
           value: "sender@example.com",
           source: GroupItemSource.LABEL_ADDED,
+          exclude: false,
         },
       });
 

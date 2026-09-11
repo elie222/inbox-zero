@@ -481,6 +481,10 @@ async function executeMatchedRule(
                       item.staticAttachments != null
                         ? (item.staticAttachments as Prisma.InputJsonValue)
                         : undefined,
+                    integrationArgs:
+                      item.integrationArgs != null
+                        ? (item.integrationArgs as Prisma.InputJsonValue)
+                        : undefined,
                     selectedAttachments:
                       item.selectedAttachments != null
                         ? (item.selectedAttachments as Prisma.InputJsonValue)
@@ -521,7 +525,15 @@ async function executeMatchedRule(
     }),
   );
 
-  if (rule.systemType === SystemType.COLD_EMAIL) {
+  // Re-saving a pattern that was itself the match teaches us nothing, and it would
+  // overwrite how the pattern was originally learned. Taking a message out of junk
+  // relies on that provenance to undo what junking it taught us.
+  if (
+    rule.systemType === SystemType.COLD_EMAIL &&
+    !matchReasons?.some(
+      (matchReason) => matchReason.type === ConditionType.LEARNED_PATTERN,
+    )
+  ) {
     const from =
       extractEmailAddress(message.headers.from) || message.headers.from;
     await saveLearnedPattern({

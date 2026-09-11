@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepChat } from "@/app/(app)/[emailAccountId]/onboarding/StepChat";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
@@ -14,22 +13,15 @@ import { analyzePersonaAction } from "@/utils/actions/email-account";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
 import { StepInboxProcessed } from "@/app/(app)/[emailAccountId]/onboarding/StepInboxProcessed";
-import {
-  ASSISTANT_ONBOARDING_COOKIE,
-  markOnboardingAsCompleted,
-} from "@/utils/cookies";
-import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
-import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
+import { useCompleteOnboarding } from "@/app/(app)/[emailAccountId]/onboarding/useCompleteOnboarding";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { StepHowYouHeard } from "@/app/(app)/[emailAccountId]/onboarding/StepHowYouHeard";
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
-import { toastError } from "@/components/Toast";
-import { usePremium } from "@/hooks/usePremium";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import { useRules } from "@/hooks/useRules";
 import {
@@ -41,7 +33,6 @@ import {
   STEP_KEYS,
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
-import { captureException, getActionErrorMessage } from "@/utils/error";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 
 interface OnboardingContentProps {
@@ -50,7 +41,6 @@ interface OnboardingContentProps {
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
-  const { isPremium } = usePremium();
   const { data: membership, isLoading: isMembershipLoading } =
     useOrganizationMembership();
   const { data: rules, isLoading: isRulesLoading } = useRules(emailAccountId);
@@ -126,9 +116,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
   const hasTrackedStart = useRef(false);
-  const { executeAsync: completeOnboarding } = useAction(
-    completedOnboardingAction,
-  );
+  const { completeAndRedirect, destination } = useCompleteOnboarding();
 
   const getOnboardingStepPath = useCallback(
     (stepKey: string) =>
@@ -185,70 +173,20 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         step: clampedStep,
         stepKey: currentStepKey,
         totalSteps,
-        destination: isPremium ? "setup" : "welcome-upgrade",
+        destination,
       });
-      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      let result: Awaited<ReturnType<typeof completeOnboarding>>;
-      try {
-        result = await completeOnboarding();
-      } catch (error) {
-        captureException(error, {
-          extra: {
-            context: "onboarding",
-            step: "complete",
-            destination: isPremium ? "setup" : "welcome-upgrade",
-          },
-        });
-        toastError({
-          description: getActionErrorMessage(
-            {},
-            {
-              prefix: "There was an error finishing onboarding",
-            },
-          ),
-        });
-        return;
-      }
-      if (result?.serverError || result?.validationErrors) {
-        captureException(new Error("Failed to complete onboarding"), {
-          extra: {
-            context: "onboarding",
-            step: "complete",
-            serverError: result?.serverError,
-            validationErrors: result?.validationErrors,
-            destination: isPremium ? "setup" : "welcome-upgrade",
-          },
-        });
-        toastError({
-          description: getActionErrorMessage(
-            {
-              serverError: result?.serverError,
-              validationErrors: result?.validationErrors,
-            },
-            {
-              prefix: "There was an error finishing onboarding",
-            },
-          ),
-        });
-        return;
-      }
-      if (isPremium) {
-        router.push(prefixPath(emailAccountId, "/setup"));
-      } else {
-        router.push("/welcome-upgrade");
-      }
+      await completeAndRedirect();
     }
   }, [
     router,
-    emailAccountId,
     analytics,
     clampedStep,
     currentStepKey,
     totalSteps,
     nextStepKey,
     steps.length,
-    isPremium,
-    completeOnboarding,
+    destination,
+    completeAndRedirect,
     getOnboardingStepPath,
   ]);
 

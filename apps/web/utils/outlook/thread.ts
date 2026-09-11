@@ -12,8 +12,8 @@ import {
 import {
   extractErrorInfo,
   isRetryableError,
-  withOutlookRetry,
-} from "@/utils/outlook/retry";
+  withMicrosoftGraphRetry,
+} from "@/utils/microsoft/retry";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 export async function getThread(
@@ -25,7 +25,7 @@ export async function getThread(
   const filter = `conversationId eq '${escapedThreadId}'`;
 
   try {
-    const messages: { value: Message[] } = await withOutlookRetry(
+    const messages: { value: Message[] } = await withMicrosoftGraphRetry(
       () =>
         createMessagesRequest(client)
           .filter(filter)
@@ -36,9 +36,15 @@ export async function getThread(
 
     // Sort in memory to avoid "restriction or sort order is too complex" error
     return messages.value.sort((a, b) => {
-      const dateA = new Date(a.receivedDateTime || 0).getTime();
-      const dateB = new Date(b.receivedDateTime || 0).getTime();
-      return dateB - dateA; // desc order (newest first)
+      const dateA =
+        a.isDraft && !a.receivedDateTime
+          ? Number.POSITIVE_INFINITY
+          : new Date(a.receivedDateTime || 0).getTime();
+      const dateB =
+        b.isDraft && !b.receivedDateTime
+          ? Number.POSITIVE_INFINITY
+          : new Date(b.receivedDateTime || 0).getTime();
+      return dateA - dateB;
     });
   } catch (error) {
     // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
@@ -78,7 +84,7 @@ export async function getThreads(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await withOutlookRetry(
+    await withMicrosoftGraphRetry(
       () =>
         request
           .top(maxResults)
@@ -132,7 +138,7 @@ export async function getThreadsWithNextPageToken({
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await withOutlookRetry(() => request.get(), logger);
+    await withMicrosoftGraphRetry(() => request.get(), logger);
 
   // Group messages by conversationId to create thread-like structure
   const threadMap = new Map<string, { id: string; snippet: string }>();
@@ -157,7 +163,7 @@ export async function getThreadsFromSender(
   limit: number,
   logger: Logger,
 ): Promise<Array<{ id: string; snippet: string }>> {
-  const response: { value: Message[] } = await withOutlookRetry(
+  const response: { value: Message[] } = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -189,7 +195,7 @@ export async function getThreadsFromSenderWithSubject(
   limit: number,
   logger: Logger,
 ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-  const response: { value: Message[] } = await withOutlookRetry(
+  const response: { value: Message[] } = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -223,14 +229,15 @@ export async function getThreadMessages(
   threadId: string,
   client: OutlookClient,
   logger: Logger,
+  { includeDrafts = false }: { includeDrafts?: boolean } = {},
 ): Promise<ParsedMessage[]> {
   const [messages, folderIds, categoryMap] = await Promise.all([
     getThread(threadId, client, logger),
-    getFolderIds(client, logger, { includeDrafts: false }),
+    getFolderIds(client, logger, { includeDrafts }),
     getCategoryMap(client, logger),
   ]);
 
   return messages
-    .filter((msg) => !msg.isDraft)
+    .filter((msg) => includeDrafts || !msg.isDraft)
     .map((msg) => convertMessage(msg, folderIds, categoryMap));
 }

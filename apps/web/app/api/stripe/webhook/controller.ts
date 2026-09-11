@@ -6,6 +6,7 @@ import {
 } from "@/ee/billing/stripe/refunds";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
+import { enqueueStripeInvoiceEmail } from "@/ee/billing/stripe/invoice-email";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { env } from "@/env";
@@ -16,6 +17,7 @@ import {
 } from "@/utils/analytics/server-conversion-events";
 import { sendFacebookConversionEvent } from "@/utils/fb";
 import {
+  getCheckoutSessionIdHash,
   trackBillingTrialStarted,
   trackStripeEvent,
   trackSubscriptionTrialStarted,
@@ -78,7 +80,11 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
   ];
 
   if (stripeSync.status === "fulfilled") {
-    tasks.push(syncStripeInvoicePayment({ event, logger }));
+    tasks.push(
+      syncStripeInvoicePayment({ event, logger }).then(() =>
+        enqueueStripeInvoiceEmail({ event, logger }),
+      ),
+    );
     tasks.push(syncAiGenerationOverageForUpcomingInvoice({ event, logger }));
   } else {
     logger.error(
@@ -293,10 +299,18 @@ async function trackFacebookBillingConversion({
 }
 
 async function trackEvent(email: string | undefined, event: Stripe.Event) {
+  const checkoutSessionIdHash =
+    event.type === "checkout.session.completed"
+      ? getCheckoutSessionIdHash(
+          (event.data.object as Stripe.Checkout.Session).id,
+        )
+      : undefined;
+
   return trackStripeEvent(email ?? "Unknown", {
     ...event.data.object,
     id: event.id,
     type: event.type,
+    ...(checkoutSessionIdHash && { checkoutSessionIdHash }),
     object: event.data.object, // for legacy
   });
 }

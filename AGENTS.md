@@ -9,6 +9,7 @@
 - Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
 - Run single test: `pnpm test path/to/test-file.test.ts`
+- Run focused browser test: `pnpm -F inbox-zero-ai test:playwright:emulated <area-or-spec>`; for browser-facing UI changes, inspect the generated screenshots before finishing
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
@@ -52,8 +53,10 @@
 - Never use dynamic Prisma transactions (`prisma.$transaction(async (tx) => ...)`).
 
 ## Change Philosophy
+- Respect module boundaries: keep feature-specific logic in its owning feature and shared infrastructure generic.
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
+- This is a public repository. Never include non-public data or internal details from private repositories or services in repository content or GitHub metadata; describe related private work only generically (for example, “updated the marketing repository”).
 
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
@@ -61,6 +64,9 @@
 - Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
 - Tool descriptions should be self-contained: what the tool does, what its parameters mean, when to use it vs alternatives, prerequisites, and safety constraints specific to that tool.
 - Keep only cross-cutting policies (identity, write confirmation, security, formatting) in the system prompt. Per-tool guidance belongs in the tool description so it appears only when the tool is active.
+- Treat prompts, tools, and parameters as costly model-facing surface area. Every line must earn its place; do not add a tool or parameter for an edge case, and get explicit user approval before adding either.
+- Do not duplicate guidance between prompts and tool descriptions. Explicitly disclose any prompt, tool, or tool-parameter change to the user.
+- Keep model-facing schemas portable: prefer flat root objects and verify advanced constructs across providers. Use `z.strictObject()` only when dropping unknown keys is unsafe; describe refinement and transform constraints in tool fields because models may not see them.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
@@ -77,3 +83,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
 - Cursor Cloud VM setup: see `.claude/skills/cloud-dev-environment/SKILL.md`.
+- Opening a PR: `.claude/skills/create-pr/SKILL.md`. Watching one to green (CI, review bots, comments): `.claude/skills/pr-watch/SKILL.md`. Do not hand-roll `gh api` polling; `pr-watch` ships a `pr-digest` helper.

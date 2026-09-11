@@ -119,6 +119,7 @@ describe("enqueueBackgroundJob", () => {
         queueName: "email-digest-all",
         parallelism: 3,
         path: "/api/resend/digest",
+        deduplicationId: "digest-account-1-2026-06-16",
       },
       logger: createTestLogger(),
     });
@@ -130,6 +131,7 @@ describe("enqueueBackgroundJob", () => {
       path: "/api/resend/digest",
       body: { id: "job-3" },
       headers: undefined,
+      deduplicationId: "digest-account-1-2026-06-16",
     });
     expect(mockEnqueueBullmqHttpJob).not.toHaveBeenCalled();
   });

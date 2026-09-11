@@ -32,6 +32,7 @@ pnpm lint
 
 ## Notes
 
+- Pin registry `dependencies`, `devDependencies`, and `optionalDependencies` to exact versions. Preserve supported `peerDependencies` ranges in public packages: peers describe consumer compatibility, not lockfile reproducibility. For example, keep the email editor's React and React DOM peers at `>=19` unless its actual compatibility requirements change.
 - `npm-check-updates` reads `.ncurc.cjs`, so the reject list is applied during the manifest update.
 - `pnpm install` may also bump the root `packageManager` field and regenerate `pnpm-lock.yaml`.
 - Do not run `pnpm dev` or `pnpm build` unless the user explicitly asks.

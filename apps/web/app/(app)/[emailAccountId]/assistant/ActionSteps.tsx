@@ -32,6 +32,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectValue,
   SelectTrigger,
 } from "@/components/ui/select";
@@ -59,6 +60,17 @@ import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  buildDefaultIntegrationArgs,
+  getIntegrationToolSpec,
+  getOnlyIntegrationToolSpec,
+  type IntegrationArgSpec,
+  normalizeSelectArgValue,
+} from "@/utils/mcp/tool-specs";
+import { useIntegrations } from "@/hooks/useIntegrations";
+import { useIntegrationArgOptions } from "@/hooks/useIntegrationArgOptions";
+import { LoadingContent } from "@/components/LoadingContent";
 import {
   buildDraftEmailAction,
   buildDraftMessagingAction,
@@ -105,7 +117,12 @@ export function ActionSteps({
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
   replaceActions: (actions: CreateRuleBody["actions"]) => void;
-  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
+  typeOptions: {
+    label: string;
+    value: ActionType;
+    icon: React.ElementType;
+    dividerBefore?: boolean;
+  }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
   messagingChannels: MessagingChannelOption[];
@@ -190,7 +207,12 @@ function ActionCard({
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
   replaceActions: (actions: CreateRuleBody["actions"]) => void;
-  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
+  typeOptions: {
+    label: string;
+    value: ActionType;
+    icon: React.ElementType;
+    dividerBefore?: boolean;
+  }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
   messagingChannels: MessagingChannelOption[];
@@ -342,12 +364,15 @@ function ActionCard({
           {typeOptions.map((option) => {
             const Icon = option.icon;
             return (
-              <SelectItem key={option.value} value={option.value}>
-                <div className="flex items-center gap-2">
-                  {Icon && <Icon className="size-4" />}
-                  {option.label}
-                </div>
-              </SelectItem>
+              <div key={option.value}>
+                {option.dividerBefore && <SelectSeparator />}
+                <SelectItem value={option.value}>
+                  <div className="flex items-center gap-2">
+                    {Icon && <Icon className="size-4" />}
+                    {option.label}
+                  </div>
+                </SelectItem>
+              </div>
             );
           })}
         </SelectContent>
@@ -787,6 +812,17 @@ function ActionCard({
         </Card>
       ) : isMessagingNotification ? (
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
+      ) : actionType === ActionType.INTEGRATION ? (
+        <Card className="p-4 space-y-4">
+          <IntegrationArgFields
+            index={index}
+            register={register}
+            control={control}
+            setValue={setValue}
+            errors={errors}
+            emailAccountId={emailAccountId}
+          />
+        </Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {deliverySummary}
@@ -1047,6 +1083,244 @@ function DraftReplyReviewChannelsSection({
   );
 }
 
+function IntegrationArgFields({
+  index,
+  register,
+  control,
+  setValue,
+  errors,
+  emailAccountId,
+}: {
+  index: number;
+  register: UseFormRegister<CreateRuleBody>;
+  control: Control<CreateRuleBody>;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  errors: FieldErrors<CreateRuleBody>;
+  emailAccountId: string;
+}) {
+  const integrationName = useWatch({
+    control,
+    name: `actions.${index}.integrationName`,
+  });
+  const integrationToolName = useWatch({
+    control,
+    name: `actions.${index}.integrationToolName`,
+  });
+  const spec =
+    getIntegrationToolSpec(integrationName, integrationToolName) ??
+    getOnlyIntegrationToolSpec();
+
+  const { data: integrationsData, isLoading: integrationsLoading } =
+    useIntegrations();
+  const connection = integrationsData?.integrations.find(
+    (integration) => integration.name === spec?.integration,
+  )?.connection;
+  const isConnected = !!connection?.isActive;
+
+  const integrationArgs = useWatch({
+    control,
+    name: `actions.${index}.integrationArgs`,
+  });
+
+  // react-hook-form widens a nested record's message to string | FieldError
+  const rawErrorMessage =
+    errors?.actions?.[index]?.integrationArgs?.message ||
+    errors?.actions?.[index]?.integrationArgs?.root?.message;
+  const errorMessage =
+    typeof rawErrorMessage === "string" ? rawErrorMessage : undefined;
+
+  if (!spec) return null;
+
+  const displayName =
+    findIntegration(spec.integration)?.displayName ?? spec.integration;
+
+  return (
+    <LoadingContent loading={integrationsLoading}>
+      {!isConnected ? (
+        <div className="space-y-3">
+          <MutedText className="px-1">
+            {`${displayName} isn't connected. Connect it to use this action.`}
+          </MutedText>
+          <Button asChild size="sm" variant="outline">
+            <Link href={prefixPath(emailAccountId, "/integrations")}>
+              {`Connect ${displayName}`}
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {spec.args.map((arg) => (
+            <IntegrationArgField
+              key={arg.key}
+              arg={arg}
+              index={index}
+              register={register}
+              setValue={setValue}
+              storedArgs={integrationArgs}
+              integration={spec.integration}
+              tool={spec.tool}
+              isConnected={isConnected}
+            />
+          ))}
+
+          {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+        </div>
+      )}
+    </LoadingContent>
+  );
+}
+
+function IntegrationArgField({
+  arg,
+  index,
+  register,
+  setValue,
+  storedArgs,
+  integration,
+  tool,
+  isConnected,
+}: {
+  arg: IntegrationArgSpec;
+  index: number;
+  register: UseFormRegister<CreateRuleBody>;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  storedArgs: CreateRuleBody["actions"][number]["integrationArgs"];
+  integration: string;
+  tool: string;
+  isConnected: boolean;
+}) {
+  const { data: optionsData, isLoading: optionsLoading } =
+    useIntegrationArgOptions({
+      integration,
+      tool,
+      argKey: arg.key,
+      enabled: isConnected && arg.control.type === "remote-select",
+    });
+
+  const args = (storedArgs ?? {}) as Record<string, string | null | undefined>;
+  const storedValue = args[arg.key] ?? "";
+
+  if (arg.control.type === "text") {
+    return (
+      <div>
+        <Label
+          htmlFor={`actions.${index}.integrationArgs.${arg.key}`}
+          className="mb-2 block"
+        >
+          {arg.label}
+        </Label>
+        <Input
+          type="text"
+          name={`actions.${index}.integrationArgs.${arg.key}`}
+          registerProps={register(
+            `actions.${index}.integrationArgs.${arg.key}` as const,
+          )}
+          placeholder={arg.placeholder}
+        />
+      </div>
+    );
+  }
+
+  if (arg.control.type === "select") {
+    const options = arg.control.options;
+    const selectedValue = normalizeSelectArgValue(arg, storedValue);
+    // A value outside the presets (e.g. "next Friday" from an AI-written rule)
+    // gets its own option, so the editor shows it instead of silently
+    // displaying a preset and overwriting it on save.
+    const isCustomValue =
+      !!selectedValue &&
+      !options.some((option) => option.value === selectedValue);
+
+    return (
+      <div className="space-y-2">
+        <Label>{arg.label}</Label>
+        <Select
+          value={selectedValue}
+          onValueChange={(nextValue) =>
+            setValue(
+              `actions.${index}.integrationArgs.${arg.key}` as const,
+              nextValue,
+            )
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {isCustomValue && (
+              <SelectItem value={selectedValue}>{selectedValue}</SelectItem>
+            )}
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  // remote-select: the spec's fallback options stay available even before (or
+  // without) a successful fetch.
+  const options = [...(arg.control.fallbackOptions ?? [])];
+  for (const option of optionsData?.options ?? []) {
+    if (!options.some((existing) => existing.value === option.value)) {
+      options.push(option);
+    }
+  }
+
+  const selectedValue = storedValue || arg.defaultValue || "";
+  const displayValueKey = arg.displayValueKey;
+  const storedDisplayValue = displayValueKey
+    ? args[displayValueKey]
+    : undefined;
+  // A stored value that isn't in the fetched list (renamed or deleted remotely)
+  // keeps its own option so saving doesn't silently change it.
+  const isUnknownValue =
+    !!selectedValue &&
+    !options.some((option) => option.value === selectedValue);
+
+  return (
+    <div className="space-y-2">
+      <Label>{arg.label}</Label>
+      <LoadingContent loading={optionsLoading}>
+        <Select
+          value={selectedValue}
+          onValueChange={(nextValue) => {
+            setValue(
+              `actions.${index}.integrationArgs.${arg.key}` as const,
+              nextValue,
+            );
+            if (!displayValueKey) return;
+            setValue(
+              `actions.${index}.integrationArgs.${displayValueKey}` as const,
+              options.find((option) => option.value === nextValue)?.label ??
+                null,
+            );
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            {isUnknownValue && (
+              <SelectItem value={selectedValue}>
+                {storedDisplayValue || arg.label}
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </LoadingContent>
+    </div>
+  );
+}
+
 function MessagingChannelField({
   control,
   index,
@@ -1163,6 +1437,8 @@ function updateActionType({
 }) {
   if (!primaryAction) return;
 
+  const actionTypeBeforeUpdate = primaryAction.type;
+
   if (nextType === ActionType.DRAFT_EMAIL) {
     setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
     if (draftMessagingIndexes.length > 0) {
@@ -1173,6 +1449,25 @@ function updateActionType({
 
   setValue(`actions.${index}.type`, nextType);
   setValue(`actions.${index}.messagingChannelId`, null);
+
+  if (nextType === ActionType.INTEGRATION) {
+    if (actionTypeBeforeUpdate !== ActionType.INTEGRATION) {
+      const spec = getOnlyIntegrationToolSpec();
+      setValue(`actions.${index}.integrationName`, spec?.integration ?? null);
+      setValue(`actions.${index}.integrationToolName`, spec?.tool ?? null);
+      // Text args seed empty on purpose: empty means the AI writes them
+      setValue(
+        `actions.${index}.integrationArgs`,
+        spec ? buildDefaultIntegrationArgs(spec) : {},
+      );
+      setValue(`actions.${index}.delayInMinutes`, null);
+    }
+  } else {
+    setValue(`actions.${index}.integrationName`, null);
+    setValue(`actions.${index}.integrationToolName`, null);
+    setValue(`actions.${index}.integrationArgs`, null);
+  }
+
   if (draftMessagingIndexes.length > 0) {
     remove(draftMessagingIndexes);
   }

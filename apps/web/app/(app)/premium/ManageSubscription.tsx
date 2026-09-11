@@ -6,7 +6,7 @@ import Link from "next/link";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import { useEndStripeTrial } from "@/hooks/useEndStripeTrial";
+import { EndTrialButton } from "@/components/EndTrialButton";
 import { getBillingPortalUrlAction } from "@/utils/actions/premium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { redirectToSafeUrl } from "@/utils/redirect";
@@ -30,7 +30,6 @@ export function ManageSubscription({
 }) {
   const { loading: loadingBillingPortal, openBillingPortal } =
     useOpenBillingPortal();
-  const { loading: loadingEndTrial, endTrial } = useEndStripeTrial();
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -44,10 +43,7 @@ export function ManageSubscription({
   return (
     <>
       {premium?.stripeSubscriptionStatus === "trialing" && (
-        <Button loading={loadingEndTrial} onClick={endTrial} variant="outline">
-          <CreditCardIcon className="mr-2 h-4 w-4" />
-          Start paid plan now
-        </Button>
+        <EndTrialButton variant="outline" />
       )}
 
       {premium?.stripeSubscriptionId && (

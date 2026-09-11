@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import type { ThreadsResponse } from "@/app/api/threads/route";
+import type { EmailProvider } from "@/utils/email/types";
 import { threadsQuery } from "@/utils/threads/validation";
+import { EMAIL_PROVIDER_RATE_LIMIT_MESSAGE, SafeError } from "@/utils/error";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 
+// Straight from the provider — this route does no ExecutedRule join, so it
+// must not borrow the main threads type, which promises `plan` and `plans`.
 export type GetThreadsResponse = {
-  threads: ThreadsResponse["threads"];
+  threads: Awaited<ReturnType<EmailProvider["getThreadsWithQuery"]>>["threads"];
   nextPageToken?: string;
 };
 
@@ -45,6 +49,15 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
       error,
       emailAccountId,
     });
+    if (
+      isEmailProviderRateLimitError({
+        error,
+        provider: emailProvider.name,
+      })
+    ) {
+      throw new SafeError(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE, 429);
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },

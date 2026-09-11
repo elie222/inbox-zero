@@ -29,7 +29,7 @@ const conditionSchema = z
     },
   );
 
-const ruleActionTypeSchema = z.enum([
+const ruleActionRequestTypeSchema = z.enum([
   ActionType.LABEL,
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
@@ -50,7 +50,7 @@ const ruleActionTypeSchema = z.enum([
 
 const actionSchema = z
   .object({
-    type: ruleActionTypeSchema,
+    type: ruleActionRequestTypeSchema,
     messagingChannelId: z.string().cuid().nullish(),
     fields: z
       .object({
@@ -137,8 +137,13 @@ export const ruleRequestBodySchema = z.object({
   actions: z.array(actionSchema).min(1),
 });
 
+const ruleActionTypeResponseSchema = z.enum([
+  ...ruleActionRequestTypeSchema.options,
+  ActionType.INTEGRATION,
+]);
+
 const ruleActionResponseSchema = z.object({
-  type: ruleActionTypeSchema,
+  type: ruleActionTypeResponseSchema,
   messagingChannelId: z.string().cuid().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),
@@ -151,6 +156,9 @@ const ruleActionResponseSchema = z.object({
     folderName: z.string().nullable(),
   }),
   delayInMinutes: z.number().nullable(),
+  integrationName: z.string().nullable(),
+  integrationToolName: z.string().nullable(),
+  integrationArgs: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const ruleResponseSchema = z.object({

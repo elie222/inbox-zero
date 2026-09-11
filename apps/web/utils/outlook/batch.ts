@@ -1,5 +1,6 @@
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
+import type { BulkArchiveResult, BulkArchiveThread } from "@/utils/email/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { getFolderIds } from "@/utils/outlook/message";
 import {
@@ -39,6 +40,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   requests,
   chunkSize,
   onFailure,
+  shouldStop,
   context,
   logger,
 }: {
@@ -49,6 +51,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
     request?: GraphBatchRequestItem<TRequestBody>;
     response: GraphBatchResponseItem<TResponseBody>;
   }) => void;
+  shouldStop?: (responses: GraphBatchResponseItem<TResponseBody>[]) => boolean;
   context?: Record<string, unknown>;
   logger: Logger;
 }): Promise<GraphBatchResponseItem<TResponseBody>[]> {
@@ -83,6 +86,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
           });
         }
       });
+      if (shouldStop?.(responses)) break;
     } catch (error) {
       logger.error("Graph batch request failed", {
         ...context,
@@ -165,6 +169,8 @@ async function moveMessagesInBatches({
         logger.error("Failed to move message via batch", context);
       }
     },
+    shouldStop: (responses) =>
+      responses.some((response) => response.status === 429),
   });
 
   const movedMessageIds = responses.flatMap((response) => {
@@ -191,6 +197,55 @@ async function moveMessagesInBatches({
     movedMessageIds,
     hasErrors,
   };
+}
+
+export async function moveThreadsInBatches({
+  client,
+  threads,
+  destinationId,
+  ownerEmail,
+  logger,
+}: {
+  client: OutlookClient;
+  threads: BulkArchiveThread[];
+  destinationId: string;
+  ownerEmail: string;
+  logger: Logger;
+}): Promise<BulkArchiveResult> {
+  const messageIds = [
+    ...new Set(threads.flatMap((thread) => thread.messageIds)),
+  ];
+  const { movedMessageIds } = await moveMessagesInBatches({
+    client,
+    messageIds,
+    destinationId,
+    action: "archive",
+    logger,
+  });
+  const movedMessageIdSet = new Set(movedMessageIds);
+  const succeededThreadIds = threads
+    .filter(
+      (thread) =>
+        thread.messageIds.length > 0 &&
+        thread.messageIds.every((messageId) =>
+          movedMessageIdSet.has(messageId),
+        ),
+    )
+    .map((thread) => thread.threadId);
+  const succeededThreadIdSet = new Set(succeededThreadIds);
+  const failedThreadIds = threads
+    .map((thread) => thread.threadId)
+    .filter((threadId) => !succeededThreadIdSet.has(threadId));
+
+  if (succeededThreadIds.length > 0) {
+    await publishBulkActionToTinybird({
+      threadIds: succeededThreadIds,
+      action: "archive",
+      ownerEmail,
+    });
+  }
+
+  return { succeededThreadIds, failedThreadIds };
 }
 
 export async function moveMessagesForSenders({

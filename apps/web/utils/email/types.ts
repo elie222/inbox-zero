@@ -1,8 +1,13 @@
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
-import type { OutlookFolder } from "@/utils/outlook/folders";
+import type {
+  OutlookFolder,
+  OutlookSystemFolder,
+} from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import type { SendEmailBody } from "@/utils/types/mail";
+import type { EmailContact } from "@/utils/email/contact";
 
 export interface EmailThread {
   historyId?: string;
@@ -11,18 +16,47 @@ export interface EmailThread {
   snippet: string;
 }
 
+export type MailboxSyncPage = {
+  changedThreadIds?: string[];
+  cursor: string;
+  deletedMessageIds: string[];
+  hasMore: boolean;
+  reset: boolean;
+  upsertedMessages: ParsedMessage[];
+};
+
 export interface EmailLabel {
   color?: {
-    textColor?: string;
-    backgroundColor?: string;
+    textColor?: string | null;
+    backgroundColor?: string | null;
   };
   id: string;
   labelListVisibility?: string;
   messageListVisibility?: string;
   name: string;
   threadsTotal?: number;
+  // Only populated by providers that report per-label counts (Gmail `labels.get`)
+  threadsUnread?: number;
   type: string;
 }
+
+export type EmailLabelColor = {
+  backgroundColor: string;
+  textColor: string;
+};
+
+export type EmailLabelUpdate = {
+  color?: EmailLabelColor;
+  name?: string;
+};
+
+export type EmailFolderCount = {
+  id: string;
+  name: string;
+  total: number;
+  unread: number;
+  systemType?: OutlookSystemFolder;
+};
 
 export interface EmailFilter {
   action?: {
@@ -47,8 +81,28 @@ export interface SentMessagePage {
   nextPageToken?: string;
 }
 
+export type BulkArchiveThread = {
+  threadId: string;
+  messageIds: string[];
+};
+
+export type BulkArchiveResult = {
+  succeededThreadIds: string[];
+  failedThreadIds: string[];
+};
+
+type DraftReference = {
+  id: string;
+  version?: string;
+};
+
+export type GetThreadOptions = {
+  includeDrafts?: boolean;
+};
+
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
+  archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
   archiveThreadWithLabel(
     threadId: string,
@@ -61,6 +115,10 @@ export interface EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void>;
+  bulkArchiveThreads(
+    threads: BulkArchiveThread[],
+    ownerEmail: string,
+  ): Promise<BulkArchiveResult>;
   bulkTrashFromSenders(
     fromEmails: string[],
     ownerEmail: string,
@@ -88,8 +146,9 @@ export interface EmailProvider {
     removeLabelIds?: string[];
   }): Promise<{ status: number }>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
-  deleteDraft(draftId: string): Promise<void>;
+  deleteDraft(draftId: string, version?: string): Promise<boolean>;
   deleteFilter(id: string): Promise<{ status: number }>;
+  deleteFolder(folderId: string): Promise<void>;
   deleteLabel(labelId: string): Promise<void>;
   draftEmail(
     email: ParsedMessage,
@@ -113,15 +172,19 @@ export interface EmailProvider {
       content?: string;
       from?: string;
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
   getAccessToken(): string;
   getAttachment(
     messageId: string,
     attachmentId: string,
   ): Promise<{ data: string; size: number }>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
+  getDraftReferenceForMessage(
+    messageId: string,
+  ): Promise<DraftReference | null>;
   getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getFiltersList(): Promise<EmailFilter[]>;
+  getFolderCounts(): Promise<EmailFolderCount[]>;
   getFolders(): Promise<OutlookFolder[]>;
   getInboxMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getInboxStats(): Promise<{ total: number; unread: number }>;
@@ -132,7 +195,15 @@ export interface EmailProvider {
     thread: Pick<EmailThread, "id" | "messages">,
   ): Promise<ParsedMessage | null>;
   getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
-  getMessage(messageId: string): Promise<ParsedMessage>;
+  getMailboxSyncPage(options: {
+    after?: Date;
+    cursor?: string;
+    limit: number;
+  }): Promise<MailboxSyncPage>;
+  getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage>;
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
@@ -187,7 +258,8 @@ export interface EmailProvider {
     maxResults?: number;
   }): Promise<EmailThread[]>;
   getSignatures(): Promise<EmailSignature[]>;
-  getThread(threadId: string): Promise<EmailThread>;
+  // Thread messages are returned in chronological order with drafts excluded unless requested.
+  getThread(threadId: string, options?: GetThreadOptions): Promise<EmailThread>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getThreads(folderId?: string): Promise<EmailThread[]>;
@@ -207,6 +279,7 @@ export interface EmailProvider {
     query?: ThreadsQuery;
     maxResults?: number;
     pageToken?: string;
+    messageFormat?: "full" | "metadata";
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -223,6 +296,11 @@ export interface EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
+  markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
+  markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;
@@ -234,6 +312,7 @@ export interface EmailProvider {
   readonly name: "google" | "microsoft";
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
+  renameFolder(folderId: string, name: string): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
     content: string,
@@ -242,15 +321,27 @@ export interface EmailProvider {
       from?: string;
       attachments?: MailAttachment[];
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
+  searchContacts(query: string): Promise<EmailContact[]>;
   searchMessages(options: {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{
     messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
+  /** Free-text search over the whole mailbox, like the provider's own search box. */
+  searchThreads(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+    messageFormat?: "full" | "metadata";
+  }): Promise<{
+    threads: EmailThread[];
     nextPageToken?: string;
   }>;
   sendDraft(draftId: string): Promise<{ messageId: string; threadId: string }>;
@@ -261,45 +352,39 @@ export interface EmailProvider {
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void>;
-  sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }): Promise<{
+  }): Promise<{ messageId: string }>;
+  sendEmailWithHtml(body: SendEmailBody): Promise<{
     messageId: string;
     threadId: string;
   }>;
   starMessage(messageId: string): Promise<void>;
   toJSON(): { name: string; type: string };
+  trashMessages(messageIds: string[]): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
+  unarchiveMessages(messageIds: string[]): Promise<void>;
+  unarchiveThread(threadId: string): Promise<void>;
+  /**
+   * Restores a trashed thread, to undo `trashThread`. Gmail puts it back under
+   * its pre-trash labels; Outlook has no such record and moves it to the inbox.
+   */
+  untrashMessages(messageIds: string[]): Promise<void>;
+  untrashThread(threadId: string): Promise<void>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   updateDraft(
     draftId: string,
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void>;
+  updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;
     subscriptionId?: string;

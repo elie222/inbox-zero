@@ -15,6 +15,7 @@ on:
       - "turbo.json"
       - "tsconfig.json"
       - "konsistent.json"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
   pull_request:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - "turbo.json"
       - "tsconfig.json"
       - "konsistent.json"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
 
 concurrency:
@@ -36,6 +38,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     env:
       NODE_OPTIONS: "--max_old_space_size=16384"
@@ -56,29 +59,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
 
       - uses: actions/cache@v4
         name: Setup Next.js cache

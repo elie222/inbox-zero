@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -71,6 +73,75 @@ describe("executor", () => {
           status: ScheduledActionStatus.COMPLETED,
           executedAt: expect.any(Date),
           executedActionId: "executed-action-123",
+        },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+        },
+      });
+      expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
+    });
+
+    it("persists provider message IDs for delayed sending actions", async () => {
+      mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
+      mockExecutedActionCreate({ type: ActionType.REPLY });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({
+        sentMessageIds: ["sent-message-1"],
+      });
+
+      await executeScheduledAction(
+        { ...mockScheduledAction, actionType: ActionType.REPLY },
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(prisma.executedAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          executionStartedAt: expect.any(Date),
+        }),
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+          sentMessageIds: ["sent-message-1"],
+        },
+      });
+    });
+
+    it("records skipped delayed actions without failing the scheduled action", async () => {
+      mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
+      mockExecutedActionCreate({ type: ActionType.FORWARD });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({
+        skipped: true,
+        reason: "NO_NEW_FORWARD_RECIPIENTS",
+      });
+
+      const result = await executeScheduledAction(
+        { ...mockScheduledAction, actionType: ActionType.FORWARD },
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SKIPPED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
         },
       });
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
@@ -157,7 +228,12 @@ describe("executor", () => {
         failedScheduledActionReason,
       );
       vi.mocked(runActionFunction).mockRejectedValue(
-        new Error("Execution failed"),
+        Object.assign(new Error("Execution failed"), {
+          code: "ErrorTimeout",
+          statusCode: 504,
+          requestId: "graph-request-456",
+          sentMessageIds: ["sent-message-before-failure"],
+        }),
       );
 
       const result = await executeScheduledAction(
@@ -171,10 +247,122 @@ describe("executor", () => {
         where: { id: "scheduled-action-123" },
         data: { status: ScheduledActionStatus.FAILED },
       });
+      expect(prisma.executedAction.update).toHaveBeenCalledTimes(1);
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.FAILED,
+          executedAt: expect.any(Date),
+          executionError: {
+            code: "ErrorTimeout",
+            message: "Execution failed",
+            stack: expect.stringContaining("Execution failed"),
+            statusCode: 504,
+            requestId: "graph-request-456",
+          },
+          sentMessageIds: ["sent-message-before-failure"],
+        },
+      });
       expectExecutedRuleStatus(
         ExecutedRuleStatus.ERROR,
         failedScheduledActionReason,
       );
+    });
+
+    it("marks the scheduled action as failed when the action reports failure", async () => {
+      const scheduledNotificationAction = {
+        ...mockScheduledAction,
+        actionType: ActionType.NOTIFY_SENDER,
+      };
+      mockScheduledActionUpdate(
+        ScheduledActionStatus.FAILED,
+        scheduledNotificationAction,
+      );
+      mockExecutedActionCreate({ type: ActionType.NOTIFY_SENDER });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 1 });
+      mockExecutedRuleUpdate(
+        ExecutedRuleStatus.ERROR,
+        failedScheduledActionReason,
+      );
+      vi.mocked(runActionFunction).mockResolvedValue({
+        success: false,
+        errorCode: "SEND_FAILED",
+      });
+
+      const result = await executeScheduledAction(
+        scheduledNotificationAction,
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(result.success).toBe(false);
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: { status: ScheduledActionStatus.FAILED },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.FAILED,
+          executedAt: expect.any(Date),
+          executionError: {
+            code: "SEND_FAILED",
+            message: "Action reported failure",
+            stack: null,
+            statusCode: null,
+            requestId: null,
+          },
+        },
+      });
+      expectExecutedRuleStatus(
+        ExecutedRuleStatus.ERROR,
+        failedScheduledActionReason,
+      );
+    });
+
+    it("links a deliberately skipped action to the completed scheduled action", async () => {
+      const scheduledNotificationAction = {
+        ...mockScheduledAction,
+        actionType: ActionType.NOTIFY_SENDER,
+      };
+      mockScheduledActionUpdate(
+        ScheduledActionStatus.COMPLETED,
+        scheduledNotificationAction,
+      );
+      mockExecutedActionCreate({ type: ActionType.NOTIFY_SENDER });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({ skipped: true });
+
+      const result = await executeScheduledAction(
+        scheduledNotificationAction,
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        executedActionId: "executed-action-123",
+      });
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: {
+          status: ScheduledActionStatus.COMPLETED,
+          executedAt: expect.any(Date),
+          executedActionId: "executed-action-123",
+        },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SKIPPED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+        },
+      });
+      expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
     it("should handle account not found errors", async () => {

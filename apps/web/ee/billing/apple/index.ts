@@ -20,6 +20,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
 import { isOnHigherTier } from "@/utils/premium";
+import { trackServerConversionEvent } from "@/utils/analytics/server-conversion-events";
 import { APPLE_ROOT_CERTIFICATES } from "./root-certificates";
 
 type AppleEnvironment = Environment.PRODUCTION | Environment.SANDBOX;
@@ -38,10 +39,13 @@ type AppleVerifiedNotification = {
 
 type AppleSubscriptionState = {
   appAccountToken: string | null;
+  currency: string | null;
   environment: AppleEnvironment;
   expiresAt: Date | null;
   latestTransactionId: string | null;
   originalTransactionId: string;
+  offerDiscountType: string | null;
+  price: number | null;
   productId: string;
   purchaseDate: Date | null;
   revokedAt: Date | null;
@@ -173,14 +177,17 @@ function getLookupEnvironments(
   environmentHint?: string | null,
 ): AppleEnvironment[] {
   const normalized = normalizeAppleEnvironment(environmentHint);
+  let environments: AppleEnvironment[];
+
   if (normalized === Environment.PRODUCTION) {
-    return [Environment.PRODUCTION, Environment.SANDBOX];
-  }
-  if (normalized === Environment.SANDBOX) {
-    return [Environment.SANDBOX, Environment.PRODUCTION];
+    environments = [Environment.PRODUCTION, Environment.SANDBOX];
+  } else if (normalized === Environment.SANDBOX) {
+    environments = [Environment.SANDBOX, Environment.PRODUCTION];
+  } else {
+    environments = [Environment.PRODUCTION, Environment.SANDBOX];
   }
 
-  return [Environment.PRODUCTION, Environment.SANDBOX];
+  return environments.filter(isAppleEnvironmentAllowed);
 }
 
 function decodeSignedPayloadUnsafe<T>(signedPayload: string): T {
@@ -399,11 +406,14 @@ async function lookupTransactionInEnvironment({
 
   return {
     appAccountToken: selectedTransaction.appAccountToken || null,
+    currency: selectedTransaction.currency || null,
     environment,
     expiresAt: toDate(selectedTransaction.expiresDate),
     latestTransactionId:
       selectedTransaction.transactionId || transactionId || null,
     originalTransactionId: resolvedOriginalTransactionId,
+    offerDiscountType: selectedTransaction.offerDiscountType || null,
+    price: selectedTransaction.price ?? null,
     productId: resolvedProductId,
     purchaseDate: toDate(selectedTransaction.purchaseDate),
     revokedAt: toDate(selectedTransaction.revocationDate),
@@ -554,6 +564,12 @@ export async function syncAppleSubscriptionToDb({
     transactionId,
   });
 
+  if (!isAppleEnvironmentAllowed(state.environment)) {
+    throw new SafeError(
+      "Sandbox Apple subscriptions cannot grant production access",
+    );
+  }
+
   if (!state.tier) {
     throw new SafeError(
       `Apple product ${state.productId} is not mapped to a premium tier`,
@@ -572,6 +588,7 @@ export async function syncAppleSubscriptionToDb({
     where: { id: premiumRecord.premiumId },
     select: {
       appleExpiresAt: true,
+      appleOfferDiscountType: true,
       appleRevokedAt: true,
       appleSubscriptionStatus: true,
       emailAccountsAccess: true,
@@ -596,6 +613,7 @@ export async function syncAppleSubscriptionToDb({
       appleEnvironment: state.environment,
       appleExpiresAt: state.expiresAt,
       appleLatestTransactionId: state.latestTransactionId,
+      appleOfferDiscountType: state.offerDiscountType,
       appleOriginalTransactionId: state.originalTransactionId,
       appleProductId: state.productId,
       applePurchaseDate: state.purchaseDate,
@@ -610,6 +628,7 @@ export async function syncAppleSubscriptionToDb({
       appleEnvironment: true,
       appleExpiresAt: true,
       appleProductId: true,
+      appleOfferDiscountType: true,
       appleRevokedAt: true,
       appleSubscriptionStatus: true,
       tier: true,
@@ -617,7 +636,7 @@ export async function syncAppleSubscriptionToDb({
     },
   });
 
-  after(() => {
+  after(async () => {
     const userIds = updatedPremium.users.map((user) => user.id);
     const statusChanged =
       previousPremium?.appleSubscriptionStatus !== state.status ||
@@ -637,7 +656,39 @@ export async function syncAppleSubscriptionToDb({
         });
       });
     }
+
+    await Promise.all(
+      updatedPremium.users.map((user) =>
+        trackServerConversionEvent({
+          name: "apple_subscription_synced",
+          id: `${state.latestTransactionId || state.originalTransactionId}:${user.id}`,
+          timestamp: state.purchaseDate ?? new Date(),
+          userId: user.id,
+          properties: {
+            planId: state.productId,
+            amount:
+              typeof state.price === "number" ? state.price / 1000 : undefined,
+            currency: state.currency ?? undefined,
+            currentOfferDiscountType: state.offerDiscountType,
+            currentSubscriptionStatus: state.status,
+            environment: state.environment,
+            originalTransactionId: state.originalTransactionId,
+            previousOfferDiscountType:
+              previousPremium?.appleOfferDiscountType ?? null,
+            previousSubscriptionStatus:
+              previousPremium?.appleSubscriptionStatus ?? null,
+          },
+          logger,
+        }),
+      ),
+    );
   });
 
   return updatedPremium;
+}
+
+function isAppleEnvironmentAllowed(environment: AppleEnvironment) {
+  return (
+    env.NODE_ENV !== "production" || environment === Environment.PRODUCTION
+  );
 }

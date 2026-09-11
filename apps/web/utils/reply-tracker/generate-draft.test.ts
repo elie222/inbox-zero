@@ -8,6 +8,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/ai/reply/draft-reply", () => ({
@@ -76,6 +77,11 @@ vi.mock("@/utils/meeting-briefs/recipient-context", () => ({
   formatMeetingContextForPrompt: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/utils/meeting-recorder/reply-context", () => ({
+  getRecordedMeetingContext: vi.fn().mockResolvedValue([]),
+  formatRecordedMeetingContextForPrompt: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
     selectedAttachments: [],
@@ -89,6 +95,7 @@ vi.mock("@/utils/ai/knowledge/extract-from-email-history", () => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: false,
   },
 }));
@@ -98,6 +105,10 @@ import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
+import {
+  getRecordedMeetingContext,
+  formatRecordedMeetingContextForPrompt,
+} from "@/utils/meeting-recorder/reply-context";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
@@ -683,7 +694,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       attribution: null,
     });
     vi.mocked(prisma.bookingLink.findMany).mockResolvedValue([
-      { slug: "user-booking-link" },
+      { slug: "user-booking-link", minimumNoticeMinutes: 240 },
     ] as any);
 
     await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -698,13 +709,63 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     expect(aiGetCalendarAvailability).toHaveBeenCalledWith(
       expect.objectContaining({
         bookingLinkAvailable: true,
+        minimumNoticeMinutes: 240,
       }),
     );
     expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccount: expect.objectContaining({
-          bookingLinks: [{ slug: "user-booking-link" }],
+          bookingLinks: [
+            { slug: "user-booking-link", minimumNoticeMinutes: 240 },
+          ],
         }),
+      }),
+    );
+  });
+
+  it("passes recorded meeting notes into the draft prompt", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(getRecordedMeetingContext).mockResolvedValueOnce([
+      {
+        eventTitle: "Project kickoff",
+        startTime: new Date("2024-01-01T10:00:00Z"),
+        summary: {
+          overview: "Discussed the rollout plan.",
+          keyDecisions: [],
+          actionItems: [],
+          openQuestions: null,
+          nextSteps: null,
+        },
+      },
+    ]);
+    vi.mocked(formatRecordedMeetingContextForPrompt).mockReturnValueOnce(
+      "Recorded meeting notes",
+    );
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(getRecordedMeetingContext).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientEmail: "sender@example.com" }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recordedMeetingContext: "Recorded meeting notes",
+      }),
+    );
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        recordedMeetings: { injected: true, count: 1 },
       }),
     );
   });
@@ -729,6 +790,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: createDraftContextMetadata(),
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -748,6 +810,9 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.STANDARD },
+      }),
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
@@ -801,6 +866,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -818,6 +884,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -857,6 +924,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -874,6 +942,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -1010,3 +1079,28 @@ reason: Matched the requested property packet
     );
   });
 });
+
+function createDraftContextMetadata(): DraftContextMetadata {
+  return {
+    replyMemories: { count: 0, ids: [], kinds: [], scopeTypes: [] },
+    knowledgeBase: { availableCount: 0, injected: false },
+    senderHistory: {
+      summaryInjected: false,
+      summarySourceMessageCount: 0,
+      precedentThreadsInjected: false,
+      precedentThreadCount: 0,
+      sameSenderReplyExamplesInjected: false,
+      sameSenderReplyExampleCount: 0,
+    },
+    calendar: {
+      injected: false,
+      noAvailability: false,
+      suggestedTimesCount: 0,
+    },
+    writingStyle: { custom: false },
+    externalTools: { injected: false },
+    meetings: { injected: false, count: 0 },
+    recordedMeetings: { injected: false, count: 0 },
+    attachments: { injected: false, selectedCount: 0 },
+  };
+}

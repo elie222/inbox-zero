@@ -1,10 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import type { Logger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import {
-  createRule,
-  outboundActionsNeedChatRiskConfirmation,
-} from "@/utils/rule/rule";
+import { actionsNeedChatRiskConfirmation, createRule } from "@/utils/rule/rule";
 import {
   findSenderOnlyOverlapConflict,
   formatSenderOnlyOverlapError,
@@ -20,6 +17,7 @@ export const createRuleTool = ({
   email,
   emailAccountId,
   provider,
+  integrationActionsEnabled,
   logger,
   setRuleReadState,
   onRulesStateExposed,
@@ -27,13 +25,14 @@ export const createRuleTool = ({
   email: string;
   emailAccountId: string;
   provider: string;
+  integrationActionsEnabled?: boolean;
   logger: Logger;
   setRuleReadState?: (state: RuleReadState) => void;
   onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool({
     description: "Create a new rule.",
-    inputSchema: createRuleSchema(provider),
+    inputSchema: createRuleSchema(provider, integrationActionsEnabled),
     execute: async ({ name, condition, actions }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
 
@@ -63,7 +62,7 @@ export const createRuleTool = ({
         );
 
         const { needsConfirmation, riskMessages } =
-          outboundActionsNeedChatRiskConfirmation(resultPayload);
+          actionsNeedChatRiskConfirmation(resultPayload);
 
         if (needsConfirmation) {
           return {

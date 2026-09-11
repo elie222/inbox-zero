@@ -3,6 +3,10 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import {
+  getOnlyIntegrationToolSpec,
+  type IntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
+import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
 } from "@/utils/ai/rule/action-availability";
@@ -13,6 +17,7 @@ import {
   isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
+import { isIntegrationActionGloballyEnabled } from "@/utils/integration-action";
 
 const conditionalOperatorSchema = z
   .enum([LogicalOperator.AND, LogicalOperator.OR])
@@ -142,8 +147,17 @@ export function getAvailableActions(provider: string) {
   return availableActions as [ActionType, ...ActionType[]];
 }
 
-export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
-  getExtraAvailableActionsForRuleEditor(existingActionTypes);
+export const getExtraActions = ({
+  existingActionTypes = [],
+  integrationActionsEnabled,
+}: {
+  existingActionTypes?: ActionType[];
+  integrationActionsEnabled: boolean;
+}) =>
+  getExtraAvailableActionsForRuleEditor({
+    existingActionTypes,
+    integrationActionsEnabled,
+  });
 
 export type RuleActionFields = {
   label?: string | null;
@@ -164,11 +178,13 @@ export type RuleAction = {
 
 export const createRuleActionSchema = (
   provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
 ): z.ZodType<RuleAction> => {
   const allowedActionTypes = new Set([
     ...getAvailableActionsForRuleEditor({ provider }),
-    ...getExtraAvailableActionsForRuleEditor(),
+    ...getExtraAvailableActionsForRuleEditor({ integrationActionsEnabled }),
   ]);
+  const integrationToolSpec = getOnlyIntegrationToolSpec();
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
   const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
@@ -219,12 +235,24 @@ export const createRuleActionSchema = (
           ),
         ]
       : []),
+    ...(allowedActionTypes.has(ActionType.INTEGRATION) && integrationToolSpec
+      ? [
+          createActionObjectSchema(
+            ActionType.INTEGRATION,
+            createIntegrationFieldsSchema(integrationToolSpec),
+            integrationToolSpec.llmDescription,
+          ),
+        ]
+      : []),
   ];
 
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
 };
 
-export const createRuleSchema = (provider: string) =>
+export const createRuleSchema = (
+  provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
+) =>
   z.object({
     name: z
       .string()
@@ -233,7 +261,7 @@ export const createRuleSchema = (provider: string) =>
       ),
     condition: conditionSchema,
     actions: z
-      .array(createRuleActionSchema(provider))
+      .array(createRuleActionSchema(provider, integrationActionsEnabled))
       .describe("The actions to take"),
   });
 
@@ -242,14 +270,18 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
 
-function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
+function createActionObjectSchema(
+  type: ActionType,
+  fields: z.ZodTypeAny,
+  description?: string,
+) {
   return z
     .object({
       type: z.literal(type),
       fields,
       delayInMinutes: delayInMinutesLlmSchema,
     })
-    .describe(getActionTypeDescription(type));
+    .describe(description ?? getActionTypeDescription(type));
 }
 
 function getActionTypeDescription(type: ActionType) {
@@ -331,6 +363,20 @@ function createRequiredFolderFieldsSchema(provider: string) {
       "MOVE_FOLDER requires fields.folderName.",
     ),
   });
+}
+
+/** Exposes exactly the args the spec marks as LLM-settable. */
+function createIntegrationFieldsSchema(spec: IntegrationToolSpec) {
+  return z.object(
+    Object.fromEntries(
+      spec.args
+        .filter((arg) => arg.llmDescription)
+        .map((arg) => [
+          arg.key,
+          optionalStringField(arg.llmDescription as string),
+        ]),
+    ),
+  );
 }
 
 function createActionFieldShape(provider: string) {

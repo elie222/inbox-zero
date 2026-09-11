@@ -1075,7 +1075,7 @@ async function sendDraftReplyFromNotification({
       provider: context.messagingChannel?.provider,
       content: notificationContent,
       openLink: getNotificationOpenLink(context),
-      status: "Reply sent.",
+      status: "Reply sent. ✅",
     }),
   });
 

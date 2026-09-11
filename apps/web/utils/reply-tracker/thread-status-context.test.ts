@@ -34,7 +34,11 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       1,
       messages[0],
-      expect.objectContaining({ maxLength: 500 }),
+      expect.objectContaining({
+        maxLength: 500,
+        extractReply: true,
+        stripSignature: true,
+      }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       2,
@@ -44,7 +48,12 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       3,
       messages[2],
-      expect.objectContaining({ maxLength: 2000 }),
+      expect.objectContaining({
+        maxLength: 2000,
+        keepTailLength: 1000,
+        extractReply: true,
+        stripSignature: true,
+      }),
     );
   });
 
@@ -93,7 +102,11 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       12,
       messages[11],
-      expect.objectContaining({ maxLength: 2000 }),
+      expect.objectContaining({
+        maxLength: 2000,
+        keepTailLength: 1000,
+        stripSignature: true,
+      }),
     );
   });
 });

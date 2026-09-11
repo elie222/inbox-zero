@@ -241,8 +241,14 @@ async function watchEmails({
   { success: true; expirationDate: Date } | { success: false; error: unknown }
 > {
   logger.info("Watching emails");
+  let failedAccessToken: string | undefined;
 
   try {
+    try {
+      failedAccessToken = provider.getAccessToken();
+    } catch {
+      // The watch request may still refresh a missing cached access token.
+    }
     if (isMicrosoftProvider(provider.name)) {
       const result = await createManagedOutlookSubscription({
         emailAccountId,
@@ -280,8 +286,13 @@ async function watchEmails({
       await cleanupInvalidTokens({
         emailAccountId,
         reason: isInvalidGrant ? "invalid_grant" : "insufficient_permissions",
+        failedAccessToken,
         logger,
-      });
+      }).catch((cleanupError) =>
+        logger.warn("Failed to clean up watch authentication failure", {
+          cleanupError,
+        }),
+      );
     } else {
       captureException(error, { emailAccountId });
     }

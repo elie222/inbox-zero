@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createSearchParams,
+  getEmailDraftUrl,
   getEmailUrl,
   getEmailUrlForMessage,
   getEmailUrlForOptionalMessage,
@@ -162,6 +163,75 @@ describe("getEmailUrl", () => {
     expect(getEmailUrl(messageOrThreadId, emailAddress, provider)).toBe(
       expected,
     );
+  });
+});
+
+describe("getEmailDraftUrl", () => {
+  // Graph resolves its own webLink without any id translation; Graph REST ids
+  // cannot be substituted into OWA /drafts/id/ URLs, so untrusted or missing
+  // links yield null instead of a broken deeplink.
+  it("uses the Outlook link the provider supplied", () => {
+    expect(
+      getEmailDraftUrl(
+        {
+          id: "draft-123",
+          externalUrl:
+            "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+        },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe(
+      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+    );
+  });
+
+  it.each([
+    {
+      name: "an unexpected host",
+      externalUrl: "https://evil.example.com/mail",
+    },
+    { name: "a non-https scheme", externalUrl: "http://outlook.office.com/x" },
+    {
+      name: "a non-default port",
+      externalUrl: "https://outlook.live.com:8443/evil",
+    },
+    { name: "an unparseable value", externalUrl: "not-a-url" },
+    { name: "no provider link", externalUrl: undefined },
+  ])("returns null for a draft link with $name", ({ externalUrl }) => {
+    expect(
+      getEmailDraftUrl(
+        { id: "draft-123", externalUrl },
+        "user@outlook.com",
+        "microsoft",
+      ),
+    ).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "Google account",
+      draft: { id: "draft-message-123", threadId: "thread-123" },
+      emailAddress: "user@gmail.com",
+      provider: "google",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/thread-123",
+    },
+    {
+      name: "Google account without a thread",
+      draft: { id: "draft-message-123" },
+      emailAddress: "user@gmail.com",
+      provider: "google",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/draft-message-123",
+    },
+  ])("opens the draft for a $name", ({
+    draft,
+    emailAddress,
+    provider,
+    expected,
+  }) => {
+    expect(getEmailDraftUrl(draft, emailAddress, provider)).toBe(expected);
   });
 });
 

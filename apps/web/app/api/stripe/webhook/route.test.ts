@@ -8,8 +8,10 @@ import { getStripeTrialConvertedAt } from "./trial-conversion";
 const {
   mockSyncStripeDataToDb,
   mockSyncStripeInvoicePayment,
+  mockEnqueueStripeInvoiceEmail,
   mockSyncAiGenerationOverageForUpcomingInvoice,
   mockTrackStripeEvent,
+  mockGetCheckoutSessionIdHash,
   mockTrackBillingTrialStarted,
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
@@ -22,8 +24,12 @@ const {
 } = vi.hoisted(() => ({
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
+  mockEnqueueStripeInvoiceEmail: vi.fn(),
   mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
   mockTrackStripeEvent: vi.fn(),
+  mockGetCheckoutSessionIdHash: vi.fn(
+    (checkoutSessionId: string) => `hashed:${checkoutSessionId}`,
+  ),
   mockTrackBillingTrialStarted: vi.fn(),
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
@@ -59,6 +65,10 @@ vi.mock("@/ee/billing/stripe/payments", () => ({
   syncStripeInvoicePayment: mockSyncStripeInvoicePayment,
 }));
 
+vi.mock("@/ee/billing/stripe/invoice-email", () => ({
+  enqueueStripeInvoiceEmail: mockEnqueueStripeInvoiceEmail,
+}));
+
 vi.mock("@/ee/billing/stripe/ai-overage", () => ({
   syncAiGenerationOverageForUpcomingInvoice:
     mockSyncAiGenerationOverageForUpcomingInvoice,
@@ -72,6 +82,7 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/posthog", () => ({
+  getCheckoutSessionIdHash: mockGetCheckoutSessionIdHash,
   trackBillingTrialStarted: mockTrackBillingTrialStarted,
   trackStripeEvent: mockTrackStripeEvent,
   trackSubscriptionTrialStarted: mockTrackSubscriptionTrialStarted,
@@ -124,6 +135,7 @@ describe("processEvent", () => {
     mockFindUnique.mockResolvedValue(null);
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
+    mockEnqueueStripeInvoiceEmail.mockResolvedValue(undefined);
     mockSyncAiGenerationOverageForUpcomingInvoice.mockResolvedValue(undefined);
     mockTrackStripeEvent.mockResolvedValue(undefined);
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
@@ -144,6 +156,10 @@ describe("processEvent", () => {
       logger,
     });
     expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+    expect(mockEnqueueStripeInvoiceEmail).toHaveBeenCalledWith({
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,
     });
@@ -176,6 +192,20 @@ describe("processEvent", () => {
     });
   });
 
+  it("adds a private correlation key for a verified checkout completion", async () => {
+    await processEvent(checkoutCompletedEvent(), logger);
+
+    expect(mockTrackStripeEvent).toHaveBeenCalledWith(
+      "Unknown",
+      expect.objectContaining({
+        checkoutSessionIdHash: "hashed:cs_test",
+        id: "evt_checkout_test",
+        type: "checkout.session.completed",
+      }),
+    );
+    expect(mockGetCheckoutSessionIdHash).toHaveBeenCalledWith("cs_test");
+  });
+
   it("skips dependent billing syncs after customer sync fails", async () => {
     mockSyncStripeDataToDb.mockRejectedValue(new Error("sync failed"));
 
@@ -186,6 +216,7 @@ describe("processEvent", () => {
       logger,
     });
     expect(mockSyncStripeInvoicePayment).not.toHaveBeenCalled();
+    expect(mockEnqueueStripeInvoiceEmail).not.toHaveBeenCalled();
     expect(
       mockSyncAiGenerationOverageForUpcomingInvoice,
     ).not.toHaveBeenCalled();
@@ -526,6 +557,26 @@ function invoiceEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
       },
     },
     ...overrides,
+  } as Stripe.Event;
+}
+
+function checkoutCompletedEvent(): Stripe.Event {
+  return {
+    id: "evt_checkout_test",
+    type: "checkout.session.completed",
+    object: "event",
+    api_version: "2025-03-31.basil",
+    created: 1_700_000_500,
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+    data: {
+      object: {
+        id: "cs_test",
+        customer: "cus_test",
+        status: "complete",
+      },
+    },
   } as Stripe.Event;
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   removeExcessiveWhitespace,
   truncate,
+  truncateHeadTail,
   generalizeSubject,
   convertNewlinesToBr,
   escapeHtml,
@@ -25,6 +26,32 @@ describe("string utils", () => {
       },
     ])("handles $name", ({ input, length, expected }) => {
       expect(truncate(input, length)).toBe(expected);
+    });
+  });
+
+  describe("truncateHeadTail", () => {
+    it("keeps short strings unchanged", () => {
+      expect(truncateHeadTail("hello", 10, 4)).toBe("hello");
+    });
+
+    it("keeps the start and the closing ask of a long recap", () => {
+      const head = "Here is the summary of what we discussed. ";
+      const middle = "Feature list item. ".repeat(80);
+      const tail =
+        "Can you send the updated timeline when you have it? Also free Friday or Monday.";
+      const content = `${head}${middle}${tail}`;
+
+      const result = truncateHeadTail(content, 200, 80);
+
+      expect(result.length).toBe(200);
+      expect(result.startsWith("Here is the summary")).toBe(true);
+      expect(result).toContain("\n...\n");
+      expect(result).toContain("send the updated timeline");
+    });
+
+    it("falls back to the tail when the head budget is exhausted", () => {
+      const result = truncateHeadTail("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 10, 20);
+      expect(result).toBe("\n...\nVWXYZ");
     });
   });
 

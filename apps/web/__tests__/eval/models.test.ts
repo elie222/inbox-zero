@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getEvalModels, shouldRunEvalTests } from "@/__tests__/eval/models";
+import { getEvalModels } from "@/__tests__/eval/model-catalog";
+import { shouldRunEvalTests } from "@/__tests__/eval/models";
 
 const originalEnv = { ...process.env };
 

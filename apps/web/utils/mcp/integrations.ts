@@ -4,9 +4,8 @@ type McpIntegrationConfig = {
   authType: "oauth" | "api-token";
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
-  defaultToolsDisabled?: boolean; // For integrations with many tools (e.g. Pipedream), disable by default
-  toolsWarning?: string; // Warning message to show when user expands tools list
-  filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
+  filterWriteTools?: boolean; // Require read-only annotations and names; new tools start disabled
+  ruleActionWriteTools?: string[];
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -14,6 +13,7 @@ export const MCP_INTEGRATIONS: Record<
   McpIntegrationConfig & {
     displayName: string;
     shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
+    description: string; // Plain-English summary of the data this integration exposes, shown on the integrations page
     url: string; // Domain URL for favicon display
     allowedTools?: string[];
     comingSoon?: boolean;
@@ -27,6 +27,7 @@ export const MCP_INTEGRATIONS: Record<
   notion: {
     name: "notion",
     displayName: "Notion",
+    description: "Docs, wikis, and project notes",
     url: "notion.com",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
@@ -37,10 +38,10 @@ export const MCP_INTEGRATIONS: Record<
   stripe: {
     name: "stripe",
     displayName: "Stripe",
+    description: "Customers, subscriptions, invoices, and payments",
     url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
-    // authType: "api-token", // alternatively, use an API token.
     scopes: [],
     allowedTools: [
       "list_customers",
@@ -54,9 +55,72 @@ export const MCP_INTEGRATIONS: Record<
     ],
     // OAuth endpoints auto-discovered via RFC 8414/9728
   },
+  linear: {
+    name: "linear",
+    displayName: "Linear",
+    description: "Issues, projects, and status",
+    url: "linear.app",
+    // Dedicated read-only endpoint; the server only exposes read tools here
+    serverUrl: "https://mcp.linear.app/mcp/readonly",
+    authType: "oauth",
+    scopes: ["read"],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
+  attio: {
+    name: "attio",
+    displayName: "Attio",
+    description: "CRM records, contacts, notes, and meetings",
+    url: "attio.com",
+    serverUrl: "https://mcp.attio.com/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "search-records",
+      "list-records",
+      "get-records-by-ids",
+      "list-attribute-definitions",
+      "list-lists",
+      "list-list-attribute-definitions",
+      "list-records-in-list",
+      "search-notes-by-metadata",
+      "semantic-search-notes",
+      "get-note-body",
+      "list-tasks",
+      "search-meetings",
+      // Write tools intentionally excluded: create-record, upsert-record,
+      // update-record, merge-records, add-record-to-list, create-note, ...
+    ],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
+  intercom: {
+    name: "intercom",
+    displayName: "Intercom",
+    description: "Support conversations, contacts, and help articles",
+    url: "intercom.com",
+    // US-hosted workspaces only; EU workspaces use mcp.eu.intercom.com (not supported yet)
+    serverUrl: "https://mcp.intercom.com/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "search",
+      "fetch",
+      "search_conversations",
+      "get_conversation",
+      "search_contacts",
+      "get_contact",
+      "list_companies",
+      "get_company",
+      "list_articles",
+      "search_articles",
+      "get_article",
+      // Write tools intentionally excluded: create_article, update_article
+    ],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
   monday: {
     name: "monday",
     displayName: "Monday.com",
+    description: "Boards, items, and workspaces",
     url: "monday.com",
     serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
@@ -93,46 +157,32 @@ export const MCP_INTEGRATIONS: Record<
       // "create_widget",
     ],
     // OAuth endpoints auto-discovered via RFC 8414
-    comingSoon: false,
+  },
+  todoist: {
+    name: "todoist",
+    displayName: "Todoist",
+    description: "Tasks and projects",
+    url: "todoist.com",
+    serverUrl: "https://ai.todoist.net/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [],
+    ruleActionWriteTools: ["add-tasks"],
   },
   pipedream: {
     name: "pipedream",
     displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
     shortName: "Pipedream",
+    description: "HubSpot, Slack, Airtable, and hundreds more apps",
     url: "pipedream.com",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",
     scopes: ["mcp", "offline_access"],
     skipResourceParam: true, // Pipedream doesn't support RFC 8707 resource parameter
-    defaultToolsDisabled: true, // Pipedream can have 100s of tools, let users enable what they need
-    filterWriteTools: true, // Only sync read-only tools (get, list, find, search)
-    toolsWarning:
-      "Only enable read-only tools. These tools are used during email drafting, so reading data is safe. Avoid enabling tools that create, update, or delete data.",
-    // No allowedTools - accept all tools Pipedream provides
+    filterWriteTools: true,
+    // No fixed allowlist because Pipedream's catalog is dynamic
     // OAuth endpoints auto-discovered via RFC 8414
   },
-  // hubspot: {
-  //   name: "hubspot",
-  //   displayName: "HubSpot",
-  //   serverUrl: "https://mcp.hubspot.com/",
-  //   authType: "oauth",
-  //   scopes: [
-  //     "content",
-  //     "crm.objects.companies.read",
-  //     "crm.objects.companies.write",
-  //     "crm.objects.contacts.read",
-  //     "crm.objects.contacts.write",
-  //     "crm.objects.deals.write",
-  //     "forms",
-  //     "oauth",
-  //     "timeline",
-  //   ],
-  //   oauthConfig: {
-  //     authorization_endpoint: "https://app.hubspot.com/oauth/authorize",
-  //     token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
-  //   },
-  //   comingSoon: true,
-  // },
 };
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
@@ -147,16 +197,11 @@ export function getIntegration(
   return integration;
 }
 
-export function getStaticCredentials(
-  integration: IntegrationKey,
-): { clientId?: string; clientSecret?: string } | undefined {
-  switch (integration) {
-    // case "hubspot":
-    //   return {
-    //     clientId: env.HUBSPOT_MCP_CLIENT_ID,
-    //     clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
-    //   };
-    default:
-      return;
-  }
+// For untrusted names (URL params, stored connection names). getIntegration throws instead.
+export function findIntegration(
+  name: string,
+): (typeof MCP_INTEGRATIONS)[IntegrationKey] | undefined {
+  return Object.hasOwn(MCP_INTEGRATIONS, name)
+    ? MCP_INTEGRATIONS[name]
+    : undefined;
 }

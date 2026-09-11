@@ -13,11 +13,13 @@ export const footerNavigation = {
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
     { name: "Mobile App", href: "/mobile-app" },
+    { name: "Desktop App", href: "/desktop" },
     { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
     { name: "Slack AI Assistant", href: "/slack-integration" },
     { name: "Telegram AI Assistant", href: "/telegram-integration" },
     { name: "Teams AI Assistant", href: "/teams-integration" },
     { name: "Brief My Meeting", href: "/brief-my-meeting" },
+    { name: "AI Meeting Notetaker", href: "/ai-meeting-notetaker" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Clean your inbox", href: "/clean-inbox" },
@@ -46,6 +48,11 @@ export const footerNavigation = {
       name: "Best AI Email Assistants",
       href: "/blog/post/best-ai-email-assistants",
     },
+    {
+      name: "AI Email Assistant Directory",
+      href: "https://aiemailassistants.com",
+      target: "_blank",
+    },
     { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
     { name: "vs Superhuman", href: "/best-superhuman-alternative" },
     { name: "vs Shortwave", href: "/best-shortwave-alternative" },
@@ -55,6 +62,7 @@ export const footerNavigation = {
     },
   ],
   tools: [
+    { name: "All Free Email Tools", href: "/tools" },
     {
       name: "Email Deliverability Checker",
       href: "/tools/email-deliverability-checker",
@@ -66,6 +74,10 @@ export const footerNavigation = {
       href: "/tools/email-signature-generator",
     },
     { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
+    {
+      name: "Team Email Cost Calculator",
+      href: "/tools/email-cost-calculator",
+    },
   ],
   support: [
     { name: "Pricing", href: "/pricing" },
@@ -87,6 +99,7 @@ export const footerNavigation = {
     { name: "OpenClaw Skill", href: "/openclaw" },
   ],
   company: [
+    { name: "About", href: "/about" },
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
     { name: "Blog", href: "/blog" },
     { name: "Case Studies", href: "/case-studies" },
@@ -95,6 +108,12 @@ export const footerNavigation = {
     { name: "Discord", href: "/discord", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
+    {
+      name: "Bot Directory",
+      href: "https://botdirectory.ai",
+      target: "_blank",
+    },
+    { name: "Rakazo", href: "https://rakazo.com", target: "_blank" },
   ],
   legal: [
     { name: "Terms", href: "/terms" },

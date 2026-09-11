@@ -3,6 +3,10 @@
 module.exports = {
   peer: true,
   reject: [
+    // 1.7 requires a SCIM connection configuration migration; keep the family aligned.
+    "better-auth",
+    "@better-auth/*",
+
     // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
     "jsdom",
 
@@ -59,6 +63,22 @@ module.exports = {
     // mismatches when passing Redis connections into queues.
     "ioredis",
 
+    // AI SDK v7-only provider lines; app remains on ai@6 / zod@3
+    "@openrouter/ai-sdk-provider",
+    "ollama-ai-provider-v2",
+
+    // TypeScript 7 is the native Go compiler without the classic Compiler API;
+    // stay on 6 until the monorepo tooling ecosystem is ready.
+    "typescript",
+
+    // @slack/web-api@7 depends on @slack/types ^2
+    "@slack/types",
+
     "@types/node",
+
+    // Ultracite 7.10+/Biome 2.5.6 enable mass useSortedKeys failures across the repo.
+    // Stay pinned until a dedicated formatting migration.
+    "ultracite",
+    "@biomejs/biome",
   ],
 };

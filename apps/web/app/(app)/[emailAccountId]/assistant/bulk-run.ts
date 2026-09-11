@@ -1,3 +1,5 @@
+import { addDays } from "date-fns/addDays";
+import { startOfDay } from "date-fns/startOfDay";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { runAiRules } from "@/utils/queue/email-actions";
@@ -15,11 +17,13 @@ export async function onRun(
     startDate,
     endDate,
     includeRead,
+    rerun,
     maxEmails,
   }: {
     startDate: Date;
     endDate?: Date;
     includeRead?: boolean;
+    rerun?: boolean;
     maxEmails?: number;
   },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
@@ -32,6 +36,8 @@ export async function onRun(
   let totalProcessed = 0;
   let aborted = false;
   const abortController = new AbortController();
+  // Provider "before" filters are exclusive; the selected calendar day is inclusive.
+  const before = endDate ? startOfDay(addDays(endDate, 1)) : undefined;
 
   function abort() {
     aborted = true;
@@ -46,7 +52,7 @@ export async function onRun(
         type: "inbox",
         limit: BATCH_SIZE,
         after: startDate,
-        ...(endDate ? { before: endDate } : {}),
+        ...(before ? { before } : {}),
         ...(!includeRead ? { isUnread: true } : {}),
         ...(nextPageToken ? { nextPageToken } : {}),
       };
@@ -92,26 +98,35 @@ export async function onRun(
 
       nextPageToken = data.nextPageToken || "";
 
-      const threadsWithoutPlan = data.threads.filter((thread) => !thread.plan);
+      const eligibleThreads = rerun
+        ? data.threads
+        : data.threads.filter((thread) => !thread.plan);
       const remainingEmails =
         maxEmails === undefined ? undefined : maxEmails - totalProcessed;
       if (remainingEmails !== undefined && remainingEmails <= 0) break;
 
       const threadsToQueue =
         remainingEmails === undefined
-          ? threadsWithoutPlan
-          : threadsWithoutPlan.slice(0, remainingEmails);
+          ? eligibleThreads
+          : eligibleThreads.slice(0, remainingEmails);
 
       if (completeIfCancelled()) return;
 
       onThreadsQueued(threadsToQueue);
+      await runAiRules(
+        emailAccountId,
+        threadsToQueue,
+        !!rerun,
+        abortController.signal,
+      );
       totalProcessed += threadsToQueue.length;
-      runAiRules(emailAccountId, threadsToQueue, false);
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
       if (!nextPageToken) break;
 
-      await sleep(threadsToQueue.length ? 5000 : 2000);
+      if (threadsToQueue.length === 0) {
+        await sleep(2000);
+      }
     }
 
     onComplete("success", totalProcessed);
@@ -124,10 +139,13 @@ export async function onRun(
   }
 
   run().catch((error) => {
+    if (completeIfCancelled()) return;
+
+    abortController.abort();
     captureException(error);
     toastError({
       title: "Failed to process emails",
-      description: "Please try again.",
+      description: error instanceof Error ? error.message : "Please try again.",
     });
     onComplete("error", totalProcessed);
   });

@@ -3,6 +3,10 @@ import {
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
 import { env } from "@/env";
+import {
+  INTEGRATION_ACTION_FEATURE_FLAG,
+  isIntegrationActionGloballyEnabled,
+} from "@/utils/integration-action";
 
 export function useCleanerEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("inbox-cleaner");
@@ -18,9 +22,21 @@ export function useMeetingBriefsEnabled() {
   return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
 }
 
-export function useIntegrationsEnabled() {
+export function useMeetingRecorderEnabled() {
+  return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED;
+}
+
+// Returns undefined while the PostHog flag is still loading
+export function useIntegrationsEnabled(): boolean | undefined {
   const posthogEnabled = useFeatureFlagEnabled("integrations");
-  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED || posthogEnabled;
+  if (env.NEXT_PUBLIC_INTEGRATIONS_ENABLED) return true;
+  if (!env.NEXT_PUBLIC_POSTHOG_KEY) return false;
+  return posthogEnabled;
+}
+
+export function useIntegrationActionsEnabled(): boolean {
+  const posthogEnabled = useFeatureFlagEnabled(INTEGRATION_ACTION_FEATURE_FLAG);
+  return isIntegrationActionGloballyEnabled() || posthogEnabled === true;
 }
 
 export function useSmartFilingEnabled() {
@@ -58,14 +74,14 @@ export function usePricingVariant() {
   );
 }
 
-export type PricingFrequencyDefault = "control" | "monthly";
+export type PricingFrequencyDefault = "control" | "monthly" | "annually";
 
-export function usePricingFrequencyDefault() {
-  return (
-    (useFeatureFlagVariantKey(
-      "pricing-frequency-default",
-    ) as PricingFrequencyDefault) || "control"
-  );
+export function usePricingFrequencyDefault():
+  | PricingFrequencyDefault
+  | undefined {
+  return useFeatureFlagVariantKey("pricing-frequency-default") as
+    | PricingFrequencyDefault
+    | undefined;
 }
 
 export type TestimonialsVariant = "control" | "senja-widget";
@@ -86,18 +102,11 @@ export function useWelcomePricingVariant() {
     ) as WelcomePricingVariant) || "control"
   );
 }
+export type OnboardingChatVariant = "control" | "chat";
 
-export type OnboardingBulkUnsubscribeVariant = "control" | "inline-unsubscribe";
-
-// A/B test for the onboarding bulk-unsubscribe step: "control" shows the
-// static marketing slide, "inline-unsubscribe" shows the personalized,
-// actionable list. Reading the flag here is the experiment exposure
-// ($feature_flag_called). Defaults to control until the flag resolves and when
-// PostHog is unavailable (e.g. self-hosted), preserving the existing step.
-export function useOnboardingBulkUnsubscribeVariant() {
+export function useOnboardingChatVariant() {
   return (
-    (useFeatureFlagVariantKey(
-      "onboarding-bulk-unsubscribe",
-    ) as OnboardingBulkUnsubscribeVariant) || "control"
+    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
+    "control"
   );
 }

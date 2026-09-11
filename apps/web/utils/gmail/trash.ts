@@ -68,6 +68,24 @@ export async function trashThread(options: {
   return trashResult.value;
 }
 
+/**
+ * Restores a trashed thread. Gmail returns it to the labels it held before the
+ * trash, so a thread trashed from the inbox lands back in the inbox.
+ */
+export async function untrashThread(options: {
+  gmail: gmail_v1.Gmail;
+  threadId: string;
+}) {
+  const { gmail, threadId } = options;
+
+  return withGmailRetry(() =>
+    gmail.users.threads.untrash({
+      userId: "me",
+      id: threadId,
+    }),
+  );
+}
+
 export async function trashMessage(options: {
   gmail: gmail_v1.Gmail;
   messageId: string;

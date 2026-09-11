@@ -1,15 +1,18 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
-import { createContact as createResendContact } from "@inboxzero/resend";
-import type { Account, AuthContext } from "better-auth";
+import { createContact as createResendContact } from "@inboxzero/transactional-email";
+import type { Account } from "better-auth";
 import { APIError, betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { env } from "@/env";
 import {
   assertAllowedAuthSignupEmail,
@@ -20,6 +23,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
@@ -47,6 +51,19 @@ import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
+import {
+  getAuthProviderFromContext,
+  isNewUserAuthContext,
+  markAuthContextAsNewUser,
+  trackAuthenticationCompleted,
+} from "@/utils/analytics/auth-funnel.server";
+
+import {
+  emailOtpPlugin,
+  emailOtpBeforeHook,
+  emailOtpAfterHook,
+  emailOtpSessionCreationHook,
+} from "@/utils/auth/email-otp";
 
 const logger = createScopedLogger("auth");
 const EMAIL_ALREADY_LINKED_ERROR = "email_already_linked";
@@ -67,6 +84,9 @@ type AppleProfile = {
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
+  : [];
+const desktopAuthOrigins = env.DESKTOP_AUTH_ORIGIN
+  ? [env.DESKTOP_AUTH_ORIGIN]
   : [];
 const googleSocialProvider =
   googleLoginEnabled && !useGoogleOauthEmulator
@@ -209,6 +229,7 @@ export const betterAuthConfig = betterAuth({
     ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
     ...(env.ADDITIONAL_TRUSTED_ORIGINS ?? []),
     ...mobileAuthOrigins,
+    ...desktopAuthOrigins,
   ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
@@ -218,6 +239,7 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
+    emailOtpPlugin,
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
@@ -245,6 +267,10 @@ export const betterAuthConfig = betterAuth({
     nextCookies(), // Must be last
   ],
   session: {
+    additionalFields: {
+      emailOtp: { type: "boolean", defaultValue: false, input: false },
+      emailOtpVersion: { type: "number", defaultValue: 0, input: false },
+    },
     modelName: "Session",
     fields: {
       token: "sessionToken",
@@ -286,6 +312,11 @@ export const betterAuthConfig = betterAuth({
   },
   socialProviders,
   databaseHooks: {
+    session: {
+      create: {
+        before: emailOtpSessionCreationHook,
+      },
+    },
     user: {
       create: {
         before: async (user) => {
@@ -296,7 +327,8 @@ export const betterAuthConfig = betterAuth({
           });
           assertAllowedAuthSignupEmail(user.email);
         },
-        after: async (user) => {
+        after: async (user, context) => {
+          markAuthContextAsNewUser(context?.context);
           await postSignUp({
             id: user.id,
             email: user.email,
@@ -322,10 +354,32 @@ export const betterAuthConfig = betterAuth({
       },
     },
   },
+  hooks: {
+    before: emailOtpBeforeHook,
+    after: createAuthMiddleware(async (context) => {
+      await emailOtpAfterHook(context);
+      try {
+        const authenticatedSession = context.context.newSession;
+        if (!authenticatedSession) return;
+
+        const provider = getAuthProviderFromContext(context);
+        if (provider === "unknown") return;
+
+        const email = authenticatedSession.user.email;
+        const isNewUser = isNewUserAuthContext(context.context);
+
+        after(() =>
+          trackAuthenticationCompleted({ email, provider, isNewUser }),
+        );
+      } catch (error) {
+        logger.error("Failed to schedule authentication analytics", { error });
+      }
+    }),
+  },
   onAPIError: {
     throw: true,
-    onError: (error: unknown, ctx: AuthContext) => {
-      logger.error("Auth API encountered an error", { error, ctx });
+    onError: (error: unknown) => {
+      logger.error("Auth API encountered an error", { error });
     },
     errorURL: "/login/error",
   },
@@ -654,6 +708,7 @@ export async function handleLinkAccount(account: Account) {
         logger,
       });
 
+      scheduleEmailWatchesAfterLink(account.userId);
       return;
     }
     const user = await prisma.user.findUnique({
@@ -682,6 +737,12 @@ export async function handleLinkAccount(account: Account) {
         create: {
           ...data,
           email: normalizedEmail,
+          mailSplits: {
+            create: INITIAL_MAIL_SPLITS.map((split, order) => ({
+              ...split,
+              order,
+            })),
+          },
         },
         select: { id: true },
       }),
@@ -714,6 +775,8 @@ export async function handleLinkAccount(account: Account) {
       captureException(error, { extra: { userId: account.userId } });
     });
 
+    scheduleEmailWatchesAfterLink(account.userId);
+
     logger.info("[linkAccount] Successfully linked account", {
       email: user.email,
       userId: account.userId,
@@ -733,10 +796,16 @@ export async function handleLinkAccount(account: Account) {
 
 export const auth = async (
   requestHeaders?: Headers | Awaited<ReturnType<typeof headers>>,
-) =>
-  betterAuthConfig.api.getSession({
-    headers: requestHeaders ?? (await headers()),
-  });
+) => {
+  try {
+    return await betterAuthConfig.api.getSession({
+      headers: requestHeaders ?? (await headers()),
+    });
+  } catch (error) {
+    if (error instanceof APIError && error.statusCode === 401) return null;
+    throw error;
+  }
+};
 
 async function autoJoinOrganization(emailAccountId: string) {
   const orgs = await prisma.organization.findMany({
@@ -774,4 +843,21 @@ async function autoJoinOrganization(emailAccountId: string) {
     organizationId,
     memberId: member.id,
   });
+}
+
+function scheduleEmailWatchesAfterLink(userId: string) {
+  after(() =>
+    ensureEmailAccountsWatched({
+      userIds: [userId],
+      logger,
+    }).catch((error) => {
+      logger.error("[linkAccount] Error re-registering email watches", {
+        userId,
+        error,
+      });
+      captureException(error, {
+        extra: { userId, location: "linkAccountWatch" },
+      });
+    }),
+  );
 }

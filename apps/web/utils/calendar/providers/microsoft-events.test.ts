@@ -5,9 +5,12 @@ import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/micro
 const graphMocks = vi.hoisted(() => ({
   api: vi.fn(),
   get: vi.fn(),
+  orderby: vi.fn(),
   patch: vi.fn(),
   post: vi.fn(),
+  query: vi.fn(),
   select: vi.fn(),
+  top: vi.fn(),
 }));
 
 vi.mock("@/utils/outlook/calendar-client", () => ({
@@ -27,7 +30,93 @@ describe("MicrosoftCalendarEventProvider", () => {
       patch: graphMocks.patch,
       post: graphMocks.post,
       select: graphMocks.select,
+      query: graphMocks.query,
     });
+    graphMocks.query.mockReturnValue({ top: graphMocks.top });
+    graphMocks.top.mockReturnValue({ orderby: graphMocks.orderby });
+    graphMocks.orderby.mockReturnValue({ get: graphMocks.get });
+  });
+
+  it("parses the organizer and declined attendees when fetching events", async () => {
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "event-id",
+          subject: "Sync",
+          isOrganizer: true,
+          organizer: { emailAddress: { address: "Host@Example.com" } },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          attendees: [
+            {
+              emailAddress: { address: "guest@example.com", name: "Guest" },
+              status: { response: "accepted" },
+            },
+            {
+              emailAddress: { address: "busy@example.com", name: "Busy" },
+              status: { response: "declined" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const provider = createProvider();
+
+    const events = await provider.fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        isOrganizer: true,
+        organizerEmail: "Host@Example.com",
+        attendees: [
+          { email: "guest@example.com", name: "Guest", declined: false },
+          { email: "busy@example.com", name: "Busy", declined: true },
+        ],
+      }),
+    );
+  });
+
+  it("finds the video link for an accepted invitation", async () => {
+    const joinUrl =
+      "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d";
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "invited-event-id",
+          subject: "Customer call",
+          isOrganizer: false,
+          organizer: { emailAddress: { address: "host@example.com" } },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          attendees: [
+            {
+              emailAddress: { address: "user@example.com" },
+              status: { response: "accepted" },
+            },
+          ],
+          body: {
+            contentType: "html",
+            content: `<a href="${joinUrl}">Join Microsoft Teams Meeting</a>`,
+          },
+        },
+      ],
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        isOrganizer: false,
+        videoConferenceLink: joinUrl,
+      }),
+    );
   });
 
   it("creates Teams meetings for Microsoft Teams locations", async () => {
@@ -67,6 +156,7 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(createPayload).toEqual(
       expect.objectContaining({
         isOnlineMeeting: true,
+        onlineMeetingProvider: "teamsForBusiness",
         location: undefined,
         start: {
           dateTime: "2026-05-04T09:00:00.0000000",
@@ -78,7 +168,6 @@ describe("MicrosoftCalendarEventProvider", () => {
         },
       }),
     );
-    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
     expect(result).toEqual({
       id: "event-id",
       providerCalendarId: "calendar-id",
@@ -87,7 +176,7 @@ describe("MicrosoftCalendarEventProvider", () => {
     });
   });
 
-  it("omits the explicit Teams provider when Teams is the calendar default", async () => {
+  it("passes the explicit Teams provider when Teams is the calendar default", async () => {
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
       allowedOnlineMeetingProviders: ["teamsForBusiness"],
@@ -115,9 +204,11 @@ describe("MicrosoftCalendarEventProvider", () => {
 
     const createPayload = graphMocks.post.mock.calls[0]?.[0];
     expect(createPayload).toEqual(
-      expect.objectContaining({ isOnlineMeeting: true }),
+      expect.objectContaining({
+        isOnlineMeeting: true,
+        onlineMeetingProvider: "teamsForBusiness",
+      }),
     );
-    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
   });
 
   it("refetches the event when Graph initializes the Teams join URL asynchronously", async () => {
@@ -212,54 +303,22 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(graphMocks.api).toHaveBeenCalledWith("/me/events/event-id");
     expect(graphMocks.patch).toHaveBeenCalledWith({
       isOnlineMeeting: true,
+      onlineMeetingProvider: "teamsForBusiness",
     });
     expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
   });
 
-  it("creates a regular event when the destination calendar does not support Teams", async () => {
+  it("does not request an online meeting on a personal Outlook calendar", async () => {
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
-      allowedOnlineMeetingProviders: ["skypeForBusiness"],
-      defaultOnlineMeetingProvider: "skypeForBusiness",
+      allowedOnlineMeetingProviders: ["skypeForConsumer"],
+      defaultOnlineMeetingProvider: "skypeForConsumer",
     });
     graphMocks.post.mockResolvedValue({
       id: "event-id",
-      webLink: "https://outlook.example.com/event",
-    });
-
-    const provider = createProvider();
-
-    const result = await provider.createEvent({
-      attendees: [{ email: "guest@example.com", name: "Guest User" }],
-      calendarId: "calendar-id",
-      description: "Meeting description",
-      endTime: new Date("2026-05-04T09:30:00.000Z"),
-      locationType: "MICROSOFT_TEAMS",
-      locationValue: null,
-      startTime: new Date("2026-05-04T09:00:00.000Z"),
-      timezone: "America/New_York",
-      title: "Intro call",
-    });
-
-    const createPayload = graphMocks.post.mock.calls[0]?.[0];
-    expect(createPayload).not.toHaveProperty("isOnlineMeeting");
-    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
-    expect(result).toEqual({
-      id: "event-id",
-      providerCalendarId: "calendar-id",
-      eventUrl: "https://outlook.example.com/event",
-      videoConferenceLink: undefined,
-    });
-  });
-
-  it("creates a regular event when Teams is not the calendar default", async () => {
-    graphMocks.get.mockResolvedValue({
-      id: "calendar-id",
-      allowedOnlineMeetingProviders: ["teamsForBusiness", "skypeForBusiness"],
-      defaultOnlineMeetingProvider: "skypeForBusiness",
-    });
-    graphMocks.post.mockResolvedValue({
-      id: "event-id",
+      isOnlineMeeting: false,
+      onlineMeetingProvider: "unknown",
+      onlineMeeting: null,
       webLink: "https://outlook.example.com/event",
     });
 
@@ -287,6 +346,79 @@ describe("MicrosoftCalendarEventProvider", () => {
       providerCalendarId: "calendar-id",
       eventUrl: "https://outlook.example.com/event",
       videoConferenceLink: undefined,
+    });
+  });
+
+  it("still requests Skype for Business, which work calendars can generate", async () => {
+    graphMocks.get.mockResolvedValue({
+      id: "calendar-id",
+      allowedOnlineMeetingProviders: ["skypeForBusiness"],
+      defaultOnlineMeetingProvider: "skypeForBusiness",
+    });
+    graphMocks.post.mockResolvedValue({
+      id: "event-id",
+      onlineMeeting: { joinUrl: "https://meet.example.com/join" },
+      webLink: "https://outlook.example.com/event",
+    });
+
+    await createProvider().createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
+
+    expect(graphMocks.post.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        isOnlineMeeting: true,
+        onlineMeetingProvider: "skypeForBusiness",
+      }),
+    );
+  });
+
+  it("prefers Teams when it is allowed but is not the calendar default", async () => {
+    graphMocks.get.mockResolvedValue({
+      id: "calendar-id",
+      allowedOnlineMeetingProviders: ["teamsForBusiness", "skypeForBusiness"],
+      defaultOnlineMeetingProvider: "skypeForBusiness",
+    });
+    graphMocks.post.mockResolvedValue({
+      id: "event-id",
+      onlineMeeting: { joinUrl: "https://teams.example.com/join" },
+      webLink: "https://outlook.example.com/event",
+    });
+
+    const provider = createProvider();
+
+    const result = await provider.createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
+
+    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(createPayload).toEqual(
+      expect.objectContaining({
+        isOnlineMeeting: true,
+        onlineMeetingProvider: "teamsForBusiness",
+      }),
+    );
+    expect(result).toEqual({
+      id: "event-id",
+      providerCalendarId: "calendar-id",
+      eventUrl: "https://outlook.example.com/event",
+      videoConferenceLink: "https://teams.example.com/join",
     });
   });
 

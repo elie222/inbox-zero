@@ -1,6 +1,7 @@
 import type { BookingLinkLocationType } from "@/generated/prisma/enums";
 
 export interface CalendarEventAttendee {
+  declined?: boolean;
   email: string;
   name?: string;
 }
@@ -11,7 +12,11 @@ export interface CalendarEvent {
   endTime: Date;
   eventUrl?: string;
   id: string;
+  // True when the connected calendar's own account organizes the event. This is
+  // relative to the calendar connection, which is not always the EmailAccount.
+  isOrganizer?: boolean;
   location?: string;
+  organizerEmail?: string;
   startTime: Date;
   title: string;
   videoConferenceLink?: string;

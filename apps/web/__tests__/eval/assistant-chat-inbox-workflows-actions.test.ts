@@ -7,6 +7,7 @@ import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
   getLastMatchingToolCall,
+  hasUnreadTriageSignal,
   hasSearchBeforeFirstWrite,
   inboxWorkflowProviders,
   isBulkArchiveSendersInput,
@@ -458,17 +459,12 @@ describe.runIf(shouldRunEval)(
                   prompt:
                     "Mark the two unread vendor update emails as read, but do not archive them.",
                   query: searchCall.query,
-                  expected:
-                    provider === "microsoft"
-                      ? "A search query focused on vendor update emails. The unread constraint may be represented by the structured readState field instead of the query text."
-                      : "A search query focused on unread vendor update emails.",
+                  expected: "A search query focused on vendor update emails.",
                 })
               : null;
-            const searchHasUnreadScope =
-              provider !== "microsoft" ||
-              (searchCall as SearchInboxInput | undefined)?.readState ===
-                "unread" ||
-              /\bunread\b/i.test(searchCall?.query ?? "");
+            const searchHasUnreadScope = searchCall
+              ? hasUnreadTriageSignal(searchCall, provider)
+              : false;
             const markReadCall = getLastMatchingToolCall(
               toolCalls,
               "manageInbox",

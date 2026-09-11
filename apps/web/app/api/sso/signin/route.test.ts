@@ -1,7 +1,7 @@
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   createContact: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@inboxzero/tinybird", () => ({
@@ -65,6 +65,30 @@ describe("SSO Signin Route", () => {
     const url = `http://localhost/api/sso/signin?${searchParams.toString()}`;
     return new NextRequest(url);
   };
+
+  test.each([
+    ["/settings?tab=account", "/settings?tab=account"],
+    ["https://external.example/path", "/accounts"],
+    ["//external.example/path", "/accounts"],
+  ])("validates the SSO return path %s", async (next, expected) => {
+    vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
+      providerId: "provider-1",
+    } as never);
+    mockBetterAuthConfig.api.signInSSO.mockResolvedValue({
+      url: "https://sso.example/login",
+      redirect: true,
+    } as never);
+    const request = createMockRequest({
+      email: "user@example.com",
+      organizationSlug: "test-org",
+    });
+    request.nextUrl.searchParams.set("next", next);
+    const response = await GET(new NextRequest(request.nextUrl), mockContext);
+    expect(response.status).toBe(200);
+    expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
+      body: expect.objectContaining({ callbackURL: expected }),
+    });
+  });
 
   describe("Parameter validation", () => {
     test("should return 400 when email parameter is missing", async () => {

@@ -45,7 +45,7 @@ export default async function AuthenticationPage(props: {
   const enabledProviders = Array.from(getEnabledLoginProviders());
 
   return (
-    <div className="flex h-screen flex-col justify-center text-foreground">
+    <div className="flex min-h-screen flex-col justify-center py-10 text-foreground">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col text-center">
           <h1 className="font-title text-2xl text-foreground">Sign In</h1>

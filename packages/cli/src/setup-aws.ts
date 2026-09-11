@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as p from "@clack/prompts";
 import { putSsmParameterWithTags } from "./aws-setup/aws-cli";
+import { getBedrockCredentials } from "./aws-setup/bedrock";
 import { getWebhookUrl, setupGooglePubSub } from "./aws-setup/google-pubsub";
 import {
   ensureDatabaseUrlParameters,
@@ -107,6 +108,10 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   if (nonInteractive) {
     p.log.info("Running in non-interactive mode with defaults");
   }
+
+  let bedrockCredentials = nonInteractive
+    ? await getBedrockCredentials(true)
+    : undefined;
 
   // Cleanup any leftover files from a previous interrupted run
   cleanupInterruptedRun();
@@ -446,17 +451,59 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     p.log.info("Google integration: Skipped (non-interactive mode)");
   }
 
+  const configuredPubsubTopic = process.env.GOOGLE_PUBSUB_TOPIC_NAME;
+  const pubsubTopicName =
+    configuredPubsubTopic ||
+    (googleConfig
+      ? `projects/${googleConfig.projectId}/topics/${domain || "inbox-zero"}`
+      : "projects/your-project-id/topics/inbox-zero-emails");
+  const pubsubTopic = /^projects\/([^/\s]+)\/topics\/([^/\s]+)$/.exec(
+    pubsubTopicName,
+  );
+  const topicSource = configuredPubsubTopic
+    ? "GOOGLE_PUBSUB_TOPIC_NAME"
+    : "The Pub/Sub topic derived from the app domain";
+  if (!pubsubTopic) {
+    throw new Error(
+      `${topicSource} must be projects/PROJECT_ID/topics/TOPIC_ID`,
+    );
+  }
+  const topicId = pubsubTopic[2];
+  if (
+    !/^[A-Za-z][A-Za-z0-9._~+%-]{2,254}$/.test(topicId) ||
+    topicId.startsWith("goog")
+  ) {
+    throw new Error(
+      `${topicSource} must use a 3–255 character topic ID starting with a letter, containing only letters, numbers, -_.~+%, and not starting with goog`,
+    );
+  }
+  const pubsubSubscriptionName = `${topicId}-${APP_NAME}-${envName}-subscription`;
+  if (
+    configureGoogle &&
+    useWebhookGateway &&
+    pubsubSubscriptionName.length > 255
+  ) {
+    throw new Error(
+      "The generated Pub/Sub subscription name exceeds 255 characters; choose a shorter topic ID or environment name",
+    );
+  }
+  if (googleConfig && pubsubTopic[1] !== googleConfig.projectId) {
+    throw new Error(
+      "GOOGLE_PUBSUB_TOPIC_NAME must belong to the selected Google Cloud project",
+    );
+  }
+
   // Step 11: Select LLM provider
   let llmProvider: string;
   let llmApiKey = "";
   let llmEnvVar = "";
 
   if (nonInteractive) {
-    // Use Bedrock as default since it uses AWS credentials (no API key needed)
+    // Explicit runtime credentials are validated before provisioning.
     llmProvider = "bedrock";
     llmEnvVar = "BEDROCK_REGION";
     llmApiKey = region;
-    p.log.info("LLM provider: AWS Bedrock (uses AWS credentials)");
+    p.log.info("LLM provider: AWS Bedrock");
   } else {
     const llmChoice = await p.select({
       message: "LLM Provider:",
@@ -489,8 +536,9 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     // Get LLM API key
     if (llmProvider === "bedrock") {
       p.log.info(
-        "Bedrock uses AWS credentials. Make sure your IAM user has Bedrock access.",
+        "Configure Bedrock credentials with access to the selected models.",
       );
+      bedrockCredentials = await getBedrockCredentials(false);
       llmEnvVar = "BEDROCK_REGION";
       llmApiKey = region;
     } else {
@@ -589,13 +637,17 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   // Step 13: Generate and store secrets in SSM
   spinner.start("Generating secrets...");
 
+  const pubsubVerificationToken = generateSecret(32);
   const secrets: SecretConfig[] = [
     { name: "AUTH_SECRET", value: generateSecret(32) },
     { name: "EMAIL_ENCRYPT_SECRET", value: generateSecret(32) },
     { name: "EMAIL_ENCRYPT_SALT", value: generateSecret(16) },
     { name: "INTERNAL_API_KEY", value: generateSecret(32) },
     { name: "CRON_SECRET", value: generateSecret(32) },
-    { name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN", value: generateSecret(32) },
+    {
+      name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+      value: pubsubVerificationToken,
+    },
   ];
 
   // Add Google OAuth secrets (required)
@@ -606,12 +658,13 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     );
   }
 
-  const pubsubTopicName =
-    process.env.GOOGLE_PUBSUB_TOPIC_NAME ||
-    (googleConfig?.projectId
-      ? `projects/${googleConfig.projectId}/topics/inbox-zero-emails`
-      : "projects/your-project-id/topics/inbox-zero-emails");
   secrets.push({ name: "GOOGLE_PUBSUB_TOPIC_NAME", value: pubsubTopicName });
+
+  if (bedrockCredentials) {
+    for (const [name, value] of Object.entries(bedrockCredentials)) {
+      secrets.push({ name, value });
+    }
+  }
 
   // Add LLM API key
   if (llmEnvVar && llmApiKey) {
@@ -899,13 +952,12 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   if (configureGoogle && googleConfig && webhookUrl) {
     spinner.start("Configuring Google Cloud Pub/Sub...");
 
-    const pubsubResult = setupGooglePubSub({
-      appName: APP_NAME,
+    const pubsubResult = await setupGooglePubSub({
+      subscriptionName: pubsubSubscriptionName,
       projectId: googleConfig.projectId,
       webhookUrl,
-      topicName: domain || "inbox-zero",
-      envName,
-      env,
+      topicName: topicId,
+      verificationToken: pubsubVerificationToken,
     });
 
     if (!pubsubResult.success) {
@@ -1306,7 +1358,7 @@ function updateAddonsParameters(config: {
   writeFileSync(paramsFile, content);
 }
 
-function updateServiceManifestSecrets(config: {
+export function updateServiceManifestSecrets(config: {
   llmEnvVar: string;
   hasGoogleOAuth: boolean;
   enableRedis?: boolean;
@@ -1332,6 +1384,9 @@ function updateServiceManifestSecrets(config: {
   ];
   const optionalSecrets = [
     ...(config.llmEnvVar ? [config.llmEnvVar] : []),
+    ...(config.llmEnvVar === "BEDROCK_REGION"
+      ? ["BEDROCK_ACCESS_KEY", "BEDROCK_SECRET_KEY"]
+      : []),
     ...(config.hasGoogleOAuth
       ? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
       : []),
@@ -1340,53 +1395,23 @@ function updateServiceManifestSecrets(config: {
 
   for (const secretName of [...baseSecrets, ...optionalSecrets]) {
     content = normalizeSecretReference(content, secretName);
+    if (!new RegExp(`^\\s+${secretName}:`, "m").test(content)) {
+      content = content.replace(
+        /^secrets:.*$/m,
+        (heading) =>
+          `${heading}\n  ${secretName}: ${getSecretReference(secretName)}`,
+      );
+    }
   }
 
   content = removeSecrets(content, [
     "UPSTASH_REDIS_URL",
     "UPSTASH_REDIS_TOKEN",
     ...(config.enableRedis ? [] : ["REDIS_URL"]),
-    ...(config.llmEnvVar === "BEDROCK_REGION" ? [] : ["BEDROCK_REGION"]),
+    ...(config.llmEnvVar === "BEDROCK_REGION"
+      ? []
+      : ["BEDROCK_REGION", "BEDROCK_ACCESS_KEY", "BEDROCK_SECRET_KEY"]),
   ]);
-
-  // Add LLM provider secret if not already present
-  if (config.llmEnvVar && !content.includes(`${config.llmEnvVar}:`)) {
-    const secretLine = `  ${config.llmEnvVar}: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/${config.llmEnvVar}`;
-    // Add after the last secret line (before comments or end of secrets block)
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${secretLine}$2`,
-    );
-  }
-
-  if (!content.includes("GOOGLE_PUBSUB_TOPIC_NAME:")) {
-    const pubsubSecret = `  GOOGLE_PUBSUB_TOPIC_NAME: ${getSecretReference("GOOGLE_PUBSUB_TOPIC_NAME")}`;
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${pubsubSecret}$2`,
-    );
-  }
-
-  // Add Google OAuth secrets if configured and not already present
-  if (config.hasGoogleOAuth) {
-    if (!content.includes("GOOGLE_CLIENT_ID:")) {
-      const googleSecrets = `  GOOGLE_CLIENT_ID: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_ID
-  GOOGLE_CLIENT_SECRET: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_SECRET`;
-      content = content.replace(
-        /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-        `$1\n${googleSecrets}$2`,
-      );
-    }
-  }
-
-  // Add Redis URL secret if enabled and not already present
-  if (config.enableRedis && !content.includes("REDIS_URL:")) {
-    const redisSecret = `  REDIS_URL: ${getSecretReference("REDIS_URL")}`;
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${redisSecret}$2`,
-    );
-  }
 
   writeFileSync(manifestPath, content);
 }
@@ -1787,6 +1812,7 @@ function storeSecretInSsm(
     value,
     type: "SecureString",
     errorMessage: `Failed to store ${name}`,
+    overwrite: name !== "EMAIL_ENCRYPT_SECRET" && name !== "EMAIL_ENCRYPT_SALT",
   });
 
   if (!result.success) {

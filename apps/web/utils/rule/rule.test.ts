@@ -6,12 +6,19 @@ import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-actio
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
 
-const { createRuleHistoryMock, mockEnv } = vi.hoisted(() => ({
+const {
+  createRuleHistoryMock,
+  mockEnv,
+  mockIsIntegrationActionEnabledForEmailAccountId,
+} = vi.hoisted(() => ({
   createRuleHistoryMock: vi.fn(),
   mockEnv: {
     webhookActionsEnabled: true,
     deleteEmailActionEnabled: true,
   },
+  mockIsIntegrationActionEnabledForEmailAccountId: vi
+    .fn()
+    .mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/prisma");
@@ -30,6 +37,10 @@ vi.mock("@/utils/email/provider-types", () => ({
 }));
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
+}));
+vi.mock("@/utils/integration-action.server", () => ({
+  isIntegrationActionEnabledForEmailAccountId:
+    mockIsIntegrationActionEnabledForEmailAccountId,
 }));
 vi.mock("@/utils/label/resolve-label", () => ({
   resolveLabelNameAndId: vi.fn(),
@@ -791,6 +802,57 @@ describe("webhook URL validation at save time", () => {
   });
 });
 
+describe("integration action access", () => {
+  beforeEach(() => {
+    resetRuleMocks();
+    mockIsIntegrationActionEnabledForEmailAccountId.mockResolvedValue(true);
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [],
+    } as never);
+    prisma.mcpConnection.findMany.mockResolvedValue([
+      { integration: { name: "todoist" } },
+    ] as never);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as never);
+  });
+
+  it("checks access once when updating integration actions", async () => {
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [integrationAction()],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    expect(
+      mockIsIntegrationActionEnabledForEmailAccountId,
+    ).toHaveBeenCalledOnce();
+    expect(prisma.rule.update).toHaveBeenCalled();
+  });
+
+  it("rejects integration action updates when access is disabled", async () => {
+    mockIsIntegrationActionEnabledForEmailAccountId.mockResolvedValue(false);
+
+    await expect(
+      updateRuleActions({
+        ruleId: RULE_ID,
+        actions: [integrationAction()],
+        provider: "gmail",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        logger,
+      }),
+    ).rejects.toThrow("Integration actions are not enabled for this user.");
+
+    expect(prisma.mcpConnection.findMany).not.toHaveBeenCalled();
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+});
+
 describe("draft messaging actions", () => {
   beforeEach(resetRuleMocks);
 
@@ -966,6 +1028,14 @@ function deleteAction(): RuleAction {
   return {
     type: ActionType.DELETE,
     fields: null,
+    delayInMinutes: null,
+  } as RuleAction;
+}
+
+function integrationAction(): RuleAction {
+  return {
+    type: ActionType.INTEGRATION,
+    fields: { content: "Create a task" } as any,
     delayInMinutes: null,
   } as RuleAction;
 }

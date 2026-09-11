@@ -19,8 +19,7 @@ import { DomainIcon } from "@/components/charts/DomainIcon";
 import { Progress } from "@/components/ui/progress";
 import { extractDomainFromEmail } from "@/utils/email";
 import { cn } from "@/utils";
-
-const LOW_READ_THRESHOLD = 30;
+import { isUnsubscribeSuggestion } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -105,7 +104,7 @@ export function BulkUnsubscribeRowDesktop({
   readPercentage,
 }: RowProps) {
   const domain = extractDomainFromEmail(item.name) || item.name;
-  const isLowReadRate = readPercentage < LOW_READ_THRESHOLD;
+  const isSuggested = isUnsubscribeSuggestion(item);
 
   return (
     <TableRow
@@ -150,16 +149,16 @@ export function BulkUnsubscribeRowDesktop({
             value={readPercentage}
             className={cn(
               "h-1.5 w-16",
-              isLowReadRate ? "bg-amber-100 dark:bg-amber-950" : "bg-muted",
+              isSuggested ? "bg-amber-100 dark:bg-amber-950" : "bg-muted",
             )}
             innerClassName={
-              isLowReadRate ? "bg-amber-400" : "bg-slate-300 dark:bg-slate-500"
+              isSuggested ? "bg-amber-400" : "bg-slate-300 dark:bg-slate-500"
             }
           />
           <span
             className={cn(
               "font-medium",
-              isLowReadRate
+              isSuggested
                 ? "text-amber-600 dark:text-amber-400"
                 : "text-foreground/80",
             )}

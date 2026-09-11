@@ -51,7 +51,10 @@ export const POST = withError("slack/commands", async (request) => {
   if (command.replace(/^\//, "") === "help") {
     return NextResponse.json({
       response_type: "ephemeral",
-      text: getHelpText("slack"),
+      text: getHelpText("slack", {
+        baseUrl: env.NEXT_PUBLIC_BASE_URL,
+        supportEmail: env.NEXT_PUBLIC_SUPPORT_EMAIL,
+      }),
     });
   }
 

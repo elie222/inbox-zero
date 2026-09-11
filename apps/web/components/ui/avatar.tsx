@@ -68,7 +68,9 @@ const AvatarFallbackColor = React.forwardRef<
   ];
 
   const charCode = content.toUpperCase().charCodeAt(0);
-  const colorIndex = (charCode - 65) % colors.length;
+  const colorIndex = Number.isNaN(charCode)
+    ? 0
+    : (((charCode - 65) % colors.length) + colors.length) % colors.length;
 
   return (
     <AvatarFallback

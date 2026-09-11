@@ -135,8 +135,11 @@ describe("api-middleware", () => {
 
     expect(response.status).toBe(401);
     expect(responseBody).toEqual({
-      error: "Invalid API key",
-      isKnownError: true,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Invalid API key",
+        hint: expect.stringContaining("API-Key"),
+      },
     });
     expect(handler).not.toHaveBeenCalled();
     expect(

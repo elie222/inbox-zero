@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 
 const { envMock, withGmailRetryMock } = vi.hoisted(() => ({
   envMock: {
@@ -25,6 +26,8 @@ vi.mock("@/utils/gmail/retry", async (importOriginal) => {
 
 import { watchGmail } from "./watch";
 
+const logger = createScopedLogger("test/gmail-watch");
+
 describe("watchGmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,7 +46,7 @@ describe("watchGmail", () => {
       },
     } as any;
 
-    await expect(watchGmail(gmail)).rejects.toThrow(
+    await expect(watchGmail(gmail, logger)).rejects.toThrow(
       "GOOGLE_PUBSUB_VERIFICATION_TOKEN is required to watch Gmail",
     );
 
@@ -63,7 +66,7 @@ describe("watchGmail", () => {
       },
     } as any;
 
-    await expect(watchGmail(gmail)).resolves.toEqual({
+    await expect(watchGmail(gmail, logger)).resolves.toEqual({
       expiration: "123",
     });
 
@@ -92,7 +95,7 @@ describe("watchGmail", () => {
       },
     } as any;
 
-    await expect(watchGmail(gmail)).resolves.toEqual({
+    await expect(watchGmail(gmail, logger)).resolves.toEqual({
       expiration: "123",
     });
 
@@ -122,7 +125,7 @@ describe("watchGmail", () => {
       },
     } as any;
 
-    await expect(watchGmail(gmail)).resolves.toEqual({
+    await expect(watchGmail(gmail, logger)).resolves.toEqual({
       expiration: "123",
     });
 

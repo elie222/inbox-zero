@@ -1,28 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 
+const mockEnv = vi.hoisted(() => ({
+  NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",
+  NEXT_PUBLIC_POSTHOG_API_HOST: undefined as string | undefined,
+  POSTHOG_API_SECRET: "posthog-secret",
+  POSTHOG_PROJECT_ID: "project-1",
+  POSTHOG_FEEDBACK_SURVEY_ID: "survey-1" as string | undefined,
+  POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: "question-1" as string | undefined,
+  EMAIL_ENCRYPT_SALT: "test-encryption-salt",
+  NODE_ENV: "test",
+}));
+
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",
-    NEXT_PUBLIC_POSTHOG_API_HOST: undefined,
-    POSTHOG_API_SECRET: "posthog-secret",
-    POSTHOG_PROJECT_ID: "project-1",
-    NODE_ENV: "test",
-  },
+  env: mockEnv,
 }));
 
 const captureMock = vi.fn();
-const shutdownMock = vi.fn().mockResolvedValue(undefined);
+const flushMock = vi.fn().mockResolvedValue(undefined);
+const shutdownMock = vi.fn();
 
 vi.mock("posthog-node", () => ({
   PostHog: class PostHogMock {
     capture = captureMock;
+    flush = flushMock;
     shutdown = shutdownMock;
   },
 }));
 
 vi.mock("@/utils/redis", () => ({
   redis: {
+    del: vi.fn(),
     set: vi.fn(),
   },
 }));
@@ -32,7 +40,11 @@ vi.mock("@/utils/prisma");
 import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
+  getCheckoutSessionIdHash,
+  posthogCaptureEvent,
   trackFirstTimeEvent,
+  trackProductFeedback,
+  trackStripeCheckoutCreated,
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "./posthog";
@@ -212,5 +224,134 @@ describe("user deletion events", () => {
       sendFeatureFlags: false,
     });
     expect(shutdownMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("trackProductFeedback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_ID = "survey-1";
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_QUESTION_ID = "question-1";
+  });
+
+  it("captures a regular event and an ID-based survey sent event", async () => {
+    await trackProductFeedback("user@example.com", "Love the assistant");
+
+    expect(captureMock).toHaveBeenCalledTimes(2);
+    expect(captureMock).toHaveBeenNthCalledWith(1, {
+      distinctId: "user@example.com",
+      event: "Product feedback submitted",
+      properties: { feedback: "Love the assistant" },
+      sendFeatureFlags: undefined,
+    });
+    expect(captureMock).toHaveBeenNthCalledWith(2, {
+      distinctId: "user@example.com",
+      event: "survey sent",
+      properties: {
+        $survey_id: "survey-1",
+        "$survey_response_question-1": "Love the assistant",
+        $survey_questions: [
+          {
+            id: "question-1",
+            question: "What's your feedback?",
+          },
+        ],
+        $survey_completed: true,
+      },
+      sendFeatureFlags: undefined,
+    });
+  });
+  it("still captures the regular event when survey env vars are missing", async () => {
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_ID = undefined;
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_QUESTION_ID = undefined;
+
+    await trackProductFeedback("user@example.com", "Still useful");
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Product feedback submitted",
+      properties: { feedback: "Still useful" },
+      sendFeatureFlags: undefined,
+    });
+  });
+});
+
+describe("trackStripeCheckoutCreated", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures only once for a replayed Stripe Checkout Session", async () => {
+    vi.mocked(redis.set)
+      .mockResolvedValueOnce("OK")
+      .mockResolvedValueOnce(null);
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(2);
+    expect(redis.set).toHaveBeenCalledWith(
+      "posthog:stripe-checkout-created:cs_test",
+      "1",
+      { nx: true, ex: 172_800 },
+    );
+    expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Stripe checkout created",
+      properties: {
+        checkoutSessionIdHash: getCheckoutSessionIdHash("cs_test"),
+        tier: "BASIC_MONTHLY",
+      },
+      sendFeatureFlags: undefined,
+    });
+  });
+
+  it("captures when Redis is unavailable", async () => {
+    vi.mocked(redis.set).mockRejectedValue(new Error("Redis unavailable"));
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(redis.del).not.toHaveBeenCalled();
+  });
+
+  it("releases the dedupe reservation when PostHog capture fails", async () => {
+    vi.mocked(redis.set).mockResolvedValue("OK");
+    flushMock.mockRejectedValueOnce(new Error("PostHog unavailable"));
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(redis.del).toHaveBeenCalledWith(
+      "posthog:stripe-checkout-created:cs_test",
+    );
+  });
+});
+
+describe("posthogCaptureEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not fail a delivered event when shutdown cleanup rejects", async () => {
+    const shutdownResult = Promise.reject(new Error("Shutdown unavailable"));
+    shutdownResult.catch(() => undefined);
+    const catchSpy = vi.spyOn(shutdownResult, "catch");
+    shutdownMock.mockReturnValueOnce(shutdownResult);
+
+    await expect(
+      posthogCaptureEvent("user@example.com", "Test event"),
+    ).resolves.toBe(true);
+
+    expect(catchSpy).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,6 @@
 import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { fetchWithAccount } from "@/utils/fetch";
+import { EmailProviderRateLimitError } from "@/utils/error";
 
 const SENDER_THREADS_PAGE_LIMIT = 100;
 
@@ -30,6 +31,9 @@ export async function fetchAllSenderThreads({
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new EmailProviderRateLimitError();
+      }
       throw new Error("Failed to fetch threads");
     }
 
