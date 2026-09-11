@@ -109,6 +109,7 @@ export async function runRules({
   modelType,
   logger,
   skipArchive,
+  skipDraftReplies,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -118,6 +119,7 @@ export async function runRules({
   modelType: ModelType;
   logger: Logger;
   skipArchive?: boolean;
+  skipDraftReplies?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -191,7 +193,10 @@ export async function runRules({
     }
   }
 
-  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
+  const executableMatches = skipDraftReplies
+    ? removeDraftReplyActionsFromMatches(matchesWithFlags)
+    : matchesWithFlags;
+  const finalMatches = limitDraftEmailActions(executableMatches, logger);
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -984,4 +989,20 @@ function collectMessagingChannelsFromOtherRules<
   }
 
   return actions;
+}
+
+function removeDraftReplyActionsFromMatches<
+  T extends { rule: RuleWithActions },
+>(matches: T[]): T[] {
+  return matches
+    .map((match) => ({
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter(
+          (action) => !isDraftReplyActionType(action.type),
+        ),
+      },
+    }))
+    .filter((match) => match.rule.actions.length > 0);
 }
