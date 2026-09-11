@@ -9,14 +9,15 @@ WHERE "source" IS NULL
     OR "type" = 'SUBJECT'
   );
 
+-- PostgreSQL 15 treats \v as a literal letter; use octal for vertical tab.
 DELETE FROM "GroupItem"
-WHERE btrim("value", E' \t\n\r\f\v' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF') = '';
+WHERE btrim("value", E' \t\n\r\f\013' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF') = '';
 
 WITH ranked_items AS (
   SELECT
     "id",
     row_number() OVER (
-      PARTITION BY "groupId", "type", lower(btrim("value", E' \t\n\r\f\v' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'))
+      PARTITION BY "groupId", "type", lower(btrim("value", E' \t\n\r\f\013' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'))
       ORDER BY
         coalesce("source" = 'USER', true) DESC,
         "updatedAt" DESC,
@@ -33,5 +34,5 @@ WHERE "GroupItem"."id" = ranked_items."id"
   AND ranked_items.rank > 1;
 
 UPDATE "GroupItem"
-SET "value" = lower(btrim("value", E' \t\n\r\f\v' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'))
-WHERE "value" <> lower(btrim("value", E' \t\n\r\f\v' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'));
+SET "value" = lower(btrim("value", E' \t\n\r\f\013' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'))
+WHERE "value" <> lower(btrim("value", E' \t\n\r\f\013' || U&'\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'));
