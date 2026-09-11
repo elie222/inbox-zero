@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { hasPreviousCommunicationsWithSenderOrDomain } from "./message";
+import { getBatch } from "./batch";
+
+vi.mock("./batch", () => ({ getBatch: vi.fn() }));
+vi.mock("./client", () => ({
+  getAccessTokenFromClient: vi.fn(() => "test-token"),
+}));
 
 describe("Gmail prior contact excluding cold labels", () => {
   const options = {
@@ -14,6 +20,10 @@ describe("Gmail prior contact excluding cold labels", () => {
     pages: string[][],
     labels: Record<string, string[] | undefined>,
   ) {
+    vi.mocked(getBatch).mockReset();
+    vi.mocked(getBatch).mockImplementation(async (ids) =>
+      ids.map((id) => ({ id, labelIds: labels[id] })),
+    );
     const list = vi.fn().mockImplementation(({ pageToken }) => {
       const page = Number(pageToken ?? 0);
       return {
@@ -102,5 +112,34 @@ describe("Gmail prior contact excluding cold labels", () => {
     await expect(
       hasPreviousCommunicationsWithSenderOrDomain(gmail, options),
     ).rejects.toThrow("Missing prior message labels");
+  });
+
+  it("fetches a page of metadata in one bounded batch", async () => {
+    const ids = Array.from({ length: 20 }, (_, i) => `cold-${i}`);
+    const { gmail, get } = client(
+      [ids],
+      Object.fromEntries(ids.map((id) => [id, ["cold-label"]])),
+    );
+    await expect(
+      hasPreviousCommunicationsWithSenderOrDomain(gmail, options),
+    ).resolves.toBe(false);
+    expect(getBatch).toHaveBeenCalledTimes(1);
+    expect(getBatch).toHaveBeenCalledWith(
+      ids,
+      "/gmail/v1/users/me/messages",
+      "test-token",
+      "format=minimal&fields=id,labelIds",
+    );
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("propagates skipped batch failures to the fail-safe caller", async () => {
+    const { gmail } = client([["missing"]], {});
+    vi.mocked(getBatch).mockResolvedValue([
+      { error: { code: 404, message: "Not found" } },
+    ]);
+    await expect(
+      hasPreviousCommunicationsWithSenderOrDomain(gmail, options),
+    ).rejects.toThrow("Missing prior message metadata");
   });
 });

@@ -1787,7 +1787,11 @@ export class GmailProvider implements EmailProvider {
       EmailProvider["hasPreviousCommunicationsWithSenderOrDomain"]
     >[0],
   ): Promise<boolean> {
-    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
+    return hasPreviousCommunicationsWithSenderOrDomain(
+      this.client,
+      options,
+      this.logger,
+    );
   }
 
   async getThreadsFromSenderWithSubject(

@@ -13,7 +13,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import { withGmailRetry } from "@/utils/gmail/retry";
-import type { Logger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import type { PriorCommunicationOptions } from "@/utils/email/types";
 
 export function parseMessage(
@@ -187,6 +187,7 @@ async function hasPreviousCommunicationWithSender(
 export async function hasPreviousCommunicationsWithSenderOrDomain(
   gmail: gmail_v1.Gmail,
   options: PriorCommunicationOptions,
+  logger: Logger = createScopedLogger("gmail/prior-contact"),
 ) {
   const searchTerm = getSearchTermForSender(options.from);
 
@@ -200,23 +201,34 @@ export async function hasPreviousCommunicationsWithSenderOrDomain(
         maxResults: 20,
         pageToken,
       });
-      for (const message of result.messages) {
-        if (message.id === options.messageId) continue;
-        const { data } = await withGmailRetry(() =>
-          gmail.users.messages.get({
-            userId: "me",
-            id: message.id,
-            format: "minimal",
-            fields: "id,labelIds",
-          }),
-        );
-        if (!data.labelIds) throw new Error("Missing prior message labels");
-        // A sent message still proves contact even if its thread retains a cold label.
-        if (
-          data.labelIds.includes(GmailLabel.SENT) ||
-          !data.labelIds.some((id) => excluded.has(id))
-        )
-          return true;
+      const ids = result.messages
+        .filter((message) => message.id !== options.messageId)
+        .map((message) => message.id);
+      if (ids.length) {
+        const messages = await getBatchWithRetry<
+          gmail_v1.Schema$Message,
+          gmail_v1.Schema$Message
+        >({
+          ids,
+          endpoint: "/gmail/v1/users/me/messages",
+          accessToken: getAccessTokenFromClient(gmail),
+          queryString: "format=minimal&fields=id,labelIds",
+          parse: (message) => message,
+          logger,
+        });
+        // The batch helper skips non-retryable failures; incomplete history is unsafe.
+        const fetchedIds = new Set(messages.map((message) => message.id));
+        if (ids.some((id) => !fetchedIds.has(id)))
+          throw new Error("Missing prior message metadata");
+        for (const data of messages) {
+          if (!data.labelIds) throw new Error("Missing prior message labels");
+          // A sent message still proves contact even if its thread retains a cold label.
+          if (
+            data.labelIds.includes(GmailLabel.SENT) ||
+            !data.labelIds.some((id) => excluded.has(id))
+          )
+            return true;
+        }
       }
       if (!result.nextPageToken) return false;
       pageToken = result.nextPageToken;
