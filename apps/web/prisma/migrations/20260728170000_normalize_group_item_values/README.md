@@ -17,10 +17,14 @@ database; preview URL variables take precedence over `DIRECT_URL`.
    database unchanged and allows a later retry.
 
    ```sh
-   {
-     printf '%s\n' "SET LOCAL lock_timeout = '5s';" 'LOCK TABLE "GroupItem" IN SHARE ROW EXCLUSIVE MODE;'
-     cat prisma/migrations/20260728170000_normalize_group_item_values/migration.sql
-   } | psql "$DIRECT_URL" -X --single-transaction -v ON_ERROR_STOP=1
+   (
+     set -eu
+     recovery_sql=$(mktemp)
+     trap 'rm -f "$recovery_sql"' EXIT
+     printf '%s\n' "SET LOCAL lock_timeout = '5s';" 'LOCK TABLE "GroupItem" IN SHARE ROW EXCLUSIVE MODE;' > "$recovery_sql"
+     cat prisma/migrations/20260728170000_normalize_group_item_values/migration.sql >> "$recovery_sql"
+     psql "$DIRECT_URL" -X --single-transaction -v ON_ERROR_STOP=1 -f "$recovery_sql"
+   )
    ```
 
 3. **Only if the SQL succeeds and Prisma recorded this migration as failed**, mark
