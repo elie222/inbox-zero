@@ -90,6 +90,22 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
 
     await context.setOffline(false);
+    // Confirm the browser's network has recovered before navigating away.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          try {
+            const response = await fetch("/api/user/me", {
+              cache: "no-store",
+              signal: AbortSignal.timeout(5000),
+            });
+            return response.ok;
+          } catch {
+            return false;
+          }
+        }),
+      )
+      .toBe(true);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
     await expect(
       conversationWithSubject(page, conversations, "Archive Action Message"),
