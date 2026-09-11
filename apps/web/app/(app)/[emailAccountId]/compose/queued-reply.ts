@@ -15,6 +15,7 @@ export type ReaderEmailOutcome =
       reason: "offline" | "pending" | "blocked_auth";
       threadId: string;
     }
+  | { status: "held"; mutationId: string; threadId: string }
   | { status: "uncertain"; ownsNotification: boolean; threadId: string }
   | { status: "failed"; error: string; ownsNotification: boolean };
 
@@ -25,6 +26,7 @@ export async function queueReaderEmail({
   online,
   onQueued,
   mutationId,
+  holdUntil,
   settlementTimeoutMs = DEFAULT_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
@@ -34,6 +36,7 @@ export async function queueReaderEmail({
   online: boolean;
   onQueued?: () => Promise<void>;
   mutationId?: string;
+  holdUntil?: number;
   settlementTimeoutMs?: number;
   threadId: string;
 }): Promise<ReaderEmailOutcome> {
@@ -42,6 +45,7 @@ export async function queueReaderEmail({
     try {
       mutation = await enqueueMailMutation({
         ...(mutationId ? { id: mutationId } : {}),
+        ...(holdUntil !== undefined ? { nextAttemptAt: holdUntil } : {}),
         email,
         emailAccountId,
         kind: "reply",
@@ -64,6 +68,9 @@ export async function queueReaderEmail({
     );
   }
   await onQueued?.();
+  if (mutation.nextAttemptAt > Date.now()) {
+    return { status: "held", mutationId: mutation.id, threadId };
+  }
   if (!online) return { status: "queued", reason: "offline", threadId };
 
   return waitForSettlement({
@@ -154,6 +161,17 @@ async function waitForSettlement({
       settlementTimeoutMs,
     );
     inspect();
+  });
+}
+
+export function waitForReaderEmailSettlement(options: {
+  mutationId: string;
+  settlementTimeoutMs?: number;
+  threadId: string;
+}) {
+  return waitForSettlement({
+    settlementTimeoutMs: DEFAULT_SETTLEMENT_TIMEOUT_MS,
+    ...options,
   });
 }
 

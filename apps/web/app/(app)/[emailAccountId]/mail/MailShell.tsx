@@ -93,6 +93,7 @@ import {
 } from "@/utils/email/provider-types";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { undoPendingSend } from "@/app/(app)/[emailAccountId]/compose/undo-send";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -1112,7 +1113,10 @@ export function MailShell() {
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
-      undo: () => undo(),
+      undo: async () => {
+        if (await undoPendingSend()) return;
+        await undo();
+      },
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
       togglePreview,
       help: () => setIsHelpOpen(true),

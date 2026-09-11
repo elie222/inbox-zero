@@ -6,7 +6,11 @@ import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
 } from "./account-test-helpers";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 test("keeps keyboard focus in the composer and follows the message field order", async ({
   page,
@@ -368,6 +372,7 @@ test("does not add a line break for the send shortcut", async ({
     conversations,
     subject,
   );
+  await expect(sentConversation).toBeVisible({ timeout: 20_000 });
   await sentConversation.click();
   const sentBody = page
     .frameLocator('iframe[title="Email content preview"]')
@@ -445,7 +450,7 @@ test("composes, sends, and reads a new message from Sent", async ({
     conversations,
     subject,
   );
-  await expect(sentConversation).toBeVisible();
+  await expect(sentConversation).toBeVisible({ timeout: 20_000 });
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
@@ -455,6 +460,60 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
   await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
+});
+
+test("undoes a composed message before it is delivered", async ({ page }) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const subject = `Playwright Undo Send ${Date.now()}`;
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog
+    .getByRole("combobox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
+  await dialog
+    .locator("[contenteditable='true']")
+    .pressSequentially("This should not be delivered.");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
+
+  await expect(dialog).toBeHidden();
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  await expect(
+    notifications.getByText("Email sent!", { exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "compose:new-message",
+      }),
+    )
+    .toMatchObject({ status: "pending" });
+  await notifications.getByRole("button", { name: /^Undo/ }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByPlaceholder("Subject")).toHaveValue(subject);
+  await expect(
+    dialog.getByRole("textbox", { name: "Email message" }),
+  ).toContainText("This should not be delivered.");
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "compose:new-message",
+      }),
+    )
+    .toBeUndefined();
+
+  await page.getByRole("link", { name: /^Sent/ }).click();
+  await expect(
+    conversationWithSubject(page, conversations, subject),
+  ).toHaveCount(0);
 });
 
 test("selects the sender when composing from all accounts", async ({
@@ -674,7 +733,7 @@ test("opens and sends a reply from the reader with Enter", async ({
       page
         .getByRole("region", { name: "Reply delivery status" })
         .getByText("Reply sent", { exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 20_000 });
     await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
     await capturePlaywrightCheckpoint(
       page,
@@ -714,10 +773,12 @@ test("opens a sent forward in its provider thread", async ({
     .getByRole("button", { name: "Send", exact: true })
     .click();
 
-  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/, {
+    timeout: 20_000,
+  });
   await expect(
     page.getByRole("heading", { name: "Fwd: Reply Workflow Message" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
   await expect(
     page
       .frameLocator('iframe[title="Email content preview"]')

@@ -39,10 +39,12 @@ export function toastInfo(options: {
 export function toastUndo(options: {
   message: string;
   shortcut?: string;
+  duration?: number;
   onUndo: () => void;
 }) {
   return toast.success(options.message, {
     id: "undo",
+    duration: options.duration,
     action: {
       label: (
         <>

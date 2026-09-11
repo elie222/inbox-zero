@@ -104,6 +104,7 @@ export function EmailMessage({
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
+  const undoSendSessionRef = useRef<ComposeSession | null>(null);
 
   const onStartDiscard = useCallback((): ComposeSession | undefined => {
     if (!composeMode) return;
@@ -120,6 +121,19 @@ export function EmailMessage({
     composeSessionRef.current += 1;
     setComposeOverride(composeSession.mode);
   }, []);
+  const onCloseComposeAfterSend = useCallback(() => {
+    if (composeMode) {
+      undoSendSessionRef.current = {
+        id: composeSessionRef.current,
+        mode: composeMode,
+      };
+    }
+    onCloseCompose();
+  }, [composeMode, onCloseCompose]);
+  const onRestoreComposeAfterSend = useCallback(() => {
+    const session = undoSendSessionRef.current;
+    if (session) onRestoreCompose(session);
+  }, [onRestoreCompose]);
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -225,7 +239,8 @@ export function EmailMessage({
               defaultComposeMode={defaultComposeMode}
               draftMessage={draftMessage}
               message={message}
-              onCloseCompose={onCloseCompose}
+              onCloseCompose={onCloseComposeAfterSend}
+              onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onMarkDone={onMarkDone}
@@ -466,6 +481,7 @@ function ReplyPanel({
   onSendSuccess,
   onMarkDone,
   onCloseCompose,
+  onRestore,
   onRestoreCompose,
   onStartDiscard,
   defaultComposeMode,
@@ -477,6 +493,7 @@ function ReplyPanel({
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
+  onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
   defaultComposeMode?: ReplyDraftMode;
@@ -567,6 +584,7 @@ function ReplyPanel({
         draftMode={composeMode}
         draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
         onClose={onCloseCompose}
+        onRestore={onRestore}
         onDiscard={onDiscard}
         onMarkDone={onMarkDone}
         onSuccess={(messageId: string, threadId: string) => {
