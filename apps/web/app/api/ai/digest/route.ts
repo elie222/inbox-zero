@@ -47,7 +47,7 @@ export const POST = withError(
       }
 
       const ruleName = actionId
-        ? await getRuleNameByExecutedAction(actionId)
+        ? await getRuleNameByExecutedAction(actionId, emailAccountId)
         : null;
 
       if (!ruleName) {
@@ -256,9 +256,15 @@ async function upsertDigest({
 
 async function getRuleNameByExecutedAction(
   actionId: string,
-): Promise<string | undefined> {
-  const executedAction = await prisma.executedAction.findUnique({
-    where: { id: actionId },
+  emailAccountId: string,
+): Promise<string | null | undefined> {
+  const executedAction = await prisma.executedAction.findFirst({
+    where: {
+      id: actionId,
+      executedRule: {
+        emailAccountId,
+      },
+    },
     select: {
       executedRule: {
         select: {
@@ -272,9 +278,5 @@ async function getRuleNameByExecutedAction(
     },
   });
 
-  if (!executedAction) {
-    throw new Error("Executed action not found");
-  }
-
-  return executedAction.executedRule?.rule?.name;
+  return executedAction?.executedRule?.rule?.name;
 }
