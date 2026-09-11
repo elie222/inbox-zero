@@ -1,6 +1,13 @@
 "use client";
 
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type HotkeyCallback, useHotkeys } from "react-hotkeys-hook";
 import {
   createSequencePrefixTracker,
@@ -59,7 +66,10 @@ export function useShortcuts(
   { isDesktopApp = false }: { isDesktopApp?: boolean } = {},
 ): void {
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useLayoutEffect(() => {
+    // Suspended renders must not replace the visible screen's handlers.
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   const [sequence] = useState(createSequencePrefixTracker);
 

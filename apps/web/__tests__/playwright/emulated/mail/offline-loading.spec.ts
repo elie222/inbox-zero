@@ -10,7 +10,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
   context,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
   ).toBeVisible();
@@ -77,6 +77,41 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       )
       .toBe(true);
 
+    // The initial list can render from the network before IndexedDB is durable.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (accountId) =>
+            new Promise<boolean>((resolve) => {
+              const request = indexedDB.open("inbox-zero-email-cache");
+              request.onerror = () => resolve(false);
+              request.onupgradeneeded = () => request.transaction?.abort();
+              request.onsuccess = () => {
+                const database = request.result;
+                if (!database.objectStoreNames.contains("mailboxSyncStates")) {
+                  database.close();
+                  resolve(false);
+                  return;
+                }
+                const transaction = database.transaction("mailboxSyncStates");
+                const state = transaction
+                  .objectStore("mailboxSyncStates")
+                  .get(accountId);
+                transaction.oncomplete = () => {
+                  database.close();
+                  resolve(Boolean(state.result?.completedAt));
+                };
+                transaction.onerror = () => {
+                  database.close();
+                  resolve(false);
+                };
+              };
+            }),
+          emailAccountId,
+        ),
+      )
+      .toBe(true);
+
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
     await expect(conversations).toBeVisible();
@@ -90,14 +125,14 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
 
     await context.setOffline(false);
-    // Confirm the browser's network has recovered before navigating away.
+    // Confirm the browser can reach the server before testing a connected reload.
     await expect
       .poll(() =>
         page.evaluate(async () => {
           try {
-            const response = await fetch("/api/user/me", {
+            const response = await fetch("/api/auth/ok", {
               cache: "no-store",
-              signal: AbortSignal.timeout(5000),
+              signal: AbortSignal.timeout(3000),
             });
             return response.ok;
           } catch {

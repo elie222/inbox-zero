@@ -39,7 +39,11 @@ test("shows matched reasons only for the selected message", async ({
           id: "earlier-match",
           messageId: "earlier-message",
           rule: { id: "rule-1", name: "Example rule" },
-          actionItems: [],
+          actionItems: [
+            { id: "label-action", type: "LABEL", label: "Needs response" },
+            { id: "draft-action", type: "DRAFT_EMAIL" },
+            { id: "task-action", type: "INTEGRATION" },
+          ],
           status: "APPLIED",
           reason: "Reason for the earlier message.",
         },
@@ -47,9 +51,14 @@ test("shows matched reasons only for the selected message", async ({
           id: "later-match",
           messageId: "later-message",
           rule: { id: "rule-1", name: "Example rule" },
-          actionItems: [],
+          actionItems: [
+            { id: "label-action", type: "LABEL", label: "Needs response" },
+            { id: "draft-action", type: "DRAFT_EMAIL" },
+            { id: "task-action", type: "INTEGRATION" },
+          ],
           status: "APPLIED",
-          reason: "Reason for the later message.",
+          reason:
+            "Reason for the later message.\nAction failures: INTEGRATION:INTEGRATION_CALL_FAILED",
         },
       ];
     }
@@ -89,6 +98,26 @@ test("shows matched reasons only for the selected message", async ({
     await expect(
       page.getByText(otherReason, { exact: true }),
     ).not.toBeVisible();
+    await expect(
+      page.getByText("Label as 'Needs response'", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Draft Reply", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        id === "earlier-message" ? "Actions applied" : "Rule actions",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    if (id === "later-message") {
+      await expect(
+        page.getByText("The integration action could not be completed.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Actions applied", { exact: true }),
+      ).not.toBeVisible();
+    }
     await capturePlaywrightCheckpoint(page, testInfo, `matched-reason-${id}`);
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");

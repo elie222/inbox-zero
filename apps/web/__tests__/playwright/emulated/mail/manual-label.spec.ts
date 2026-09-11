@@ -194,6 +194,7 @@ test("L labels the open conversation after it leaves the unread list", async ({
   await page.keyboard.press("Escape");
   await expect(picker).toBeHidden();
   await expect(heading).toBeVisible();
+  await expect(page.locator("body")).toBeFocused();
   await page.keyboard.press("l");
   await picker.getByRole("combobox").fill("Project Alpha");
   await expect(

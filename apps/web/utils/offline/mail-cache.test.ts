@@ -74,6 +74,37 @@ describe("offline mail cache", () => {
     expect(await (await response).text()).toBe("Saved mailbox");
   });
 
+  it("serves the saved mailbox while a background cache write is stalled", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html());
+    await cache.handle(documentRequest(), waitUntil);
+    await Promise.all(pending);
+
+    let finishWrite!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    vi.spyOn(storage, "put").mockReturnValueOnce(writing);
+    network.mockResolvedValueOnce(html("Refreshed mailbox"));
+    await cache.handle(documentRequest(), waitUntil);
+
+    vi.useFakeTimers();
+    network.mockImplementation(() => new Promise(() => {}));
+    let body: string | undefined;
+    const response = cache
+      .handle(documentRequest(), waitUntil)
+      .then(async (result) => {
+        body = await result.text();
+      });
+    await vi.advanceTimersByTimeAsync(3000);
+    try {
+      expect(body).toBe("Saved mailbox");
+    } finally {
+      finishWrite();
+      await response;
+    }
+  });
+
   it("uses saved mail when response headers arrive but the page body stalls", async () => {
     const cache = makeCache();
     network.mockResolvedValueOnce(html());
@@ -88,6 +119,23 @@ describe("offline mail cache", () => {
     const response = cache.handle(documentRequest(), waitUntil);
     await vi.advanceTimersByTimeAsync(3000);
     expect(await (await response).text()).toBe("Saved mailbox");
+  });
+
+  it("does not return saved mail if logout starts during the cache lookup", async () => {
+    const cache = makeCache();
+    const lookupStarted = Promise.withResolvers<void>();
+    const lookup = Promise.withResolvers<Response | undefined>();
+    vi.spyOn(storage, "match").mockImplementationOnce(() => {
+      lookupStarted.resolve();
+      return lookup.promise;
+    });
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    const loading = cache.handle(documentRequest(), waitUntil);
+    await lookupStarted.promise;
+    await cache.clear();
+    lookup.resolve(html("Previous session mailbox"));
+    await expect(loading).rejects.toThrow("Network unavailable");
+    await Promise.all(pending);
   });
 
   it("bounds a stalled request even when there is no saved mailbox", async () => {

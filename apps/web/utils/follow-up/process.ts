@@ -340,36 +340,10 @@ async function processFollowUpsForType({
     labelId = found.id;
   }
 
-  const threads = await provider.getThreadsWithLabel({
-    labelId,
-    maxResults: FOLLOW_UP_THREAD_SCAN_LIMIT,
-  });
-
-  logger.info("Found threads with label", {
-    systemType,
-    count: threads.length,
-  });
-
   const trackerType =
     systemType === SystemType.AWAITING_REPLY
       ? ThreadTrackerType.AWAITING
       : ThreadTrackerType.NEEDS_REPLY;
-
-  const threadIds = threads.map((t) => t.id);
-  const processedLedger = await getProcessedFollowUpLedger({
-    emailAccountId: emailAccount.id,
-    threadIds,
-  });
-  const processedLedgerStats =
-    summarizeProcessedFollowUpLedger(processedLedger);
-
-  logger.info("Loaded processed follow-up ledger", {
-    systemType,
-    candidateThreadCount: threadIds.length,
-    ledgerThreadCount: processedLedgerStats.threadCount,
-    ledgerMessageIdCount: processedLedgerStats.messageIdCount,
-    ledgerSentAtCount: processedLedgerStats.sentAtCount,
-  });
 
   let processedCount = 0;
   let skippedAlreadyProcessedCount = 0;
@@ -378,270 +352,330 @@ async function processFollowUpsForType({
   let errorCount = 0;
   const skippedAlreadyProcessedThreadIds = new Set<string>();
 
-  for (const thread of threads) {
-    const threadLogger = logger.with({ threadId: thread.id });
+  const scannedThreadIds = new Set<string>();
+  const seenPageTokens = new Set<string>();
+  let pageToken: string | undefined;
 
-    try {
-      const lastMessage = await provider.getLatestMessageFromThreadSnapshot({
-        id: thread.id,
-        messages: thread.messages,
-      });
-      if (!lastMessage) {
-        skippedNoLatestMessageCount++;
-        continue;
-      }
+  // Labels can survive a failed tracker write or cleanup. Only the ledger can
+  // identify completed candidates that should not consume this run's budget.
+  do {
+    const page = await provider.getThreadsWithQuery({
+      query: { labelId },
+      maxResults:
+        FOLLOW_UP_THREAD_SCAN_LIMIT -
+        (scannedThreadIds.size - skippedAlreadyProcessedCount),
+      pageToken,
+    });
+    const threads = page.threads.filter((thread) => {
+      if (scannedThreadIds.has(thread.id)) return false;
+      scannedThreadIds.add(thread.id);
+      return true;
+    });
+    pageToken = page.nextPageToken;
 
-      const messageDate = internalDateToDate(lastMessage.internalDate);
-      if (
-        !hasElapsedBusinessDays({
-          start: messageDate,
-          end: now,
-          days: thresholdDays,
-          windowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
-          timezone: emailAccount.timezone,
-        })
-      ) {
-        skippedTooRecentCount++;
-        continue;
-      }
+    logger.info("Found threads with label", {
+      systemType,
+      count: threads.length,
+    });
 
-      const ledgerEntry = processedLedger.get(thread.id);
-      const processedReason = getFollowUpProcessedReason({
-        processedLedger,
-        threadId: thread.id,
-        messageId: lastMessage.id,
-        sentAt: messageDate,
-      });
+    const threadIds = threads.map((t) => t.id);
+    const processedLedger = await getProcessedFollowUpLedger({
+      emailAccountId: emailAccount.id,
+      threadIds,
+    });
+    const processedLedgerStats =
+      summarizeProcessedFollowUpLedger(processedLedger);
 
-      if (processedReason) {
-        skippedAlreadyProcessedCount++;
-        skippedAlreadyProcessedThreadIds.add(thread.id);
-        threadLogger.info("Skipping already-processed follow-up candidate", {
+    logger.info("Loaded processed follow-up ledger", {
+      systemType,
+      candidateThreadCount: threadIds.length,
+      ledgerThreadCount: processedLedgerStats.threadCount,
+      ledgerMessageIdCount: processedLedgerStats.messageIdCount,
+      ledgerSentAtCount: processedLedgerStats.sentAtCount,
+    });
+
+    for (const thread of threads) {
+      const threadLogger = logger.with({ threadId: thread.id });
+
+      try {
+        const lastMessage = await provider.getLatestMessageFromThreadSnapshot({
+          id: thread.id,
+          messages: thread.messages,
+        });
+        if (!lastMessage) {
+          skippedNoLatestMessageCount++;
+          continue;
+        }
+
+        const messageDate = internalDateToDate(lastMessage.internalDate);
+        if (
+          !hasElapsedBusinessDays({
+            start: messageDate,
+            end: now,
+            days: thresholdDays,
+            windowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
+            timezone: emailAccount.timezone,
+          })
+        ) {
+          skippedTooRecentCount++;
+          continue;
+        }
+
+        const ledgerEntry = processedLedger.get(thread.id);
+        const processedReason = getFollowUpProcessedReason({
+          processedLedger,
+          threadId: thread.id,
+          messageId: lastMessage.id,
+          sentAt: messageDate,
+        });
+
+        if (processedReason) {
+          skippedAlreadyProcessedCount++;
+          skippedAlreadyProcessedThreadIds.add(thread.id);
+          threadLogger.info("Skipping already-processed follow-up candidate", {
+            systemType,
+            messageId: lastMessage.id,
+            sentAt: messageDate.toISOString(),
+            processedReason,
+            ledgerMessageIdCount: ledgerEntry?.messageIds.size ?? 0,
+            ledgerSentAtCount: ledgerEntry?.sentAtTimes.size ?? 0,
+          });
+          continue;
+        }
+
+        threadLogger.info("Follow-up candidate missing from processed ledger", {
           systemType,
           messageId: lastMessage.id,
           sentAt: messageDate.toISOString(),
-          processedReason,
+          trackerType,
+          ledgerThreadKnown: Boolean(ledgerEntry),
           ledgerMessageIdCount: ledgerEntry?.messageIds.size ?? 0,
           ledgerSentAtCount: ledgerEntry?.sentAtTimes.size ?? 0,
         });
-        continue;
-      }
 
-      threadLogger.info("Follow-up candidate missing from processed ledger", {
-        systemType,
-        messageId: lastMessage.id,
-        sentAt: messageDate.toISOString(),
-        trackerType,
-        ledgerThreadKnown: Boolean(ledgerEntry),
-        ledgerMessageIdCount: ledgerEntry?.messageIds.size ?? 0,
-        ledgerSentAtCount: ledgerEntry?.sentAtTimes.size ?? 0,
-      });
-
-      await applyFollowUpLabel({
-        provider,
-        threadId: thread.id,
-        messageId: lastMessage.id,
-        labelId: followUpLabelId,
-        logger: threadLogger,
-      });
-
-      const existingTracker = await prisma.threadTracker.findFirst({
-        where: {
-          emailAccountId: emailAccount.id,
+        await applyFollowUpLabel({
+          provider,
           threadId: thread.id,
-          type: trackerType,
-          resolved: false,
-        },
-        orderBy: { createdAt: "desc" },
-      });
+          messageId: lastMessage.id,
+          labelId: followUpLabelId,
+          logger: threadLogger,
+        });
 
-      let tracker: { id: string; followUpNotifications: unknown };
-      let trackerWritePath: string;
-      if (existingTracker) {
-        try {
-          tracker = await prisma.threadTracker.update({
-            where: { id: existingTracker.id },
-            data: {
-              messageId: lastMessage.id,
-              sentAt: messageDate,
-              followUpAppliedAt: now,
-            },
-          });
-          trackerWritePath = "updated-existing";
-        } catch (error) {
-          if (isDuplicateError(error)) {
-            tracker = await prisma.threadTracker.update({
-              where: {
-                emailAccountId_threadId_messageId: {
-                  emailAccountId: emailAccount.id,
-                  threadId: thread.id,
-                  messageId: lastMessage.id,
-                },
-              },
-              data: {
-                resolved: false,
-                type: trackerType,
-                sentAt: messageDate,
-                followUpAppliedAt: now,
-              },
-            });
-            trackerWritePath = "updated-duplicate";
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        try {
-          tracker = await prisma.threadTracker.create({
-            data: {
-              emailAccountId: emailAccount.id,
-              threadId: thread.id,
-              messageId: lastMessage.id,
-              type: trackerType,
-              sentAt: messageDate,
-              followUpAppliedAt: now,
-            },
-          });
-          trackerWritePath = "created";
-        } catch (error) {
-          if (isDuplicateError(error)) {
-            tracker = await prisma.threadTracker.update({
-              where: {
-                emailAccountId_threadId_messageId: {
-                  emailAccountId: emailAccount.id,
-                  threadId: thread.id,
-                  messageId: lastMessage.id,
-                },
-              },
-              data: {
-                resolved: false,
-                type: trackerType,
-                sentAt: messageDate,
-                followUpAppliedAt: now,
-              },
-            });
-            trackerWritePath = "created-duplicate-updated";
-          } else {
-            throw error;
-          }
-        }
-      }
+        const existingTracker = await prisma.threadTracker.findFirst({
+          where: {
+            emailAccountId: emailAccount.id,
+            threadId: thread.id,
+            type: trackerType,
+            resolved: false,
+          },
+          orderBy: { createdAt: "desc" },
+        });
 
-      threadLogger.info("Stored follow-up tracker state", {
-        trackerId: tracker.id,
-        messageId: lastMessage.id,
-        sentAt: messageDate.toISOString(),
-        trackerType,
-        trackerWritePath,
-      });
-
-      let draftCreated = false;
-      if (generateDraft) {
-        if (isMessageFromUser(lastMessage, emailAccount.email)) {
+        let tracker: { id: string; followUpNotifications: unknown };
+        let trackerWritePath: string;
+        if (existingTracker) {
           try {
-            await generateFollowUpDraft({
-              emailAccount,
-              threadId: thread.id,
-              messageId: lastMessage.id,
-              trackerId: tracker.id,
-              provider,
-              logger: threadLogger,
+            tracker = await prisma.threadTracker.update({
+              where: { id: existingTracker.id },
+              data: {
+                messageId: lastMessage.id,
+                sentAt: messageDate,
+                followUpAppliedAt: now,
+              },
             });
-            draftCreated = true;
-          } catch (draftError) {
-            threadLogger.error("Draft generation failed, label still applied", {
-              error: draftError,
-            });
-            captureException(draftError);
+            trackerWritePath = "updated-existing";
+          } catch (error) {
+            if (isDuplicateError(error)) {
+              tracker = await prisma.threadTracker.update({
+                where: {
+                  emailAccountId_threadId_messageId: {
+                    emailAccountId: emailAccount.id,
+                    threadId: thread.id,
+                    messageId: lastMessage.id,
+                  },
+                },
+                data: {
+                  resolved: false,
+                  type: trackerType,
+                  sentAt: messageDate,
+                  followUpAppliedAt: now,
+                },
+              });
+              trackerWritePath = "updated-duplicate";
+            } else {
+              throw error;
+            }
           }
         } else {
-          threadLogger.info(
-            "Skipping follow-up draft because latest message was not sent by the user",
-            { messageId: lastMessage.id },
-          );
-        }
-      }
-
-      if (notificationChannels.length > 0) {
-        // Fire-and-forget: we try once per (threadId, messageId) and rely on
-        // the ledger to skip next run. Retrying would burn provider rate
-        // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
-        try {
-          const { name: counterpartyName, email: counterpartyEmail } =
-            resolveFollowUpCounterparty({
-              trackerType,
-              fromHeader: lastMessage.headers.from,
-              toHeader: lastMessage.headers.to,
-            });
-          const notificationDeliveries = await sendFollowUpNotification({
-            channels: notificationChannels,
-            subject: lastMessage.subject || "(no subject)",
-            counterpartyName,
-            counterpartyEmail,
-            trackerType,
-            daysSinceSent: getElapsedBusinessDaysForDisplay({
-              start: messageDate,
-              end: now,
-              timezone: emailAccount.timezone,
-            }),
-            // Provider previews are pre-truncated with no indicator; the full
-            // parsed body lets each channel truncate with an ellipsis instead.
-            snippet:
-              emailToContent(lastMessage, {
-                maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
-                extractReply: true,
-              }) ||
-              lastMessage.snippet ||
-              undefined,
-            threadLink:
-              getEmailUrlForOptionalMessage({
-                messageId: lastMessage.id,
-                threadId: thread.id,
-                emailAddress: emailAccount.email,
-                provider: providerName,
-              }) ?? undefined,
-            threadLinkLabel: getThreadLinkLabel(providerName),
-            trackerId: tracker.id,
-            logger: threadLogger,
-          });
-          if (notificationDeliveries.length > 0) {
-            await prisma.threadTracker.update({
-              where: { id: tracker.id },
+          try {
+            tracker = await prisma.threadTracker.create({
               data: {
-                followUpNotifications: [
-                  ...parseFollowUpNotificationDeliveries(
-                    tracker.followUpNotifications,
-                  ),
-                  ...notificationDeliveries,
-                ],
+                emailAccountId: emailAccount.id,
+                threadId: thread.id,
+                messageId: lastMessage.id,
+                type: trackerType,
+                sentAt: messageDate,
+                followUpAppliedAt: now,
               },
             });
+            trackerWritePath = "created";
+          } catch (error) {
+            if (isDuplicateError(error)) {
+              tracker = await prisma.threadTracker.update({
+                where: {
+                  emailAccountId_threadId_messageId: {
+                    emailAccountId: emailAccount.id,
+                    threadId: thread.id,
+                    messageId: lastMessage.id,
+                  },
+                },
+                data: {
+                  resolved: false,
+                  type: trackerType,
+                  sentAt: messageDate,
+                  followUpAppliedAt: now,
+                },
+              });
+              trackerWritePath = "created-duplicate-updated";
+            } else {
+              throw error;
+            }
           }
-          threadLogger.info(
-            "Follow-up notification delivery attempt finished",
-            {
-              trackerId: tracker.id,
-              configuredChannelCount: notificationChannels.length,
-              deliveryCount: notificationDeliveries.length,
-            },
-          );
-        } catch (notifyError) {
-          threadLogger.error(
-            "Follow-up notification failed, label still applied",
-            { error: notifyError },
-          );
-          captureException(notifyError);
         }
-      }
 
-      threadLogger.info("Processed follow-up", { draftCreated });
-      processedCount++;
-    } catch (error) {
-      errorCount++;
-      threadLogger.error("Failed to process thread", { error });
-      captureException(error);
+        threadLogger.info("Stored follow-up tracker state", {
+          trackerId: tracker.id,
+          messageId: lastMessage.id,
+          sentAt: messageDate.toISOString(),
+          trackerType,
+          trackerWritePath,
+        });
+
+        let draftCreated = false;
+        if (generateDraft) {
+          if (isMessageFromUser(lastMessage, emailAccount.email)) {
+            try {
+              await generateFollowUpDraft({
+                emailAccount,
+                threadId: thread.id,
+                messageId: lastMessage.id,
+                trackerId: tracker.id,
+                provider,
+                logger: threadLogger,
+              });
+              draftCreated = true;
+            } catch (draftError) {
+              threadLogger.error(
+                "Draft generation failed, label still applied",
+                {
+                  error: draftError,
+                },
+              );
+              captureException(draftError);
+            }
+          } else {
+            threadLogger.info(
+              "Skipping follow-up draft because latest message was not sent by the user",
+              { messageId: lastMessage.id },
+            );
+          }
+        }
+
+        if (notificationChannels.length > 0) {
+          // Fire-and-forget: we try once per (threadId, messageId) and rely on
+          // the ledger to skip next run. Retrying would burn provider rate
+          // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
+          try {
+            const { name: counterpartyName, email: counterpartyEmail } =
+              resolveFollowUpCounterparty({
+                trackerType,
+                fromHeader: lastMessage.headers.from,
+                toHeader: lastMessage.headers.to,
+              });
+            const notificationDeliveries = await sendFollowUpNotification({
+              channels: notificationChannels,
+              subject: lastMessage.subject || "(no subject)",
+              counterpartyName,
+              counterpartyEmail,
+              trackerType,
+              daysSinceSent: getElapsedBusinessDaysForDisplay({
+                start: messageDate,
+                end: now,
+                timezone: emailAccount.timezone,
+              }),
+              // Provider previews are pre-truncated with no indicator; the full
+              // parsed body lets each channel truncate with an ellipsis instead.
+              snippet:
+                emailToContent(lastMessage, {
+                  maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
+                  extractReply: true,
+                }) ||
+                lastMessage.snippet ||
+                undefined,
+              threadLink:
+                getEmailUrlForOptionalMessage({
+                  messageId: lastMessage.id,
+                  threadId: thread.id,
+                  emailAddress: emailAccount.email,
+                  provider: providerName,
+                }) ?? undefined,
+              threadLinkLabel: getThreadLinkLabel(providerName),
+              trackerId: tracker.id,
+              logger: threadLogger,
+            });
+            if (notificationDeliveries.length > 0) {
+              await prisma.threadTracker.update({
+                where: { id: tracker.id },
+                data: {
+                  followUpNotifications: [
+                    ...parseFollowUpNotificationDeliveries(
+                      tracker.followUpNotifications,
+                    ),
+                    ...notificationDeliveries,
+                  ],
+                },
+              });
+            }
+            threadLogger.info(
+              "Follow-up notification delivery attempt finished",
+              {
+                trackerId: tracker.id,
+                configuredChannelCount: notificationChannels.length,
+                deliveryCount: notificationDeliveries.length,
+              },
+            );
+          } catch (notifyError) {
+            threadLogger.error(
+              "Follow-up notification failed, label still applied",
+              { error: notifyError },
+            );
+            captureException(notifyError);
+          }
+        }
+
+        threadLogger.info("Processed follow-up", { draftCreated });
+        processedCount++;
+      } catch (error) {
+        errorCount++;
+        threadLogger.error("Failed to process thread", { error });
+        captureException(error);
+      }
     }
-  }
+
+    if (pageToken) {
+      if (seenPageTokens.has(pageToken)) {
+        logger.warn("Stopping follow-up scan after repeated page token", {
+          systemType,
+        });
+        break;
+      }
+      seenPageTokens.add(pageToken);
+    }
+  } while (
+    pageToken &&
+    scannedThreadIds.size - skippedAlreadyProcessedCount <
+      FOLLOW_UP_THREAD_SCAN_LIMIT
+  );
 
   const skippedCount =
     skippedAlreadyProcessedCount +
@@ -663,7 +697,7 @@ async function processFollowUpsForType({
     systemType,
     processed: processedCount,
     skipped: skippedCount,
-    total: threads.length,
+    total: scannedThreadIds.size,
     skippedAlreadyProcessed: skippedAlreadyProcessedCount,
     skippedNoLatestMessage: skippedNoLatestMessageCount,
     skippedTooRecent: skippedTooRecentCount,
