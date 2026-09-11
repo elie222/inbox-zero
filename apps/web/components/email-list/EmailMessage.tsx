@@ -412,9 +412,10 @@ function MessageHeader({
         </span>
       )}
 
-      {hasDraft && !expanded && (
-        <span className="shrink-0 text-primary text-xs">Draft</span>
-      )}
+      {hasDraft &&
+        (!expanded || message.labelIds?.includes(GmailLabel.DRAFT)) && (
+          <span className="shrink-0 text-primary text-xs">Draft</span>
+        )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {(showReplyButton || menu) && (
