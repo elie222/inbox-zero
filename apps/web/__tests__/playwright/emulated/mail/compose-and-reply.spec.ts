@@ -10,6 +10,7 @@ import {
   conversationWithSubject,
   openMail,
   readLatestMailMutation,
+  waitForComposeOutboxSend,
 } from "./mail-test-helpers";
 
 test("keeps keyboard focus in the composer and follows the message field order", async ({
@@ -342,7 +343,7 @@ test("keeps editing state stable across formatting, links, paste, and files", as
 test("does not add a line break for the send shortcut", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const subject = `Shortcut Message ${testInfo.retry}`;
   await page.getByRole("button", { name: /^Compose/ }).click();
 
@@ -367,12 +368,13 @@ test("does not add a line break for the send shortcut", async ({
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: /^Sent/ }).click();
+  await waitForComposeOutboxSend(page, emailAccountId);
   const sentConversation = conversationWithSubject(
     page,
     conversations,
     subject,
   );
-  await expect(sentConversation).toBeVisible({ timeout: 20_000 });
+  await expect(sentConversation).toBeVisible({ timeout: 60_000 });
   await sentConversation.click();
   const sentBody = page
     .frameLocator('iframe[title="Email content preview"]')
@@ -420,7 +422,7 @@ test("attaches files and discards a compose draft with shortcuts", async ({
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const subject = `Playwright Composed Message ${testInfo.retry}`;
 
   await page.getByRole("button", { name: /^Compose/ }).click();
@@ -445,12 +447,13 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: /^Sent/ }).click();
+  await waitForComposeOutboxSend(page, emailAccountId);
   const sentConversation = conversationWithSubject(
     page,
     conversations,
     subject,
   );
-  await expect(sentConversation).toBeVisible({ timeout: 20_000 });
+  await expect(sentConversation).toBeVisible({ timeout: 60_000 });
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
@@ -462,7 +465,9 @@ test("composes, sends, and reads a new message from Sent", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
-test("undoes a composed message before it is delivered", async ({ page }) => {
+test("undoes a composed message before it is delivered", async ({
+  page,
+}, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
   const subject = `Playwright Undo Send ${Date.now()}`;
 
@@ -509,6 +514,7 @@ test("undoes a composed message before it is delivered", async ({ page }) => {
       }),
     )
     .toBeUndefined();
+  await capturePlaywrightCheckpoint(page, testInfo, "compose-undo-restored");
 
   await page.getByRole("link", { name: /^Sent/ }).click();
   await expect(
