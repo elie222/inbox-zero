@@ -64,7 +64,11 @@ export const GET = withEmailProvider(
     const { emailAccountId } = request.auth;
 
     const cached = await getCachedCounts(emailAccountId, logger);
-    if (cached) return NextResponse.json(cached);
+    if (cached) {
+      return NextResponse.json(
+        await refreshCachedInboxCount({ cached, emailProvider, logger }),
+      );
+    }
 
     const { anyFailed, ...response } = await getCounts({
       emailProvider,
@@ -176,6 +180,46 @@ async function getGmailCounts({
       counts.length < targets.length || userLabels.length > MAX_USER_LABELS,
     anyFailed,
   };
+}
+
+async function refreshCachedInboxCount({
+  cached,
+  emailProvider,
+  logger,
+}: {
+  cached: LabelCountsResponse;
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) {
+  if (!cached.counts.some((count) => count.id === GmailLabel.INBOX)) {
+    return cached;
+  }
+
+  try {
+    let fresh: { total: number; unread: number };
+    if (isGoogleProvider(emailProvider.name)) {
+      // Not `getInboxStats`: for Gmail that reports message counts, while the
+      // sidebar shows thread counts.
+      const label = await emailProvider.getLabelById(GmailLabel.INBOX);
+      if (!label) return cached;
+      fresh = {
+        total: label.threadsTotal ?? 0,
+        unread: label.threadsUnread ?? 0,
+      };
+    } else {
+      fresh = await emailProvider.getInboxStats();
+    }
+
+    return {
+      ...cached,
+      counts: cached.counts.map((count) =>
+        count.id === GmailLabel.INBOX ? { ...count, ...fresh } : count,
+      ),
+    };
+  } catch (error) {
+    logger.warn("Failed to refresh cached inbox count", { error });
+    return cached;
+  }
 }
 
 function getCacheKey(emailAccountId: string) {
