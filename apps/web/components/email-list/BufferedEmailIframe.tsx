@@ -81,6 +81,7 @@ function EmailIframe({
       ref={iframeRef}
       srcDoc={document.srcDoc}
       className="min-h-0 w-full"
+      data-email-ready={height > 0}
       height={1}
       // Measure the replacement without collapsing or unloading the visible email.
       style={{
