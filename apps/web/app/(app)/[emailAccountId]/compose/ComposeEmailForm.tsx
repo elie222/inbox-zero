@@ -22,7 +22,6 @@ import {
   ComboboxOptions,
 } from "@headlessui/react";
 import {
-  CheckCircleIcon,
   ChevronDownIcon,
   ImageIcon,
   PaperclipIcon,
@@ -74,6 +73,7 @@ import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { sendEmailAction, updateDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
+  extractEmailAddress,
   extractNameFromEmail,
   isValidEmail,
   splitRecipientList,
@@ -1565,23 +1565,45 @@ function ComposeContactRecipientField({
   selectedRecipients: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
   const label = RECIPIENT_LABELS[name];
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
   const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
-    reconnectRequired
+    reconnectRequired || !active
       ? null
       : [
-          `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`,
+          `/api/user/contacts?query=${encodeURIComponent(debouncedQuery)}`,
           emailAccountId,
         ],
     {
-      keepPreviousData: true,
+      dedupingInterval: 5 * 60 * 1000,
+      keepPreviousData: false,
+      revalidateOnFocus: true,
       onError(error) {
         if (error.info?.reconnectRequired) onReconnectRequired();
       },
     },
   );
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedQuery(normalizedQuery), 200);
+    return () => clearTimeout(timeout);
+  }, [normalizedQuery]);
+
+  const selectedAddresses = new Set(
+    selectedEmailAddresses.map((address) =>
+      extractEmailAddress(address).toLowerCase(),
+    ),
+  );
+  const suggestions =
+    normalizedQuery && normalizedQuery === debouncedQuery
+      ? (contacts?.contacts ?? []).filter(
+          (contact) =>
+            !selectedAddresses.has(contact.emailAddress.toLowerCase()),
+        )
+      : [];
 
   // The local input state resets on unmount (e.g. hiding Cc/Bcc), so the
   // parent's pending entry must reset with it or hidden text would still send.
@@ -1689,47 +1711,39 @@ function ComposeContactRecipientField({
             </div>
           )}
 
-          {active && !!contacts?.contacts.length && (
-            <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
-              <ComboboxOption
-                className="h-0 w-0 overflow-hidden"
-                value={searchQuery}
-              />
-              {contacts.contacts.map((contact) => (
+          {active && !!suggestions.length && (
+            <ComboboxOptions className="absolute z-20 mt-1 max-h-72 w-max min-w-full max-w-[min(28rem,calc(100vw-3rem))] overflow-auto rounded-md border bg-popover py-1 text-sm shadow-lg focus:outline-none">
+              {suggestions.map((contact) => (
                 <ComboboxOption
                   className={({ focus }) =>
-                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                    `cursor-pointer select-none px-3 py-1 text-foreground ${focus ? "bg-accent" : ""}`
                   }
                   key={contact.emailAddress}
                   value={contact.emailAddress}
                 >
-                  {({ selected }: { selected: boolean }) => (
-                    <div className="my-2 flex items-center">
-                      {selected ? (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                          <CheckCircleIcon className="h-6 w-6" />
+                  <div className="my-2 flex items-center">
+                    <Avatar className="shrink-0">
+                      <AvatarImage
+                        alt={contact.name ?? contact.emailAddress}
+                        src={contact.profilePictureUrl ?? undefined}
+                      />
+                      <AvatarFallback>
+                        {(contact.name || contact.emailAddress)
+                          .at(0)
+                          ?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="ml-3 flex min-w-0 flex-col justify-center">
+                      {contact.name && (
+                        <div className="truncate font-medium text-foreground">
+                          {contact.name}
                         </div>
-                      ) : (
-                        <Avatar>
-                          <AvatarImage
-                            alt={contact.emailAddress}
-                            src={contact.profilePictureUrl ?? undefined}
-                          />
-                          <AvatarFallback>
-                            {contact.emailAddress.at(0) || "A"}
-                          </AvatarFallback>
-                        </Avatar>
                       )}
-                      <div className="ml-4 flex flex-col justify-center">
-                        {contact.name && (
-                          <div className="text-foreground">{contact.name}</div>
-                        )}
-                        <div className="text-sm font-semibold text-muted-foreground">
-                          {contact.emailAddress}
-                        </div>
+                      <div className="truncate text-sm text-muted-foreground">
+                        {contact.emailAddress}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </ComboboxOption>
               ))}
             </ComboboxOptions>

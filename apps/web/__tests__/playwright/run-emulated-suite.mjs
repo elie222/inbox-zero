@@ -133,6 +133,9 @@ for (const target of targets) {
         ),
         PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, target.name),
         PLAYWRIGHT_RUN_ID: targetRunId,
+        ...(target.path.endsWith("contact-autocomplete.spec.ts")
+          ? { NEXT_PUBLIC_CONTACTS_ENABLED: "true" }
+          : {}),
         ...(isIntegrationsTarget(target.path)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
           : {}),
