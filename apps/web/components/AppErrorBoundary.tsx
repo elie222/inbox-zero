@@ -96,7 +96,7 @@ export function AppErrorBoundary({
         <p className="mt-6 text-sm text-muted-foreground">
           If this error persists, please contact support at{" "}
           <a
-            href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}?${new URLSearchParams({ subject: "App error report", body: `Support reference: ${supportReference || error.digest || "Unavailable"}\n\nWhat were you doing when the error occurred?\n` })}`}
+            href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}?${new URLSearchParams({ subject: "App error report", body: `Support reference: ${supportReference || error.digest || "Unavailable"}` })}`}
             className="break-all underline"
           >
             {env.NEXT_PUBLIC_SUPPORT_EMAIL}
