@@ -4,6 +4,7 @@ import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
 const allocatedPorts = new Set();
+const production = process.env.PLAYWRIGHT_PRODUCTION === "1";
 const baseURL =
   process.env.NEXT_PUBLIC_BASE_URL ??
   `http://localhost:${await getAvailablePort()}`;
@@ -141,14 +142,16 @@ export default defineConfig({
     {
       name: "Next.js",
       stdout: "pipe",
-      command: `pnpm exec next dev --turbopack --port ${basePort}`,
+      command: production
+        ? `pnpm exec next start --port ${basePort}`
+        : `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
-        NODE_ENV: "development",
+        NODE_ENV: production ? "production" : "development",
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
