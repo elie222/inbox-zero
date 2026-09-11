@@ -44,6 +44,7 @@ google:
       to: __PLAYWRIGHT_TEST_EMAIL__
       subject: Second Unread Command Message
       body_text: Another unread message for bulk-action checks.
+      body_html: "<p>Another unread message for bulk-action checks.</p>"
       label_ids:
         - INBOX
         - UNREAD
