@@ -1,5 +1,7 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
+import type { CalendarConnection } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
@@ -38,19 +40,17 @@ describe("getCalendarClientWithRefresh token buffer", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    vi.mocked(Client.initWithMiddleware).mockReturnValue({} as any);
-    vi.mocked(requestMicrosoftToken).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      Response.json({
         access_token: "new-access-token",
         refresh_token: "new-refresh-token",
         expires_in: 3600,
       }),
-    } as any);
+    );
     prisma.calendarConnection.updateMany.mockResolvedValue({ count: 1 });
-    prisma.calendarConnection.findFirst.mockResolvedValue({
-      id: "calendar-connection-id",
-    } as any);
+    prisma.calendarConnection.findFirst.mockResolvedValue(
+      mockDeep<CalendarConnection>({ id: "calendar-connection-id" }),
+    );
   });
 
   afterEach(() => {
