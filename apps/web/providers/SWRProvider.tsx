@@ -18,7 +18,10 @@ import {
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
-import { getSWRFetchErrorMessage } from "./swr-error";
+import {
+  getSWRFetchErrorMessage,
+  normalizeSWRFetchErrorData,
+} from "./swr-error";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import {
   accountIdFromSnapshotKey,
@@ -48,7 +51,8 @@ const fetcher = async (
     // Try to parse JSON, but handle cases where response isn't JSON (e.g. HMR 404s)
     let errorData: Record<string, unknown> = {};
     try {
-      errorData = await res.json();
+      const payload: unknown = await res.json();
+      errorData = normalizeSWRFetchErrorData(payload);
     } catch {
       // Response wasn't JSON - common during dev HMR, unexpected in production
       if (process.env.NODE_ENV !== "development") {
