@@ -265,6 +265,7 @@ export async function runRules({
       batchTimestamp,
       logger,
       skipArchive,
+      skipDraftReplies,
     );
 
     executedRules.push({
@@ -379,6 +380,7 @@ async function executeMatchedRule(
   batchTimestamp: Date,
   logger: Logger,
   skipArchive?: boolean,
+  skipDraftReplies?: boolean,
 ) {
   const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
     rule.from,
@@ -415,10 +417,15 @@ async function executeMatchedRule(
     logger,
   });
 
-  if (actionItems.length === 0 && blockedActionTypes.length) {
-    const reasonToUse = reason
-      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+  const skippedDraftOnlyRule = skipDraftReplies && rule.actions.length === 0;
+  if (
+    actionItems.length === 0 &&
+    (blockedActionTypes.length || skippedDraftOnlyRule)
+  ) {
+    const skipReason = skippedDraftOnlyRule
+      ? "Draft replies were disabled for this bulk run"
       : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    const reasonToUse = reason ? `${reason}. ${skipReason}` : skipReason;
     let executedRule = null;
 
     if (!isTest) {
@@ -994,15 +1001,13 @@ function collectMessagingChannelsFromOtherRules<
 function removeDraftReplyActionsFromMatches<
   T extends { rule: RuleWithActions },
 >(matches: T[]): T[] {
-  return matches
-    .map((match) => ({
-      ...match,
-      rule: {
-        ...match.rule,
-        actions: match.rule.actions.filter(
-          (action) => !isDraftReplyActionType(action.type),
-        ),
-      },
-    }))
-    .filter((match) => match.rule.actions.length > 0);
+  return matches.map((match) => ({
+    ...match,
+    rule: {
+      ...match.rule,
+      actions: match.rule.actions.filter(
+        (action) => !isDraftReplyActionType(action.type),
+      ),
+    },
+  }));
 }

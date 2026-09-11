@@ -526,12 +526,59 @@ describe("runRules draft attribution persistence", () => {
     expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
     expect(result).toEqual([
       expect.objectContaining({
-        rule: null,
+        rule: expect.objectContaining({ id: "draft-only-rule" }),
         status: ExecutedRuleStatus.SKIPPED,
       }),
     ]);
     expect(prisma.executedRule.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
+  });
+
+  it("records a skipped draft-only rule alongside another applied rule", async () => {
+    const draftRule = createRule("draft-only-rule", null, [
+      getAction({ id: "draft-action", type: ActionType.DRAFT_EMAIL }),
+    ]);
+    const labelRule = createRule("label-rule", null, [
+      getAction({
+        id: "label-action",
+        type: ActionType.LABEL,
+        label: "Review",
+      }),
+    ]);
+    mockMatchingRules([
+      { rule: draftRule, matchReasons: [] },
+      { rule: labelRule, matchReasons: [] },
+    ]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue(labelRule.actions);
+    const createSpy = mockExecutedRuleCreate({ rule: labelRule });
+    vi.mocked(executeAct).mockResolvedValueOnce(ExecutedRuleStatus.APPLIED);
+
+    const results = await runRulesWithDefaults({
+      rules: [draftRule, labelRule],
+      skipDraftReplies: true,
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: draftRule.id }),
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: labelRule.id }),
+        status: ExecutedRuleStatus.APPLIED,
+      }),
+    ]);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledTimes(1);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedRule: labelRule }),
+    );
+    expect(createSpy).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        rule: { connect: { id: draftRule.id } },
         status: ExecutedRuleStatus.SKIPPED,
       }),
     });
