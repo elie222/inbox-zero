@@ -646,9 +646,9 @@ export async function handleLinkAccount(account: Account) {
 
     const normalizedEmail = primaryEmail.trim().toLowerCase();
 
-    // Check if email already belongs to a different user
-    const existingEmailAccount = await prisma.emailAccount.findUnique({
-      where: { email: normalizedEmail },
+    // Profile emails can change while the provider account remains the same.
+    const linkedEmailAccount = await prisma.emailAccount.findUnique({
+      where: { accountId: account.id },
       select: {
         id: true,
         userId: true,
@@ -656,6 +656,17 @@ export async function handleLinkAccount(account: Account) {
         account: { select: { provider: true } },
       },
     });
+    const existingEmailAccount =
+      linkedEmailAccount ??
+      (await prisma.emailAccount.findUnique({
+        where: { email: normalizedEmail },
+        select: {
+          id: true,
+          userId: true,
+          accountId: true,
+          account: { select: { provider: true } },
+        },
+      }));
 
     if (
       existingEmailAccount &&
@@ -732,7 +743,9 @@ export async function handleLinkAccount(account: Account) {
 
     const [upsertedEmailAccount] = await prisma.$transaction([
       prisma.emailAccount.upsert({
-        where: { email: normalizedEmail },
+        where: linkedEmailAccount
+          ? { accountId: account.id }
+          : { email: normalizedEmail },
         update: data,
         create: {
           ...data,
