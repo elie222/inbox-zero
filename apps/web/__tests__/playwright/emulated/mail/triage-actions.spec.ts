@@ -107,12 +107,13 @@ test("advances the split reader after archiving an open conversation", async ({
   let archived = false;
   let restoreSucceeded: boolean | undefined;
   try {
-    const emailBody = page
-      .frameLocator('iframe[title="Email content preview"]')
-      .last()
-      .locator("body");
+    const emailFrame = page
+      .locator('iframe[title="Email content preview"]')
+      .last();
+    await expect(emailFrame).toHaveAttribute("data-email-ready", "true");
+    const emailBody = emailFrame.contentFrame().locator("body");
     await emailBody.click();
-    await page.keyboard.press("h");
+    await emailBody.press("h");
     await expect(
       page.getByPlaceholder("When should it return? Try Friday at 3pm"),
     ).toBeVisible();
@@ -123,7 +124,7 @@ test("advances the split reader after archiving an open conversation", async ({
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toBeHidden();
     await emailBody.click();
-    await page.keyboard.press("e");
+    await emailBody.press("e");
     archived = true;
     await expect(
       page
