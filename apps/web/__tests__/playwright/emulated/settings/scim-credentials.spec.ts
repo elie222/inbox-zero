@@ -74,23 +74,18 @@ test("admin creates and revokes an expiring SCIM credential", async ({
       .click();
     await expect(issued).toBeHidden();
   } finally {
-    await db.query(
-      'DELETE FROM "scimManagedCredential" WHERE "connectionId" IN (SELECT "connectionId" FROM "scimManagedConnection" WHERE "provisioningDomainId" = $1)',
-      [providerId],
-    );
-    await db.query(
-      'DELETE FROM "scimManagedConnectionEvent" WHERE "connectionId" IN (SELECT "connectionId" FROM "scimManagedConnection" WHERE "provisioningDomainId" = $1)',
-      [providerId],
-    );
-    await db.query(
-      'DELETE FROM "scimConnectionBinding" WHERE "provisioningDomainId" = $1',
-      [providerId],
-    );
-    await db.query(
-      'DELETE FROM "scimManagedConnection" WHERE "provisioningDomainId" = $1',
-      [providerId],
-    );
-    await db.query('DELETE FROM "Organization" WHERE id = $1', [providerId]);
-    await db.end();
+    try {
+      await db.query(
+        'DELETE FROM "scimConnectionBinding" WHERE "provisioningDomainId" = $1',
+        [providerId],
+      );
+      await db.query(
+        'DELETE FROM "scimManagedConnection" WHERE "provisioningDomainId" = $1',
+        [providerId],
+      );
+      await db.query('DELETE FROM "Organization" WHERE id = $1', [providerId]);
+    } finally {
+      await db.end();
+    }
   }
 });

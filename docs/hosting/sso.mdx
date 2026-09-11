@@ -51,7 +51,7 @@ SCIM requires a registered organization SSO provider and a separate `SCIM_CREDEN
 | Authentication | Bearer token |
 | Supported resource | Users |
 
-Keep the SCIM token secret. Revoke it if exposed. Existing identities require reviewed `ScimIdentityLink` records keyed by connection ID and immutable external ID; email addresses never authorize account linking. Deprovisioning disables login and removes sessions. SCIM does not grant application organization roles automatically. See the [1.7 cutover checklist](https://github.com/elie222/inbox-zero/blob/main/docs/better-auth-1.7-upgrade.md) for legacy deployments.
+Keep the SCIM token secret. Revoke it if exposed. Existing identities require reviewed `ScimIdentityLink` records keyed by connection ID and immutable external ID; email addresses never authorize account linking. Deprovisioning disables new logins and removes stored sessions. Existing session cookies may remain usable for up to the configured cookie-cache expiry (currently five minutes). SCIM does not grant application organization roles automatically. See the [1.7 cutover checklist](https://github.com/elie222/inbox-zero/blob/main/docs/better-auth-1.7-upgrade.md) for legacy deployments.
 
 ## Managed Setup
 
