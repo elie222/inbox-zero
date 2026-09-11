@@ -132,6 +132,31 @@ test("moves focus with the active split when cycling by keyboard", async ({
   );
 });
 
+test("creates and edits a domain sender condition", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: "New split" }).click();
+  await page.getByRole("button", { name: "Build your own" }).click();
+  await page.getByLabel("Condition field").first().selectOption("FROM");
+  await page.getByLabel("Sender", { exact: true }).fill("@example.com");
+  await page.getByLabel("Split name").fill("Example domain");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-domain-split-builder",
+  );
+  await page.getByRole("button", { name: "Add split", exact: true }).click();
+  const tab = page.getByRole("button", { name: "Example domain", exact: true });
+  await expect(tab).toBeVisible();
+  await tab.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit filters and name" }).click();
+  await expect(page.getByLabel("Sender", { exact: true })).toHaveValue(
+    "@example.com",
+  );
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-domain-split-edit");
+});
+
 test("builds a split from conditions and shows only matching mail", async ({
   page,
 }, testInfo) => {

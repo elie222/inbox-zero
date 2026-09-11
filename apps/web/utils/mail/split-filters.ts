@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { senderFilterSchema } from "@/utils/mail/sender-filter";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
 
@@ -30,8 +31,8 @@ export const mailSplitFilterSchema = z
   .refine(
     (filter) =>
       filter.kind !== MailSplitFilterKind.FROM ||
-      z.email().safeParse(filter.value).success,
-    { message: "Enter a sender email address", path: ["value"] },
+      senderFilterSchema.safeParse(filter.value).success,
+    { message: "Enter a sender email address or @domain.com", path: ["value"] },
   )
   .refine(
     (filter) =>

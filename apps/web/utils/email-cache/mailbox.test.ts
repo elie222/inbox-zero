@@ -23,6 +23,68 @@ describe("synced mailbox cache", () => {
     await clearEmailCache();
   });
 
+  it("matches cached domains and defers unsupported unions to the server", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2020-01-01"),
+      page: {
+        cursor: "complete",
+        reset: true,
+        hasMore: false,
+        deletedMessageIds: [],
+        upsertedMessages: [
+          getMessage({
+            id: "hit",
+            threadId: "hit",
+            from: "User <USER@example.com>",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "sub",
+            threadId: "sub",
+            from: "user@sub.example.com",
+            labelIds: ["INBOX"],
+          }),
+          getMessage({
+            id: "archived",
+            threadId: "archived",
+            from: "user@example.com",
+            labelIds: [],
+          }),
+          getMessage({
+            id: "mixed-inbox",
+            threadId: "mixed",
+            from: "user@sub.example.com",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "mixed-archive",
+            threadId: "mixed",
+            from: "user@example.com",
+            labelIds: [],
+          }),
+        ],
+      },
+    });
+    for (const query of [
+      { labelIds: ["INBOX"], fromEmail: "@example.com", isUnread: true },
+      {
+        labelIds: ["INBOX"],
+        anyOf: [
+          { fromEmail: "@example.com" },
+          { fromEmail: "other@elsewhere.com" },
+        ],
+      },
+    ]) {
+      const result = await readSyncedMailboxThreads({
+        emailAccountId: "account-1",
+        query,
+      });
+      if (query.anyOf) expect(result).toBeUndefined();
+      else expect(result?.threads.map(({ id }) => id)).toEqual(["hit"]);
+    }
+  });
+
   it("excludes named splits from cached Other results", async () => {
     await applyMailboxSyncPage({
       emailAccountId: "account-1",

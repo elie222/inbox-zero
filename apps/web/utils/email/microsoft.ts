@@ -1,3 +1,4 @@
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -1636,6 +1637,38 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
+    const senderFilter = options.query?.fromEmail?.trim();
+    if (senderFilter?.startsWith("@")) {
+      const threads: EmailThread[] = [];
+      let nextPageToken = options.pageToken;
+      const maxResults = options.maxResults || 50;
+      // Graph sender search caps results and cannot preserve OData filters.
+      // Scan normal filtered pages, retaining the cursor for sparse matches.
+      for (let page = 0; page < 5; page++) {
+        const result = await this.getThreadsWithQuery({
+          ...options,
+          query: { ...options.query, fromEmail: undefined },
+          maxResults: maxResults - threads.length,
+          pageToken: nextPageToken,
+        });
+        threads.push(
+          ...result.threads.filter((thread) =>
+            thread.messages.some(
+              (message) =>
+                matchesSenderFilter(message.headers.from, senderFilter) &&
+                (
+                  options.query?.labelIds ??
+                  (options.query?.labelId ? [options.query.labelId] : [])
+                ).every((label) => message.labelIds?.includes(label)),
+            ),
+          ),
+        );
+        nextPageToken = result.nextPageToken;
+        if (!nextPageToken || threads.length >= maxResults) break;
+      }
+      return { threads, nextPageToken };
+    }
+
     const {
       fromEmail,
       after,

@@ -12,6 +12,16 @@ const important: MailSplit = {
 };
 
 describe("Other inbox membership", () => {
+  it("excludes domain splits but keeps subdomains in Other", () => {
+    const split: MailSplit = {
+      ...important,
+      filters: [{ kind: "FROM", value: "@example.com" }],
+    };
+    const conversation = thread(["INBOX"]);
+    expect(threadMatchesSplit(conversation, split, now)).toBe(true);
+    conversation.messages[0].headers.from = "sender@sub.example.com";
+    expect(threadMatchesSplit(conversation, split, now)).toBe(false);
+  });
   it("excludes a conversation when an earlier inbox message matches a split", () => {
     expect(
       threadMatchesSplit(
