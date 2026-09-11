@@ -90,6 +90,25 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
 
     await context.setOffline(false);
+    // Confirm a live authenticated request before navigating the controlled page.
+    // The mail document and account list can both succeed from the offline cache.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          try {
+            const response = await fetch("/api/auth/get-session", {
+              cache: "no-store",
+              signal: AbortSignal.timeout(3000),
+            });
+            if (!response.ok) return false;
+            const session = await response.json();
+            return Boolean(session?.session?.id);
+          } catch {
+            return false;
+          }
+        }),
+      )
+      .toBe(true);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
     await expect(
       conversationWithSubject(page, conversations, "Archive Action Message"),
