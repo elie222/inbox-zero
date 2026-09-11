@@ -59,14 +59,6 @@ model Session {
 }
 
 model User {
-  ssoProviders           SsoProvider[]
-  scimAccessDisabled     Boolean                 @default(false)
-  scimIdentityTombstones ScimIdentityTombstone[]
-  scimSubject            ScimSubject?
-  scimUsers              ScimUser[]
-  scimProjectionGrants   ScimProjectionGrant[]
-  scimIdentityLinks      ScimIdentityLink[]
-
   id            String    @id @default(cuid())
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -127,6 +119,14 @@ model User {
   oauthRefreshTokenRecords OauthRefreshToken[]
   oauthAccessTokenRecords  OauthAccessToken[]
   oauthConsentRecords      OauthConsent[]
+
+  ssoProviders           SsoProvider[]
+  scimAccessDisabled     Boolean                 @default(false)
+  scimIdentityTombstones ScimIdentityTombstone[]
+  scimSubject            ScimSubject?
+  scimUsers              ScimUser[]
+  scimProjectionGrants   ScimProjectionGrant[]
+  scimIdentityLinks      ScimIdentityLink[]
 }
 
 enum ApiKeyScope {
