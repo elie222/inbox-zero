@@ -532,7 +532,7 @@ describe("GmailProvider.getThreadsWithQuery", () => {
       context: {
         _options: { auth: { credentials: { access_token: "access-token" } } },
       },
-    } as any);
+    } as gmail_v1.Gmail);
     const result = await provider.getThreadsWithQuery({
       query: { fromEmail: "@example.com", labelIds: ["INBOX"] },
       maxResults: 1,

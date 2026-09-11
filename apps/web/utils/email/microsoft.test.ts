@@ -716,7 +716,10 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()[1].apiPath).toBe(next);
   });
 
-  it("returns a continuation after a bounded scan with no domain matches", async () => {
+  it.each([
+    undefined,
+    ["INBOX"],
+  ])("bounds domain scans with local label filters %s", async (labelIds) => {
     const next =
       "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=domain";
     const miss = createMessage({
@@ -731,7 +734,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       },
     });
     const result = await new OutlookProvider(client).getThreadsWithQuery({
-      query: { type: "inbox", fromEmail: "@example.com" },
+      query: { type: "inbox", fromEmail: "@example.com", labelIds },
     });
     expect(result).toEqual({ threads: [], nextPageToken: next });
     expect(client.getRequestLog()).toHaveLength(5);

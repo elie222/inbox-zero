@@ -1638,36 +1638,7 @@ export class OutlookProvider implements EmailProvider {
     nextPageToken?: string;
   }> {
     const senderFilter = options.query?.fromEmail?.trim();
-    if (senderFilter?.startsWith("@")) {
-      const threads: EmailThread[] = [];
-      let nextPageToken = options.pageToken;
-      const maxResults = options.maxResults || 50;
-      // Graph sender search caps results and cannot preserve OData filters.
-      // Scan normal filtered pages, retaining the cursor for sparse matches.
-      for (let page = 0; page < 5; page++) {
-        const result = await this.getThreadsWithQuery({
-          ...options,
-          query: { ...options.query, fromEmail: undefined },
-          maxResults: maxResults - threads.length,
-          pageToken: nextPageToken,
-        });
-        threads.push(
-          ...result.threads.filter((thread) =>
-            thread.messages.some(
-              (message) =>
-                matchesSenderFilter(message.headers.from, senderFilter) &&
-                (
-                  options.query?.labelIds ??
-                  (options.query?.labelId ? [options.query.labelId] : [])
-                ).every((label) => message.labelIds?.includes(label)),
-            ),
-          ),
-        );
-        nextPageToken = result.nextPageToken;
-        if (!nextPageToken || threads.length >= maxResults) break;
-      }
-      return { threads, nextPageToken };
-    }
+    const domainFilter = senderFilter?.startsWith("@") ? senderFilter : null;
 
     const {
       fromEmail,
@@ -1773,7 +1744,7 @@ export class OutlookProvider implements EmailProvider {
         }
       }
 
-      if (fromEmail) {
+      if (fromEmail && !domainFilter) {
         const escapedEmail = escapeODataString(fromEmail);
         filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
       }
@@ -1801,7 +1772,7 @@ export class OutlookProvider implements EmailProvider {
         request = request.filter(filter);
       }
 
-      if (!fromEmail) {
+      if (!fromEmail || domainFilter) {
         request = request.orderby("receivedDateTime DESC");
       }
 
@@ -1819,6 +1790,14 @@ export class OutlookProvider implements EmailProvider {
 
     do {
       const response = await fetchThreadPage(nextPageTokenToFetch);
+      if (domainFilter) {
+        response.value = response.value.filter((message: Message) =>
+          matchesSenderFilter(
+            message.from?.emailAddress?.address ?? "",
+            domainFilter,
+          ),
+        );
+      }
       const currentPageIndex = fetchedPages.length;
       fetchedPages.push({
         pageToken: nextPageTokenToFetch,
@@ -1837,7 +1816,14 @@ export class OutlookProvider implements EmailProvider {
       collectedMessages.push(...response.value);
       nextPageToken = response["@odata.nextLink"];
 
-      if (!requiresLocalLabelFiltering || !nextPageToken) break;
+      // Graph search caps results and cannot preserve OData filters. Scan
+      // normal query pages instead, bounding sparse domain scans per request.
+      if (
+        (!requiresLocalLabelFiltering && !domainFilter) ||
+        !nextPageToken ||
+        (domainFilter && fetchedPages.length >= 5)
+      )
+        break;
 
       const matchedThreads = buildOutlookThreadsFromMessages({
         messages: collectedMessages,
