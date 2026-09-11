@@ -35,6 +35,7 @@ test("requires client consent, enforces read-only access, and disconnects existi
   const metadata = await request.get("/.well-known/oauth-protected-resource");
   expect((await metadata.json()).resource).toBe(resource);
   const registration = await request.post("/api/auth/oauth2/register", {
+    headers: { Origin: baseURL },
     data: {
       client_name: "Playwright MCP client",
       redirect_uris: ["https://client.example.com/callback"],
@@ -44,7 +45,7 @@ test("requires client consent, enforces read-only access, and disconnects existi
       scope: "mcp:read offline_access",
     },
   });
-  expect(registration.ok()).toBe(true);
+  expect(registration.ok(), await registration.text()).toBe(true);
   clientId = (await registration.json()).client_id;
   const verifier =
     "playwright-pkce-verifier-with-at-least-forty-three-characters";
@@ -79,6 +80,7 @@ test("requires client consent, enforces read-only access, and disconnects existi
   const callback = new URL(page.url());
   expect(callback.searchParams.get("state")).toBe("playwright-state");
   const response = await request.post("/api/auth/oauth2/token", {
+    headers: { Origin: baseURL },
     form: {
       grant_type: "authorization_code",
       code: callback.searchParams.get("code")!,
@@ -88,7 +90,7 @@ test("requires client consent, enforces read-only access, and disconnects existi
       resource,
     },
   });
-  expect(response.ok()).toBe(true);
+  expect(response.ok(), response.statusText()).toBe(true);
   const tokens = await response.json();
   const headers = {
     Authorization: `Bearer ${tokens.access_token}`,
