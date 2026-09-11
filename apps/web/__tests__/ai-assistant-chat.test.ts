@@ -255,7 +255,9 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({ writingStyle: null });
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      writingStyle: null,
+    });
 
     mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
