@@ -1660,7 +1660,8 @@ export class OutlookProvider implements EmailProvider {
       ? requiredLabelIds
       : undefined;
     const resolvedFolderIds = await getFolderIds(this.client, this.logger, {
-      includeDrafts: false,
+      includeDrafts:
+        requiredLabelIds?.some((id) => id.toUpperCase() === "DRAFT") ?? false,
     });
     const cachedCategoryMap = this.client.getCategoryMapCache() || undefined;
     const needsCategoryMapForFiltering = shouldFetchOutlookCategoryMap({
