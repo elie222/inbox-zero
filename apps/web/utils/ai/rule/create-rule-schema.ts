@@ -186,7 +186,9 @@ export const createRuleActionSchema = (
       ...getExtraAvailableActionsForRuleEditor({ integrationActionsEnabled }),
     ]),
   ] as [ActionType, ...ActionType[]];
-  const integrationToolSpec = allowedActionTypes.includes(ActionType.INTEGRATION)
+  const integrationToolSpec = allowedActionTypes.includes(
+    ActionType.INTEGRATION,
+  )
     ? getOnlyIntegrationToolSpec()
     : undefined;
 

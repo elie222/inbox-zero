@@ -80,18 +80,15 @@ describe("createRuleSchema", () => {
     ["google", true],
     ["microsoft", false],
     ["microsoft", true],
-  ] as const)(
-    "stays within structured-output provider optional parameter limits (%s, integration=%s)",
-    (schemaProvider, integrationActionsEnabled) => {
-      const jsonSchema = z.toJSONSchema(
-        createRuleSchema(schemaProvider, integrationActionsEnabled),
-        { io: "input" },
-      );
+  ] as const)("stays within structured-output provider optional parameter limits (%s, integration=%s)", (schemaProvider, integrationActionsEnabled) => {
+    const jsonSchema = z.toJSONSchema(
+      createRuleSchema(schemaProvider, integrationActionsEnabled),
+      { io: "input" },
+    );
 
-      expect(countOptionalProperties(jsonSchema)).toBeLessThanOrEqual(24);
-      expect(countUnionParameters(jsonSchema)).toBeLessThanOrEqual(16);
-    },
-  );
+    expect(countOptionalProperties(jsonSchema)).toBeLessThanOrEqual(24);
+    expect(countUnionParameters(jsonSchema)).toBeLessThanOrEqual(16);
+  });
 
   it("keeps Todoist integration args on flattened actions", () => {
     const result = createRuleSchema(provider, true).safeParse({
