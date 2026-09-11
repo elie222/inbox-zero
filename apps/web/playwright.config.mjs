@@ -109,12 +109,16 @@ export default defineConfig({
   ],
   webServer: [
     {
+      name: "Email emulator",
+      stdout: "pipe",
       command: `node __tests__/playwright/email-server.mjs ${emailPort}`,
       cwd: process.cwd(),
       url: emailBaseUrl,
       timeout: 30_000,
     },
     {
+      name: "Google emulator",
+      stdout: "pipe",
       command: emulateCommand,
       cwd: process.cwd(),
       url: `${emulateBaseUrl}/.well-known/openid-configuration`,
@@ -124,6 +128,8 @@ export default defineConfig({
     ...(todoistBaseUrl && todoistPort
       ? [
           {
+            name: "Todoist emulator",
+            stdout: "pipe",
             command: `pnpm exec tsx scripts/todoist-mcp-emulator.ts ${todoistPort}`,
             cwd: process.cwd(),
             url: `${todoistBaseUrl}/health`,
@@ -133,6 +139,8 @@ export default defineConfig({
         ]
       : []),
     {
+      name: "Next.js",
+      stdout: "pipe",
       command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/api/auth/ok`,

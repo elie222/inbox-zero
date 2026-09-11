@@ -134,6 +134,7 @@ const env = process.env;
 fs.appendFileSync(env.CALL_LOG, JSON.stringify({
   args: process.argv.slice(2),
   runId: env.PLAYWRIGHT_RUN_ID,
+  debug: env.DEBUG,
   blob: env.PLAYWRIGHT_BLOB_REPORT_FILE,
   output: env.PLAYWRIGHT_OUTPUT_DIR,
   todoist: env.PLAYWRIGHT_TODOIST_ENABLED,
@@ -159,6 +160,7 @@ if (process.argv.includes("test")) {
       PATH: `${bin}${path.delimiter}${process.env.PATH}`,
       CALL_LOG: callLog,
       CI: "true",
+      DEBUG: "pw:api",
       GITHUB_STEP_SUMMARY: summary,
       PLAYWRIGHT_DRY_RUN: "",
       PLAYWRIGHT_SKIP_REPORT_MERGE: "",
@@ -186,6 +188,7 @@ if (process.argv.includes("test")) {
   ]);
   for (const run of runs) {
     expect(run.args).toContain("--global-timeout=480000");
+    expect(run.debug).toBe("pw:api,pw:webserver");
     expect(existsSync(run.blob)).toBe(true);
     expect(existsSync(path.join(run.output, "evidence.json"))).toBe(true);
   }

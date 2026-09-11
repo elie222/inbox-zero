@@ -127,6 +127,14 @@ for (const target of targets) {
         target.path,
       ],
       {
+        // Playwright's timeout omits the service; these logs show its command and readiness URL.
+        ...(process.env.CI
+          ? {
+              DEBUG: [process.env.DEBUG, "pw:webserver"]
+                .filter(Boolean)
+                .join(","),
+            }
+          : {}),
         PLAYWRIGHT_BLOB_REPORT_FILE: path.join(
           blobReportDir,
           `${target.name}.zip`,

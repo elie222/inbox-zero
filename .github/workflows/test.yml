@@ -39,6 +39,10 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Check PR monitor failure reporting
+        if: matrix.shard == 1
+        run: node --test .claude/skills/pr-watch/pr-digest.test.mjs
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
