@@ -298,13 +298,14 @@ export function buildIntegrationArgsFromFields({
   fields,
 }: {
   spec: IntegrationToolSpec;
-  fields?: Record<string, string | null | undefined> | null;
+  fields?: object | null;
 }): Record<string, string> {
   const args = buildDefaultIntegrationArgs(spec);
+  const fieldValues = fields as Record<string, unknown> | null | undefined;
 
   for (const arg of spec.args) {
-    const value = fields?.[arg.key];
-    if (value == null) continue;
+    const value = fieldValues?.[arg.key];
+    if (typeof value !== "string") continue;
 
     const normalized =
       arg.control.type === "select"
