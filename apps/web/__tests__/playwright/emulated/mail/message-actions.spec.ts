@@ -81,7 +81,9 @@ test("shows matched reasons only for the selected message", async ({
     await expect(
       message.getByRole("button", { name: "Forward", exact: true }),
     ).toBeVisible();
-    await message.getByRole("button", { name: "More message actions" }).click();
+    await message
+      .getByRole("button", { name: "More message actions", exact: true })
+      .click();
     await page.getByRole("menuitem", { name: "Matched reason" }).click();
     await expect(page.getByText(reason, { exact: true })).toBeVisible();
     await expect(
