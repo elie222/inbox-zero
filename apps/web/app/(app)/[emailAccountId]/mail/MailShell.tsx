@@ -1493,7 +1493,9 @@ export function MailShell() {
               onTogglePreview={togglePreview}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showLayoutToggle={!isAllAccounts}
+              threadCount={threads.length}
               selectedCount={selection.selectedCount}
+              onSelectAll={selection.selectAll}
               onArchiveSelected={archiveTargets}
               onDeleteSelected={trashTargets}
               onLabelSelected={canLabel ? openLabelPicker : undefined}
