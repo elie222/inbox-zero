@@ -871,10 +871,10 @@ importers:
         specifier: 8.0.1
         version: 8.0.1
       react:
-        specifier: 19.3.0
+        specifier: '>=19'
         version: 19.3.0
       react-dom:
-        specifier: 19.3.0
+        specifier: '>=19'
         version: 19.3.0(react@19.3.0)
     devDependencies:
       '@types/react':
