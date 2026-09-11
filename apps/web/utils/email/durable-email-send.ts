@@ -21,7 +21,8 @@ export async function executeDurableEmailSend({
 }: {
   emailAccountId: string;
   getEmailProvider: () => Promise<EmailProvider>;
-  input: DurableEmailSendBody;
+  // A scheduled new message has no thread until the provider accepts the send.
+  input: Omit<DurableEmailSendBody, "threadId"> & { threadId: string | null };
   logger: Logger;
   provider: string;
 }) {

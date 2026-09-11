@@ -332,7 +332,30 @@ describe("scheduled replies", () => {
     expect(executeDurableEmailSend).toHaveBeenCalledTimes(1);
     expect(prisma.scheduledEmail.updateMany).toHaveBeenLastCalledWith({
       where: { id: "id", status: "PROCESSING", processingStartedAt: now },
-      data: { status: "SENT", sentAt, error: null },
+      data: { status: "SENT", sentAt, threadId: "thread", error: null },
+    });
+  });
+
+  it("records the thread a scheduled new message landed in", async () => {
+    const sentAt = new Date(now.getTime() - 30_000);
+    prisma.scheduledEmail.findUnique.mockResolvedValue(row({ threadId: null }));
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    prisma.emailAccount.findUniqueOrThrow.mockResolvedValue({
+      account: { provider: "google" },
+    } as never);
+    prisma.emailSendOperation.findUniqueOrThrow.mockResolvedValue({
+      processingStartedAt: sentAt,
+    } as never);
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-message", threadId: "new-thread" },
+    });
+
+    await processScheduledEmail("id", logger, now);
+
+    expect(prisma.scheduledEmail.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "id", status: "PROCESSING", processingStartedAt: now },
+      data: { status: "SENT", sentAt, threadId: "new-thread", error: null },
     });
   });
 
@@ -473,6 +496,26 @@ describe("scheduled replies", () => {
       await processDueScheduledEmails(logger, now);
       expect(createEmailProvider).not.toHaveBeenCalled();
     });
+  });
+
+  it("settles a reminder for a send that never recorded a thread", async () => {
+    prisma.scheduledEmail.findMany.mockResolvedValue([
+      row({
+        status: "SENT",
+        threadId: null,
+        sentAt: new Date(now.getTime() - 60_000),
+        remindAt: now,
+        reminderStatus: "PENDING",
+      }),
+    ]);
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+
+    await processDueScheduledEmails(logger, now);
+
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(prisma.scheduledEmail.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { reminderStatus: "COMPLETED" } }),
+    );
   });
 
   it("uses provider receipt time over a skewed sender Date header", () => {

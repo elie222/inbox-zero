@@ -860,7 +860,7 @@ model ScheduledEmail {
   clientMutationId    String
   payloadHash         String
   payload             Json
-  threadId            String
+  threadId            String?
   sendAt              DateTime
   status              ScheduledEmailStatus @default(PENDING)
   processingStartedAt DateTime?

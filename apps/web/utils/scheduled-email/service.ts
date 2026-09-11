@@ -196,6 +196,8 @@ export async function processScheduledEmail(
         data: {
           status: "SENT",
           sentAt: sentOperation.processingStartedAt,
+          // The reminder needs the thread the send actually landed in.
+          threadId: row.threadId ?? getSentThreadId(outcome.result),
           error: null,
         },
       });
@@ -288,6 +290,13 @@ async function processReminder(row: ScheduledEmail, logger: Logger, now: Date) {
     reminderStartedAt: now,
   };
   try {
+    if (!row.threadId) {
+      await prisma.scheduledEmail.updateMany({
+        where,
+        data: { reminderStatus: "COMPLETED" },
+      });
+      return;
+    }
     const account = await prisma.emailAccount.findUniqueOrThrow({
       where: { id: row.emailAccountId },
       include: { account: true },
@@ -345,6 +354,14 @@ export async function processDueScheduledEmails(
     }
   });
   return { processed: rows.length };
+}
+
+function getSentThreadId(result: unknown) {
+  if (result && typeof result === "object" && "threadId" in result) {
+    const { threadId } = result as { threadId?: unknown };
+    if (typeof threadId === "string" && threadId) return threadId;
+  }
+  return null;
 }
 
 function assertReusableRequest(

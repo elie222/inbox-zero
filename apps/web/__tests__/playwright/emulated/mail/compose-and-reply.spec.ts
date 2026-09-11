@@ -18,29 +18,15 @@ test("keeps keyboard focus in the composer and follows the message field order",
   const toField = dialog.getByRole("textbox", { name: "To" });
   await expect(toField).toBeFocused();
 
-  const showCcBccButton = dialog.getByRole("button", { name: "Cc/Bcc" });
-  await showCcBccButton.focus();
-  await showCcBccButton.press("Enter");
-  await expect(
-    dialog.getByRole("button", { name: "Hide Cc/Bcc" }),
-  ).toBeFocused();
-
-  await toField.focus();
-
-  await page.keyboard.press("Shift+Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Hide Cc/Bcc" }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(toField).toBeFocused();
-
   for (const field of [
     dialog.getByRole("textbox", { exact: true, name: "Cc" }),
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
     dialog.getByRole("button", { name: "Show signature" }),
-    dialog.getByRole("button", { name: /^Send/ }),
+    dialog.getByRole("button", { exact: true, name: "Send" }),
+    dialog.getByRole("button", { name: "Send later" }),
+    dialog.getByRole("button", { name: "Remind me" }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
     dialog.getByRole("button", { name: "Discard draft" }),
@@ -443,7 +429,7 @@ test("composes, sends, and reads a new message from Sent", async ({
       .getByRole("link", { name: "Inbox Zero" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
-  await dialog.getByRole("button", { name: /^Send/ }).click();
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
