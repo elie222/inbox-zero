@@ -34,35 +34,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Check PR monitor failure reporting
-        if: matrix.shard == 1
-        run: node --test .claude/skills/pr-watch/pr-digest.test.mjs
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+      - name: Setup CI dependencies
+        id: dependencies
+        uses: ./.github/actions/setup-ci-dependencies
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      # One writer per run; every other job only restores this exact cache.
+      - name: Save pnpm package cache
+        if: matrix.shard == 1 && steps.dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.dependencies.outputs.store-path }}/files
+            ${{ steps.dependencies.outputs.store-path }}/index.db*
+          key: ${{ steps.dependencies.outputs.cache-key }}
+
+      - name: Check PR monitor failure reporting
+        if: matrix.shard == 1
+        run: node --test .claude/skills/pr-watch/pr-digest.test.mjs
 
       - name: Run lint check
         if: matrix.shard == 1

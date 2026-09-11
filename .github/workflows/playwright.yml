@@ -29,6 +29,7 @@ on:
       - "scripts/pnpm-install-without-desktop.sh"
       - "scripts/publish-playwright-report.sh"
       - ".github/workflows/playwright.yml"
+      - ".github/actions/setup-ci-dependencies/**"
       - ".github/workflows/publish-playwright-report.yml"
   pull_request:
     branches: [main]
@@ -55,6 +56,7 @@ on:
       - "scripts/pnpm-install-without-desktop.sh"
       - "scripts/publish-playwright-report.sh"
       - ".github/workflows/playwright.yml"
+      - ".github/actions/setup-ci-dependencies/**"
       - ".github/workflows/publish-playwright-report.yml"
   schedule:
     - cron: "0 6 * * *"
@@ -112,11 +114,8 @@ jobs:
       # Checkout's recursive auth cleanup fails on this repository's unmapped gitlink.
       - name: Remove checkout credentials
         run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
+      - name: Setup CI dependencies
+        uses: ./.github/actions/setup-ci-dependencies
       - name: Install dependencies
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
         env:
@@ -194,14 +193,8 @@ jobs:
       - name: Remove checkout credentials
         run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
+      - name: Setup CI dependencies
+        uses: ./.github/actions/setup-ci-dependencies
 
       - name: Install dependencies
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
@@ -244,8 +237,27 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  report:
+  result:
     name: Web E2E
+    needs: [select, playwright]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every selected spec to pass
+        if: always()
+        env:
+          SELECTION_RESULT: ${{ needs.select.result }}
+          TARGETS: ${{ needs.select.outputs.batches }}
+          TEST_RESULT: ${{ needs.playwright.result }}
+        run: |
+          test "$SELECTION_RESULT" = success
+          if [ "$TARGETS" != "[]" ]; then
+            test "$TEST_RESULT" = success
+          fi
+
+  report:
+    name: Browser report
     needs: [select, playwright]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
@@ -254,11 +266,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Remove checkout credentials
         run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
+      - name: Setup CI dependencies
+        uses: ./.github/actions/setup-ci-dependencies
       - name: Install dependencies
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
         env:
@@ -290,14 +299,3 @@ jobs:
           compression-level: 1
           retention-days: 7
           if-no-files-found: warn
-      - name: Require every selected spec to pass
-        if: always()
-        env:
-          SELECTION_RESULT: ${{ needs.select.result }}
-          TARGETS: ${{ needs.select.outputs.batches }}
-          TEST_RESULT: ${{ needs.playwright.result }}
-        run: |
-          test "$SELECTION_RESULT" = success
-          if [ "$TARGETS" != "[]" ]; then
-            test "$TEST_RESULT" = success
-          fi

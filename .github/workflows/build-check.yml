@@ -17,6 +17,7 @@ on:
       - "konsistent.json"
       - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
+      - ".github/actions/setup-ci-dependencies/**"
   pull_request:
     branches: [main]
     paths:
@@ -30,6 +31,7 @@ on:
       - "konsistent.json"
       - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
+      - ".github/actions/setup-ci-dependencies/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -59,26 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+      - name: Setup CI dependencies
+        uses: ./.github/actions/setup-ci-dependencies
 
       - name: Install dependencies
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
