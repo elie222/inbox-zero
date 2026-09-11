@@ -223,7 +223,7 @@ export function createReplyDraftWriter(
         if ((previous?.revision ?? 0) !== revision) {
           await transaction.done;
           throw new Error(
-            "This draft changed in another tab. Reopen the reply to load that version.",
+            "This draft changed in another tab. Reopen the composer to load that version.",
           );
         }
         await transaction.store.put({
@@ -251,7 +251,9 @@ export function createReplyDraftWriter(
     save(content: ReplyDraftContent) {
       if (stopped)
         return Promise.reject(
-          new Error("This draft is closed. Reopen the reply before editing."),
+          new Error(
+            "This draft is closed. Reopen the composer before editing.",
+          ),
         );
       return write(content);
     },

@@ -127,6 +127,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               )}
             >
               <ComposeEmailFormLazy
+                draftSessionId="compose:new-message"
                 fromAccounts={accountsData?.emailAccounts}
                 layout="window"
                 onClose={closeCompose}
