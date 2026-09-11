@@ -117,6 +117,11 @@ test("advances the split reader after archiving an open conversation", async ({
       page.getByPlaceholder("When should it return? Try Friday at 3pm"),
     ).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(
+      page.getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
     await emailBody.click();
     await page.keyboard.press("e");
     archived = true;
