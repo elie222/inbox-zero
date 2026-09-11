@@ -159,6 +159,9 @@ for (const target of targets) {
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
+        ...(target.path.endsWith("settings/mcp-access.spec.ts")
+          ? { MCP_SERVER_ENABLED: "true" }
+          : {}),
         ...(isSettingsTarget(target.path)
           ? { NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true" }
           : {}),

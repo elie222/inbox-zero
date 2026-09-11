@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  updateMcpServerAccessAction,
   createApiKeyAction,
   deactivateApiKeyAction,
 } from "@/utils/actions/api-key";
@@ -22,6 +23,7 @@ vi.mock("@/env", async (importOriginal) => {
     env: {
       ...actual.env,
       NEXT_PUBLIC_EXTERNAL_API_ENABLED: true,
+      MCP_SERVER_ENABLED: true,
       API_KEY_SALT: "test-api-key-salt",
     },
   };
@@ -69,4 +71,32 @@ describe("API key actions", () => {
     );
     expect(prisma.apiKey.update).not.toHaveBeenCalled();
   });
+});
+
+it("revokes grants and advances the token version when MCP is disabled", async () => {
+  currentSession.emailOtp = false;
+  prisma.$transaction.mockResolvedValue([]);
+  const result = await updateMcpServerAccessAction({ enabled: false });
+  expect(result?.data).toEqual({ enabled: false });
+  expect(prisma.user.update).toHaveBeenCalledWith({
+    where: { id: "user-1" },
+    data: { mcpServerEnabled: false, mcpTokenVersion: { increment: 1 } },
+  });
+  expect(prisma.oauthConsent.deleteMany).toHaveBeenCalledWith({
+    where: { userId: "user-1" },
+  });
+  expect(prisma.oauthRefreshToken.deleteMany).toHaveBeenCalledWith({
+    where: { userId: "user-1" },
+  });
+  expect(prisma.oauthAccessToken.deleteMany).toHaveBeenCalledWith({
+    where: { userId: "user-1" },
+  });
+});
+
+it("blocks MCP enablement from an email code session", async () => {
+  vi.clearAllMocks();
+  currentSession.emailOtp = true;
+  const result = await updateMcpServerAccessAction({ enabled: true });
+  expect(result?.serverError).toContain("connected provider");
+  expect(prisma.user.update).not.toHaveBeenCalled();
 });

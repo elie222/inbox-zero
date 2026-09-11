@@ -1,3 +1,4 @@
+import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
@@ -223,6 +224,7 @@ export const betterAuthConfig = betterAuth({
     },
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
+  disabledPaths: ["/token"],
   trustedOrigins: [
     env.NEXT_PUBLIC_BASE_URL,
     "https://appleid.apple.com",
@@ -264,6 +266,7 @@ export const betterAuthConfig = betterAuth({
           }),
         ]
       : []),
+    ...mcpOAuthPlugins(),
     nextCookies(), // Must be last
   ],
   session: {
