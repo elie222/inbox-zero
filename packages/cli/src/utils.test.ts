@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   fixComposeEnvPaths,
   generateSecret,
@@ -28,6 +28,11 @@ import {
   redactValue,
   type EnvConfig,
 } from "./utils";
+
+vi.mock("node:fs", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs")>();
+  return { ...fs, symlinkSync: vi.fn(fs.symlinkSync) };
+});
 
 describe("generateSecret", () => {
   it("should generate a hex string of correct length", () => {
@@ -762,9 +767,7 @@ describe("syncManagedComposeEnv", () => {
     syncManagedComposeEnv({ envFile: appEnv, repoRoot });
 
     expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe("FOO=bar\n");
-    expect(
-      readFileSync(join(repoRoot, ".env.inbox-zero-managed"), "utf-8"),
-    ).toBe("apps/web/.env");
+    expect(readlinkSync(join(repoRoot, ".env"))).toBe("apps/web/.env");
   });
 
   it("refreshes a managed copied root env after later updates", () => {
@@ -776,13 +779,50 @@ describe("syncManagedComposeEnv", () => {
 
     mkdirSync(appDir, { recursive: true });
     writeFileSync(appEnv, "FOO=one\n");
-    writeFileSync(rootEnv, "FOO=one\n");
-    writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), "apps/web/.env");
+    vi.mocked(symlinkSync).mockImplementationOnce(() => {
+      throw new Error("symlinks unavailable");
+    });
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+    expect(lstatSync(rootEnv).isFile()).toBe(true);
     writeFileSync(appEnv, "FOO=two\n");
 
     syncManagedComposeEnv({ envFile: appEnv, repoRoot });
 
     expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=two\n");
+  });
+
+  it("preserves a user replacement when a copied file's marker is stale", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    const rootEnv = join(repoRoot, ".env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=original\n");
+    vi.mocked(symlinkSync).mockImplementationOnce(() => {
+      throw new Error("symlinks unavailable");
+    });
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+    writeFileSync(rootEnv, "FOO=user-replacement\n");
+    writeFileSync(appEnv, "FOO=new\n");
+
+    expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=user-replacement\n");
+  });
+
+  it("preserves files with legacy or invalid markers", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=new\n");
+    writeFileSync(join(repoRoot, ".env"), "FOO=manual\n");
+    for (const marker of ["apps/web/.env", "null", "{}", "invalid-json"]) {
+      writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), marker);
+      expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+      expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe(
+        "FOO=manual\n",
+      );
+    }
   });
 
   it("does not overwrite an unmanaged root env file", () => {
@@ -819,7 +859,7 @@ describe("syncManagedComposeEnv", () => {
     expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
   });
 
-  it("relinks a managed root env symlink when it points to the wrong target", () => {
+  it("preserves a retargeted symlink even when an old marker remains", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
     directories.push(repoRoot);
     const appDir = join(repoRoot, "apps", "web");
@@ -833,8 +873,7 @@ describe("syncManagedComposeEnv", () => {
 
     syncManagedComposeEnv({ envFile: appEnv, repoRoot });
 
-    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=managed\n");
-    expect(readlinkSync(rootEnv)).toBe("apps/web/.env");
+    expect(readlinkSync(rootEnv)).toBe(".env.previous");
     expect(existsSync(join(repoRoot, ".env.previous"))).toBe(false);
   });
 
@@ -935,7 +974,7 @@ describe("getComposeCommand", () => {
   it("preserves paths containing spaces and shell metacharacters", () => {
     const envFile = "/tmp/repo's $SHELL `ignored`/.env.staging";
     const composeFile = "/tmp/repo's $SHELL `ignored`/docker-compose.yml";
-    const command = getComposeCommand(envFile, composeFile);
+    const command = getComposeCommand(envFile, composeFile, "linux");
     const result = spawnSync(
       "sh",
       ["-c", `docker() { printf '%s\\n' "$@"; }; ${command}`],
@@ -952,4 +991,16 @@ describe("getComposeCommand", () => {
       composeFile,
     ]);
   });
+});
+
+it("prints literal PowerShell paths on Windows", () => {
+  expect(
+    getComposeCommand(
+      "C:/repo's $env:USER/.env",
+      "C:/repo's $env:USER/compose.yml",
+      "win32",
+    ),
+  ).toBe(
+    "docker compose --env-file 'C:/repo''s $env:USER/.env' -f 'C:/repo''s $env:USER/compose.yml'",
+  );
 });

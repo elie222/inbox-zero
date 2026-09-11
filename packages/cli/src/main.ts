@@ -308,6 +308,9 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 
 async function runSetup(options: { name?: string }) {
   p.intro("Inbox Zero Setup");
+  if (process.platform === "win32") {
+    p.log.info("Run the Docker commands printed by setup in PowerShell.");
+  }
   p.note(
     "Quick setup uses production defaults with Docker Compose infrastructure\n" +
       "(Postgres + Redis) and runs the web app in Docker.",
@@ -1263,8 +1266,12 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
+    const baseUrlCommand =
+      process.platform === "win32"
+        ? "$env:NEXT_PUBLIC_BASE_URL = 'https://yourdomain.com';"
+        : "NEXT_PUBLIC_BASE_URL=https://yourdomain.com";
     nextSteps = `# Start all services (web, database & Redis):
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --profile all up -d
+${baseUrlCommand} ${composeCmd} --profile all up -d
 
 # View logs:
 docker logs inbox-zero-services-web-1 -f

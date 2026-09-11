@@ -1,15 +1,13 @@
 import {
   copyFileSync,
-  existsSync,
   lstatSync,
   readFileSync,
   readlinkSync,
-  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { relative, resolve } from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { parseEnv } from "node:util";
 
 // Environment variable builder
@@ -340,43 +338,76 @@ export function syncManagedComposeEnv({
     return;
   }
 
-  const isManaged =
-    existsSync(markerFile) && readFileSync(markerFile, "utf-8") === linkTarget;
   if (rootEnvStat.isSymbolicLink()) {
-    const currentTarget = readlinkSync(rootEnvFile);
-    if (currentTarget !== linkTarget) {
-      if (!isManaged) return conflictWarning;
-
-      rmSync(rootEnvFile, { force: true });
-      createManagedComposeEnv({
-        linkTarget,
-        markerFile,
-        rootEnvFile,
-        sourceContent,
-      });
-      return;
-    }
-
-    if (isManaged) {
-      writeFileSync(markerFile, linkTarget);
-    }
+    const currentTarget = resolve(repoRoot, readlinkSync(rootEnvFile));
+    if (currentTarget !== resolve(envFile)) return conflictWarning;
     return;
   }
 
   if (!rootEnvStat.isFile()) return conflictWarning;
-
-  if (!isManaged) {
-    const currentContent = readFileSync(rootEnvFile, "utf-8");
-    if (currentContent !== sourceContent) return conflictWarning;
-    return;
-  }
-
   const currentContent = readFileSync(rootEnvFile, "utf-8");
-  if (currentContent !== sourceContent) {
-    copyFileSync(envFile, rootEnvFile);
+  if (currentContent === sourceContent) return;
+
+  if (!isUnchangedManagedCopy(markerFile, linkTarget, currentContent)) {
+    return conflictWarning;
   }
 
-  writeFileSync(markerFile, linkTarget);
+  copyFileSync(envFile, rootEnvFile);
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
+}
+
+export function fixComposeEnvPaths(composeContent: string): string {
+  return composeContent.replaceAll("./apps/web/.env", "./.env");
+}
+
+export function getComposeCommand(
+  envFile: string,
+  composeFile: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return `docker compose --env-file ${quoteShellArgument(envFile, platform)} -f ${quoteShellArgument(composeFile, platform)}`;
+}
+
+function quoteShellArgument(value: string, platform: NodeJS.Platform): string {
+  if (platform === "win32") return `'${value.replaceAll("'", "''")}'`;
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function isUnchangedManagedCopy(
+  markerFile: string,
+  source: string,
+  content: string,
+): boolean {
+  try {
+    const marker: unknown = JSON.parse(readFileSync(markerFile, "utf-8"));
+    return (
+      typeof marker === "object" &&
+      marker !== null &&
+      "kind" in marker &&
+      marker.kind === "copy" &&
+      "source" in marker &&
+      marker.source === source &&
+      "sha256" in marker &&
+      marker.sha256 === createHash("sha256").update(content).digest("hex")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function writeManagedCopyMarker(
+  markerFile: string,
+  source: string,
+  content: string,
+) {
+  writeFileSync(
+    markerFile,
+    JSON.stringify({
+      kind: "copy",
+      source,
+      sha256: createHash("sha256").update(content).digest("hex"),
+    }),
+  );
 }
 
 function createManagedComposeEnv({
@@ -392,24 +423,10 @@ function createManagedComposeEnv({
 }) {
   try {
     symlinkSync(linkTarget, rootEnvFile);
+    return;
   } catch {
     writeFileSync(rootEnvFile, sourceContent, { flag: "wx", mode: 0o600 });
   }
 
-  writeFileSync(markerFile, linkTarget);
-}
-
-export function fixComposeEnvPaths(composeContent: string): string {
-  return composeContent.replaceAll("./apps/web/.env", "./.env");
-}
-
-export function getComposeCommand(
-  envFile: string,
-  composeFile: string,
-): string {
-  return `docker compose --env-file ${quoteShellArgument(envFile)} -f ${quoteShellArgument(composeFile)}`;
-}
-
-function quoteShellArgument(value: string): string {
-  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
 }
