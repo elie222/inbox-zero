@@ -1782,11 +1782,11 @@ export class GmailProvider implements EmailProvider {
       .filter((thread): thread is EmailThread => thread !== null);
   }
 
-  async hasPreviousCommunicationsWithSenderOrDomain(options: {
-    from: string;
-    date: Date;
-    messageId: string;
-  }): Promise<boolean> {
+  async hasPreviousCommunicationsWithSenderOrDomain(
+    options: Parameters<
+      EmailProvider["hasPreviousCommunicationsWithSenderOrDomain"]
+    >[0],
+  ): Promise<boolean> {
     return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
   }
 

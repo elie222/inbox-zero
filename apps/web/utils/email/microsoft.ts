@@ -1916,11 +1916,69 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
-  async hasPreviousCommunicationsWithSenderOrDomain(options: {
-    from: string;
-    date: Date;
-    messageId: string;
-  }): Promise<boolean> {
+  async hasPreviousCommunicationsWithSenderOrDomain(
+    options: Parameters<
+      EmailProvider["hasPreviousCommunicationsWithSenderOrDomain"]
+    >[0],
+  ): Promise<boolean> {
+    if (options.excludeLabelIds?.length || options.excludeFolderIds?.length) {
+      const categories = options.excludeLabelIds?.length
+        ? await this.getLabels()
+        : [];
+      const excludedCategories = new Set(
+        options.excludeLabelIds?.map((id) => {
+          const category = categories.find((label) => label.id === id);
+          if (!category) throw new Error("Could not resolve excluded category");
+          return category.name;
+        }),
+      );
+      const excludedFolders = new Set(options.excludeFolderIds);
+      const term = getSearchTermForSender(options.from);
+      const participant = (term.includes("@") ? term : `@${term}`)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      for (const direction of ["to", "from"] as const) {
+        let nextLink: string | undefined;
+        for (let page = 0; page < 10; page++) {
+          const response: { value: Message[]; "@odata.nextLink"?: string } =
+            nextLink
+              ? await this.client.getClient().api(nextLink).get()
+              : await this.client
+                  .getClient()
+                  .api("/me/messages")
+                  .search(`"${direction}:${participant}"`)
+                  .top(20)
+                  .select(
+                    "id,sentDateTime,receivedDateTime,parentFolderId,categories",
+                  )
+                  .get();
+          for (const message of response.value) {
+            if (message.id === options.messageId) continue;
+            const timestamp =
+              direction === "to"
+                ? message.sentDateTime
+                : message.receivedDateTime;
+            if (!timestamp || Number.isNaN(Date.parse(timestamp)))
+              throw new Error("Missing prior message date");
+            if (new Date(timestamp) >= options.date) continue;
+            if (direction === "to") return true;
+            if (!message.parentFolderId || !message.categories)
+              throw new Error("Missing prior message labels");
+            if (
+              !excludedFolders.has(message.parentFolderId) &&
+              !message.categories.some((category) =>
+                excludedCategories.has(category),
+              )
+            )
+              return true;
+          }
+          nextLink = response["@odata.nextLink"];
+          if (!nextLink) break;
+          if (page === 9) return true;
+        }
+      }
+      return false;
+    }
     // Use shared logic: for public domains search by full email, for company domains search by domain
     const searchTerm = getSearchTermForSender(options.from);
     const isFullEmail = searchTerm.includes("@");

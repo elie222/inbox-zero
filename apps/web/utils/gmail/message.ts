@@ -14,6 +14,7 @@ import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import type { PriorCommunicationOptions } from "@/utils/email/types";
 
 export function parseMessage(
   message: MessageWithPayload,
@@ -185,9 +186,44 @@ async function hasPreviousCommunicationWithSender(
 
 export async function hasPreviousCommunicationsWithSenderOrDomain(
   gmail: gmail_v1.Gmail,
-  options: { from: string; date: Date; messageId: string },
+  options: PriorCommunicationOptions,
 ) {
   const searchTerm = getSearchTermForSender(options.from);
+
+  if (options.excludeLabelIds?.length) {
+    const excluded = new Set(options.excludeLabelIds);
+    const query = `(from:${searchTerm} OR to:${searchTerm}) before:${Math.floor(options.date.getTime() / 1000)}`;
+    let pageToken: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const result = await getMessages(gmail, {
+        query,
+        maxResults: 20,
+        pageToken,
+      });
+      for (const message of result.messages) {
+        if (message.id === options.messageId) continue;
+        const { data } = await withGmailRetry(() =>
+          gmail.users.messages.get({
+            userId: "me",
+            id: message.id,
+            format: "minimal",
+            fields: "id,labelIds",
+          }),
+        );
+        if (!data.labelIds) throw new Error("Missing prior message labels");
+        // A sent message still proves contact even if its thread retains a cold label.
+        if (
+          data.labelIds.includes(GmailLabel.SENT) ||
+          !data.labelIds.some((id) => excluded.has(id))
+        )
+          return true;
+      }
+      if (!result.nextPageToken) return false;
+      pageToken = result.nextPageToken;
+    }
+    // An incomplete search must never turn an established contact into a block.
+    return true;
+  }
 
   return hasPreviousCommunicationWithSender(gmail, {
     ...options,
