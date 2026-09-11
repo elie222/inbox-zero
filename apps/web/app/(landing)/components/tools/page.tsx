@@ -28,6 +28,7 @@ import {
 } from "@/components/assistant-chat/tools";
 import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
+import { EmailAccountPreviewProvider } from "@/providers/EmailAccountProvider";
 
 export default function ToolsPage() {
   const assistantToolThreadLookup = getAssistantToolThreadLookup();
@@ -314,9 +315,11 @@ export default function ToolsPage() {
           <Suspense
             fallback={<BasicToolInfo text="Loading email action states..." />}
           >
-            <ChatProvider>
-              <AssistantEmailActionStates />
-            </ChatProvider>
+            <EmailAccountPreviewProvider>
+              <ChatProvider>
+                <AssistantEmailActionStates />
+              </ChatProvider>
+            </EmailAccountPreviewProvider>
           </Suspense>
         </section>
 

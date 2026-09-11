@@ -1,4 +1,14 @@
-import { randomBytes } from "node:crypto";
+import {
+  copyFileSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { relative, resolve } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+import { parseEnv } from "node:util";
 
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
@@ -19,6 +29,10 @@ export function validateConfigName(name: string): string {
   return name;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
 export function getEnvFileName(name?: string): string {
   return name ? `.env.${validateConfigName(name)}` : ".env";
 }
@@ -28,6 +42,7 @@ export function generateEnvFile(config: {
   useDockerInfra: boolean;
   llmProvider: string;
   template: string;
+  composeEnvFile?: string;
 }): string {
   const { env, useDockerInfra, llmProvider, template } = config;
 
@@ -40,10 +55,11 @@ export function generateEnvFile(config: {
   // Helper to set a value (handles both commented and uncommented lines)
   const setValue = (key: string, value: string | undefined) => {
     if (value === undefined) return;
+    const escapedKey = escapeRegExp(key);
     // Match both commented (# KEY=) and uncommented (KEY=) forms
     const patterns = [
-      new RegExp(`^${key}=.*$`, "m"),
-      new RegExp(`^# ${key}=.*$`, "m"),
+      new RegExp(`^${escapedKey}=.*$`, "m"),
+      new RegExp(`^# ${escapedKey}=.*$`, "m"),
     ];
     for (const pattern of patterns) {
       if (pattern.test(content)) {
@@ -54,6 +70,8 @@ export function generateEnvFile(config: {
     // If not found, append to end
     content += `\n${key}=${value}`;
   };
+
+  setValue("INBOX_ZERO_ENV_FILE", wrapInQuotes(config.composeEnvFile));
 
   // ─────────────────────────────────────────────────────────────────────────
   // Database & Redis
@@ -207,21 +225,17 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function parseEnvFile(content: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
+  const env = parseEnv(content);
+  // Compose treats unspaced hashes in unquoted database passwords as literal.
+  const password = [
+    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=(.*)$/gm),
+  ].at(-1)?.[1];
+  if (
+    password &&
+    !password.trim().startsWith('"') &&
+    !password.trim().startsWith("'")
+  ) {
+    env.POSTGRES_PASSWORD = password.replace(/\s+#.*$/, "").trim();
   }
   return env;
 }
@@ -234,12 +248,13 @@ export function updateEnvValue(
   const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
   const formatted = needsQuotes ? `"${escapeEnvQuotedValue(value)}"` : value;
 
-  const uncommented = new RegExp(`^${key}=.*$`, "m");
+  const escapedKey = escapeRegExp(key);
+  const uncommented = new RegExp(`^${escapedKey}=.*$`, "m");
   if (uncommented.test(content)) {
     return content.replace(uncommented, () => `${key}=${formatted}`);
   }
 
-  const commented = new RegExp(`^# ${key}=.*$`, "m");
+  const commented = new RegExp(`^# ${escapedKey}=.*$`, "m");
   if (commented.test(content)) {
     return content.replace(commented, () => `${key}=${formatted}`);
   }
@@ -282,4 +297,136 @@ export function parsePortConflict(stderr: string): string | null {
 
 function escapeEnvQuotedValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+export function generateEncryptionSecrets(existing: EnvConfig): EnvConfig {
+  return {
+    EMAIL_ENCRYPT_SECRET: existing.EMAIL_ENCRYPT_SECRET || generateSecret(32),
+    EMAIL_ENCRYPT_SALT: existing.EMAIL_ENCRYPT_SALT || generateSecret(16),
+  };
+}
+
+const MANAGED_COMPOSE_ENV_MARKER_SUFFIX = ".inbox-zero-managed";
+
+export function syncManagedComposeEnv({
+  envFile,
+  repoRoot,
+}: {
+  envFile: string;
+  repoRoot: string | null;
+}) {
+  if (!repoRoot) return;
+  if (resolve(envFile) !== resolve(repoRoot, "apps/web/.env")) return;
+
+  const rootEnvFile = resolve(repoRoot, ".env");
+  const markerFile = `${rootEnvFile}${MANAGED_COMPOSE_ENV_MARKER_SUFFIX}`;
+  const linkTarget = relative(repoRoot, envFile);
+  const sourceContent = readFileSync(envFile, "utf-8");
+  const conflictWarning =
+    `Preserved user-managed ${rootEnvFile}. Docker Compose may use different settings. ` +
+    `Align it with ${envFile} or pass --env-file pointing to that app configuration when running Docker Compose.`;
+  // lstat also detects dangling links, which must never be followed by the copy fallback.
+  const rootEnvStat = lstatSync(rootEnvFile, { throwIfNoEntry: false });
+
+  if (!rootEnvStat) {
+    createManagedComposeEnv({
+      linkTarget,
+      markerFile,
+      rootEnvFile,
+      sourceContent,
+    });
+    return;
+  }
+
+  if (rootEnvStat.isSymbolicLink()) {
+    const currentTarget = resolve(repoRoot, readlinkSync(rootEnvFile));
+    if (currentTarget !== resolve(envFile)) return conflictWarning;
+    return;
+  }
+
+  if (!rootEnvStat.isFile()) return conflictWarning;
+  const currentContent = readFileSync(rootEnvFile, "utf-8");
+  if (currentContent === sourceContent) return;
+
+  if (!isUnchangedManagedCopy(markerFile, linkTarget, currentContent)) {
+    return conflictWarning;
+  }
+
+  copyFileSync(envFile, rootEnvFile);
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
+}
+
+export function fixComposeEnvPaths(composeContent: string): string {
+  return composeContent.replaceAll("./apps/web/.env", "./.env");
+}
+
+export function getComposeCommand(
+  envFile: string,
+  composeFile: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return `docker compose --env-file ${quoteShellArgument(envFile, platform)} -f ${quoteShellArgument(composeFile, platform)}`;
+}
+
+function quoteShellArgument(value: string, platform: NodeJS.Platform): string {
+  if (platform === "win32") return `'${value.replaceAll("'", "''")}'`;
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function isUnchangedManagedCopy(
+  markerFile: string,
+  source: string,
+  content: string,
+): boolean {
+  try {
+    const marker: unknown = JSON.parse(readFileSync(markerFile, "utf-8"));
+    return (
+      typeof marker === "object" &&
+      marker !== null &&
+      "kind" in marker &&
+      marker.kind === "copy" &&
+      "source" in marker &&
+      marker.source === source &&
+      "sha256" in marker &&
+      marker.sha256 === createHash("sha256").update(content).digest("hex")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function writeManagedCopyMarker(
+  markerFile: string,
+  source: string,
+  content: string,
+) {
+  writeFileSync(
+    markerFile,
+    JSON.stringify({
+      kind: "copy",
+      source,
+      sha256: createHash("sha256").update(content).digest("hex"),
+    }),
+  );
+}
+
+function createManagedComposeEnv({
+  linkTarget,
+  markerFile,
+  rootEnvFile,
+  sourceContent,
+}: {
+  linkTarget: string;
+  markerFile: string;
+  rootEnvFile: string;
+  sourceContent: string;
+}) {
+  try {
+    symlinkSync(linkTarget, rootEnvFile);
+    return;
+  } catch {
+    writeFileSync(rootEnvFile, sourceContent, { flag: "wx", mode: 0o600 });
+  }
+
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
 }

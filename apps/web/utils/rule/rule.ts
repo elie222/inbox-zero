@@ -27,10 +27,20 @@ import {
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
 import {
-  ensureWebhookActionEnabled,
-  hasWebhookAction,
-} from "@/utils/webhook-action";
+  assertRuleActionUpdateEnabled,
+  assertRuleActionsEnabled,
+  getDisabledRuleActionTypesToPreserve,
+} from "@/utils/rule-action-feature-gates";
+import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  buildDefaultIntegrationArgs,
+  getIntegrationToolSpec,
+  getOnlyIntegrationToolSpec,
+  normalizeSelectArgValue,
+} from "@/utils/mcp/tool-specs";
+import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
+import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
 
 type CreateRuleEnablement =
   | { source: "default" }
@@ -71,7 +81,7 @@ function addNestedActionOwnershipToInput<T extends Record<string, unknown>>(
   };
 }
 
-export function outboundActionsNeedChatRiskConfirmation(
+export function actionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
   const ruleCtx = ruleConditionsForRisk(result);
@@ -86,17 +96,10 @@ export function outboundActionsNeedChatRiskConfirmation(
       continue;
     }
 
-    if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
-
-    const ra: RiskAction = {
-      type: action.type,
-      subject: action.fields?.subject ?? null,
-      content: action.fields?.content ?? null,
-      to: action.fields?.to?.trim() || null,
-      cc: action.fields?.cc ?? null,
-      bcc: action.fields?.bcc ?? null,
-    };
-    const { level, message } = getActionRiskLevel(ra, ruleCtx);
+    const { level, message } = getActionRiskLevel(
+      buildRiskAction(action),
+      ruleCtx,
+    );
     if (level !== "low" && !messages.includes(message)) {
       messages.push(message);
     }
@@ -239,7 +242,8 @@ export async function createRuleWithResolvedActions({
   actions: RuleActionCreateData[];
   skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
-  assertWebhookActionsAllowed(actions);
+  assertRuleActionsEnabled(actions);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   if (!skipSenderOnlyOverlapCheck) {
     await assertNoSenderOnlyOverlap({ emailAccountId, rule: data });
@@ -291,12 +295,16 @@ export async function replaceRuleWithResolvedActions({
   data: RuleRecordData;
   actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
-  assertWebhookActionsAllowed(actions);
-
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
-    select: RULE_SCOPE_SELECT,
+    select: {
+      ...RULE_SCOPE_SELECT,
+      actions: { select: { type: true } },
+    },
   });
+
+  assertRuleActionUpdateEnabled(actions, existingRule?.actions ?? []);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   await assertNoSenderOnlyOverlap({
     emailAccountId,
@@ -328,7 +336,7 @@ export async function replaceRuleWithResolvedActions({
       body: data.body,
       groupId: data.groupId,
       actions: {
-        deleteMany: {},
+        deleteMany: getReplaceableRuleActionsWhere(),
         createMany: {
           data: addNestedActionOwnershipToInputs(actions, emailAccountId),
         },
@@ -369,8 +377,6 @@ export async function createRule({
       systemType,
     });
 
-    assertWebhookActionsAllowed(result.actions);
-
     await assertNoSenderOnlyOverlap({
       emailAccountId,
       rule: {
@@ -407,6 +413,9 @@ export async function createRule({
             to: a.to ?? null,
             cc: a.cc ?? null,
             bcc: a.bcc ?? null,
+            integrationName: a.integrationName ?? null,
+            integrationToolName: a.integrationToolName ?? null,
+            integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
           })),
           enablement,
         ),
@@ -450,8 +459,6 @@ export async function updateRule({
       name: result.name,
       ruleId,
     });
-
-    assertWebhookActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -594,16 +601,20 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
-  assertWebhookActionsAllowed(actions);
-
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
-    select: { from: true },
+    select: {
+      from: true,
+      actions: { select: { type: true } },
+    },
   });
 
   if (!existingRule) {
     throw new Error("Rule not found");
   }
+
+  assertRuleActionUpdateEnabled(actions, existingRule.actions);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   validateLowTrustStaticFromOutboundActions({
     from: existingRule.from,
@@ -622,7 +633,7 @@ export async function updateRuleActions({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
-        deleteMany: {},
+        deleteMany: getReplaceableRuleActionsWhere(),
         createMany: {
           data: addNestedActionOwnershipToInputs(mappedActions, emailAccountId),
         },
@@ -678,22 +689,10 @@ function shouldEnable(
       return false;
     }
 
-    const hasOutbound = rule.actions.some((a) =>
-      OUTBOUND_ACTION_TYPES.includes(a.type),
-    );
-    if (!hasOutbound) {
-      return actions.every(
-        (action) => getActionRiskLevel(action, {}).level === "low",
-      );
-    }
     const ruleCtx = ruleConditionsForRisk(rule);
-    for (const action of actions) {
-      if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
-      if (getActionRiskLevel(action, ruleCtx).level !== "low") {
-        return false;
-      }
-    }
-    return true;
+    return actions.every(
+      (action) => getActionRiskLevel(action, ruleCtx).level === "low",
+    );
   }
 
   if (rule.actions.find((a) => OUTBOUND_ACTION_TYPES.includes(a.type)))
@@ -765,24 +764,30 @@ function validateLowTrustStaticFromOutboundActions({
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
-function assertWebhookActionsAllowed(
-  actions: ReadonlyArray<{ type: ActionType | string }>,
-) {
-  if (!hasWebhookAction(actions)) return;
-  ensureWebhookActionEnabled();
+function getReplaceableRuleActionsWhere() {
+  const disabledActionTypes = getDisabledRuleActionTypesToPreserve();
+  return disabledActionTypes.length
+    ? { type: { notIn: disabledActionTypes } }
+    : {};
 }
 
+type MappableAction = CreateOrUpdateRuleSchema["actions"][number] & {
+  messagingChannelId?: string | null;
+  labelId?: string | null;
+  folderId?: string | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Prisma.JsonValue | null;
+};
+
 async function mapActionFields(
-  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
-    messagingChannelId?: string | null;
-    labelId?: string | null;
-    folderId?: string | null;
-  })[],
+  actions: MappableAction[],
   provider: string,
   emailAccountId: string,
   logger: Logger,
 ) {
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
+  await assertIntegrationActionsConnected(actions, emailAccountId);
 
   const actionPromises = actions.map(
     async (a): Promise<RuleActionCreateData> => {
@@ -833,6 +838,11 @@ async function mapActionFields(
         folderId = await emailProvider.getOrCreateFolderIdByName(folderName);
       }
 
+      const integrationFields =
+        a.type === ActionType.INTEGRATION
+          ? getIntegrationCreateFields(a)
+          : null;
+
       return {
         type: a.type,
         messagingChannelId: a.messagingChannelId ?? null,
@@ -842,7 +852,7 @@ async function mapActionFields(
         cc: a.fields?.cc,
         bcc: a.fields?.bcc,
         subject: a.fields?.subject,
-        content: a.fields?.content,
+        content: integrationFields ? null : a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
           folderName: folderName ?? null,
@@ -852,11 +862,138 @@ async function mapActionFields(
         staticAttachments:
           (a as { staticAttachments?: AttachmentSourceInput[] | null })
             .staticAttachments ?? undefined,
+        ...integrationFields,
       };
     },
   );
 
   return Promise.all(actionPromises);
+}
+
+function getIntegrationCreateFields(action: MappableAction) {
+  // AI- and API-authored actions carry flat fields with no integration named,
+  // so fall back to the only write spec we have. getOnlyIntegrationToolSpec
+  // returns undefined once there are two, forcing an explicit choice then.
+  const defaultSpec = getOnlyIntegrationToolSpec();
+  const integrationName = action.integrationName ?? defaultSpec?.integration;
+  const integrationToolName = action.integrationToolName ?? defaultSpec?.tool;
+
+  return {
+    integrationName: integrationName ?? null,
+    integrationToolName: integrationToolName ?? null,
+    integrationArgs: (action.integrationArgs ??
+      buildIntegrationArgsFromFields({
+        integrationName,
+        integrationToolName,
+        fields: action.fields,
+      })) as Prisma.InputJsonValue,
+  };
+}
+
+function buildRiskAction(action: MappableAction): RiskAction {
+  const integrationFields =
+    action.type === ActionType.INTEGRATION
+      ? getIntegrationCreateFields(action)
+      : null;
+
+  return {
+    type: action.type,
+    subject: action.fields?.subject ?? null,
+    content: action.fields?.content ?? null,
+    to: action.fields?.to?.trim() || null,
+    cc: action.fields?.cc ?? null,
+    bcc: action.fields?.bcc ?? null,
+    integrationName: integrationFields?.integrationName ?? null,
+    integrationToolName: integrationFields?.integrationToolName ?? null,
+    integrationArgs:
+      (integrationFields?.integrationArgs as Prisma.JsonValue | undefined) ??
+      null,
+  };
+}
+
+/**
+ * Builds stored args from an AI-authored action's flat fields, applying the
+ * spec's defaults so an omitted field means "the AI writes it at execution".
+ */
+function buildIntegrationArgsFromFields({
+  integrationName,
+  integrationToolName,
+  fields,
+}: {
+  integrationName: string | null | undefined;
+  integrationToolName: string | null | undefined;
+  fields: MappableAction["fields"];
+}) {
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (!spec) return {};
+
+  const args = buildDefaultIntegrationArgs(spec);
+
+  for (const arg of spec.args) {
+    const value = (
+      fields as Record<string, string | null | undefined> | null
+    )?.[arg.key];
+    if (value == null) continue;
+
+    const normalized =
+      arg.control.type === "select"
+        ? normalizeSelectArgValue(arg, value)
+        : value;
+    if (normalized !== undefined) args[arg.key] = normalized;
+  }
+
+  return args;
+}
+
+export async function assertIntegrationActionsConnected(
+  actions: readonly { type: ActionType; integrationName?: string | null }[],
+  emailAccountId: string,
+) {
+  const integrationNames = [
+    ...new Set(
+      actions
+        .filter((action) => action.type === ActionType.INTEGRATION)
+        .map(
+          (action) =>
+            action.integrationName ?? getOnlyIntegrationToolSpec()?.integration,
+        )
+        .filter((name): name is string => !!name),
+    ),
+  ];
+
+  if (!integrationNames.length) return;
+
+  const connections = await prisma.mcpConnection.findMany({
+    where: {
+      emailAccountId,
+      isActive: true,
+      integration: { name: { in: integrationNames } },
+    },
+    select: { integration: { select: { name: true } } },
+  });
+  const connectedNames = new Set(
+    connections.map((connection) => connection.integration.name),
+  );
+
+  for (const name of integrationNames) {
+    if (connectedNames.has(name)) continue;
+
+    const displayName = findIntegration(name)?.displayName ?? name;
+    throw new SafeError(
+      `${displayName} isn't connected. Connect it to use this action.`,
+    );
+  }
+}
+
+async function assertIntegrationActionsEnabled(
+  actions: readonly { type: ActionType }[],
+  emailAccountId: string,
+) {
+  if (!actions.some((action) => action.type === ActionType.INTEGRATION)) return;
+
+  if (!(await isIntegrationActionEnabledForEmailAccountId(emailAccountId))) {
+    throw new SafeError("Integration actions are not enabled for this user.");
+  }
 }
 
 async function assertMessagingChannelsBelongToEmailAccount(
@@ -923,7 +1060,15 @@ function addNestedActionOwnershipToInputs(
   actions: RuleActionCreateData[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
-  return actions.map((action) =>
-    addNestedActionOwnershipToInput(action, emailAccountId),
-  );
+  return actions.map((action) => {
+    const actionWithSupportedDelay =
+      action.type === ActionType.INTEGRATION
+        ? { ...action, delayInMinutes: null }
+        : action;
+
+    return addNestedActionOwnershipToInput(
+      actionWithSupportedDelay,
+      emailAccountId,
+    );
+  });
 }

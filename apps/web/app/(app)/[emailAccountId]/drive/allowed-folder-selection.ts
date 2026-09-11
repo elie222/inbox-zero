@@ -1,130 +1,41 @@
 import type { FolderItem } from "@/app/api/user/drive/folders/route";
+import {
+  createTreeSelection,
+  type TreeChildrenMap,
+} from "@/utils/tree-selection";
 
-export type FolderChildrenMap = Map<string, FolderItem[]>;
-export type FolderSelectionState = boolean | "indeterminate";
+export type FolderChildrenMap = TreeChildrenMap<FolderItem>;
 
-export function buildFolderChildrenMap(folders: FolderItem[]) {
-  const map: FolderChildrenMap = new Map();
+export const folderSelection = createTreeSelection<FolderItem>({
+  getId: (folder) => folder.id,
+  getParentId: (folder) => folder.parentId,
+});
 
-  for (const folder of folders) {
-    if (!folder.parentId) continue;
-    const children = map.get(folder.parentId) ?? [];
-    children.push(folder);
-    map.set(folder.parentId, children);
-  }
-
-  return map;
-}
-
-export function getRootFolders(folders: FolderItem[]) {
-  const folderMap = new Map<string, FolderItem>();
-  const roots: FolderItem[] = [];
-
-  for (const folder of folders) {
-    folderMap.set(folder.id, folder);
-  }
-
-  for (const folder of folders) {
-    if (!folder.parentId || !folderMap.has(folder.parentId)) {
-      roots.push(folder);
-    }
-  }
-
-  return roots;
-}
-
-export function mergeFolderChildren({
-  childrenByParentId,
-  parentId,
+export function applyLoadedFolderChildrenSelection({
+  parent,
   children,
+  selectedFolderIds,
+  childrenByParentId,
 }: {
-  childrenByParentId: FolderChildrenMap;
-  parentId: string;
+  parent: FolderItem;
   children: FolderItem[];
+  selectedFolderIds: Set<string>;
+  childrenByParentId: FolderChildrenMap;
 }) {
-  const existingChildren = childrenByParentId.get(parentId);
-  if (
-    existingChildren &&
-    getFolderIdsKey(existingChildren) === getFolderIdsKey(children)
-  ) {
-    return childrenByParentId;
+  if (!selectedFolderIds.has(parent.id)) {
+    return { changedFolders: [] };
   }
 
-  const next = new Map(childrenByParentId);
-  next.set(parentId, children);
-  return next;
-}
-
-export function getFolderSelectionState({
-  folderId,
-  selectedFolderIds,
-  childrenByParentId,
-}: {
-  folderId: string;
-  selectedFolderIds: Set<string>;
-  childrenByParentId: FolderChildrenMap;
-}): FolderSelectionState {
-  if (selectedFolderIds.has(folderId)) return true;
-
-  const descendants = getLoadedDescendants(folderId, childrenByParentId);
-  if (descendants.length === 0) return false;
-
-  const selectedDescendants = descendants.filter((folder) =>
-    selectedFolderIds.has(folder.id),
-  );
-
-  if (selectedDescendants.length === 0) return false;
-  if (selectedDescendants.length === descendants.length) return true;
-
-  return "indeterminate";
-}
-
-export function applyFolderSelection({
-  folder,
-  isChecked,
-  selectedFolderIds,
-  childrenByParentId,
-}: {
-  folder: FolderItem;
-  isChecked: boolean;
-  selectedFolderIds: Set<string>;
-  childrenByParentId: FolderChildrenMap;
-}) {
-  const nextFolderIds = new Set(selectedFolderIds);
-  const affectedFolders = [
-    folder,
-    ...getLoadedDescendants(folder.id, childrenByParentId),
-  ];
-
-  const changedFolders = affectedFolders.filter((affectedFolder) => {
-    const wasSelected = selectedFolderIds.has(affectedFolder.id);
-    if (isChecked) {
-      nextFolderIds.add(affectedFolder.id);
-      return !wasSelected;
-    }
-
-    nextFolderIds.delete(affectedFolder.id);
-    return wasSelected;
+  const { changedItems } = folderSelection.applySelection({
+    item: parent,
+    checked: true,
+    selectedKeys: selectedFolderIds,
+    childrenByParentId: folderSelection.mergeChildren({
+      childrenByParentId,
+      parentId: parent.id,
+      children,
+    }),
   });
 
-  return { nextFolderIds, changedFolders };
-}
-
-function getLoadedDescendants(
-  folderId: string,
-  childrenByParentId: FolderChildrenMap,
-) {
-  const descendants: FolderItem[] = [];
-  const children = childrenByParentId.get(folderId) ?? [];
-
-  for (const child of children) {
-    descendants.push(child);
-    descendants.push(...getLoadedDescendants(child.id, childrenByParentId));
-  }
-
-  return descendants;
-}
-
-function getFolderIdsKey(folders: FolderItem[]) {
-  return folders.map((folder) => folder.id).join(",");
+  return { changedFolders: changedItems };
 }

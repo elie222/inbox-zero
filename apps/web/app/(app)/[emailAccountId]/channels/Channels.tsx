@@ -75,7 +75,6 @@ import {
   type MessagingFeatureRoutePurpose,
   type MessagingRouteSummary,
 } from "@/utils/messaging/routes";
-import { sortRulesForAutomation } from "@/utils/rule/sort";
 import {
   type MessagingProvider,
   MessagingRoutePurpose,
@@ -201,8 +200,7 @@ export function Channels() {
     (provider) => provider !== "TEAMS" || teamsEnabled,
   );
   const visibleRules = useMemo(
-    () =>
-      sortRulesForAutomation((rulesData ?? []).filter((rule) => rule.enabled)),
+    () => (rulesData ?? []).filter((rule) => rule.enabled),
     [rulesData],
   );
   const connectedProviders = useMemo(

@@ -13,10 +13,10 @@ import {
   captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
-  getStableMessageCacheKey,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -553,7 +553,7 @@ async function evaluateScenario(
             criterion: {
               name: "Forward note semantics",
               description:
-                "The forwarded note should semantically capture the requested message even if the wording differs from the prompt.",
+                "Judge only whether the forwarded note text semantically captures the note requested by the user. The recipient, source message, tool execution, and forwarding success are verified separately and must not affect this judgment.",
             },
           })
         : null;

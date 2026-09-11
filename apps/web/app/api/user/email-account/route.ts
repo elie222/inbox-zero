@@ -35,6 +35,7 @@ async function getEmailAccount({
       calendarBookingLink: true,
       signature: true,
       includeReferralSignature: true,
+      includeSentWithSignature: true,
       writingStyle: true,
       filingEnabled: true,
       filingPrompt: true,

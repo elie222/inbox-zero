@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
-import { moveMessagesForSenders } from "./batch";
+import { moveMessagesForSenders, moveThreadsInBatches } from "./batch";
 
 const mockGetFolderIds = vi.fn();
 const mockUpdateEmailMessagesForSender = vi.fn();
@@ -121,6 +121,85 @@ describe("moveMessagesForSenders", () => {
       messageIds: messages.map((message) => message.id),
       emailAccountId: "account-1",
       action: "trash",
+    });
+  });
+});
+
+describe("moveThreadsInBatches", () => {
+  beforeEach(() => {
+    mockPublishBulkActionToTinybird.mockReset();
+  });
+
+  it("returns thread-level results from Outlook batch responses", async () => {
+    const client = createMockOutlookClient({
+      listMessages: async () => ({ value: [] }),
+      batchPost: async () => ({
+        responses: [
+          { id: "archive-0", status: 201, body: {} },
+          {
+            id: "archive-1",
+            status: 429,
+            body: { error: { message: "Rate limited" } },
+          },
+        ],
+      }),
+    });
+
+    const result = await moveThreadsInBatches({
+      client,
+      threads: [
+        { threadId: "thread-1", messageIds: ["message-1"] },
+        { threadId: "thread-2", messageIds: ["message-2"] },
+      ],
+      destinationId: "archive",
+      ownerEmail: "owner@example.com",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toEqual({
+      succeededThreadIds: ["thread-1"],
+      failedThreadIds: ["thread-2"],
+    });
+    expect(mockPublishBulkActionToTinybird).toHaveBeenCalledWith({
+      threadIds: ["thread-1"],
+      action: "archive",
+      ownerEmail: "owner@example.com",
+    });
+  });
+
+  it("stops sending Outlook batches after a rate-limit response", async () => {
+    const batchPost = vi.fn(
+      async (body: {
+        requests: Array<{ id: string; url: string; method: string }>;
+      }) => ({
+        responses: body.requests.map((request) => ({
+          id: request.id,
+          status: 429,
+          body: { error: { message: "Rate limited" } },
+        })),
+      }),
+    );
+    const client = createMockOutlookClient({
+      listMessages: async () => ({ value: [] }),
+      batchPost,
+    });
+    const threads = Array.from({ length: 5 }, (_, index) => ({
+      threadId: `thread-${index + 1}`,
+      messageIds: [`message-${index + 1}`],
+    }));
+
+    const result = await moveThreadsInBatches({
+      client,
+      threads,
+      destinationId: "archive",
+      ownerEmail: "owner@example.com",
+      logger: createTestLogger(),
+    });
+
+    expect(batchPost).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      succeededThreadIds: [],
+      failedThreadIds: threads.map((thread) => thread.threadId),
     });
   });
 });

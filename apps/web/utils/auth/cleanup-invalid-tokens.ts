@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { sendReconnectionEmail } from "@inboxzero/resend";
+import { sendReconnectionEmail } from "@inboxzero/transactional-email";
 import { env } from "@/env";
 import {
   addUserErrorMessage,
@@ -8,6 +8,12 @@ import {
   ErrorType,
 } from "@/utils/error-messages";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+
+const clearedCredentials = {
+  access_token: null,
+  refresh_token: null,
+  expires_at: null,
+};
 
 /**
  * Cleans up invalid tokens when authentication fails permanently.
@@ -20,9 +26,13 @@ import { createUnsubscribeToken } from "@/utils/unsubscribe";
 export async function cleanupInvalidTokens({
   emailAccountId,
   reason,
+  failedAccessToken,
+  failedRefreshToken,
   logger,
 }: {
   emailAccountId: string;
+  failedAccessToken?: string | null;
+  failedRefreshToken?: string | null;
   reason:
     | "invalid_grant"
     | "insufficient_permissions"
@@ -30,6 +40,12 @@ export async function cleanupInvalidTokens({
     | "mail_service_not_enabled";
   logger: Logger;
 }) {
+  if (failedAccessToken === undefined && failedRefreshToken === undefined) {
+    logger.info(
+      "Skipping credential cleanup without a failed credential snapshot",
+    );
+    return { status: "skipped" as const };
+  }
   logger.info("Cleaning up invalid tokens", { reason });
 
   const emailAccount = await prisma.emailAccount.findUnique({
@@ -47,7 +63,11 @@ export async function cleanupInvalidTokens({
       },
       account: {
         select: {
+          updatedAt: true,
           disconnectedAt: true,
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
         },
       },
     },
@@ -55,29 +75,52 @@ export async function cleanupInvalidTokens({
 
   if (!emailAccount) {
     logger.warn("Email account not found");
-    return;
+    return { status: "skipped" as const };
   }
 
-  if (emailAccount.account?.disconnectedAt) {
+  const account = emailAccount.account;
+  if (
+    !account ||
+    (failedAccessToken !== undefined &&
+      account.access_token !== failedAccessToken) ||
+    (failedRefreshToken !== undefined &&
+      account.refresh_token !== failedRefreshToken)
+  ) {
+    logger.info("Skipping cleanup of superseded credentials");
+    return { status: "skipped" as const };
+  }
+
+  if (account?.disconnectedAt) {
+    const hasStaleCredentials =
+      !!account.access_token || !!account.refresh_token || !!account.expires_at;
+
+    if (hasStaleCredentials) {
+      await prisma.account.updateMany({
+        where: {
+          id: emailAccount.accountId,
+          updatedAt: account.updatedAt,
+          disconnectedAt: { not: null },
+        },
+        data: clearedCredentials,
+      });
+    }
+
     logger.info("Account already marked as disconnected");
     return;
   }
 
   const updated = await prisma.account.updateMany({
-    where: { id: emailAccount.accountId, disconnectedAt: null },
-    data: {
-      access_token: null,
-      refresh_token: null,
-      expires_at: null,
-      disconnectedAt: new Date(),
+    where: {
+      id: emailAccount.accountId,
+      updatedAt: account.updatedAt,
+      disconnectedAt: null,
     },
+    data: { ...clearedCredentials, disconnectedAt: new Date() },
   });
 
   if (updated.count === 0) {
-    logger.info(
-      "Account already marked as disconnected (via concurrent update)",
-    );
-    return;
+    logger.info("Account changed before credential cleanup");
+    return { status: "skipped" as const };
   }
 
   const errorMessage = getAccountActionRequiredMessage(

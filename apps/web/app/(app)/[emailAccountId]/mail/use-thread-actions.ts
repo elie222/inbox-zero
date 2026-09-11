@@ -1,0 +1,323 @@
+"use client";
+
+import { useCallback, useEffect, useRef } from "react";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { toastUndo } from "@/components/Toast";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
+import {
+  cancelPendingMailMutation,
+  enqueueMailMutation,
+  enqueueMailMutationBatch,
+  type MailMutationPayload,
+} from "@/utils/email-cache/mail-mutations";
+import { randomUuid } from "@/utils/uuid";
+import {
+  getListThreadEmailAccountId,
+  getListThreadKey,
+  getListThreadMessageIds,
+  type ListThread,
+} from "./types";
+
+type UndoableAction = "archive" | "trash";
+
+type ThreadSnapshot = {
+  emailAccountId: string;
+  key: string;
+  messageIds: string[];
+  mutationId: string;
+  threadId: string;
+};
+
+type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
+
+type UndoableBatch = {
+  action: UndoableAction;
+  snapshots: ThreadSnapshot[];
+  undone: boolean;
+};
+
+export function useThreadActions({
+  emailAccountId,
+  readerTarget,
+  threads,
+}: {
+  emailAccountId: string;
+  readerTarget?: ThreadActionTarget;
+  threads: ListThread[];
+}) {
+  const lastAction = useRef<UndoableBatch | null>(null);
+  const retainedEmailAccountId = useRef(emailAccountId);
+  const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
+  const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
+  useEffect(() => {
+    if (retainedEmailAccountId.current !== emailAccountId) {
+      retainedEmailAccountId.current = emailAccountId;
+      listTargetsByKey.current.clear();
+      lastAction.current = null;
+    }
+    activeReaderTarget.current = readerTarget?.messageIds.length
+      ? readerTarget
+      : undefined;
+    for (const thread of threads) {
+      const messageIds = [...new Set(getListThreadMessageIds(thread))];
+      if (!messageIds.length) continue;
+      const key = getListThreadKey(thread);
+      listTargetsByKey.current.set(key, {
+        emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+        key,
+        messageIds,
+        threadId: thread.id,
+      });
+    }
+  }, [emailAccountId, readerTarget, threads]);
+
+  const resolveTargets = useCallback(
+    (threadKeys: string[]) =>
+      threadKeys
+        .map((key) => {
+          const listTarget = listTargetsByKey.current.get(key);
+          if (listTarget) return listTarget;
+          return activeReaderTarget.current?.key === key
+            ? activeReaderTarget.current
+            : undefined;
+        })
+        .filter((target): target is ThreadActionTarget => Boolean(target)),
+    [],
+  );
+
+  const enqueueTargets = useCallback(
+    async (
+      targets: ReturnType<typeof resolveTargets>,
+      payload: MailMutationPayload,
+    ) => {
+      if (!targets.length) return [];
+      try {
+        const mutations = await enqueueMailMutationBatch(
+          targets.map((target) => ({
+            ...payload,
+            emailAccountId: target.emailAccountId,
+            messageIds: target.messageIds,
+            threadId: target.threadId,
+          })),
+        );
+
+        return targets.map((target, index) => {
+          const mutation = mutations.at(index);
+          if (!mutation) throw new Error("Missing queued mail mutation");
+          return { ...target, mutationId: mutation.id };
+        });
+      } catch {
+        return [];
+      }
+    },
+    [],
+  );
+
+  const undoBatch = useCallback(async (batch: UndoableBatch) => {
+    if (batch.undone) return [];
+    batch.undone = true;
+    if (lastAction.current === batch) lastAction.current = null;
+
+    const compensationKind =
+      batch.action === "archive" ? "unarchive" : "untrash";
+    const batchId = randomUuid();
+    const results = await Promise.allSettled(
+      batch.snapshots.map(async (snapshot) => {
+        const cancelled = await cancelPendingMailMutation(snapshot.mutationId);
+        if (!cancelled) {
+          await enqueueMailMutation({
+            batchId,
+            emailAccountId: snapshot.emailAccountId,
+            kind: compensationKind,
+            messageIds: snapshot.messageIds,
+            threadId: snapshot.threadId,
+          });
+        }
+        return snapshot.key;
+      }),
+    );
+    const restoredKeys = results.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    const failedCount = results.length - restoredKeys.length;
+
+    if (restoredKeys.length) {
+      toast.success(summarise("Restored", restoredKeys.length));
+    }
+    if (failedCount) {
+      toast.error(
+        failedCount === results.length
+          ? "Couldn't restore"
+          : `Couldn't restore ${failedCount} of ${results.length}`,
+      );
+    }
+    if (!restoredKeys.length) {
+      batch.undone = false;
+      lastAction.current = batch;
+    }
+    return restoredKeys;
+  }, []);
+
+  const undo = useCallback(async () => {
+    const batch = lastAction.current;
+    return batch ? undoBatch(batch) : [];
+  }, [undoBatch]);
+
+  const runUndoable = useCallback(
+    async (action: UndoableAction, threadKeys: string[]) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, { kind: action });
+      if (!snapshots.length) {
+        if (threadKeys.length) {
+          toast.error(
+            action === "archive"
+              ? "Couldn't queue archiving"
+              : "Couldn't queue deletion",
+          );
+        }
+        return [];
+      }
+
+      const batch: UndoableBatch = { action, snapshots, undone: false };
+      lastAction.current = batch;
+      const failedCount = threadKeys.length - snapshots.length;
+      toastUndo({
+        message: summarise(
+          action === "archive" ? "Archived" : "Deleted",
+          snapshots.length,
+        ),
+        shortcut: getShortcutHint("undo"),
+        onUndo: () => {
+          undoBatch(batch);
+        },
+      });
+      if (failedCount) {
+        toast.error(
+          action === "archive"
+            ? `Couldn't queue ${failedCount} of ${threadKeys.length} for archiving`
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} for deletion`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets, undoBatch],
+  );
+
+  const setReadState = useCallback(
+    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, {
+        kind: "set_read_state",
+        read,
+      });
+      const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length && notifySuccess) {
+        toast.success(
+          snapshots.length === 1
+            ? `Marked as ${read ? "read" : "unread"}`
+            : `Marked ${snapshots.length} conversations as ${read ? "read" : "unread"}`,
+        );
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === threadKeys.length
+            ? `Couldn't queue marking as ${read ? "read" : "unread"}`
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
+  const setStarredState = useCallback(
+    async (threadKeys: string[], starred: boolean) => {
+      const snapshots = await enqueueTargets(resolveTargets(threadKeys), {
+        kind: "set_starred_state",
+        starred,
+      });
+      if (snapshots.length < threadKeys.length)
+        toast.error("Couldn’t update stars for all conversations");
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
+  const snooze = useCallback(
+    async (threadKeys: string[], snoozedUntil: Date) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, {
+        kind: "snooze",
+        scheduledFor: snoozedUntil.toISOString(),
+      });
+      const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length) {
+        toast.success(
+          snapshots.length === 1
+            ? `Snoozed until ${format(snoozedUntil, "EEE, MMM d 'at' p")}`
+            : `Snoozed ${snapshots.length} conversations`,
+        );
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === threadKeys.length
+            ? threadKeys.length === 1
+              ? "Couldn't queue snoozing"
+              : "Couldn't queue snoozing conversations"
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
+  const markSpam = useCallback(
+    async (threadKeys: string[]) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, { kind: "spam" });
+      const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length) {
+        toast.success(
+          snapshots.length === 1
+            ? "Marked as spam"
+            : `Marked ${snapshots.length} conversations as spam`,
+        );
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === threadKeys.length
+            ? "Couldn't queue marking as spam"
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
+  return {
+    archive: useCallback(
+      (threadKeys: string[]) => runUndoable("archive", threadKeys),
+      [runUndoable],
+    ),
+    trash: useCallback(
+      (threadKeys: string[]) => runUndoable("trash", threadKeys),
+      [runUndoable],
+    ),
+    markRead: useCallback(
+      (threadKeys: string[]) => setReadState(threadKeys, true, false),
+      [setReadState],
+    ),
+    markSpam,
+    setReadState,
+    setStarredState,
+    snooze,
+    undo,
+  };
+}
+
+function summarise(verb: string, count: number) {
+  return count === 1 ? verb : `${verb} ${count} conversations`;
+}

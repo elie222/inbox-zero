@@ -6,7 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { judgeBinary } from "@/__tests__/eval/judge";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
-import { getEvalJudgeUserAi } from "@/__tests__/eval/semantic-judge";
+import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,

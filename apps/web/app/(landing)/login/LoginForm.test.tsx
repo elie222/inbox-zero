@@ -14,6 +14,7 @@ const mockUseSearchParams = vi.fn();
 const mockSignInWithOauth2 = vi.fn();
 const mockSignInSocial = vi.fn();
 const mockToastError = vi.fn();
+const mockPosthogCapture = vi.fn();
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -50,6 +51,18 @@ vi.mock("@/components/Toast", () => ({
     mockToastError(...args),
 }));
 
+vi.mock("posthog-js/react", () => ({
+  usePostHog: () => ({ capture: mockPosthogCapture }),
+}));
+
+vi.mock("@/utils/redirect", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/redirect")>();
+  return {
+    ...actual,
+    redirectToSafeUrl: vi.fn(),
+  };
+});
+
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 
 describe("LoginForm", () => {
@@ -62,9 +75,10 @@ describe("LoginForm", () => {
 
   afterEach(() => {
     cleanup();
+    window.inboxZeroDesktop = undefined;
   });
 
-  it("places Apple after Google and Microsoft when all OAuth options are shown", () => {
+  it("keeps secondary options off the main login page", () => {
     render(
       <LoginForm
         enabledProviders={["google", "microsoft", "apple", "sso"]}
@@ -74,20 +88,16 @@ describe("LoginForm", () => {
 
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual([
-      "Sign in with Google",
-      "Sign in with Microsoft",
-      "Sign in with Apple",
-    ]);
+    ).toEqual(["Sign in with Google", "Sign in with Microsoft"]);
   });
 
-  it("starts Apple sign-in when the Apple option is shown", async () => {
+  it("starts Apple sign-in directly when no primary provider is configured", async () => {
     mockSignInSocial.mockResolvedValue(undefined);
 
     render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /sign in with apple/i }),
+      screen.getByRole("button", { name: /continue with apple/i }),
     );
 
     await waitFor(() => {
@@ -106,10 +116,16 @@ describe("LoginForm", () => {
     });
     mockSignInSocial.mockResolvedValue(undefined);
 
-    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
+    render(
+      <LoginForm
+        enabledProviders={["apple"]}
+        useGoogleOauthEmulator
+        otherOptions
+      />,
+    );
 
     fireEvent.click(
-      screen.getByRole("button", { name: /sign in with apple/i }),
+      screen.getByRole("button", { name: /continue with apple/i }),
     );
 
     await waitFor(() => {
@@ -140,5 +156,71 @@ describe("LoginForm", () => {
           "Could not start sign-in. Please check that this app is opened from its configured public URL, then try again.",
       });
     });
+  });
+
+  it("starts desktop system-browser auth instead of in-window OAuth", async () => {
+    const startAuth = vi.fn().mockResolvedValue(undefined);
+    window.inboxZeroDesktop = { startAuth };
+
+    render(
+      <LoginForm
+        enabledProviders={["google"]}
+        useGoogleOauthEmulator={false}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with google/i }),
+    );
+
+    await waitFor(() => {
+      expect(startAuth).toHaveBeenCalledWith("google", {
+        callbackPath: "/welcome-redirect",
+      });
+    });
+    expect(mockSignInSocial).not.toHaveBeenCalled();
+    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
+  });
+
+  it("starts desktop auth even when the Google OAuth emulator is enabled", async () => {
+    const startAuth = vi.fn().mockResolvedValue(undefined);
+    window.inboxZeroDesktop = { startAuth };
+
+    render(<LoginForm enabledProviders={["google"]} useGoogleOauthEmulator />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with google/i }),
+    );
+
+    await waitFor(() => {
+      expect(startAuth).toHaveBeenCalledWith("google", {
+        callbackPath: "/welcome-redirect",
+      });
+    });
+    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
+  });
+
+  it("passes Apple's connect-mailbox callback through desktop auth", async () => {
+    const startAuth = vi.fn().mockResolvedValue(undefined);
+    window.inboxZeroDesktop = { startAuth };
+
+    render(
+      <LoginForm
+        enabledProviders={["apple"]}
+        useGoogleOauthEmulator
+        otherOptions
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with apple/i }),
+    );
+
+    await waitFor(() => {
+      expect(startAuth).toHaveBeenCalledWith("apple", {
+        callbackPath: "/connect-mailbox?next=%2Fwelcome-redirect",
+      });
+    });
+    expect(mockSignInSocial).not.toHaveBeenCalled();
   });
 });

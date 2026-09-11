@@ -540,6 +540,57 @@ describe("processAttachment", () => {
 });
 
 describe("getFilableAttachments", () => {
+  it("excludes inline images embedded in the email body", () => {
+    const documentAttachment = createAttachment({
+      attachmentId: "attachment-1",
+      filename: "receipt.pdf",
+      mimeType: "application/pdf",
+    });
+    const inlineImage = {
+      ...createAttachment({
+        attachmentId: "attachment-2",
+        filename: "signature-logo.png",
+        mimeType: "image/png",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'inline; filename="signature-logo.png"',
+        "content-id": "<signature-logo>",
+        "content-transfer-encoding": "base64",
+        "content-type": 'image/png; name="signature-logo.png"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment, inlineImage],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
+  it("keeps attachments when inline appears only in a disposition parameter", () => {
+    const documentAttachment = {
+      ...createAttachment({
+        attachmentId: "attachment-1",
+        filename: "inline-report.pdf",
+        mimeType: "application/pdf",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'attachment; filename="inline-report.pdf"',
+        "content-id": "",
+        "content-transfer-encoding": "base64",
+        "content-type": 'application/pdf; name="inline-report.pdf"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
   it("excludes calendar invite attachments", () => {
     const documentAttachment = createAttachment({
       attachmentId: "attachment-1",

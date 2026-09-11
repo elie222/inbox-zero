@@ -95,6 +95,7 @@ export function createMicrosoftCalendarProvider(
               name: microsoftCalendar.name || "Untitled Calendar",
               description: microsoftCalendar.description,
               timezone: null,
+              primary: microsoftCalendar.isDefaultCalendar ?? false,
             },
             create: {
               connectionId,
@@ -102,6 +103,7 @@ export function createMicrosoftCalendarProvider(
               name: microsoftCalendar.name || "Untitled Calendar",
               description: microsoftCalendar.description,
               timezone: null,
+              primary: microsoftCalendar.isDefaultCalendar ?? false,
               isEnabled: true,
             },
           });

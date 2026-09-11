@@ -211,6 +211,59 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
+  it("passes plain text through unchanged", () => {
+    expect(getRuleResultReasonDisplay("The email is a newsletter.")).toEqual({
+      reason: "The email is a newsletter.",
+      actionFailureMessages: [],
+    });
+  });
+
+  it("strips literal HTML tags from the reason", () => {
+    expect(
+      getRuleResultReasonDisplay(
+        "<div><p>The email is a <strong>newsletter</strong>.</p></div>",
+      ).reason,
+    ).toBe("The email is a newsletter.");
+  });
+
+  it("separates adjacent block elements with a space", () => {
+    expect(
+      getRuleResultReasonDisplay("<p>Sender is known.</p><p>Rule applies.</p>")
+        .reason,
+    ).toBe("Sender is known. Rule applies.");
+  });
+
+  it("strips tags that were HTML-encoded and collapses leftover whitespace", () => {
+    expect(
+      getRuleResultReasonDisplay(
+        "&lt;p&gt;The sender confirmed the user&#x27;s   order.&lt;/p&gt;",
+      ).reason,
+    ).toBe("The sender confirmed the user's order.");
+  });
+
+  it("keeps malformed encoded tag-like text", () => {
+    expect(getRuleResultReasonDisplay("&lt;script text").reason).toBe(
+      "<script text",
+    );
+  });
+
+  it("keeps comparison text that only looks like angle brackets", () => {
+    expect(
+      getRuleResultReasonDisplay("Priority is < 3 and score > 5.").reason,
+    ).toBe("Priority is < 3 and score > 5.");
+  });
+
+  it("still parses action failures when the reason contains HTML tags", () => {
+    expect(
+      getRuleResultReasonDisplay(
+        "<p>Rule matched.</p>\nAction failures: NOTIFY_SENDER:SEND_FAILED",
+      ),
+    ).toEqual({
+      reason: "Rule matched.",
+      actionFailureMessages: ["The sender notification could not be sent."],
+    });
+  });
+
   it("does not expose unknown internal action failure codes", () => {
     const display = getRuleResultReasonDisplay(
       "Rule matched\nAction failures: DRAFT_MESSAGING_CHANNEL:SOME_INTERNAL_CODE",

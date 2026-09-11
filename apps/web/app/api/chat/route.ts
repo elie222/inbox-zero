@@ -8,7 +8,10 @@ import {
 import { withEmailAccount } from "@/utils/middleware";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import {
+  aiProcessAssistantChat,
+  ASSISTANT_CHAT_PIPELINE_VERSION,
+} from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
@@ -17,13 +20,19 @@ import { captureException } from "@/utils/error";
 import {
   shouldCompact,
   compactMessages,
+  buildCompactionSummaryMessage,
   extractMemories,
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
-import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
 import {
+  buildUserChatMessageMetadata,
+  mapUiMessagesToChatMessageRows,
+  type AssistantChatRunMetadata,
+} from "@/app/api/chat/chat-message-persistence";
+import {
+  ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE,
   type AssistantInput,
   assistantInputSchema,
 } from "@/utils/actions/assistant-chat.validation";
@@ -35,7 +44,7 @@ import {
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
-export const maxDuration = 120;
+export const maxDuration = 800;
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -58,7 +67,40 @@ export const POST = withEmailAccount("chat", async (request) => {
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
 
-  if (error) return NextResponse.json({ error: error.issues }, { status: 400 });
+  if (error) {
+    const requestMetadata = getInvalidChatRequestMetadata(json);
+    const messageTooLong = error.issues.some(
+      (issue) =>
+        issue.code === "too_big" &&
+        issue.path.length === 4 &&
+        issue.path[0] === "message" &&
+        issue.path[1] === "parts" &&
+        typeof issue.path[2] === "number" &&
+        issue.path[3] === "text",
+    );
+
+    request.logger.warn("Assistant chat request rejected", {
+      ...requestMetadata,
+      failureCategory: messageTooLong ? "message_too_long" : "validation_error",
+      statusCode: 400,
+      validationIssueCodes: [
+        ...new Set(error.issues.map((issue) => issue.code)),
+      ],
+    });
+    await flushLoggerSafely(request.logger, {
+      action: "assistant-chat",
+      flushReason: "chat-validation-error",
+    });
+
+    return NextResponse.json(
+      {
+        error: messageTooLong
+          ? ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE
+          : "Invalid chat message.",
+      },
+      { status: 400 },
+    );
+  }
 
   const chat =
     (await getChatWithCompactions(data.id)) ||
@@ -92,6 +134,8 @@ export const POST = withEmailAccount("chat", async (request) => {
   const chatHasHistory =
     chat.messages.length > 0 || chat.compactions.length > 0;
   const { message, context, inlineActions } = data;
+  const chatRunId = crypto.randomUUID();
+  const runLogger = request.logger.with({ chatId: chat.id, chatRunId });
 
   const hiddenInlineActionMessage =
     buildHiddenInlineActionMessage(inlineActions);
@@ -101,6 +145,11 @@ export const POST = withEmailAccount("chat", async (request) => {
     id: message.id,
     role: "user",
     parts: message.parts,
+    metadata: buildUserChatMessageMetadata({
+      runId: chatRunId,
+      context,
+      inlineActions,
+    }),
   });
 
   after(() =>
@@ -138,10 +187,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   if (latestCompaction) {
     modelMessages = [
-      {
-        role: "system" as const,
-        content: `Summary of earlier conversation:\n${latestCompaction.summary}`,
-      },
+      buildCompactionSummaryMessage(latestCompaction.summary),
       ...modelMessages,
     ];
   }
@@ -234,6 +280,17 @@ export const POST = withEmailAccount("chat", async (request) => {
   try {
     const inboxStats = await inboxStatsPromise;
     let seenRulesRevision: number | null = null;
+    const assistantRun: AssistantChatRunMetadata = {
+      runId: chatRunId,
+      provider: null,
+      modelName: null,
+      pipelineVersion: ASSISTANT_CHAT_PIPELINE_VERSION,
+      deploymentCommit: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || null,
+      finishReason: null,
+      stepCount: 0,
+      toolCallCount: 0,
+      visibleTextProduced: false,
+    };
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
       conversationMessagesForMemory: conversationModelMessages,
@@ -251,7 +308,18 @@ export const POST = withEmailAccount("chat", async (request) => {
           rulesRevision,
         );
       },
-      logger: request.logger,
+      onModelResolved: (resolvedModel) => {
+        assistantRun.provider = resolvedModel.provider;
+        assistantRun.modelName = resolvedModel.modelName ?? null;
+      },
+      onStepFinish: (step) => {
+        assistantRun.stepCount += 1;
+        assistantRun.toolCallCount += step.toolCalls.length;
+      },
+      onFinish: (result) => {
+        assistantRun.finishReason = result.finishReason;
+      },
+      logger: runLogger,
     });
 
     const stream = createUIMessageStream({
@@ -270,9 +338,7 @@ export const POST = withEmailAccount("chat", async (request) => {
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
 
-        request.logger.warn("Assistant chat completed with tool failures", {
-          chatId: chat.id,
-        });
+        runLogger.warn("Assistant chat completed with tool failures");
 
         const warningPartId = crypto.randomUUID();
         writer.write({ type: "text-start", id: warningPartId });
@@ -284,44 +350,64 @@ export const POST = withEmailAccount("chat", async (request) => {
         writer.write({ type: "text-end", id: warningPartId });
       },
       onFinish: async ({ messages }) => {
+        assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
         const persistableMessages = messages.filter(
           isPersistableAssistantMessage,
         );
 
         if (persistableMessages.length < messages.length) {
-          request.logger.error("Skipping empty assistant chat messages", {
-            chatId: chat.id,
+          runLogger.error("Skipping empty assistant chat messages", {
             skippedCount: messages.length - persistableMessages.length,
           });
         }
 
+        let insertedMessageCount = 0;
         if (persistableMessages.length > 0) {
-          await saveChatMessages(persistableMessages, chat.id, request.logger);
+          const result = await saveChatMessages(
+            persistableMessages,
+            chat.id,
+            runLogger,
+            assistantRun,
+          );
+          insertedMessageCount = result.count;
         }
 
         if (seenRulesRevision != null) {
           await saveLastSeenRulesRevision({
             chatId: chat.id,
             rulesRevision: seenRulesRevision,
-            logger: request.logger,
+            logger: runLogger,
           });
         }
 
-        await flushLoggerSafely(request.logger, {
+        runLogger.info("Assistant chat run completed", {
+          provider: assistantRun.provider,
+          modelName: assistantRun.modelName,
+          pipelineVersion: assistantRun.pipelineVersion,
+          deploymentCommit: assistantRun.deploymentCommit,
+          finishReason: assistantRun.finishReason,
+          stepCount: assistantRun.stepCount,
+          toolCallCount: assistantRun.toolCallCount,
+          visibleTextProduced: assistantRun.visibleTextProduced,
+          assistantMessageCount: messages.filter(
+            (message) => message.role === "assistant",
+          ).length,
+          insertedMessageCount,
+        });
+
+        await flushLoggerSafely(runLogger, {
           action: "assistant-chat",
           flushReason: "chat-stream-finish",
-          chatId: chat.id,
         });
       },
     });
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
-    request.logger.error("Error in assistant chat", { error });
-    await flushLoggerSafely(request.logger, {
+    runLogger.error("Error in assistant chat", { error });
+    await flushLoggerSafely(runLogger, {
       action: "assistant-chat",
       flushReason: "chat-error",
-      chatId: chat.id,
     });
     return NextResponse.json(
       { error: "Error in assistant chat" },
@@ -373,9 +459,12 @@ async function saveChatMessages(
   messages: UIMessage[],
   chatId: string,
   logger: Logger,
+  assistantRun: AssistantChatRunMetadata,
 ) {
   try {
-    const rows = mapUiMessagesToChatMessageRows(messages, chatId);
+    const rows = mapUiMessagesToChatMessageRows(messages, chatId, {
+      assistantRun,
+    });
     const assistantMessages = messages.filter(
       (message) => message.role === "assistant",
     );
@@ -438,9 +527,51 @@ function hasRenderableAssistantResponse(
   });
 }
 
+function hasVisibleAssistantText(messages: UIMessage[]) {
+  return messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      message.parts.some(
+        (part) => part.type === "text" && part.text.trim().length > 0,
+      ),
+  );
+}
+
 function getToolCallIdsFromUiParts(parts: UIMessage["parts"] | undefined) {
   return (
     parts?.flatMap((part) => ("toolCallId" in part ? [part.toolCallId] : [])) ||
     []
+  );
+}
+
+function getInvalidChatRequestMetadata(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  const message = (value as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  const parts = (message as Record<string, unknown>).parts;
+  if (!Array.isArray(parts)) {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  return parts.reduce(
+    (metadata, part) => {
+      if (!part || typeof part !== "object") return metadata;
+
+      const candidate = part as Record<string, unknown>;
+      if (candidate.type === "text" && typeof candidate.text === "string") {
+        metadata.textLength += candidate.text.length;
+      } else if (candidate.type === "file") {
+        metadata.attachmentCount += 1;
+      }
+
+      return metadata;
+    },
+    { attachmentCount: 0, textLength: 0 },
   );
 }

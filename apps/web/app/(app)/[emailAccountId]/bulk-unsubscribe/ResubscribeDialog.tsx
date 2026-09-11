@@ -12,14 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
+import { setSenderStatusAction } from "@/utils/actions/unsubscriber";
 
 interface ResubscribeDialogProps {
   emailAccountId: string;
   mutate: () => Promise<void>;
-  newsletterEmail: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  senderEmail: string;
   senderName: string;
 }
 
@@ -27,7 +27,7 @@ export function ResubscribeDialog({
   open,
   onOpenChange,
   senderName,
-  newsletterEmail,
+  senderEmail,
   emailAccountId,
   mutate,
 }: ResubscribeDialogProps) {
@@ -39,8 +39,8 @@ export function ResubscribeDialog({
   const handleUnblock = async () => {
     setUnblockLoading(true);
     try {
-      await setNewsletterStatusAction(emailAccountId, {
-        newsletterEmail,
+      await setSenderStatusAction(emailAccountId, {
+        senderEmail,
         status: null,
       });
       setUnblockComplete(true);

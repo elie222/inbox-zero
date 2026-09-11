@@ -92,6 +92,7 @@ export async function getThreadsBatch(
   threadIds: string[],
   accessToken: string,
   logger: Logger,
+  options?: { format: "metadata" },
 ): Promise<ThreadWithPayloadMessages[]> {
   if (!threadIds.length) return [];
 
@@ -104,7 +105,28 @@ export async function getThreadsBatch(
     accessToken,
     parse: (thread) => thread,
     logger,
+    queryString:
+      options?.format === "metadata" ? getMetadataQueryString() : undefined,
   });
+}
+
+function getMetadataQueryString() {
+  const searchParams = new URLSearchParams({ format: "metadata" });
+  for (const header of [
+    "From",
+    "To",
+    "Cc",
+    "Bcc",
+    "Subject",
+    "Date",
+    "Message-ID",
+    "In-Reply-To",
+    "References",
+    "Reply-To",
+  ]) {
+    searchParams.append("metadataHeaders", header);
+  }
+  return searchParams.toString();
 }
 
 async function getThreadsFromSender(

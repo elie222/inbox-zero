@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FolderItem } from "@/app/api/user/drive/folders/route";
 import {
-  applyFolderSelection,
-  buildFolderChildrenMap,
-  getFolderSelectionState,
-  getRootFolders,
-  mergeFolderChildren,
+  applyLoadedFolderChildrenSelection,
+  folderSelection,
 } from "./allowed-folder-selection";
 
 describe("allowed folder selection", () => {
@@ -16,25 +13,9 @@ describe("allowed folder selection", () => {
       folder("orphan", "missing"),
     ];
 
-    expect(getRootFolders(folders).map((root) => root.id)).toEqual([
-      "parent",
-      "orphan",
-    ]);
-  });
-
-  it("preserves the children map when loaded children have not changed", () => {
-    const childrenByParentId = buildFolderChildrenMap([
-      folder("parent"),
-      folder("child", "parent"),
-    ]);
-
     expect(
-      mergeFolderChildren({
-        childrenByParentId,
-        parentId: "parent",
-        children: [folder("child", "parent")],
-      }),
-    ).toBe(childrenByParentId);
+      folderSelection.getRootItems(folders).map((root) => root.id),
+    ).toEqual(["parent", "orphan"]);
   });
 
   it("selects a folder and its loaded descendants", () => {
@@ -45,14 +26,14 @@ describe("allowed folder selection", () => {
       folder("grandchild", "child-a"),
     ];
 
-    const result = applyFolderSelection({
-      folder: folders[0],
-      isChecked: true,
-      selectedFolderIds: new Set(["existing"]),
-      childrenByParentId: buildFolderChildrenMap(folders),
+    const result = folderSelection.applySelection({
+      item: folders[0],
+      checked: true,
+      selectedKeys: new Set(["existing"]),
+      childrenByParentId: folderSelection.buildChildrenMap(folders),
     });
 
-    expect([...result.nextFolderIds].sort()).toEqual([
+    expect([...result.nextKeys].sort()).toEqual([
       "child-a",
       "child-b",
       "existing",
@@ -60,8 +41,30 @@ describe("allowed folder selection", () => {
       "parent",
     ]);
     expect(
-      result.changedFolders.map((selectedFolder) => selectedFolder.id),
+      result.changedItems.map((selectedFolder) => selectedFolder.id),
     ).toEqual(["parent", "child-a", "grandchild", "child-b"]);
+  });
+
+  it("selects children loaded after their parent was selected", () => {
+    const parent = folder("parent");
+    const initialSelection = folderSelection.applySelection({
+      item: parent,
+      checked: true,
+      selectedKeys: new Set(),
+      childrenByParentId: new Map(),
+    });
+    const children = [folder("child-a", "parent"), folder("child-b", "parent")];
+
+    const result = applyLoadedFolderChildrenSelection({
+      parent,
+      children,
+      selectedFolderIds: initialSelection.nextKeys,
+      childrenByParentId: new Map(),
+    });
+
+    expect(
+      result.changedFolders.map((selectedFolder) => selectedFolder.id),
+    ).toEqual(["child-a", "child-b"]);
   });
 
   it("deselects a folder and its loaded descendants", () => {
@@ -72,16 +75,16 @@ describe("allowed folder selection", () => {
       folder("unrelated"),
     ];
 
-    const result = applyFolderSelection({
-      folder: folders[0],
-      isChecked: false,
-      selectedFolderIds: new Set(["parent", "child-a", "unrelated"]),
-      childrenByParentId: buildFolderChildrenMap(folders),
+    const result = folderSelection.applySelection({
+      item: folders[0],
+      checked: false,
+      selectedKeys: new Set(["parent", "child-a", "unrelated"]),
+      childrenByParentId: folderSelection.buildChildrenMap(folders),
     });
 
-    expect([...result.nextFolderIds].sort()).toEqual(["unrelated"]);
+    expect([...result.nextKeys].sort()).toEqual(["unrelated"]);
     expect(
-      result.changedFolders.map((selectedFolder) => selectedFolder.id),
+      result.changedItems.map((selectedFolder) => selectedFolder.id),
     ).toEqual(["parent", "child-a"]);
   });
 
@@ -93,10 +96,10 @@ describe("allowed folder selection", () => {
     ];
 
     expect(
-      getFolderSelectionState({
-        folderId: "parent",
-        selectedFolderIds: new Set(["child-a"]),
-        childrenByParentId: buildFolderChildrenMap(folders),
+      folderSelection.getSelectionState({
+        item: folders[0],
+        selectedKeys: new Set(["child-a"]),
+        childrenByParentId: folderSelection.buildChildrenMap(folders),
       }),
     ).toBe("indeterminate");
   });
@@ -109,10 +112,10 @@ describe("allowed folder selection", () => {
     ];
 
     expect(
-      getFolderSelectionState({
-        folderId: "parent",
-        selectedFolderIds: new Set(["child-a", "child-b"]),
-        childrenByParentId: buildFolderChildrenMap(folders),
+      folderSelection.getSelectionState({
+        item: folders[0],
+        selectedKeys: new Set(["child-a", "child-b"]),
+        childrenByParentId: folderSelection.buildChildrenMap(folders),
       }),
     ).toBe(true);
   });

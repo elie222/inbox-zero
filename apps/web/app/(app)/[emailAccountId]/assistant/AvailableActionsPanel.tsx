@@ -12,11 +12,14 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
+import { useIntegrationActionsEnabled } from "@/hooks/useFeatureFlags";
 
 const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
   [ActionType.MOVE_FOLDER]: "Move to folder",
   [ActionType.ARCHIVE]: "Archive",
+  [ActionType.DELETE]: "Delete",
   [ActionType.DRAFT_EMAIL]: "Draft replies",
   [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft replies",
   [ActionType.REPLY]: "Send replies",
@@ -29,6 +32,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
+  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
 };
 
 const actionTooltips: Partial<Record<ActionType, string>> = {
@@ -40,6 +44,7 @@ const actionTooltips: Partial<Record<ActionType, string>> = {
 
 export function AvailableActionsPanel() {
   const { emailAccountId, provider } = useAccount();
+  const integrationActionsEnabled = useIntegrationActionsEnabled();
   const { data: messagingChannelsData } = useMessagingChannels(emailAccountId);
   const notifyActionName = getNotifyActionName(messagingChannelsData);
 
@@ -48,7 +53,12 @@ export function AvailableActionsPanel() {
       <CardContent className="pt-4">
         <div className="grid gap-2">
           <ActionSection
-            actions={[...getAvailableActions(provider), ...getExtraActions()]}
+            actions={[
+              ...getAvailableActions(provider),
+              ...getExtraActions({
+                integrationActionsEnabled,
+              }),
+            ]}
             notifyActionName={notifyActionName}
             title="Available Actions"
           />
@@ -106,7 +116,7 @@ function getNotifyActionName(
   );
 
   return providerNames.length > 0
-    ? `Notify via ${formatProviderList(providerNames)}`
+    ? `Notify on ${formatProviderList(providerNames)}`
     : "Notify";
 }
 

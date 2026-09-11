@@ -1,9 +1,3 @@
-import { afterAll, describe, expect, test } from "vitest";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
-import { createEvalReporter } from "@/__tests__/eval/reporter";
-import { formatSemanticJudgeActual } from "@/__tests__/eval/semantic-judge";
-import { getMockMessage } from "@/__tests__/helpers";
-import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -20,6 +14,12 @@ import {
   shouldRunEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
+import { describeEvalMatrix } from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { formatSemanticJudgeActual } from "@/__tests__/eval/semantic-judge";
+import { getMockMessage } from "@/__tests__/helpers";
 
 // pnpm test-ai eval/assistant-chat-inbox-workflows
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-inbox-workflows

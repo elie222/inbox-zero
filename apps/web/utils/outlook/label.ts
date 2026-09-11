@@ -2,7 +2,11 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./constants";
-import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo,
+  withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
+} from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -13,38 +17,24 @@ import {
   sanitizeOutlookCategoryName,
 } from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFolderIds } from "@/utils/outlook/message";
+import { isDefined } from "@/utils/types";
 import type {
   OutlookCategory,
   Message,
 } from "@microsoft/microsoft-graph-types";
+import {
+  OUTLOOK_CATEGORY_COLOR_IDS,
+  OUTLOOK_CATEGORY_COLOR_MAP,
+} from "@/utils/outlook/category-colors";
 
 // Outlook supported colors
-export const OUTLOOK_COLORS: Array<string> = [
-  "preset0", // Red
-  "preset1", // Orange
-  "preset2", // Yellow
-  "preset3", // Green
-  "preset4", // Teal
-  "preset5", // Blue
-  "preset6", // Purple
-  "preset7", // Pink
-  "preset8", // Brown
-  "preset9", // Gray
-] as const;
-
-// Map Outlook preset colors to single color values
-export const OUTLOOK_COLOR_MAP = {
-  preset0: "#E74C3C", // Red
-  preset1: "#E67E22", // Orange
-  preset2: "#F1C40F", // Yellow
-  preset3: "#2ECC71", // Green
-  preset4: "#1ABC9C", // Teal
-  preset5: "#3498DB", // Blue
-  preset6: "#9B59B6", // Purple
-  preset7: "#E84393", // Pink
-  preset8: "#795548", // Brown
-  preset9: "#95A5A6", // Gray
-} as const;
+export const OUTLOOK_COLORS: Array<string> = OUTLOOK_CATEGORY_COLOR_IDS.slice(
+  0,
+  10,
+);
+export const OUTLOOK_COLOR_MAP = OUTLOOK_CATEGORY_COLOR_MAP;
 
 export async function getLabels(client: OutlookClient) {
   const response: { value: OutlookCategory[] } = await client
@@ -90,7 +80,7 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withOutlookRetry(
+    const response: OutlookCategory = await withMicrosoftGraphWriteRetry(
       () =>
         client.getClient().api("/me/outlook/masterCategories").post({
           displayName: sanitizedName,
@@ -235,7 +225,7 @@ export async function labelMessage({
   categories: string[];
   logger: Logger;
 }) {
-  return withOutlookRetry(
+  return withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${messageId}`).patch({
         categories,
@@ -324,7 +314,7 @@ export async function removeThreadLabel({
         (cat) => cat !== categoryName,
       );
 
-      await withOutlookRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           client.getClient().api(`/me/messages/${messageId}`).patch({
             categories: updatedCategories,
@@ -379,121 +369,222 @@ export async function archiveThread({
     }
   }
 
+  // In Outlook, archiving is moving to a folder
+  // We need to move each message in the thread individually
+  const escapedThreadId = threadId.replace(/'/g, "''");
+  let messages: { value: Array<{ id: string }> };
   try {
-    // In Outlook, archiving is moving to a folder
-    // We need to move each message in the thread individually
-    const escapedThreadId = threadId.replace(/'/g, "''");
-    const messages = await client
+    messages = await client
       .getClient()
       .api("/me/messages")
       .filter(`conversationId eq '${escapedThreadId}'`) // Escape single quotes in threadId for the filter
       .get();
-
-    const archivePromise = runThreadMessageMutation({
-      messageIds: messages.value.map((message: { id: string }) => message.id),
-      threadId,
-      logger,
-      messageHandler: (messageId) =>
-        withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${messageId}/move`).post({
-              destinationId: folderId,
-            }),
-          logger,
-        ),
-      failureMessage: "Failed to move message to folder",
-      continueOnError: true,
-    });
-
-    const publishPromise = publishArchive({
-      ownerEmail,
-      threadId,
-      actionSource,
-      timestamp: Date.now(),
-    });
-
-    const [archiveResult, publishResult] = await Promise.allSettled([
-      archivePromise,
-      publishPromise,
-    ]);
-
-    // Handle publish errors as non-fatal (just log)
-    if (publishResult.status === "rejected") {
-      logger.error("Failed to publish action to move thread to folder", {
-        folderId,
-        threadId,
-        error: publishResult.reason,
-      });
-    }
-
-    // Handle archive errors
-    if (archiveResult.status === "rejected") {
-      const error = archiveResult.reason;
-      if (error.message?.includes("Requested entity was not found")) {
-        logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
-        return { status: 404, message: "Thread not found" };
-      }
-      logger.error("Failed to move thread to folder", {
-        folderId,
-        threadId,
-        error,
-      });
-      throw error;
-    }
-
-    return { status: 200 };
   } catch (error) {
-    // If the filter fails, try a different approach
-    logger.warn("Filter failed, trying alternative approach", {
+    return archiveThreadWithFallback({
+      client,
+      threadId,
+      ownerEmail,
+      actionSource,
+      folderId,
+      logger,
+      filterError: error,
+    });
+  }
+
+  const archivePromise = runThreadMessageMutation({
+    messageIds: messages.value.map((message) => message.id),
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withMicrosoftGraphWriteRetry(
+        () =>
+          client.getClient().api(`/me/messages/${messageId}/move`).post({
+            destinationId: folderId,
+          }),
+        logger,
+      ),
+    failureMessage: "Failed to move message to folder",
+    continueOnError: true,
+  });
+
+  const publishPromise = publishArchive({
+    ownerEmail,
+    threadId,
+    actionSource,
+    timestamp: Date.now(),
+  });
+
+  const [archiveResult, publishResult] = await Promise.allSettled([
+    archivePromise,
+    publishPromise,
+  ]);
+
+  // Handle publish errors as non-fatal (just log)
+  if (publishResult.status === "rejected") {
+    logger.error("Failed to publish action to move thread to folder", {
+      folderId,
+      threadId,
+      error: publishResult.reason,
+    });
+  }
+
+  // Handle archive errors
+  if (archiveResult.status === "rejected") {
+    const error = archiveResult.reason;
+    if (error.message?.includes("Requested entity was not found")) {
+      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
+      return { status: 404, message: "Thread not found" };
+    }
+    logger.error("Failed to move thread to folder", {
+      folderId,
       threadId,
       error,
     });
-
-    try {
-      await processThreadMessagesFallback({
-        client,
-        threadId,
-        logger,
-        messageHandler: (messageId) =>
-          withOutlookRetry(
-            () =>
-              client
-                .getClient()
-                .api(`/me/messages/${messageId}/move`)
-                .post({ destinationId: folderId }),
-            logger,
-          ),
-        noMessagesMessage:
-          "No messages found for conversationId, skipping folder move",
-      });
-
-      // Publish the archive action
-      try {
-        await publishArchive({
-          ownerEmail,
-          threadId,
-          actionSource,
-          timestamp: Date.now(),
-        });
-      } catch (publishError) {
-        logger.error("Failed to publish action to move thread to folder", {
-          folderId,
-          email: ownerEmail,
-          threadId,
-          error: publishError,
-        });
-      }
-
-      return { status: 200 };
-    } catch (directError) {
-      logger.error("Failed to move thread to folder", {
-        folderId,
-        threadId,
-        error: directError,
-      });
-      throw directError;
-    }
+    throw error;
   }
+
+  return { status: 200 };
+}
+
+// Graph pages at 10 messages by default, which would silently leave the rest of
+// a long thread archived. Pages beyond this are followed via @odata.nextLink.
+const THREAD_MESSAGE_PAGE_SIZE = 100;
+const MAX_THREAD_MESSAGE_PAGES = 20;
+
+const SOURCE_FOLDER_LABELS = {
+  archive: "Archive",
+  deleteditems: "Deleted items",
+} as const;
+
+/**
+ * Moves a conversation's messages out of one well-known folder and into the
+ * inbox.
+ *
+ * Scoping to a source folder is what keeps the sent and deleted messages of the
+ * same conversation where they are. Outlook has no thread-level state to
+ * restore, so the source folder is the only signal for which messages the user
+ * actually meant.
+ */
+async function moveThreadFromFolderToInbox({
+  client,
+  threadId,
+  sourceFolder,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  sourceFolder: keyof typeof SOURCE_FOLDER_LABELS;
+  logger: Logger;
+}) {
+  const folderIds = await getFolderIds(client, logger, {
+    includeDrafts: false,
+  });
+  const sourceFolderId = folderIds[WELL_KNOWN_FOLDERS[sourceFolder]];
+
+  // Without the source folder we can't tell the messages apart from the sent
+  // and deleted ones in the same conversation, and moving those into the inbox
+  // would be worse than failing.
+  if (!sourceFolderId) {
+    throw new Error(
+      `${SOURCE_FOLDER_LABELS[sourceFolder]} folder not found, cannot move thread to inbox`,
+    );
+  }
+
+  const messageIds: string[] = [];
+  let nextLink: string | undefined;
+
+  for (let page = 0; page < MAX_THREAD_MESSAGE_PAGES; page++) {
+    const response: {
+      value: { id?: string | null }[];
+      "@odata.nextLink"?: string;
+    } = await withMicrosoftGraphRetry(
+      () =>
+        nextLink
+          ? client.getClient().api(nextLink).get()
+          : client
+              .getClient()
+              .api("/me/messages")
+              .filter(
+                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(sourceFolderId)}'`,
+              )
+              .select("id")
+              .top(THREAD_MESSAGE_PAGE_SIZE)
+              .get(),
+      logger,
+    );
+
+    messageIds.push(
+      ...response.value.map((message) => message.id).filter(isDefined),
+    );
+
+    nextLink = response["@odata.nextLink"];
+    if (!nextLink) break;
+  }
+
+  if (nextLink) {
+    logger.warn("Stopped paging thread messages at the page limit", {
+      threadId,
+      sourceFolder,
+      messageCount: messageIds.length,
+    });
+  }
+
+  await runThreadMessageMutation({
+    messageIds,
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withMicrosoftGraphWriteRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}/move`)
+            .post({ destinationId: WELL_KNOWN_FOLDERS.inbox }),
+        logger,
+      ),
+    failureMessage: "Failed to move message back to inbox",
+  });
+}
+
+export async function unarchiveThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "archive",
+    logger,
+  });
+}
+
+/**
+ * Moves a trashed thread back to the inbox.
+ *
+ * Unlike Gmail's untrash this cannot restore the thread to wherever it was
+ * before, because Outlook does not record that. Messages deleted from a custom
+ * folder come back to the inbox.
+ */
+export async function untrashThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "deleteditems",
+    logger,
+  });
 }
 
 export async function markReadThread({
@@ -523,7 +614,7 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withOutlookRetry(
+        withMicrosoftGraphWriteRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -545,7 +636,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphWriteRetry(
             () =>
               client
                 .getClient()
@@ -578,7 +669,7 @@ export async function markImportantMessage({
   logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -591,6 +682,7 @@ export async function markImportantMessage({
 }
 
 export async function markStarredMessage({
+  starred = true,
   client,
   messageId,
   logger,
@@ -598,13 +690,14 @@ export async function markStarredMessage({
   client: OutlookClient;
   messageId: string;
   logger: Logger;
+  starred?: boolean;
 }) {
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
         .api(`/me/messages/${messageId}`)
-        .patch({ flag: { flagStatus: "flagged" } }),
+        .patch({ flag: { flagStatus: starred ? "flagged" : "notFlagged" } }),
     logger,
   );
 }
@@ -648,4 +741,71 @@ function assertNoNormalizedInputCollisions(
 
     if (!existingRawName) normalizedMap.set(normalizedName, rawName);
   });
+}
+
+async function archiveThreadWithFallback({
+  client,
+  threadId,
+  ownerEmail,
+  actionSource,
+  folderId,
+  logger,
+  filterError,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  ownerEmail: string;
+  actionSource: TinybirdEmailAction["actionSource"];
+  folderId: string;
+  logger: Logger;
+  filterError: unknown;
+}) {
+  logger.warn("Filter failed, trying alternative approach", {
+    threadId,
+    error: filterError,
+  });
+
+  try {
+    await processThreadMessagesFallback({
+      client,
+      threadId,
+      logger,
+      messageHandler: (messageId) =>
+        withMicrosoftGraphWriteRetry(
+          () =>
+            client
+              .getClient()
+              .api(`/me/messages/${messageId}/move`)
+              .post({ destinationId: folderId }),
+          logger,
+        ),
+      noMessagesMessage:
+        "No messages found for conversationId, skipping folder move",
+    });
+
+    try {
+      await publishArchive({
+        ownerEmail,
+        threadId,
+        actionSource,
+        timestamp: Date.now(),
+      });
+    } catch (publishError) {
+      logger.error("Failed to publish action to move thread to folder", {
+        folderId,
+        email: ownerEmail,
+        threadId,
+        error: publishError,
+      });
+    }
+
+    return { status: 200 };
+  } catch (directError) {
+    logger.error("Failed to move thread to folder", {
+      folderId,
+      threadId,
+      error: directError,
+    });
+    throw directError;
+  }
 }

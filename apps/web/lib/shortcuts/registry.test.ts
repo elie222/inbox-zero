@@ -1,0 +1,285 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  assertNoShortcutConflicts,
+  buildShortcutPaletteCommands,
+  createSequencePrefixTracker,
+  findShortcutConflicts,
+  formatShortcutKeys,
+  getShortcut,
+  getShortcutKeyLabels,
+  getShortcutGroups,
+  isTypingTarget,
+  SEQUENCE_TIMEOUT_MS,
+  type ShortcutEntry,
+  SHORTCUTS,
+} from "./registry";
+
+describe("shortcut registry", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  it("gives every key a single owner", () => {
+    expect(findShortcutConflicts(SHORTCUTS)).toEqual([]);
+  });
+
+  it("lists every shortcut in exactly one desktop help group", () => {
+    const grouped = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: true,
+    }).flatMap(({ shortcuts }) => shortcuts);
+
+    expect(grouped).toHaveLength(SHORTCUTS.length);
+    expect(new Set(grouped.map((entry) => entry.id)).size).toBe(
+      SHORTCUTS.length,
+    );
+  });
+
+  it("only lists account switching shortcuts in the desktop app", () => {
+    const webIds = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: false,
+    }).flatMap(({ shortcuts }) => shortcuts.map((shortcut) => shortcut.id));
+    const desktopIds = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: true,
+    }).flatMap(({ shortcuts }) => shortcuts.map((shortcut) => shortcut.id));
+
+    expect(webIds).not.toContain("switchAccount");
+    expect(webIds).not.toContain("switchAllAccounts");
+    expect(desktopIds).toContain("switchAccount");
+    expect(desktopIds).toContain("switchAllAccounts");
+  });
+
+  it("leaves mail shortcuts out of a global-only surface", () => {
+    const grouped = getShortcutGroups(["global"]).flatMap(
+      ({ shortcuts }) => shortcuts,
+    );
+
+    expect(grouped.every((entry) => entry.scope === "global")).toBe(true);
+    expect(grouped.map((entry) => entry.id)).toContain("commandPalette");
+  });
+
+  it("renders keys the way the help dialog and palette show them", () => {
+    expect(formatShortcutKeys(getShortcut("next"))).toBe("J / ↓");
+    expect(formatShortcutKeys(getShortcut("commandPalette"))).toBe("⌘K");
+    expect(formatShortcutKeys(getShortcut("search"))).toBe("/");
+    expect(formatShortcutKeys(getShortcut("selectAll"))).toBe("⌘A");
+    expect(formatShortcutKeys(getShortcut("send"))).toBe("⌘↵");
+    expect(formatShortcutKeys(getShortcut("sendAndMarkDone"))).toBe("⌘⇧↵");
+    expect(formatShortcutKeys(getShortcut("sendLater"))).toBe("⌘⇧L");
+    expect(formatShortcutKeys(getShortcut("remindMe"))).toBe("⌘⇧H");
+    expect(formatShortcutKeys(getShortcut("attachFiles"))).toBe("⌘⇧U");
+    expect(formatShortcutKeys(getShortcut("discardDraft"))).toBe("⌘⇧,");
+    expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
+    expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
+    expect(formatShortcutKeys(getShortcut("markUnread"))).toBe("U");
+    expect(formatShortcutKeys(getShortcut("move"))).toBe("V");
+    expect(formatShortcutKeys(getShortcut("toggleLayout"))).toBe("⇧V");
+    expect(formatShortcutKeys(getShortcut("markSpam"))).toBe("!");
+    expect(formatShortcutKeys(getShortcut("openExternal"))).toBe("G G");
+    expect(formatShortcutKeys(getShortcut("forward"))).toBe("F");
+  });
+
+  it.each([
+    ["Macintosh", "⌘", "⌘"],
+    ["Windows NT 10.0", "Ctrl+", "Ctrl"],
+    ["X11; Linux x86_64", "Ctrl+", "Ctrl"],
+  ])("shows the account modifier for %s", (userAgent, hint, label) => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+
+    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe(`${hint}1–9`);
+    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe(
+      `${hint}0`,
+    );
+    expect(getShortcutKeyLabels("switchAccount")).toEqual([label, "1–9"]);
+    expect(getShortcutKeyLabels("switchAllAccounts")).toEqual([label, "0"]);
+  });
+
+  it("splits keys into one spelled-out label per block", () => {
+    expect(getShortcutKeyLabels("send")).toEqual(["⌘", "enter"]);
+    expect(getShortcutKeyLabels("sendAndMarkDone")).toEqual([
+      "⌘",
+      "shift",
+      "enter",
+    ]);
+    expect(getShortcutKeyLabels("sendLater")).toEqual(["⌘", "shift", "L"]);
+    expect(getShortcutKeyLabels("backToApp")).toEqual(["G", "A"]);
+  });
+});
+
+describe("findShortcutConflicts", () => {
+  it("flags two shortcuts owning the same key in one scope", () => {
+    const conflicts = findShortcutConflicts([
+      buildEntry({ id: "archive", keys: ["e"] }),
+      buildEntry({ id: "expand", keys: ["e"] }),
+    ]);
+
+    expect(conflicts).toEqual([{ key: "e", ids: ["archive", "expand"] }]);
+  });
+
+  it("flags a global shortcut colliding with a mail shortcut", () => {
+    const conflicts = findShortcutConflicts([
+      buildEntry({ id: "compose", keys: ["c"], scope: "global" }),
+      buildEntry({ id: "categorize", keys: ["c"], scope: "mail" }),
+    ]);
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].ids).toEqual(["compose", "categorize"]);
+  });
+
+  it("flags a plain binding that swallows a sequence prefix", () => {
+    const conflicts = findShortcutConflicts([
+      buildEntry({ id: "backToApp", keys: ["g>a"] }),
+      buildEntry({ id: "goToInbox", keys: ["g"] }),
+    ]);
+
+    expect(conflicts).toEqual([{ key: "g", ids: ["backToApp", "goToInbox"] }]);
+  });
+
+  it("lets two sequences share a prefix", () => {
+    const conflicts = findShortcutConflicts([
+      buildEntry({ id: "backToApp", keys: ["g>a"] }),
+      buildEntry({ id: "goToInbox", keys: ["g>i"] }),
+    ]);
+
+    expect(conflicts).toEqual([]);
+  });
+
+  it("throws naming both shortcuts", () => {
+    expect(() =>
+      assertNoShortcutConflicts([
+        buildEntry({ id: "archive", keys: ["e"] }),
+        buildEntry({ id: "expand", keys: ["e"] }),
+      ]),
+    ).toThrow(/archive, expand/);
+  });
+});
+
+describe("isTypingTarget", () => {
+  it.each(["input", "textarea", "select"])("guards <%s>", (tagName) => {
+    expect(isTypingTarget(document.createElement(tagName))).toBe(true);
+  });
+
+  it("guards contenteditable, including nested nodes", () => {
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "true");
+    const child = document.createElement("span");
+    editable.append(child);
+    document.body.append(editable);
+
+    expect(isTypingTarget(editable)).toBe(true);
+    expect(isTypingTarget(child)).toBe(true);
+
+    editable.remove();
+  });
+
+  it("guards elements that behave like a text box", () => {
+    const element = document.createElement("div");
+    element.setAttribute("role", "textbox");
+
+    expect(isTypingTarget(element)).toBe(true);
+  });
+
+  it("lets shortcuts through for everything else", () => {
+    expect(isTypingTarget(document.createElement("button"))).toBe(false);
+    expect(isTypingTarget(document.body)).toBe(false);
+    expect(isTypingTarget(null)).toBe(false);
+  });
+});
+
+describe("createSequencePrefixTracker", () => {
+  it("keeps the prefix pending inside the window", () => {
+    let now = 0;
+    const tracker = createSequencePrefixTracker(() => now);
+
+    tracker.start("g");
+    now = SEQUENCE_TIMEOUT_MS - 1;
+
+    expect(tracker.pendingPrefix()).toBe("g");
+  });
+
+  it("drops the prefix once the window closes", () => {
+    let now = 0;
+    const tracker = createSequencePrefixTracker(() => now);
+
+    tracker.start("g");
+    now = SEQUENCE_TIMEOUT_MS;
+
+    expect(tracker.pendingPrefix()).toBeNull();
+  });
+
+  it("drops the prefix when the sequence is abandoned", () => {
+    const tracker = createSequencePrefixTracker();
+
+    tracker.start("g");
+    tracker.clear();
+
+    expect(tracker.pendingPrefix()).toBeNull();
+  });
+
+  it("marks the press that completed the sequence", () => {
+    const tracker = createSequencePrefixTracker();
+    const completing = new KeyboardEvent("keydown", { key: "a" });
+
+    tracker.start("g");
+    tracker.resolve(completing);
+
+    expect(tracker.pendingPrefix()).toBeNull();
+    expect(tracker.wasResolvedBy(completing)).toBe(true);
+    expect(
+      tracker.wasResolvedBy(new KeyboardEvent("keydown", { key: "a" })),
+    ).toBe(false);
+  });
+});
+
+describe("buildShortcutPaletteCommands", () => {
+  it("surfaces a shortcut once its handler is registered", () => {
+    expect(buildShortcutPaletteCommands({})).toEqual([]);
+
+    const archive = vi.fn();
+    const [command, ...rest] = buildShortcutPaletteCommands({ archive });
+
+    expect(rest).toEqual([]);
+    expect(command).toMatchObject({
+      id: "archive",
+      label: "Archive",
+      section: "actions",
+      shortcut: "E",
+    });
+
+    command.action();
+    expect(archive).toHaveBeenCalledOnce();
+  });
+
+  it("leaves shortcuts without palette metadata out", () => {
+    const commands = buildShortcutPaletteCommands({ reply: vi.fn() });
+
+    expect(commands.map((command) => command.id)).not.toContain("reply");
+  });
+
+  it("surfaces forwarding in the palette when a message can be forwarded", () => {
+    const forward = vi.fn();
+    const commands = buildShortcutPaletteCommands({ forward });
+
+    expect(commands).toHaveLength(1);
+    expect(commands.at(0)).toMatchObject({
+      id: "forward",
+      label: "Forward",
+      section: "actions",
+      shortcut: "F",
+    });
+
+    commands.at(0)?.action();
+    expect(forward).toHaveBeenCalledOnce();
+  });
+});
+
+function buildEntry(overrides: Partial<ShortcutEntry>): ShortcutEntry {
+  return {
+    id: "test",
+    keys: ["t"],
+    scope: "mail",
+    group: "Triage",
+    label: "Test",
+    ...overrides,
+  };
+}

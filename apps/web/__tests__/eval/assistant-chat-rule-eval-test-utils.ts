@@ -1,11 +1,8 @@
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import type { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  getDefaultActions,
-  getRuleConfig,
-  SYSTEM_RULE_ORDER,
-} from "@/utils/rule/consts";
+import { getDefaultActions, getRuleConfig } from "@/utils/rule/consts";
+import { SYSTEM_RULE_ORDER } from "@/utils/rule/sort";
 import { vi } from "vitest";
 
 type AnyMock = ReturnType<typeof vi.fn>;

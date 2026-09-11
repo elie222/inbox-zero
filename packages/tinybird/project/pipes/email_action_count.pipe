@@ -1,0 +1,34 @@
+NODE email_action_count_last_30_days
+SQL >
+
+    SELECT count(*) 
+    FROM email_action 
+    WHERE timestamp > (toUnixTimestamp(now()) - 30 * 24 * 60 * 60) * 1000
+
+
+
+NODE email_action_count_prev_30_days
+SQL >
+
+    SELECT count(*) 
+    FROM email_action 
+    WHERE timestamp BETWEEN 
+        (toUnixTimestamp(now()) - 60 * 24 * 60 * 60) * 1000 
+        AND 
+        (toUnixTimestamp(now()) - 30 * 24 * 60 * 60) * 1000
+
+
+
+NODE email_action_pipe_8412_2
+SQL >
+
+    SELECT * FROM email_action_count_last_30_days
+
+
+
+NODE email_action_count_3
+SQL >
+
+    SELECT * FROM email_action
+
+

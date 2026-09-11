@@ -12,6 +12,7 @@ import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { randomUuid } from "@/utils/uuid";
 import { BookingSidebar } from "./BookingSidebar";
 import { useAvailability } from "./useAvailability";
 import { PickTimeStep, useSlotSelection } from "./PickTimeStep";
@@ -104,7 +105,7 @@ export function BookingPageClient({
           guestName: formValues.name,
           guestEmail: formValues.email,
           guestNote: formValues.note || undefined,
-          idempotencyToken: crypto.randomUUID(),
+          idempotencyToken: randomUuid(),
         }),
       });
       const body = await response.json();
@@ -249,7 +250,7 @@ function DetailsStep({
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="Email" required>
@@ -258,7 +259,7 @@ function DetailsStep({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="What would you like to discuss?" optional>
@@ -266,7 +267,7 @@ function DetailsStep({
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={4}
-              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
         </div>

@@ -65,7 +65,7 @@ export function EmailPanel({
           </Tooltip>
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-4">
         {plan?.rule && <PlanExplanation thread={row} provider={provider} />}
         <EmailThread
           key={row.id}

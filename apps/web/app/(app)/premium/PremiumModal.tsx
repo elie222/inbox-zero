@@ -35,7 +35,7 @@ function EnterpriseFooter() {
 export function usePremiumModal() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const openModal = () => setIsOpen(true);
+  const openModal = useCallback(() => setIsOpen(true), []);
 
   const PremiumModal = useCallback(() => {
     return (

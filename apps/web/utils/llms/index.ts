@@ -18,6 +18,7 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
   type PrepareStepFunction,
+  type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
@@ -36,11 +37,11 @@ import {
   captureException,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
-  isIncorrectOpenAIAPIKeyError,
+  isIncorrectAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   type LlmRepairMetadata,
-  isOpenAIAPIKeyDeactivatedError,
+  isAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   markAsHandledUserKeyError,
   SafeError,
@@ -173,6 +174,19 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type LlmFallbackFailureCategory =
+  | "content_filter"
+  | "network"
+  | "rate_limit"
+  | "server_error"
+  | "unknown";
+
+type LlmFallbackFailure = {
+  provider: string;
+  model: string;
+  category: LlmFallbackFailureCategory;
+};
+
 type ProviderCostSource =
   | "openrouter_usage"
   | "openrouter_usage_with_step_fallback"
@@ -182,6 +196,7 @@ type UsageMetadata = {
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
   providerCostSource?: ProviderCostSource;
+  providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
 };
@@ -193,11 +208,9 @@ type LlmEmailAccount = {
 };
 
 export type ToolCallAgentResolvedModel = {
-  excludedTools: string[];
   modelName?: string;
   provider: string;
   providerOptions: LLMProviderOptions;
-  replacedTools: string[];
 };
 
 const commonOptions: {
@@ -233,6 +246,7 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   tools?: Record<string, Tool>;
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
+  stopWhen?: StopCondition<Record<string, Tool>>;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
@@ -304,7 +318,6 @@ export function createGenerateText({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -346,11 +359,6 @@ export function createGenerateText({
         ...restArgs,
       );
 
-      await onModelUsed?.({
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-      });
-
       if (result.usage) {
         await saveUsageWithMetadata({
           result,
@@ -364,6 +372,11 @@ export function createGenerateText({
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
+
+      await onModelUsed?.({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      });
 
       if (options.tools) {
         const toolCallInput = result.toolCalls?.[0]?.input;
@@ -455,6 +468,7 @@ export function createGenerateObject({
         label,
       });
     let latestRepairAttempt: RepairAttemptState | undefined;
+    const fallbackFailures: LlmFallbackFailure[] = [];
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
@@ -505,7 +519,6 @@ export function createGenerateObject({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -540,26 +553,67 @@ export function createGenerateObject({
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
 
-      const result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      let result: GenerateObjectResult<RESULT>;
+
+      try {
+        result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      } catch (error) {
+        if (
+          NoObjectGeneratedError.isInstance(error) &&
+          error.usage !== undefined
+        ) {
+          try {
+            await saveUsageWithMetadata({
+              result: error,
+              usage: error.usage,
+              userId: emailAccount.userId,
+              email: emailAccount.email,
+              emailAccountId: emailAccount.id,
+              provider: candidate.provider,
+              model: candidate.modelName,
+              label,
+              hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+            });
+          } catch (usageError) {
+            logger.error("Failed to save usage for failed object generation", {
+              error: usageError,
+              label,
+              provider: candidate.provider,
+              model: candidate.modelName,
+            });
+          }
+        }
+
+        throw error;
+      }
+
+      if (result.usage) {
+        try {
+          await saveUsageWithMetadata({
+            result,
+            usage: result.usage,
+            userId: emailAccount.userId,
+            email: emailAccount.email,
+            emailAccountId: emailAccount.id,
+            provider: candidate.provider,
+            model: candidate.modelName,
+            label,
+            hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          });
+        } catch (usageError) {
+          logger.error("Failed to save usage for object generation", {
+            error: usageError,
+            label,
+            provider: candidate.provider,
+            model: candidate.modelName,
+          });
+        }
+      }
 
       await onModelUsed?.({
         provider: candidate.provider,
         modelName: candidate.modelName,
       });
-
-      if (result.usage) {
-        await saveUsageWithMetadata({
-          result,
-          usage: result.usage,
-          userId: emailAccount.userId,
-          email: emailAccount.email,
-          emailAccountId: emailAccount.id,
-          provider: candidate.provider,
-          model: candidate.modelName,
-          label,
-          hasUserApiKey: effectiveModelOptions.hasUserApiKey,
-        });
-      }
 
       logger.trace("Generated object", {
         label,
@@ -575,7 +629,7 @@ export function createGenerateObject({
       latestRepairAttempt = undefined;
 
       try {
-        return await withLLMRetry(
+        const result = await withLLMRetry(
           () =>
             withNetworkRetry(() => generate(candidate), {
               label,
@@ -586,6 +640,24 @@ export function createGenerateObject({
             }),
           { label },
         );
+
+        logger.info("LLM object generation completed", {
+          label,
+          candidateCount: modelCandidates.length,
+          fallbackUsed: index > 0,
+          fallbackDepth: index,
+          selectedProvider: candidate.provider,
+          selectedModel: candidate.modelName,
+          attemptedModels: modelCandidates
+            .slice(0, index + 1)
+            .map(getResolvedModelKey),
+          failedModels: fallbackFailures.map(
+            ({ provider, model }) => `${provider}:${model}`,
+          ),
+          failureCategories: fallbackFailures.map(({ category }) => category),
+        });
+
+        return result;
       } catch (error) {
         if (error instanceof SafeError) throw error;
 
@@ -600,6 +672,11 @@ export function createGenerateObject({
         );
 
         if (nextCandidate && shouldFallbackToNextModel(error)) {
+          fallbackFailures.push({
+            provider: candidate.provider,
+            model: candidate.modelName,
+            category: getLlmFallbackFailureCategory(error),
+          });
           logger.warn("LLM object generation failed, trying fallback model", {
             label,
             provider: candidate.provider,
@@ -670,7 +747,6 @@ export async function chatCompletionStream(
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -790,6 +866,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     tools,
     activeTools,
     prepareStep,
+    stopWhen,
     maxSteps,
     userId,
     emailAccountId,
@@ -827,7 +904,6 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -859,31 +935,10 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       provider: candidate.provider,
       modelName: candidate.modelName,
     });
-    const excludedTools: string[] = [];
-    const replacedTools: string[] = [];
-
-    if (replacedTools.length > 0) {
-      logger.warn("Replacing incompatible tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        replacedTools,
-      });
-    }
-
-    if (excludedTools.length > 0) {
-      logger.warn("Excluding unsupported tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        excludedTools,
-      });
-    }
-
     onModelResolved?.({
       provider: candidate.provider,
       modelName: candidate.modelName,
       providerOptions,
-      replacedTools,
-      excludedTools,
     });
 
     const agent = new ToolLoopAgent({
@@ -893,7 +948,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
-      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
       temperature,
       ...commonOptions,
       providerOptions,
@@ -1141,7 +1196,7 @@ async function handleError(
       });
     };
 
-    if (isIncorrectOpenAIAPIKeyError(error)) {
+    if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
         "Your AI API key is invalid. Please update it in your settings.",
@@ -1158,7 +1213,7 @@ async function handleError(
       );
     }
 
-    if (isOpenAIAPIKeyDeactivatedError(error)) {
+    if (isAPIKeyDeactivatedError(error)) {
       return await notifyUser(
         ErrorType.API_KEY_DEACTIVATED,
         "Your AI API key has been deactivated. Please update it in your settings.",
@@ -1312,12 +1367,43 @@ function getModelCandidates(modelOptions: SelectModel): ResolvedModel[] {
   return [primaryModel, ...modelOptions.fallbackModels];
 }
 
+function getResolvedModelKey({ provider, modelName }: ResolvedModel): string {
+  return `${provider}:${modelName}`;
+}
+
+function getLlmFallbackFailureCategory(
+  error: unknown,
+): LlmFallbackFailureCategory {
+  if (isContentFilterRefusal(error)) return "content_filter";
+
+  const errorInfo = extractLLMErrorInfo(error);
+  if (
+    errorInfo.isRateLimit ||
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+  ) {
+    return "rate_limit";
+  }
+  if (isTransientNetworkError(error)) return "network";
+  if (errorInfo.retryable) return "server_error";
+
+  return "unknown";
+}
+
 function shouldFallbackToNextModel(error: unknown): boolean {
+  const unwrappedError = (error as { error?: unknown })?.error ?? error;
+
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return true;
   }
 
   if (isContentFilterRefusal(error)) return true;
+
+  if (
+    APICallError.isInstance(unwrappedError) &&
+    isInvalidAIModelError(unwrappedError)
+  ) {
+    return true;
+  }
 
   const llmErrorInfo = extractLLMErrorInfo(error);
   if (llmErrorInfo.retryable) return true;
@@ -1346,7 +1432,6 @@ function mergeProviderOptions(
 
 function buildProviderOptions({
   provider,
-  modelName,
   modelProviderOptions,
   requestProviderOptions,
   userId,
@@ -1354,7 +1439,6 @@ function buildProviderOptions({
   emailAccountId,
 }: {
   provider: string;
-  modelName?: string;
   modelProviderOptions?: LLMProviderOptions;
   requestProviderOptions?: LLMProviderOptions;
   userId?: string;
@@ -1375,11 +1459,7 @@ function buildProviderOptions({
     emailAccountId,
   });
 
-  return normalizeOpenRouterReasoningOptions({
-    provider,
-    modelName,
-    providerOptions: withMetadata,
-  });
+  return withMetadata;
 }
 
 function withOpenRouterMetadata({
@@ -1447,49 +1527,6 @@ function withOpenRouterMetadata({
     ...providerOptions,
     openrouter: nextOpenRouterOptions,
   };
-}
-
-function normalizeOpenRouterReasoningOptions({
-  provider,
-  modelName,
-  providerOptions,
-}: {
-  provider: string;
-  modelName?: string;
-  providerOptions: LLMProviderOptions;
-}) {
-  if (provider !== Provider.OPENROUTER) return providerOptions;
-  if (!isOpenRouterXaiGrokModel(modelName)) return providerOptions;
-
-  const openRouterOptions = providerOptions.openrouter;
-  if (!isJsonObject(openRouterOptions)) return providerOptions;
-
-  const reasoningOptions = openRouterOptions.reasoning;
-  if (!isJsonObject(reasoningOptions)) return providerOptions;
-
-  const { max_tokens: _maxTokens, ...restReasoningOptions } = reasoningOptions;
-  const normalizedReasoning: Record<string, JSONValue> = {
-    ...restReasoningOptions,
-  };
-
-  if (
-    !("enabled" in normalizedReasoning) &&
-    !("effort" in normalizedReasoning)
-  ) {
-    normalizedReasoning.enabled = true;
-  }
-
-  return {
-    ...providerOptions,
-    openrouter: {
-      ...openRouterOptions,
-      reasoning: normalizedReasoning,
-    },
-  };
-}
-
-function isOpenRouterXaiGrokModel(modelName?: string) {
-  return modelName?.toLowerCase().startsWith("x-ai/grok-");
 }
 
 function repairObjectText(text: string, label: string) {
@@ -1704,6 +1741,7 @@ function getUsageMetadata(result: unknown): UsageMetadata {
   return {
     stepCount,
     toolCallCount,
+    providerRequestIds: getProviderRequestIds(result),
     providerReportedCost: providerCost.providerReportedCost,
     providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
     providerCostSource: providerCost.providerCostSource,
@@ -1745,9 +1783,28 @@ async function saveUsageWithMetadata({
     providerReportedCost: usageMetadata.providerReportedCost,
     providerUpstreamInferenceCost: usageMetadata.providerUpstreamInferenceCost,
     providerCostSource: usageMetadata.providerCostSource,
+    providerRequestIds: usageMetadata.providerRequestIds,
     stepCount: usageMetadata.stepCount,
     toolCallCount: usageMetadata.toolCallCount,
   });
+}
+
+function getProviderRequestIds(result: unknown): string[] | undefined {
+  const requestIds = new Set<string>();
+
+  for (const step of getObjectArrayProperty(result, "steps") ?? []) {
+    addProviderRequestId(requestIds, step);
+  }
+  addProviderRequestId(requestIds, result);
+
+  return requestIds.size > 0 ? [...requestIds] : undefined;
+}
+
+function addProviderRequestId(requestIds: Set<string>, result: unknown) {
+  const response = getObjectProperty(result, "response");
+  const id = getProperty(response, "id");
+
+  if (typeof id === "string" && id) requestIds.add(id);
 }
 
 function getStepCount(result: unknown) {

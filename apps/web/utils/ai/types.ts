@@ -35,6 +35,9 @@ export type ActionItem = {
   delayInMinutes?: number | null;
   staticAttachments?: ExecutedAction["staticAttachments"];
   selectedAttachments?: ExecutedAction["selectedAttachments"];
+  integrationName?: ExecutedAction["integrationName"];
+  integrationToolName?: ExecutedAction["integrationToolName"];
+  integrationArgs?: ExecutedAction["integrationArgs"];
 };
 
 export type ActionExecutionEmailAccount = Pick<

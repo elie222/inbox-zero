@@ -1,5 +1,6 @@
 "use server";
 
+import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { revalidatePath } from "next/cache";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
@@ -35,6 +36,7 @@ import {
   updateRuleInstructions,
   type RuleActionCreateData,
   addActionOwnershipToInput,
+  assertIntegrationActionsConnected,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -42,6 +44,7 @@ import {
   getSystemRuleActionTypes,
   getCategoryAction,
   getActionTypesForCategoryAction,
+  STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
@@ -58,6 +61,7 @@ import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
+import { setDefaultMailSplits } from "@/utils/mail/default-splits.server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -129,7 +133,12 @@ export const updateRuleAction = actionClient
     }) => {
       await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
 
-      await assertCanUseDigestsIfNeeded(userId, actions);
+      const existingRule = await prisma.rule.findFirst({
+        where: { id, emailAccountId },
+        select: { actions: { select: { type: true } } },
+      });
+
+      await assertCanUseDigestsIfNeeded(userId, actions, existingRule?.actions);
 
       const conditions = flattenConditions(conditionsInput, logger);
 
@@ -341,6 +350,9 @@ export const createRulesOnboardingAction = actionClient
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];
+      const defaultSplitRulePromises: Array<
+        ReturnType<typeof upsertSystemRule>
+      > = [];
 
       const isSet = (
         value: string | undefined | null,
@@ -386,6 +398,8 @@ export const createRulesOnboardingAction = actionClient
         })();
 
         promises.push(promise);
+
+        return promise;
       }
 
       async function deleteRule(
@@ -405,20 +419,12 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // Process system rules
-      const systemRules = [
-        SystemType.TO_REPLY,
-        SystemType.NEWSLETTER,
-        SystemType.MARKETING,
-        SystemType.CALENDAR,
-        SystemType.RECEIPT,
-        SystemType.NOTIFICATION,
-        SystemType.COLD_EMAIL,
-      ];
-
-      for (const type of systemRules) {
+      for (const type of STANDARD_CATEGORY_SYSTEM_TYPES) {
         const config = systemCategoryMap.get(type);
         if (config && isSet(config.action)) {
-          createSystemRuleForOnboarding(type, config.action);
+          defaultSplitRulePromises.push(
+            createSystemRuleForOnboarding(type, config.action),
+          );
         } else {
           deleteRule(type, emailAccountId);
         }
@@ -478,6 +484,17 @@ export const createRulesOnboardingAction = actionClient
       }
 
       await Promise.allSettled(promises);
+
+      try {
+        const systemRules = await Promise.all(defaultSplitRulePromises);
+        await setDefaultMailSplits({
+          emailAccountId,
+          defaultSplits: getDefaultMailSplitDrafts(systemRules),
+          enabled: true,
+        });
+      } catch (error) {
+        logger.error("Error creating default mail splits", { error });
+      }
 
       after(() =>
         bulkProcessInboxEmails({
@@ -817,7 +834,18 @@ function mapActionToSanitizedFields(action: {
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
   staticAttachments?: AttachmentSourceInput[] | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Record<string, string | null | undefined> | null;
 }) {
+  const nonEmptyIntegrationArgs = action.integrationArgs
+    ? (Object.fromEntries(
+        Object.entries(action.integrationArgs).filter(
+          ([, value]) => typeof value === "string" && value.trim() !== "",
+        ),
+      ) as Record<string, string>)
+    : undefined;
+
   const sanitized = sanitizeActionFields({
     type: action.type,
     messagingChannelId: action.messagingChannelId ?? null,
@@ -835,6 +863,9 @@ function mapActionToSanitizedFields(action: {
     staticAttachments: action.staticAttachments?.length
       ? action.staticAttachments
       : undefined,
+    integrationName: action.integrationName,
+    integrationToolName: action.integrationToolName,
+    integrationArgs: nonEmptyIntegrationArgs,
   });
 
   return {
@@ -854,6 +885,9 @@ function mapActionToSanitizedFields(action: {
     folderId: sanitized.folderId ?? null,
     delayInMinutes: sanitized.delayInMinutes ?? null,
     staticAttachments: sanitized.staticAttachments ?? null,
+    integrationName: sanitized.integrationName ?? null,
+    integrationToolName: sanitized.integrationToolName ?? null,
+    integrationArgs: sanitized.integrationArgs ?? null,
   };
 }
 
@@ -1102,7 +1136,15 @@ export const importRulesAction = actionClient
             folderId: null,
             url: action.url,
             delayInMinutes: action.delayInMinutes,
+            integrationName: action.integrationName,
+            integrationToolName: action.integrationToolName,
+            integrationArgs: action.integrationArgs ?? undefined,
           }));
+
+          await assertIntegrationActionsConnected(
+            mappedActions,
+            emailAccountId,
+          );
 
           if (existingRuleId) {
             await replaceRuleWithResolvedActions({

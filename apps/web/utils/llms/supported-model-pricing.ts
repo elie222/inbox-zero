@@ -70,6 +70,16 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 1.25 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
   },
+  "gpt-5.6-luna": {
+    input: 1 / 1_000_000,
+    output: 6 / 1_000_000,
+    cachedInput: 0.1 / 1_000_000,
+  },
+  "gpt-5.6-terra": {
+    input: 2.5 / 1_000_000,
+    output: 15 / 1_000_000,
+    cachedInput: 0.25 / 1_000_000,
+  },
   "gpt-5-mini": {
     input: 0.25 / 1_000_000,
     output: 2 / 1_000_000,
@@ -146,10 +156,20 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.2 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
   },
+  "~deepseek/deepseek-v4-flash-latest": {
+    input: 0.09 / 1_000_000,
+    output: 0.18 / 1_000_000,
+    cachedInput: 0.018 / 1_000_000,
+  },
   "DeepSeek-V4-Pro": {
     input: 1.925 / 1_000_000,
     output: 3.828 / 1_000_000,
     cachedInput: 0.165 / 1_000_000,
+  },
+  "DeepSeek-V4-Flash": {
+    input: 0.19 / 1_000_000,
+    output: 0.51 / 1_000_000,
+    cachedInput: 0.028 / 1_000_000,
   },
   "sonar-pro": {
     input: 3 / 1_000_000,
@@ -183,6 +203,8 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gpt-5.4": "openai/gpt-5.4",
   "gpt-5.4-mini": "openai/gpt-5.4-mini",
   "gpt-5.4-nano": "openai/gpt-5.4-nano",
+  "gpt-5.6-luna": "openai/gpt-5.6-luna",
+  "gpt-5.6-terra": "openai/gpt-5.6-terra",
   "gpt-5-mini": "openai/gpt-5-mini",
   "gpt-5.1": "openai/gpt-5.1",
   "claude-3-5-sonnet-20240620": "anthropic/claude-3.5-sonnet",
@@ -195,5 +217,6 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gemini-3-flash": "google/gemini-3-flash-preview",
   "gemini-3-pro": "google/gemini-3-pro-preview",
   "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+  "~deepseek/deepseek-v4-flash-latest": "~deepseek/deepseek-v4-flash-latest",
   "sonar-pro": "perplexity/sonar-pro",
 };

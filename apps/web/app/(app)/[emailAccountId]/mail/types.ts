@@ -1,0 +1,60 @@
+import type { CombinedListThread } from "@/utils/threads/load-combined";
+import type { ThreadListItem } from "@/utils/threads/load";
+
+export type ListThread = ThreadListItem | CombinedListThread;
+export type ListMessage = ListThread["messages"][number];
+
+/** One rule that fired on a thread, with the reason it matched. */
+export type ThreadPlan = NonNullable<ListThread["plans"]>[number];
+
+/** Split view is the two-column list + reader; list view gives the list the full width. */
+export type MailLayoutMode = "list" | "split";
+
+export type ThreadSelection = {
+  emailAccountId: string;
+  threadId: string;
+};
+
+export function isCombinedListThread(
+  thread: ListThread,
+): thread is CombinedListThread {
+  return "account" in thread;
+}
+
+export function getListThreadKey(thread: ListThread) {
+  return isCombinedListThread(thread)
+    ? `${thread.account.id}:${thread.id}`
+    : thread.id;
+}
+
+export function getListThreadMessageIds(thread: {
+  messageIds?: string[];
+  messages: Array<{ id: string }>;
+}) {
+  return thread.messageIds?.length
+    ? thread.messageIds
+    : thread.messages.map((message) => message.id);
+}
+
+export function getListThreadEmailAccountId(
+  thread: ListThread,
+  currentEmailAccountId: string,
+) {
+  return isCombinedListThread(thread)
+    ? thread.account.id
+    : currentEmailAccountId;
+}
+
+export function getListThreadSelection(
+  thread: ListThread,
+  currentEmailAccountId: string,
+): ThreadSelection {
+  return {
+    emailAccountId: getListThreadEmailAccountId(thread, currentEmailAccountId),
+    threadId: thread.id,
+  };
+}
+
+export function getThreadSelectionKey(selection: ThreadSelection | null) {
+  return selection ? `${selection.emailAccountId}:${selection.threadId}` : null;
+}

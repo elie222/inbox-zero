@@ -6,6 +6,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 const require = createRequire(import.meta.url);
 const zodV4CorePath = require.resolve("zod/v4/core");
+// apps/web and apps/worker can resolve different physical copies of these
+// packages (pnpm peer graphs). Alias them so vi.mock("bullmq"|"ioredis")
+// applies to both the web dispatch path and the worker runtime.
+const bullmqPath = require.resolve("bullmq");
+const ioredisPath = require.resolve("ioredis");
 const isE2E = process.env.RUN_E2E_FLOW_TESTS === "true";
 const envFile = isE2E ? "./.env.e2e" : "./.env.test";
 const env = existsSync(envFile) ? config({ path: envFile }).parsed : undefined;
@@ -20,6 +25,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "zod/v4/core": zodV4CorePath,
+      bullmq: bullmqPath,
+      ioredis: ioredisPath,
     },
   },
   test: {

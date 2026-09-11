@@ -15,7 +15,7 @@ import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notificat
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import {
   getProviderRateLimitDelayMs,
   withRateLimitRecording,
@@ -44,12 +44,15 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { emailToContent } from "@/utils/mail";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
+// Avoid carrying an entire email through channel fan-out beyond any preview limit.
+const FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS = 3000;
 
 const followUpReminderAccountSelect = {
   id: true,
@@ -581,7 +584,15 @@ async function processFollowUpsForType({
               end: now,
               timezone: emailAccount.timezone,
             }),
-            snippet: lastMessage.snippet || undefined,
+            // Provider previews are pre-truncated with no indicator; the full
+            // parsed body lets each channel truncate with an ellipsis instead.
+            snippet:
+              emailToContent(lastMessage, {
+                maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
+                extractReply: true,
+              }) ||
+              lastMessage.snippet ||
+              undefined,
             threadLink:
               getEmailUrlForOptionalMessage({
                 messageId: lastMessage.id,
@@ -786,6 +797,13 @@ async function processLoadedFollowUpReminderAccount({
         },
       );
       return "rate-limited";
+    }
+
+    if (error instanceof SafeError && error.message === "No refresh token") {
+      logger.warn(
+        "Skipping follow-up reminders for account without refresh token",
+      );
+      return "error";
     }
 
     logger.error("Failed to process follow-up reminders for user", {

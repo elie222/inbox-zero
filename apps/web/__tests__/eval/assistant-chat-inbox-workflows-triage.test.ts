@@ -1,10 +1,7 @@
-// Import test-utils first: it declares the vi.mock for the email provider and
-// prisma. Importing a module that pulls the real app graph (e.g.
-// assistant-chat-eval-utils) before this would bind the unmocked
-// createEmailProvider, so searchInbox would hit a real DB and return no content.
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
+  getSearchInboxCalls,
   hasNoWriteToolCalls,
   hasReplyTriageFocus,
   hasSearchBeforeFirstWrite,
@@ -20,7 +17,7 @@ import { afterAll, describe, expect, test } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
-import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
 import {
   formatSemanticJudgeActual,
   judgeEvalOutput,
@@ -43,7 +40,7 @@ describe.runIf(shouldRunEval)(
       (model, emailAccount) => {
         test.each(inboxWorkflowProviders)(
           "handles inbox update requests with read-only triage search first [$label]",
-          async ({ provider, label, unreadSignal }) => {
+          async ({ provider, label }) => {
             const testName = `inbox update uses triage search first (${label})`;
             const searchMessages = [
               getMockMessage({
@@ -80,7 +77,6 @@ describe.runIf(shouldRunEval)(
                     model,
                     provider,
                     label,
-                    unreadSignal,
                     searchMessages: getStableMessageCacheKey(searchMessages),
                     inboxStats,
                     messages,
@@ -102,15 +98,13 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const searchCall = getFirstSearchInboxCall(toolCalls);
+                const searchCalls = getSearchInboxCalls(toolCalls);
 
                 const pass =
-                  !!searchCall &&
+                  searchCalls.length > 0 &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
-                  hasUnreadTriageSignal(
-                    searchCall.query,
-                    provider,
-                    unreadSignal,
+                  searchCalls.some((searchCall) =>
+                    hasUnreadTriageSignal(searchCall, provider),
                   ) &&
                   hasNoWriteToolCalls(toolCalls);
 
@@ -122,6 +116,120 @@ describe.runIf(shouldRunEval)(
             );
 
             expect(record.pass, record.actual).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
+          "verifies with searchInbox before claiming no unread emails on follow-up [$label]",
+          async ({ provider, label }) => {
+            mockSearchMessages.mockResolvedValueOnce({
+              messages: [
+                getMockMessage({
+                  id: "msg-still-unread-1",
+                  threadId: "thread-still-unread-1",
+                  from: "vendor@partner.example",
+                  subject: "Awaiting your reply",
+                  snippet: "Following up on my earlier note.",
+                  labelIds: ["UNREAD"],
+                }),
+              ],
+              nextPageToken: undefined,
+            });
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount: cloneEmailAccountForProvider(
+                emailAccount,
+                provider,
+              ),
+              inboxStats: { total: 240, unread: 6 },
+              messages: [
+                {
+                  role: "user",
+                  content: "Show me anything I should reply to today.",
+                },
+                {
+                  role: "assistant",
+                  content:
+                    "I went through your inbox and replied to the urgent threads.",
+                },
+                {
+                  role: "user",
+                  content: "Do I have any other unread emails?",
+                },
+              ],
+            });
+
+            const searchCall = getFirstSearchInboxCall(toolCalls);
+
+            const pass =
+              !!searchCall && hasUnreadTriageSignal(searchCall, provider);
+
+            evalReporter.record({
+              testName: `verifies unread on follow-up (${label})`,
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
+          "re-runs searchInbox when user pushes back with 'look again' [$label]",
+          async ({ provider, label }) => {
+            mockSearchMessages.mockResolvedValueOnce({
+              messages: [
+                getMockMessage({
+                  id: "msg-rechecked-1",
+                  threadId: "thread-rechecked-1",
+                  from: "ops@partner.example",
+                  subject: "Quick decision needed",
+                  snippet: "Can you confirm by EOD?",
+                  labelIds: ["UNREAD"],
+                }),
+              ],
+              nextPageToken: undefined,
+            });
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount: cloneEmailAccountForProvider(
+                emailAccount,
+                provider,
+              ),
+              inboxStats: { total: 240, unread: 6 },
+              messages: [
+                {
+                  role: "user",
+                  content: "Do I have any unread emails?",
+                },
+                {
+                  role: "assistant",
+                  content:
+                    "Your inbox looks caught up — no unread emails right now.",
+                },
+                {
+                  role: "user",
+                  content: "look again",
+                },
+              ],
+            });
+
+            const searchCall = getFirstSearchInboxCall(toolCalls);
+
+            const pass =
+              !!searchCall && hasUnreadTriageSignal(searchCall, provider);
+
+            evalReporter.record({
+              testName: `re-runs searchInbox on look-again (${label})`,
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
           },
           TIMEOUT,
         );
@@ -183,12 +291,14 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const searchCall = getFirstSearchInboxCall(toolCalls);
+                const searchCalls = getSearchInboxCalls(toolCalls);
 
                 const pass =
-                  !!searchCall &&
+                  searchCalls.length > 0 &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
-                  hasReplyTriageFocus(searchCall.query, provider) &&
+                  searchCalls.some((searchCall) =>
+                    hasReplyTriageFocus(searchCall, provider),
+                  ) &&
                   hasNoWriteToolCalls(toolCalls);
 
                 return {

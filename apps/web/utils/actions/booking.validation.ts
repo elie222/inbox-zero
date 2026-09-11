@@ -92,11 +92,37 @@ export const bookingWindowBody = z
   });
 export type BookingWindowBody = z.infer<typeof bookingWindowBody>;
 
+const bookingWindowsSchema = z
+  .array(bookingWindowBody)
+  .min(1)
+  .superRefine((windows, ctx) => {
+    const byWeekday = new Map<number, BookingWindowBody[]>();
+    for (const window of windows) {
+      const list = byWeekday.get(window.weekday) ?? [];
+      list.push(window);
+      byWeekday.set(window.weekday, list);
+    }
+    for (const dayWindows of byWeekday.values()) {
+      const sorted = [...dayWindows].sort(
+        (a, b) => a.startMinutes - b.startMinutes,
+      );
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].startMinutes < sorted[i - 1].endMinutes) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Availability windows on the same day must not overlap",
+          });
+          return;
+        }
+      }
+    }
+  });
+
 export const updateBookingAvailabilityBody = z.object({
   bookingLinkId: z.string(),
   timezone: timezoneSchema,
   minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60),
-  windows: z.array(bookingWindowBody).min(1),
+  windows: bookingWindowsSchema,
 });
 export type UpdateBookingAvailabilityBody = z.infer<
   typeof updateBookingAvailabilityBody
@@ -104,7 +130,7 @@ export type UpdateBookingAvailabilityBody = z.infer<
 
 export const updateDefaultAvailabilityBody = z.object({
   timezone: timezoneSchema,
-  windows: z.array(bookingWindowBody).min(1),
+  windows: bookingWindowsSchema,
 });
 export type UpdateDefaultAvailabilityBody = z.infer<
   typeof updateDefaultAvailabilityBody

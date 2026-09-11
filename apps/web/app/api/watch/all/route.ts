@@ -4,6 +4,7 @@ import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
+import { notifyLapsedWatches } from "@/utils/email/notify-lapsed-watches";
 
 export const maxDuration = 800;
 
@@ -28,6 +29,16 @@ export const POST = withError("watch/all", async (request) => {
 async function watchAllEmails(logger: Logger) {
   try {
     const results = await ensureEmailAccountsWatched({ userIds: null, logger });
+
+    // Runs after the renewal pass so only watches still failing renewal count
+    // as lapsed.
+    try {
+      await notifyLapsedWatches({ logger });
+    } catch (error) {
+      logger.error("Failed to notify lapsed watches", { error });
+      captureException(error);
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (error) {
     logger.error("Failed to watch all emails", { error });

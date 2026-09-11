@@ -21,8 +21,10 @@ The CLI will walk you through configuring [Google OAuth](/hosting/google-oauth) 
 <Info>
   **CLI is optional:** The setup command is a convenience wrapper that helps prepare your `.env` and run Docker Compose with sensible defaults.
 
-  Prefer manual setup? Clone the repo, copy `apps/web/.env.example` to `apps/web/.env`, and run the Docker/Node commands that match your environment.
+  Prefer manual setup? Clone the repo, copy `apps/web/.env.example` to `apps/web/.env`, then link it for Compose once with `ln -s apps/web/.env .env`, and run the Docker/Node commands that match your environment.
 </Info>
+
+On Windows, run the Docker commands printed by the CLI in PowerShell. The manual shell examples in these guides use POSIX syntax (Git Bash or WSL on Windows).
 
 ## Install Options
 
@@ -57,6 +59,12 @@ inbox-zero start
 | `inbox-zero config` | Interactive configuration editor |
 | `inbox-zero config set <key> <value>` | Set a config value |
 | `inbox-zero config get <key>` | Get a config value |
+| `inbox-zero setup-google` | Configure Google APIs, OAuth guidance, and Pub/Sub using `gcloud` |
+| `inbox-zero setup-aws` | Deploy to AWS using Copilot (ECS/Fargate) |
+| `inbox-zero setup-terraform` | Generate Terraform files for an AWS deployment |
+| `inbox-zero setup-vercel` | Link Vercel, provision optional Neon/Upstash resources, and seed environment variables |
+
+Run `inbox-zero <command> --help` for command-specific options. Deployment commands are also covered in the [Google OAuth](/hosting/google-oauth), [AWS](/hosting/aws), and [Vercel](/hosting/vercel) guides.
 
 ## Updating
 

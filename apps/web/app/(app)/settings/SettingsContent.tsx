@@ -1,0 +1,355 @@
+"use client";
+
+import Link from "next/link";
+import type { MouseEvent } from "react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ChevronRightIcon,
+  CreditCardIcon,
+  MailIcon,
+  MessageCircleIcon,
+  MessagesSquareIcon,
+  PlugIcon,
+  SendIcon,
+  SparklesIcon,
+  UserIcon,
+  UsersIcon,
+  WebhookIcon,
+} from "lucide-react";
+import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
+import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
+import { TeamSection } from "@/app/(app)/settings/TeamSection";
+import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
+import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
+import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
+import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
+import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
+import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
+import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
+import { CopyRulesSection } from "@/app/(app)/[emailAccountId]/settings/CopyRulesSection";
+import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
+import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/ToggleAllRulesSection";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import { LoadingContent } from "@/components/LoadingContent";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Item,
+  ItemCard,
+  ItemContent,
+  ItemDescription,
+  ItemSeparator,
+  ItemTitle,
+  ItemActions,
+} from "@/components/ui/item";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
+import { usePremium } from "@/hooks/usePremium";
+import { useUser } from "@/hooks/useUser";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { cn } from "@/utils";
+import { env } from "@/env";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+
+export function SettingsContent() {
+  const { emailAccountId: activeEmailAccountId } = useAccount();
+  const { data, isLoading, error } = useAccounts();
+  const { canManageBilling } = usePremium();
+  const { data: user } = useUser();
+  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(
+    null,
+  );
+
+  const organizationMembership = user?.members?.find(
+    (member) => member.emailAccountId === activeEmailAccountId,
+  );
+  // No membership means no organization yet — the invite modal then creates one.
+  const canInviteMembers =
+    !!user &&
+    !!activeEmailAccountId &&
+    (!organizationMembership ||
+      hasOrganizationAdminRole(organizationMembership.role));
+
+  const handleSlackConnected = useCallback(
+    (connectedEmailAccountId: string | null) => {
+      setExpandedAccountId(
+        connectedEmailAccountId ?? activeEmailAccountId ?? null,
+      );
+    },
+    [activeEmailAccountId],
+  );
+
+  useSlackNotifications({
+    enabled: true,
+    onSlackConnected: handleSlackConnected,
+  });
+
+  const emailAccounts = useMemo(() => {
+    const accounts = data?.emailAccounts ?? [];
+    return [...accounts].sort((a, b) => {
+      if (a.id === activeEmailAccountId) return -1;
+      if (b.id === activeEmailAccountId) return 1;
+      return 0;
+    });
+  }, [activeEmailAccountId, data?.emailAccounts]);
+
+  return (
+    <div className="space-y-10">
+      <SettingsGroup
+        icon={<MailIcon className="size-5" />}
+        title="Email Accounts"
+      >
+        <LoadingContent loading={isLoading} error={error}>
+          {emailAccounts.length > 0 && (
+            <div className="space-y-4">
+              {emailAccounts.map((emailAccount) => (
+                <EmailAccountSettingsCard
+                  key={emailAccount.id}
+                  emailAccount={emailAccount}
+                  allAccounts={emailAccounts}
+                  expanded={expandedAccountId === emailAccount.id}
+                  onToggle={() =>
+                    setExpandedAccountId((current) =>
+                      current === emailAccount.id ? null : emailAccount.id,
+                    )
+                  }
+                />
+              ))}
+
+              <Button asChild variant="outline">
+                <Link href="/accounts">
+                  <MailIcon className="mr-2 size-4" />
+                  Add Account
+                </Link>
+              </Button>
+            </div>
+          )}
+        </LoadingContent>
+      </SettingsGroup>
+
+      {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && canManageBilling && (
+        <SettingsGroup
+          icon={<CreditCardIcon className="size-5" />}
+          title="Billing"
+        >
+          <ItemCard>
+            <BillingSection />
+          </ItemCard>
+        </SettingsGroup>
+      )}
+
+      {canInviteMembers && (
+        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+          <ItemCard>
+            <TeamSection
+              organizationId={organizationMembership?.organizationId}
+            />
+          </ItemCard>
+        </SettingsGroup>
+      )}
+
+      {!env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED && (
+        <SettingsGroup
+          icon={<SparklesIcon className="size-5" />}
+          title="AI Model"
+        >
+          <ItemCard className="p-4">
+            <ModelSection />
+          </ItemCard>
+        </SettingsGroup>
+      )}
+
+      {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
+        env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
+        <SettingsGroup
+          icon={<WebhookIcon className="size-5" />}
+          title="Developer"
+        >
+          <ItemCard>
+            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false && (
+              <WebhookSection />
+            )}
+            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false &&
+              env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ItemSeparator />}
+            {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ApiKeysSection />}
+          </ItemCard>
+        </SettingsGroup>
+      )}
+
+      <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+        <ItemCard>
+          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
+          <ItemSeparator />
+          <AppearanceSection />
+          <ItemSeparator />
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Beta Features</ItemTitle>
+              <ItemDescription>
+                Try experimental features that are still in progress.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/early-access">Open</Link>
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemCard>
+        <ItemCard>
+          <DeleteSection />
+        </ItemCard>
+      </SettingsGroup>
+    </div>
+  );
+}
+
+function EmailAccountSettingsCard({
+  emailAccount,
+  allAccounts,
+  expanded,
+  onToggle,
+}: {
+  emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
+  allAccounts: GetEmailAccountsResponse["emailAccounts"];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { data: channelsData } = useMessagingChannels(emailAccount.id);
+
+  const connectedProviders = Array.from(
+    new Set(
+      channelsData?.channels
+        .filter((ch) => ch.isConnected)
+        .map((ch) => ch.provider) ?? [],
+    ),
+  );
+  const hasUnconnectedProvider = channelsData?.availableProviders?.some(
+    (p) => !connectedProviders.includes(p),
+  );
+
+  return (
+    <ItemCard>
+      <div
+        role="button"
+        tabIndex={0}
+        className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+      >
+        <Avatar className="size-8 rounded-full">
+          <AvatarImage
+            src={emailAccount.image || ""}
+            alt={emailAccount.name || emailAccount.email}
+          />
+          <AvatarFallback className="rounded-full text-xs">
+            {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="flex-1 text-sm font-medium">{emailAccount.email}</span>
+        {connectedProviders.map((provider) => (
+          <Badge
+            key={provider}
+            variant="secondary"
+            className="gap-1 text-xs font-normal"
+          >
+            <ProviderIcon provider={provider} className="size-3" />
+            {PROVIDER_LABELS[provider] ?? provider}
+          </Badge>
+        ))}
+        {hasUnconnectedProvider && (
+          <Link
+            href={`/${emailAccount.id}/channels`}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
+          >
+            <Badge
+              variant="outline"
+              className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
+            >
+              <PlugIcon className="size-3" />
+              Connect Apps
+            </Badge>
+          </Link>
+        )}
+        <ChevronRightIcon
+          className={cn(
+            "size-4 text-muted-foreground transition-transform",
+            expanded && "rotate-90",
+          )}
+        />
+      </div>
+
+      {expanded && (
+        <>
+          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
+          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
+          <RuleImportExportSetting emailAccountId={emailAccount.id} />
+          <CopyRulesSection
+            emailAccountId={emailAccount.id}
+            emailAccountEmail={emailAccount.email}
+            allAccounts={allAccounts}
+          />
+          <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
+        </>
+      )}
+    </ItemCard>
+  );
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  SLACK: "Slack",
+  TEAMS: "Teams",
+  TELEGRAM: "Telegram",
+};
+
+function ProviderIcon({
+  provider,
+  className,
+}: {
+  provider: string;
+  className?: string;
+}) {
+  switch (provider) {
+    case "SLACK":
+      return <MessagesSquareIcon className={className} />;
+    case "TEAMS":
+      return <MessageCircleIcon className={className} />;
+    case "TELEGRAM":
+      return <SendIcon className={className} />;
+    default:
+      return <PlugIcon className={className} />;
+  }
+}
+
+function SettingsGroup({
+  icon,
+  title,
+  children,
+}: {
+  icon?: React.ReactNode;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      {title && (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {icon}
+          <h2 className="text-sm font-medium uppercase tracking-wide">
+            {title}
+          </h2>
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}

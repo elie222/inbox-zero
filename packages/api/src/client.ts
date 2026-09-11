@@ -5,7 +5,7 @@ type RequestOptions = {
 };
 
 type ApiErrorPayload = {
-  error?: string;
+  error?: string | { message?: string; code?: string; hint?: string };
   message?: string;
 };
 
@@ -105,7 +105,17 @@ async function createApiError(response: Response) {
 
   try {
     const json = JSON.parse(text) as ApiErrorPayload;
-    message = json.error || json.message || message;
+    if (typeof json.error === "string" && json.error) {
+      message = json.error;
+    } else if (
+      json.error &&
+      typeof json.error === "object" &&
+      json.error.message
+    ) {
+      message = json.error.message;
+    } else if (json.message) {
+      message = json.message;
+    }
   } catch {
     if (text) message = text;
   }

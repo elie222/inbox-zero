@@ -54,6 +54,7 @@ export function collectWindows(
   for (let weekday = 0; weekday < 7; weekday++) {
     const day = days[weekday];
     if (!day.enabled) continue;
+    const dayWindows: AvailabilityWindowInput[] = [];
     for (const range of day.ranges) {
       const start = parseTime(range.start);
       const end = parseTime(range.end);
@@ -63,8 +64,18 @@ export function collectWindows(
           error: `${DAY_LABELS[weekday]}: end time must be after start time.`,
         };
       }
-      windows.push({ weekday, startMinutes: start, endMinutes: end });
+      dayWindows.push({ weekday, startMinutes: start, endMinutes: end });
     }
+    dayWindows.sort((a, b) => a.startMinutes - b.startMinutes);
+    for (let i = 1; i < dayWindows.length; i++) {
+      if (dayWindows[i].startMinutes < dayWindows[i - 1].endMinutes) {
+        return {
+          windows: null,
+          error: `${DAY_LABELS[weekday]}: time ranges overlap.`,
+        };
+      }
+    }
+    windows.push(...dayWindows);
   }
 
   if (windows.length === 0) {

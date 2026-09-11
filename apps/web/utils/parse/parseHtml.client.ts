@@ -8,24 +8,36 @@ export function findCtaLink(
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
-  let ctaText: string | undefined;
-  let ctaLink: string | undefined;
-
   const links = doc.querySelectorAll("a");
   for (const element of links) {
     if (!element.textContent) continue;
     if (containsCtaKeyword(element.textContent.toLowerCase())) {
-      // capitalise first letter
-      ctaText =
+      const ctaLink = normalizeCtaLink(element.getAttribute("href"));
+      if (!ctaLink) continue;
+
+      const ctaText =
         element.textContent.charAt(0).toUpperCase() +
         element.textContent.slice(1);
-      ctaLink = element.getAttribute("href") ?? undefined;
-      return;
+      return { ctaText, ctaLink };
     }
   }
+}
 
-  if (ctaLink && !ctaLink.startsWith("http") && !ctaLink.startsWith("mailto:"))
-    ctaLink = `https://${ctaLink}`;
+function normalizeCtaLink(link: string | null): string | undefined {
+  const trimmedLink = link?.trim();
+  if (!trimmedLink || trimmedLink.startsWith("/")) return;
 
-  return ctaText && ctaLink ? { ctaText, ctaLink } : undefined;
+  const normalizedLink = /^[a-z][a-z\d+.-]*:/i.test(trimmedLink)
+    ? trimmedLink
+    : `https://${trimmedLink}`;
+
+  try {
+    const protocol = new URL(normalizedLink).protocol;
+    if (protocol !== "http:" && protocol !== "https:" && protocol !== "mailto:")
+      return;
+  } catch {
+    return;
+  }
+
+  return normalizedLink;
 }

@@ -3,6 +3,7 @@
 import { PremiumTier } from "@/generated/prisma/enums";
 import { actionClient } from "@/utils/actions/safe-action";
 import { upsertRuleAttachmentSourcesBody } from "@/utils/actions/attachment-sources.validation";
+import { getAttachmentSourceKey } from "@/utils/attachments/source-schema";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { checkHasAccess } from "@/utils/premium/server";
@@ -67,21 +68,28 @@ export const upsertRuleAttachmentSourcesAction = actionClient
       });
 
       const existingSourceByKey = new Map(
-        existingSources.map((source) => [getSourceKey(source), source]),
+        existingSources.map((source) => [
+          getAttachmentSourceKey(source),
+          source,
+        ]),
       );
       const nextSourcesByKey = new Map(
-        sources.map((source) => [getSourceKey(source), source]),
+        sources.map((source) => [getAttachmentSourceKey(source), source]),
       );
 
       const sourceIdsToDelete = existingSources
-        .filter((source) => !nextSourcesByKey.has(getSourceKey(source)))
+        .filter(
+          (source) => !nextSourcesByKey.has(getAttachmentSourceKey(source)),
+        )
         .map((source) => source.id);
 
       const sourcesToCreate = sources.filter(
-        (source) => !existingSourceByKey.has(getSourceKey(source)),
+        (source) => !existingSourceByKey.has(getAttachmentSourceKey(source)),
       );
       const sourcesToUpdate = sources.flatMap((source) => {
-        const existing = existingSourceByKey.get(getSourceKey(source));
+        const existing = existingSourceByKey.get(
+          getAttachmentSourceKey(source),
+        );
 
         if (
           !existing ||
@@ -125,11 +133,3 @@ export const upsertRuleAttachmentSourcesAction = actionClient
       return { count: sources.length };
     },
   );
-
-function getSourceKey(source: {
-  driveConnectionId: string;
-  type: string;
-  sourceId: string;
-}) {
-  return `${source.driveConnectionId}:${source.type}:${source.sourceId}`;
-}

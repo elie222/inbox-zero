@@ -5,13 +5,16 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
+const similarityMocks = vi.hoisted(() => ({
+  calculateSimilarity: vi.fn(),
+  calculateSimilarityDetails: vi.fn(),
+}));
+
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/prisma-retry", () => ({
   withPrismaRetry: vi.fn().mockImplementation((fn) => fn()),
 }));
-vi.mock("@/utils/similarity-score", () => ({
-  calculateSimilarity: vi.fn(),
-}));
+vi.mock("@/utils/similarity-score", () => similarityMocks);
 vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
   isDraftUnmodified: vi.fn(),
 }));
@@ -29,7 +32,10 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
     .mockResolvedValue(undefined),
 }));
 
-import { calculateSimilarity } from "@/utils/similarity-score";
+import {
+  calculateSimilarity,
+  calculateSimilarityDetails,
+} from "@/utils/similarity-score";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import {
   isMeaningfulDraftEdit,
@@ -46,6 +52,14 @@ const logger = createTestLogger();
 describe("trackSentDraftStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(calculateSimilarityDetails).mockImplementation(
+      (storedContent, providerMessage, options) => ({
+        score: calculateSimilarity(storedContent, providerMessage, options),
+        normalizedStoredContentLength: storedContent?.length ?? 0,
+        normalizedProviderMessageLength:
+          typeof providerMessage === "string" ? providerMessage.length : 0,
+      }),
+    );
     vi.mocked(prisma.draftSendLog.create).mockResolvedValue({
       id: "draft-send-log-1",
     } as any);

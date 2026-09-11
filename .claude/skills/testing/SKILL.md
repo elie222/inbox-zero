@@ -13,6 +13,7 @@ All testing guidance lives in this directory. Read the relevant file for your ta
 | LLM tests | [llm.md](llm.md) | Tests that call real LLMs (`pnpm test-ai`) |
 | Eval suite | [eval.md](eval.md) | Cross-model comparison, LLM-as-judge |
 | Integration | [integration.md](integration.md) | Emulator-backed tests (`pnpm test-integration`) |
+| Database | `apps/web/__tests__/db/README.md` | Real Postgres, for unique constraints and `updateMany` count guards (`pnpm test-db`) |
 | E2E tests | [e2e.md](e2e.md) | Real email workflow tests from inbox-zero-e2e repo |
 
 Prefer behavior-focused assertions; avoid freezing prompt copy or internal call shapes unless those exact values are the contract under test.
@@ -23,6 +24,7 @@ Prefer behavior-focused assertions; avoid freezing prompt copy or internal call 
 pnpm test path/to/file.test.ts       # Single unit test
 pnpm test                            # All unit tests
 pnpm test-integration                # Integration tests (emulator)
+pnpm test-db                         # Database tests (needs DATABASE_URL on a throwaway db)
 pnpm test-ai ai-regression/your-feature  # Live AI regression test
 EVAL_MODELS=all pnpm test-ai eval/your-feature  # Eval across models
 ```

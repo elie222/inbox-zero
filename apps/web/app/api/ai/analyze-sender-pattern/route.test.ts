@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { afterMock, headersMock, isValidInternalApiKeyMock } = vi.hoisted(
   () => ({
@@ -38,6 +38,7 @@ vi.mock("@/utils/prisma", () => ({
       findUnique: vi.fn(),
     },
     newsletter: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       upsert: vi.fn(),
     },
@@ -49,6 +50,7 @@ vi.mock("@/utils/ai/choose-rule/ai-detect-recurring-pattern", () => ({
 }));
 
 vi.mock("@/utils/email", () => ({
+  canonicalizeEmailAddress: vi.fn((value: string) => value.toLowerCase()),
   extractEmailAddress: vi.fn((value: string) => value),
 }));
 
@@ -69,6 +71,8 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 import { POST } from "./route";
+import prisma from "@/utils/prisma";
+import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 
 describe("analyze sender pattern route", () => {
   beforeEach(() => {
@@ -77,8 +81,13 @@ describe("analyze sender pattern route", () => {
     isValidInternalApiKeyMock.mockReturnValue(true);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("returns 401 when the internal API key is invalid", async () => {
     isValidInternalApiKeyMock.mockReturnValue(false);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await POST(createRequest() as never);
 
@@ -87,6 +96,35 @@ describe("analyze sender pattern route", () => {
       error: "Invalid API key",
     });
     expect(afterMock).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips analysis when any sender casing variant was already analyzed", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      id: "email-account-1",
+    } as any);
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue({
+      id: "newsletter-1",
+      patternAnalyzed: true,
+    } as any);
+
+    const response = await POST(createRequest() as never);
+
+    expect(response.status).toBe(200);
+    const processInBackground = afterMock.mock.calls[0]?.[0];
+    if (!processInBackground) throw new Error("Background process not queued");
+    await processInBackground();
+    expect(prisma.newsletter.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-1",
+        email: {
+          equals: "sender@example.com",
+          mode: "insensitive",
+        },
+        patternAnalyzed: true,
+      },
+    });
+    expect(aiDetectRecurringPattern).not.toHaveBeenCalled();
   });
 });
 

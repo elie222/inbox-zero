@@ -51,6 +51,7 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
@@ -87,7 +88,10 @@ const parsedEnv = createEnv({
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
-    MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    MICROSOFT_TENANT_ID: z.preprocess(
+      optionalEnvValue,
+      z.string().default("common"),
+    ),
     APPLE_CLIENT_ID: z.string().optional(),
     APPLE_TEAM_ID: z.string().optional(),
     APPLE_KEY_ID: z.string().optional(),
@@ -223,6 +227,11 @@ const parsedEnv = createEnv({
 
     DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
     ENABLE_DEBUG_LOGS: booleanString.default(false),
+    // SECURITY: disables the webhook SSRF guard (allows webhook URLs that point
+    // to / resolve to private IP ranges, e.g. LAN or Tailscale 100.64.0.0/10).
+    // Defaults to false. Only enable on a trusted, single-tenant self-hosted
+    // deployment — never on a shared/multi-tenant instance.
+    WEBHOOK_ALLOW_PRIVATE_IPS: booleanString.optional().default(false),
     DIGEST_MAX_SUMMARIES_PER_24H: z.coerce
       .number()
       .int()
@@ -261,7 +270,19 @@ const parsedEnv = createEnv({
 
     POSTHOG_API_SECRET: z.string().optional(),
     POSTHOG_PROJECT_ID: z.string().optional(),
+    POSTHOG_FEEDBACK_SURVEY_ID: z.string().optional(),
+    POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
+    FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
+
+    RECALL_API_KEY: z.string().optional(),
+    RECALL_WEBHOOK_SECRET: z.string().optional(),
+    RECALL_REGION: z
+      .string()
+      .regex(/^[a-z0-9-]+$/)
+      .optional(),
+    // Local Recall emulation only; points the bot provider at a stand-in API.
+    RECALL_BASE_URL: z.string().url().optional(),
 
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
@@ -270,15 +291,21 @@ const parsedEnv = createEnv({
       .optional()
       .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
     CRON_SECRET: z.string().optional(),
+    BLOG_SYNC_WEBHOOK_SECRET: z.string().min(1).optional(),
+    BLOG_SYNC_SANITY_AUTHOR_ID: z.string().min(1).optional(),
+    BLOG_SYNC_IMAGE_ALLOWED_HOSTS: z.string().optional(),
+    SANITY_API_WRITE_TOKEN: z.string().min(1).optional(),
     LOOPS_API_SECRET: z.string().optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
+    CONVERSION_ANALYTICS_SERVER_SECRET: z.string().optional(),
     ADMINS: z
       .string()
       .optional()
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
+    MCP_SERVER_URL_OVERRIDES: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
@@ -299,6 +326,13 @@ const parsedEnv = createEnv({
       ),
     // Mobile auth trusted origin, e.g. inboxzero://
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
+    // Desktop Electron custom-scheme origin for system-browser OAuth return.
+    DESKTOP_AUTH_ORIGIN: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .default("inboxzero://"),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
     AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
 
@@ -349,13 +383,15 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
 
-    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.number().default(5),
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.preprocess(
+      optionalEnvValue,
+      z.coerce.number().int().nonnegative().default(5),
+    ),
     NEXT_PUBLIC_CALL_LINK: z
       .string()
       .default("https://cal.com/team/inbox-zero/feedback"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_API_HOST: z.string().optional(),
-    NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: z.string().url().optional(),
@@ -378,9 +414,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
     NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
-    NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
-      .optional()
-      .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
     NEXT_PUBLIC_LOG_SCOPES: z
@@ -398,10 +431,13 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: booleanString.optional(),
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_BOOKING_LINKS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
@@ -460,7 +496,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CALL_LINK: process.env.NEXT_PUBLIC_CALL_LINK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_API_HOST: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
-    NEXT_PUBLIC_POSTHOG_HERO_AB: process.env.NEXT_PUBLIC_POSTHOG_HERO_AB,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
@@ -486,8 +521,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL:
       process.env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL,
     NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
-    NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
-      process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,
@@ -500,6 +533,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: process.env.NEXT_PUBLIC_DIGEST_ENABLED,
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
+    NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
+      process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
@@ -507,6 +542,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SMART_FILING_ENABLED:
       process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
+    NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED:
+      process.env.NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED,
+    NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED:
+      process.env.NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED,
     NEXT_PUBLIC_BOOKING_LINKS_ENABLED:
       process.env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED,
     NEXT_PUBLIC_EXTERNAL_API_ENABLED:

@@ -53,6 +53,7 @@ const SidebarProvider = React.forwardRef<
   React.ComponentProps<"div"> & {
     defaultOpen?: "all" | string[];
     sidebarNames?: string[];
+    keyboardShortcutName?: string;
     open?: string[];
     onOpenChange?: (open: string[]) => void;
   }
@@ -61,6 +62,7 @@ const SidebarProvider = React.forwardRef<
     {
       defaultOpen = "all",
       sidebarNames = [],
+      keyboardShortcutName,
       open: openProp,
       onOpenChange: setOpenProp,
       className,
@@ -130,16 +132,17 @@ const SidebarProvider = React.forwardRef<
       const handleKeyDown = (event: KeyboardEvent) => {
         if (
           event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-          (event.metaKey || event.ctrlKey)
+          (event.metaKey || event.ctrlKey) &&
+          keyboardShortcutName
         ) {
           event.preventDefault();
-          toggleSidebar(sidebarNames);
+          toggleSidebar([keyboardShortcutName]);
         }
       };
 
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [toggleSidebar, sidebarNames]);
+    }, [keyboardShortcutName, toggleSidebar]);
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.
@@ -203,6 +206,7 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
+    forceCollapsed?: boolean;
   }
 >(
   (
@@ -211,6 +215,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      forceCollapsed = false,
       className,
       children,
       ...props
@@ -262,12 +267,14 @@ const Sidebar = React.forwardRef<
       );
     }
 
+    const isDesktopOpen = state.includes(name) && !forceCollapsed;
+
     return (
       <div
         ref={ref}
         className="group peer hidden text-sidebar-foreground md:block"
-        data-state={state.includes(name) ? "expanded" : "collapsed"}
-        data-collapsible={state.includes(name) ? "" : collapsible}
+        data-state={isDesktopOpen ? "expanded" : "collapsed"}
+        data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}
         data-side={side}
       >
@@ -306,7 +313,7 @@ const Sidebar = React.forwardRef<
                 child.type === SidebarMenuButton
               ) {
                 return React.cloneElement(child, {
-                  isCollapsed: !state.includes(name),
+                  isCollapsed: !isDesktopOpen,
                 } as React.ComponentProps<typeof SidebarMenuButton>);
               }
               return child;

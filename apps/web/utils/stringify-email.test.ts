@@ -49,6 +49,28 @@ describe("stringifyEmail", () => {
     );
   });
 
+  it("handles messages without from or subject headers", () => {
+    // real provider messages can lack these headers (drafts, calendar invites)
+    const email = {
+      id: "1",
+      to: "to@example.com",
+      content: "Hello world",
+    } as EmailForLLM;
+
+    expect(stringifyEmail(email, 1000)).toBe(
+      "<from></from>\n" +
+        "<to>to@example.com</to>\n" +
+        "<subject></subject>\n" +
+        "<body>Hello world</body>",
+    );
+    expect(stringifyEmailSimple(email)).toBe(
+      "<from></from>\n<subject></subject>\n<body>Hello world</body>",
+    );
+    expect(stringifyEmailFromBody(email)).toBe(
+      "<from></from>\n<body>Hello world</body>",
+    );
+  });
+
   it("should omit optional fields when not provided", () => {
     const minimalEmail: EmailForLLM = {
       id: "1",

@@ -39,6 +39,9 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { clearOfflineMailCache } from "@/utils/offline/clear-mail-cache";
+import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
+import { clearPersistedSwrCacheForAccount } from "@/utils/swr-persistence";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -159,6 +162,10 @@ function AccountOptionsDropdown({
       onAccountDeleted();
       if (emailAccount.isPrimary) {
         await logOut("/login");
+      } else {
+        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
+        clearPersistedSwrCacheForAccount(emailAccount.id);
+        await clearOfflineMailCache();
       }
     },
     onError: (error) => {
@@ -173,7 +180,7 @@ function AccountOptionsDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" aria-label="Account options">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -307,10 +314,10 @@ function getAccountErrorMessage(
       description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
       toastDescription: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
     },
-    account_already_exists_use_merge: {
+    account_already_exists: {
       title: "Account already exists",
-      description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
-      toastDescription: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
+      description: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
+      toastDescription: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
     },
     already_linked_to_self: {
       title: "Account already linked",

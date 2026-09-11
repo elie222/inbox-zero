@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import { processSlackSlashCommand } from "@/utils/messaging/providers/slack/slash-commands";
 
 const {
@@ -142,5 +143,29 @@ describe("processSlackSlashCommand", () => {
         },
       }),
     );
+  });
+
+  it("converts markdown in the assistant response to Slack mrkdwn", async () => {
+    const assistantText =
+      "### Action Required\n\n**Important:** review these items.\n\n* First item";
+    mockReadUIMessageStream.mockImplementationOnce(async function* () {
+      yield {
+        id: "assistant-message",
+        role: "assistant",
+        parts: [{ type: "text", text: assistantText }],
+      };
+    });
+
+    await processSlackSlashCommand({
+      command: "/summary",
+      userId: "slack-user",
+      teamId: "slack-team",
+      responseUrl: "https://hooks.slack.com/commands/response",
+      logger,
+    });
+
+    const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body.text).toBe(markdownToSlackMrkdwn(assistantText));
   });
 });

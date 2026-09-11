@@ -7,6 +7,7 @@ import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
   getLastMatchingToolCall,
+  hasUnreadTriageSignal,
   hasSearchBeforeFirstWrite,
   inboxWorkflowProviders,
   isBulkArchiveSendersInput,
@@ -52,7 +53,7 @@ describe.runIf(shouldRunEval)(
           },
         ])(
           "continues Outlook mark-read cleanup through empty filtered pages [$name]",
-          async ({ prompt, categoryName }) => {
+          async ({ name, prompt, categoryName }) => {
             mockSearchMessages.mockImplementation(
               async (input: ProviderSearchInput) => {
                 if (
@@ -131,8 +132,7 @@ describe.runIf(shouldRunEval)(
               );
 
             evalReporter.record({
-              testName:
-                "outlook scoped mark read paginates empty filtered page",
+              testName: `outlook scoped mark read paginates empty filtered page (${name})`,
               model: model.label,
               pass,
               actual: `${actual} | providerSearch=${summarizeProviderSearchCalls(providerSearchCalls)}`,
@@ -459,17 +459,12 @@ describe.runIf(shouldRunEval)(
                   prompt:
                     "Mark the two unread vendor update emails as read, but do not archive them.",
                   query: searchCall.query,
-                  expected:
-                    provider === "microsoft"
-                      ? "A search query focused on vendor update emails. The unread constraint may be represented by the structured readState field instead of the query text."
-                      : "A search query focused on unread vendor update emails.",
+                  expected: "A search query focused on vendor update emails.",
                 })
               : null;
-            const searchHasUnreadScope =
-              provider !== "microsoft" ||
-              (searchCall as SearchInboxInput | undefined)?.readState ===
-                "unread" ||
-              /\bunread\b/i.test(searchCall?.query ?? "");
+            const searchHasUnreadScope = searchCall
+              ? hasUnreadTriageSignal(searchCall, provider)
+              : false;
             const markReadCall = getLastMatchingToolCall(
               toolCalls,
               "manageInbox",

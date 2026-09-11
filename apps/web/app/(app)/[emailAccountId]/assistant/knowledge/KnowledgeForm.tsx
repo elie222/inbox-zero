@@ -145,6 +145,7 @@ export function KnowledgeForm({
               <Tiptap
                 ref={editorRef}
                 initialContent={field.value ?? ""}
+                input="markdown"
                 className="mt-1 prose prose-sm dark:prose-invert max-w-none"
                 autofocus={false}
               />

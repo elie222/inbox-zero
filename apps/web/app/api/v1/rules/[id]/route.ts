@@ -9,6 +9,22 @@ import {
   ruleRequestBodySchema,
 } from "@/app/api/v1/rules/validation";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import {
+  createPublicApiMethodNotAllowedHandler,
+  publicApiErrorResponse,
+  readPublicApiJson,
+} from "@/utils/public-api-error";
+
+export const POST = createPublicApiMethodNotAllowedHandler([
+  "GET",
+  "PUT",
+  "DELETE",
+]);
+export const PATCH = createPublicApiMethodNotAllowedHandler([
+  "GET",
+  "PUT",
+  "DELETE",
+]);
 
 export const GET = withAccountApiKey(
   "v1/rules/detail",
@@ -23,7 +39,11 @@ export const GET = withAccountApiKey(
     });
 
     if (!rule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
 
     return NextResponse.json({ rule: serializeRule(rule) });
@@ -36,19 +56,27 @@ export const PUT = withAccountApiKey(
   async (request, { params }) => {
     const { emailAccountId, provider, userId } = request.apiAuth;
     const routeParams = rulePathParamsSchema.parse(await params);
-    const body = ruleRequestBodySchema.parse(await request.json());
+    const body = ruleRequestBodySchema.parse(await readPublicApiJson(request));
     const ruleInput = toRuleWriteInput(body);
-
-    await assertCanUseDigestsIfNeeded(userId, ruleInput.actions);
 
     const existingRule = await prisma.rule.findFirst({
       where: { id: routeParams.id, emailAccountId },
-      select: { id: true },
+      select: { id: true, actions: { select: { type: true } } },
     });
 
     if (!existingRule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
+
+    await assertCanUseDigestsIfNeeded(
+      userId,
+      ruleInput.actions,
+      existingRule.actions,
+    );
 
     await updateRule({
       ruleId: routeParams.id,
@@ -85,7 +113,11 @@ export const DELETE = withAccountApiKey(
     });
 
     if (!existingRule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
 
     await deleteRule({

@@ -11,13 +11,16 @@ let hasWarnedAboutDisabledProductionImageProxy = false;
 
 export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
   const config = getImageProxyConfig(logger);
-  if (!config || !html) return html;
+  if (!config || !html) return { html, remoteAssetsProxied: false };
 
-  return rewriteHtmlRemoteAssetUrls(html, {
-    proxyBaseUrl: config.proxyBaseUrl,
-    signingSecret: config.signingSecret,
-    ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,
-  });
+  return {
+    html: await rewriteHtmlRemoteAssetUrls(html, {
+      proxyBaseUrl: config.proxyBaseUrl,
+      signingSecret: config.signingSecret,
+      ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,
+    }),
+    remoteAssetsProxied: true,
+  };
 }
 
 function getImageProxyConfig(logger: Logger) {
@@ -27,7 +30,10 @@ function getImageProxyConfig(logger: Logger) {
     externalProxyBaseUrl: env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
     useAppRoute,
   });
-  const signingSecret = env.IMAGE_PROXY_SIGNING_SECRET;
+  const signingSecret = env.IMAGE_PROXY_SIGNING_SECRET?.split(
+    ",",
+    1,
+  )[0]?.trim();
 
   if (!proxyBaseUrl) return null;
 

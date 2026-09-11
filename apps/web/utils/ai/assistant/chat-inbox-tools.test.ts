@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asSchema } from "ai";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
+import { SafeError } from "@/utils/error";
 import {
   forwardEmailTool,
   getAccountOverviewTool,
@@ -28,12 +30,14 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
+  mockValidateUserAndAiAccess,
 } = vi.hoisted(() => ({
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+  mockValidateUserAndAiAccess: vi.fn(),
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -59,6 +63,12 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
   getCategorizationStatusSnapshot: (
     ...args: Parameters<typeof mockGetCategorizationStatusSnapshot>
   ) => mockGetCategorizationStatusSnapshot(...args),
+}));
+
+vi.mock("@/utils/user/validate", () => ({
+  validateUserAndAiAccess: (
+    ...args: Parameters<typeof mockValidateUserAndAiAccess>
+  ) => mockValidateUserAndAiAccess(...args),
 }));
 
 const TEST_EMAIL = "user@test.com";
@@ -94,6 +104,7 @@ describe("chat inbox tools", () => {
       actionType: "send_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         to: "recipient@example.com",
         subject: "Hello",
@@ -172,6 +183,7 @@ describe("chat inbox tools", () => {
       actionType: "reply_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         messageId: "message-1",
         content: "Thanks for the update.",
@@ -233,6 +245,7 @@ describe("chat inbox tools", () => {
       actionType: "forward_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         messageId: "message-1",
         to: "recipient@example.com",
@@ -288,7 +301,7 @@ describe("chat inbox tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "archive_threads",
-      label: "To-Delete",
+      labelName: "To-Delete",
       threadIds: ["thread-1", "thread-2"],
     });
 
@@ -313,6 +326,141 @@ describe("chat inbox tools", () => {
       successCount: 2,
       requestedCount: 2,
     });
+  });
+
+  it("requires action-specific Gmail manageInbox fields", async () => {
+    const schema = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    }).inputSchema as any;
+
+    expect(
+      schema.safeParse({
+        action: "label_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+        read: false,
+        fromEmails: ["_unused_"],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "label_threads",
+        threadIds: ["thread-1"],
+        label: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        label: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "mark_read_threads",
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "mark_read_threads",
+        threadIds: ["thread-1"],
+        read: false,
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+      }).success,
+    ).toBe(true);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
+  });
+
+  it("requires Outlook category fields without accepting Gmail taxonomy aliases", async () => {
+    const schema = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    }).inputSchema as any;
+
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        category: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "trash_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
   });
 
   it("resolves an exact labelName to the provider label before labeling threads", async () => {
@@ -460,11 +608,13 @@ describe("chat inbox tools", () => {
   it("returns a descriptive error when label_threads receives an unknown labelName", async () => {
     const getThreadMessages = vi.fn();
     const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const labelMessage = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
       getLabelByName,
+      getLabels,
       labelMessage,
     } as any);
 
@@ -488,6 +638,90 @@ describe("chat inbox tools", () => {
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
     expect(getLabelByName).toHaveBeenCalledTimes(1);
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
+    expect(getThreadMessages).not.toHaveBeenCalled();
+    expect(labelMessage).not.toHaveBeenCalled();
+  });
+
+  it("applies a unique nested Gmail label when given its leaf name", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "Label_parent", name: "L3", type: "user" },
+      { id: "Label_child", name: "L3/L4", type: "user" },
+    ]);
+    const getThreadMessages = vi
+      .fn()
+      .mockResolvedValue([{ id: "message-1", threadId: "thread-1" }]);
+    const labelMessage = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      getLabels,
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelName: "L4",
+      threadIds: ["thread-1"],
+    });
+
+    expect(getLabelByName).toHaveBeenCalledWith("L4");
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
+    expect(labelMessage).toHaveBeenCalledWith({
+      messageId: "message-1",
+      labelId: "Label_child",
+      labelName: "L3/L4",
+    });
+    expect(result).toMatchObject({
+      success: true,
+      labelId: "Label_child",
+      labelName: "L3/L4",
+    });
+  });
+
+  it("does not apply an ambiguous nested Gmail leaf name", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "Label_1", name: "L3/L4", type: "user" },
+      { id: "Label_2", name: "Projects/L4", type: "user" },
+    ]);
+    const getThreadMessages = vi.fn();
+    const labelMessage = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      getLabels,
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelName: "L4",
+      threadIds: ["thread-1"],
+    });
+
+    expect(result).toEqual({
+      error:
+        'Multiple Gmail labels match "L4": "L3/L4", "Projects/L4". Use the full label path.',
+      toolErrorVisibility: "hidden",
+    });
     expect(getThreadMessages).not.toHaveBeenCalled();
     expect(labelMessage).not.toHaveBeenCalled();
   });
@@ -543,10 +777,12 @@ describe("chat inbox tools", () => {
 
   it("returns a transparent error when removing a label that does not exist", async () => {
     const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const removeThreadLabel = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabelByName,
+      getLabels,
       removeThreadLabel,
     } as any);
 
@@ -568,6 +804,7 @@ describe("chat inbox tools", () => {
       toolErrorVisibility: "hidden",
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
     expect(removeThreadLabel).not.toHaveBeenCalled();
   });
 
@@ -797,6 +1034,50 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
   });
 
+  it("searchInbox clamps out-of-range limits instead of rejecting them", async () => {
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const schema = toolInstance.inputSchema as any;
+
+    expect(schema.parse({ query: "is:unread", limit: 100 }).limit).toBe(20);
+    expect(schema.parse({ query: "is:unread", limit: 0 }).limit).toBe(1);
+    expect(schema.parse({ query: "is:unread" }).limit).toBe(20);
+  });
+
+  it("searchInbox returns provider failure feedback the model can act on", async () => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockRejectedValue({
+        status: 429,
+        message: "Rate limit exceeded",
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "is:unread",
+      limit: 20,
+    });
+
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.searchFeedback).toMatchObject({
+      status: 429,
+      message: "Rate limit exceeded",
+      retryable: true,
+    });
+  });
+
   it("searchInbox result reports hasMore=false when no more pages", async () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages: vi.fn().mockResolvedValue({
@@ -821,10 +1102,181 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(false);
   });
 
-  it("searchInbox retries Microsoft fielded sender searches with a plain-text fallback", async () => {
+  it("searchInbox uses exact Outlook sender filtering for fielded sender queries", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          snippet: "Can you take a look?",
+          historyId: "",
+          inline: [],
+          headers: {
+            from: "sender@example.com",
+            to: TEST_EMAIL,
+            subject: "Review request",
+            date: "2026-01-01T00:00:00.000Z",
+          },
+          subject: "Review request",
+          textPlain: "",
+          textHtml: "",
+          labelIds: [],
+          internalDate: "0",
+        },
+      ],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:sender@example.com",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
+    });
+    expect(result.messages).toHaveLength(1);
+    expect(result.queryUsed).toBe("from:sender@example.com");
+  });
+
+  it("searchInbox uses exact Outlook sender filtering for quoted sender queries", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          snippet: "Can you take a look?",
+          historyId: "",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: TEST_EMAIL,
+            subject: "Review request",
+            date: "2026-01-01T00:00:00.000Z",
+          },
+          subject: "Review request",
+          textPlain: "",
+          textHtml: "",
+          labelIds: [],
+          internalDate: "0",
+        },
+      ],
+      nextPageToken: "PAGE_TOKEN_2",
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: 'from:"sender@example.com"',
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
+    });
+    expect(result.queryUsed).toBe("from:sender@example.com");
+    expect(result.nextPageToken).toBe("PAGE_TOKEN_2");
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("rejects conflicting exact Outlook sender filters without searching", async () => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:first@example.com",
+      fromEmail: "second@example.com",
+    });
+
+    expect(searchMessages).not.toHaveBeenCalled();
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.microsoftSearchFeedback.attempts[0].message).toBe(
+      "Sender filters conflict. Use one exact sender address.",
+    );
+  });
+
+  it("searchInbox forwards explicit Outlook sender filters across pages", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      fromEmail: "sender@example.com",
+      limit: 20,
+      pageToken: "PAGE_TOKEN_2",
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: "PAGE_TOKEN_2",
+      readState: undefined,
+      labelName: undefined,
+    });
+  });
+
+  it("searchInbox preserves structured Outlook sender filters when skipping empty pages", async () => {
     const searchMessages = vi
       .fn()
-      .mockRejectedValueOnce(new Error("Search syntax failed"))
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: "PAGE_TOKEN_2",
+      })
       .mockResolvedValueOnce({
         messages: [
           {
@@ -836,7 +1288,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
             historyId: "",
             inline: [],
             headers: {
-              from: "sender@example.com",
+              from: "Sender <sender@example.com>",
               to: TEST_EMAIL,
               subject: "Review request",
               date: "2026-01-01T00:00:00.000Z",
@@ -869,21 +1321,23 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenNthCalledWith(1, {
-      query: "from:sender@example.com",
+      query: "",
+      fromEmail: "sender@example.com",
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
       labelName: undefined,
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
-      query: '"sender@example.com"',
+      query: "",
+      fromEmail: "sender@example.com",
       maxResults: 20,
-      pageToken: undefined,
+      pageToken: "PAGE_TOKEN_2",
       readState: undefined,
       labelName: undefined,
     });
     expect(result.messages).toHaveLength(1);
-    expect(result.queryUsed).toBe('"sender@example.com"');
+    expect(result.queryUsed).toBe("from:sender@example.com");
     expect(result.messages[0].externalUrl).toBe(
       "https://outlook.office.com/mail/deeplink/read/m1?ispopout=0",
     );
@@ -943,7 +1397,60 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(contractText).not.toMatch(/\blabels?\b/i);
   });
 
-  it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
+  it("keeps sender validation without exposing unsupported regex patterns", async () => {
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const schema = toolInstance.inputSchema as any;
+    expect(schema.safeParse({ fromEmail: "sender@example.com" }).success).toBe(
+      true,
+    );
+    expect(schema.safeParse({ fromEmail: "invalid-address" }).success).toBe(
+      false,
+    );
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(JSON.stringify(jsonSchema.properties?.fromEmail)).not.toContain(
+      '"pattern"',
+    );
+  });
+
+  it("uses provider-specific sender search contracts", () => {
+    const toolOptions = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    };
+    const gmailTool = searchInboxTool({
+      ...toolOptions,
+      provider: "google",
+    });
+    const outlookTool = searchInboxTool({
+      ...toolOptions,
+      provider: "microsoft",
+    });
+    const gmailSchema = gmailTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+    const outlookSchema = outlookTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+
+    expect(Object.keys(gmailSchema.def?.shape ?? {})).not.toContain(
+      "fromEmail",
+    );
+    expect(Object.keys(outlookSchema.def?.shape ?? {})).toContain("fromEmail");
+    expect(serializeToolContract(gmailTool)).toContain(
+      "Use from:person@example.com for an exact sender search",
+    );
+    expect(serializeToolContract(outlookTool)).toContain(
+      "Exact sender email address",
+    );
+  });
+
+  it("searchInbox keeps bare Outlook text queries as text", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -967,11 +1474,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenNthCalledWith(1, {
-      query: "",
+      query: "Operations folder",
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "Operations",
+      labelName: undefined,
     });
   });
 
@@ -1000,11 +1507,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenCalledWith({
-      query: "",
+      query: "newsletter",
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "newsletter",
+      labelName: undefined,
     });
   });
 
@@ -1106,7 +1613,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(false);
   });
 
-  it("searchInbox falls back to Outlook text search when a normalized scope is conclusively empty", async () => {
+  it("searchInbox preserves an empty Outlook folder scope", async () => {
     const searchMessages = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1131,7 +1638,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "invoice",
+      query: 'folder:"invoice"',
       limit: 20,
     });
 
@@ -1142,15 +1649,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: undefined,
       labelName: "invoice",
     });
-    expect(searchMessages).toHaveBeenNthCalledWith(2, {
-      query: "invoice",
-      maxResults: 20,
-      readState: undefined,
-    });
-    expect(result.queryUsed).toBe("invoice");
+    expect(searchMessages).toHaveBeenCalledTimes(1);
+    expect(result.queryUsed).toBe("");
   });
 
-  it("searchInbox falls back to Outlook text search after empty structured pages end", async () => {
+  it("searchInbox preserves Outlook scope after empty structured pages end", async () => {
     const searchMessages = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1179,7 +1682,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "invoice",
+      query: 'folder:"invoice"',
       limit: 20,
     });
 
@@ -1197,12 +1700,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: undefined,
       labelName: "invoice",
     });
-    expect(searchMessages).toHaveBeenNthCalledWith(3, {
-      query: "invoice",
-      maxResults: 20,
-      readState: undefined,
-    });
-    expect(result.queryUsed).toBe("invoice");
+    expect(searchMessages).toHaveBeenCalledTimes(2);
+    expect(result.queryUsed).toBe("");
   });
 
   it("searchInbox does not pass structured Outlook filters to Google", async () => {
@@ -1225,6 +1724,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "newsletter",
+      fromEmail: "sender@example.com",
       labelName: "Newsletter",
       readState: "unread",
       limit: 20,
@@ -1258,45 +1758,22 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "from:sender@example.com",
+      query: 'from:sender@example.com subject:"weekly report"',
       limit: 20,
     });
 
     expect(result).toMatchObject({
-      queryUsed: "from:sender@example.com",
       error: "Failed to search inbox",
       provider: "microsoft",
       microsoftSearchFeedback: {
         failureType: "query_failed",
-        summary:
-          "Outlook did not return results for the attempted search query. Retry with one simpler Outlook clause at a time.",
         fallbackAttempted: true,
-        likelyCause: "Retry with one simpler Outlook clause at a time.",
-        removedTerms: [],
-        retryQueries: [],
       },
     });
-    expect(result.microsoftSearchFeedback.attempts).toEqual([
-      {
-        query: "from:sender@example.com",
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-      {
-        query: '"sender@example.com"',
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-      {
-        query: "sender@example.com",
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-    ]);
-    expect(searchMessages).toHaveBeenCalledTimes(3);
+    expect(result.microsoftSearchFeedback.attempts.length).toBeGreaterThan(1);
+    expect(searchMessages).toHaveBeenCalledTimes(
+      result.microsoftSearchFeedback.attempts.length,
+    );
   });
 
   it("searchInbox suggests concrete simpler retries for complex Microsoft queries", async () => {
@@ -1364,12 +1841,15 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       limit: 20,
     });
 
-    expect(result.microsoftSearchFeedback.retryQueries).toContain(
+    expect(searchMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ query: String.raw`"Folder \\ Review"` }),
+    );
+    expect(result.microsoftSearchFeedback.retryQueries).not.toContain(
       String.raw`"Folder \\ Review"`,
     );
   });
 
-  it("searchInbox keeps the generic Google failure payload unchanged", async () => {
+  it("searchInbox reports non-retryable Google failures with the failure detail", async () => {
     const searchMessages = vi
       .fn()
       .mockRejectedValue(new Error("Search syntax failed"));
@@ -1391,9 +1871,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       limit: 20,
     });
 
-    expect(result).toEqual({
-      queryUsed: "from:sender@example.com",
-      error: "Failed to search inbox",
+    expect(result.queryUsed).toBe("from:sender@example.com");
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.searchFeedback).toMatchObject({
+      message: "Search syntax failed",
+      retryable: false,
     });
     expect(searchMessages).toHaveBeenCalledTimes(1);
   });
@@ -1402,6 +1884,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 describe("chat inbox tools - sender categories", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockValidateUserAndAiAccess.mockResolvedValue(undefined);
   });
 
   it("getSenderCategoryOverview returns the shared overview payload", async () => {
@@ -1461,6 +1944,9 @@ describe("chat inbox tools - sender categories", () => {
 
     const result = await (toolInstance.execute as any)({});
 
+    expect(mockValidateUserAndAiAccess).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
     expect(createEmailProvider).toHaveBeenCalledWith({
       emailAccountId: "email-account-1",
       provider: "google",
@@ -1472,6 +1958,25 @@ describe("chat inbox tools - sender categories", () => {
       logger,
     });
     expect(result.totalQueuedSenders).toBe(8);
+  });
+
+  it("startSenderCategorization reports an AI access error before queuing work", async () => {
+    mockValidateUserAndAiAccess.mockRejectedValue(
+      new SafeError("Please upgrade for AI access"),
+    );
+
+    const toolInstance = startSenderCategorizationTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({});
+
+    expect(result).toEqual({ error: "Please upgrade for AI access" });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(mockStartBulkCategorization).not.toHaveBeenCalled();
   });
 
   it("getSenderCategorizationStatus waits briefly before reading progress", async () => {

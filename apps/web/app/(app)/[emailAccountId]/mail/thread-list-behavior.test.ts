@@ -1,0 +1,413 @@
+import { describe, expect, it } from "vitest";
+import {
+  getActiveThreadIndex,
+  groupThreadsByDate,
+  getNextThreadAfterRemoval,
+  resolveThreadActionTargets,
+  scrollElementIntoContainer,
+  shouldPrefetchMoreThreads,
+  THREAD_PREFETCH_REMAINING,
+} from "./thread-list-behavior";
+
+describe("getActiveThreadIndex", () => {
+  it("uses the open reader instead of a stale row cursor", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 0,
+        openThreadId: "three",
+      }),
+    ).toBe(2);
+  });
+
+  it("uses the row cursor when the reader is closed", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 1,
+        openThreadId: null,
+      }),
+    ).toBe(1);
+  });
+
+  it("does not select an unrelated row when the open reader is missing", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 1,
+        openThreadId: "missing",
+      }),
+    ).toBe(-1);
+  });
+});
+
+describe("resolveThreadActionTargets", () => {
+  it("targets an open reader that is missing from the current list", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: undefined,
+        listTargets: [target("one", "account-1")],
+        openTarget: target("missing", "account-1"),
+        selectedKeys: ["one"],
+      }),
+    ).toEqual([target("missing", "account-1")]);
+  });
+
+  it("preserves row selection when a listed reader is open", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "two",
+        listTargets: [target("one", "account-1"), target("two", "account-1")],
+        openTarget: target("two", "account-1"),
+        selectedKeys: ["one", "two"],
+      }),
+    ).toEqual([target("one", "account-1"), target("two", "account-1")]);
+  });
+
+  it("drops selected rows that disappeared from the filtered list", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "visible",
+        listTargets: [target("visible", "account-1")],
+        openTarget: undefined,
+        selectedKeys: ["filtered", "visible"],
+      }),
+    ).toEqual([target("visible", "account-1")]);
+  });
+
+  it("retains account ownership for cross-account selections", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "account-1:shared",
+        listTargets: [
+          target("account-1:shared", "account-1", "shared"),
+          target("account-2:shared", "account-2", "shared"),
+        ],
+        openTarget: undefined,
+        selectedKeys: ["account-1:shared", "account-2:shared"],
+      }).map(({ key, selection }) => ({ key, selection })),
+    ).toEqual([
+      {
+        key: "account-1:shared",
+        selection: { emailAccountId: "account-1", threadId: "shared" },
+      },
+      {
+        key: "account-2:shared",
+        selection: { emailAccountId: "account-2", threadId: "shared" },
+      },
+    ]);
+  });
+});
+
+describe("getNextThreadAfterRemoval", () => {
+  it("advances to the next surviving thread", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two", "three"],
+        currentThreadId: "two",
+        currentThreadIndex: 1,
+        removedThreadIds: ["two"],
+      }),
+    ).toEqual({ id: "three", index: 1 });
+  });
+
+  it("skips other threads removed by the same action", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two", "three", "four"],
+        currentThreadId: "two",
+        currentThreadIndex: 1,
+        removedThreadIds: ["two", "three"],
+      }),
+    ).toEqual({ id: "four", index: 1 });
+  });
+
+  it("accounts for earlier threads removed by the same action", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two", "three", "four"],
+        currentThreadId: "three",
+        currentThreadIndex: 2,
+        removedThreadIds: ["one", "three"],
+      }),
+    ).toEqual({ id: "four", index: 1 });
+  });
+
+  it("falls back to the previous surviving thread at the end", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two", "three"],
+        currentThreadId: "three",
+        currentThreadIndex: 2,
+        removedThreadIds: ["two", "three"],
+      }),
+    ).toEqual({ id: "one", index: 0 });
+  });
+
+  it("uses the last known index when the open thread already left the list", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "three", "four"],
+        currentThreadId: "two",
+        currentThreadIndex: 1,
+        removedThreadIds: ["two"],
+      }),
+    ).toEqual({ id: "three", index: 1 });
+  });
+
+  it("uses the previous thread when the missing open thread was last", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two"],
+        currentThreadId: "three",
+        currentThreadIndex: 2,
+        removedThreadIds: ["three"],
+      }),
+    ).toEqual({ id: "two", index: 1 });
+  });
+
+  it("closes the reader when every thread is removed", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two"],
+        currentThreadId: "one",
+        currentThreadIndex: 0,
+        removedThreadIds: ["one", "two"],
+      }),
+    ).toBeNull();
+  });
+});
+
+function target(key: string, emailAccountId: string, threadId = key) {
+  return {
+    key,
+    selection: { emailAccountId, threadId },
+    thread: { key },
+  };
+}
+
+describe("shouldPrefetchMoreThreads", () => {
+  it("does not prefetch when there is no next page", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: false,
+        isLoadingMore: false,
+        focusedIndex: 49,
+        threadCount: 50,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not prefetch while a page is already loading", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: true,
+        focusedIndex: 49,
+        threadCount: 50,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not prefetch an empty list", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: false,
+        focusedIndex: 0,
+        threadCount: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not prefetch when the cursor is still far from the end", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: false,
+        focusedIndex: 0,
+        threadCount: 50,
+      }),
+    ).toBe(false);
+  });
+
+  it("prefetches when the cursor enters the remaining-thread window", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: false,
+        focusedIndex: 50 - THREAD_PREFETCH_REMAINING,
+        threadCount: 50,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not prefetch one row before the remaining-thread window", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: false,
+        focusedIndex: 50 - THREAD_PREFETCH_REMAINING - 1,
+        threadCount: 50,
+      }),
+    ).toBe(false);
+  });
+
+  it("prefetches when the list is shorter than the remaining-thread window", () => {
+    expect(
+      shouldPrefetchMoreThreads({
+        hasMore: true,
+        isLoadingMore: false,
+        focusedIndex: 0,
+        threadCount: 3,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("scrollElementIntoContainer", () => {
+  it("leaves a fully visible row where it is", () => {
+    const container = createBox({ top: 100, bottom: 500, scrollTop: 80 });
+    const element = createBox({ top: 180, bottom: 220 });
+
+    scrollElementIntoContainer(container, element, 8);
+
+    expect(container.scrollTop).toBe(80);
+  });
+
+  it("scrolls down just enough when the row sits below the fold", () => {
+    const container = createBox({ top: 100, bottom: 500, scrollTop: 80 });
+    const element = createBox({ top: 520, bottom: 560 });
+
+    scrollElementIntoContainer(container, element, 8);
+
+    expect(container.scrollTop).toBe(148);
+  });
+
+  it("scrolls up just enough when the row sits above the fold", () => {
+    const container = createBox({ top: 100, bottom: 500, scrollTop: 80 });
+    const element = createBox({ top: 60, bottom: 100 });
+
+    scrollElementIntoContainer(container, element, 8);
+
+    expect(container.scrollTop).toBe(32);
+  });
+
+  it("aligns to the top when the row is taller than the container", () => {
+    const container = createBox({ top: 100, bottom: 200, scrollTop: 40 });
+    const element = createBox({ top: 80, bottom: 260 });
+
+    scrollElementIntoContainer(container, element, 8);
+
+    expect(container.scrollTop).toBe(12);
+  });
+});
+
+describe("groupThreadsByDate", () => {
+  const now = new Date("2025-09-05T12:00:00");
+
+  it("groups consecutive threads under one heading and keeps list positions", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-05T08:00:00"),
+        createDatedThread("2025-09-04T18:00:00"),
+        createDatedThread("2025-09-01T18:00:00"),
+        createDatedThread("2025-08-30T18:00:00"),
+        createDatedThread("2025-08-02T18:00:00"),
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        startIndex: group.startIndex,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", startIndex: 0, count: 2 },
+      { label: "Yesterday", startIndex: 2, count: 1 },
+      { label: "Last 7 days", startIndex: 3, count: 2 },
+      { label: "August", startIndex: 5, count: 1 },
+    ]);
+  });
+
+  it("dates a thread by its latest message", () => {
+    const thread = {
+      messages: [
+        { internalDate: "2025-08-01T09:00:00" },
+        { internalDate: "2025-09-05T09:00:00" },
+      ],
+    };
+
+    expect(groupThreadsByDate([thread], now)[0].label).toBe("Today");
+  });
+
+  it("gives undated threads no heading instead of dating them now", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        { messages: [{ internalDate: undefined }] },
+        { messages: [{ internalDate: "not-a-date" }] },
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", count: 1 },
+      { label: null, count: 2 },
+    ]);
+  });
+
+  it("starts a new group when the list is not date-ordered", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-04T11:00:00"),
+        createDatedThread("2025-09-05T09:00:00"),
+      ],
+      now,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Today",
+      "Yesterday",
+      "Today",
+    ]);
+  });
+});
+
+function createDatedThread(internalDate: string) {
+  return { messages: [{ internalDate }] };
+}
+
+function createBox({
+  top,
+  bottom,
+  scrollTop = 0,
+}: {
+  top: number;
+  bottom: number;
+  scrollTop?: number;
+}): HTMLElement {
+  return {
+    scrollTop,
+    getBoundingClientRect: () => ({
+      top,
+      bottom,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: bottom - top,
+      x: 0,
+      y: top,
+      toJSON() {},
+    }),
+  } as HTMLElement;
+}

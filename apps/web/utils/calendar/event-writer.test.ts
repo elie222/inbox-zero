@@ -93,6 +93,54 @@ describe("createCalendarEvent", () => {
     });
   });
 
+  it("falls back to any enabled calendar when no destination is set and no primary exists", async () => {
+    // Microsoft accounts synced before primary tracking have no primary
+    // calendar row; booking links without an explicit destination must still
+    // find a writable calendar.
+    prisma.calendar.findFirst.mockResolvedValue({
+      calendarId: "microsoft-calendar",
+      connection: {
+        id: "connection-id",
+        provider: "microsoft",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: new Date("2026-05-04T00:00:00.000Z"),
+      },
+    });
+
+    const result = await createCalendarEvent({
+      attendees: [{ name: "Guest User", email: "guest@example.com" }],
+      destinationCalendarId: null,
+      emailAccountId: "email-account-id",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "CUSTOM",
+      logger: createTestLogger(),
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "UTC",
+      title: "Intro call",
+    });
+
+    expect(prisma.calendar.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isEnabled: true,
+          connection: {
+            emailAccountId: "email-account-id",
+            isConnected: true,
+          },
+        },
+        orderBy: [{ primary: "desc" }, { createdAt: "asc" }],
+      }),
+    );
+    expect(providerMocks.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ calendarId: "microsoft-calendar" }),
+    );
+    expect(result).toMatchObject({
+      provider: "microsoft",
+      providerConnectionId: "connection-id",
+    });
+  });
+
   it("looks up the connection by id when canceling, ignoring same-provider sibling connections", async () => {
     // The host has two Google connections that both expose a "primary"
     // calendar. Cancel must hit the connection that wrote the event, not

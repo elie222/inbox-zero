@@ -27,8 +27,10 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       accountId: true,
       name: true,
       image: true,
+      includeInAllAccounts: true,
       account: {
         select: {
+          disconnectedAt: true,
           provider: true,
         },
       },
@@ -53,6 +55,10 @@ async function getEmailAccounts({ userId }: { userId: string }) {
 
       return {
         ...account,
+        account: {
+          ...account.account,
+          disconnectedAt: account.account.disconnectedAt?.toISOString() ?? null,
+        },
         providerRateLimit: providerRateLimit
           ? {
               provider: providerRateLimit.provider,

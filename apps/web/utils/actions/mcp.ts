@@ -7,11 +7,6 @@ import {
   toggleMcpToolBody,
 } from "@/utils/actions/mcp.validation";
 import prisma from "@/utils/prisma";
-import { SafeError } from "@/utils/error";
-import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
-import { getEmailAccountWithAi } from "@/utils/user/get";
-import type { EmailForLLM } from "@/utils/types";
-import { testMcpSchema } from "@/utils/actions/mcp.validation";
 
 export const disconnectMcpConnectionAction = actionClient
   .metadata({ name: "disconnectMcpConnection" })
@@ -48,33 +43,5 @@ export const toggleMcpToolAction = actionClient
         where: { id: toolId, connection: { emailAccountId } },
         data: { isEnabled },
       });
-    },
-  );
-
-export const testMcpAction = actionClient
-  .metadata({ name: "mcpAgent" })
-  .inputSchema(testMcpSchema)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { from, subject, content },
-    }) => {
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-      if (!emailAccount) throw new SafeError("Email account not found");
-
-      const testMessage: EmailForLLM = {
-        id: "test-message-id",
-        to: emailAccount.email,
-        from,
-        subject,
-        content,
-      };
-
-      const result = await mcpAgent({ emailAccount, messages: [testMessage] });
-
-      return {
-        response: result?.response,
-        toolCalls: result?.getToolCalls(),
-      };
     },
   );

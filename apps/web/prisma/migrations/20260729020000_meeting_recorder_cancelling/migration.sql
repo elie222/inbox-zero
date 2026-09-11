@@ -1,0 +1,1 @@
+ALTER TYPE "MeetingRecordingStatus" ADD VALUE 'CANCELLING' BEFORE 'JOINING';

@@ -487,3 +487,21 @@ On Mon, Jan 1, 2024 wrote:
     });
   });
 });
+
+describe("branding footer normalization", () => {
+  it.each([
+    "Drafted by Inbox Zero.",
+    "Sent with Inbox Zero",
+    'Drafted by <a href="https://example.com/?ref=test">Inbox Zero</a>.',
+    "Sent with Inbox Zero [https://example.com/?ref=test]",
+    "Drafted by Inbox Zero [https://example.com/?ref=test].",
+    "Drafted by Inbox Zero.\n\nSent with Inbox Zero",
+  ])("ignores adding or deleting %s", (footer) => {
+    const body = "Thanks for the update.";
+    expect(calculateSimilarity(`${body}\n\n${footer}`, body)).toBe(1);
+    expect(calculateSimilarity(body, `${body}\n\n${footer}`)).toBe(1);
+    expect(
+      calculateSimilarity(`${body}\n\n${footer}`, "A different reply."),
+    ).toBeLessThan(1);
+  });
+});

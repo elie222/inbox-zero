@@ -17,12 +17,14 @@ export const DRAFT_REPLY_CONFIDENCE_OPTIONS = [
   {
     value: DraftReplyConfidence.STANDARD,
     label: "Standard",
-    description: "Skip drafting when the AI is unsure how to respond.",
+    description:
+      "Skip drafting when the AI is clearly unsure. Most emails still get a draft.",
   },
   {
     value: DraftReplyConfidence.HIGH_CONFIDENCE,
     label: "High confidence",
-    description: "Only draft when the AI is very sure of the right reply.",
+    description:
+      "Only draft when the AI is very sure of the right reply. Many emails will get no draft.",
   },
 ] as const;
 

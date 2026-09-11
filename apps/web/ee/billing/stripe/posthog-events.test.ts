@@ -1,6 +1,12 @@
 import type Stripe from "stripe";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getStripeTrialStartedProperties } from "./posthog-events";
+
+vi.mock("@/app/(app)/premium/config", () => ({
+  getStripeSubscriptionTier: vi.fn(({ priceId }: { priceId: string }) =>
+    priceId === "price_annual" ? "STARTER_ANNUALLY" : null,
+  ),
+}));
 
 describe("getStripeTrialStartedProperties", () => {
   it("returns properties for created trialing subscriptions", () => {
@@ -11,6 +17,14 @@ describe("getStripeTrialStartedProperties", () => {
           id: "sub_trial",
           status: "trialing",
           trial_end: 1_700_000_000,
+          items: {
+            data: [
+              {
+                price: { id: "price_annual" },
+                quantity: 2,
+              },
+            ],
+          },
         },
       },
     });
@@ -22,6 +36,9 @@ describe("getStripeTrialStartedProperties", () => {
       subscriptionId: "sub_trial",
       subscriptionStatus: "trialing",
       trialEnd: "2023-11-14T22:13:20.000Z",
+      tier: "STARTER_ANNUALLY",
+      frequency: "annually",
+      quantity: 2,
     });
   });
 

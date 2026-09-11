@@ -14,12 +14,15 @@ export function BulkArchiveProgress({
   const progress = useArchiveQueueProgress(emailAccountId);
   const totalItems = progress?.totalItems ?? 0;
   const completedItems = progress?.completedItems ?? 0;
-  const hasActiveProgress = !!totalItems && completedItems < totalItems;
-  const hasCompletedProgress = !!totalItems && completedItems === totalItems;
+  const failedItems = progress?.failedItems ?? 0;
+  const activeItems = progress?.activeItems ?? 0;
+  const settledItems = progress?.settledItems ?? 0;
+  const hasActiveProgress = activeItems > 0;
+  const hasSettledProgress = !!totalItems && settledItems === totalItems;
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
-    if (hasCompletedProgress) {
+    if (hasSettledProgress) {
       timeoutId = setTimeout(() => {
         onComplete?.();
       }, 3000);
@@ -27,18 +30,24 @@ export function BulkArchiveProgress({
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [hasCompletedProgress, onComplete]);
+  }, [hasSettledProgress, onComplete]);
 
-  if ((!hasActiveProgress && !hasCompletedProgress) || !totalItems) {
+  if ((!hasActiveProgress && !hasSettledProgress) || !totalItems) {
     return null;
   }
+
+  const failedSuffix = failedItems ? ` ${failedItems} failed.` : "";
 
   return (
     <ProgressPanel
       totalItems={totalItems}
-      remainingItems={totalItems - completedItems}
-      inProgressText={`Archiving ${Math.min(completedItems + 1, totalItems)} of ${totalItems} senders...`}
-      completedText={`Archiving complete! ${completedItems} senders processed!`}
+      remainingItems={activeItems}
+      inProgressText={`Archiving ${Math.min(settledItems + 1, totalItems)} of ${totalItems} senders...${failedSuffix}`}
+      completedText={
+        failedItems
+          ? `Archiving finished: ${completedItems} succeeded, ${failedItems} failed.`
+          : `Archiving complete! ${completedItems} senders processed!`
+      }
       itemLabel="senders"
     />
   );

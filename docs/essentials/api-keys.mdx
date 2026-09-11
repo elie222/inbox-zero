@@ -1,20 +1,34 @@
 ---
-title: 'Use Your Own API Key'
-description: 'Bring your own LLM API key for AI features.'
+title: 'Use Your Own AI API Key'
+description: 'Choose an AI provider, model, and provider API key for Inbox Zero features.'
 icon: 'key'
 ---
 
-Inbox Zero covers AI costs for you, but you can optionally use your own API key. Go to [settings](https://www.getinboxzero.com/settings) to set it up.
+Inbox Zero covers AI costs by default, but you can optionally use your own model-provider API key.
 
-## Supported Providers
+<Note>
+This setting is for the AI provider that powers Inbox Zero features. It is different from the developer API keys in the **Developer** settings section, which authenticate requests to the Inbox Zero API.
+</Note>
+
+## Configure a Provider
+
+1. Open the account menu at the bottom of the sidebar and choose **Settings**.
+2. Expand the relevant email account.
+3. Find the **AI Model** section.
+4. Select a provider, enter the provider's model identifier and API key, then click **Save**.
+5. Test the configuration on the **Assistant** or **Chat** page.
+
+Leave the provider set to **Default** to use the AI service included with Inbox Zero.
+
+## Providers in Settings
 
 ### Anthropic
 
-Create an API key at: https://console.anthropic.com/settings/keys
+Create a key in the [Anthropic Console](https://console.anthropic.com/settings/keys). Enter an Anthropic model identifier in the Model field.
 
 ### OpenAI
 
-Create an API key at: https://platform.openai.com/api-keys
+Create a key on the [OpenAI API keys page](https://platform.openai.com/api-keys).
 
 <iframe
   width="560"
@@ -26,18 +40,26 @@ Create an API key at: https://platform.openai.com/api-keys
   allowFullScreen
 ></iframe>
 
+### Azure OpenAI
+
+Use an Azure OpenAI API key and enter the Azure deployment name in the Model field.
+
 ### Google
 
-Create an API key at: https://aistudio.google.com/app/apikey
+Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey) and enter the corresponding model identifier.
 
 ### Groq
 
-Create an API key at: https://console.groq.com/keys
+Create a key in the [Groq Console](https://console.groq.com/keys) and enter a model available to your Groq account.
 
 ### OpenRouter
 
-Access a wide variety of LLMs through a single API: https://openrouter.ai/settings/keys
+Create a key in [OpenRouter](https://openrouter.ai/settings/keys). Use OpenRouter's provider-qualified model identifier, such as `provider/model`.
 
-### Ollama (Self-Hosted)
+### Vercel AI Gateway
 
-For complete privacy, run a local Ollama model with your self-hosted setup. Your email data never leaves your infrastructure.
+Create an AI Gateway API key in Vercel and use the model identifier expected by [Vercel AI Gateway](https://vercel.com/ai-gateway). Provider-qualified identifiers are recommended.
+
+## Usage and Billing
+
+When you use your own provider key, the provider bills that account according to its pricing and limits. Click **View usage** in the AI Model section to review the usage recorded by Inbox Zero. Provider-side billing remains the source of truth for charges.

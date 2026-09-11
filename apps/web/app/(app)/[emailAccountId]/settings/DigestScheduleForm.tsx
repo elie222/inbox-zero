@@ -179,7 +179,7 @@ function DigestScheduleFormInner({
     <form onSubmit={handleSubmit(onSubmit)}>
       <Label className="mb-2 mt-4">Send the digest email</Label>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <FormItem>
           <Label htmlFor="frequency-select">Every</Label>
           <Select
@@ -241,7 +241,8 @@ function DigestScheduleFormInner({
           </FormItem>
         )}
 
-        <div className="space-y-2">
+        {/* Pin to the third column so hiding the day select doesn't shift this cell */}
+        <div className="space-y-2 sm:col-start-3">
           <Label>at</Label>
           <div className="flex items-end gap-2">
             <FormItem>

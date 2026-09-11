@@ -6,6 +6,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
+import { Loading } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,7 +54,11 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
 
   const ruleDialog = useDialogState<{ rule?: OrgRule }>();
 
-  if (!membershipLoading && !isAdmin) {
+  if (membershipLoading) {
+    return <Loading />;
+  }
+
+  if (!isAdmin) {
     return (
       <AccessDenied message="You don't have permission to manage organization rules. Only administrators can access this page." />
     );

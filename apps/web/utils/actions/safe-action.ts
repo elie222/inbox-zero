@@ -9,9 +9,14 @@ import { createScopedLogger } from "@/utils/logger";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
-import { captureException, SafeError } from "@/utils/error";
+import {
+  captureException,
+  EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  SafeError,
+} from "@/utils/error";
 import { env } from "@/env";
 import { runWithAuditContext, setAuditContext } from "@/utils/audit/context";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
@@ -26,6 +31,7 @@ const baseClient = createSafeActionClient({
           userId?: string;
           userEmail?: string;
           emailAccountId?: string;
+          provider?: string;
         }
       | undefined;
 
@@ -37,11 +43,26 @@ const baseClient = createSafeActionClient({
         userEmail: context?.userEmail,
         emailAccountId: context?.emailAccountId,
       });
-    logger.error("Server action error:", {
-      metadata,
-      bindArgsClientInputs,
+    const isProviderRateLimit = isEmailProviderRateLimitError({
       error,
+      provider: context?.provider,
     });
+
+    // Expected user-facing rejections are shown to the client and never sent
+    // to Sentry.
+    if (error instanceof SafeError || isProviderRateLimit) {
+      logger.warn("Server action error:", {
+        metadata,
+        bindArgsClientInputs,
+        error,
+      });
+    } else {
+      logger.error("Server action error:", {
+        metadata,
+        bindArgsClientInputs,
+        error,
+      });
+    }
     after(async () => {
       await flushLoggerSafely(logger, {
         action: metadata?.name,
@@ -54,6 +75,7 @@ const baseClient = createSafeActionClient({
       // biome-ignore lint/suspicious/noConsole: helpful for debugging
       console.error("Error in server action", error);
     }
+    if (isProviderRateLimit) return EMAIL_PROVIDER_RATE_LIMIT_MESSAGE;
     if (error instanceof SafeError) return error.message;
 
     captureException(error, {
@@ -128,7 +150,8 @@ export const actionClient = baseClient
       },
     });
     if (!emailAccount || emailAccount?.account.userId !== userId) {
-      ctx.logger.error("Unauthorized", metadata);
+      // expected with stale client state (e.g. account removed or switched)
+      ctx.logger.warn("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
     }
 
@@ -172,10 +195,8 @@ export const actionClientUser = baseClient.use(
     const session = await auth();
 
     if (!session?.user) {
-      ctx.logger.error("Unauthorized", metadata);
-      captureException(new Error(`Unauthorized: ${metadata.name}`), {
-        extra: metadata,
-      });
+      // expected when the session has expired or the user logged out
+      ctx.logger.warn("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
     }
 
@@ -190,7 +211,7 @@ export const actionClientUser = baseClient.use(
       logger,
       run: () =>
         next({
-          ctx: { ...ctx, userId, userEmail, logger },
+          ctx: { ...ctx, userId, userEmail, logger, session },
         }),
     });
   },

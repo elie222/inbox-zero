@@ -29,7 +29,8 @@ export function LearnedPatternsSetting() {
               View
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl">
+          {/* Scroll inside the content row (not DialogContent itself) so the close button stays visible */}
+          <DialogContent className="max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Learned patterns</DialogTitle>
               <DialogDescription>
@@ -41,7 +42,9 @@ export function LearnedPatternsSetting() {
                 or remove patterns that have been learned.
               </DialogDescription>
             </DialogHeader>
-            <Content />
+            <div className="min-w-0 overflow-y-auto">
+              <Content />
+            </div>
           </DialogContent>
         </Dialog>
       }

@@ -11,6 +11,7 @@ import type { ThreadsResponse } from "@/app/api/threads/route";
 function createMockThread(id: string): ThreadsResponse["threads"][number] {
   return {
     id,
+    messageIds: [`${id}-msg`],
     snippet: "Test snippet",
     messages: [
       {
@@ -191,7 +192,7 @@ describe("bulkRunReducer", () => {
       expect(result.runResult).toEqual({ count: 0 });
     });
 
-    it("stays in processing state when count > 0", () => {
+    it("transitions to idle when processing completes", () => {
       const state: BulkRunState = {
         ...initialBulkRunState,
         status: "processing",
@@ -200,7 +201,8 @@ describe("bulkRunReducer", () => {
 
       const result = bulkRunReducer(state, { type: "COMPLETE", count: 5 });
 
-      expect(result.status).toBe("processing");
+      expect(result.status).toBe("idle");
+      expect(result.runResult).toEqual({ count: 5 });
     });
 
     it("does not override stopped status", () => {
@@ -216,7 +218,7 @@ describe("bulkRunReducer", () => {
       expect(result.stoppedCount).toBe(3);
     });
 
-    it("preserves paused status when count > 0", () => {
+    it("completes a paused run once its queued work finishes", () => {
       const state: BulkRunState = {
         ...initialBulkRunState,
         status: "paused",
@@ -225,7 +227,8 @@ describe("bulkRunReducer", () => {
 
       const result = bulkRunReducer(state, { type: "COMPLETE", count: 5 });
 
-      expect(result.status).toBe("paused");
+      expect(result.status).toBe("idle");
+      expect(result.runResult).toEqual({ count: 5 });
     });
   });
 

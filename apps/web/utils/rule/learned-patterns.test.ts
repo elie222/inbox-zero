@@ -54,11 +54,17 @@ describe("saveLearnedPattern", () => {
           value: "test@example.com",
         },
       },
-      update: expect.objectContaining({ exclude: false }),
+      // Omitted fields must not reset stored state: overwriting exclude would
+      // silently re-block a sender the user had corrected.
+      update: expect.objectContaining({
+        exclude: undefined,
+        source: undefined,
+      }),
       create: expect.objectContaining({
         groupId: existingGroupId,
         type: GroupItemType.FROM,
         value: "test@example.com",
+        exclude: false,
       }),
     });
   });
@@ -146,6 +152,58 @@ describe("saveLearnedPattern", () => {
         source: GroupItemSource.USER,
       },
     });
+  });
+
+  it("should record label removal as the source of an exclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      name: "Test Rule",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "email-account-id",
+      from: "excluded@example.com",
+      ruleId: "rule-id",
+      exclude: true,
+      logger: createTestLogger(),
+      reason: "Label removed",
+      source: GroupItemSource.LABEL_REMOVED,
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          exclude: true,
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      }),
+    );
+  });
+
+  it("should preserve the existing source for an inferred inclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      name: "Test Rule",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "email-account-id",
+      from: "sender@example.com",
+      ruleId: "rule-id",
+      logger: createTestLogger(),
+      source: GroupItemSource.AI,
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ source: undefined }),
+        create: expect.objectContaining({ source: GroupItemSource.AI }),
+      }),
+    );
   });
 
   it("should handle duplicate group creation by finding existing group", async () => {
@@ -236,5 +294,57 @@ describe("saveLearnedPatterns", () => {
 
     expect(result).toEqual({ success: true });
     expect(prisma.groupItem.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  // Matches saveLearnedPattern: omitting exclude must not reset a stored exclusion,
+  // which would silently re-block a sender the user had corrected.
+  it("should leave exclude untouched when a pattern omits it", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPatterns({
+      emailAccountId: "email-account-id",
+      ruleName: "Test Rule",
+      patterns: [{ type: GroupItemType.FROM, value: "sender@example.com" }],
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { exclude: undefined },
+        create: expect.objectContaining({ exclude: false }),
+      }),
+    );
+  });
+
+  it("should still apply exclude when a pattern sets it", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPatterns({
+      emailAccountId: "email-account-id",
+      ruleName: "Test Rule",
+      patterns: [
+        {
+          type: GroupItemType.FROM,
+          value: "sender@example.com",
+          exclude: true,
+        },
+      ],
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { exclude: true },
+        create: expect.objectContaining({ exclude: true }),
+      }),
+    );
   });
 });

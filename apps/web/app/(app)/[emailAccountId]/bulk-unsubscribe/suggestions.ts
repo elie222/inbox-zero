@@ -34,6 +34,14 @@ export function getUnsubscribeSuggestions<T extends UnsubscribeSuggestionItem>(
     .sort((a, b) => b.value - a.value);
 }
 
+export function getSuggestedModeRows<
+  T extends UnsubscribeSuggestionItem & { name: string },
+>(items: T[], selected: ReadonlyMap<string, boolean>): T[] {
+  return items.filter(
+    (item) => isUnsubscribeSuggestion(item) || selected.get(item.name),
+  );
+}
+
 export function hasAutomaticUnsubscribeLink(item: {
   unsubscribeLink?: string | null;
 }) {

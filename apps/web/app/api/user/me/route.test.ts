@@ -48,6 +48,17 @@ describe("user/me route", () => {
               role: "admin",
               organization: {
                 name: "Example Org",
+                members: [
+                  {
+                    emailAccount: {
+                      user: {
+                        id: "org-owner",
+                        premiumId: null,
+                        premiumAdminId: null,
+                      },
+                    },
+                  },
+                ],
               },
             },
           ],
@@ -100,6 +111,68 @@ describe("user/me route", () => {
         name: "Example User",
       },
     ]);
+    expect(body.canManageBilling).toBe(true);
+  });
+
+  it("denies billing access to an organization member even when they are a plan admin", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+      webhookSecret: null,
+      announcementDismissedAt: null,
+      dismissedHints: [],
+      premium: {
+        id: "premium-1",
+        admins: [
+          {
+            id: "user-1",
+          },
+          {
+            id: "org-owner",
+          },
+        ],
+      },
+      emailAccounts: [
+        {
+          id: "acc-1",
+          email: "member@example.com",
+          name: "Example Member",
+          members: [
+            {
+              organizationId: "org-1",
+              role: "member",
+              organization: {
+                name: "Example Org",
+                members: [
+                  {
+                    emailAccount: {
+                      user: {
+                        id: "org-owner",
+                        premiumId: "premium-1",
+                        premiumAdminId: "premium-1",
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/me"),
+      {} as never,
+    );
+
+    const body = await response.json();
+
+    expect(body.premium.isAdmin).toBe(false);
+    expect(body.canManageBilling).toBe(false);
   });
 
   it("does not expose backend-only Apple subscription identifiers", async () => {
@@ -124,11 +197,13 @@ describe("user/me route", () => {
         stripePriceId: null,
         stripeSubscriptionId: null,
         stripeSubscriptionStatus: null,
+        stripeInvoiceEmailsEnabled: false,
         unsubscribeCredits: 0,
         tier: null,
         emailAccountsAccess: 0,
         lemonLicenseKey: null,
         pendingInvites: [],
+        admins: [{ id: "user-1" }],
       },
       emailAccounts: [],
     } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
@@ -144,7 +219,9 @@ describe("user/me route", () => {
       appleExpiresAt: "2026-02-01T00:00:00.000Z",
       appleRevokedAt: null,
       appleSubscriptionStatus: "ACTIVE",
+      isAdmin: true,
     });
+    expect(body.premium.admins).toBeUndefined();
     expect(body.premium.appleAppAccountToken).toBeUndefined();
     expect(body.premium.appleEnvironment).toBeUndefined();
     expect(body.premium.appleLatestTransactionId).toBeUndefined();

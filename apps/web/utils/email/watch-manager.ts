@@ -13,6 +13,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
 
 export type WatchEmailAccountResult =
   | {
@@ -207,6 +208,20 @@ async function watchEmailAccount(
     };
   }
 
+  const wasLapsed =
+    !watchEmailsExpirationDate ||
+    new Date(watchEmailsExpirationDate) < new Date();
+
+  if (wasLapsed) {
+    // The watch is healthy again, so clear the lapse error. This lets us
+    // notify again if the account lapses in the future.
+    await clearWatchLapsedErrorIfResolved({
+      userId: user.id,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
+  }
+
   return {
     emailAccountId: emailAccount.id,
     status: "success",
@@ -226,8 +241,14 @@ async function watchEmails({
   { success: true; expirationDate: Date } | { success: false; error: unknown }
 > {
   logger.info("Watching emails");
+  let failedAccessToken: string | undefined;
 
   try {
+    try {
+      failedAccessToken = provider.getAccessToken();
+    } catch {
+      // The watch request may still refresh a missing cached access token.
+    }
     if (isMicrosoftProvider(provider.name)) {
       const result = await createManagedOutlookSubscription({
         emailAccountId,
@@ -265,8 +286,13 @@ async function watchEmails({
       await cleanupInvalidTokens({
         emailAccountId,
         reason: isInvalidGrant ? "invalid_grant" : "insufficient_permissions",
+        failedAccessToken,
         logger,
-      });
+      }).catch((cleanupError) =>
+        logger.warn("Failed to clean up watch authentication failure", {
+          cleanupError,
+        }),
+      );
     } else {
       captureException(error, { emailAccountId });
     }

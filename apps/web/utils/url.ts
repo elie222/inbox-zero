@@ -44,51 +44,89 @@ function getOutlookBaseUrl(emailAddress?: string | null) {
     : "https://outlook.office.com/mail";
 }
 
-const PROVIDER_CONFIG: Record<
-  string,
-  {
-    requiresMessageId: boolean;
-    buildUrl: (
-      messageOrThreadId: string,
-      emailAddress?: string | null,
-    ) => string;
-    selectId: (messageId: string, threadId: string) => string;
-    buildSearchUrl: (from: string, emailAddress?: string | null) => string;
+// Only the fields a draft deeplink can be built from. `externalUrl` is the
+// provider's own link to the item, which beats anything assembled here.
+type DraftLinkTarget = {
+  id: string;
+  threadId?: string | null;
+  externalUrl?: string | null;
+};
+
+const MICROSOFT_MAIL_HOSTS = [
+  "outlook.live.com",
+  "outlook.office.com",
+  "outlook.office365.com",
+];
+
+// The link is redirected to, so treat it as untrusted until the host proves it
+// belongs to Outlook rather than forwarding wherever the payload points.
+function getTrustedMicrosoftLink(externalUrl?: string | null) {
+  if (!externalUrl) return null;
+
+  try {
+    const url = new URL(externalUrl);
+    // Reject non-default ports: hostname alone would allow
+    // https://outlook.live.com:8443/... through the whitelist.
+    if (url.protocol !== "https:" || url.port !== "") return null;
+    return MICROSOFT_MAIL_HOSTS.includes(url.hostname) ? externalUrl : null;
+  } catch {
+    return null;
   }
-> = {
+}
+
+type ProviderUrlConfig = {
+  requiresMessageId: boolean;
+  buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => string;
+  buildDraftUrl: (
+    draft: DraftLinkTarget,
+    emailAddress?: string | null,
+  ) => string | null;
+  selectId: (messageId: string, threadId: string) => string;
+  buildSearchUrl: (from: string, emailAddress?: string | null) => string;
+};
+
+const GOOGLE_CONFIG: ProviderUrlConfig = {
+  requiresMessageId: false,
+  buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
+    getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
+  // Gmail's compose deeplink takes an internal id that cannot be derived from
+  // an API id, so the draft itself cannot be opened. Its conversation can, and
+  // Drafts is the one label that holds it.
+  buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) =>
+    getGmailUrlForFragment(
+      `drafts/${encodeURIComponent(draft.threadId || draft.id)}`,
+      emailAddress,
+    ),
+  selectId: (messageId: string, _threadId: string) => messageId,
+  buildSearchUrl: (from: string, emailAddress?: string | null) =>
+    getGmailUrlForFragment(
+      `advanced-search/from=${encodeURIComponent(from)}`,
+      emailAddress,
+    ),
+};
+
+const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
   microsoft: {
     requiresMessageId: true,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
+    // Graph hands back a webLink that resolves the item without any id
+    // translation. Assembling /drafts/id/<graphId> uses the wrong id space
+    // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
+    buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
+      getTrustedMicrosoftLink(draft.externalUrl),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
       return `${getOutlookBaseUrl(emailAddress)}/search/q/${query}`;
     },
   },
-  google: {
-    requiresMessageId: false,
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
-    selectId: (messageId: string, _threadId: string) => messageId,
-    buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `advanced-search/from=${encodeURIComponent(from)}`,
-        emailAddress,
-      ),
-  },
+  google: GOOGLE_CONFIG,
   default: {
-    requiresMessageId: false,
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
+    ...GOOGLE_CONFIG,
     selectId: (_messageId: string, threadId: string) => threadId,
-    buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `advanced-search/from=${encodeURIComponent(from)}`,
-        emailAddress,
-      ),
   },
 } as const;
 
@@ -106,6 +144,25 @@ export function getEmailUrl(
 ): string {
   const config = getProviderConfig(provider);
   return config.buildUrl(messageOrThreadId, emailAddress);
+}
+
+/**
+ * Takes the draft message itself rather than an id, because the fields that
+ * produce a working link differ by provider: Outlook resolves its own webLink,
+ * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
+ * at link time — its message id changes on every edit.
+ *
+ * Outlook returns the trusted provider webLink, or null when none is available.
+ * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
+ * id the API does not expose).
+ */
+export function getEmailDraftUrl(
+  draft: DraftLinkTarget,
+  emailAddress?: string | null,
+  provider?: string,
+): string | null {
+  const config = getProviderConfig(provider);
+  return config.buildDraftUrl(draft, emailAddress);
 }
 
 /**
@@ -181,16 +238,6 @@ export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
     emailAddress,
   );
 }
-
-// export function getGmailCreateFilterUrl(
-//   search: string,
-//   emailAddress?: string | null,
-// ) {
-//   return `${getGmailBaseUrl(
-//     emailAddress,
-//     emailAddress,
-//   )}/#create-filter/from=${encodeURIComponent(search)}`;
-// }
 
 export function getGmailFilterSettingsUrl(emailAddress?: string | null) {
   return getGmailUrlForFragment("settings/filters", emailAddress);

@@ -10,6 +10,14 @@ export const attachmentSourceInputSchema = z.object({
 });
 export type AttachmentSourceInput = z.infer<typeof attachmentSourceInputSchema>;
 
+export function getAttachmentSourceKey(source: {
+  driveConnectionId: string;
+  type: string;
+  sourceId: string;
+}) {
+  return `${source.driveConnectionId}:${source.type}:${source.sourceId}`;
+}
+
 export const selectedAttachmentSchema = z.object({
   driveConnectionId: z.string(),
   fileId: z.string(),

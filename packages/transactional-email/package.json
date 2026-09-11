@@ -1,0 +1,30 @@
+{
+  "name": "@inboxzero/transactional-email",
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "email dev --port 3010",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.1.0",
+    "nanoid": "6.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-email": "6.9.5",
+    "resend": "6.27.0"
+  },
+  "devDependencies": {
+    "@react-email/preview-server": "5.2.10",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "tsconfig": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}
