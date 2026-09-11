@@ -10,6 +10,8 @@ import {
   MailOpenIcon,
   MoreHorizontalIcon,
   ShieldAlertIcon,
+  StarIcon,
+  StarOffIcon,
   Trash2Icon,
   TagIcon,
 } from "lucide-react";
@@ -31,6 +33,8 @@ import type { ParsedMessage } from "@/utils/types";
 export type ThreadActionsMenuProps = {
   message: ParsedMessage | null;
   isUnread: boolean;
+  isStarred: boolean;
+  onToggleStar: () => void;
   onMarkSpam: () => void;
   onDelete: () => void;
   onMarkRead: () => void;
@@ -47,6 +51,8 @@ export type ThreadActionsMenuProps = {
 export function ThreadActionsMenu({
   message,
   isUnread,
+  isStarred,
+  onToggleStar,
   onMarkSpam,
   onDelete,
   onMarkRead,
@@ -118,6 +124,18 @@ export function ThreadActionsMenu({
               </DropdownMenuShortcut>
             </DropdownMenuItem>
           )}
+
+          <DropdownMenuItem onSelect={onToggleStar}>
+            {isStarred ? (
+              <StarOffIcon className="mr-2 size-4" />
+            ) : (
+              <StarIcon className="mr-2 size-4" />
+            )}
+            {isStarred ? "Unstar" : "Star"}
+            <DropdownMenuShortcut>
+              {getShortcutHint("star")}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
 
           {isUnread ? (
             <DropdownMenuItem onSelect={onMarkRead}>

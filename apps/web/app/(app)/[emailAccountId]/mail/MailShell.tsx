@@ -1641,6 +1641,8 @@ export function MailShell() {
                   <ThreadActionsMenu
                     message={openMessages.at(-1) ?? null}
                     isUnread={isOpenThreadUnread}
+                    isStarred={allStarred}
+                    onToggleStar={starTargets}
                     onMarkSpam={markSpamTargets}
                     onDelete={trashTargets}
                     onLabel={canLabel ? openLabelPicker : undefined}
