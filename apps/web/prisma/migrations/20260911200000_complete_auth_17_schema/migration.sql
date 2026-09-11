@@ -4,7 +4,7 @@ ALTER TABLE "Account" ADD COLUMN "password" TEXT;
 ALTER TABLE "ssoProvider" ADD COLUMN     "userId" TEXT;
 
 -- AddForeignKey
-ALTER TABLE "ssoProvider" ADD CONSTRAINT "ssoProvider_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ssoProvider" ADD CONSTRAINT "ssoProvider_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
 
 -- Recover ownership only from the existing linked inbox, never by email.
 UPDATE "ssoProvider" AS provider
