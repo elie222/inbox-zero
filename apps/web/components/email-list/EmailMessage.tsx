@@ -104,6 +104,7 @@ export function EmailMessage({
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
+  const [composerKey, setComposerKey] = useState(0);
   const undoSendSessionRef = useRef<ComposeSession | null>(null);
 
   const onStartDiscard = useCallback((): ComposeSession | undefined => {
@@ -132,8 +133,11 @@ export function EmailMessage({
   }, [composeMode, onCloseCompose]);
   const onRestoreComposeAfterSend = useCallback(() => {
     const session = undoSendSessionRef.current;
-    if (session) onRestoreCompose(session);
-  }, [onRestoreCompose]);
+    if (!session) return;
+    composeSessionRef.current += 1;
+    setComposerKey((key) => key + 1);
+    setComposeOverride(session.mode);
+  }, []);
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -236,6 +240,7 @@ export function EmailMessage({
 
           {composeMode && (
             <ReplyPanel
+              key={composerKey}
               defaultComposeMode={defaultComposeMode}
               draftMessage={draftMessage}
               message={message}

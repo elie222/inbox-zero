@@ -15,7 +15,12 @@ export type ReaderEmailOutcome =
       reason: "offline" | "pending" | "blocked_auth";
       threadId: string;
     }
-  | { status: "held"; mutationId: string; threadId: string }
+  | {
+      status: "held";
+      holdUntil: number;
+      mutationId: string;
+      threadId: string;
+    }
   | { status: "uncertain"; ownsNotification: boolean; threadId: string }
   | { status: "failed"; error: string; ownsNotification: boolean };
 
@@ -69,7 +74,12 @@ export async function queueReaderEmail({
   }
   await onQueued?.();
   if (mutation.nextAttemptAt > Date.now()) {
-    return { status: "held", mutationId: mutation.id, threadId };
+    return {
+      status: "held",
+      holdUntil: mutation.nextAttemptAt,
+      mutationId: mutation.id,
+      threadId,
+    };
   }
   if (!online) return { status: "queued", reason: "offline", threadId };
 

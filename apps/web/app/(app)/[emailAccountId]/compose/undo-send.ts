@@ -1,12 +1,14 @@
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { cancelPendingMailMutation } from "@/utils/email-cache/mail-mutations";
 import {
   restoreReplyFromOutbox,
   type ReplyDraftIdentity,
 } from "@/utils/email-cache/reply-drafts";
 
 export const UNDO_SEND_DELAY_MS = 5000;
+const UNDO_SEND_TOAST_ID = "undo-send";
 
 type PendingUndoSend = {
   mutationId: string;
@@ -27,11 +29,13 @@ export function beginUndoSend({
   emailAccountId,
   identity,
   restoreComposer,
+  holdUntil,
 }: {
   mutationId: string;
   emailAccountId: string;
   identity: ReplyDraftIdentity;
   restoreComposer: () => void;
+  holdUntil: number;
 }) {
   pending = {
     mutationId,
@@ -41,9 +45,10 @@ export function beginUndoSend({
     undone: false,
   };
   toastUndo({
+    id: UNDO_SEND_TOAST_ID,
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
-    duration: UNDO_SEND_DELAY_MS,
+    duration: Math.max(0, holdUntil - Date.now()),
     onUndo: () => undoPendingSend(),
   });
 }
@@ -59,13 +64,18 @@ export async function undoPendingSend() {
       current.identity,
     );
   } catch {
-    current.undone = false;
+    if (!(await cancelPendingMailMutation(current.mutationId))) {
+      current.undone = false;
+      if (pending === current) pending = null;
+      toastError({ description: "Couldn't undo send" });
+      return false;
+    }
     if (pending === current) pending = null;
-    toastError({ description: "Couldn't undo send" });
-    return false;
+    toast.dismiss(UNDO_SEND_TOAST_ID);
+    return true;
   }
   if (pending === current) pending = null;
-  toast.dismiss("undo");
+  toast.dismiss(UNDO_SEND_TOAST_ID);
   current.restoreComposer();
   return true;
 }

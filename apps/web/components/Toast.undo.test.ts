@@ -31,6 +31,14 @@ describe("toast undo", () => {
     await expect(undoLatestToast()).resolves.toBe(false);
   });
 
+  it("dismisses the matching toast id", async () => {
+    const onUndo = vi.fn();
+    toastUndo({ id: "undo-send", message: "Email sent!", onUndo });
+    await expect(undoLatestToast()).resolves.toBe(true);
+    expect(sonner.dismiss).toHaveBeenCalledWith("undo-send");
+    expect(onUndo).toHaveBeenCalledOnce();
+  });
+
   it("stops handling keyboard undo after the toast expires", async () => {
     const onUndo = vi.fn();
     toastUndo({ duration: 5000, message: "Email sent!", onUndo });

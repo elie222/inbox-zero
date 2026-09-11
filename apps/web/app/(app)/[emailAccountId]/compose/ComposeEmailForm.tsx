@@ -863,6 +863,7 @@ function ComposeEmailFormContent({
           beginUndoSend({
             mutationId: outcome.mutationId,
             emailAccountId: selectedEmailAccountId,
+            holdUntil: outcome.holdUntil,
             identity: draftIdentity,
             restoreComposer: () => onRestore?.(),
           });

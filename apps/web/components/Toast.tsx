@@ -38,21 +38,23 @@ export function toastInfo(options: {
 
 type ToastUndoHandler = () => void | Promise<void>;
 
-let latestToastUndo: ToastUndoHandler | null = null;
+let latestToastUndo: { id: string; onUndo: ToastUndoHandler } | null = null;
 
 export function toastUndo(options: {
+  id?: string;
   message: string;
   shortcut?: string;
   duration?: number;
   onUndo: ToastUndoHandler;
 }) {
+  const id = options.id ?? "undo";
   const onUndo = options.onUndo;
-  latestToastUndo = onUndo;
+  latestToastUndo = { id, onUndo };
   const release = () => {
-    if (latestToastUndo === onUndo) latestToastUndo = null;
+    if (latestToastUndo?.onUndo === onUndo) latestToastUndo = null;
   };
   return toast.success(options.message, {
-    id: "undo",
+    id,
     duration: options.duration,
     onAutoClose: release,
     onDismiss: release,
@@ -71,11 +73,11 @@ export function toastUndo(options: {
 }
 
 export async function undoLatestToast() {
-  const onUndo = latestToastUndo;
-  if (!onUndo) return false;
+  const current = latestToastUndo;
+  if (!current) return false;
   latestToastUndo = null;
-  toast.dismiss("undo");
-  await onUndo();
+  toast.dismiss(current.id);
+  await current.onUndo();
   return true;
 }
 

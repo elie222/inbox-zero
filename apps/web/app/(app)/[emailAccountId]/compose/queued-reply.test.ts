@@ -247,6 +247,7 @@ describe("queueReaderEmail", () => {
         threadId: "thread",
       }),
     ).resolves.toEqual({
+      holdUntil,
       mutationId: "mutation-id",
       status: "held",
       threadId: "thread",
