@@ -675,6 +675,27 @@ describe("OutlookProvider.searchMessages", () => {
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
   it.each([
+    { type: "draft" },
+    { labelId: "DRAFT" },
+  ])("scopes draft queries to the drafts folder with an uncached folder map: %j", async (query) => {
+    getFolderIdsMock.mockImplementation(async (_client, _logger, options) => ({
+      inbox: "inbox-folder-id",
+      ...(options?.includeDrafts ? { drafts: "drafts-folder-id" } : {}),
+    }));
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({ query });
+
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/messages",
+        filter: "parentFolderId eq 'drafts-folder-id'",
+      }),
+    );
+  });
+
+  it.each([
     true,
     undefined,
   ])("puts date filters before folder and read filters for historical inbox queries (unread: %s)", async (isUnread) => {
