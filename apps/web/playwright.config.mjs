@@ -5,6 +5,11 @@ import { defineConfig } from "@playwright/test";
 
 const allocatedPorts = new Set();
 const production = process.env.PLAYWRIGHT_PRODUCTION === "1";
+if (production && !process.env.NEXT_PUBLIC_BASE_URL) {
+  throw new Error(
+    "Production Playwright requires NEXT_PUBLIC_BASE_URL to match the URL used for next build.",
+  );
+}
 const baseURL =
   process.env.NEXT_PUBLIC_BASE_URL ??
   `http://localhost:${await getAvailablePort()}`;
