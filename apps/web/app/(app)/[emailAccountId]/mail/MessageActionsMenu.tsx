@@ -4,7 +4,8 @@ import type { ComponentProps } from "react";
 import { MoreHorizontalIcon, SparklesIcon } from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
-import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
+import { RuleActions } from "@/components/RuleActions";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
-import { ACTION_TYPE_LABELS, getVisibleActions } from "@/utils/action-display";
+import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 
 type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
@@ -98,13 +98,7 @@ function RuleAttribution({
   setChatInput: (input: string) => void;
   showFixWithChat: boolean;
 }) {
-  const actions = getVisibleActions(plan.actionItems);
-  const labels = actions.filter(
-    (action) => action.type === ActionType.LABEL && action.label,
-  );
-  const otherActions = actions.filter(
-    (action) => action.type !== ActionType.LABEL,
-  );
+  const { provider } = useAccount();
   const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
 
   return (
@@ -148,16 +142,20 @@ function RuleAttribution({
         </div>
       ) : null}
 
-      {labels.length > 0 || otherActions.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {labels.map((action) => (
-            <MailLabelChip key={action.id} name={action.label ?? ""} />
-          ))}
-          {otherActions.map((action) => (
-            <span className="text-muted-foreground text-xs" key={action.id}>
-              {ACTION_TYPE_LABELS[action.type]}
-            </span>
-          ))}
+      {plan.actionItems.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          <div className="font-medium text-xs">
+            {plan.status === ExecutedRuleStatus.APPLIED &&
+            reasonDisplay.actionFailureMessages.length === 0
+              ? "Actions applied"
+              : "Rule actions"}
+          </div>
+          <RuleActions
+            actions={plan.actionItems}
+            provider={provider}
+            labels={[]}
+            showDetails={false}
+          />
         </div>
       ) : null}
 
