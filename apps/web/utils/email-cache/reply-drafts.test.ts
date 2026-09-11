@@ -262,6 +262,37 @@ describe("local reply drafts", () => {
       )?.content,
     ).toMatchObject({ composeMode: "forward" });
   });
+  it("restores a new compose draft into the provided identity", async () => {
+    const composeIdentity = {
+      emailAccountId: "account",
+      threadId: "compose:new-message",
+      messageId: "compose:new-message",
+    };
+    const queued = await enqueueMailMutation({
+      ...composeIdentity,
+      messageIds: [composeIdentity.messageId],
+      kind: "reply",
+      email: {
+        to: "person@example.com",
+        subject: "Hello",
+        messageHtml: "<p>New message</p>",
+      },
+    });
+
+    const restored = await restoreReplyFromOutbox(
+      queued.id,
+      composeIdentity.emailAccountId,
+      composeIdentity,
+    );
+
+    expect(restored).toEqual({
+      messageId: composeIdentity.messageId,
+      mode: "forward",
+    });
+    expect(
+      (await getReplyDraft(composeIdentity))?.content?.draft.editableHtml,
+    ).toContain("New message");
+  });
   it("does not restore a reply already claimed for sending", async () => {
     const queued = await enqueueMailMutation({
       ...identity,

@@ -224,7 +224,11 @@ export function ThreadDeliveryStatus({
               </a>
             )}
             {canEditReply &&
-              !(online && row.status === "pending") &&
+              !(
+                online &&
+                row.status === "pending" &&
+                row.nextAttemptAt <= Date.now()
+              ) &&
               ["pending", "retry_wait", "blocked_auth", "failed"].includes(
                 row.status,
               ) && (

@@ -30,6 +30,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [composerKey, setComposerKey] = useState(0);
   const isAllAccountsMailView =
     pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
   const { data: accountsData } = useAccounts(isAllAccountsMailView);
@@ -127,6 +128,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               )}
             >
               <ComposeEmailFormLazy
+                key={composerKey}
                 draftSessionId="compose:new-message"
                 fromAccounts={accountsData?.emailAccounts}
                 layout="window"
@@ -134,6 +136,10 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 onDiscard={() => {
                   closeCompose();
                   return true;
+                }}
+                onRestore={() => {
+                  setComposerKey((key) => key + 1);
+                  openCompose();
                 }}
                 onSuccess={closeCompose}
               />

@@ -232,6 +232,38 @@ describe("queueReaderEmail", () => {
     });
   });
 
+  it("holds an online send so undo can cancel it before delivery", async () => {
+    const holdUntil = Date.now() + 5000;
+    const onQueued = vi.fn();
+
+    await expect(
+      queueReaderEmail({
+        email: createEmail(),
+        emailAccountId: "account",
+        holdUntil,
+        messageIds: ["message"],
+        onQueued,
+        online: true,
+        threadId: "thread",
+      }),
+    ).resolves.toEqual({
+      holdUntil,
+      mutationId: "mutation-id",
+      status: "held",
+      threadId: "thread",
+    });
+    expect(outbox.enqueue).toHaveBeenCalledWith({
+      email: createEmail(),
+      emailAccountId: "account",
+      kind: "reply",
+      messageIds: ["message"],
+      nextAttemptAt: holdUntil,
+      threadId: "thread",
+    });
+    expect(onQueued).toHaveBeenCalledOnce();
+    expect(outbox.get).not.toHaveBeenCalled();
+  });
+
   it("explains when the queued email is waiting for account reconnection", async () => {
     outbox.get.mockResolvedValue(createMutation("blocked_auth"));
 

@@ -289,6 +289,7 @@ function notifyReplyDraftChange(scope: ReplyDraftScope) {
 export async function restoreReplyFromOutbox(
   id: string,
   emailAccountId: string,
+  identityOverride?: ReplyDraftIdentity,
 ) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
@@ -319,9 +320,9 @@ export async function restoreReplyFromOutbox(
     })),
   };
   const originalMessageId = row.messageIds[0];
-  if (!originalMessageId)
+  if (!identityOverride && !originalMessageId)
     throw new Error("The reply's original message is unavailable.");
-  const identity = {
+  const identity = identityOverride ?? {
     emailAccountId: row.emailAccountId,
     threadId: row.threadId,
     messageId: getReplyDraftSessionId(originalMessageId, composeMode),
@@ -366,5 +367,9 @@ export async function restoreReplyFromOutbox(
   for (const listener of listeners) listener(identity);
   channel?.postMessage(identity);
   notifyMailMutationChange();
-  return { messageId: originalMessageId, mode: composeMode };
+  return {
+    messageId:
+      identityOverride?.messageId ?? originalMessageId ?? identity.messageId,
+    mode: composeMode,
+  };
 }

@@ -6,13 +6,19 @@ import {
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
 
-const DEFAULT_SETTLEMENT_TIMEOUT_MS = 15_000;
+export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
 
 export type ReaderEmailOutcome =
   | { status: "sent"; messageId: string; threadId: string }
   | {
       status: "queued";
       reason: "offline" | "pending" | "blocked_auth";
+      threadId: string;
+    }
+  | {
+      status: "held";
+      holdUntil: number;
+      mutationId: string;
       threadId: string;
     }
   | { status: "uncertain"; ownsNotification: boolean; threadId: string }
@@ -25,7 +31,8 @@ export async function queueReaderEmail({
   online,
   onQueued,
   mutationId,
-  settlementTimeoutMs = DEFAULT_SETTLEMENT_TIMEOUT_MS,
+  holdUntil,
+  settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
   email: SendEmailBody;
@@ -34,6 +41,7 @@ export async function queueReaderEmail({
   online: boolean;
   onQueued?: () => Promise<void>;
   mutationId?: string;
+  holdUntil?: number;
   settlementTimeoutMs?: number;
   threadId: string;
 }): Promise<ReaderEmailOutcome> {
@@ -42,6 +50,7 @@ export async function queueReaderEmail({
     try {
       mutation = await enqueueMailMutation({
         ...(mutationId ? { id: mutationId } : {}),
+        ...(holdUntil !== undefined ? { nextAttemptAt: holdUntil } : {}),
         email,
         emailAccountId,
         kind: "reply",
@@ -64,6 +73,14 @@ export async function queueReaderEmail({
     );
   }
   await onQueued?.();
+  if (mutation.nextAttemptAt > Date.now()) {
+    return {
+      status: "held",
+      holdUntil: mutation.nextAttemptAt,
+      mutationId: mutation.id,
+      threadId,
+    };
+  }
   if (!online) return { status: "queued", reason: "offline", threadId };
 
   return waitForSettlement({
@@ -154,6 +171,17 @@ async function waitForSettlement({
       settlementTimeoutMs,
     );
     inspect();
+  });
+}
+
+export function waitForReaderEmailSettlement(options: {
+  mutationId: string;
+  settlementTimeoutMs?: number;
+  threadId: string;
+}) {
+  return waitForSettlement({
+    settlementTimeoutMs: READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+    ...options,
   });
 }
 

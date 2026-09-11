@@ -28,6 +28,23 @@ export function conversationWithSubject(
     .filter({ has: page.getByText(subject, { exact: true }) });
 }
 
+export async function waitForComposeOutboxSend(
+  page: Page,
+  emailAccountId: string,
+) {
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "compose:new-message",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+}
+
 export async function readLatestMailMutation(
   page: Page,
   expected: {

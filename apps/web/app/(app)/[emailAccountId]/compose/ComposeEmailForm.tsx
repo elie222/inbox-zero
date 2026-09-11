@@ -70,7 +70,7 @@ import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
-import { sendEmailAction, updateDraftAction } from "@/utils/actions/mail";
+import { updateDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractEmailAddress,
@@ -79,6 +79,7 @@ import {
   splitRecipientList,
 } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { getMailMutation } from "@/utils/email-cache/mail-mutations";
 import type {
   ReplyDraftContent,
   ReplyDraftIdentity,
@@ -109,7 +110,16 @@ import {
   getReminderAfterSendTimeChange,
   parseDeliveryTimes,
 } from "./delivery-times";
-import { queueReaderEmail } from "./queued-reply";
+import {
+  queueReaderEmail,
+  READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+  waitForReaderEmailSettlement,
+} from "./queued-reply";
+import {
+  beginUndoSend,
+  getUndoSendHoldUntil,
+  UNDO_SEND_DELAY_MS,
+} from "./undo-send";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -138,6 +148,7 @@ type ComposeEmailFormProps = {
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onClose?: () => void;
+  onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
 };
 
@@ -241,6 +252,7 @@ function ComposeEmailFormContent({
   onSuccess,
   onMarkDone,
   onClose,
+  onRestore,
   onDiscard,
   localDraftIdentity,
 }: ComposeEmailFormProps & {
@@ -792,104 +804,120 @@ function ComposeEmailFormContent({
           refetch?.();
           return;
         }
-        const readerThreadId = replyingToEmail?.threadId?.trim();
-        const readerMessageId = isInlineReply
-          ? draftKeyMessageId
-          : replyingToEmail?.messageId;
-        if (readerThreadId) {
-          let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
-          try {
-            outcome = await queueReaderEmail({
-              email: enrichedData,
-              mutationId: isInlineReply ? requestId : undefined,
-              emailAccountId: selectedEmailAccountId,
-              messageIds: readerMessageId ? [readerMessageId] : [],
-              online: navigator.onLine,
-              threadId: readerThreadId,
-              onQueued: isInlineReply
-                ? async () => {
-                    deliveryAccepted = true;
-                    try {
-                      await clearLocalDraft();
-                    } catch {
-                      toastError({
-                        description:
-                          "Reply queued, but its local draft copy could not be cleared.",
-                      });
-                    }
-                    await mutate([
-                      "thread-deliveries",
-                      selectedEmailAccountId,
-                      readerThreadId,
-                    ]);
-                    onClose?.();
-                  }
-                : undefined,
-            });
-          } catch (error) {
-            console.error(error);
-            const description =
-              error instanceof Error
-                ? error.message
-                : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
-            setSubmissionError(description);
-            toastError({ description });
-            return;
-          }
-          if (outcome.status === "sent") {
-            deliveryAccepted = true;
-            if (!isInlineReply) toastSuccess({ description: "Email sent!" });
-            if (markDoneAfterSend) onMarkDone?.();
-            onSuccess?.(outcome.messageId, outcome.threadId);
-            refetch?.();
-          } else if (outcome.status === "queued") {
-            deliveryAccepted = true;
-            if (!isInlineReply)
-              toastSuccess({
-                description: getQueuedEmailDescription(outcome.reason),
-              });
-            if (markDoneAfterSend) onMarkDone?.();
-            onClose?.();
-          } else if (outcome.status === "uncertain") {
-            deliveryAccepted = true;
-            if (outcome.ownsNotification) {
-              toastError({
-                description:
-                  "This reply may have sent. Check Sent before retrying.",
-              });
-            }
-            onClose?.();
-          } else if (outcome.ownsNotification) {
-            toastError({ description: outcome.error });
-          }
+        const readerThreadId =
+          replyingToEmail?.threadId?.trim() ||
+          localDraftIdentity?.threadId ||
+          requestId;
+        const readerMessageId =
+          (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
+          localDraftIdentity?.messageId ??
+          requestId;
+        const holdUntil = getUndoSendHoldUntil(navigator.onLine);
+        let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
+        try {
+          outcome = await queueReaderEmail({
+            email: enrichedData,
+            mutationId: requestId,
+            emailAccountId: selectedEmailAccountId,
+            holdUntil,
+            messageIds: [readerMessageId],
+            online: navigator.onLine,
+            threadId: readerThreadId,
+            onQueued: async () => {
+              deliveryAccepted = true;
+              try {
+                await clearLocalDraft();
+              } catch {
+                toastError({
+                  description: isInlineReply
+                    ? "Reply queued, but its local draft copy could not be cleared."
+                    : "Email queued, but its local draft copy could not be cleared.",
+                });
+              }
+              if (replyingToEmail?.threadId?.trim()) {
+                await mutate([
+                  "thread-deliveries",
+                  selectedEmailAccountId,
+                  readerThreadId,
+                ]);
+              }
+              onClose?.();
+            },
+          });
+        } catch (error) {
+          console.error(error);
+          const description =
+            error instanceof Error
+              ? error.message
+              : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+          setSubmissionError(description);
+          toastError({ description });
           return;
         }
-
-        const result = await sendEmailAction(
-          selectedEmailAccountId,
-          enrichedData,
-        );
-        if (result?.data) {
-          deliveryAccepted = true;
-          if (localDraftIdentity) {
-            try {
-              await clearLocalDraft();
-            } catch {
-              toastError({
-                description:
-                  "Email sent, but its local draft copy could not be cleared.",
-              });
-            }
-          }
-          toastSuccess({ description: "Email sent!" });
-          if (markDoneAfterSend) onMarkDone?.();
-          onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
-        } else {
-          toastError({
-            description: getActionErrorMessage(result ?? {}, {
-              prefix: "There was an error sending the email",
-            }),
+        if (outcome.status === "held") {
+          const draftIdentity = localDraftIdentity ?? {
+            emailAccountId: selectedEmailAccountId,
+            threadId: outcome.threadId,
+            messageId: readerMessageId,
+          };
+          beginUndoSend({
+            mutationId: outcome.mutationId,
+            emailAccountId: selectedEmailAccountId,
+            holdUntil: outcome.holdUntil,
+            identity: draftIdentity,
+            restoreComposer: () => onRestore?.(),
           });
+          waitForReaderEmailSettlement({
+            mutationId: outcome.mutationId,
+            settlementTimeoutMs:
+              UNDO_SEND_DELAY_MS + READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+            threadId: outcome.threadId,
+          })
+            .then(async (settled) => {
+              if (!(await getMailMutation(outcome.mutationId))) return;
+              if (settled.status === "sent") {
+                if (markDoneAfterSend) onMarkDone?.();
+                onSuccess?.(settled.messageId, settled.threadId);
+                refetch?.();
+                return;
+              }
+              if (settled.status === "failed" && settled.ownsNotification) {
+                toastError({ description: settled.error });
+              } else if (
+                settled.status === "uncertain" &&
+                settled.ownsNotification
+              ) {
+                toastError({
+                  description:
+                    "This reply may have sent. Check Sent before retrying.",
+                });
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+        if (outcome.status === "sent") {
+          if (!isInlineReply) toastSuccess({ description: "Email sent!" });
+          if (markDoneAfterSend) onMarkDone?.();
+          onSuccess?.(outcome.messageId, outcome.threadId);
+          refetch?.();
+        } else if (outcome.status === "queued") {
+          if (!isInlineReply)
+            toastSuccess({
+              description: getQueuedEmailDescription(outcome.reason),
+            });
+          if (markDoneAfterSend) onMarkDone?.();
+          onClose?.();
+        } else if (outcome.status === "uncertain") {
+          if (outcome.ownsNotification) {
+            toastError({
+              description:
+                "This reply may have sent. Check Sent before retrying.",
+            });
+          }
+          onClose?.();
+        } else if (outcome.ownsNotification) {
+          toastError({ description: outcome.error });
         }
       } catch (error) {
         console.error(error);
@@ -919,6 +947,7 @@ function ComposeEmailFormContent({
       flushDraft,
       mutate,
       onClose,
+      onRestore,
       onMarkDone,
       onSuccess,
       preservedBlocks,
