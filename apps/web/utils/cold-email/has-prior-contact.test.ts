@@ -63,26 +63,26 @@ describe("hasPriorContactOrAssumeYes", () => {
     );
   });
 
-  it.each([false, true])(
-    "preserves prior contact=%s when a cold label has not been created yet",
-    async (hasPriorContact) => {
-      provider.getLabelByName.mockResolvedValue(null);
-      provider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
-        hasPriorContact,
-      );
+  it.each([
+    false,
+    true,
+  ])("preserves prior contact=%s when a cold label has not been created yet", async (hasPriorContact) => {
+    provider.getLabelByName.mockResolvedValue(null);
+    provider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+      hasPriorContact,
+    );
 
-      await expect(
-        check({ coldEmailActions: [{ type: "LABEL", label: "Cold Email" }] }),
-      ).resolves.toBe(hasPriorContact);
-      expect(
-        provider.hasPreviousCommunicationsWithSenderOrDomain,
-      ).toHaveBeenCalledWith({
-        from: "sender@example.com",
-        date: expect.any(Date),
-        messageId: "msg-1",
-      });
-    },
-  );
+    await expect(
+      check({ coldEmailActions: [{ type: "LABEL", label: "Cold Email" }] }),
+    ).resolves.toBe(hasPriorContact);
+    expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).toHaveBeenCalledWith({
+      from: "sender@example.com",
+      date: expect.any(Date),
+      messageId: "msg-1",
+    });
+  });
 
   it("retains the old check before a folder action has resolved its ID", async () => {
     provider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
