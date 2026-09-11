@@ -6,7 +6,7 @@ import { openMail } from "./mail-test-helpers";
 test("never paints an empty reader when moving between loaded HTML threads", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/threads/*?**", async (route) => {
+  await page.route(/\/api\/threads\/thr_playwright_[^/?]+\?/, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     if (body.thread?.messages) {
@@ -52,10 +52,13 @@ test("never paints an empty reader when moving between loaded HTML threads", asy
     requestAnimationFrame(sample);
   });
   const initialUrl = page.url();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
   for (const key of ["j", "k", "j", "k"]) {
     await page.keyboard.press(key);
     if (key === "j") await expect(page).not.toHaveURL(initialUrl);
     else await expect(page).toHaveURL(initialUrl);
+    await expect(page.getByRole("menu")).toHaveCount(0);
     const threadId = new URL(page.url()).searchParams.get("thread-id");
     await expect(
       page
@@ -94,5 +97,43 @@ test("never paints an empty reader when moving between loaded HTML threads", asy
     testInfo,
     "reader-navigation-without-blank-frames",
   );
+  // Simulate a readiness signal that never arrives, even after the body loads.
+  await page.evaluate(() => {
+    const blockReadiness = () => {
+      for (const frame of document.querySelectorAll(
+        "iframe[data-email-ready]",
+      )) {
+        if (frame.getAttribute("data-email-ready") !== "false") {
+          frame.setAttribute("data-email-ready", "false");
+        }
+      }
+    };
+    const observer = new MutationObserver(blockReadiness);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["data-email-ready"],
+    });
+    blockReadiness();
+    Object.assign(window, { readerReadinessObserver: observer });
+  });
+  await page.keyboard.press("j");
+  await expect(page).not.toHaveURL(initialUrl);
+  const nextThreadId = new URL(page.url()).searchParams.get("thread-id");
+  await expect(
+    page
+      .frameLocator('iframe[title="Email content preview"]:visible')
+      .last()
+      .getByText(`Navigation body for ${nextThreadId}`),
+  ).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    (
+      window as unknown as { readerReadinessObserver: MutationObserver }
+    ).readerReadinessObserver.disconnect();
+  });
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });

@@ -211,12 +211,14 @@ export function MailShell() {
 
   const isAllAccounts = accountScope === "all";
   const setOpenThread = useCallback(
-    (selection: ThreadSelection | null) =>
-      setOpenThreadQuery({
+    (selection: ThreadSelection | null) => {
+      setIsMenuOpen(false);
+      return setOpenThreadQuery({
         "thread-id": selection?.threadId ?? null,
         "thread-account-id":
           isAllAccounts && selection ? selection.emailAccountId : null,
-      }),
+      });
+    },
     [isAllAccounts, setOpenThreadQuery],
   );
   const combinedAccounts = useMemo(
