@@ -257,12 +257,11 @@ describe.runIf(isAiTest)("aiDetermineThreadStatus", () => {
       const result = await aiDetermineThreadStatus({
         emailAccount,
         threadMessages: messages,
+        userSentLastEmail: true,
       });
 
       console.debug("Result:", result);
-      expect([SystemType.ACTIONED, SystemType.AWAITING_REPLY]).toContain(
-        result.status,
-      );
+      expect(result.status).toBe(SystemType.ACTIONED);
       expect(result.rationale).toBeDefined();
     },
     TIMEOUT,
