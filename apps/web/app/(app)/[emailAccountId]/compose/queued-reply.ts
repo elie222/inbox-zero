@@ -6,7 +6,7 @@ import {
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
 
-const DEFAULT_SETTLEMENT_TIMEOUT_MS = 15_000;
+export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
 
 export type ReaderEmailOutcome =
   | { status: "sent"; messageId: string; threadId: string }
@@ -27,7 +27,7 @@ export async function queueReaderEmail({
   onQueued,
   mutationId,
   holdUntil,
-  settlementTimeoutMs = DEFAULT_SETTLEMENT_TIMEOUT_MS,
+  settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
   email: SendEmailBody;
@@ -170,7 +170,7 @@ export function waitForReaderEmailSettlement(options: {
   threadId: string;
 }) {
   return waitForSettlement({
-    settlementTimeoutMs: DEFAULT_SETTLEMENT_TIMEOUT_MS,
+    settlementTimeoutMs: READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
     ...options,
   });
 }

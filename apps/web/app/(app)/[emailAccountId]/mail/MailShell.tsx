@@ -93,7 +93,7 @@ import {
 } from "@/utils/email/provider-types";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { undoPendingSend } from "@/app/(app)/[emailAccountId]/compose/undo-send";
+import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -1114,7 +1114,7 @@ export function MailShell() {
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
       undo: async () => {
-        if (await undoPendingSend()) return;
+        if (await undoLatestToast()) return;
         await undo();
       },
       toggleLayout: isAllAccounts ? undefined : toggleLayout,

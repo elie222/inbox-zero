@@ -110,8 +110,16 @@ import {
   getReminderAfterSendTimeChange,
   parseDeliveryTimes,
 } from "./delivery-times";
-import { queueReaderEmail, waitForReaderEmailSettlement } from "./queued-reply";
-import { beginUndoSend, getUndoSendHoldUntil } from "./undo-send";
+import {
+  queueReaderEmail,
+  READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+  waitForReaderEmailSettlement,
+} from "./queued-reply";
+import {
+  beginUndoSend,
+  getUndoSendHoldUntil,
+  UNDO_SEND_DELAY_MS,
+} from "./undo-send";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -860,6 +868,8 @@ function ComposeEmailFormContent({
           });
           waitForReaderEmailSettlement({
             mutationId: outcome.mutationId,
+            settlementTimeoutMs:
+              UNDO_SEND_DELAY_MS + READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
             threadId: outcome.threadId,
           })
             .then(async (settled) => {

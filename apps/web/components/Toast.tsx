@@ -36,15 +36,26 @@ export function toastInfo(options: {
   });
 }
 
+type ToastUndoHandler = () => void | Promise<void>;
+
+let latestToastUndo: ToastUndoHandler | null = null;
+
 export function toastUndo(options: {
   message: string;
   shortcut?: string;
   duration?: number;
-  onUndo: () => void;
+  onUndo: ToastUndoHandler;
 }) {
+  const onUndo = options.onUndo;
+  latestToastUndo = onUndo;
+  const release = () => {
+    if (latestToastUndo === onUndo) latestToastUndo = null;
+  };
   return toast.success(options.message, {
     id: "undo",
     duration: options.duration,
+    onAutoClose: release,
+    onDismiss: release,
     action: {
       label: (
         <>
@@ -54,9 +65,18 @@ export function toastUndo(options: {
           )}
         </>
       ),
-      onClick: options.onUndo,
+      onClick: onUndo,
     },
   });
+}
+
+export async function undoLatestToast() {
+  const onUndo = latestToastUndo;
+  if (!onUndo) return false;
+  latestToastUndo = null;
+  toast.dismiss("undo");
+  await onUndo();
+  return true;
 }
 
 export function Toaster() {
