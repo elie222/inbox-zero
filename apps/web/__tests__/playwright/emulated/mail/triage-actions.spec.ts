@@ -1,4 +1,5 @@
 import { expect, type Locator } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -64,6 +65,14 @@ test("deletes an open conversation and returns to the list", async ({
 test("advances the split reader after archiving an open conversation", async ({
   page,
 }, testInfo) => {
+  await page.route("**/api/threads/thr_playwright_3?**", async (route) => {
+    const response = await route.fetch();
+    const body: ThreadResponse = await response.json();
+    for (const message of body.thread.messages) {
+      message.textHtml = "<p>Message body for keyboard shortcut coverage.</p>";
+    }
+    await route.fulfill({ response, json: body });
+  });
   const settingsResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
