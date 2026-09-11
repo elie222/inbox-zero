@@ -74,6 +74,37 @@ describe("offline mail cache", () => {
     expect(await (await response).text()).toBe("Saved mailbox");
   });
 
+  it("serves the saved mailbox while a background cache write is stalled", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html());
+    await cache.handle(documentRequest(), waitUntil);
+    await Promise.all(pending);
+
+    let finishWrite!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    vi.spyOn(storage, "put").mockReturnValueOnce(writing);
+    network.mockResolvedValueOnce(html("Refreshed mailbox"));
+    await cache.handle(documentRequest(), waitUntil);
+
+    vi.useFakeTimers();
+    network.mockImplementation(() => new Promise(() => {}));
+    let body: string | undefined;
+    const response = cache
+      .handle(documentRequest(), waitUntil)
+      .then(async (result) => {
+        body = await result.text();
+      });
+    await vi.advanceTimersByTimeAsync(3000);
+    try {
+      expect(body).toBe("Saved mailbox");
+    } finally {
+      finishWrite();
+      await response;
+    }
+  });
+
   it("uses saved mail when response headers arrive but the page body stalls", async () => {
     const cache = makeCache();
     network.mockResolvedValueOnce(html());
@@ -88,31 +119,6 @@ describe("offline mail cache", () => {
     const response = cache.handle(documentRequest(), waitUntil);
     await vi.advanceTimersByTimeAsync(3000);
     expect(await (await response).text()).toBe("Saved mailbox");
-  });
-
-  it("returns saved mail while a background cache write is stalled", async () => {
-    vi.useFakeTimers();
-    const cache = makeCache();
-    await storage.put(mailUrl, html("Saved mailbox"));
-    const pendingWrite = Promise.withResolvers<void>();
-    vi.spyOn(storage, "put").mockReturnValueOnce(pendingWrite.promise);
-    network.mockResolvedValueOnce(html("Refreshed mailbox"));
-    await cache.handle(documentRequest(), waitUntil);
-    network.mockImplementation(() => new Promise(() => {}));
-    let fallback: Response | undefined;
-    const loading = cache
-      .handle(documentRequest(), waitUntil)
-      .then((response) => {
-        fallback = response;
-      });
-    try {
-      await vi.advanceTimersByTimeAsync(3000);
-      expect(fallback).toBeDefined();
-      expect(await fallback?.text()).toBe("Saved mailbox");
-    } finally {
-      pendingWrite.resolve();
-      await loading;
-    }
   });
 
   it("does not return saved mail if logout starts during the cache lookup", async () => {
