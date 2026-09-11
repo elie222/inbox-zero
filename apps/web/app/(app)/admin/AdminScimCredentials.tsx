@@ -117,7 +117,7 @@ function RevokeScimCredentialForm() {
   const { execute, isExecuting } = useAction(revokeScimCredentialAction, {
     onSuccess: () => {
       reset();
-      toastSuccess({ title: "SCIM credential revoked" });
+      toastSuccess({ description: "SCIM credential revoked" });
     },
     onError: (error) =>
       toastError({
