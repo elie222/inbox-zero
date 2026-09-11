@@ -203,6 +203,53 @@ test("sends a reply with a reminder through the local email provider", async ({
   }
 });
 
+test("schedules a new message from the composer", async ({
+  page,
+}, testInfo) => {
+  page.setDefaultTimeout(20_000);
+  const { emailAccountId } = await openMail(page);
+  const subject = `Playwright Scheduled Message ${testInfo.retry}`;
+  try {
+    await page.getByRole("button", { name: /^Compose/ }).click();
+    const dialog = page.getByRole("dialog", { name: "New Message" });
+    await dialog
+      .getByRole("textbox", { name: "To" })
+      .fill("recipient@example.com");
+    await dialog.getByPlaceholder("Subject").fill(subject);
+    await dialog
+      .locator("[contenteditable='true']")
+      .pressSequentially("A scheduled message body.");
+    await dialog
+      .getByRole("button", { name: "Send later", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Send later" })
+      .getByRole("button", { name: /Tomorrow morning/ })
+      .click();
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByText("Email scheduled.", { exact: true }),
+    ).toBeVisible();
+    const scheduled = await withClient((client) =>
+      client.query(
+        `SELECT status, "threadId" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+    // A new message has no thread until the provider accepts the send.
+    expect(scheduled.rows).toEqual([{ status: "PENDING", threadId: null }]);
+  } finally {
+    await withClient((client) =>
+      client.query(
+        `DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+  }
+});
+
 async function openReply(page: Page) {
   page.setDefaultTimeout(20_000);
   page.setDefaultNavigationTimeout(30_000);

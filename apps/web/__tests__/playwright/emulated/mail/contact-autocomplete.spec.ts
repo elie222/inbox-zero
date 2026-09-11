@@ -69,7 +69,6 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   releaseSearch();
   await to.fill("");
 
-  await dialog.getByRole("button", { name: "Cc/Bcc" }).click();
   for (const name of ["Cc", "Bcc"]) {
     const field = dialog.getByRole("combobox", { name, exact: true });
     await field.fill("contact");

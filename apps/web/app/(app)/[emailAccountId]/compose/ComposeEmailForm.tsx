@@ -45,7 +45,7 @@ import type {
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
-import { Input, Label } from "@/components/Input";
+import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
@@ -250,6 +250,7 @@ function ComposeEmailFormContent({
 }) {
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
+  const canScheduleDelivery = isInlineReply || isComposeWindow;
   const { mutate } = useSWRConfig();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
   const [remindAt, setRemindAt] = useState(
@@ -348,14 +349,6 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
-  const [showCcBcc, setShowCcBcc] = useState(
-    Boolean(
-      storedDraft?.content?.values.cc ||
-        storedDraft?.content?.values.bcc ||
-        replyingToEmail?.cc ||
-        replyingToEmail?.bcc,
-    ),
-  );
   const focusRecipientField = !replyingToEmail;
   const [attachments, setAttachments] =
     useState<ComposeAttachment[]>(restoredAttachments);
@@ -365,7 +358,6 @@ function ComposeEmailFormContent({
   const formRef = useRef<HTMLFormElement>(null);
   const inlineReplySummaryButtonRef = useRef<HTMLButtonElement>(null);
   const collapseInlineReplyFieldsButtonRef = useRef<HTMLButtonElement>(null);
-  const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
@@ -757,11 +749,15 @@ function ComposeEmailFormContent({
         }
         captureDraft();
         await flushDraft();
-        if (isInlineReply && deliveryPath.current === "scheduled") {
+        const isScheduled = isInlineReply
+          ? deliveryPath.current === "scheduled"
+          : canScheduleDelivery && Boolean(sendAt || remindAt);
+        if (isScheduled) {
+          const scheduledThreadId = replyingToEmail?.threadId ?? null;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
-            threadId: replyingToEmail!.threadId!,
-            messageIds: [draftKeyMessageId!],
+            threadId: scheduledThreadId,
+            messageIds: draftKeyMessageId ? [draftKeyMessageId] : [],
             email: enrichedData,
             sendAt: deliveryTimes.sendAt,
             remindAt: deliveryTimes.remindAt,
@@ -769,7 +765,9 @@ function ComposeEmailFormContent({
           if (!result?.data) {
             setSubmissionError(
               getActionErrorMessage(result ?? {}, {
-                prefix: "Could not schedule this reply",
+                prefix: scheduledThreadId
+                  ? "Could not schedule this reply"
+                  : "Could not schedule this email",
               }),
             );
             return;
@@ -784,10 +782,14 @@ function ComposeEmailFormContent({
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
-          await mutate([
-            `/api/user/scheduled-emails?threadId=${encodeURIComponent(replyingToEmail!.threadId!)}`,
-            selectedEmailAccountId,
-          ]);
+          if (scheduledThreadId) {
+            await mutate([
+              `/api/user/scheduled-emails?threadId=${encodeURIComponent(scheduledThreadId)}`,
+              selectedEmailAccountId,
+            ]);
+          } else {
+            toastSuccess({ description: "Email scheduled." });
+          }
           onClose?.();
           refetch?.();
           return;
@@ -896,6 +898,7 @@ function ComposeEmailFormContent({
     [
       stopProviderAutosave,
       resumeProviderAutosave,
+      canScheduleDelivery,
       initialDraft,
       isInlineReply,
       sendAt,
@@ -1041,14 +1044,14 @@ function ComposeEmailFormContent({
         }
       : undefined,
     sendLater:
-      isInlineReply && !isSubmitting
+      canScheduleDelivery && !isSubmitting
         ? (event) => {
             if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("sendLater");
           }
         : undefined,
     remindMe:
-      isInlineReply && !isSubmitting
+      canScheduleDelivery && !isSubmitting
         ? (event) => {
             if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("remindMe");
@@ -1092,14 +1095,9 @@ function ComposeEmailFormContent({
           "space-y-2 border-t border-border pt-4 [&_[data-email-editor-root]]:text-neutral-900 dark:[&_[data-email-editor-root]]:text-neutral-100",
       )}
     >
-      <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
+      <div className={cn(isComposeWindow ? "shrink-0 px-4 pt-3" : "contents")}>
         {!!fromAccounts?.length && !replyingToEmail && (
-          <div
-            className={cn(
-              "flex items-center gap-2",
-              isComposeWindow && "min-h-11 border-b",
-            )}
-          >
+          <div className="flex min-h-7 items-center gap-2">
             <ComposeFieldLabel htmlFor="from-account" label="From" />
             <Select
               value={selectedEmailAccountId}
@@ -1107,7 +1105,7 @@ function ComposeEmailFormContent({
             >
               <SelectTrigger
                 aria-label="From"
-                className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus:ring-0 focus:ring-offset-0"
+                className="h-7 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0 focus:ring-offset-0"
                 id="from-account"
               >
                 <SelectValue />
@@ -1128,7 +1126,7 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {showInlineReplySummary && (
+        {showInlineReplySummary ? (
           <button
             type="button"
             aria-expanded={false}
@@ -1146,38 +1144,20 @@ function ComposeEmailFormContent({
             </span>
             <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
           </button>
-        )}
-        {replyingToEmail?.to && !editReply ? (
-          !isInlineReply && (
-            <button
-              type="button"
-              className={cn(
-                "flex items-center gap-1 text-left",
-                isComposeWindow && "min-h-11 items-center border-b",
-              )}
-              onClick={() => setEditReply(true)}
-            >
-              <span className="text-muted-foreground text-sm">To</span>
-              <span className="max-w-md break-words text-foreground">
-                {extractNameFromEmail(watch("to") || replyingToEmail.to)}
-              </span>
-            </button>
-          )
-        ) : isInlineReply ? (
+        ) : (
           <div className="space-y-1 [&_input]:bg-transparent">
             {(["to", "cc", "bcc"] as const).map((field) => (
               <div key={field} className="flex min-h-7 items-center gap-2">
-                <label
+                <ComposeFieldLabel
                   htmlFor={field}
-                  className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
-                >
-                  {RECIPIENT_LABELS[field]}
-                </label>
+                  label={RECIPIENT_LABELS[field]}
+                />
                 <div className="min-w-0 flex-1">
                   {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
                     <ComposeContactRecipientField
                       {...recipientFieldProps}
                       active={activeRecipientField === field}
+                      autoFocus={field === "to" && focusRecipientField}
                       className="min-h-8"
                       name={field}
                       selectedRecipients={watch(field) ?? ""}
@@ -1186,9 +1166,10 @@ function ComposeEmailFormContent({
                     <Input
                       type="text"
                       name={field}
-                      registerProps={register(field, {
-                        required: field === "to",
-                      })}
+                      registerProps={{
+                        ...register(field, { required: field === "to" }),
+                        autoFocus: field === "to" && focusRecipientField,
+                      }}
                       error={errors[field]}
                       className="h-7 rounded-none border-0 bg-transparent p-0 text-sm leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
                     />
@@ -1214,132 +1195,10 @@ function ComposeEmailFormContent({
                 registerProps={register("subject", { required: true })}
                 error={errors.subject}
                 placeholder="Subject"
-                aria-label="Subject"
                 className="h-8 rounded-none border-0 bg-transparent p-0 text-sm font-medium text-foreground shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
               />
             </div>
           </div>
-        ) : (
-          <>
-            <div
-              className={cn(
-                "flex items-start gap-2",
-                isComposeWindow && "min-h-11 items-center border-b",
-              )}
-            >
-              {showCcBcc && (
-                <button
-                  aria-label="Hide Cc/Bcc"
-                  className={cn(
-                    "order-last mt-2 text-xs text-muted-foreground hover:text-foreground",
-                    isComposeWindow && "mt-0",
-                  )}
-                  onClick={() => setShowCcBcc(false)}
-                  ref={hideCcBccButtonRef}
-                  type="button"
-                >
-                  Cc/Bcc
-                </button>
-              )}
-              {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
-              <div className="min-w-0 flex-1">
-                {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-                  <div className="flex space-x-2">
-                    {!isComposeWindow && (
-                      <div className="mt-2">
-                        <Label label="To" name="to" />
-                      </div>
-                    )}
-                    <ComposeContactRecipientField
-                      {...recipientFieldProps}
-                      active={activeRecipientField === "to"}
-                      autoFocus={focusRecipientField}
-                      name="to"
-                      selectedRecipients={watch("to") ?? ""}
-                    />
-                  </div>
-                ) : (
-                  <Input
-                    type="text"
-                    name="to"
-                    label={isComposeWindow ? undefined : "To"}
-                    registerProps={{
-                      ...register("to", { required: true }),
-                      autoFocus: focusRecipientField,
-                    }}
-                    error={errors.to}
-                    className={cn(
-                      isComposeWindow &&
-                        "h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus:border-transparent focus:ring-0",
-                    )}
-                  />
-                )}
-              </div>
-              {!showCcBcc && (
-                <button
-                  className={cn(
-                    "mt-2 text-xs text-muted-foreground hover:text-foreground",
-                    isComposeWindow && "mt-0",
-                  )}
-                  onClick={() => {
-                    setShowCcBcc(true);
-                    requestAnimationFrame(() =>
-                      hideCcBccButtonRef.current?.focus(),
-                    );
-                  }}
-                  type="button"
-                >
-                  Cc/Bcc
-                </button>
-              )}
-            </div>
-
-            {showCcBcc && (
-              <div
-                className={cn(
-                  "grid gap-2 sm:grid-cols-2",
-                  isComposeWindow && "border-b py-2",
-                )}
-              >
-                {(["cc", "bcc"] as const).map((field) =>
-                  env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-                    <div key={field}>
-                      <Label label={RECIPIENT_LABELS[field]} name={field} />
-                      <ComposeContactRecipientField
-                        {...recipientFieldProps}
-                        active={activeRecipientField === field}
-                        className="mt-1 border border-slate-300 px-3 shadow-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black dark:border-slate-700 dark:focus-within:border-slate-400 dark:focus-within:ring-slate-400"
-                        name={field}
-                        selectedRecipients={watch(field) ?? ""}
-                      />
-                    </div>
-                  ) : (
-                    <Input
-                      error={errors[field]}
-                      key={field}
-                      label={RECIPIENT_LABELS[field]}
-                      name={field}
-                      registerProps={register(field)}
-                      type="text"
-                    />
-                  ),
-                )}
-              </div>
-            )}
-
-            <Input
-              type="text"
-              name="subject"
-              registerProps={register("subject", { required: true })}
-              error={errors.subject}
-              placeholder="Subject"
-              className={cn(
-                "border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200",
-                isComposeWindow &&
-                  "h-11 rounded-none border-0 border-b bg-transparent px-0 shadow-none focus:border-border focus:ring-0",
-              )}
-            />
-          </>
         )}
       </div>
 
@@ -1361,7 +1220,13 @@ function ComposeEmailFormContent({
       />
 
       {submissionError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p
+          role="alert"
+          className={cn(
+            "text-destructive text-sm",
+            isComposeWindow && "shrink-0 px-4",
+          )}
+        >
           {submissionError}
         </p>
       )}
@@ -1370,7 +1235,7 @@ function ComposeEmailFormContent({
           aria-label="Attachments"
           className={cn(
             "flex flex-wrap gap-2",
-            isComposeWindow && "shrink-0 border-t px-3 py-2",
+            isComposeWindow && "shrink-0 px-4 py-2",
           )}
         >
           {attachments.map((attachment) => (
@@ -1403,7 +1268,7 @@ function ComposeEmailFormContent({
       <div
         className={cn(
           "flex flex-wrap items-center justify-between gap-2",
-          isComposeWindow && "shrink-0 border-t px-4 py-2",
+          isComposeWindow && "shrink-0 px-4 py-2",
         )}
       >
         <div className="flex flex-wrap items-center gap-1">
@@ -1414,15 +1279,7 @@ function ComposeEmailFormContent({
               />
             }
           >
-            <Button
-              className={cn(
-                isComposeWindow &&
-                  "h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground",
-              )}
-              disabled={isSubmitting}
-              type="submit"
-              variant={isComposeWindow ? "ghost" : "gradient"}
-            >
+            <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
               Send
             </Button>
@@ -1434,7 +1291,7 @@ function ComposeEmailFormContent({
             tabIndex={-1}
             type="submit"
           />
-          {isInlineReply && (
+          {canScheduleDelivery && (
             <DeliveryOptions
               ref={deliveryOptionsRef}
               sendAt={sendAt}
@@ -1465,7 +1322,7 @@ function ComposeEmailFormContent({
               aria-label="Attach files"
               className="text-muted-foreground hover:bg-transparent hover:text-foreground"
               onClick={() => attachmentInputRef.current?.click()}
-              size={isComposeWindow ? "iconSm" : "icon"}
+              size="icon"
               type="button"
               variant="ghost"
             >
@@ -1485,7 +1342,7 @@ function ComposeEmailFormContent({
             aria-label="Insert inline images"
             className="text-muted-foreground hover:bg-transparent hover:text-foreground"
             onClick={() => inlineImageInputRef.current?.click()}
-            size={isComposeWindow ? "iconSm" : "icon"}
+            size="icon"
             type="button"
             variant="ghost"
           >
@@ -1502,7 +1359,7 @@ function ComposeEmailFormContent({
                 className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                 disabled={isSubmitting}
                 onClick={handleDiscard}
-                size={isComposeWindow ? "iconSm" : "icon"}
+                size="icon"
                 type="button"
                 variant="ghost"
               >
@@ -1605,8 +1462,9 @@ function ComposeContactRecipientField({
         )
       : [];
 
-  // The local input state resets on unmount (e.g. hiding Cc/Bcc), so the
-  // parent's pending entry must reset with it or hidden text would still send.
+  // The local input state resets on unmount (e.g. collapsing the recipient
+  // fields), so the parent's pending entry must reset with it or hidden text
+  // would still send.
   useEffect(
     () => () => onSearchQueryChange(name, ""),
     [name, onSearchQueryChange],
@@ -1827,7 +1685,7 @@ function ComposeFieldLabel({
 }) {
   return (
     <label
-      className="shrink-0 text-sm font-medium text-foreground"
+      className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
       htmlFor={htmlFor}
     >
       {label}

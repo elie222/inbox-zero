@@ -860,7 +860,8 @@ model ScheduledEmail {
   clientMutationId    String
   payloadHash         String
   payload             Json
-  threadId            String
+  // Null until a scheduled new message is sent and lands in its own thread.
+  threadId            String?
   sendAt              DateTime
   status              ScheduledEmailStatus @default(PENDING)
   processingStartedAt DateTime?
