@@ -16,13 +16,13 @@ test("google emulator signs in and creates an app account", async ({
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
 
   const signInPayload = await page.evaluate(async () => {
-    const response = await fetch("/api/auth/sign-in/oauth2", {
+    const response = await fetch("/api/auth/sign-in/social", {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        providerId: "google",
+        provider: "google",
         callbackURL: "/welcome-redirect?force=true",
         errorCallbackURL: "/login/error",
       }),

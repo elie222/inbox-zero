@@ -44,7 +44,7 @@ const emulator = await createEmulator({
           client_secret: "client_secret",
           redirect_uris: [
             new URL(
-              "/api/auth/oauth2/callback/google",
+              "/api/auth/callback/google",
               process.env.NEXT_PUBLIC_BASE_URL,
             ).href,
           ],

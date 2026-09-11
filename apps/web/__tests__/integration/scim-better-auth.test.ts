@@ -1,10 +1,12 @@
+import { DatabaseSync } from "node:sqlite";
+import { getMigrations } from "better-auth/db/migration";
 import { scim } from "@better-auth/scim";
 import { betterAuth } from "better-auth";
-import { describe, expect, test } from "vitest";
+import { onTestFinished, describe, expect, test } from "vitest";
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const PROVIDER_ID = "okta-provider";
-const SCIM_SECRET = "scim-secret";
+const SCIM_SECRET = "new-scim-opaque-secret-with-sufficient-entropy";
 const BASE_URL = "http://localhost:3000";
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
@@ -12,21 +14,27 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   { timeout: 30_000 },
   () => {
     test("provisions, lists, updates, patches, and deletes a SCIM user", async () => {
+      const database = new DatabaseSync(":memory:");
+      onTestFinished(() => database.close());
       const auth = betterAuth({
+        database,
         baseURL: BASE_URL,
         secret: "test-secret-with-enough-entropy-for-scim",
         plugins: [
           scim({
-            defaultSCIM: [
+            connections: [
               {
-                providerId: PROVIDER_ID,
-                scimToken: SCIM_SECRET,
+                id: PROVIDER_ID,
+                credentials: [
+                  { type: "bearer", id: "primary", token: SCIM_SECRET },
+                ],
               },
             ],
           }),
         ],
       });
-      const token = createBearerToken();
+      await (await getMigrations(auth.options)).runMigrations();
+      const token = SCIM_SECRET;
 
       const configResponse = await auth.handler(
         scimRequest("/api/auth/scim/v2/ServiceProviderConfig", { token }),
@@ -38,6 +46,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           method: "POST",
           token,
           body: {
+            schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
             userName: "user@example.com",
             externalId: "00u_test_user",
             name: {
@@ -48,7 +57,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
         }),
       );
-      expect(createResponse.status).toBe(201);
+      expect(createResponse.status, await createResponse.clone().text()).toBe(
+        201,
+      );
       const created = await createResponse.json();
       expect(created.userName).toBe("user@example.com");
       expect(created.externalId).toBe("00u_test_user");
@@ -69,6 +80,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           method: "PUT",
           token,
           body: {
+            schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
             userName: "updated@example.com",
             externalId: "00u_test_user",
             name: {
@@ -81,7 +93,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(updateResponse.status).toBe(200);
       const updated = await updateResponse.json();
       expect(updated.userName).toBe("updated@example.com");
-      expect(updated.displayName).toBe("Updated User");
+      expect(updated.name.formatted).toBe("Updated User");
 
       const patchResponse = await auth.handler(
         scimRequest(`/api/auth/scim/v2/Users/${created.id}`, {
@@ -99,7 +111,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
         }),
       );
-      expect(patchResponse.status).toBe(204);
+      expect(patchResponse.status).toBe(200);
 
       const getResponse = await auth.handler(
         scimRequest(`/api/auth/scim/v2/Users/${created.id}`, { token }),
@@ -123,12 +135,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
   },
 );
-
-function createBearerToken() {
-  return Buffer.from(`${SCIM_SECRET}:${PROVIDER_ID}`, "utf8").toString(
-    "base64url",
-  );
-}
 
 function scimRequest(
   path: string,

@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseSearchParams = vi.fn();
-const mockSignInWithOauth2 = vi.fn();
+const mockSignInWithSocialRedirect = vi.fn();
 const mockSignInSocial = vi.fn();
 const mockToastError = vi.fn();
 const mockPosthogCapture = vi.fn();
@@ -38,8 +38,9 @@ vi.mock("next/image", () => ({
 }));
 
 vi.mock("@/utils/auth-client", () => ({
-  signInWithOauth2: (...args: Parameters<typeof mockSignInWithOauth2>) =>
-    mockSignInWithOauth2(...args),
+  signInWithSocialRedirect: (
+    ...args: Parameters<typeof mockSignInWithSocialRedirect>
+  ) => mockSignInWithSocialRedirect(...args),
   signIn: {
     social: (...args: Parameters<typeof mockSignInSocial>) =>
       mockSignInSocial(...args),
@@ -179,7 +180,7 @@ describe("LoginForm", () => {
       });
     });
     expect(mockSignInSocial).not.toHaveBeenCalled();
-    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
+    expect(mockSignInWithSocialRedirect).not.toHaveBeenCalled();
   });
 
   it("starts desktop auth even when the Google OAuth emulator is enabled", async () => {
@@ -197,7 +198,7 @@ describe("LoginForm", () => {
         callbackPath: "/welcome-redirect",
       });
     });
-    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
+    expect(mockSignInWithSocialRedirect).not.toHaveBeenCalled();
   });
 
   it("passes Apple's connect-mailbox callback through desktop auth", async () => {

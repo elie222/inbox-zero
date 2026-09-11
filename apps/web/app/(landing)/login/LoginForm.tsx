@@ -7,7 +7,7 @@ import { usePostHog } from "posthog-js/react";
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
-import { signIn, signInWithOauth2 } from "@/utils/auth-client";
+import { signIn, signInWithSocialRedirect } from "@/utils/auth-client";
 import {
   getInboxZeroDesktopApp,
   type DesktopAuthProvider,
@@ -63,8 +63,8 @@ export function LoginForm({
         return;
       }
       if (useGoogleOauthEmulator) {
-        const result = await signInWithOauth2({
-          providerId: "google",
+        const result = await signInWithSocialRedirect({
+          provider: "google",
           errorCallbackURL,
           callbackURL,
         });

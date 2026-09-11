@@ -172,7 +172,7 @@ describe("offline mail cache", () => {
     for (const path of [
       "/api/sso/signin",
       "/api/auth/sso/callback/provider",
-      "/api/auth/sso/saml2/callback/provider",
+      "/api/auth/sso/saml2/sp/acs/provider",
     ]) {
       expect(
         clearsOfflineMailOnGet(new Request(`${origin}${path}`), origin),

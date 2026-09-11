@@ -76,7 +76,7 @@ describe("MCP OAuth flow", () => {
       resource: "https://other.example.com/mcp",
     });
     expect(wrongResource.ok).toBe(false);
-    expect((await wrongResource.json()).error).toBe("invalid_request");
+    expect((await wrongResource.json()).error).toBe("invalid_target");
 
     const wrongVerifier = await flow.token(code, "wrong-verifier");
     expect(wrongVerifier.ok).toBe(false);
@@ -115,8 +115,6 @@ describe("MCP OAuth flow", () => {
       }),
     );
 
-    const replay = await flow.token(authorizedCode, flow.verifier);
-    expect(replay.ok).toBe(false);
     const expandedRefresh = await flow.request("/oauth2/token", {
       client_id: flow.clientId,
       grant_type: "refresh_token",
@@ -124,7 +122,7 @@ describe("MCP OAuth flow", () => {
       resource: "https://other.example.com/mcp",
     });
     expect(expandedRefresh.ok).toBe(false);
-    expect((await expandedRefresh.json()).error).toBe("invalid_request");
+    expect((await expandedRefresh.json()).error).toBe("invalid_target");
 
     const refresh = await flow.request("/oauth2/token", {
       client_id: flow.clientId,
@@ -138,6 +136,9 @@ describe("MCP OAuth flow", () => {
     expect(
       (await verifyMcpToken(refreshed.access_token, jwks))?.scopes,
     ).toEqual(principal?.scopes);
+
+    const replay = await flow.token(authorizedCode, flow.verifier);
+    expect(replay.ok).toBe(false);
 
     prisma.oauthConsent.findFirst.mockResolvedValue(null);
     expect(await verifyMcpToken(tokens.access_token, jwks)).toBeNull();
@@ -171,6 +172,9 @@ async function createFlow() {
     account: [],
     verification: [],
     oauthClient: [],
+    oauthResource: [],
+    oauthClientResource: [],
+    oauthClientAssertion: [],
     oauthConsent: [],
     oauthAccessToken: [],
     oauthRefreshToken: [],
@@ -225,7 +229,7 @@ async function createFlow() {
     response_types: ["code"],
     scope: "mcp:read offline_access",
   });
-  expect(registration.status).toBe(200);
+  expect(registration.status).toBe(201);
   const client = await registration.json();
   const verifier = "test-pkce-verifier-with-at-least-forty-three-characters";
   const query = new URLSearchParams({

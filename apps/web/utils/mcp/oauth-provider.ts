@@ -14,19 +14,23 @@ export function mcpOAuthPlugins() {
   return [
     jwt({ disableSettingJwtHeader: true }),
     oauthProvider({
-      silenceWarnings: { oauthAuthServerConfig: true },
       loginPage: "/mcp/login",
       consentPage: "/mcp/consent",
       scopes: [...MCP_SCOPES],
-      // Better Auth 1.6 does not bind resources to grants. Keep exactly one audience.
-      validAudiences: [getMcpResourceUrl()],
+      resources: [getMcpResourceUrl()],
+      clientRegistrationDefaultResources: [getMcpResourceUrl()],
+      clientRegistrationAllowedResources: [getMcpResourceUrl()],
       grantTypes: ["authorization_code", "refresh_token"],
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
       clientRegistrationDefaultScopes: ["mcp:read", "offline_access"],
       clientRegistrationAllowedScopes: [...MCP_SCOPES],
-      customAccessTokenClaims: async ({ user, resource }) => {
-        if (!user || resource !== getMcpResourceUrl()) {
+      customAccessTokenClaims: async ({ user, resources }) => {
+        if (
+          !user ||
+          resources?.length !== 1 ||
+          resources[0] !== getMcpResourceUrl()
+        ) {
           throw new APIError("BAD_REQUEST", { error: "invalid_target" });
         }
         const access = await prisma.user.findUnique({

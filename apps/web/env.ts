@@ -60,6 +60,7 @@ const parsedEnv = createEnv({
     ),
 
     AUTH_SECRET: z.string().optional(),
+    SCIM_CREDENTIAL_HASH_SECRET: z.string().min(32).optional(),
     NEXTAUTH_SECRET: z.string().optional(),
     AUTH_ALLOWED_EMAILS: z
       .string()

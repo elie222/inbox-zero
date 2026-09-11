@@ -108,16 +108,15 @@ export const registerSSOProviderAction = adminActionClient
           select: { id: true, name: true, slug: true },
         }));
 
-      // Compute callback URL to store with config (informational)
       const callbackUrl = new URL(
-        `/api/auth/sso/saml2/callback/${encodeURIComponent(providerId)}`,
+        `/api/auth/sso/saml2/sp/acs/${encodeURIComponent(providerId)}`,
         env.NEXT_PUBLIC_BASE_URL,
       ).toString();
 
       const samlConfig = {
+        issuer: env.NEXT_PUBLIC_BASE_URL,
         entryPoint: ssoConfig.entryPoint,
         cert: ssoConfig.cert,
-        callbackUrl,
         wantAssertionsSigned: ssoConfig.wantAssertionsSigned ?? true,
         signatureAlgorithm: "sha256",
         digestAlgorithm: "sha256",
