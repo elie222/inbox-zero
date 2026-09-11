@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { getStatsByPeriod } from "@/app/api/user/stats/by-period/controller";
-import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
+import { getResponseTimeStats } from "@/utils/stats/response-time/controller";
 import { toRuleWriteInput } from "@/app/api/v1/rules/request";
 import { apiRuleSelect, serializeRule } from "@/app/api/v1/rules/serializers";
 import { ruleRequestBodySchema } from "@/app/api/v1/rules/validation";

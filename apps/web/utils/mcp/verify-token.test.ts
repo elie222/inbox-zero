@@ -95,3 +95,14 @@ async function sign(overrides: JWTPayload = {}) {
     .setProtectedHeader({ alg: "ES256", kid: "test-key" })
     .sign(keys.privateKey);
 }
+
+it("rejects tokens that include additional audiences", async () => {
+  const token = await sign({
+    aud: [
+      "https://inbox.example.com/api/mcp-server",
+      "https://other.example.com",
+    ],
+  });
+  expect(await verifyMcpToken(token, jwks)).toBeNull();
+  expect(prisma.oauthConsent.findFirst).not.toHaveBeenCalled();
+});

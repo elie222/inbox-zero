@@ -57,3 +57,7 @@ Turn off **MCP** under **Settings → Developer → API Access**. This revokes a
 - Root discovery fallback: `/.well-known/oauth-authorization-server`
 
 Unauthenticated MCP requests return `401` with a `WWW-Authenticate` header pointing to the resource metadata. The MCP endpoint is stateless and accepts HTTP `POST`; it does not offer a persistent event stream.
+
+## Dependency constraint
+
+This implementation uses the repository's pinned Better Auth 1.6 family. The OAuth provider's [resource-binding advisory](https://github.com/advisories/GHSA-p2fr-6hmx-4528) recommends a single audience as a workaround for applications remaining on 1.6. The server permits exactly its MCP endpoint, requires that resource during token issuance, and rejects access tokens with additional audiences. Do not add another resource to this OAuth provider without upgrading to a patched release and migrating its schema.

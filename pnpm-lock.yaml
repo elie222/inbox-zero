@@ -506,6 +506,9 @@ importers:
       ioredis:
         specifier: 5.10.1
         version: 5.10.1(supports-color@8.1.1)
+      jose:
+        specifier: 6.2.3
+        version: 6.2.3
       jotai:
         specifier: 2.20.2
         version: 2.20.2(@babel/core@7.29.7(supports-color@8.1.1))(@babel/template@7.29.7)(@types/react@19.2.18)(react@19.3.0)

@@ -63,6 +63,17 @@ describe("MCP OAuth flow", () => {
     expect(approved.status).toBe(200);
     const approval = await approved.json();
     const code = new URL(approval.url).searchParams.get("code")!;
+    const wrongResource = await flow.request("/oauth2/token", {
+      grant_type: "authorization_code",
+      code,
+      client_id: flow.clientId,
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: flow.verifier,
+      resource: "https://other.example.com/mcp",
+    });
+    expect(wrongResource.ok).toBe(false);
+    expect((await wrongResource.json()).error).toBe("invalid_request");
+
     const wrongVerifier = await flow.token(code, "wrong-verifier");
     expect(wrongVerifier.ok).toBe(false);
 
@@ -104,6 +115,15 @@ describe("MCP OAuth flow", () => {
       flow.verifier,
     );
     expect(replay.ok).toBe(false);
+    const expandedRefresh = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource: "https://other.example.com/mcp",
+    });
+    expect(expandedRefresh.ok).toBe(false);
+    expect((await expandedRefresh.json()).error).toBe("invalid_request");
+
     const refresh = await flow.request("/oauth2/token", {
       client_id: flow.clientId,
       grant_type: "refresh_token",

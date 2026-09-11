@@ -18,6 +18,7 @@ export function mcpOAuthPlugins() {
       loginPage: "/mcp/login",
       consentPage: "/mcp/consent",
       scopes: [...MCP_SCOPES],
+      // Better Auth 1.6 does not bind resources to grants. Keep exactly one audience.
       validAudiences: [getMcpResourceUrl()],
       grantTypes: ["authorization_code", "refresh_token"],
       allowDynamicClientRegistration: true,

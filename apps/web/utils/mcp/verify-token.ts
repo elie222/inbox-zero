@@ -18,6 +18,7 @@ export async function verifyMcpToken(token: string, jwks: JSONWebKeySet) {
     ],
   });
   if (
+    payload.aud !== getMcpResourceUrl() ||
     typeof payload.sub !== "string" ||
     typeof payload.azp !== "string" ||
     typeof payload.sid !== "string" ||

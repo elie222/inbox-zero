@@ -21,7 +21,7 @@ vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
 vi.mock("@/app/api/user/stats/by-period/controller", () => ({
   getStatsByPeriod: vi.fn(),
 }));
-vi.mock("@/app/api/user/stats/response-time/controller", () => ({
+vi.mock("@/utils/stats/response-time/controller", () => ({
   getResponseTimeStats: vi.fn(),
 }));
 

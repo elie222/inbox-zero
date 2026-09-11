@@ -168,6 +168,7 @@
     "ical.js": "2.2.1",
     "idb": "8.0.3",
     "ioredis": "5.10.1",
+    "jose": "6.2.3",
     "jotai": "2.20.2",
     "jsonrepair": "3.15.0",
     "linkify-it": "5.0.1",
