@@ -3,11 +3,13 @@
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   confirmAssistantCreateRuleBody,
+  confirmAssistantDeleteMemoryBody,
   confirmAssistantEmailActionBody,
   confirmAssistantSaveMemoryBody,
 } from "./assistant-chat.validation";
 import {
   confirmAssistantCreateRuleForAccount,
+  confirmAssistantDeleteMemoryForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
 } from "./assistant-chat-confirmation";
@@ -67,6 +69,24 @@ export const confirmAssistantSaveMemory = actionClient
       parsedInput: { chatId, chatMessageId, toolCallId },
     }) =>
       confirmAssistantSaveMemoryForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        waitForPersistence: true,
+        emailAccountId,
+        logger,
+      }),
+  );
+
+export const confirmAssistantDeleteMemory = actionClient
+  .metadata({ name: "confirmAssistantDeleteMemory" })
+  .inputSchema(confirmAssistantDeleteMemoryBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      confirmAssistantDeleteMemoryForAccount({
         chatId,
         chatMessageId,
         toolCallId,

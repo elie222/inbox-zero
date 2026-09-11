@@ -742,6 +742,7 @@ function buildJudgeInput(scenario: MemorySafetyScenario) {
 
 const sensitiveWriteToolNames = new Set([
   "saveMemory",
+  "deleteMemory",
   "addToKnowledgeBase",
   "updatePersonalInstructions",
   "updateAssistantSettings",

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/utils/actions/assistant-chat", () => ({
   confirmAssistantCreateRule: vi.fn(),
+  confirmAssistantDeleteMemory: vi.fn(),
   confirmAssistantEmailAction: vi.fn(),
   confirmAssistantSaveMemory: vi.fn(),
 }));

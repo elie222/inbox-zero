@@ -1139,6 +1139,7 @@ function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
     "replyEmail",
     "forwardEmail",
     "saveMemory",
+    "deleteMemory",
     "addToKnowledgeBase",
   ]);
 

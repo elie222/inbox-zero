@@ -53,6 +53,7 @@ const {
     },
     chatMemory: {
       create: vi.fn(),
+      deleteMany: vi.fn(),
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -2230,6 +2231,76 @@ describe("aiProcessAssistantChat", () => {
         },
       ],
     });
+  });
+
+  it("deleteMemory requires confirmation for a unique match and does not delete", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([
+      {
+        id: "memory-1",
+        content: "I like cats",
+      },
+    ]);
+
+    const result = await tools.deleteMemory.execute({ query: "cats" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: false,
+      actionType: "delete_memory",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      memoryId: "memory-1",
+      content: "I like cats",
+      reason:
+        "Memory deletion is pending UI confirmation and has not been applied yet.",
+      nextStep:
+        "Do not call deleteMemory again for this memory in the same turn. Tell the user it is pending confirmation instead.",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteMemory does not delete when multiple memories match", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([
+      {
+        id: "memory-1",
+        content: "I like cats",
+      },
+      {
+        id: "memory-2",
+        content: "My cat is named Maple",
+      },
+    ]);
+
+    const result = await tools.deleteMemory.execute({ query: "cat" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: false,
+      matches: [
+        { content: "I like cats" },
+        { content: "My cat is named Maple" },
+      ],
+      message:
+        "Multiple matching memories found. Ask the user which one to delete.",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deleteMemory does not delete when no memories match", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([]);
+
+    const result = await tools.deleteMemory.execute({ query: "dogs" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: false,
+      message: "No matching memory found.",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
   });
 
   it("saveMemory uses pre-compaction conversation messages when provided", async () => {

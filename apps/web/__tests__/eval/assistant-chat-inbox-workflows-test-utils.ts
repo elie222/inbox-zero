@@ -51,6 +51,7 @@ const writeToolNames = new Set([
   "createOrGetFolder",
   "moveThreadsToFolder",
   "saveMemory",
+  "deleteMemory",
   "addToKnowledgeBase",
 ]);
 

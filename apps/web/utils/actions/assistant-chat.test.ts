@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
+  confirmAssistantDeleteMemory,
   confirmAssistantEmailAction,
   confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
 import {
+  confirmAssistantDeleteMemoryForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
 } from "@/utils/actions/assistant-chat-confirmation";
@@ -1567,6 +1569,178 @@ describe("confirmAssistantSaveMemory", () => {
   });
 });
 
+describe("confirmAssistantDeleteMemory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("waits for pending memory deletion persistence when waitForPersistence is enabled", async () => {
+    vi.useFakeTimers();
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingDeleteMemoryPart()],
+        },
+      ] as any);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingDeleteMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    const resultPromise = confirmAssistantDeleteMemoryForAccount({
+      chatId: "chat-1",
+      toolCallId: "tool-1",
+      waitForPersistence: true,
+      emailAccountId: "ea_1",
+      logger: createTestLogger(),
+    });
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
+    expect(prisma.chatMemory.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "ea_1",
+        id: "memory-1",
+      },
+    });
+  });
+
+  it("deletes the pending memory after confirmation", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingDeleteMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    const result = await confirmAssistantDeleteMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(prisma.chatMemory.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "ea_1",
+        id: "memory-1",
+      },
+    });
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(result?.data?.confirmationResult).toEqual(
+      expect.objectContaining({
+        memoryId: "memory-1",
+        content: "I like cats",
+      }),
+    );
+    expect(result?.data?.confirmationResult?.alreadyDeleted).toBeUndefined();
+
+    const processingParts = (
+      prisma.chatMessage.updateMany.mock.calls[0][0] as any
+    ).data.parts as any[];
+    expect(processingParts[0].output.confirmationState).toBe("processing");
+
+    const confirmedParts = (
+      prisma.chatMessage.updateMany.mock.calls[1][0] as any
+    ).data.parts as any[];
+    expect(confirmedParts[0].output.confirmationState).toBe("confirmed");
+    expect(confirmedParts[0].output.deleted).toBe(true);
+    expect(confirmedParts[0].output.confirmationResult.memoryId).toBe(
+      "memory-1",
+    );
+  });
+
+  it("marks confirmed deletion as already deleted when the memory is gone", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingDeleteMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.deleteMany.mockResolvedValue({ count: 0 } as any);
+
+    const result = await confirmAssistantDeleteMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(result?.data?.confirmationResult).toEqual(
+      expect.objectContaining({
+        alreadyDeleted: true,
+      }),
+    );
+  });
+
+  it("returns a delete-memory specific in-progress error", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingDeleteMemoryPart()],
+    } as any);
+
+    const result = await confirmAssistantDeleteMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(result?.serverError).toBe(
+      "Memory deletion confirmation already in progress",
+    );
+    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+    expect(prisma.chatMemory.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
 function buildPendingSendPart() {
   return {
     type: "tool-sendEmail",
@@ -1725,6 +1899,39 @@ function buildProcessingSaveMemoryPart({
     ...buildPendingSaveMemoryPart(),
     output: {
       ...buildPendingSaveMemoryPart().output,
+      confirmationState: "processing",
+      confirmationProcessingAt: processingAt,
+    },
+  };
+}
+
+function buildPendingDeleteMemoryPart() {
+  return {
+    type: "tool-deleteMemory",
+    toolCallId: "tool-1",
+    state: "output-available",
+    output: {
+      success: true,
+      actionType: "delete_memory",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      memoryId: "memory-1",
+      content: "I like cats",
+      reason:
+        "Memory deletion is pending UI confirmation and has not been applied yet.",
+    },
+  };
+}
+
+function buildProcessingDeleteMemoryPart({
+  processingAt = new Date().toISOString(),
+}: {
+  processingAt?: string;
+} = {}) {
+  return {
+    ...buildPendingDeleteMemoryPart(),
+    output: {
+      ...buildPendingDeleteMemoryPart().output,
       confirmationState: "processing",
       confirmationProcessingAt: processingAt,
     },

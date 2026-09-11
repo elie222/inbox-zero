@@ -66,6 +66,11 @@ export type SettingsMemoryScenarioExpectation =
       allowEmptyQuery?: boolean;
       requireEmptyQuery?: boolean;
       forbiddenTools: string[];
+    }
+  | {
+      kind: "delete_memory";
+      forbiddenTools: string[];
+      semanticExpectation: string;
     };
 
 export type SettingsMemoryScenario = {
@@ -79,6 +84,7 @@ export type SettingsMemoryScenario = {
     | "knowledge_base"
     | "save_memory"
     | "search_memories"
+    | "delete_memory"
     | "combined_write";
   shape: "single_turn" | "multi_turn";
   realWorldSeed: "db-inspired" | "synthetic-gap";
@@ -365,6 +371,29 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
       forbiddenTools: ["saveMemory"],
       semanticExpectation:
         "A memory search query that looks up what the assistant knows about the user's newsletter preferences.",
+    },
+  },
+  {
+    id: "delete-memory-newsletter-afternoon",
+    title: "uses deleteMemory when asked to forget a saved preference",
+    reportName: "forget preference uses deleteMemory",
+    category: "delete_memory",
+    shape: "single_turn",
+    realWorldSeed: "synthetic-gap",
+    crossModelCanary: true,
+    prompt:
+      "I no longer want you to keep my newsletter afternoon batching preference.",
+    timeout: 120_000,
+    expectation: {
+      kind: "delete_memory",
+      forbiddenTools: [
+        "saveMemory",
+        "updatePersonalInstructions",
+        "addToKnowledgeBase",
+        "updateAssistantSettings",
+      ],
+      semanticExpectation:
+        "A memory deletion query that targets the saved preference about batching newsletters in the afternoon.",
     },
   },
   {
