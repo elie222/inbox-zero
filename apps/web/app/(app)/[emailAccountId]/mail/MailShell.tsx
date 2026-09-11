@@ -46,6 +46,7 @@ import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 import { extractEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
+import { BufferedThreadReader } from "@/app/(app)/[emailAccountId]/mail/BufferedThreadReader";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
@@ -216,12 +217,14 @@ export function MailShell() {
 
   const isAllAccounts = accountScope === "all";
   const setOpenThread = useCallback(
-    (selection: ThreadSelection | null) =>
-      setOpenThreadQuery({
+    (selection: ThreadSelection | null) => {
+      setIsMenuOpen(false);
+      return setOpenThreadQuery({
         "thread-id": selection?.threadId ?? null,
         "thread-account-id":
           isAllAccounts && selection ? selection.emailAccountId : null,
-      }),
+      });
+    },
     [isAllAccounts, setOpenThreadQuery],
   );
   const combinedAccounts = useMemo(
@@ -432,7 +435,12 @@ export function MailShell() {
   const deferredReaderSelection = useDeferredValue(openThreadSelection);
   const readerThreadKey = getThreadSelectionKey(deferredReaderSelection);
   const openReaderThreadKey = getThreadSelectionKey(openThreadSelection);
+  useLayoutEffect(() => {
+    if (openReaderThreadKey) setIsMenuOpen(false);
+  }, [openReaderThreadKey]);
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
+  const [visibleReaderThreadKey, setVisibleReaderThreadKey] =
+    useState<string>();
   const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
   const adjacentPrefetchScopeKey = `adjacent:${readerThreadKey ?? "none"}`;
   const threadSelections = useMemo(
@@ -492,6 +500,13 @@ export function MailShell() {
     readerSelectionSettled,
   ]);
   const actionTargets = useMemo(() => {
+    // Navigation can outpace the visible reader; do not act on an unseen email.
+    if (
+      openReaderThreadKey &&
+      openReaderThreadKey !== visibleReaderThreadKey &&
+      !selection.hasSelection
+    )
+      return [];
     const listTargets = threads.map((thread) => ({
       key: getListThreadKey(thread),
       messages: thread.messages,
@@ -515,6 +530,9 @@ export function MailShell() {
   }, [
     emailAccountId,
     focusedThread,
+    openReaderThreadKey,
+    visibleReaderThreadKey,
+    selection.hasSelection,
     openMessages,
     openThread,
     openThreadKey,
@@ -1563,64 +1581,74 @@ export function MailShell() {
 
         {showReader && (!openThreadSelection || readerEmailAccount) ? (
           <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
-            <ThreadReader
-              enableMessageNavigation={!sidePanelThreadId}
-              key={openReaderThreadKey ?? "empty"}
-              thread={openThread ?? null}
-              threadId={openThreadId}
-              detailSelectionSettled={readerSelectionSettled}
-              loading={
-                Boolean(openThreadSelection) &&
-                (!readerSelectionSettled || isOpenThreadLoading)
+            <BufferedThreadReader
+              key={readerEmailAccount?.id ?? "empty"}
+              threadKey={openReaderThreadKey ?? "empty"}
+              dataReady={
+                !openThreadSelection ||
+                (readerSelectionSettled &&
+                  Boolean(openThreadData || openThreadError))
               }
-              error={readerSelectionSettled ? openThreadError : undefined}
-              messages={openMessages}
-              userLabels={readerUserLabels}
-              layout={layout}
-              labelHref={labelHref}
-              onRemoveLabel={onRemoveLabel}
-              onBackToInbox={closeReader}
-              onArchive={archiveTargets}
-              refetch={refetchOpenThread}
-              onSendSuccess={(_messageId, sentThreadId) => {
-                if (
-                  !openThreadSelection ||
-                  !sentThreadId.trim() ||
-                  sentThreadId === openThreadSelection.threadId
-                )
-                  return;
-                setReplyToMessageId(undefined);
-                setOpenThread({
-                  emailAccountId: openThreadSelection.emailAccountId,
-                  threadId: sentThreadId,
-                });
-              }}
-              autoOpenReplyForMessageId={replyToMessageId}
-              autoOpenForwardForMessageId={forwardToMessageId}
-              menu={
-                <ThreadActionsMenu
-                  plans={openThread?.plans ?? []}
-                  message={openMessages.at(-1) ?? null}
-                  setChatInput={setChatInput}
-                  isUnread={isOpenThreadUnread}
-                  onMarkSpam={markSpamTargets}
-                  onDelete={trashTargets}
-                  onLabel={canLabel ? openLabelPicker : undefined}
-                  onMove={canLabel ? openMovePicker : undefined}
-                  onMarkRead={() => {
-                    if (!openThreadKey) return;
-                    setReadState([openThreadKey], true);
-                  }}
-                  onMarkUnread={markUnreadTargets}
-                  showFixWithChat={
-                    !isAllAccounts ||
-                    openThreadSelection?.emailAccountId === emailAccountId
-                  }
-                  open={isMenuOpen}
-                  onOpenChange={setIsMenuOpen}
-                />
-              }
-            />
+              onReady={setVisibleReaderThreadKey}
+            >
+              <ThreadReader
+                enableMessageNavigation={!sidePanelThreadId}
+                thread={openThread ?? null}
+                threadId={openThreadId}
+                detailSelectionSettled={readerSelectionSettled}
+                loading={
+                  Boolean(openThreadSelection) &&
+                  (!readerSelectionSettled || isOpenThreadLoading)
+                }
+                error={readerSelectionSettled ? openThreadError : undefined}
+                messages={openMessages}
+                userLabels={readerUserLabels}
+                layout={layout}
+                labelHref={labelHref}
+                onRemoveLabel={onRemoveLabel}
+                onBackToInbox={closeReader}
+                onArchive={archiveTargets}
+                refetch={refetchOpenThread}
+                onSendSuccess={(_messageId, sentThreadId) => {
+                  if (
+                    !openThreadSelection ||
+                    !sentThreadId.trim() ||
+                    sentThreadId === openThreadSelection.threadId
+                  )
+                    return;
+                  setReplyToMessageId(undefined);
+                  setOpenThread({
+                    emailAccountId: openThreadSelection.emailAccountId,
+                    threadId: sentThreadId,
+                  });
+                }}
+                autoOpenReplyForMessageId={replyToMessageId}
+                autoOpenForwardForMessageId={forwardToMessageId}
+                menu={
+                  <ThreadActionsMenu
+                    plans={openThread?.plans ?? []}
+                    message={openMessages.at(-1) ?? null}
+                    setChatInput={setChatInput}
+                    isUnread={isOpenThreadUnread}
+                    onMarkSpam={markSpamTargets}
+                    onDelete={trashTargets}
+                    onLabel={canLabel ? openLabelPicker : undefined}
+                    onMove={canLabel ? openMovePicker : undefined}
+                    onMarkRead={() => {
+                      if (!openThreadKey) return;
+                      setReadState([openThreadKey], true);
+                    }}
+                    onMarkUnread={markUnreadTargets}
+                    showFixWithChat={
+                      !isAllAccounts ||
+                      openThreadSelection?.emailAccountId === emailAccountId
+                    }
+                    open={isMenuOpen}
+                    onOpenChange={setIsMenuOpen}
+                  />
+                }
+              />
+            </BufferedThreadReader>
           </EmailAccountScopeProvider>
         ) : null}
 

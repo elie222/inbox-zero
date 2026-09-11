@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "linkifyjs": "4.3.3",
-    "parse5": "8.0.0"
+    "parse5": "8.0.1"
   },
   "peerDependencies": {
     "@tiptap/core": "3.30.2",

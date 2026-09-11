@@ -34,6 +34,10 @@ vi.mock("@/utils/llms", () => ({
   createGenerateObject: vi.fn(() => vi.fn()),
 }));
 
+vi.mock("@/utils/llms/model", () => ({
+  getModel: vi.fn(() => ({ model: "test-model" })),
+}));
+
 const mockProvider = {
   hasPreviousCommunicationsWithSenderOrDomain: vi.fn().mockResolvedValue(false),
 };

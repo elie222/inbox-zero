@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   // Sequential Playwright feature groups use separate dev servers. Isolating
   // their caches prevents a new Turbopack process from restoring stale tasks.
-  ...(playwrightRunId
+  ...(playwrightRunId && !isProductionBuild
     ? {
         devIndicators: false,
         distDir: path.join(".tmp", "playwright", playwrightRunId, "next"),

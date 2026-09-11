@@ -173,6 +173,11 @@ test("renders a cached thread body when the reader request is offline", async ({
     emailAccountId,
   );
   await leaveThreadReader(page, emailAccountId);
+  // Keep sync offline too: a successful read-status delta correctly invalidates
+  // the seeded detail and would turn this into a partial-connectivity test.
+  await page.route("**/api/mobile/mailbox-sync", (route) =>
+    route.abort("connectionfailed"),
+  );
   await page.route(threadDetailRoute(threadId), (route) =>
     route.abort("connectionfailed"),
   );
