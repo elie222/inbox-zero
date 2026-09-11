@@ -11,6 +11,7 @@ import {
   isSentMessageOpenToken,
   SENT_MESSAGE_OPEN_TOKEN_LENGTH,
   sentMessageOpenPath,
+  stripSentMessageOpenPixels,
 } from "@/utils/email/sent-message-open";
 
 export function createSentMessageOpenToken() {
@@ -61,7 +62,7 @@ export async function withSentMessageOpenTracking({
     email: {
       ...email,
       messageHtml: appendSentMessageOpenPixel(
-        email.messageHtml,
+        stripSentMessageOpenPixels(email.messageHtml),
         toAbsoluteUrl(sentMessageOpenPath(token)),
       ),
     },
@@ -107,7 +108,10 @@ export async function recordSentMessageOpen(token: string) {
   });
   if (firstOpen.count > 0) return;
   await prisma.sentMessageOpen.updateMany({
-    where: { token },
+    where: {
+      token,
+      lastOpenedAt: { lt: new Date(now.getTime() - 5000) },
+    },
     data: { lastOpenedAt: now, openCount: { increment: 1 } },
   });
 }

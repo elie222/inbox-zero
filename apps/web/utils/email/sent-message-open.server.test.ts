@@ -66,6 +66,30 @@ describe("withSentMessageOpenTracking", () => {
     expect(result).toEqual({ email, token: null });
     expect(prisma.sentMessageOpen.create).not.toHaveBeenCalled();
   });
+
+  it("strips quoted tracking pixels so a reply does not re-embed the original token", async () => {
+    const { withSentMessageOpenTracking } = await import(
+      "./sent-message-open.server"
+    );
+    const quotedToken = "abcdefghijklmnopqrstuvwxyz012345";
+    const result = await withSentMessageOpenTracking({
+      emailAccountId: "account-1",
+      email: {
+        to: "a@example.com",
+        subject: "Re: Hi",
+        messageHtml: `<p>Thanks</p><blockquote><img src="https://app.example.com/t/${quotedToken}" width="1" height="1" /></blockquote>`,
+      },
+      logger: createTestLogger(),
+    });
+
+    expect(result.email.messageHtml).not.toContain(quotedToken);
+    expect(result.email.messageHtml).toContain(
+      `https://app.example.com/t/${result.token}`,
+    );
+    expect(result.email.messageHtml.match(/\/t\/[A-Za-z0-9_-]{32}/g)).toEqual([
+      `/t/${result.token}`,
+    ]);
+  });
 });
 
 describe("recordSentMessageOpen", () => {
@@ -107,7 +131,10 @@ describe("recordSentMessageOpen", () => {
     await recordSentMessageOpen("abcdefghijklmnopqrstuvwxyz012345");
 
     expect(prisma.sentMessageOpen.updateMany).toHaveBeenNthCalledWith(2, {
-      where: { token: "abcdefghijklmnopqrstuvwxyz012345" },
+      where: {
+        token: "abcdefghijklmnopqrstuvwxyz012345",
+        lastOpenedAt: { lt: expect.any(Date) },
+      },
       data: {
         lastOpenedAt: expect.any(Date),
         openCount: { increment: 1 },

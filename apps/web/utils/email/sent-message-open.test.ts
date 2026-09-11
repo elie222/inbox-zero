@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendSentMessageOpenPixel,
   describeSentMessageOpen,
+  isSameOriginSentMessageOpenRequest,
   isSentMessageOpenPixelUrl,
   isSentMessageOpenToken,
   sentMessageOpenPath,
@@ -68,6 +69,46 @@ describe("stripSentMessageOpenPixels", () => {
   it("leaves other images in place", () => {
     const html = `<p>Hi</p><img src="https://cdn.example.com/photo.png" alt="Photo">`;
     expect(stripSentMessageOpenPixels(html)).toBe(html);
+  });
+
+  it("strips quoted and unquoted tracking pixels from reply html", () => {
+    const html = [
+      "<p>Thanks</p>",
+      "<blockquote>",
+      `<img width=1 height=1 src=${pixelUrl} alt="">`,
+      "</blockquote>",
+      `<img src="https://cdn.example.com/logo.png">`,
+    ].join("");
+
+    expect(stripSentMessageOpenPixels(html)).toBe(
+      '<p>Thanks</p><blockquote></blockquote><img src="https://cdn.example.com/logo.png">',
+    );
+  });
+});
+
+describe("isSameOriginSentMessageOpenRequest", () => {
+  it("ignores pixel loads from the mail client origin", () => {
+    expect(
+      isSameOriginSentMessageOpenRequest({
+        requestUrl: pixelUrl,
+        referer: "https://app.example.com/mail/sent",
+      }),
+    ).toBe(true);
+  });
+
+  it("counts opens from other origins and missing referers", () => {
+    expect(
+      isSameOriginSentMessageOpenRequest({
+        requestUrl: pixelUrl,
+        referer: "https://mail.example.com/",
+      }),
+    ).toBe(false);
+    expect(
+      isSameOriginSentMessageOpenRequest({
+        requestUrl: pixelUrl,
+        referer: null,
+      }),
+    ).toBe(false);
   });
 });
 
