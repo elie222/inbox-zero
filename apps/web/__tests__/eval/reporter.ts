@@ -676,12 +676,39 @@ function buildEvalCacheKey({
   });
 }
 
-function getGitFingerprint(): { diffHash: string | null; head: string | null } {
+function getGitFingerprint(): {
+  diffHash: string | null;
+  head: string | null;
+  untrackedHash: string | null;
+} {
   const repoRoot = findWorkspaceRoot(process.cwd());
   return {
     head: readGitOutput(repoRoot, ["rev-parse", "HEAD"]),
-    diffHash: hashString(readGitOutput(repoRoot, ["diff", "--no-ext-diff"])),
+    diffHash: hashString(
+      readGitOutput(repoRoot, ["diff", "--no-ext-diff", "HEAD"]),
+    ),
+    untrackedHash: hashUntrackedFiles(repoRoot),
   };
+}
+
+function hashUntrackedFiles(repoRoot: string): string | null {
+  const output = readGitOutput(repoRoot, [
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+    "-z",
+  ]);
+  if (output == null) return null;
+
+  const hash = crypto.createHash("sha256");
+  for (const relativePath of output.split("\0").filter(Boolean).sort()) {
+    hash.update(relativePath);
+    const fullPath = path.join(repoRoot, relativePath);
+    hash.update(
+      fs.existsSync(fullPath) ? fs.readFileSync(fullPath) : "missing",
+    );
+  }
+  return hash.digest("hex");
 }
 
 function readGitOutput(cwd: string, args: string[]): string | null {
@@ -690,7 +717,7 @@ function readGitOutput(cwd: string, args: string[]): string | null {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    }).replace(/\n$/, "");
   } catch {
     return null;
   }

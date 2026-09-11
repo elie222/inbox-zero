@@ -68,41 +68,41 @@ test("target names round-trip spec paths that contain underscores", () => {
   }
 });
 
-test("batches a full selection without losing or repeating specs", () => {
-  const targets = Array.from({ length: 43 }, (_, index) => ({
-    name: `spec-${index}`,
-    path: `__tests__/playwright/emulated/mail/spec-${index}.spec.ts`,
+test("feature groups preserve every selected spec, including unassigned and nested specs", () => {
+  const paths = [
+    "mail/compose-and-reply.spec.ts",
+    "mail/contact-autocomplete.spec.ts",
+    "mail/offline-outbox.spec.ts",
+    "mail/new-behavior.spec.ts",
+    "mail/nested/new-behavior.spec.ts",
+    "settings/appearance.spec.ts",
+  ];
+  const targets = paths.map((spec) => ({
+    name: getPlaywrightTargetName(spec),
+    path: `__tests__/playwright/emulated/${spec}`,
   }));
   const batches = batchPlaywrightTargets(targets);
-
-  expect(batches).toHaveLength(20);
-  expect(new Set(batches.map(({ name }) => name)).size).toBe(20);
   expect(batches.flatMap(({ paths }) => paths).sort()).toEqual(
-    targets.map(({ path: specPath }) => specPath).sort(),
+    targets.map(({ path }) => path).sort(),
   );
-  expect(
-    batches.every(({ paths }) => paths.length >= 2 && paths.length <= 3),
-  ).toBe(true);
-  expect(
-    batches.map(
-      ({ timeoutMinutes, paths }) => (timeoutMinutes - 4) / paths.length,
-    ),
-  ).toEqual(new Array(20).fill(8));
+  expect(batches.find(({ name }) => name === "mail-compose")?.paths).toEqual(
+    targets.slice(0, 2).map(({ path }) => path),
+  );
+  expect(batches.find(({ name }) => name === "mail")?.paths).toEqual(
+    targets.slice(3, 5).map(({ path }) => path),
+  );
+  expect(new Set(batches.map(({ name }) => name)).size).toBe(batches.length);
 });
 
-test("keeps focused selections parallel and creates no empty jobs", () => {
+test("focused selections keep their feature names without adding unselected specs", () => {
   expect(batchPlaywrightTargets([])).toEqual([]);
-  const targets = [
-    { name: "mail_slayout.spec.ts", path: "mail/layout.spec.ts" },
-    { name: "settings_sdialog.spec.ts", path: "settings/dialog.spec.ts" },
-  ];
-  expect(batchPlaywrightTargets(targets)).toEqual(
-    targets.map(({ name, path: specPath }) => ({
-      name,
-      paths: [specPath],
-      timeoutMinutes: 12,
-    })),
-  );
+  const target = {
+    name: "mail_scontact-autocomplete.spec.ts",
+    path: "__tests__/playwright/emulated/mail/contact-autocomplete.spec.ts",
+  };
+  expect(batchPlaywrightTargets([target])).toEqual([
+    { name: "mail-compose", paths: [target.path], timeoutMinutes: 12 },
+  ]);
 });
 
 test.each([

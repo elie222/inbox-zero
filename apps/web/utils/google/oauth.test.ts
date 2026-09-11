@@ -94,6 +94,8 @@ describe("google oauth helpers", () => {
       json: vi.fn().mockResolvedValue({
         sub: "google-user-1",
         email: "user@example.com",
+        email_verified: true,
+        hd: "example.com",
         picture: null,
       }),
     } as unknown as Response);
@@ -101,6 +103,8 @@ describe("google oauth helpers", () => {
     await expect(oauth.fetchGoogleOpenIdProfile("token")).resolves.toEqual({
       sub: "google-user-1",
       email: "user@example.com",
+      email_verified: true,
+      hd: "example.com",
       picture: null,
     });
     expect(global.fetch).toHaveBeenCalledWith(

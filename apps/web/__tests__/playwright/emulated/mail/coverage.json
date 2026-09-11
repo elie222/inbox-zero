@@ -94,5 +94,11 @@
   "reader-transition.spec.ts": [
     "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
     "components/email-list/BufferedEmailIframe.tsx"
+  ],
+  "message-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "utils/threads/load.ts"
   ]
 }

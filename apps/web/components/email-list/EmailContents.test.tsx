@@ -28,6 +28,8 @@ vi.mock("@/env", () => ({
 }));
 
 import { HtmlEmail, PlainEmail } from "./EmailContents";
+import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
+import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -272,6 +274,66 @@ describe("HtmlEmail", () => {
         640,
       ),
     );
+  });
+
+  it("runs archive and snooze shortcuts from a focused email body", () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const archive = vi.fn();
+    const snooze = vi.fn();
+    function MailShortcuts() {
+      useShortcuts({ archive, snooze });
+      return (
+        <HtmlEmail html="<p>Message body</p>" messageId="message-shortcuts" />
+      );
+    }
+    const { getByTitle } = render(
+      <ShortcutsProvider scopes={["global", "mail"]}>
+        <MailShortcuts />
+      </ShortcutsProvider>,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    iframe.focus();
+    for (const [key, code] of [
+      ["e", "KeyE"],
+      ["h", "KeyH"],
+    ]) {
+      fireEvent.keyDown(iframe.contentDocument!.body, { key, code });
+      fireEvent.keyUp(iframe.contentDocument!.body, { key, code });
+    }
+    expect(archive).toHaveBeenCalledOnce();
+    expect(snooze).toHaveBeenCalledOnce();
+  });
+
+  it("bubbles unhandled email keys to the app without stealing typing", () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Message body</p>" messageId="message-shortcuts" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    const onKey = vi.fn((event: KeyboardEvent) => event.preventDefault());
+    document.addEventListener("keydown", onKey);
+    try {
+      for (const key of ["e", "h"]) {
+        expect(fireEvent.keyDown(iframe.contentDocument!.body, { key })).toBe(
+          false,
+        );
+      }
+      expect(onKey).toHaveBeenCalledTimes(2);
+      const input = iframe.contentDocument!.createElement("input");
+      iframe.contentDocument!.body.append(input);
+      fireEvent.keyDown(input, { key: "e" });
+      fireEvent.keyDown(iframe.contentDocument!.body, {
+        key: "e",
+        isComposing: true,
+      });
+      expect(onKey).toHaveBeenCalledTimes(2);
+    } finally {
+      document.removeEventListener("keydown", onKey);
+    }
   });
 
   it("forwards with F while focus is inside the email document", () => {

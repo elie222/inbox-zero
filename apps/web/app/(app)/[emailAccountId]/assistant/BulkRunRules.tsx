@@ -75,6 +75,7 @@ export function BulkRunRules() {
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [includeRead, setIncludeRead] = useState(false);
   const [rerun, setRerun] = useState(false);
+  const [generateDraftReplies, setGenerateDraftReplies] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
 
@@ -120,6 +121,7 @@ export function BulkRunRules() {
           startDate,
           endDate,
           includeRead,
+          generateDraftReplies,
           rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
@@ -236,6 +238,16 @@ export function BulkRunRules() {
                 />
                 {!hasRerunAccess && <ProfessionalPlanBadge />}
               </div>
+
+              <Toggle
+                name="generate-draft-replies"
+                ariaLabel="Generate draft replies"
+                label="Generate draft replies"
+                enabled={generateDraftReplies}
+                onChange={setGenerateDraftReplies}
+                disabled={isBusy}
+                explainText="Run draft reply actions from your rules for these emails, including drafts sent to connected messaging channels. Off by default."
+              />
 
               {isTrial && (
                 <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
