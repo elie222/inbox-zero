@@ -49,6 +49,7 @@ type ComposeSession = { id: number; mode: ReplyDraftMode };
 
 export function EmailMessage({
   message,
+  menu,
   refetch,
   showReplyButton,
   defaultComposeMode,
@@ -64,6 +65,7 @@ export function EmailMessage({
   onNavigateMessage,
 }: {
   message: ThreadMessage;
+  menu?: React.ReactNode;
   draftMessage?: ThreadMessage;
   refetch: () => void;
   showReplyButton: boolean;
@@ -180,6 +182,7 @@ export function EmailMessage({
       <MessageHeader
         expanded={expanded}
         message={message}
+        menu={menu}
         onForward={onForward}
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
@@ -244,6 +247,7 @@ export function EmailMessage({
  */
 function MessageHeader({
   message,
+  menu,
   expanded,
   showDetails,
   toggleDetails,
@@ -256,6 +260,7 @@ function MessageHeader({
   hasDraft,
 }: {
   message: ParsedMessage;
+  menu?: React.ReactNode;
   expanded: boolean;
   showDetails: boolean;
   toggleDetails: (e: React.MouseEvent) => void;
@@ -412,35 +417,35 @@ function MessageHeader({
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {showReplyButton && (
-          <span
-            className={cn(
-              "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
-              expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
+        {(showReplyButton || menu) && (
+          <span className="flex shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 has-[[data-state=open]]:opacity-100 sm:opacity-0">
+            {showReplyButton && (
+              <>
+                <Tooltip content="Reply">
+                  <Button
+                    className="size-7 text-muted-foreground"
+                    onClick={compose(onReply)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <ReplyIcon className="size-3.5" />
+                    <span className="sr-only">Reply</span>
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Forward">
+                  <Button
+                    className="size-7 text-muted-foreground"
+                    onClick={compose(onForward)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <ForwardIcon className="size-3.5" />
+                    <span className="sr-only">Forward</span>
+                  </Button>
+                </Tooltip>
+              </>
             )}
-          >
-            <Tooltip content="Reply">
-              <Button
-                className="size-7 text-muted-foreground"
-                onClick={compose(onReply)}
-                size="icon"
-                variant="ghost"
-              >
-                <ReplyIcon className="size-3.5" />
-                <span className="sr-only">Reply</span>
-              </Button>
-            </Tooltip>
-            <Tooltip content="Forward">
-              <Button
-                className="size-7 text-muted-foreground"
-                onClick={compose(onForward)}
-                size="icon"
-                variant="ghost"
-              >
-                <ForwardIcon className="size-3.5" />
-                <span className="sr-only">Forward</span>
-              </Button>
-            </Tooltip>
+            {menu}
           </span>
         )}
         <time
