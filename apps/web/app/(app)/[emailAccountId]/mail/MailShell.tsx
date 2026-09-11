@@ -1630,6 +1630,8 @@ export function MailShell() {
                     message={openMessages.at(-1) ?? null}
                     setChatInput={setChatInput}
                     isUnread={isOpenThreadUnread}
+                    isStarred={allStarred}
+                    onToggleStar={starTargets}
                     onMarkSpam={markSpamTargets}
                     onDelete={trashTargets}
                     onLabel={canLabel ? openLabelPicker : undefined}

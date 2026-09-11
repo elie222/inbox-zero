@@ -53,4 +53,12 @@ test("toggles a star with S and the command palette while preserving unread", as
   await capturePlaywrightCheckpoint(page, testInfo, "starred-reader-subject");
   await page.keyboard.press("s");
   await expect(readerStarStatus).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const actionsMenu = page.getByRole("menu");
+  await actionsMenu.getByRole("menuitem", { name: /^Star/ }).click();
+  await expect(readerStarStatus).toBeVisible();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await actionsMenu.getByRole("menuitem", { name: /^Unstar/ }).click();
+  await expect(readerStarStatus).toHaveCount(0);
 });
