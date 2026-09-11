@@ -3,6 +3,11 @@ export type DesktopAuthProvider = "apple" | "google" | "microsoft";
 export const DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
 export type InboxZeroDesktopApi = {
+  setUnreadCount?: (count: number) => void;
+  notifyNewMail?: (payload: {
+    emailAccountId: string;
+    messages: { id: string; receivedAt: number }[];
+  }) => void;
   startAuth: (
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },

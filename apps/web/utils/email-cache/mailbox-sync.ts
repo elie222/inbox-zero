@@ -1,6 +1,7 @@
 import type { MailboxSyncResponse } from "@/app/api/mobile/mailbox-sync/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ONE_DAY_MS } from "@/utils/date";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { captureEmailCacheEpoch, isEmailCacheEpochCurrent } from "./database";
 import { applyMailboxSyncPage, readMailboxSyncState } from "./mailbox";
 
@@ -85,6 +86,31 @@ export async function syncMailboxPages({
       now: now?.getTime() ?? Date.now(),
     });
     if (!applied) throw new Error("Mailbox sync page was not persisted");
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
+      return { hasMore: false, pagesSynced };
+    }
+    const notifyNewMail = getInboxZeroDesktopApp()?.notifyNewMail;
+    if (notifyNewMail) {
+      const messages = page.upsertedMessages
+        .filter(
+          (message) =>
+            message.labelIds?.includes("INBOX") &&
+            message.labelIds.includes("UNREAD"),
+        )
+        .map((message) => ({
+          id: message.id,
+          receivedAt: Number.isFinite(Number(message.internalDate))
+            ? Number(message.internalDate)
+            : Date.parse(message.internalDate ?? ""),
+        }));
+      // Provider history pages can expand beyond the desktop IPC batch limit.
+      for (let offset = 0; offset < messages.length; offset += 100) {
+        notifyNewMail({
+          emailAccountId,
+          messages: messages.slice(offset, offset + 100),
+        });
+      }
+    }
     pagesSynced += 1;
     hasMore = page.hasMore;
     input = { cursor: page.cursor, limit: DEFAULT_PAGE_LIMIT };
