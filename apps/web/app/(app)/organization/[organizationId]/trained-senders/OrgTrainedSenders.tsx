@@ -67,7 +67,8 @@ export function OrgTrainedSenders({
         />
         {data && (
           <MutedText>
-            {data.total} trained sender{data.total === 1 ? "" : "s"} total
+            {data.total} trained sender{data.total === 1 ? "" : "s"} total ·{" "}
+            {data.unsubscribed} unsubscribed
           </MutedText>
         )}
       </div>

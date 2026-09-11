@@ -110,7 +110,8 @@ export function TrainedSenders({
         />
         {data && (
           <MutedText>
-            {data.total} sender{data.total === 1 ? "" : "s"} total
+            {data.total} sender{data.total === 1 ? "" : "s"} total ·{" "}
+            {data.unsubscribed} unsubscribed
           </MutedText>
         )}
       </div>
