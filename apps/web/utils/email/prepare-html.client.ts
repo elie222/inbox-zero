@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { env } from "@/env";
 import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
+import { stripSentMessageOpenPixels } from "@/utils/email/sent-message-open";
 
 export const IMAGE_PROXY_BASE_URL = getImageProxyBaseUrl({
   baseUrl: env.NEXT_PUBLIC_BASE_URL,
@@ -24,10 +25,13 @@ const inFlightPreparation = new Map<
 >();
 
 export function sanitizeEmailHtml(html: string) {
-  return `<!doctype html>${DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true },
-    WHOLE_DOCUMENT: true,
-  })}`;
+  return `<!doctype html>${DOMPurify.sanitize(
+    stripSentMessageOpenPixels(html),
+    {
+      USE_PROFILES: { html: true },
+      WHOLE_DOCUMENT: true,
+    },
+  )}`;
 }
 
 export function getPreparedEmailHtml({

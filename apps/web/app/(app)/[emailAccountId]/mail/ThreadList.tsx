@@ -19,7 +19,9 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSentMessageOpensForThreads } from "@/hooks/useSentMessageOpens";
 import { cn } from "@/utils";
+import { GmailLabel } from "@/utils/gmail/label";
 
 export type ThreadListProps = {
   threads: ListThread[];
@@ -41,6 +43,7 @@ export type ThreadListProps = {
   onLoadMore: () => void;
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
+  showSentOpenStatus?: boolean;
 };
 
 export function ThreadList({
@@ -61,6 +64,7 @@ export function ThreadList({
   isLoadingMore,
   onLoadMore,
   listKey,
+  showSentOpenStatus = false,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
@@ -73,6 +77,20 @@ export function ThreadList({
   const focusedThreadId = threads[focusedIndex]
     ? getListThreadKey(threads[focusedIndex])
     : undefined;
+  const sentThreadIds = useMemo(
+    () =>
+      showSentOpenStatus
+        ? threads
+            .filter((thread) =>
+              thread.messages.at(-1)?.labelIds?.includes(GmailLabel.SENT),
+            )
+            .map((thread) => thread.id)
+            .slice(0, 100)
+        : [],
+    [showSentOpenStatus, threads],
+  );
+  const { data: sentMessageOpens } =
+    useSentMessageOpensForThreads(sentThreadIds);
   const dayStart = useDayStart();
   const dateGroups = useMemo(
     () => groupThreadsByDate(threads, new Date(dayStart)),
@@ -181,6 +199,13 @@ export function ThreadList({
                         }
                         selectionEnabled={selectionEnabled}
                         thread={thread}
+                        sentMessageOpen={
+                          showSentOpenStatus
+                            ? sentMessageOpens?.opens[
+                                thread.messages.at(-1)?.id ?? ""
+                              ]
+                            : undefined
+                        }
                         userEmail={userEmail}
                         userLabels={
                           "account" in thread

@@ -36,6 +36,7 @@ async function getEmailAccount({
       signature: true,
       includeReferralSignature: true,
       includeSentWithSignature: true,
+      sentMessageOpenTrackingEnabled: true,
       writingStyle: true,
       filingEnabled: true,
       filingPrompt: true,

@@ -135,6 +135,7 @@ model EmailAccount {
   signature                      String? // User's email signature from provider or manually set
   includeReferralSignature       Boolean   @default(false)
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
+  sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
   watchEmailsExpirationDate      DateTime?
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
@@ -212,6 +213,7 @@ model EmailAccount {
   scheduledActions    ScheduledAction[]
   snoozedThreads      SnoozedThread[]
   emailSendOperations EmailSendOperation[]
+  sentMessageOpens    SentMessageOpen[]
   scheduledEmails     ScheduledEmail[]
   responseTimes       ResponseTime[]
   actions             Action[]
@@ -912,6 +914,28 @@ model EmailSendOperation {
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, updatedAt])
+}
+
+// Open status for emails sent from the mail client. A unique token is embedded
+// as a 1x1 image; loading that image records that the message was displayed.
+model SentMessageOpen {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  token     String   @unique
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  threadId  String?
+  messageId String?
+
+  firstOpenedAt DateTime?
+  lastOpenedAt  DateTime?
+  openCount     Int       @default(0)
+
+  @@unique([emailAccountId, messageId])
+  @@index([emailAccountId, threadId])
 }
 
 // Notes:
