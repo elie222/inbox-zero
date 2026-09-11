@@ -188,10 +188,9 @@ function ThreadHistory({
     page,
     ruleId,
     threadId,
+    excludeMessageId: latestMessageId,
   });
-  const results =
-    data?.results.filter((result) => result.messageId !== latestMessageId) ??
-    [];
+  const results = data?.results ?? [];
   const ids = results.map((result) => result.messageId);
   const {
     data: messagesData,

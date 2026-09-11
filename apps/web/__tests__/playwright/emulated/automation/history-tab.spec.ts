@@ -104,7 +104,7 @@ test("groups conversations and lazily pages older messages without duplicating t
   });
   expect(summary.results[0].executedRules).toHaveLength(2);
 
-  const detailsUrl = `${historyUrl}?ruleId=${HISTORY_RULE_ID}&threadId=thr_playwright_1`;
+  const detailsUrl = `${historyUrl}?ruleId=${HISTORY_RULE_ID}&threadId=thr_playwright_1&excludeMessageId=msg_playwright_1`;
   const firstPage = await (
     await page.request.get(detailsUrl, { headers })
   ).json();
@@ -113,14 +113,14 @@ test("groups conversations and lazily pages older messages without duplicating t
   ).json();
   expect(firstPage.totalPages).toBe(2);
   expect(firstPage.results).toHaveLength(50);
-  expect(secondPage.results).toHaveLength(2);
+  expect(secondPage.results).toHaveLength(1);
   expect(
     new Set(
       [...firstPage.results, ...secondPage.results].map(
         (result) => result.messageId,
       ),
     ).size,
-  ).toBe(52);
+  ).toBe(51);
   const unknownThread = await (
     await page.request.get(`${historyUrl}?threadId=unknown`, { headers })
   ).json();
@@ -160,7 +160,7 @@ test("groups conversations and lazily pages older messages without duplicating t
   await expect(page.getByText("Page 1 of 2", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Email unavailable", { exact: true }),
-  ).toHaveCount(49);
+  ).toHaveCount(50);
   await expect(page.getByText("Applied manually", { exact: true })).toHaveCount(
     1,
   );
@@ -174,7 +174,7 @@ test("groups conversations and lazily pages older messages without duplicating t
   await expect(page.getByText("Page 2 of 2", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Email unavailable", { exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(1);
   await expect(
     page.getByRole("button", { name: "Next messages", exact: true }),
   ).toBeDisabled();
@@ -230,4 +230,18 @@ test("paginates whole conversations with stable ordering for tied dates", async 
     await page.request.get(`${url}&page=invalid`, { headers })
   ).json();
   expect(invalid.results).toEqual(first.results);
+  await seedAutomationThreadHistory(emailAccountId, 0, 50);
+  const olderMessages = await (
+    await page.request.get(
+      `${url}&threadId=thr_playwright_1&excludeMessageId=msg_playwright_1`,
+      { headers },
+    )
+  ).json();
+  expect(olderMessages.totalPages).toBe(1);
+  expect(olderMessages.results).toHaveLength(50);
+  expect(
+    olderMessages.results.map(
+      (result: { messageId: string }) => result.messageId,
+    ),
+  ).not.toContain("msg_playwright_1");
 });

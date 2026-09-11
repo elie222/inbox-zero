@@ -133,6 +133,7 @@ export async function seedAutomationHistory(emailAccountId: string) {
 export async function seedAutomationThreadHistory(
   emailAccountId: string,
   additionalThreads = 0,
+  olderMessageCount = 51,
 ) {
   await seedAutomationHistory(emailAccountId);
   await withClient(async (client) => {
@@ -143,8 +144,13 @@ export async function seedAutomationThreadHistory(
        SELECT $1 || '-' || n, 'thr_playwright_1', 'history-message-' || n,
               'APPLIED', true, 'Older conversation message', $2, $3,
               CURRENT_TIMESTAMP - n * INTERVAL '1 minute', CURRENT_TIMESTAMP
-       FROM generate_series(1, 51) AS n`,
-      [HISTORY_EXECUTED_RULE_ID, HISTORY_RULE_ID, emailAccountId],
+       FROM generate_series(1, $4::int) AS n`,
+      [
+        HISTORY_EXECUTED_RULE_ID,
+        HISTORY_RULE_ID,
+        emailAccountId,
+        olderMessageCount,
+      ],
     );
     await client.query(
       `INSERT INTO "ExecutedRule"

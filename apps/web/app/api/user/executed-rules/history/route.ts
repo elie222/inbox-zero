@@ -24,6 +24,9 @@ export const GET = withEmailAccount(
         ? requestedPage
         : 1;
     const threadId = url.searchParams.get("threadId") || undefined;
+    const excludeMessageId = threadId
+      ? url.searchParams.get("excludeMessageId") || undefined
+      : undefined;
     const ruleId = url.searchParams.get("ruleId") || "all";
 
     const result = await getExecutedRules({
@@ -31,6 +34,7 @@ export const GET = withEmailAccount(
       ruleId,
       emailAccountId,
       threadId,
+      excludeMessageId,
     });
 
     return NextResponse.json(result);
@@ -42,11 +46,13 @@ async function getExecutedRules({
   ruleId,
   emailAccountId,
   threadId,
+  excludeMessageId,
 }: {
   page: number;
   ruleId?: string;
   emailAccountId: string;
   threadId?: string;
+  excludeMessageId?: string;
 }) {
   const conditions = [Prisma.sql`"emailAccountId" = ${emailAccountId}`];
   if (ruleId === "skipped") {
@@ -62,6 +68,9 @@ async function getExecutedRules({
     }
   }
   if (threadId) conditions.push(Prisma.sql`"threadId" = ${threadId}`);
+  if (excludeMessageId) {
+    conditions.push(Prisma.sql`"messageId" != ${excludeMessageId}`);
+  }
   const where = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
   const groupColumn = threadId
     ? Prisma.sql`"messageId"`
