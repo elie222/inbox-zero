@@ -42,7 +42,7 @@ describe("getThreadParticipantMessagesInBatches", () => {
             "https://graph.microsoft.com",
           );
           expect(requestUrl.searchParams.get("$filter")).toBe(
-            "conversationId eq 'thread-1'",
+            "conversationId eq 'thread-1' and isDraft eq false",
           );
 
           return {

@@ -119,7 +119,8 @@ export async function getThreadParticipantMessagesInBatches({
     requestIdToThreadId.set(requestId, threadId);
 
     const searchParams = new URLSearchParams({
-      $filter: `conversationId eq '${escapeODataString(threadId)}'`,
+      // Unsent drafts would otherwise appear as senders in thread names.
+      $filter: `conversationId eq '${escapeODataString(threadId)}' and isDraft eq false`,
       $select: THREAD_PARTICIPANT_SELECT_FIELDS,
       $top: "100",
     });
