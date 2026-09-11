@@ -421,7 +421,7 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   await page.keyboard.press("Escape");
   await expect(palette).toBeHidden();
   await page.keyboard.press("KeyF");
-  await expect(page.getByRole("textbox", { name: "To" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "To" })).toBeVisible();
 });
 
 async function ensureReadState(

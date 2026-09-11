@@ -213,7 +213,7 @@ test("schedules a new message from the composer", async ({
     await page.getByRole("button", { name: /^Compose/ }).click();
     const dialog = page.getByRole("dialog", { name: "New Message" });
     await dialog
-      .getByRole("textbox", { name: "To" })
+      .getByRole("combobox", { name: "To" })
       .fill("recipient@example.com");
     await dialog.getByPlaceholder("Subject").fill(subject);
     await dialog

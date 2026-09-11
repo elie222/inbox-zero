@@ -63,9 +63,7 @@ process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 if (todoistBaseUrl) {
-  process.env.MCP_SERVER_URL_OVERRIDES = JSON.stringify({
-    todoist: `${todoistBaseUrl}/mcp`,
-  });
+  process.env.PLAYWRIGHT_TODOIST_BASE_URL = todoistBaseUrl;
 }
 
 export default defineConfig({
@@ -147,15 +145,18 @@ export default defineConfig({
     {
       name: "Next.js",
       stdout: "pipe",
-      command: production
-        ? `pnpm exec next start --port ${basePort}`
-        : `pnpm exec next dev --turbopack --port ${basePort}`,
+      command: `${
+        todoistEnabled
+          ? "pnpm exec node --import tsx --import ./__tests__/playwright/todoist-transport.ts node_modules/next/dist/bin/next"
+          : "pnpm exec next"
+      } ${production ? "start" : "dev --turbopack"} --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
+        MCP_SERVER_URL_OVERRIDES: "",
         NODE_ENV: production ? "production" : "development",
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
@@ -200,7 +201,7 @@ export default defineConfig({
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
         NEXT_PUBLIC_CONTACTS_ENABLED:
-          process.env.NEXT_PUBLIC_CONTACTS_ENABLED ?? "false",
+          process.env.NEXT_PUBLIC_CONTACTS_ENABLED ?? "true",
         NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
