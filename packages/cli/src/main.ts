@@ -13,6 +13,9 @@ import {
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
+  syncManagedComposeEnv,
+  fixComposeEnvPaths,
+  getComposeCommand,
   updateEnvValue,
   redactValue,
   getEnvFileName,
@@ -108,15 +111,6 @@ function requireDocker() {
     );
     process.exit(1);
   }
-}
-
-// When running in standalone mode (~/.inbox-zero/), the compose file's
-// env_file references to ./apps/web/.env won't resolve. Rewrite them
-// to ./.env so they point to the .env in the same directory.
-function fixComposeEnvPaths(composeContent: string): string {
-  return composeContent
-    .replace(/- path: .\/apps\/web\/.env/g, "- path: ./.env")
-    .replace(/- .\/apps\/web\/.env/g, "- ./.env");
 }
 
 function findEnvFile(name?: string): string | null {
@@ -572,6 +566,8 @@ async function runSetupQuick(options: { name?: string }) {
     ? resolve(REPO_ROOT, "docker-compose.yml")
     : STANDALONE_COMPOSE_FILE;
 
+  const composeCmd = getComposeCommand(envFile, composeFile);
+
   ensureConfigDir(configDir);
 
   // Check if already configured
@@ -676,8 +672,11 @@ async function runSetupQuick(options: { name?: string }) {
     useDockerInfra: true,
     llmProvider: selectedLlmProvider,
     template,
+    composeEnvFile: REPO_ROOT
+      ? `./apps/web/${envFileName}`
+      : `./${envFileName}`,
   });
-  writeFileSync(envFile, envContent);
+  saveEnvFile(envFile, envContent);
 
   spinner.stop("Configuration ready");
 
@@ -695,16 +694,16 @@ async function runSetupQuick(options: { name?: string }) {
 
   if (p.isCancel(shouldStart) || !shouldStart) {
     p.note(
-      "Start later with:\n  inbox-zero start\n\n" +
-        "Update settings with:\n  inbox-zero config",
+      `Start later with:\n  ${composeCmd} --profile all up -d\n\n` +
+        `Update settings with:\n  inbox-zero config${configName ? ` --name ${configName}` : ""}`,
       "Next steps",
     );
     p.outro("Setup complete!");
     return;
   }
 
-  // Check if already running
-  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
+  // Explicit files keep CLI setup independent of the caller's working directory.
+  const composeArgs = ["compose", "--env-file", envFile, "-f", composeFile];
 
   if (checkContainersRunning(composeArgs)) {
     const restart = await p.confirm({
@@ -734,7 +733,9 @@ async function runSetupQuick(options: { name?: string }) {
   if (pullResult.status !== 0) {
     pullSpinner.stop("Failed to pull images");
     p.log.error(pullResult.stderr || "Unknown error");
-    p.log.info("You can try again later with: inbox-zero start");
+    p.log.info(
+      `You can try again later with: ${composeCmd} --profile all up -d`,
+    );
     process.exit(1);
   }
 
@@ -763,7 +764,7 @@ async function runSetupQuick(options: { name?: string }) {
     } else {
       p.log.error(upResult.stderr || "Unknown error");
     }
-    p.log.info("You can try again with: inbox-zero start");
+    p.log.info(`You can try again with: ${composeCmd} --profile all up -d`);
     process.exit(1);
   }
 
@@ -1219,8 +1220,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     useDockerInfra,
     llmProvider: selectedLlmProvider,
     template,
+    composeEnvFile: REPO_ROOT
+      ? `./apps/web/${envFileName}`
+      : `./${envFileName}`,
   });
-  writeFileSync(envFile, envContent);
+  saveEnvFile(envFile, envContent);
 
   spinner.stop(".env file created");
 
@@ -1255,10 +1259,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // Build next steps based on configuration
   let nextSteps: string;
 
-  // For standalone installs, include -f flag to point to the compose file
-  const composeCmd = REPO_ROOT
-    ? "docker compose"
-    : `docker compose -f ${composeFile}`;
+  const composeCmd = getComposeCommand(envFile, composeFile);
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
@@ -1703,7 +1704,7 @@ async function runConfigInteractive(name?: string) {
   }
 
   const updated = updateEnvValue(content, keyToUpdate, newValue);
-  writeFileSync(envFile, updated);
+  saveEnvFile(envFile, updated);
 
   p.log.success(`Updated ${keyToUpdate}`);
   p.note(
@@ -1727,7 +1728,7 @@ async function runConfigSet(key: string, value: string, name?: string) {
   }
   const { envFile, content } = requireEnvFile(name);
   const updated = updateEnvValue(content, key, value);
-  writeFileSync(envFile, updated);
+  saveEnvFile(envFile, updated);
   p.log.success(`Set ${key}`);
 }
 
@@ -1853,4 +1854,10 @@ if (isMainModule) {
     p.log.error(String(error));
     process.exit(1);
   });
+}
+
+function saveEnvFile(envFile: string, content: string) {
+  writeFileSync(envFile, content);
+  const warning = syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
+  if (warning) p.log.warn(warning);
 }

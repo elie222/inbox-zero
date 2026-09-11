@@ -1,3 +1,14 @@
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, relative, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { parseEnv } from "node:util";
 
@@ -33,6 +44,7 @@ export function generateEnvFile(config: {
   useDockerInfra: boolean;
   llmProvider: string;
   template: string;
+  composeEnvFile?: string;
 }): string {
   const { env, useDockerInfra, llmProvider, template } = config;
 
@@ -60,6 +72,8 @@ export function generateEnvFile(config: {
     // If not found, append to end
     content += `\n${key}=${value}`;
   };
+
+  setValue("INBOX_ZERO_ENV_FILE", wrapInQuotes(config.composeEnvFile));
 
   // ─────────────────────────────────────────────────────────────────────────
   // Database & Redis
@@ -292,4 +306,110 @@ export function generateEncryptionSecrets(existing: EnvConfig): EnvConfig {
     EMAIL_ENCRYPT_SECRET: existing.EMAIL_ENCRYPT_SECRET || generateSecret(32),
     EMAIL_ENCRYPT_SALT: existing.EMAIL_ENCRYPT_SALT || generateSecret(16),
   };
+}
+
+const MANAGED_COMPOSE_ENV_MARKER_SUFFIX = ".inbox-zero-managed";
+
+export function syncManagedComposeEnv({
+  envFile,
+  repoRoot,
+}: {
+  envFile: string;
+  repoRoot: string | null;
+}) {
+  if (!repoRoot) return;
+  if (basename(envFile) !== ".env") return;
+
+  const rootEnvFile = resolve(repoRoot, ".env");
+  const markerFile = `${rootEnvFile}${MANAGED_COMPOSE_ENV_MARKER_SUFFIX}`;
+  const linkTarget = relative(repoRoot, envFile);
+  const sourceContent = readFileSync(envFile, "utf-8");
+  const conflictWarning =
+    `Preserved user-managed ${rootEnvFile}. Docker Compose may use different settings. ` +
+    `Align it with ${envFile} or pass --env-file pointing to that app configuration when running Docker Compose.`;
+  // lstat also detects dangling links, which must never be followed by the copy fallback.
+  const rootEnvStat = lstatSync(rootEnvFile, { throwIfNoEntry: false });
+
+  if (!rootEnvStat) {
+    createManagedComposeEnv({
+      linkTarget,
+      markerFile,
+      rootEnvFile,
+      sourceContent,
+    });
+    return;
+  }
+
+  const isManaged =
+    existsSync(markerFile) && readFileSync(markerFile, "utf-8") === linkTarget;
+  if (rootEnvStat.isSymbolicLink()) {
+    const currentTarget = readlinkSync(rootEnvFile);
+    if (currentTarget !== linkTarget) {
+      if (!isManaged) return conflictWarning;
+
+      rmSync(rootEnvFile, { force: true });
+      createManagedComposeEnv({
+        linkTarget,
+        markerFile,
+        rootEnvFile,
+        sourceContent,
+      });
+      return;
+    }
+
+    if (isManaged) {
+      writeFileSync(markerFile, linkTarget);
+    }
+    return;
+  }
+
+  if (!rootEnvStat.isFile()) return conflictWarning;
+
+  if (!isManaged) {
+    const currentContent = readFileSync(rootEnvFile, "utf-8");
+    if (currentContent !== sourceContent) return conflictWarning;
+    return;
+  }
+
+  const currentContent = readFileSync(rootEnvFile, "utf-8");
+  if (currentContent !== sourceContent) {
+    copyFileSync(envFile, rootEnvFile);
+  }
+
+  writeFileSync(markerFile, linkTarget);
+}
+
+function createManagedComposeEnv({
+  linkTarget,
+  markerFile,
+  rootEnvFile,
+  sourceContent,
+}: {
+  linkTarget: string;
+  markerFile: string;
+  rootEnvFile: string;
+  sourceContent: string;
+}) {
+  try {
+    symlinkSync(linkTarget, rootEnvFile);
+  } catch {
+    writeFileSync(rootEnvFile, sourceContent, { flag: "wx", mode: 0o600 });
+  }
+
+  writeFileSync(markerFile, linkTarget);
+}
+
+export function fixComposeEnvPaths(composeContent: string): string {
+  return composeContent.replaceAll("./apps/web/.env", "./.env");
+}
+
+export function getComposeCommand(
+  envFile: string,
+  composeFile: string,
+): string {
+  return `docker compose --env-file ${quoteShellArgument(envFile)} -f ${quoteShellArgument(composeFile)}`;
+}
+
+function quoteShellArgument(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
