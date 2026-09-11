@@ -44,13 +44,43 @@ function getOutlookBaseUrl(emailAddress?: string | null) {
     : "https://outlook.office.com/mail";
 }
 
+// Only the fields a draft deeplink can be built from. `externalUrl` is the
+// provider's own link to the item, which beats anything assembled here.
+type DraftLinkTarget = {
+  id: string;
+  threadId?: string | null;
+  externalUrl?: string | null;
+};
+
+const MICROSOFT_MAIL_HOSTS = [
+  "outlook.live.com",
+  "outlook.office.com",
+  "outlook.office365.com",
+];
+
+// The link is redirected to, so treat it as untrusted until the host proves it
+// belongs to Outlook rather than forwarding wherever the payload points.
+function getTrustedMicrosoftLink(externalUrl?: string | null) {
+  if (!externalUrl) return null;
+
+  try {
+    const url = new URL(externalUrl);
+    // Reject non-default ports: hostname alone would allow
+    // https://outlook.live.com:8443/... through the whitelist.
+    if (url.protocol !== "https:" || url.port !== "") return null;
+    return MICROSOFT_MAIL_HOSTS.includes(url.hostname) ? externalUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 type ProviderUrlConfig = {
   requiresMessageId: boolean;
   buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => string;
   buildDraftUrl: (
-    draftMessageId: string,
+    draft: DraftLinkTarget,
     emailAddress?: string | null,
-  ) => string;
+  ) => string | null;
   selectId: (messageId: string, threadId: string) => string;
   buildSearchUrl: (from: string, emailAddress?: string | null) => string;
 };
@@ -59,9 +89,12 @@ const GOOGLE_CONFIG: ProviderUrlConfig = {
   requiresMessageId: false,
   buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
     getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
-  buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
+  // Gmail's compose deeplink takes an internal id that cannot be derived from
+  // an API id, so the draft itself cannot be opened. Its conversation can, and
+  // Drafts is the one label that holds it.
+  buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) =>
     getGmailUrlForFragment(
-      `inbox?compose=${encodeURIComponent(draftMessageId)}`,
+      `drafts/${encodeURIComponent(draft.threadId || draft.id)}`,
       emailAddress,
     ),
   selectId: (messageId: string, _threadId: string) => messageId,
@@ -79,8 +112,11 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
-    buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
-      `${getOutlookBaseUrl(emailAddress)}/deeplink/compose?itemid=${encodeURIComponent(draftMessageId)}&exvsurl=1`,
+    // Graph hands back a webLink that resolves the item without any id
+    // translation. Assembling /drafts/id/<graphId> uses the wrong id space
+    // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
+    buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
+      getTrustedMicrosoftLink(draft.externalUrl),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
@@ -111,17 +147,22 @@ export function getEmailUrl(
 }
 
 /**
- * Takes the draft's underlying *message* id, not the draft resource id — on
- * Gmail those differ (and the message id changes on every draft edit), so
- * resolve it via `EmailProvider.getDraft` at link time.
+ * Takes the draft message itself rather than an id, because the fields that
+ * produce a working link differ by provider: Outlook resolves its own webLink,
+ * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
+ * at link time — its message id changes on every edit.
+ *
+ * Outlook returns the trusted provider webLink, or null when none is available.
+ * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
+ * id the API does not expose).
  */
 export function getEmailDraftUrl(
-  draftMessageId: string,
+  draft: DraftLinkTarget,
   emailAddress?: string | null,
   provider?: string,
-): string {
+): string | null {
   const config = getProviderConfig(provider);
-  return config.buildDraftUrl(draftMessageId, emailAddress);
+  return config.buildDraftUrl(draft, emailAddress);
 }
 
 /**
