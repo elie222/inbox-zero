@@ -2233,7 +2233,7 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 
-  it("deleteMemory removes the single matching memory", async () => {
+  it("deleteMemory requires confirmation for a unique match and does not delete", async () => {
     const tools = await captureToolSet();
     mockPrisma.chatMemory.findMany.mockResolvedValue([
       {
@@ -2241,21 +2241,23 @@ describe("aiProcessAssistantChat", () => {
         content: "I like cats",
       },
     ]);
-    mockPrisma.chatMemory.deleteMany.mockResolvedValue({ count: 1 });
 
     const result = await tools.deleteMemory.execute({ query: "cats" });
 
     expect(result).toEqual({
       success: true,
-      deleted: true,
+      deleted: false,
+      actionType: "delete_memory",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      memoryId: "memory-1",
       content: "I like cats",
+      reason:
+        "Memory deletion is pending UI confirmation and has not been applied yet.",
+      nextStep:
+        "Do not call deleteMemory again for this memory in the same turn. Tell the user it is pending confirmation instead.",
     });
-    expect(mockPrisma.chatMemory.deleteMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "email-account-id",
-        id: "memory-1",
-      },
-    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
     expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
@@ -2283,6 +2285,20 @@ describe("aiProcessAssistantChat", () => {
       ],
       message:
         "Multiple matching memories found. Ask the user which one to delete.",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deleteMemory does not delete when no memories match", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([]);
+
+    const result = await tools.deleteMemory.execute({ query: "dogs" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: false,
+      message: "No matching memory found.",
     });
     expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
   });

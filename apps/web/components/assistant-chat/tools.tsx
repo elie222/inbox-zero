@@ -48,6 +48,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import {
   confirmAssistantCreateRule,
+  confirmAssistantDeleteMemory,
   confirmAssistantEmailAction,
   confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
@@ -1095,6 +1096,150 @@ export function PendingSaveMemoryToolCard({
               </>
             ) : (
               "Confirm save"
+            )}
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
+
+export function PendingDeleteMemoryToolCard({
+  output,
+  chatMessageId,
+  toolCallId,
+  disableConfirm,
+}: {
+  output: unknown;
+  chatMessageId: string;
+  toolCallId: string;
+  disableConfirm: boolean;
+}) {
+  const { emailAccountId } = useAccount();
+  const { chatId } = useChat();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmedAtOverride, setConfirmedAtOverride] = useState<string | null>(
+    null,
+  );
+  const [alreadyDeletedOverride, setAlreadyDeletedOverride] = useState<
+    boolean | null
+  >(null);
+
+  const content = getOutputField<string>(output, "content") || "";
+  const requiresConfirmation =
+    getOutputField<boolean>(output, "requiresConfirmation") === true;
+  const confirmationState =
+    getOutputField<string>(output, "confirmationState") || "pending";
+  const confirmationResult = getOutputField<Record<string, unknown>>(
+    output,
+    "confirmationResult",
+  );
+  const isProcessing = confirmationState === "processing";
+  const confirmedAt =
+    confirmedAtOverride ||
+    (typeof confirmationResult?.confirmedAt === "string"
+      ? confirmationResult.confirmedAt
+      : null);
+  const alreadyDeleted =
+    alreadyDeletedOverride ??
+    (typeof confirmationResult?.alreadyDeleted === "boolean"
+      ? confirmationResult.alreadyDeleted
+      : false);
+  const isConfirmed = confirmationState === "confirmed" || Boolean(confirmedAt);
+
+  const handleConfirm = async () => {
+    setIsConfirming(true);
+    try {
+      if (!chatId) {
+        toastError({ description: "Could not delete this memory." });
+        return;
+      }
+
+      const input = { chatId, chatMessageId, toolCallId };
+      const result = await confirmAssistantDeleteMemory(emailAccountId, input);
+
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+
+      const nextConfirmationResult = result?.data?.confirmationResult;
+      if (!nextConfirmationResult?.confirmedAt) {
+        toastError({ description: "Could not delete this memory." });
+        return;
+      }
+
+      setConfirmedAtOverride(nextConfirmationResult.confirmedAt);
+      setAlreadyDeletedOverride(Boolean(nextConfirmationResult.alreadyDeleted));
+      toastSuccess({
+        description: nextConfirmationResult.alreadyDeleted
+          ? "Memory was already deleted."
+          : "Memory deleted.",
+      });
+    } catch {
+      toastError({ description: "Could not delete this memory." });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
+        <TrashIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium">Delete memory</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isConfirmed
+              ? alreadyDeleted
+                ? "Already deleted"
+                : "Deleted memory"
+              : "Pending deletion"}
+          </p>
+        </div>
+        {isConfirmed && (
+          <Badge color="green" className="shrink-0">
+            {alreadyDeleted ? "Already deleted" : "Deleted"}
+          </Badge>
+        )}
+      </CardHeader>
+
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {content}
+        </div>
+        {!isConfirmed && (
+          <Alert
+            variant="default"
+            className="border-amber-500/40 bg-amber-500/5"
+          >
+            <AlertTriangleIcon className="size-4 text-amber-600" />
+            <AlertTitle>Confirm memory deletion</AlertTitle>
+            <AlertDescription className="text-sm text-muted-foreground">
+              This will permanently remove the saved chat memory.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+
+      {!isConfirmed && requiresConfirmation && (
+        <CardFooter className="justify-end border-t px-4 py-3">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleConfirm}
+            disabled={disableConfirm || isConfirming || isProcessing}
+            className="gap-2"
+          >
+            {isProcessing ? (
+              "Deleting..."
+            ) : isConfirming ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              "Delete memory"
             )}
           </Button>
         </CardFooter>

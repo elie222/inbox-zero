@@ -12,9 +12,10 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingCreateRuleToolCard,
+  PendingDeleteMemoryToolCard,
   PendingDeleteRuleToolCard,
   PendingSaveMemoryToolCard,
-  PendingCreateRuleToolCard,
   ForwardEmailResult,
   getManageInboxActionLabel,
   ManageInboxResult,
@@ -774,20 +775,41 @@ export function MessagePart({
   }
 
   if (part.type === "tool-deleteMemory") {
-    return renderToolStatus({
-      part,
-      loadingText: "Deleting memory...",
-      renderSuccess: ({ toolCallId, output }) => {
-        const deleted = getOutputField<boolean>(output, "deleted") === true;
-        const message = getOutputField<string>(output, "message");
+    const { toolCallId, state } = part;
+
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text="Preparing to delete memory..." />
+      );
+    }
+
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return renderToolError(toolCallId, output);
+      }
+
+      const requiresConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "delete_memory";
+
+      if (requiresConfirmation) {
         return (
-          <BasicToolInfo
+          <PendingDeleteMemoryToolCard
             key={toolCallId}
-            text={deleted ? "Memory deleted" : (message ?? "No memory deleted")}
+            output={output}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm || !isPersistedMessage}
           />
         );
-      },
-    });
+      }
+
+      const message = getOutputField<string>(output, "message");
+      return (
+        <BasicToolInfo key={toolCallId} text={message ?? "No memory deleted"} />
+      );
+    }
   }
 
   if (part.type === "tool-getSenderCategoryOverview") {

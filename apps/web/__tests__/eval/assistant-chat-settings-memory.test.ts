@@ -167,12 +167,14 @@ describe.runIf(shouldRunEval)(
       configureStatefulSettingsMocks();
       prisma.chatMemory.findMany.mockResolvedValue([
         {
+          id: "memory-newsletter-1",
           content: "User likes batching newsletters in the afternoon.",
           createdAt: new Date("2026-03-15T08:00:00.000Z"),
         },
       ]);
       prisma.chatMemory.findFirst.mockResolvedValue(null);
       prisma.chatMemory.create.mockResolvedValue({});
+      prisma.chatMemory.deleteMany.mockResolvedValue({ count: 0 });
     });
 
     describeEvalMatrix(
@@ -260,6 +262,10 @@ type SearchMemoriesInput = {
   query: string;
 };
 
+type DeleteMemoryInput = {
+  query: string;
+};
+
 type UpdatePersonalInstructionsInput = {
   personalInstructions: string;
   mode?: "append" | "replace";
@@ -305,6 +311,26 @@ function isSearchMemoriesInput(input: unknown): input is SearchMemoriesInput {
     !!input &&
     typeof input === "object" &&
     typeof (input as { query?: unknown }).query === "string"
+  );
+}
+
+function isDeleteMemoryInput(input: unknown): input is DeleteMemoryInput {
+  return isSearchMemoriesInput(input);
+}
+
+function isPendingDeleteMemoryOutput(output: unknown) {
+  if (!output || typeof output !== "object") return false;
+
+  const value = output as {
+    requiresConfirmation?: unknown;
+    actionType?: unknown;
+    deleted?: unknown;
+  };
+
+  return (
+    value.requiresConfirmation === true &&
+    value.actionType === "delete_memory" &&
+    value.deleted !== true
   );
 }
 
@@ -491,7 +517,10 @@ async function evaluateScenario(
         pass:
           !!memoryCall &&
           !!contentJudge?.pass &&
-          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
+          hasNoToolCalls(result.toolCalls, [
+            ...expectation.forbiddenTools,
+            "deleteMemory",
+          ]),
         judgeOutput: memoryCall
           ? JSON.stringify({
               content: memoryCall.content,
@@ -504,7 +533,10 @@ async function evaluateScenario(
     }
 
     case "search_memories": {
-      return evaluateSearchMemoriesExpectation(result, prompt, expectation);
+      return evaluateSearchMemoriesExpectation(result, prompt, {
+        ...expectation,
+        forbiddenTools: [...expectation.forbiddenTools, "deleteMemory"],
+      });
     }
 
     case "assistant_settings_and_save_memory": {
@@ -595,6 +627,45 @@ async function evaluateScenario(
             })
           : searchEvaluation.judgeOutput,
         judgeResult: contentJudge ?? searchEvaluation.judgeResult,
+      };
+    }
+
+    case "delete_memory": {
+      const deleteCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "deleteMemory",
+        isDeleteMemoryInput,
+      );
+      const queryJudge = deleteCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: deleteCall.input.query,
+            expected: expectation.semanticExpectation,
+            criterion: {
+              name: "Deleted memory semantics",
+              description:
+                "The memory deletion query should identify the specific saved preference the user asked to forget, even if the wording differs from the prompt. Do not require the query to copy the user's full request.",
+            },
+          })
+        : null;
+      const outputBlocksImmediateDelete =
+        deleteCall?.output == null ||
+        isPendingDeleteMemoryOutput(deleteCall.output);
+
+      return {
+        pass:
+          !!deleteCall &&
+          !!queryJudge?.pass &&
+          outputBlocksImmediateDelete &&
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools) &&
+          prisma.chatMemory.deleteMany.mock.calls.length === 0,
+        judgeOutput: deleteCall
+          ? JSON.stringify({
+              query: deleteCall.input.query,
+              output: deleteCall.output,
+            })
+          : null,
+        judgeResult: queryJudge,
       };
     }
   }
@@ -850,6 +921,13 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
 
   if (isSaveMemoryInput(toolCall.input)) {
     return `${toolCall.toolName}(${toolCall.input.content})`;
+  }
+
+  if (
+    toolCall.toolName === "deleteMemory" &&
+    isDeleteMemoryInput(toolCall.input)
+  ) {
+    return `deleteMemory(${toolCall.input.query})`;
   }
 
   if (isSearchMemoriesInput(toolCall.input)) {

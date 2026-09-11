@@ -171,6 +171,33 @@ export type ConfirmAssistantSaveMemoryBody = z.infer<
   typeof confirmAssistantSaveMemoryBody
 >;
 
+export const pendingDeleteMemoryToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("delete_memory"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  memoryId: z.string().trim().min(1),
+  content: z.string().trim().min(1),
+  reason: z.string().trim().min(1).optional(),
+  confirmationResult: z
+    .object({
+      memoryId: z.string().trim().min(1),
+      content: z.string().trim().min(1),
+      confirmedAt: z.string().min(1),
+      alreadyDeleted: z.boolean().optional(),
+    })
+    .optional(),
+});
+export type PendingDeleteMemoryToolOutput = z.infer<
+  typeof pendingDeleteMemoryToolOutputSchema
+>;
+
+export const confirmAssistantDeleteMemoryBody = confirmAssistantActionBaseBody;
+export type ConfirmAssistantDeleteMemoryBody = z.infer<
+  typeof confirmAssistantDeleteMemoryBody
+>;
+
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string().min(1).max(ASSISTANT_CHAT_MAX_TEXT_LENGTH),

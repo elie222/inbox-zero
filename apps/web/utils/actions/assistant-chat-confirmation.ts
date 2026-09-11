@@ -15,6 +15,7 @@ import {
   type AssistantPendingEmailActionType,
   type AssistantPendingEmailToolOutput,
   pendingCreateRuleToolOutputSchema,
+  pendingDeleteMemoryToolOutputSchema,
   pendingForwardEmailToolOutputSchema,
   pendingReplyEmailToolOutputSchema,
   pendingSaveMemoryToolOutputSchema,
@@ -33,6 +34,8 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
+const DELETE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
+  "Memory deletion confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 const PENDING_ACTION_PERSIST_WAIT_MS = 2000;
@@ -409,6 +412,107 @@ export async function confirmAssistantSaveMemoryForAccount({
   };
 }
 
+export async function confirmAssistantDeleteMemoryForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  waitForPersistence,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  waitForPersistence?: boolean;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const reservation = await reservePendingAssistantDeleteMemory({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    emailAccountId,
+    waitForPersistence,
+    logger,
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      success: true,
+      confirmationState: "confirmed" as const,
+      memoryId: reservation.memoryId,
+      content: reservation.content,
+      confirmationResult: reservation.confirmationResult,
+    };
+  }
+
+  const { memoryId, content } = reservation.output;
+  const confirmedAt = new Date().toISOString();
+
+  let alreadyDeleted = false;
+  try {
+    const deleted = await prisma.chatMemory.deleteMany({
+      where: {
+        emailAccountId,
+        id: memoryId,
+      },
+    });
+    alreadyDeleted = deleted.count === 0;
+  } catch (error) {
+    await clearPendingPartProcessing({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      findPart: (parts) =>
+        findPendingAssistantDeleteMemoryPart({ parts, toolCallId }),
+    }).catch((processingError) => {
+      logger.error("Failed to clear processing state for delete memory", {
+        error: processingError,
+      });
+    });
+    logger.error("Failed to confirm assistant delete memory", {
+      error,
+      memoryId,
+    });
+    throw new SafeError("Failed to delete memory");
+  }
+
+  const confirmationResult = {
+    memoryId,
+    content,
+    confirmedAt,
+    ...(alreadyDeleted ? { alreadyDeleted: true } : {}),
+  };
+
+  try {
+    await persistConfirmedAssistantDeleteMemoryPart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      toolCallId,
+      memoryId,
+      content,
+      confirmedAt,
+      alreadyDeleted,
+      logger,
+    });
+  } catch (persistError) {
+    logger.error("Failed to persist confirmed assistant delete memory", {
+      error: persistError,
+      memoryId,
+    });
+    throw new SafeError(
+      "Memory was deleted but confirmation state could not be saved. Please refresh and try again.",
+    );
+  }
+
+  return {
+    success: true,
+    confirmationState: "confirmed" as const,
+    memoryId,
+    content,
+    confirmationResult,
+  };
+}
+
 async function executeAssistantEmailAction({
   output,
   emailProvider,
@@ -651,6 +755,43 @@ function findPendingAssistantSaveMemoryPart({
 
     const out = parsed.data;
     if (!out.requiresConfirmation || out.actionType !== "save_memory") {
+      continue;
+    }
+
+    return {
+      index,
+      output: out,
+      parts,
+      toolInput: part.input,
+    };
+  }
+
+  return null;
+}
+
+function findPendingAssistantDeleteMemoryPart({
+  parts,
+  toolCallId,
+}: {
+  parts: unknown;
+  toolCallId: string;
+}) {
+  if (!Array.isArray(parts)) return null;
+
+  for (const [index, part] of parts.entries()) {
+    if (
+      !isRecord(part) ||
+      part.type !== "tool-deleteMemory" ||
+      part.toolCallId !== toolCallId
+    ) {
+      continue;
+    }
+
+    const parsed = pendingDeleteMemoryToolOutputSchema.safeParse(part.output);
+    if (!parsed.success) continue;
+
+    const out = parsed.data;
+    if (!out.requiresConfirmation || out.actionType !== "delete_memory") {
       continue;
     }
 
@@ -1321,6 +1462,79 @@ async function reservePendingAssistantSaveMemory({
   };
 }
 
+async function reservePendingAssistantDeleteMemory({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  waitForPersistence,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  emailAccountId: string;
+  waitForPersistence?: boolean;
+  logger: Logger;
+}) {
+  const waitForPersistenceMs = waitForPersistence
+    ? PENDING_ACTION_PERSIST_WAIT_MS
+    : undefined;
+
+  const reservation = await reservePendingAssistantPart({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    findPart: (parts) =>
+      findPendingAssistantDeleteMemoryPart({ parts, toolCallId }),
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult
+        ? lookup.output.confirmationResult
+        : null,
+    logPrefix: "Assistant delete memory confirmation",
+    waitForPersistenceMs,
+    inProgressError: DELETE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () => {
+      logger.warn(
+        "Assistant delete memory confirmation: chat message not found",
+        {
+          chatMessageId,
+          toolCallId,
+        },
+      );
+      throw new SafeError("Chat message not found");
+    },
+    onPartNotFound: (resolvedChatMessageId) => {
+      logger.warn("Assistant delete memory confirmation: pending not found", {
+        chatMessageId: resolvedChatMessageId,
+        toolCallId,
+      });
+      throw new SafeError("Pending memory deletion not found");
+    },
+    onRaceMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      status: "confirmed" as const,
+      memoryId: reservation.value.memoryId,
+      content: reservation.value.content,
+      confirmationResult: reservation.value,
+    };
+  }
+
+  return {
+    status: "reserved" as const,
+    chatMessageId: reservation.chatMessageId,
+    output: reservation.lookup.output,
+    toolInput: reservation.lookup.toolInput,
+  };
+}
+
 async function reservePendingAssistantCreateRule({
   chatId,
   chatMessageId,
@@ -1583,6 +1797,49 @@ async function persistConfirmedAssistantSaveMemoryPart({
   });
 }
 
+async function persistConfirmedAssistantDeleteMemoryPart({
+  chatMessageId,
+  emailAccountId,
+  toolCallId,
+  memoryId,
+  content,
+  confirmedAt,
+  alreadyDeleted,
+  logger,
+}: {
+  chatMessageId: string;
+  emailAccountId: string;
+  toolCallId: string;
+  memoryId: string;
+  content: string;
+  confirmedAt: string;
+  alreadyDeleted: boolean;
+  logger: Logger;
+}) {
+  await persistConfirmedAssistantPart({
+    chatMessageId,
+    emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, memoryId }),
+    findPart: (parts) =>
+      findPendingAssistantDeleteMemoryPart({
+        parts,
+        toolCallId,
+      }),
+    isConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult?.memoryId === memoryId,
+    buildParts: ({ parts, partIndex }) =>
+      buildConfirmedAssistantDeleteMemoryParts({
+        parts,
+        partIndex,
+        memoryId,
+        content,
+        confirmedAt,
+        alreadyDeleted,
+      }),
+  });
+}
+
 async function persistConfirmedAssistantPart<
   TLookup extends { index: number; parts: unknown[] },
 >({
@@ -1695,6 +1952,42 @@ function buildConfirmedAssistantSaveMemoryParts({
         content,
         confirmedAt,
         ...(deduplicated ? { deduplicated: true } : {}),
+      },
+    },
+  });
+}
+
+function buildConfirmedAssistantDeleteMemoryParts({
+  parts,
+  partIndex,
+  memoryId,
+  content,
+  confirmedAt,
+  alreadyDeleted,
+}: {
+  parts: unknown[];
+  partIndex: number;
+  memoryId: string;
+  content: string;
+  confirmedAt: string;
+  alreadyDeleted: boolean;
+}) {
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      success: true,
+      deleted: true,
+      actionType: "delete_memory",
+      requiresConfirmation: true,
+      confirmationState: "confirmed",
+      memoryId,
+      content,
+      confirmationResult: {
+        memoryId,
+        content,
+        confirmedAt,
+        ...(alreadyDeleted ? { alreadyDeleted: true } : {}),
       },
     },
   });

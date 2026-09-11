@@ -96,11 +96,13 @@ export const deleteMemoryTool = ({
   logger: Logger;
 }) =>
   tool({
-    description: `Delete one saved chat memory. Use this when the user explicitly asks to erase, forget, remove, or delete a saved memory.
+    description: `Request deletion of one saved chat memory. Use this when the user wants a previously saved chat memory forgotten.
 
 This only affects assistant-chat memories. Do not use settings, rules, personal instructions, or knowledge-base tools for chat-memory deletion.
 
-The tool deletes only when exactly one saved memory matches the query. If multiple memories match, ask the user which one to delete instead of guessing.`,
+If the user describes the memory without quoting its saved wording, searchMemories first, then call this tool with a short phrase that uniquely identifies one saved memory.
+
+This tool never deletes immediately. A unique match returns requiresConfirmation; explain that deletion is pending and no memory has been deleted until the user confirms in the UI. If multiple memories match, ask the user which one to delete instead of guessing.`,
     inputSchema: deleteMemoryInputSchema,
     execute: async ({ query }) => {
       logger.trace("Tool call: delete_memory", { email });
@@ -142,22 +144,24 @@ The tool deletes only when exactly one saved memory matches the query. If multip
         }
 
         const memory = matchingMemories[0];
-        await prisma.chatMemory.deleteMany({
-          where: {
-            emailAccountId,
-            id: memory.id,
-          },
-        });
 
         return {
           success: true,
-          deleted: true,
+          deleted: false,
+          actionType: "delete_memory" as const,
+          requiresConfirmation: true as const,
+          confirmationState: "pending" as const,
+          memoryId: memory.id,
           content: memory.content,
+          reason:
+            "Memory deletion is pending UI confirmation and has not been applied yet.",
+          nextStep:
+            "Do not call deleteMemory again for this memory in the same turn. Tell the user it is pending confirmation instead.",
         };
       } catch (error) {
-        logger.error("Failed to delete memory", { error });
+        logger.error("Failed to prepare memory deletion", { error });
         return {
-          error: "Failed to delete memory",
+          error: "Failed to prepare memory deletion",
         };
       }
     },
