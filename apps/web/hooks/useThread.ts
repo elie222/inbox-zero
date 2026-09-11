@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -92,13 +92,27 @@ export function useThread(
       revalidateOnReconnect: false,
     },
   );
-  const data = swr.data?.thread.id === id ? swr.data : undefined;
+  const currentData = swr.data?.thread.id === id ? swr.data : undefined;
+  const lastResponse = useRef<{ key: string; data: ThreadResponse } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    if (request && currentData) {
+      lastResponse.current = { key: request.cacheIdentity, data: currentData };
+    }
+  }, [currentData, request]);
+  // Cache invalidation must not disable actions for a reader that is still visible.
+  const data =
+    currentData ??
+    (swr.isValidating && lastResponse.current?.key === request?.cacheIdentity
+      ? lastResponse.current?.data
+      : undefined);
 
   return {
     ...swr,
     data,
     error: data ? undefined : swr.error,
-    isLoading: swr.isLoading,
+    isLoading: !data && swr.isLoading,
     isValidating: swr.isValidating,
     mutate: swr.mutate,
   };

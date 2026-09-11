@@ -126,6 +126,103 @@ describe("useThread", () => {
     );
   });
 
+  it("keeps the open thread available while invalidation refreshes its details", async () => {
+    const refreshed = Promise.withResolvers<unknown>();
+    const initial = {
+      thread: { id: "refresh-thread", messages: [{ id: "visible" }] },
+    };
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockImplementationOnce(() => refreshed.promise);
+    const { result } = renderHook(() => useThread({ id: "refresh-thread" }), {
+      wrapper: createWrapper(fetcher),
+    });
+    await waitFor(() => expect(result.current.data).toEqual(initial));
+    let refresh: Promise<unknown>;
+    act(() => {
+      refresh = result.current.mutate(undefined, { revalidate: true });
+    });
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(result.current.isValidating).toBe(true);
+    expect(result.current.data).toEqual(initial);
+    expect(result.current.isLoading).toBe(false);
+    await act(async () => {
+      refreshed.resolve({
+        thread: { id: "refresh-thread", messages: [{ id: "updated" }] },
+      });
+      await refresh;
+    });
+    expect(result.current.data?.thread.messages[0]?.id).toBe("updated");
+  });
+
+  it.each([
+    "account",
+    "thread",
+    "variant",
+  ])("does not retain details when the %s changes", async (changed) => {
+    const threadId = `isolated-${changed}`;
+    const initial = {
+      thread: { id: threadId, messages: [{ id: "previous" }] },
+    };
+    const pending = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockImplementation(() => pending.promise);
+    const { result, rerender } = renderHook(
+      ({ emailAccountId, id, includeDrafts }) =>
+        useThread({ emailAccountId, id }, { includeDrafts }),
+      {
+        wrapper: createWrapper(fetcher),
+        initialProps: {
+          emailAccountId: "account-1",
+          id: threadId,
+          includeDrafts: false,
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.data).toEqual(initial));
+    const next = {
+      emailAccountId: changed === "account" ? "account-2" : "account-1",
+      id: changed === "thread" ? `${threadId}-next` : threadId,
+      includeDrafts: changed === "variant",
+    };
+    rerender(next);
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isLoading).toBe(true);
+    await act(async () => {
+      pending.resolve({ thread: { id: next.id, messages: [{ id: "next" }] } });
+    });
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.id).toBe("next"),
+    );
+  });
+
+  it("surfaces refresh errors after retained details finish revalidating", async () => {
+    const initial = {
+      thread: { id: "failed-refresh", messages: [{ id: "previous" }] },
+    };
+    const error = new Error("Refresh failed");
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockRejectedValue(error);
+    const { result } = renderHook(() => useThread({ id: "failed-refresh" }), {
+      wrapper: createWrapper(fetcher),
+    });
+    await waitFor(() => expect(result.current.data).toEqual(initial));
+    await act(async () => {
+      await result.current.mutate(undefined, { revalidate: true });
+    });
+    await waitFor(() => expect(result.current.error).toBe(error));
+    expect(result.current.data).toBeUndefined();
+  });
+
   it("falls back to the network when no cached detail exists", async () => {
     const network = Promise.withResolvers<unknown>();
     cache.read.mockResolvedValue(undefined);
