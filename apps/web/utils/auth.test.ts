@@ -356,12 +356,14 @@ describe("handleLinkAccount", () => {
       }),
       getUserPhoto: vi.fn().mockResolvedValue(null),
     } as any);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      id: "email_account_1",
-      userId: "existing_user",
-      accountId: "existing_account",
-      account: { provider: "microsoft" },
-    } as any);
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({
+        id: "email_account_1",
+        userId: "existing_user",
+        accountId: "existing_account",
+        account: { provider: "microsoft" },
+      } as any);
 
     await expect(
       handleLinkAccount({
@@ -377,6 +379,63 @@ describe("handleLinkAccount", () => {
         message: "email_already_linked",
       },
     });
+  });
+
+  it("reuses the linked mailbox when the provider profile email changes", async () => {
+    mockGoogleProfile();
+    const mailbox = {
+      id: "email_account_1",
+      userId: "user_1",
+      accountId: "account_1",
+      email: "original@example.com",
+      account: { provider: "google" },
+    };
+    prisma.emailAccount.findUnique.mockImplementation(async ({ where }) =>
+      where.accountId === mailbox.accountId ? (mailbox as any) : null,
+    );
+    prisma.user.findUnique.mockResolvedValue({
+      email: "original@example.com",
+      name: "Test User",
+      image: null,
+    } as any);
+    prisma.emailAccount.upsert.mockImplementation(({ where }) => {
+      if (where.accountId !== mailbox.accountId) {
+        throw new Error("Unique constraint failed on accountId");
+      }
+      return Promise.resolve(mailbox) as any;
+    });
+    prisma.$transaction.mockResolvedValue([mailbox, {}] as never);
+
+    await expect(
+      handleLinkAccount(getGoogleAccount()),
+    ).resolves.toBeUndefined();
+
+    const upsert = prisma.emailAccount.upsert.mock.calls[0]?.[0];
+    expect(upsert?.update).not.toHaveProperty("email");
+    expect(upsert?.update).not.toHaveProperty("mailSplits");
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalled();
+    expect(mockAfter).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a provider account linked to another user despite a changed email", async () => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockImplementation(async ({ where }) =>
+      where.accountId === "account_1"
+        ? ({
+            id: "email_account_1",
+            userId: "other_user",
+            accountId: "account_1",
+            email: "original@example.com",
+            account: { provider: "google" },
+          } as any)
+        : null,
+    );
+
+    await expect(handleLinkAccount(getGoogleAccount())).rejects.toMatchObject({
+      body: { code: "email_already_linked" },
+    });
+    expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("schedules email watch registration after a Google account is linked", async () => {
@@ -437,11 +496,13 @@ describe("handleLinkAccount", () => {
       accountId: "microsoft_account_1",
       account: { provider: "microsoft" },
     };
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      existingEmailAccount as Awaited<
-        ReturnType<typeof prisma.emailAccount.findUnique>
-      >,
-    );
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(
+        existingEmailAccount as Awaited<
+          ReturnType<typeof prisma.emailAccount.findUnique>
+        >,
+      );
     prisma.$transaction.mockResolvedValue([] as never);
     vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
 
