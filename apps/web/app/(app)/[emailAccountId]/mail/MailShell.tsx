@@ -1,5 +1,6 @@
 "use client";
 
+import { GmailLabel } from "@/utils/gmail/label";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
   type CSSProperties,
@@ -112,6 +113,8 @@ import {
 } from "@/utils/actions/mail";
 import {
   getPortableLabelSplits,
+  OTHER_SPLIT_ID,
+  otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
 } from "@/utils/mail/split-query";
@@ -311,7 +314,25 @@ export function MailShell() {
 
   const splits = useMemo(
     () =>
-      (settings?.splits ?? []).filter(
+      [
+        ...(settings?.splits ?? []).map((split) => ({
+          ...split,
+          name:
+            isGoogle && split.name.trim().toLowerCase() === "other"
+              ? `${split.name} (custom)`
+              : split.name,
+        })),
+        ...(isGoogle && !isAllAccounts
+          ? [
+              {
+                id: OTHER_SPLIT_ID,
+                name: "Other",
+                matchAll: true,
+                filters: [],
+              },
+            ]
+          : []),
+      ].filter(
         (split) =>
           !isAllAccounts ||
           split.filters.every(
@@ -319,7 +340,7 @@ export function MailShell() {
           ) ||
           combinedLabelSplits.some((portable) => portable.id === split.id),
       ),
-    [settings?.splits, isAllAccounts, combinedLabelSplits],
+    [settings?.splits, isAllAccounts, combinedLabelSplits, isGoogle],
   );
   const activeSplit =
     splits.find((split) => split.id === activeSplitId) ?? splits[0];
@@ -333,10 +354,11 @@ export function MailShell() {
     if (searchQuery) return { q: searchQuery };
     if (scopeQuery) return scopeQuery;
 
+    if (activeSplit?.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
     return activeSplit
       ? mailSplitToThreadsQuery(activeSplit)
       : { type: "inbox" };
-  }, [searchQuery, scopeQuery, activeSplit]);
+  }, [searchQuery, scopeQuery, activeSplit, splits]);
 
   const accountThreadState = useMailThreads({
     emailAccountId,
@@ -1063,12 +1085,15 @@ export function MailShell() {
 
   const splitLabelChoices = useMemo(
     () =>
-      visibleLabels.map((label) => ({
+      [
+        ...visibleLabels,
+        ...(isGoogle ? [{ id: GmailLabel.IMPORTANT, name: "Important" }] : []),
+      ].map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         value: label.id,
       })),
-    [visibleLabels],
+    [visibleLabels, isGoogle],
   );
   const splitCategoryChoices = useMemo(
     () =>

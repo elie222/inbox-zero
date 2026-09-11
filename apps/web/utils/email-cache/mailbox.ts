@@ -1,3 +1,4 @@
+import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { canonicalizeEmailAddress } from "@/utils/email";
@@ -188,6 +189,7 @@ export async function readSyncedMailboxThreads({
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
+    const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
@@ -288,7 +290,10 @@ export async function readSyncedMailboxThreads({
           const threadMessages = threadRecords
             .map((record) => record.data)
             .filter((message) => !isIgnoredSender(message.headers.from));
-          if (threadMatchesQuery(threadMessages, query)) {
+          if (
+            isOther({ messages: threadMessages }) &&
+            threadMatchesQuery(threadMessages, query)
+          ) {
             selectedRecords.push(threadRecords);
             if (selectedRecords.length >= limit + 1) break;
           }
@@ -308,7 +313,10 @@ export async function readSyncedMailboxThreads({
         .filter((message) => !isIgnoredSender(message.headers.from)),
     );
     const matchingThreads = [...messagesByThread.entries()]
-      .filter(([, messages]) => threadMatchesQuery(messages, query))
+      .filter(
+        ([, messages]) =>
+          isOther({ messages }) && threadMatchesQuery(messages, query),
+      )
       .sort(
         ([, left], [, right]) =>
           getMessageTimestamp(right.at(-1)) - getMessageTimestamp(left.at(-1)),
@@ -555,6 +563,7 @@ function isCompleteMailboxQuery(query: ThreadsQuery) {
 function isRecentInboxQuery(query: ThreadsQuery) {
   return (
     query.type === "inbox" &&
+    !query.excludeSplits?.length &&
     !query.fromEmail &&
     !query.folderId &&
     !query.isUnread &&

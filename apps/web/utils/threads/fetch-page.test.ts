@@ -81,3 +81,68 @@ describe("match-any pagination", () => {
     ).toBe(true);
   });
 });
+
+describe("Other pagination", () => {
+  const excludeSplits = [
+    {
+      matchAll: true,
+      filters: [{ kind: "LABEL" as const, value: "newsletter" }],
+    },
+  ];
+  const thread = (id: string, labels: string[]) => ({
+    id,
+    messages: [{ labelIds: ["INBOX", ...labels] }],
+  });
+
+  it("fills pages past excluded conversations without losing the continuation", async () => {
+    const emailProvider = {
+      name: "google",
+      getThreadsWithQuery: vi
+        .fn()
+        .mockResolvedValueOnce({
+          threads: [thread("excluded", ["newsletter"])],
+          nextPageToken: "second",
+        })
+        .mockResolvedValueOnce({
+          threads: [thread("kept", [])],
+          nextPageToken: "third",
+        }),
+    };
+    const result = await fetchThreadsPage({
+      query: { type: "inbox", excludeSplits },
+      emailProvider: emailProvider as never,
+      emailAccountId: "account",
+      maxResults: 1,
+      messageFormat: "metadata",
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["kept"]);
+    expect(result.nextPageToken).toBe("third");
+    expect(
+      emailProvider.getThreadsWithQuery.mock.calls.at(1)?.at(0)?.pageToken,
+    ).toBe("second");
+  });
+
+  it("bounds empty scans and preserves the next page for sparse inboxes", async () => {
+    let page = 0;
+    const emailProvider = {
+      name: "google",
+      getThreadsWithQuery: vi.fn(async () => {
+        page += 1;
+        return {
+          threads: [thread("excluded", ["newsletter"])],
+          nextPageToken: String(page),
+        };
+      }),
+    };
+    const result = await fetchThreadsPage({
+      query: { type: "inbox", excludeSplits },
+      emailProvider: emailProvider as never,
+      emailAccountId: "account",
+      maxResults: 1,
+      messageFormat: "metadata",
+    });
+    expect(result.threads).toEqual([]);
+    expect(result.nextPageToken).toBe("5");
+    expect(emailProvider.getThreadsWithQuery).toHaveBeenCalledTimes(5);
+  });
+});

@@ -49,3 +49,47 @@ it.each([
 ])("rejects ambiguous split queries: %j", (query) => {
   expect(threadsQuery.safeParse(query).success).toBe(false);
 });
+
+it("round-trips Other exclusions and rejects unsupported query combinations", () => {
+  const excludeSplits = [
+    {
+      matchAll: true,
+      filters: [{ kind: "LABEL" as const, value: "newsletter" }],
+    },
+  ];
+  const params = threadsQueryToSearchParams({ type: "inbox", excludeSplits });
+  expect(
+    threadsQuery.parse({
+      type: "inbox",
+      excludeSplits: params.get("excludeSplits"),
+    }).excludeSplits,
+  ).toEqual(excludeSplits);
+  expect(
+    threadsQuery.safeParse({ type: "inbox", excludeSplits: "invalid" }).success,
+  ).toBe(false);
+  expect(threadsQuery.safeParse({ type: "sent", excludeSplits }).success).toBe(
+    false,
+  );
+  expect(
+    threadsQuery.safeParse({ type: "inbox", q: "search", excludeSplits })
+      .success,
+  ).toBe(false);
+});
+
+it.each([
+  { isUnread: true },
+  { labelIds: ["STARRED"] },
+  { labelId: "STARRED" },
+  { fromEmail: "sender@example.com" },
+  { after: new Date() },
+  { before: new Date() },
+  { excludeLabelNames: ["Newsletter"] },
+])("rejects extra predicates in Other queries: %j", (predicate) => {
+  expect(
+    threadsQuery.safeParse({
+      type: "inbox",
+      excludeSplits: [{ matchAll: true, filters: [{ kind: "UNREAD" }] }],
+      ...predicate,
+    }).success,
+  ).toBe(false);
+});
