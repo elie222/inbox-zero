@@ -133,7 +133,7 @@ function useEmailIframe(
         (key === "f" && Boolean(forward)) ||
         (isNavigationKey && Boolean(navigate));
       if (
-        !handlesKey ||
+        event.defaultPrevented ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -150,13 +150,36 @@ function useEmailIframe(
       )
         return;
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      if (!handlesKey) {
+        forwardShortcut(event);
+        return;
+      }
       event.preventDefault();
       if (event.key === "Enter") reply?.();
       else if (key === "f") forward?.();
       else navigate?.(event.key === "ArrowUp" ? -1 : 1);
     };
+    // Keyboard events do not bubble out of an iframe. Dispatch from its element
+    // so the app's existing shortcut scopes and overlay guards still apply.
+    const forwardShortcut = (event: KeyboardEvent) => {
+      const forwarded = new KeyboardEvent(event.type, {
+        key: event.key,
+        code: event.code,
+        location: event.location,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        isComposing: event.isComposing,
+        repeat: event.repeat,
+        bubbles: true,
+        cancelable: true,
+      });
+      if (!iframe.dispatchEvent(forwarded)) event.preventDefault();
+    };
     const stopObservingDocument = () => {
       observedDocument?.removeEventListener("keydown", navigateMessage);
+      observedDocument?.removeEventListener("keyup", forwardShortcut);
       observedDocument?.removeEventListener("pointerdown", selectMessage);
       observedDocument?.removeEventListener("focusin", selectMessage);
     };
@@ -192,6 +215,7 @@ function useEmailIframe(
       stopObservingDocument();
       observedDocument = iframeDocument;
       observedDocument.addEventListener("keydown", navigateMessage);
+      observedDocument.addEventListener("keyup", forwardShortcut);
       observedDocument.addEventListener("pointerdown", selectMessage);
       observedDocument.addEventListener("focusin", selectMessage);
       observedRoot = root;
