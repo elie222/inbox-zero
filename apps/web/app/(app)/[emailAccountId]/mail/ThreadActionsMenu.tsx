@@ -12,6 +12,8 @@ import {
   MoreHorizontalIcon,
   ShieldAlertIcon,
   SparklesIcon,
+  StarIcon,
+  StarOffIcon,
   Trash2Icon,
   TagIcon,
 } from "lucide-react";
@@ -58,6 +60,8 @@ export type ThreadActionsMenuProps = {
   /** `setInput` from `useChat()`: the fix flow seeds the assistant with it. */
   setChatInput: (input: string) => void;
   isUnread: boolean;
+  isStarred: boolean;
+  onToggleStar: () => void;
   onMarkSpam: () => void;
   onDelete: () => void;
   onMarkRead: () => void;
@@ -79,6 +83,8 @@ export function ThreadActionsMenu({
   message,
   setChatInput,
   isUnread,
+  isStarred,
+  onToggleStar,
   onMarkSpam,
   onDelete,
   onMarkRead,
@@ -175,6 +181,18 @@ export function ThreadActionsMenu({
               </DropdownMenuShortcut>
             </DropdownMenuItem>
           )}
+
+          <DropdownMenuItem onSelect={onToggleStar}>
+            {isStarred ? (
+              <StarOffIcon className="mr-2 size-4" />
+            ) : (
+              <StarIcon className="mr-2 size-4" />
+            )}
+            {isStarred ? "Unstar" : "Star"}
+            <DropdownMenuShortcut>
+              {getShortcutHint("star")}
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
 
           {isUnread ? (
             <DropdownMenuItem onSelect={onMarkRead}>
