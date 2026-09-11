@@ -1,7 +1,8 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { type GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { saveGroupItem } from "@/utils/group/group-item";
 
 /**
  * Saves a learned pattern for a rule
@@ -47,34 +48,15 @@ export async function saveLearnedPattern({
     logger,
   });
 
-  await prisma.groupItem.upsert({
-    where: {
-      groupId_type_value: {
-        groupId,
-        type: GroupItemType.FROM,
-        value: from,
-      },
-    },
-    // Undefined fields are left untouched by Prisma, so inferred inclusions do not
-    // overwrite how the pattern was first learned. Explicit exclusions claim the row
-    // so later cleanup cannot mistake a correction for spam learning.
-    update: {
-      exclude,
-      reason,
-      threadId,
-      messageId,
-      source: exclude === true ? source : undefined,
-    },
-    create: {
-      groupId,
-      type: GroupItemType.FROM,
-      value: from,
-      exclude: exclude ?? false,
-      reason,
-      threadId,
-      messageId,
-      source,
-    },
+  await saveGroupItem({
+    groupId,
+    type: GroupItemType.FROM,
+    value: from,
+    exclude,
+    reason,
+    threadId,
+    messageId,
+    source,
   });
 }
 
@@ -131,25 +113,12 @@ export async function saveLearnedPatterns({
   // Process all patterns in a single function
   for (const pattern of patterns) {
     try {
-      await prisma.groupItem.upsert({
-        where: {
-          groupId_type_value: {
-            groupId,
-            type: pattern.type,
-            value: pattern.value,
-          },
-        },
-        // Same rule as saveLearnedPattern: a pattern that says nothing about exclude
-        // must not reset one, which would re-block a sender the user had corrected.
-        update: {
-          exclude: pattern.exclude,
-        },
-        create: {
-          groupId,
-          type: pattern.type,
-          value: pattern.value,
-          exclude: pattern.exclude ?? false,
-        },
+      await saveGroupItem({
+        groupId,
+        type: pattern.type,
+        value: pattern.value,
+        exclude: pattern.exclude,
+        source: GroupItemSource.USER,
       });
     } catch (error) {
       const message = `${pattern.value} (${pattern.type}) ${
