@@ -1,3 +1,4 @@
+import { SafeError } from "@/utils/error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -28,6 +29,25 @@ vi.mock("../timezone-helpers", () => ({
 describe("microsoft calendar sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("does not overwrite the refresh client's guarded disconnect or reconnect error", async () => {
+    const error = new SafeError("Please reconnect your calendar.");
+    vi.mocked(getCalendarClientWithRefresh).mockRejectedValueOnce(error);
+    vi.mocked(prisma.calendarConnection.update).mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    await expect(
+      createMicrosoftCalendarProvider(logger).syncCalendars(
+        "connection-id",
+        "access-token",
+        "refresh-token",
+        "email-account-id",
+        null,
+      ),
+    ).rejects.toBe(error);
+    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
+    expect(fetchMicrosoftCalendars).not.toHaveBeenCalled();
   });
 
   it("marks the default calendar as primary so bookings without an explicit destination can target it", async () => {
