@@ -117,15 +117,14 @@ export function useThread(
   });
   const overlaidData = useMemo(() => {
     if (!data) return data;
-    const stateMutations = mutations.filter(
+    // Preserve fetched unread flags for the reader's initial message expansion.
+    const starMutations = mutations.filter(
       (mutation) =>
-        mutation.threadId === id &&
-        (mutation.kind === "set_read_state" ||
-          mutation.kind === "set_starred_state"),
+        mutation.threadId === id && mutation.kind === "set_starred_state",
     );
-    if (!stateMutations.length) return data;
+    if (!starMutations.length) return data;
     // The reader can outlive its list row while queued changes reach the server.
-    const messages = createMailMutationOverlay(stateMutations).applyToMessages(
+    const messages = createMailMutationOverlay(starMutations).applyToMessages(
       emailAccountId,
       data.thread.messages,
     );

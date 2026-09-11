@@ -81,16 +81,23 @@ describe("useThread", () => {
   });
 
   it.each([
-    { kind: "archive" as const, emailAccountId: "account-1" },
-    { kind: "set_starred_state" as const, emailAccountId: "account-2" },
-  ])("keeps reader messages intact for $kind from $emailAccountId", async ({
-    kind,
+    { payload: { kind: "archive" as const }, emailAccountId: "account-1" },
+    {
+      payload: { kind: "set_starred_state" as const, starred: true },
+      emailAccountId: "account-2",
+    },
+    {
+      payload: { kind: "set_read_state" as const, read: true },
+      emailAccountId: "account-1",
+    },
+  ])("keeps reader messages intact for $payload.kind from $emailAccountId", async ({
+    payload,
     emailAccountId,
   }) => {
     const data = {
       thread: {
         id: "thread-1",
-        messages: [{ id: "message-1", labelIds: ["INBOX"] }],
+        messages: [{ id: "message-1", labelIds: ["INBOX", "UNREAD"] }],
       },
     };
     cache.read.mockResolvedValue(undefined);
@@ -101,7 +108,7 @@ describe("useThread", () => {
           emailAccountId,
           threadId: "thread-1",
           messageIds: ["message-1"],
-          ...(kind === "archive" ? { kind } : { kind, starred: true }),
+          ...payload,
           createdAt: 1,
         }),
       ],
