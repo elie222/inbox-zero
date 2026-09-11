@@ -56,3 +56,6 @@ allowBuilds:
   protobufjs: true
   sharp: true
   workerd: true
+
+patchedDependencies:
+  '@inbox-zero/emulate@0.11.1': patches/@inbox-zero__emulate@0.11.1.patch

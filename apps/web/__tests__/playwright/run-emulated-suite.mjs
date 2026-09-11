@@ -162,6 +162,9 @@ for (const target of targets) {
         ...(/[\\/]settings[\\/]mcp-access\.spec\.ts$/.test(target.path)
           ? { MCP_SERVER_ENABLED: "true" }
           : {}),
+        ...(/[\\/]settings[\\/]scim-credentials\.spec\.ts$/.test(target.path)
+          ? { PLAYWRIGHT_SCIM_TEST: "true" }
+          : {}),
         ...(isSettingsTarget(target.path)
           ? { NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true" }
           : {}),
