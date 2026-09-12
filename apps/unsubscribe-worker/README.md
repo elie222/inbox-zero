@@ -53,7 +53,7 @@ Build the runner image above and use it to create a private Daytona snapshot wit
 
 **Verify strict network enforcement before enabling this adapter.** [Daytona's network documentation](https://www.daytona.io/docs/en/network-limits/) states that Tier 1/2 organization rules override sandbox allowlists and leave essential services reachable. Use a configuration that strictly replaces those defaults (currently Tier 3/4), a dedicated broker IP with only its broker port exposed, and verified denial of private networks/metadata. The CIDR allowlist itself cannot restrict destination ports. Set `UNSUBSCRIBE_DAYTONA_STRICT_NETWORK_POLICY=verified` only after checking those deployment conditions.
 
-Before transferring job data, each sandbox probes broker reachability and denies operation if sampled outside destinations are reachable. This catches ignored allowlists; it does not replace infrastructure verification. Each private sandbox has provider TTL deletion after three minutes, and is explicitly deleted after each job. No shared volumes or warm pools are used.
+Before transferring job data, each sandbox probes broker reachability and denies operation if sampled outside destinations or other ports on the broker IP are reachable. This catches ignored allowlists and extra services on the dedicated broker address; it does not replace infrastructure verification. Each private sandbox has provider TTL deletion after three minutes, and is explicitly deleted after each job. No shared volumes or warm pools are used.
 
 ## Enable the web app
 

@@ -81,7 +81,7 @@ export async function completeUnsubscribe(
         if (
           control.tag !== "select" ||
           !decision.option ||
-          !control.options.includes(decision.option)
+          !control.options.some((option) => option.value === decision.option)
         )
           return { status: "needs_user" };
         await handle.selectOption(decision.option);
@@ -97,15 +97,13 @@ export async function completeUnsubscribe(
 }
 
 async function observe(page: Page) {
-  const candidates = await page.evaluateHandle(() => {
-    const matches = document.querySelectorAll(
-      "a,button,input,select,[role=button],[role=checkbox]",
-    );
-    const elements = [];
-    for (let index = 0; index < Math.min(matches.length, 200); index++)
-      elements.push(matches[index]);
-    return elements;
-  });
+  const candidates = await page.evaluateHandle(() =>
+    Array.from(
+      document.querySelectorAll(
+        "a,button,input,select,[role=button],[role=checkbox]",
+      ),
+    ),
+  );
   const properties = await candidates.getProperties();
   const all = [...properties.values()].flatMap((value) => {
     const element = value.asElement();
@@ -135,7 +133,10 @@ async function observe(page: Page) {
         element instanceof HTMLSelectElement
           ? Array.from(element.options)
               .slice(0, 100)
-              .map((option) => option.value.slice(0, 300))
+              .map((option) => ({
+                value: option.value.slice(0, 300),
+                label: option.label.slice(0, 300),
+              }))
           : [],
     }));
     controls.push({ ref: handles.length, ...details });

@@ -39,7 +39,14 @@ export const observationSchema = z.object({
         tag: z.string().max(20),
         type: z.string().max(30),
         label: z.string().max(400),
-        options: z.array(z.string().max(300)).max(100),
+        options: z
+          .array(
+            z.object({
+              value: z.string().max(300),
+              label: z.string().max(300),
+            }),
+          )
+          .max(100),
       }),
     )
     .max(200),
@@ -56,8 +63,18 @@ export type SandboxInput = Job & {
   token: string;
 };
 
-// Implementations must create a fresh isolated instance, restrict egress to the
-// broker address (with only the broker port exposed), and arrange host/provider expiry independently of this process.
+export class SandboxCleanupUnconfirmed extends Error {
+  constructor(message = "Sandbox cleanup unconfirmed") {
+    super(message);
+    this.name = "SandboxCleanupUnconfirmed";
+  }
+}
+
+// Implementations must create a fresh isolated instance, restrict egress to
+// the broker address (with only the broker port exposed), and arrange
+// host/provider expiry independently of this process. create() must destroy any
+// instance it created before rejecting. Throw SandboxCleanupUnconfirmed when
+// that destruction cannot be confirmed.
 export interface SandboxAdapter {
   create(options: {
     jobId: string;

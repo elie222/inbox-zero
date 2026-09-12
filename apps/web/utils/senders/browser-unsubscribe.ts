@@ -25,6 +25,7 @@ export async function browserUnsubscribe({
   logger: Logger;
 }): Promise<AutomaticUnsubscribeResult> {
   const jobId = randomUUID();
+  const deadline = Date.now() + 170_000;
   try {
     const workerUrl = new URL("/jobs", env.UNSUBSCRIBE_WORKER_URL);
     if (workerUrl.protocol !== "https:" || !env.UNSUBSCRIBE_WORKER_SECRET)
@@ -70,7 +71,7 @@ export async function browserUnsubscribe({
         url: unsubscribeUrl,
         recipientEmail: account.email,
       }),
-      signal: AbortSignal.timeout(170_000),
+      signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
     });
     if (!response.ok) throw new Error("Worker request failed");
     const body = await readWorkerResponse(response);

@@ -34,7 +34,8 @@ test("requires a host expiry timer and gVisor, with no volumes or inherited secr
   );
   await sandbox.destroy();
   assert.equal(calls[0].binary, "systemd-run");
-  const run = calls.find(({ args }) => args.includes("--interactive"))!;
+  const run = calls.find(({ args }) => args.includes("--interactive"));
+  assert.ok(run);
   assert.ok(run.args.includes("--runtime=runsc"));
   assert.ok(
     run.args.includes(`--network=container:unsubscribe-${jobId}-router`),
@@ -49,7 +50,8 @@ test("requires a host expiry timer and gVisor, with no volumes or inherited secr
         arg === "--privileged",
     ),
   );
-  assert.equal(JSON.parse(run.input!).token, "test-token");
+  assert.ok(run.input);
+  assert.equal(JSON.parse(run.input).token, "test-token");
 });
 
 test("never starts a sandbox if independent expiry cannot be scheduled", async () => {

@@ -111,4 +111,37 @@ describe("browser unsubscribe", () => {
       reason: "needs_user",
     });
   });
+
+  it("bounds mailbox resolution against the worker deadline", async () => {
+    vi.useFakeTimers();
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    vi.setSystemTime(1_000_000);
+    try {
+      getMessagesFromSender.mockImplementation(async () => {
+        vi.setSystemTime(1_000_000 + 12_000);
+        const message = getMockParsedMessage();
+        return {
+          messages: [
+            {
+              ...message,
+              headers: {
+                ...message.headers,
+                from: "Sender <sender@example.com>",
+                "list-unsubscribe":
+                  "<https://example.com/unsubscribe?token=owned>",
+              },
+            },
+          ],
+        };
+      });
+      expect(await browserUnsubscribe(options)).toMatchObject({
+        success: true,
+        method: "browser",
+      });
+      expect(timeoutSpy).toHaveBeenCalledWith(158_000);
+    } finally {
+      timeoutSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

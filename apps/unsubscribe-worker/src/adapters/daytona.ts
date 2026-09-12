@@ -1,5 +1,9 @@
 import { Daytona } from "@daytona/sdk";
-import { resultSchema, type SandboxAdapter } from "../contracts.ts";
+import {
+  SandboxCleanupUnconfirmed,
+  resultSchema,
+  type SandboxAdapter,
+} from "../contracts.ts";
 
 export function daytonaAdapter({
   apiKey,
@@ -23,6 +27,8 @@ export function daytonaAdapter({
           name: `unsubscribe-${jobId}`,
           snapshot,
           public: false,
+          // Daytona allowlists are CIDR-only. Broker-port restriction is a
+          // dedicated-host requirement; verify-egress also samples other ports.
           networkAllowList: `${brokerIp}/32`,
           autoStopInterval: 3,
           autoDeleteInterval: 0,
@@ -45,7 +51,11 @@ export function daytonaAdapter({
           throw new Error("Network isolation check failed");
         signal.throwIfAborted();
       } catch {
-        await destroy();
+        try {
+          await destroy();
+        } catch {
+          throw new SandboxCleanupUnconfirmed();
+        }
         throw new Error("Sandbox isolation unavailable");
       }
       return {

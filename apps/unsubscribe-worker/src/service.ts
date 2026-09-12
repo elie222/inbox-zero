@@ -3,6 +3,7 @@ import type { Socket } from "node:net";
 import {
   MAX_JOB_MS,
   MAX_STEPS,
+  SandboxCleanupUnconfirmed,
   resultSchema,
   type Decision,
   type Job,
@@ -86,7 +87,11 @@ export class UnsubscribeService {
           })
           .then(async (created) => {
             if (session.controller.signal.aborted) {
-              await created.destroy();
+              try {
+                await created.destroy();
+              } catch {
+                throw new SandboxCleanupUnconfirmed();
+              }
               throw new Error("Job expired during creation");
             }
             return created;
@@ -110,10 +115,10 @@ export class UnsubscribeService {
         session.history.at(-1)?.action !== "confirmed"
       )
         result = { status: "failed" };
-    } catch {
+    } catch (error) {
       // Provider errors can contain command output, URLs and other job data.
       result = { status: "failed" };
-      if (!sandbox) this.healthy = false;
+      if (error instanceof SandboxCleanupUnconfirmed) this.healthy = false;
     } finally {
       this.sessions.delete(token);
       abort();

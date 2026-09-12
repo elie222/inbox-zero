@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { UnsubscribeService } from "./service.ts";
-import type { SandboxAdapter, SandboxInput } from "./contracts.ts";
+import {
+  SandboxCleanupUnconfirmed,
+  type SandboxAdapter,
+  type SandboxInput,
+} from "./contracts.ts";
 
 test("concurrent jobs have different capabilities and cannot select each other's model history", async () => {
   const inputs: SandboxInput[] = [];
@@ -94,6 +98,60 @@ test("refuses further work after cleanup cannot be confirmed", async () => {
           throw new Error("cleanup failed");
         },
       };
+    },
+  };
+  const service = new UnsubscribeService({
+    adapter,
+    brokerUrl: "https://broker.example.com",
+    brokerIp: "8.8.8.8",
+    maxConcurrent: 1,
+    decide: async () => ({ action: "needs_user", ref: null, option: null }),
+  });
+  const job = {
+    jobId: randomUUID(),
+    url: "https://example.com/unsubscribe",
+    recipientEmail: "user@example.com",
+  };
+  assert.deepEqual(await service.execute(job), { status: "failed" });
+  await assert.rejects(service.execute({ ...job, jobId: randomUUID() }));
+});
+
+test("keeps accepting jobs when sandbox creation fails after confirmed cleanup", async () => {
+  let attempts = 0;
+  const adapter: SandboxAdapter = {
+    async create() {
+      attempts++;
+      if (attempts === 1) throw new Error("isolation failed");
+      return {
+        async run() {
+          return { status: "needs_user" };
+        },
+        async destroy() {},
+      };
+    },
+  };
+  const service = new UnsubscribeService({
+    adapter,
+    brokerUrl: "https://broker.example.com",
+    brokerIp: "8.8.8.8",
+    maxConcurrent: 1,
+    decide: async () => ({ action: "needs_user", ref: null, option: null }),
+  });
+  const job = {
+    jobId: randomUUID(),
+    url: "https://example.com/unsubscribe",
+    recipientEmail: "user@example.com",
+  };
+  assert.deepEqual(await service.execute(job), { status: "failed" });
+  assert.deepEqual(await service.execute({ ...job, jobId: randomUUID() }), {
+    status: "needs_user",
+  });
+});
+
+test("refuses further work after create cannot confirm cleanup", async () => {
+  const adapter: SandboxAdapter = {
+    async create() {
+      throw new SandboxCleanupUnconfirmed();
     },
   };
   const service = new UnsubscribeService({

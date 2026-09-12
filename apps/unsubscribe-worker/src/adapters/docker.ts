@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process";
-import { resultSchema, type SandboxAdapter } from "../contracts.ts";
+import {
+  SandboxCleanupUnconfirmed,
+  resultSchema,
+  type SandboxAdapter,
+} from "../contracts.ts";
 
 type Command = (
   binary: string,
@@ -102,7 +106,11 @@ export function dockerAdapter({
           { timeout: 10_000, signal },
         );
       } catch {
-        await destroy();
+        try {
+          await destroy();
+        } catch {
+          throw new SandboxCleanupUnconfirmed();
+        }
         throw new Error("Sandbox creation failed");
       }
       return {
