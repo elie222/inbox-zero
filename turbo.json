@@ -270,7 +270,9 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
-        "SSO_LOGIN_ENABLED"
+        "SSO_LOGIN_ENABLED",
+        "UNSUBSCRIBE_WORKER_URL",
+        "UNSUBSCRIBE_WORKER_SECRET"
       ],
       "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
@@ -394,7 +396,9 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
-        "SSO_LOGIN_ENABLED"
+        "SSO_LOGIN_ENABLED",
+        "UNSUBSCRIBE_WORKER_URL",
+        "UNSUBSCRIBE_WORKER_SECRET"
       ],
       "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },

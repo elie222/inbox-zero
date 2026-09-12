@@ -7,10 +7,11 @@ export type UnsubscribeSenderResponse = Awaited<
   ReturnType<typeof unsubscribeSenderAndMark>
 >;
 
+export const maxDuration = 180;
+
 /**
- * REST equivalent of `unsubscribeSenderAction`. Attempts an RFC 8058 one-click
- * unsubscribe server-side so the caller doesn't have to open a browser, and
- * marks the sender `UNSUBSCRIBED` only if that succeeds.
+ * REST equivalent of `unsubscribeSenderAction`. Uses the isolated browser worker
+ * when configured, otherwise the existing HTTP unsubscribe flow.
  *
  * Check `unsubscribe.success` in the response: when it is false the sender was
  * left unchanged and the caller should fall back to opening `unsubscribeLink`.

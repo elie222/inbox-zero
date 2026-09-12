@@ -1,8 +1,8 @@
-"use client";
-
 import { MailShell } from "@/app/(app)/[emailAccountId]/mail/MailShell";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
+
+export const maxDuration = 180;
 
 export default function Mail() {
   return (

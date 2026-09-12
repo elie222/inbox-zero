@@ -24,6 +24,7 @@ import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { sendOtpPushNotification } from "@/utils/otp-push";
+import { internalDateToDate } from "@/utils/date";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -157,7 +158,15 @@ export async function processHistoryItem(
 
     if (sender) {
       await provider.blockUnsubscribedEmail(messageId);
-      logger.info("Skipping. Blocked unsubscribed email.", { from: email });
+      const receivedAt = internalDateToDate(parsedMessage.internalDate, {
+        fallbackToNow: false,
+      });
+      logger.info("Skipping. Blocked unsubscribed email.", {
+        senderId: sender.id,
+        receivedAt: Number.isFinite(receivedAt.getTime())
+          ? receivedAt.toISOString()
+          : null,
+      });
       return;
     }
 
