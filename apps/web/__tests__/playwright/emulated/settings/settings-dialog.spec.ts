@@ -77,3 +77,24 @@ for (const view of ["mail", "settings"]) {
     await expect(page).not.toHaveURL(/settings=open/);
   });
 }
+
+test("opens mail from Command K", async ({ page }, testInfo) => {
+  const { id: emailAccountId } = await getEmailAccount(page);
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.press(`${modifier}+KeyK`);
+  const search = page.getByPlaceholder("Type a command or search...");
+  await expect(search).toBeVisible();
+  await search.fill("go to mail");
+  await page.getByRole("option", { name: "Go to Mail", exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail$`));
+  await expect(
+    page.getByRole("listbox", { name: "Conversations" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "command-k-go-to-mail");
+});
