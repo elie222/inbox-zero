@@ -41,6 +41,11 @@ export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
             label: "Analytics",
             href: `/organization/${organizationId}/stats`,
           },
+          {
+            id: "trained-senders",
+            label: "Trained senders",
+            href: `/organization/${organizationId}/trained-senders`,
+          },
         ]
       : []),
   ];

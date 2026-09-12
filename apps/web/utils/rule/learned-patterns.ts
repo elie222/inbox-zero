@@ -140,7 +140,7 @@ export async function saveLearnedPatterns({
   return { success: true };
 }
 
-async function getOrCreateGroupForRule({
+export async function getOrCreateGroupForRule({
   emailAccountId,
   ruleId,
   ruleName,
