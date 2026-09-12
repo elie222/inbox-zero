@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectDesktopWindowStates,
   fitWindowBoundsToWorkArea,
-  getDesktopUnreadBadgeCount,
-  getLegacyDesktopWindowStates,
-  getRestoredDesktopWindows,
   MAX_DESKTOP_WINDOWS,
-  offsetWindowBounds,
   parseDesktopWindowStates,
-  shouldReuseSoleHiddenWindow,
 } from "./windows";
 
 const origin = "https://www.getinboxzero.com";
@@ -25,75 +19,37 @@ const mailWindow = {
 };
 
 describe("desktop window state", () => {
-  it("keeps valid mail windows and drops malformed or foreign URLs", () => {
+  it("keeps restorable mail windows and drops everything else", () => {
     expect(
       parseDesktopWindowStates(
         [
           mailWindow,
-          { url: `${origin}/login`, bounds: mailBounds, isMaximized: false },
+          { url: `${origin}/login`, bounds: mailBounds },
+          { url: `${origin}/account-1/automation`, bounds: mailBounds },
           { url: "https://evil.test/account-1/mail", bounds: mailBounds },
           {
             url: `${origin}/account-2/mail`,
             bounds: { x: 40, y: 40, width: 100, height: 80 },
           },
+          { url: `${origin}/account-3/mail` },
           null,
         ],
         origin,
       ),
-    ).toEqual([mailWindow]);
+    ).toEqual([
+      mailWindow,
+      { url: `${origin}/account-3/mail`, isMaximized: false },
+    ]);
   });
 
-  it("caps restored windows and sends utility pages back through a fresh launch", () => {
+  it("caps how many windows are restored", () => {
     const extras = Array.from({ length: MAX_DESKTOP_WINDOWS }, (_, index) => ({
       url: `${origin}/account-${index + 1}/mail`,
       bounds: mailBounds,
-      isMaximized: false,
     }));
     expect(
       parseDesktopWindowStates([...extras, mailWindow], origin),
     ).toHaveLength(MAX_DESKTOP_WINDOWS);
-    expect(
-      getRestoredDesktopWindows(
-        [
-          mailWindow,
-          {
-            url: `${origin}/account-1/automation`,
-            bounds: mailBounds,
-            isMaximized: true,
-          },
-        ],
-        origin,
-      ),
-    ).toEqual([mailWindow]);
-  });
-
-  it("migrates a single last mail URL and ignores a leftover login page", () => {
-    expect(
-      getLegacyDesktopWindowStates(`${origin}/account-1/mail`, origin),
-    ).toEqual([
-      {
-        url: `${origin}/account-1/mail`,
-        bounds: { x: 0, y: 0, width: 1280, height: 840 },
-        isMaximized: false,
-      },
-    ]);
-    expect(getLegacyDesktopWindowStates(`${origin}/login`, origin)).toEqual([]);
-  });
-
-  it("only persists in-app pages that can be restored later", () => {
-    expect(
-      collectDesktopWindowStates(
-        [
-          mailWindow,
-          {
-            url: `${origin}/login`,
-            bounds: mailBounds,
-            isMaximized: false,
-          },
-        ],
-        origin,
-      ),
-    ).toEqual([mailWindow]);
   });
 });
 
@@ -112,27 +68,5 @@ describe("desktop window placement", () => {
         workArea,
       ),
     ).toEqual({ x: 80, y: 55, width: 1280, height: 840 });
-  });
-
-  it("offsets a new window from the focused one", () => {
-    expect(offsetWindowBounds(mailBounds)).toEqual({
-      x: 148,
-      y: 108,
-      width: 1280,
-      height: 840,
-    });
-  });
-});
-
-describe("desktop window targeting", () => {
-  it("uses the highest unread report so a closing window cannot zero the badge", () => {
-    expect(getDesktopUnreadBadgeCount([0, 4, 2])).toBe(4);
-    expect(getDesktopUnreadBadgeCount([])).toBe(0);
-  });
-
-  it("reuses the hidden Mac window instead of stacking a second copy", () => {
-    expect(shouldReuseSoleHiddenWindow(1, 0)).toBe(true);
-    expect(shouldReuseSoleHiddenWindow(1, 1)).toBe(false);
-    expect(shouldReuseSoleHiddenWindow(2, 1)).toBe(false);
   });
 });

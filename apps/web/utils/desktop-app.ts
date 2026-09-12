@@ -46,10 +46,3 @@ export function shouldCheckForDesktopWebUpdate({
     now - lastCheckedAt >= DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS
   );
 }
-
-export function shouldOpenDesktopAccountInNewWindow(event: {
-  metaKey?: boolean;
-  ctrlKey?: boolean;
-}): boolean {
-  return event.metaKey === true || event.ctrlKey === true;
-}

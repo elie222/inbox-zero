@@ -32,10 +32,7 @@ import {
   getShortcutHint,
 } from "@/lib/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
-import {
-  getInboxZeroDesktopApp,
-  shouldOpenDesktopAccountInNewWindow,
-} from "@/utils/desktop-app";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { cn } from "@/utils";
 
 export function MailAccountSwitcher({
@@ -163,22 +160,9 @@ export function MailAccountSwitcher({
           {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
+              isDesktopApp={isDesktopApp}
               key={account.id}
               onSelect={onSelectAccount}
-              onOpenInNewWindow={
-                isDesktopApp
-                  ? (accountId) => {
-                      const openWindow = getInboxZeroDesktopApp()?.openWindow;
-                      if (openWindow) {
-                        openWindow(getMailAccountUrl(accountId, "")).catch(
-                          () => {},
-                        );
-                        return;
-                      }
-                      onSelectAccount(accountId);
-                    }
-                  : undefined
-              }
               shortcutKey={
                 isDesktopApp
                   ? getShortcut("switchAccount").keys[index]
@@ -212,22 +196,25 @@ export function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  isDesktopApp,
   onSelect,
-  onOpenInNewWindow,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  isDesktopApp: boolean;
   onSelect: (accountId: string) => void;
-  onOpenInNewWindow?: (accountId: string) => void;
   shortcutKey: string | undefined;
 }) {
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
       onSelect={(event) => {
-        if (onOpenInNewWindow && shouldOpenDesktopAccountInNewWindow(event)) {
-          onOpenInNewWindow(account.id);
-          return;
+        if (isDesktopApp && isDesktopNewWindowClick(event)) {
+          const openWindow = getInboxZeroDesktopApp()?.openWindow;
+          if (openWindow) {
+            openWindow(getMailAccountUrl(account.id, "")).catch(() => {});
+            return;
+          }
         }
         onSelect(account.id);
       }}
@@ -266,5 +253,12 @@ function AllAccountsIcon() {
       <span className="size-2 rounded-full bg-violet-500" />
       <span className="size-2 rounded-full bg-emerald-500" />
     </span>
+  );
+}
+
+function isDesktopNewWindowClick(event: Event) {
+  return (
+    ("metaKey" in event && event.metaKey === true) ||
+    ("ctrlKey" in event && event.ctrlKey === true)
   );
 }

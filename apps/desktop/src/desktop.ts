@@ -193,7 +193,7 @@ export function getDesktopSessionRestoreUrl(
 
 const MAIL_ACCOUNT_PATH = /^\/([^/]+)\/mail\/?$/u;
 
-export function isDesktopMailPath(pathname: string): boolean {
+function isDesktopMailPath(pathname: string): boolean {
   return pathname === "/mail" || MAIL_ACCOUNT_PATH.test(pathname);
 }
 

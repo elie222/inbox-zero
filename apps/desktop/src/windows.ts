@@ -1,14 +1,10 @@
-import {
-  getDesktopSessionRestoreUrl,
-  shouldPersistDesktopUrl,
-} from "./desktop";
+import { getDesktopSessionRestoreUrl } from "./desktop";
 
 export const DEFAULT_DESKTOP_WINDOW_WIDTH = 1280;
 export const DEFAULT_DESKTOP_WINDOW_HEIGHT = 840;
 export const MIN_DESKTOP_WINDOW_WIDTH = 900;
 export const MIN_DESKTOP_WINDOW_HEIGHT = 640;
 export const MAX_DESKTOP_WINDOWS = 8;
-export const NEW_WINDOW_OFFSET = 28;
 
 export type DesktopWindowBounds = {
   x: number;
@@ -19,8 +15,8 @@ export type DesktopWindowBounds = {
 
 export type DesktopWindowState = {
   url: string;
-  bounds: DesktopWindowBounds;
-  isMaximized: boolean;
+  bounds?: DesktopWindowBounds;
+  isMaximized?: boolean;
 };
 
 export function parseDesktopWindowStates(
@@ -31,53 +27,11 @@ export function parseDesktopWindowStates(
 
   const states: DesktopWindowState[] = [];
   for (const item of raw) {
-    if (states.length >= MAX_DESKTOP_WINDOWS) break;
     const state = parseDesktopWindowState(item, appOrigin);
     if (state) states.push(state);
+    if (states.length >= MAX_DESKTOP_WINDOWS) break;
   }
   return states;
-}
-
-export function getRestoredDesktopWindows(
-  states: readonly DesktopWindowState[],
-  appOrigin: string,
-): DesktopWindowState[] {
-  const restored: DesktopWindowState[] = [];
-  for (const state of states) {
-    if (restored.length >= MAX_DESKTOP_WINDOWS) break;
-    const url = getDesktopSessionRestoreUrl(appOrigin, state.url);
-    if (url) restored.push({ ...state, url });
-  }
-  return restored;
-}
-
-export function getLegacyDesktopWindowStates(
-  lastAppUrl: string | null,
-  appOrigin: string,
-): DesktopWindowState[] {
-  const url = getDesktopSessionRestoreUrl(appOrigin, lastAppUrl);
-  if (!url) return [];
-  return [
-    {
-      url,
-      bounds: {
-        x: 0,
-        y: 0,
-        width: DEFAULT_DESKTOP_WINDOW_WIDTH,
-        height: DEFAULT_DESKTOP_WINDOW_HEIGHT,
-      },
-      isMaximized: false,
-    },
-  ];
-}
-
-export function collectDesktopWindowStates(
-  windows: readonly DesktopWindowState[],
-  appOrigin: string,
-): DesktopWindowState[] {
-  return windows
-    .filter((window) => shouldPersistDesktopUrl(window.url, appOrigin))
-    .slice(0, MAX_DESKTOP_WINDOWS);
 }
 
 export function fitWindowBoundsToWorkArea(
@@ -110,72 +64,43 @@ export function fitWindowBoundsToWorkArea(
   };
 }
 
-export function offsetWindowBounds(
-  bounds: DesktopWindowBounds,
-  offset = NEW_WINDOW_OFFSET,
-): DesktopWindowBounds {
-  return {
-    x: bounds.x + offset,
-    y: bounds.y + offset,
-    width: bounds.width,
-    height: bounds.height,
-  };
-}
-
-export function getDesktopUnreadBadgeCount(counts: Iterable<number>): number {
-  let max = 0;
-  for (const count of counts) {
-    if (Number.isSafeInteger(count) && count > max) max = count;
-  }
-  return max;
-}
-
-export function shouldReuseSoleHiddenWindow(
-  windowCount: number,
-  visibleCount: number,
-): boolean {
-  return windowCount === 1 && visibleCount === 0;
-}
-
 function parseDesktopWindowState(
   raw: unknown,
   appOrigin: string,
 ): DesktopWindowState | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  if (!("url" in raw) || typeof raw.url !== "string") return null;
-  if (!shouldPersistDesktopUrl(raw.url, appOrigin)) return null;
+  if (!isRecord(raw) || typeof raw.url !== "string") return null;
+  const url = getDesktopSessionRestoreUrl(appOrigin, raw.url);
+  if (!url) return null;
 
-  const bounds = parseDesktopWindowBounds(
-    "bounds" in raw ? raw.bounds : undefined,
-  );
+  if (!("bounds" in raw)) return { url, isMaximized: raw.isMaximized === true };
+
+  const bounds = parseDesktopWindowBounds(raw.bounds);
   if (!bounds) return null;
-
-  return {
-    url: raw.url,
-    bounds,
-    isMaximized: "isMaximized" in raw && raw.isMaximized === true,
-  };
+  return { url, bounds, isMaximized: raw.isMaximized === true };
 }
 
 function parseDesktopWindowBounds(raw: unknown): DesktopWindowBounds | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const x = readFiniteNumber(raw, "x");
-  const y = readFiniteNumber(raw, "y");
-  const width = readFiniteNumber(raw, "width");
-  const height = readFiniteNumber(raw, "height");
-  if (x === null || y === null || width === null || height === null) {
-    return null;
-  }
-  if (width < MIN_DESKTOP_WINDOW_WIDTH || height < MIN_DESKTOP_WINDOW_HEIGHT) {
+  if (!isRecord(raw)) return null;
+  const { x, y, width, height } = raw;
+  if (
+    !isFiniteNumber(x) ||
+    !isFiniteNumber(y) ||
+    !isFiniteNumber(width) ||
+    !isFiniteNumber(height) ||
+    width < MIN_DESKTOP_WINDOW_WIDTH ||
+    height < MIN_DESKTOP_WINDOW_HEIGHT
+  ) {
     return null;
   }
   return { x, y, width, height };
 }
 
-function readFiniteNumber(raw: object, key: string): number | null {
-  if (!(key in raw)) return null;
-  const value = (raw as Record<string, unknown>)[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function rectanglesOverlap(

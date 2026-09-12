@@ -30,6 +30,7 @@ import {
   getDesktopHomeUrl,
   getDesktopMailAccountId,
   getDesktopPostAuthUrl,
+  getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
@@ -37,24 +38,17 @@ import {
   isDesktopAuthProvider,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
-  shouldPersistDesktopUrl,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
 import {
-  collectDesktopWindowStates,
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
   type DesktopWindowBounds,
-  type DesktopWindowState,
   fitWindowBoundsToWorkArea,
-  getDesktopUnreadBadgeCount,
-  getLegacyDesktopWindowStates,
-  getRestoredDesktopWindows,
+  MAX_DESKTOP_WINDOWS,
   MIN_DESKTOP_WINDOW_HEIGHT,
   MIN_DESKTOP_WINDOW_WIDTH,
-  offsetWindowBounds,
   parseDesktopWindowStates,
-  shouldReuseSoleHiddenWindow,
 } from "./windows";
 
 const PARTITION = "persist:inbox-zero";
@@ -62,7 +56,7 @@ const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
 const LAST_APP_URL_FILE = "last-app-url";
 const WINDOWS_STATE_FILE = "windows.json";
 
-const windows = new Set<BrowserWindow>();
+const windows: BrowserWindow[] = [];
 const lastUrlByWindow = new WeakMap<BrowserWindow, string>();
 const unreadByContents = new Map<number, number>();
 let lastFocused: BrowserWindow | null = null;
@@ -91,12 +85,17 @@ function startDesktopApp() {
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
     unreadByContents.set(event.sender.id, count);
-    applyUnreadBadge();
+    setUnreadBadge(Math.max(0, ...unreadByContents.values()));
   });
   ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
     const mail = trackNewMail(payload);
-    if (!mail || isAnyWindowFocused() || !Notification.isSupported()) return;
+    if (
+      !mail ||
+      windows.some((window) => window.isFocused()) ||
+      !Notification.isSupported()
+    )
+      return;
     const notification = new Notification({
       title: "Inbox Zero",
       body:
@@ -159,10 +158,7 @@ function startDesktopApp() {
   ipcMain.handle(
     "desktop-auth:start",
     async (event, provider: unknown, options: unknown) => {
-      if (!isTrustedDesktopEvent(event)) {
-        throw new Error("Unsupported sign-in provider");
-      }
-      if (!isDesktopAuthProvider(provider)) {
+      if (!isTrustedDesktopEvent(event) || !isDesktopAuthProvider(provider)) {
         throw new Error("Unsupported sign-in provider");
       }
       const callbackPath = getStartAuthCallbackPath(options);
@@ -188,9 +184,7 @@ function startDesktopApp() {
           isQuitting = true;
         }).catch(logDesktopUpdateError);
       },
-      createWindow: () => {
-        createAppWindow();
-      },
+      createWindow: () => createAppWindow(),
     });
     // Overlap TLS/socket setup with window creation and page load.
     session
@@ -218,17 +212,8 @@ function startDesktopApp() {
 }
 
 function restoreAppWindows() {
-  const restored = getRestoredDesktopWindows(
-    readStoredWindowStates(),
-    appOrigin,
-  );
-  if (restored.length === 0) {
-    createAppWindow();
-    return;
-  }
-  for (const state of restored) {
-    createAppWindow(state);
-  }
+  for (const state of readStoredWindowStates()) createAppWindow(state);
+  if (windows.length === 0) createAppWindow();
 }
 
 function createAppWindow(options?: {
@@ -236,13 +221,11 @@ function createAppWindow(options?: {
   bounds?: DesktopWindowBounds;
   isMaximized?: boolean;
 }) {
-  if (shouldReuseSoleHiddenWindow(windows.size, visibleWindowCount())) {
-    const existing = [...windows][0];
-    if (existing) {
-      if (options?.url) existing.loadURL(options.url).catch(() => {});
-      showWindow(existing);
-      return existing;
-    }
+  const existing = windows[0];
+  if (windows.length === 1 && existing && !existing.isVisible()) {
+    if (options?.url) existing.loadURL(options.url).catch(() => {});
+    showWindow(existing);
+    return existing;
   }
 
   const startUrl = options?.url ?? homeUrl;
@@ -265,7 +248,7 @@ function createAppWindow(options?: {
     },
   });
 
-  windows.add(window);
+  windows.push(window);
   lastFocused = window;
   rememberWindowUrl(window, startUrl);
   if (options?.isMaximized) window.maximize();
@@ -283,24 +266,28 @@ function createAppWindow(options?: {
   // Keep the last window alive on macOS so reopening from the dock is instant
   // instead of a cold page load. Extra windows close for real.
   window.on("close", (event) => {
-    if (process.platform === "darwin" && !isQuitting && windows.size <= 1) {
+    if (process.platform === "darwin" && !isQuitting && windows.length <= 1) {
       event.preventDefault();
       window.hide();
     }
   });
   window.on("closed", () => {
-    windows.delete(window);
+    const index = windows.indexOf(window);
+    if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(window.webContents.id);
     applyUnreadBadge();
-    if (lastFocused === window) {
-      lastFocused = [...windows][windows.size - 1] ?? null;
-    }
+    if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
     persistWindowsNow();
   });
 
   applyNavigationPolicy(window.webContents);
   applyDesktopWindowDragRegion(window.webContents);
-  trackWindowUrl(window);
+  window.webContents.on("did-navigate", (_event, url) => {
+    rememberWindowUrl(window, url);
+  });
+  window.webContents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
+    if (isMainFrame) rememberWindowUrl(window, url);
+  });
   installDesktopLoadRecovery(
     window.webContents,
     appOrigin,
@@ -314,28 +301,18 @@ function resolveWindowBounds(
   stored?: DesktopWindowBounds,
 ): DesktopWindowBounds | undefined {
   if (stored) {
-    return fitWindowBoundsToWorkArea(stored, workAreaFor(stored));
+    return fitWindowBoundsToWorkArea(
+      stored,
+      screen.getDisplayMatching(stored).workArea,
+    );
   }
   const source = lastFocused && !lastFocused.isDestroyed() ? lastFocused : null;
   if (!source) return;
+  const bounds = source.getNormalBounds();
   return fitWindowBoundsToWorkArea(
-    offsetWindowBounds(source.getNormalBounds()),
-    workAreaFor(source.getBounds()),
+    { ...bounds, x: bounds.x + 28, y: bounds.y + 28 },
+    screen.getDisplayMatching(source.getBounds()).workArea,
   );
-}
-
-function workAreaFor(bounds: DesktopWindowBounds): DesktopWindowBounds {
-  return screen.getDisplayMatching(bounds).workArea;
-}
-
-function trackWindowUrl(window: BrowserWindow) {
-  const contents = window.webContents;
-  contents.on("did-navigate", (_event, url) => {
-    rememberWindowUrl(window, url);
-  });
-  contents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
-    if (isMainFrame) rememberWindowUrl(window, url);
-  });
 }
 
 function rememberWindowUrl(window: BrowserWindow, url: string) {
@@ -346,20 +323,20 @@ function rememberWindowUrl(window: BrowserWindow, url: string) {
     schedulePersistWindows();
     return;
   }
-  if (shouldPersistDesktopUrl(url, appOrigin)) {
+  if (getDesktopSessionRestoreUrl(appOrigin, url)) {
     lastUrlByWindow.set(window, url);
     schedulePersistWindows();
   }
 }
 
-function readStoredWindowStates(): DesktopWindowState[] {
+function readStoredWindowStates() {
   try {
-    const parsed: unknown = JSON.parse(
-      fs.readFileSync(getWindowsStateFile(), "utf8"),
+    return parseDesktopWindowStates(
+      JSON.parse(fs.readFileSync(userDataFile(WINDOWS_STATE_FILE), "utf8")),
+      appOrigin,
     );
-    return parseDesktopWindowStates(parsed, appOrigin);
   } catch {
-    return getLegacyDesktopWindowStates(readLastAppUrl(), appOrigin);
+    return parseDesktopWindowStates([{ url: readLastAppUrl() }], appOrigin);
   }
 }
 
@@ -371,8 +348,8 @@ function schedulePersistWindows() {
 function persistWindowsNow() {
   clearTimeout(persistWindowsTimer);
   persistWindowsTimer = undefined;
-  const states = collectDesktopWindowStates(
-    [...windows].flatMap((window) => {
+  const states = windows
+    .flatMap((window) => {
       if (window.isDestroyed()) return [];
       const url = lastUrlByWindow.get(window);
       if (!url) return [];
@@ -383,12 +360,15 @@ function persistWindowsNow() {
           isMaximized: window.isMaximized(),
         },
       ];
-    }),
-    appOrigin,
-  );
+    })
+    .slice(0, MAX_DESKTOP_WINDOWS);
   try {
-    fs.writeFileSync(getWindowsStateFile(), JSON.stringify(states), "utf8");
-    fs.rmSync(getLastAppUrlFile(), { force: true });
+    fs.writeFileSync(
+      userDataFile(WINDOWS_STATE_FILE),
+      JSON.stringify(states),
+      "utf8",
+    );
+    fs.rmSync(userDataFile(LAST_APP_URL_FILE), { force: true });
   } catch {
     // Restoring windows is best-effort; never break navigation over it.
   }
@@ -396,14 +376,14 @@ function persistWindowsNow() {
 
 function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
   return (
-    [...windows].some((window) => event.sender === window.webContents) &&
+    windows.some((window) => event.sender === window.webContents) &&
     event.senderFrame === event.sender.mainFrame &&
     event.senderFrame.origin === appOrigin
   );
 }
 
 function applyUnreadBadge() {
-  setUnreadBadge(getDesktopUnreadBadgeCount(unreadByContents.values()));
+  setUnreadBadge(Math.max(0, ...unreadByContents.values()));
 }
 
 function setUnreadBadge(count: number) {
@@ -421,18 +401,14 @@ function clearMailIndicators() {
 
 function readLastAppUrl(): string | null {
   try {
-    return fs.readFileSync(getLastAppUrlFile(), "utf8");
+    return fs.readFileSync(userDataFile(LAST_APP_URL_FILE), "utf8");
   } catch {
     return null;
   }
 }
 
-function getWindowsStateFile() {
-  return path.join(app.getPath("userData"), WINDOWS_STATE_FILE);
-}
-
-function getLastAppUrlFile() {
-  return path.join(app.getPath("userData"), LAST_APP_URL_FILE);
+function userDataFile(name: string) {
+  return path.join(app.getPath("userData"), name);
 }
 
 function applyDesktopWindowDragRegion(contents: WebContents) {
@@ -465,7 +441,9 @@ function guardNavigation(event: { preventDefault: () => void }, url: string) {
 
 function openAppWindow(url: string) {
   const accountId = getDesktopMailAccountId(url, appOrigin);
-  const existing = accountId ? findWindowForAccount(accountId) : undefined;
+  const existing = accountId
+    ? windows.find((window) => windowAccountId(window) === accountId)
+    : undefined;
   if (existing) {
     showWindow(existing);
     return existing;
@@ -473,44 +451,25 @@ function openAppWindow(url: string) {
   return createAppWindow({ url });
 }
 
-function findWindowForAccount(accountId: string): BrowserWindow | undefined {
-  const isMatch = (window: BrowserWindow) =>
-    getDesktopMailAccountId(windowUrl(window), appOrigin) === accountId;
-  if (lastFocused && !lastFocused.isDestroyed() && isMatch(lastFocused)) {
-    return lastFocused;
-  }
-  return [...windows].find((window) => isMatch(window));
-}
-
-function windowUrl(window: BrowserWindow) {
-  return lastUrlByWindow.get(window) ?? window.webContents.getURL();
+function windowAccountId(window: BrowserWindow) {
+  return getDesktopMailAccountId(
+    lastUrlByWindow.get(window) ?? window.webContents.getURL(),
+    appOrigin,
+  );
 }
 
 function focusAppWindow(): BrowserWindow {
-  if (lastFocused && !lastFocused.isDestroyed()) {
-    showWindow(lastFocused);
-    return lastFocused;
-  }
-  const existing = [...windows][0];
-  if (existing) {
-    showWindow(existing);
-    return existing;
-  }
-  return createAppWindow();
+  const window =
+    (lastFocused && !lastFocused.isDestroyed() ? lastFocused : windows[0]) ??
+    createAppWindow();
+  showWindow(window);
+  return window;
 }
 
 function showWindow(window: BrowserWindow) {
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
-}
-
-function visibleWindowCount() {
-  return [...windows].filter((window) => window.isVisible()).length;
-}
-
-function isAnyWindowFocused() {
-  return [...windows].some((window) => window.isFocused());
 }
 
 async function handleAuthCallbackUrl(url: string) {
@@ -580,7 +539,7 @@ function consumePendingCallbackPath(): string | null {
 }
 
 function getPendingCallbackPathFile() {
-  return path.join(app.getPath("userData"), PENDING_CALLBACK_PATH_FILE);
+  return userDataFile(PENDING_CALLBACK_PATH_FILE);
 }
 
 function getStartAuthCallbackPath(options: unknown): string | null {
