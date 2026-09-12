@@ -19,6 +19,9 @@ vi.mock("@/utils/prisma", () => ({
     action: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    classificationFeedback: {
+      count: vi.fn().mockResolvedValue(0),
+    },
   },
 }));
 
