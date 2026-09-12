@@ -53,6 +53,9 @@ vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
+vi.mock("@/utils/google/oauth", () => ({
+  isGoogleOauthEmulationEnabled: vi.fn(() => false),
+}));
 
 describe("GmailProvider.sendEmail", () => {
   it("returns the provider message ID", async () => {
@@ -859,6 +862,16 @@ describe("GmailProvider.updateLabel", () => {
         },
       },
     });
+  });
+});
+
+describe("GmailProvider.searchContacts", () => {
+  it("skips People API lookups during Google OAuth emulation", async () => {
+    const oauth = await import("@/utils/google/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
+    const provider = new GmailProvider({} as never);
+
+    await expect(provider.searchContacts("ada")).resolves.toEqual([]);
   });
 });
 

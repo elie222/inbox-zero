@@ -110,6 +110,7 @@ import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
+import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
@@ -1535,6 +1536,8 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async searchContacts(query: string) {
+    // The Microsoft emulator has no people/contacts Graph endpoints.
+    if (isMicrosoftEmulationEnabled()) return [];
     return searchContacts(this.client, query, this.logger);
   }
 

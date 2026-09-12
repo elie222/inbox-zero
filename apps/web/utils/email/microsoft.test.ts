@@ -34,6 +34,9 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
+vi.mock("@/utils/microsoft/oauth", () => ({
+  isMicrosoftEmulationEnabled: vi.fn(() => false),
+}));
 
 vi.mock("@/utils/outlook/message", async () => {
   const actual = await vi.importActual<
@@ -1596,6 +1599,16 @@ describe("OutlookProvider.deleteLabel", () => {
 
     await expect(provider.deleteLabel("category-1")).resolves.toBeUndefined();
     expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("OutlookProvider.searchContacts", () => {
+  it("skips Graph contact lookups during Microsoft emulation", async () => {
+    const oauth = await import("@/utils/microsoft/oauth");
+    vi.mocked(oauth.isMicrosoftEmulationEnabled).mockReturnValue(true);
+    const provider = new OutlookProvider({} as never, createTestLogger());
+
+    await expect(provider.searchContacts("ada")).resolves.toEqual([]);
   });
 });
 
