@@ -10,7 +10,6 @@ import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 import { SentWithSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting";
-import { SentMessageOpenTrackingSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentMessageOpenTrackingSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { SyncToExtensionSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
@@ -32,7 +31,6 @@ export function SettingsTab() {
       <div className="space-y-2">
         <SectionHeader>Updates</SectionHeader>
         <FollowUpRemindersSetting />
-        <SentMessageOpenTrackingSetting />
         {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
       </div>
 

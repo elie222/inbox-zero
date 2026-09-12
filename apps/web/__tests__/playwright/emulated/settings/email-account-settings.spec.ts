@@ -31,6 +31,13 @@ test("persists draft cleanup settings and disables all account rules", async ({
   await expect(accountCard.toggle).toBeVisible({ timeout: 60_000 });
   await accountCard.toggle.click();
 
+  await expect(
+    accountCard.card.getByText("Read status", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(
+    accountCard.card.getByRole("switch", { name: "Toggle read status" }),
+  ).toBeChecked();
+
   let cleanupDaysInput = accountCard.card.getByRole("spinbutton", {
     name: "Draft cleanup age in days",
   });
