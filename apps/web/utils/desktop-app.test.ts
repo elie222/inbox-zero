@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS,
   shouldCheckForDesktopWebUpdate,
+  shouldOpenDesktopAccountInNewWindow,
 } from "./desktop-app";
 
 describe("shouldCheckForDesktopWebUpdate", () => {
@@ -80,5 +81,14 @@ describe("shouldCheckForDesktopWebUpdate", () => {
         now,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldOpenDesktopAccountInNewWindow", () => {
+  it("opens a new window only for modifier clicks", () => {
+    expect(shouldOpenDesktopAccountInNewWindow({ metaKey: true })).toBe(true);
+    expect(shouldOpenDesktopAccountInNewWindow({ ctrlKey: true })).toBe(true);
+    expect(shouldOpenDesktopAccountInNewWindow({ metaKey: false })).toBe(false);
+    expect(shouldOpenDesktopAccountInNewWindow({})).toBe(false);
   });
 });

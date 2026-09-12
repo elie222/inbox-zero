@@ -191,8 +191,24 @@ export function getDesktopSessionRestoreUrl(
   return parsed.toString();
 }
 
-function isDesktopMailPath(pathname: string): boolean {
-  return pathname === "/mail" || /^\/[^/]+\/mail\/?$/u.test(pathname);
+const MAIL_ACCOUNT_PATH = /^\/([^/]+)\/mail\/?$/u;
+
+export function isDesktopMailPath(pathname: string): boolean {
+  return pathname === "/mail" || MAIL_ACCOUNT_PATH.test(pathname);
+}
+
+export function getDesktopMailAccountId(
+  url: string,
+  appOrigin: string,
+): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.origin !== appOrigin) return null;
+  return MAIL_ACCOUNT_PATH.exec(parsed.pathname)?.[1] ?? null;
 }
 
 const DESKTOP_WINDOW_BACKGROUND = "#ffffff";

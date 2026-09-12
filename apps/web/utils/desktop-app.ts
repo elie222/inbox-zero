@@ -8,6 +8,7 @@ export type InboxZeroDesktopApi = {
     emailAccountId: string;
     messages: { id: string; receivedAt: number }[];
   }) => void;
+  openWindow?: (path: string) => Promise<void>;
   startAuth: (
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
@@ -44,4 +45,11 @@ export function shouldCheckForDesktopWebUpdate({
     now < lastCheckedAt ||
     now - lastCheckedAt >= DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS
   );
+}
+
+export function shouldOpenDesktopAccountInNewWindow(event: {
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+}): boolean {
+  return event.metaKey === true || event.ctrlKey === true;
 }

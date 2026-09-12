@@ -7,11 +7,13 @@ import {
   ipcMain,
   nativeTheme,
   Notification,
+  screen,
   session,
   shell,
   type Session,
   type WebContents,
   type IpcMainEvent,
+  type IpcMainInvokeEvent,
 } from "electron";
 import { installDesktopLoadRecovery } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
@@ -26,8 +28,8 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
+  getDesktopMailAccountId,
   getDesktopPostAuthUrl,
-  getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
@@ -38,12 +40,33 @@ import {
   shouldPersistDesktopUrl,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
+import {
+  collectDesktopWindowStates,
+  DEFAULT_DESKTOP_WINDOW_HEIGHT,
+  DEFAULT_DESKTOP_WINDOW_WIDTH,
+  type DesktopWindowBounds,
+  type DesktopWindowState,
+  fitWindowBoundsToWorkArea,
+  getDesktopUnreadBadgeCount,
+  getLegacyDesktopWindowStates,
+  getRestoredDesktopWindows,
+  MIN_DESKTOP_WINDOW_HEIGHT,
+  MIN_DESKTOP_WINDOW_WIDTH,
+  offsetWindowBounds,
+  parseDesktopWindowStates,
+  shouldReuseSoleHiddenWindow,
+} from "./windows";
 
 const PARTITION = "persist:inbox-zero";
 const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
 const LAST_APP_URL_FILE = "last-app-url";
+const WINDOWS_STATE_FILE = "windows.json";
 
-let mainWindow: BrowserWindow | null = null;
+const windows = new Set<BrowserWindow>();
+const lastUrlByWindow = new WeakMap<BrowserWindow, string>();
+const unreadByContents = new Map<number, number>();
+let lastFocused: BrowserWindow | null = null;
+let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -64,15 +87,16 @@ function startDesktopApp() {
   app.setAppUserModelId("com.getinboxzero.desktop");
 
   ipcMain.on("desktop:unread-count", (event, count: unknown) => {
-    if (!isTrustedMailEvent(event)) return;
+    if (!isTrustedDesktopEvent(event)) return;
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
-    setUnreadBadge(count);
+    unreadByContents.set(event.sender.id, count);
+    applyUnreadBadge();
   });
   ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
-    if (!isTrustedMailEvent(event)) return;
+    if (!isTrustedDesktopEvent(event)) return;
     const mail = trackNewMail(payload);
-    if (!mail || mainWindow?.isFocused() || !Notification.isSupported()) return;
+    if (!mail || isAnyWindowFocused() || !Notification.isSupported()) return;
     const notification = new Notification({
       title: "Inbox Zero",
       body:
@@ -83,10 +107,9 @@ function startDesktopApp() {
     mailNotifications.get(mail.emailAccountId)?.close();
     mailNotifications.set(mail.emailAccountId, notification);
     notification.on("click", () => {
-      focusMainWindow();
-      mainWindow
-        ?.loadURL(new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString())
-        .catch(() => {});
+      openAppWindow(
+        new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString(),
+      );
     });
     const release = () => {
       if (mailNotifications.get(mail.emailAccountId) === notification) {
@@ -97,13 +120,21 @@ function startDesktopApp() {
     notification.on("failed", release);
     notification.show();
   });
+  ipcMain.handle("desktop:open-window", (event, path: unknown) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    const callbackPath = normalizeDesktopCallbackPath(path);
+    if (!callbackPath) return;
+    const url = new URL(callbackPath, appOrigin).toString();
+    if (!isAllowedDesktopNavigation(url, appOrigin)) return;
+    openAppWindow(url);
+  });
 
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
     if (protocolUrl) {
       handleAuthCallbackUrl(protocolUrl).catch(showSignInError);
     }
-    focusMainWindow();
+    focusAppWindow();
   });
 
   if (process.defaultApp) {
@@ -127,7 +158,10 @@ function startDesktopApp() {
 
   ipcMain.handle(
     "desktop-auth:start",
-    async (_event, provider: unknown, options: unknown) => {
+    async (event, provider: unknown, options: unknown) => {
+      if (!isTrustedDesktopEvent(event)) {
+        throw new Error("Unsupported sign-in provider");
+      }
       if (!isDesktopAuthProvider(provider)) {
         throw new Error("Unsupported sign-in provider");
       }
@@ -144,19 +178,25 @@ function startDesktopApp() {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    persistWindowsNow();
   });
 
   app.whenReady().then(async () => {
-    configureDesktopApplicationMenu(() => {
-      checkForDesktopUpdatesManually(() => {
-        isQuitting = true;
-      }).catch(logDesktopUpdateError);
+    configureDesktopApplicationMenu({
+      checkForUpdates: () => {
+        checkForDesktopUpdatesManually(() => {
+          isQuitting = true;
+        }).catch(logDesktopUpdateError);
+      },
+      createWindow: () => {
+        createAppWindow();
+      },
     });
     // Overlap TLS/socket setup with window creation and page load.
     session
       .fromPartition(PARTITION)
       .preconnect({ url: appOrigin, numSockets: 2 });
-    createMainWindow();
+    restoreAppWindows();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
     pendingAuthUrl = null;
@@ -173,16 +213,46 @@ function startDesktopApp() {
   });
 
   app.on("activate", () => {
-    focusMainWindow();
+    focusAppWindow();
   });
 }
 
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 900,
-    minHeight: 640,
+function restoreAppWindows() {
+  const restored = getRestoredDesktopWindows(
+    readStoredWindowStates(),
+    appOrigin,
+  );
+  if (restored.length === 0) {
+    createAppWindow();
+    return;
+  }
+  for (const state of restored) {
+    createAppWindow(state);
+  }
+}
+
+function createAppWindow(options?: {
+  url?: string;
+  bounds?: DesktopWindowBounds;
+  isMaximized?: boolean;
+}) {
+  if (shouldReuseSoleHiddenWindow(windows.size, visibleWindowCount())) {
+    const existing = [...windows][0];
+    if (existing) {
+      if (options?.url) existing.loadURL(options.url).catch(() => {});
+      showWindow(existing);
+      return existing;
+    }
+  }
+
+  const startUrl = options?.url ?? homeUrl;
+  const bounds = resolveWindowBounds(options?.bounds);
+  const window = new BrowserWindow({
+    width: bounds?.width ?? DEFAULT_DESKTOP_WINDOW_WIDTH,
+    height: bounds?.height ?? DEFAULT_DESKTOP_WINDOW_HEIGHT,
+    ...(bounds ? { x: bounds.x, y: bounds.y } : {}),
+    minWidth: MIN_DESKTOP_WINDOW_WIDTH,
+    minHeight: MIN_DESKTOP_WINDOW_HEIGHT,
     title: "Inbox Zero",
     ...getDesktopWindowChrome(),
     webPreferences: {
@@ -195,70 +265,145 @@ function createMainWindow() {
     },
   });
 
-  mainWindow.on("page-title-updated", (event) => {
+  windows.add(window);
+  lastFocused = window;
+  rememberWindowUrl(window, startUrl);
+  if (options?.isMaximized) window.maximize();
+
+  window.on("page-title-updated", (event) => {
     event.preventDefault();
   });
-  // Keep the window (and the loaded app) alive on macOS so reopening from the
-  // dock is instant instead of a cold page load.
-  mainWindow.on("close", (event) => {
-    if (process.platform === "darwin" && !isQuitting) {
+  window.on("focus", () => {
+    lastFocused = window;
+  });
+  window.on("moved", schedulePersistWindows);
+  window.on("resized", schedulePersistWindows);
+  window.on("maximize", schedulePersistWindows);
+  window.on("unmaximize", schedulePersistWindows);
+  // Keep the last window alive on macOS so reopening from the dock is instant
+  // instead of a cold page load. Extra windows close for real.
+  window.on("close", (event) => {
+    if (process.platform === "darwin" && !isQuitting && windows.size <= 1) {
       event.preventDefault();
-      mainWindow?.hide();
+      window.hide();
     }
   });
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  window.on("closed", () => {
+    windows.delete(window);
+    unreadByContents.delete(window.webContents.id);
+    applyUnreadBadge();
+    if (lastFocused === window) {
+      lastFocused = [...windows][windows.size - 1] ?? null;
+    }
+    persistWindowsNow();
   });
 
-  applyNavigationPolicy(mainWindow.webContents);
-  applyDesktopWindowDragRegion(mainWindow.webContents);
-  trackLastAppUrl(mainWindow.webContents);
-  installDesktopLoadRecovery(mainWindow.webContents, appOrigin, getStartUrl);
-  mainWindow.loadURL(getStartUrl()).catch(() => {});
+  applyNavigationPolicy(window.webContents);
+  applyDesktopWindowDragRegion(window.webContents);
+  trackWindowUrl(window);
+  installDesktopLoadRecovery(
+    window.webContents,
+    appOrigin,
+    () => lastUrlByWindow.get(window) ?? startUrl,
+  );
+  window.loadURL(startUrl).catch(() => {});
+  return window;
 }
 
-function getStartUrl(): string {
-  return getDesktopSessionRestoreUrl(appOrigin, readLastAppUrl()) ?? homeUrl;
+function resolveWindowBounds(
+  stored?: DesktopWindowBounds,
+): DesktopWindowBounds | undefined {
+  if (stored) {
+    return fitWindowBoundsToWorkArea(stored, workAreaFor(stored));
+  }
+  const source = lastFocused && !lastFocused.isDestroyed() ? lastFocused : null;
+  if (!source) return;
+  return fitWindowBoundsToWorkArea(
+    offsetWindowBounds(source.getNormalBounds()),
+    workAreaFor(source.getBounds()),
+  );
 }
 
-function trackLastAppUrl(contents: WebContents) {
-  contents.on("did-start-navigation", ({ isSameDocument, isMainFrame }) => {
-    if (isMainFrame && !isSameDocument) clearMailIndicators();
-  });
+function workAreaFor(bounds: DesktopWindowBounds): DesktopWindowBounds {
+  return screen.getDisplayMatching(bounds).workArea;
+}
+
+function trackWindowUrl(window: BrowserWindow) {
+  const contents = window.webContents;
   contents.on("did-navigate", (_event, url) => {
-    persistLastAppUrl(url);
+    rememberWindowUrl(window, url);
   });
   contents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
-    if (isMainFrame) {
-      persistLastAppUrl(url);
-    }
+    if (isMainFrame) rememberWindowUrl(window, url);
   });
 }
 
-function persistLastAppUrl(url: string) {
-  // Local load recovery must not erase the last mailbox to restore.
+function rememberWindowUrl(window: BrowserWindow, url: string) {
   if (url.startsWith("data:") || url === "about:blank") return;
-  if (URL.parse(url)?.pathname === "/login") clearMailIndicators();
-  const file = path.join(app.getPath("userData"), LAST_APP_URL_FILE);
-  try {
-    if (shouldPersistDesktopUrl(url, appOrigin)) {
-      fs.writeFileSync(file, url, "utf8");
-    } else {
-      // Landing on /login means the session ended; a stale deep link would
-      // just bounce back there after re-auth.
-      fs.rmSync(file, { force: true });
-    }
-  } catch {
-    // Restoring the last page is best-effort; never break navigation over it.
+  if (URL.parse(url)?.pathname === "/login") {
+    lastUrlByWindow.delete(window);
+    clearMailIndicators();
+    schedulePersistWindows();
+    return;
+  }
+  if (shouldPersistDesktopUrl(url, appOrigin)) {
+    lastUrlByWindow.set(window, url);
+    schedulePersistWindows();
   }
 }
 
-function isTrustedMailEvent(event: IpcMainEvent) {
+function readStoredWindowStates(): DesktopWindowState[] {
+  try {
+    const parsed: unknown = JSON.parse(
+      fs.readFileSync(getWindowsStateFile(), "utf8"),
+    );
+    return parseDesktopWindowStates(parsed, appOrigin);
+  } catch {
+    return getLegacyDesktopWindowStates(readLastAppUrl(), appOrigin);
+  }
+}
+
+function schedulePersistWindows() {
+  clearTimeout(persistWindowsTimer);
+  persistWindowsTimer = setTimeout(persistWindowsNow, 200);
+}
+
+function persistWindowsNow() {
+  clearTimeout(persistWindowsTimer);
+  persistWindowsTimer = undefined;
+  const states = collectDesktopWindowStates(
+    [...windows].flatMap((window) => {
+      if (window.isDestroyed()) return [];
+      const url = lastUrlByWindow.get(window);
+      if (!url) return [];
+      return [
+        {
+          url,
+          bounds: window.getNormalBounds(),
+          isMaximized: window.isMaximized(),
+        },
+      ];
+    }),
+    appOrigin,
+  );
+  try {
+    fs.writeFileSync(getWindowsStateFile(), JSON.stringify(states), "utf8");
+    fs.rmSync(getLastAppUrlFile(), { force: true });
+  } catch {
+    // Restoring windows is best-effort; never break navigation over it.
+  }
+}
+
+function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
   return (
-    event.sender === mainWindow?.webContents &&
+    [...windows].some((window) => event.sender === window.webContents) &&
     event.senderFrame === event.sender.mainFrame &&
     event.senderFrame.origin === appOrigin
   );
+}
+
+function applyUnreadBadge() {
+  setUnreadBadge(getDesktopUnreadBadgeCount(unreadByContents.values()));
 }
 
 function setUnreadBadge(count: number) {
@@ -268,20 +413,26 @@ function setUnreadBadge(count: number) {
 }
 
 function clearMailIndicators() {
-  setUnreadBadge(0);
+  unreadByContents.clear();
+  applyUnreadBadge();
   for (const notification of mailNotifications.values()) notification.close();
   mailNotifications.clear();
 }
 
 function readLastAppUrl(): string | null {
   try {
-    return fs.readFileSync(
-      path.join(app.getPath("userData"), LAST_APP_URL_FILE),
-      "utf8",
-    );
+    return fs.readFileSync(getLastAppUrlFile(), "utf8");
   } catch {
     return null;
   }
+}
+
+function getWindowsStateFile() {
+  return path.join(app.getPath("userData"), WINDOWS_STATE_FILE);
+}
+
+function getLastAppUrlFile() {
+  return path.join(app.getPath("userData"), LAST_APP_URL_FILE);
 }
 
 function applyDesktopWindowDragRegion(contents: WebContents) {
@@ -295,7 +446,7 @@ function applyDesktopWindowDragRegion(contents: WebContents) {
 function applyNavigationPolicy(contents: WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (isAllowedDesktopNavigation(url, appOrigin)) {
-      contents.loadURL(url).catch(() => {});
+      openAppWindow(url);
     } else {
       openExternal(url).catch(showSignInError);
     }
@@ -312,28 +463,63 @@ function guardNavigation(event: { preventDefault: () => void }, url: string) {
   openExternal(url).catch(showSignInError);
 }
 
-function focusMainWindow() {
-  if (!mainWindow) {
-    createMainWindow();
-    return;
+function openAppWindow(url: string) {
+  const accountId = getDesktopMailAccountId(url, appOrigin);
+  const existing = accountId ? findWindowForAccount(accountId) : undefined;
+  if (existing) {
+    showWindow(existing);
+    return existing;
   }
-  if (mainWindow.isMinimized()) {
-    mainWindow.restore();
+  return createAppWindow({ url });
+}
+
+function findWindowForAccount(accountId: string): BrowserWindow | undefined {
+  const isMatch = (window: BrowserWindow) =>
+    getDesktopMailAccountId(windowUrl(window), appOrigin) === accountId;
+  if (lastFocused && !lastFocused.isDestroyed() && isMatch(lastFocused)) {
+    return lastFocused;
   }
-  mainWindow.show();
-  mainWindow.focus();
+  return [...windows].find((window) => isMatch(window));
+}
+
+function windowUrl(window: BrowserWindow) {
+  return lastUrlByWindow.get(window) ?? window.webContents.getURL();
+}
+
+function focusAppWindow(): BrowserWindow {
+  if (lastFocused && !lastFocused.isDestroyed()) {
+    showWindow(lastFocused);
+    return lastFocused;
+  }
+  const existing = [...windows][0];
+  if (existing) {
+    showWindow(existing);
+    return existing;
+  }
+  return createAppWindow();
+}
+
+function showWindow(window: BrowserWindow) {
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+function visibleWindowCount() {
+  return [...windows].filter((window) => window.isVisible()).length;
+}
+
+function isAnyWindowFocused() {
+  return [...windows].some((window) => window.isFocused());
 }
 
 async function handleAuthCallbackUrl(url: string) {
-  focusMainWindow();
+  const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
     dialog.showErrorBox("Sign in failed", callback.error);
     return;
   }
-
-  const window = mainWindow;
-  if (!window) return;
 
   try {
     await exchangeAuthCode(

@@ -31,6 +31,11 @@ import {
   getShortcut,
   getShortcutHint,
 } from "@/lib/shortcuts/registry";
+import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
+import {
+  getInboxZeroDesktopApp,
+  shouldOpenDesktopAccountInNewWindow,
+} from "@/utils/desktop-app";
 import { cn } from "@/utils";
 
 export function MailAccountSwitcher({
@@ -160,6 +165,20 @@ export function MailAccountSwitcher({
               account={account}
               key={account.id}
               onSelect={onSelectAccount}
+              onOpenInNewWindow={
+                isDesktopApp
+                  ? (accountId) => {
+                      const openWindow = getInboxZeroDesktopApp()?.openWindow;
+                      if (openWindow) {
+                        openWindow(getMailAccountUrl(accountId, "")).catch(
+                          () => {},
+                        );
+                        return;
+                      }
+                      onSelectAccount(accountId);
+                    }
+                  : undefined
+              }
               shortcutKey={
                 isDesktopApp
                   ? getShortcut("switchAccount").keys[index]
@@ -194,16 +213,24 @@ export function MailAccountSwitcher({
 function AccountItem({
   account,
   onSelect,
+  onOpenInNewWindow,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
   onSelect: (accountId: string) => void;
+  onOpenInNewWindow?: (accountId: string) => void;
   shortcutKey: string | undefined;
 }) {
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={() => onSelect(account.id)}
+      onSelect={(event) => {
+        if (onOpenInNewWindow && shouldOpenDesktopAccountInNewWindow(event)) {
+          onOpenInNewWindow(account.id);
+          return;
+        }
+        onSelect(account.id);
+      }}
     >
       <ProfileImage
         className="size-10"
