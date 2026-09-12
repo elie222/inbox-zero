@@ -14,6 +14,7 @@ import {
   FileTextIcon,
   BrushIcon,
   ZapIcon,
+  InboxIcon,
   MailsIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
@@ -62,6 +63,12 @@ export function useCommandPaletteCommands({
     if (!enabled) return generalSettingsCommands;
 
     const navigationItems = [
+      {
+        name: "Mail",
+        href: prefixPath(emailAccountId, "/mail"),
+        icon: InboxIcon,
+        keywords: ["mail", "inbox", "email"],
+      },
       {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
