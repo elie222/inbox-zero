@@ -34,6 +34,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | OpenAI-compatible (LM Studio, vLLM, LiteLLM, etc.) | `openai-compatible` |
 | Codex CLI (experimental, self-host only) | `codex-cli` |
 | Claude Code (experimental, self-host only) | `claude-code` |
+| Grok Build CLI (experimental, self-host only) | `grok-cli` |
 
 ## Tiers
 
@@ -96,13 +97,13 @@ The old `DEFAULT_LLM_PROVIDER` / `DEFAULT_LLM_MODEL`, role-specific `*_LLM_PROVI
 
 ### CLI LLM providers
 
-`codex-cli` and `claude-code` are experimental self-host options. They use
-third-party community AI SDK provider packages that spawn local CLI tools, so
-they are disabled unless `CLI_LLM_ENABLED=true`.
+`codex-cli`, `claude-code`, and `grok-cli` are experimental self-host options.
+They use third-party community AI SDK provider packages that spawn local CLI
+tools, so they are disabled unless `CLI_LLM_ENABLED=true`.
 
 Use them only on trusted self-hosted deployments. Review the provider package
 source, pin exact package versions, and make sure you comply with the relevant
-OpenAI or Anthropic terms for your authentication method.
+OpenAI, Anthropic, or xAI terms for your authentication method.
 
 Codex example:
 
@@ -131,3 +132,33 @@ claude auth login
 CLI_LLM_ENABLED=true
 DEFAULT_LLMS=claude-code:sonnet
 ```
+
+Grok Build CLI example:
+
+```bash
+cd apps/web
+pnpm add ai-sdk-provider-grok-build@0.2.0
+curl -fsSL https://x.ai/cli/install.sh | bash
+grok login
+```
+
+```env
+CLI_LLM_ENABLED=true
+DEFAULT_LLMS=grok-cli:default
+```
+
+`grok-cli` uses the session cached by `grok login`; it does not need
+`XAI_API_KEY`. Set `GROK_CLI_PATH` if `grok` is not on `PATH`. The model id
+`default` selects Grok's current default model.
+
+Tool-bearing Inbox Zero calls always go through a request-scoped loopback
+MCP server. Each Grok process runs in an isolated HOME/cwd. Stock Grok
+1.0.4 rejects `--no-native-tools` on `agent stdio`, so `inferenceOnly` is
+not set. Instead the root command gets `--sandbox strict`,
+`--tools search_tool,use_tool`, `--disable-web-search`, and
+`--disallowed-tools Agent` (those flags are invalid after `stdio`).
+`GROK_SANDBOX=strict` is set as well. Permission prompts are allowed only
+when ACP `_meta["x.ai/tool"].name` is `search_tool` or `use_tool`. Auth
+is copied into the isolated HOME so the process does not read the host
+`~/.grok/auth.json` path. Built-in sandbox profiles can log a warning and
+continue unsandboxed if the kernel cannot apply them.

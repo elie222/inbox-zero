@@ -34,6 +34,15 @@ describe("buildLegacyLlmsEnv", () => {
         OPENAI_COMPATIBLE_MODEL: "local:model",
       }).DEFAULT_LLMS,
     ).toBe("openai-compatible:local:model");
+    expect(
+      buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "codex-cli" }).DEFAULT_LLMS,
+    ).toBe("codex-cli:gpt-5.3-codex");
+    expect(
+      buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "claude-code" }).DEFAULT_LLMS,
+    ).toBe("claude-code:sonnet");
+    expect(
+      buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "grok-cli" }).DEFAULT_LLMS,
+    ).toBe("grok-cli:default");
   });
 
   it("converts role primary models with the same fallback inheritance as legacy resolver", () => {
