@@ -44,8 +44,30 @@ describe("resolveLabelNameAndId", () => {
     expect(mockEmailProvider.getLabelByName).toHaveBeenCalledWith("My Label");
   });
 
-  it("should return both when both provided", async () => {
-    const mockEmailProvider = {} as EmailProvider;
+  it("should take the provider's name when both provided", async () => {
+    const mockEmailProvider = {
+      getLabelById: vi
+        .fn()
+        .mockResolvedValue({ id: "Label_123", name: "Current Name" }),
+    } as unknown as EmailProvider;
+
+    const result = await resolveLabelNameAndId({
+      emailProvider: mockEmailProvider,
+      label: "Stale Name",
+      labelId: "Label_123",
+    });
+
+    expect(result).toEqual({
+      label: "Current Name",
+      labelId: "Label_123",
+    });
+    expect(mockEmailProvider.getLabelById).toHaveBeenCalledWith("Label_123");
+  });
+
+  it("should keep the given name when the ID lookup finds nothing", async () => {
+    const mockEmailProvider = {
+      getLabelById: vi.fn().mockResolvedValue(null),
+    } as unknown as EmailProvider;
 
     const result = await resolveLabelNameAndId({
       emailProvider: mockEmailProvider,
@@ -57,6 +79,41 @@ describe("resolveLabelNameAndId", () => {
       label: "My Label",
       labelId: "Label_123",
     });
+  });
+
+  it("should keep the given name when the ID lookup fails", async () => {
+    const mockEmailProvider = {
+      getLabelById: vi.fn().mockRejectedValue(new Error("boom")),
+    } as unknown as EmailProvider;
+
+    const result = await resolveLabelNameAndId({
+      emailProvider: mockEmailProvider,
+      label: "My Label",
+      labelId: "Label_123",
+    });
+
+    expect(result).toEqual({
+      label: "My Label",
+      labelId: "Label_123",
+    });
+  });
+
+  it("should not look up a template even when an ID is provided", async () => {
+    const mockEmailProvider = {
+      getLabelById: vi.fn(),
+    } as unknown as EmailProvider;
+
+    const result = await resolveLabelNameAndId({
+      emailProvider: mockEmailProvider,
+      label: "{{pick a label}}",
+      labelId: "Label_123",
+    });
+
+    expect(result).toEqual({
+      label: "{{pick a label}}",
+      labelId: "Label_123",
+    });
+    expect(mockEmailProvider.getLabelById).not.toHaveBeenCalled();
   });
 
   it("should handle templates with complex expressions", async () => {
