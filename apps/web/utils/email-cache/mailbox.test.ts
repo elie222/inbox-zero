@@ -396,6 +396,20 @@ describe("synced mailbox cache", () => {
 
   it("derives sorted inbox and split views while preserving server plans", async () => {
     const plan = { id: "execution-1", rule: { id: "rule-1" } };
+    const participantMessages = [
+      {
+        headers: {
+          from: "Dana Example <dana@example.com>",
+          to: "user@example.com",
+        },
+      },
+      {
+        headers: {
+          from: "user@example.com",
+          to: "Dana Example <dana@example.com>",
+        },
+      },
+    ];
     await writeCachedThreadList({
       emailAccountId: "account-1",
       viewKey: "existing-view",
@@ -419,6 +433,7 @@ describe("synced mailbox cache", () => {
               threadId: "thread-2",
             },
           ],
+          participantMessages,
           plan,
           plans: [plan],
           snippet: "old",
@@ -477,6 +492,7 @@ describe("synced mailbox cache", () => {
     expect(snapshot?.complete).toBe(false);
     expect(snapshot?.threads[0]).toMatchObject({
       id: "thread-2",
+      participantMessages,
       plan,
       plans: [plan],
       snippet: "message-3 snippet",
