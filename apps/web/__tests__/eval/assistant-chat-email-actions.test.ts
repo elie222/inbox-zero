@@ -129,6 +129,24 @@ const scenarios: EvalScenario[] = [
       forbidInlineEmailMarkup: true,
     },
   },
+  {
+    title:
+      "applies the user's configured writing style when composing a new email in chat",
+    reportName: "chat compose uses writing style",
+    writingStyle:
+      "Write in extremely short fragments. No greeting. No sign-off. Use a terse checklist.",
+    prompt:
+      "Draft an email to Alex <alex@vendor.test> with the subject Meeting on Tuesday and say that Tuesday at 2pm works for me.",
+    expectation: {
+      kind: "send_email",
+      recipient: "alex@vendor.test",
+      subject: "Meeting on Tuesday",
+      contentExpectation:
+        "The drafted email confirms Tuesday at 2pm works, and it follows the user's configured writing style: extremely short fragments, no greeting or sign-off, written as a terse checklist. Judge style semantically rather than requiring specific wording.",
+      disallowedTools: ["searchInbox", "replyEmail", "forwardEmail"],
+      forbidInlineEmailMarkup: true,
+    },
+  },
 ];
 
 const {
@@ -185,11 +203,18 @@ vi.mock("@/env", async () => {
   };
 });
 
+let configuredWritingStyle: string | null = null;
+
 describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    configuredWritingStyle = null;
 
     prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
+      if (select?.writingStyle && !select?.email && !select?.about) {
+        return { writingStyle: configuredWritingStyle };
+      }
+
       if (select?.email) {
         return {
           email: "user@test.com",
@@ -247,6 +272,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
               ],
             },
             async () => {
+              configuredWritingStyle = scenario.writingStyle ?? null;
+
               if (scenario.searchMessages) {
                 mockSearchMessages.mockResolvedValueOnce({
                   messages: scenario.searchMessages,
@@ -361,6 +388,7 @@ type EvalScenario = {
   title: string;
   reportName: string;
   prompt: string;
+  writingStyle?: string | null;
   searchMessages?: ReturnType<typeof getMockMessage>[];
   expectation: ScenarioExpectation;
 };
