@@ -2,6 +2,7 @@ import "server-only";
 import { DEFAULT_ASSET_PROXY_TTL_SECONDS } from "@inboxzero/image-proxy/proxy-url";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { stripSentMessageOpenPixels } from "@/utils/email/sent-message-open";
 import { getImageProxyBaseUrl } from "./image-proxy-config";
 import { rewriteHtmlRemoteAssetUrls } from "./rewrite-html";
 
@@ -10,11 +11,14 @@ let hasWarnedAboutDisabledAppRouteImageProxy = false;
 let hasWarnedAboutDisabledProductionImageProxy = false;
 
 export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
+  const displayHtml = stripSentMessageOpenPixels(html);
   const config = getImageProxyConfig(logger);
-  if (!config || !html) return { html, remoteAssetsProxied: false };
+  if (!config || !displayHtml) {
+    return { html: displayHtml, remoteAssetsProxied: false };
+  }
 
   return {
-    html: await rewriteHtmlRemoteAssetUrls(html, {
+    html: await rewriteHtmlRemoteAssetUrls(displayHtml, {
       proxyBaseUrl: config.proxyBaseUrl,
       signingSecret: config.signingSecret,
       ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,

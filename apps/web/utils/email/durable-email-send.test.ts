@@ -7,6 +7,15 @@ import { SafeError } from "@/utils/error";
 import { executeDurableEmailSend } from "./durable-email-send";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/email/sent-message-open.server", () => ({
+  sendHtmlEmailWithOpenTracking: ({
+    email,
+    emailProvider,
+  }: {
+    email: { messageHtml: string };
+    emailProvider: { sendEmailWithHtml: (email: unknown) => Promise<unknown> };
+  }) => emailProvider.sendEmailWithHtml(email),
+}));
 
 const input = {
   mutationId: "7f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",

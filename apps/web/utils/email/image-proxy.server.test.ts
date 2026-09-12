@@ -60,6 +60,21 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
+  it("strips sent-message open pixels before proxying remaining assets", async () => {
+    const { rewriteHtmlForImageProxy } = await loadModule({
+      IMAGE_PROXY_SIGNING_SECRET: "test-signing-secret-123",
+      NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
+    });
+
+    const result = await rewriteHtmlForImageProxy(
+      '<p>Hi</p><img src="https://app.example.com/t/abcdefghijklmnopqrstuvwxyz012345" /><img src="https://cdn.example.com/photo.png" />',
+      createTestLogger(),
+    );
+
+    expect(result.html).not.toContain("/t/abcdefghijklmnopqrstuvwxyz012345");
+    expect(result.html).toContain("https://proxy.example.com/image?u=");
+  });
+
   it("signs with the first secret when rotation secrets are configured", async () => {
     const currentSecret = "a".repeat(20);
     const previousSecret = "b".repeat(20);

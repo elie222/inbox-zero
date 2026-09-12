@@ -44,6 +44,10 @@ import {
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
+import {
+  SentMessageOpenStatus,
+  type SentMessageOpenState,
+} from "@/components/email-list/SentMessageOpenStatus";
 
 type ComposeSession = { id: number; mode: ReplyDraftMode };
 
@@ -63,6 +67,7 @@ export function EmailMessage({
   selected,
   onSelect,
   onNavigateMessage,
+  sentMessageOpen,
 }: {
   message: ThreadMessage;
   menu?: React.ReactNode;
@@ -80,6 +85,7 @@ export function EmailMessage({
   selected?: boolean;
   onSelect?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
+  sentMessageOpen?: SentMessageOpenState;
 }) {
   const { emailAccountId } = useAccount();
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
@@ -192,6 +198,7 @@ export function EmailMessage({
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
         hasDraft={hasDraft || Boolean(draftMessage)}
+        sentMessageOpen={sentMessageOpen}
       />
 
       {expanded && (
@@ -258,6 +265,7 @@ function MessageHeader({
   onToggle,
   onToggleKeyDown,
   hasDraft,
+  sentMessageOpen,
 }: {
   message: ParsedMessage;
   menu?: React.ReactNode;
@@ -271,6 +279,7 @@ function MessageHeader({
   onToggle?: () => void;
   onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
+  sentMessageOpen?: SentMessageOpenState;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -449,6 +458,9 @@ function MessageHeader({
             {menu}
           </span>
         )}
+        {isSent &&
+          !message.labelIds?.includes(GmailLabel.DRAFT) &&
+          sentMessageOpen && <SentMessageOpenStatus open={sentMessageOpen} />}
         <time
           className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
           dateTime={message.headers.date}

@@ -7,6 +7,7 @@ import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open.server";
 import {
   deleteMailboxItemBody,
   removeThreadLabelBody,
@@ -402,7 +403,12 @@ export const sendEmailAction = actionClient
         logger,
       });
 
-      const result = await emailProvider.sendEmailWithHtml(parsedInput);
+      const result = await sendHtmlEmailWithOpenTracking({
+        emailAccountId,
+        email: parsedInput,
+        emailProvider,
+        logger,
+      });
 
       return {
         success: true,

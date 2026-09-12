@@ -13,6 +13,7 @@ import {
   updateHiddenAiDraftLinksBody,
   updateReferralSignatureBody,
   updateSentWithSignatureBody,
+  updateSentMessageOpenTrackingBody,
 } from "@/utils/actions/email-account.validation";
 import { z } from "zod";
 
@@ -148,6 +149,20 @@ export const updateHiddenAiDraftLinksAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { allowHiddenAiDraftLinks: enabled },
+      });
+    },
+  );
+
+export const updateSentMessageOpenTrackingAction = actionClient
+  .metadata({ name: "updateSentMessageOpenTracking" })
+  .inputSchema(updateSentMessageOpenTrackingBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating sent message open tracking", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { sentMessageOpenTrackingEnabled: enabled },
       });
     },
   );
