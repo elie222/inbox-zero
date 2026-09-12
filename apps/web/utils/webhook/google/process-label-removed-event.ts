@@ -11,7 +11,14 @@ import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
-import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
+import {
+  isEligibleForClassificationFeedback,
+  shouldLearnFromLabelRemoval,
+} from "@/utils/rule/consts";
+import {
+  isLearnFromLabelsEnabled,
+  unlearnSenderFromLabel,
+} from "@/utils/rule/learn-from-label";
 import {
   findRuleByLabelId,
   saveClassificationFeedback,
@@ -68,6 +75,10 @@ export async function handleLabelRemovedEvent(
     });
   }
 
+  const learnFromLabels =
+    removedLabelIds.length > 0 &&
+    (await isLearnFromLabelsEnabled(emailAccountId));
+
   // Fetch sender once for both spam undo and label-removal learning
   const sender = await fetchSenderFromMessage(messageId, provider, logger);
   if (!sender) return;
@@ -87,6 +98,12 @@ export async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
+        learnFromLabels,
+        // Labels also come off when mail is trashed or purged; only a message
+        // that is back in the inbox is the user saying "not that folder".
+        backInInbox:
+          !!message.message?.labelIds?.includes(GmailLabel.INBOX) &&
+          !message.message?.labelIds?.includes(GmailLabel.TRASH),
         logger,
       });
     } catch (error) {
@@ -105,6 +122,8 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
+  learnFromLabels,
+  backInInbox,
   logger,
 }: {
   labelId: string;
@@ -112,6 +131,8 @@ async function learnFromRemovedLabel({
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  learnFromLabels: boolean;
+  backInInbox: boolean;
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
@@ -136,6 +157,22 @@ async function learnFromRemovedLabel({
       threadId,
       messageId,
       eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
+      logger,
+    });
+  }
+
+  // Rules that learn from label removal above are covered; this is the undo
+  // for senders trained by "learn from labels" (custom and label-created rules).
+  const coveredAbove =
+    !!rule?.systemType && shouldLearnFromLabelRemoval(rule.systemType);
+  if (learnFromLabels && backInInbox && rule && sender && !coveredAbove) {
+    await unlearnSenderFromLabel({
+      emailAccountId,
+      labelId,
+      sender,
+      messageId,
+      threadId,
+      ruleId: rule.id,
       logger,
     });
   }

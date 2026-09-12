@@ -244,6 +244,52 @@ describe("saveLearnedPattern", () => {
     );
   });
 
+  it("should drop the sender from other rules when learned as an inclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      name: "Later",
+      groupId: "group-1",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "account-1",
+      from: "news@example.com",
+      ruleId: "rule-1",
+      exclude: false,
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: GroupItemType.FROM,
+        value: "news@example.com",
+        exclude: false,
+        groupId: { not: "group-1" },
+        group: { emailAccountId: "account-1" },
+      },
+    });
+  });
+
+  it("should not touch other rules when saving an exclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      name: "Later",
+      groupId: "group-1",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "account-1",
+      from: "news@example.com",
+      ruleId: "rule-1",
+      exclude: true,
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("should save pattern with exclude: true", async () => {
     vi.mocked(prisma.rule.findUnique).mockResolvedValue({
       id: "rule-id",

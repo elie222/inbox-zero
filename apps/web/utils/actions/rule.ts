@@ -10,6 +10,7 @@ import {
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
+  enableLearnFromLabelsBody,
   updateDraftReplyConfidenceBody,
   deleteRuleBody,
   createRulesOnboardingBody,
@@ -278,6 +279,22 @@ export const enableMultiRuleSelectionAction = actionClient
       data: { multiRuleSelectionEnabled: enable },
     });
   });
+
+export const enableLearnFromLabelsAction = actionClient
+  .metadata({ name: "enableLearnFromLabels" })
+  .inputSchema(enableLearnFromLabelsBody)
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
+      if (enable && !isGoogleProvider(provider)) {
+        throw new SafeError("Learn from labels is only available for Gmail");
+      }
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { learnFromLabels: enable },
+      });
+    },
+  );
 
 export const updateDraftReplyConfidenceAction = actionClient
   .metadata({ name: "updateDraftReplyConfidence" })
