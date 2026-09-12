@@ -242,7 +242,6 @@ export function TrainedSenderRow({
     trash.isExecuting;
 
   const current = sender.trainedInto[0];
-  const others = sender.trainedInto.slice(1);
   // Exclusions only matter when nothing files this sender: it is being kept
   // in the inbox on purpose. Once it is trained into a rule, leftover
   // exclusions from earlier corrections are just noise.
@@ -311,13 +310,6 @@ export function TrainedSenderRow({
             )}
           </SelectContent>
         </Select>
-        {others.length > 0 && (
-          <Tooltip content={others.map((r) => r.name).join(", ")}>
-            <MutedText className="mt-1 text-xs">
-              also in {others.length} more — picking a rule keeps only that one
-            </MutedText>
-          </Tooltip>
-        )}
       </TableCell>
       <TableCell>
         {current?.deletes ? (
