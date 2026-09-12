@@ -23,6 +23,8 @@ export async function getColdEmailRule(emailAccountId: string) {
           type: true,
           label: true,
           labelId: true,
+          folderId: true,
+          folderName: true,
         },
       },
     },

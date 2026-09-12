@@ -61,6 +61,124 @@ afterEach(() => {
   });
 });
 
+describe("Outlook prior contact excluding cold mail", () => {
+  const options = {
+    from: "bob@vendor.example",
+    date: new Date("2026-09-01T00:00:00Z"),
+    messageId: "current",
+    excludeLabelIds: ["cold-category"],
+    excludeFolderIds: ["cold-folder"],
+  };
+  const prior = (id: string, overrides: Partial<Message> = {}): Message => ({
+    id,
+    sentDateTime: "2026-08-01T00:00:00Z",
+    receivedDateTime: "2026-08-01T00:00:00Z",
+    parentFolderId: "inbox",
+    categories: [],
+    ...overrides,
+  });
+  function setup(
+    pages: Array<{ value: Message[]; "@odata.nextLink"?: string }>,
+  ) {
+    const get = vi.fn();
+    for (const page of pages) get.mockResolvedValueOnce(page);
+    const request = {
+      search: vi.fn().mockReturnThis(),
+      top: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      get,
+    };
+    const api = vi.fn().mockReturnValue(request);
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "cold-category", name: 'Cold "Email"', type: "user" },
+    ]);
+    return { provider, api, get, request };
+  }
+
+  it("ignores prior cold categories and folders across company senders", async () => {
+    const { provider, request } = setup([
+      { value: [] },
+      {
+        value: [
+          prior("category", { categories: ['Cold "Email"'] }),
+          prior("folder", { parentFolderId: "cold-folder" }),
+        ],
+      },
+    ]);
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain(options),
+    ).resolves.toBe(false);
+    expect(request.search).toHaveBeenCalledWith('"from:@vendor.example"');
+  });
+
+  it("follows pages past cold messages to find genuine correspondence", async () => {
+    const next = "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next";
+    const { provider, api } = setup([
+      { value: [] },
+      {
+        value: [prior("cold", { parentFolderId: "cold-folder" })],
+        "@odata.nextLink": next,
+      },
+      { value: [prior("warm")] },
+    ]);
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain(options),
+    ).resolves.toBe(true);
+    expect(api).toHaveBeenCalledWith(next);
+  });
+
+  it("preserves prior outbound contact despite retained cold labels", async () => {
+    const { provider } = setup([
+      { value: [prior("sent", { categories: ['Cold "Email"'] })] },
+    ]);
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain(options),
+    ).resolves.toBe(true);
+  });
+
+  it("ignores current and future messages and searches public domains by address", async () => {
+    const { provider, request } = setup([
+      { value: [prior("future", { sentDateTime: "2026-10-01T00:00:00Z" })] },
+      { value: [prior("current")] },
+    ]);
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain({
+        ...options,
+        from: "bob@gmail.com",
+      }),
+    ).resolves.toBe(false);
+    expect(request.search).toHaveBeenCalledWith('"from:bob@gmail.com"');
+  });
+
+  it("assumes contact when the pagination budget is exhausted", async () => {
+    const { provider, get } = setup(
+      Array.from({ length: 10 }, () => ({
+        value: [],
+        "@odata.nextLink":
+          "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next",
+      })),
+    );
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain(options),
+    ).resolves.toBe(true);
+    expect(get).toHaveBeenCalledTimes(10);
+  });
+
+  it("propagates missing category resolution instead of silently disabling exclusion", async () => {
+    const { provider } = setup([]);
+    await expect(
+      provider.hasPreviousCommunicationsWithSenderOrDomain({
+        ...options,
+        excludeLabelIds: ["deleted-category"],
+      }),
+    ).rejects.toThrow("Could not resolve excluded category");
+  });
+});
+
 describe("OutlookProvider.searchMessages", () => {
   it("resolves a nested folder and searches its messages without a category filter", async () => {
     const message = createMessage({

@@ -34,6 +34,10 @@ vi.mock("@/utils/llms", () => ({
   createGenerateObject: vi.fn(() => vi.fn()),
 }));
 
+vi.mock("@/utils/llms/model", () => ({
+  getModel: vi.fn(() => ({ model: "test-model" })),
+}));
+
 const mockProvider = {
   hasPreviousCommunicationsWithSenderOrDomain: vi.fn().mockResolvedValue(false),
 };
@@ -42,6 +46,57 @@ describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     env.WHITELIST_FROM = "welcome@service.example OR service.example";
+  });
+
+  it("passes cold destinations through the prior-contact safety gate before AI classification", async () => {
+    prisma.groupItem.findFirst.mockResolvedValue(null);
+    mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+      false,
+    );
+    vi.mocked(createGenerateObject).mockReturnValue(
+      vi.fn().mockResolvedValue({
+        object: { coldEmail: true, reason: "Unsolicited outreach" },
+      }),
+    );
+    const result = await isColdEmail({
+      email: {
+        id: "new-message",
+        from: "bob@vendor.example",
+        to: "owner@customer.example",
+        subject: "Our services",
+        content: "An unsolicited pitch",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ email: "owner@customer.example" }),
+      provider: mockProvider as never,
+      coldEmailRule: {
+        instructions: "Identify unsolicited outreach",
+        groupId: null,
+        actions: [
+          {
+            type: "ARCHIVE",
+            label: null,
+            labelId: null,
+            folderId: null,
+            folderName: null,
+          },
+          {
+            type: "LABEL",
+            label: "Cold Email",
+            labelId: "cold",
+            folderId: null,
+            folderName: null,
+          },
+        ],
+      },
+    });
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai");
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeLabelIds: ["cold"] }),
+    );
   });
 
   it("should recognize a known cold email sender even when from field format differs", async () => {
