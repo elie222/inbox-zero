@@ -1,7 +1,8 @@
 import { connect } from "node:net";
 
-// Runs before receiving any job data. Detect ignored provider allowlists;
-// deployment verification still covers private routes and other exposed ports.
+// Runs before receiving any job data. Detect extra services on the dedicated
+// broker address and unexpected public egress; deployment verification still
+// covers private routes.
 const [brokerIp, port] = process.argv.slice(2);
 const brokerPort = Number(port);
 const brokerReachable = await reachable(brokerIp, brokerPort);

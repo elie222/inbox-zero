@@ -8,7 +8,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@daytona/sdk": "0.211.2",
     "ipaddr.js": "2.2.0",
     "playwright": "1.62.1",
     "zod": "4.2.1"

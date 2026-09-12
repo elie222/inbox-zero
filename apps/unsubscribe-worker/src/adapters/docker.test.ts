@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { dockerAdapter } from "./docker.ts";
+import { SandboxCleanupUnconfirmed } from "../contracts.ts";
 
 test("requires a host expiry timer and gVisor, with no volumes or inherited secrets", async () => {
   const calls: { binary: string; args: string[]; input?: string }[] = [];
@@ -73,4 +74,46 @@ test("never starts a sandbox if independent expiry cannot be scheduled", async (
     }),
   );
   assert.deepEqual(commands, ["systemd-run"]);
+});
+
+test("rejects with a normal error when creation fails after confirmed cleanup", async () => {
+  const adapter = dockerAdapter({
+    image: "runner:test",
+    routerImage: "router:test",
+    command: async (binary, args) => {
+      if (binary === "systemd-run") return "";
+      if (args.includes("--detach")) throw new Error("router failed");
+      return "";
+    },
+  });
+  await assert.rejects(
+    adapter.create({
+      jobId: randomUUID(),
+      brokerIp: "8.8.8.8",
+      brokerPort: 443,
+      signal: new AbortController().signal,
+    }),
+    { message: "Sandbox creation failed" },
+  );
+});
+
+test("throws unconfirmed cleanup when destroy fails after a creation error", async () => {
+  const adapter = dockerAdapter({
+    image: "runner:test",
+    routerImage: "router:test",
+    command: async (binary, args) => {
+      if (binary === "systemd-run") return "";
+      if (args.includes("--detach")) throw new Error("router failed");
+      throw new Error("lookup failed");
+    },
+  });
+  await assert.rejects(
+    adapter.create({
+      jobId: randomUUID(),
+      brokerIp: "8.8.8.8",
+      brokerPort: 443,
+      signal: new AbortController().signal,
+    }),
+    (error: unknown) => error instanceof SandboxCleanupUnconfirmed,
+  );
 });

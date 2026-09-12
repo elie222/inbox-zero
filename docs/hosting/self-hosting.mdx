@@ -76,6 +76,8 @@ For detailed configuration instructions, see the [Environment Variables Referenc
 
 If you want remote email images to load through a separate privacy-preserving proxy, see the [Image Proxy guide](/hosting/image-proxy).
 
+Browser unsubscribe is also optional. Docker Compose and `pnpm dev` never start `apps/unsubscribe-worker`. Leave `UNSUBSCRIBE_WORKER_URL` unset to keep the existing HTTP unsubscribe flow. If you do want isolated browser confirmation, run that app on a dedicated Linux host with gVisor as described in its README, then set `UNSUBSCRIBE_WORKER_URL` and `UNSUBSCRIBE_WORKER_SECRET` on the web app.
+
 **Note**: If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID=skipped` and `GOOGLE_CLIENT_SECRET=skipped`.
 
 **Note**: When both the web app and its database/Redis run in Docker, remove or comment out `DATABASE_URL`, `DIRECT_URL`, and `UPSTASH_REDIS_URL` copied from `.env.example`. Those example URLs use `localhost` for running the app on your host; Compose supplies internal Docker hostnames when they are unset. Keep explicit connection URLs when using external services.

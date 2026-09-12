@@ -13,7 +13,7 @@ ENV CI=true
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
-# Lockfile plumbing only; Electron is not installed in this image.
+# Lockfile plumbing only; Electron and the unsubscribe worker are not installed.
 COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/unsubscribe-worker/package.json apps/unsubscribe-worker/package.json
