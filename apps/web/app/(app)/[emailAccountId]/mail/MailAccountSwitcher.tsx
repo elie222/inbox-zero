@@ -31,6 +31,8 @@ import {
   getShortcut,
   getShortcutHint,
 } from "@/lib/shortcuts/registry";
+import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { cn } from "@/utils";
 
 export function MailAccountSwitcher({
@@ -158,6 +160,7 @@ export function MailAccountSwitcher({
           {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
+              isDesktopApp={isDesktopApp}
               key={account.id}
               onSelect={onSelectAccount}
               shortcutKey={
@@ -193,17 +196,28 @@ export function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  isDesktopApp,
   onSelect,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  isDesktopApp: boolean;
   onSelect: (accountId: string) => void;
   shortcutKey: string | undefined;
 }) {
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={() => onSelect(account.id)}
+      onSelect={(event) => {
+        if (isDesktopApp && isDesktopNewWindowClick(event)) {
+          const openWindow = getInboxZeroDesktopApp()?.openWindow;
+          if (openWindow) {
+            openWindow(getMailAccountUrl(account.id, "")).catch(() => {});
+            return;
+          }
+        }
+        onSelect(account.id);
+      }}
     >
       <ProfileImage
         className="size-10"
@@ -239,5 +253,12 @@ function AllAccountsIcon() {
       <span className="size-2 rounded-full bg-violet-500" />
       <span className="size-2 rounded-full bg-emerald-500" />
     </span>
+  );
+}
+
+function isDesktopNewWindowClick(event: Event) {
+  return (
+    ("metaKey" in event && event.metaKey === true) ||
+    ("ctrlKey" in event && event.ctrlKey === true)
   );
 }

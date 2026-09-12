@@ -18,6 +18,12 @@ INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 
 Sign-in uses the system browser and returns through `inboxzero://`. The web app's `DESKTOP_AUTH_ORIGIN` defaults to this scheme.
 
+## Multiple windows
+
+File → New Window (⌘N / Ctrl+N) opens another mailbox window. ⌘-click or Ctrl-click an account in the switcher to open that inbox in its own window. Each window keeps its own account and size; they are restored on the next launch.
+
+Clicking a new-mail notification focuses a window already showing that account, or opens one if needed.
+
 ## Mail badge and notifications
 
 The macOS Dock badge shows the combined unread inbox count across connected accounts, refreshed about once a minute and on focus. Linux uses the supported launcher badge; Windows does not currently display a numeric badge.
