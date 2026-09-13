@@ -1,7 +1,9 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
+import { env } from "@/env";
 import { toAbsoluteUrl } from "@/utils/branding";
+import { secureCompareBuffers } from "@/utils/crypto-compare";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
@@ -9,15 +11,32 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import {
   appendSentMessageOpenPixel,
   isSentMessageOpenToken,
-  SENT_MESSAGE_OPEN_TOKEN_LENGTH,
   sentMessageOpenPath,
   stripSentMessageOpenPixels,
 } from "@/utils/email/sent-message-open";
 
+const SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES = 18;
+const SENT_MESSAGE_OPEN_TOKEN_MAC_BYTES = 6;
+
 export function createSentMessageOpenToken() {
-  return randomBytes((SENT_MESSAGE_OPEN_TOKEN_LENGTH * 3) / 4).toString(
+  const payload = randomBytes(SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES);
+  return Buffer.concat([payload, sentMessageOpenTokenMac(payload)]).toString(
     "base64url",
   );
+}
+
+export function isAuthenticSentMessageOpenToken(token: string) {
+  if (!isSentMessageOpenToken(token)) return false;
+  const bytes = Buffer.from(token, "base64url");
+  if (
+    bytes.length !==
+    SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES + SENT_MESSAGE_OPEN_TOKEN_MAC_BYTES
+  ) {
+    return false;
+  }
+  const payload = bytes.subarray(0, SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES);
+  const mac = bytes.subarray(SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES);
+  return secureCompareBuffers(mac, sentMessageOpenTokenMac(payload));
 }
 
 export async function withSentMessageOpenTracking({
@@ -31,18 +50,30 @@ export async function withSentMessageOpenTracking({
   email: SendEmailBody;
   logger: Logger;
 }): Promise<{ email: SendEmailBody; token: string | null }> {
-  const account = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { sentMessageOpenTrackingEnabled: true },
-  });
+  const messageHtml = stripSentMessageOpenPixels(email.messageHtml);
+  let account: { sentMessageOpenTrackingEnabled: boolean } | null = null;
+  try {
+    account = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { sentMessageOpenTrackingEnabled: true },
+    });
+  } catch (error) {
+    logger.error("Failed to read sent-message open tracking setting", {
+      error,
+    });
+    return { email: { ...email, messageHtml }, token: null };
+  }
   if (!account?.sentMessageOpenTrackingEnabled) {
-    return { email, token: null };
+    return {
+      email: { ...email, messageHtml },
+      token: null,
+    };
   }
 
   const token = createSentMessageOpenToken();
   if (!isSentMessageOpenToken(token)) {
     logger.error("Generated an invalid sent-message open token");
-    return { email, token: null };
+    return { email: { ...email, messageHtml }, token: null };
   }
 
   try {
@@ -55,14 +86,14 @@ export async function withSentMessageOpenTracking({
     });
   } catch (error) {
     logger.error("Failed to create sent-message open tracking", { error });
-    return { email, token: null };
+    return { email: { ...email, messageHtml }, token: null };
   }
 
   return {
     email: {
       ...email,
       messageHtml: appendSentMessageOpenPixel(
-        stripSentMessageOpenPixels(email.messageHtml),
+        messageHtml,
         toAbsoluteUrl(sentMessageOpenPath(token)),
       ),
     },
@@ -100,7 +131,7 @@ export async function associateSentMessageOpen({
 }
 
 export async function recordSentMessageOpen(token: string) {
-  if (!isSentMessageOpenToken(token)) return;
+  if (!isAuthenticSentMessageOpenToken(token)) return;
   const now = new Date();
   const firstOpen = await prisma.sentMessageOpen.updateMany({
     where: { token, firstOpenedAt: null },
@@ -143,4 +174,11 @@ export async function sendHtmlEmailWithOpenTracking({
     logger,
   });
   return result;
+}
+
+function sentMessageOpenTokenMac(payload: Buffer) {
+  return createHmac("sha256", env.EMAIL_ENCRYPT_SALT)
+    .update(payload)
+    .digest()
+    .subarray(0, SENT_MESSAGE_OPEN_TOKEN_MAC_BYTES);
 }

@@ -1,9 +1,9 @@
 import { after } from "next/server";
+import { isSameOriginSentMessageOpenRequest } from "@/utils/email/sent-message-open";
 import {
-  isSameOriginSentMessageOpenRequest,
-  isSentMessageOpenToken,
-} from "@/utils/email/sent-message-open";
-import { recordSentMessageOpen } from "@/utils/email/sent-message-open.server";
+  isAuthenticSentMessageOpenToken,
+  recordSentMessageOpen,
+} from "@/utils/email/sent-message-open.server";
 
 const TRANSPARENT_GIF = Buffer.from(
   "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
@@ -28,7 +28,7 @@ export async function GET(
     const { token } = await context.params;
     if (
       typeof token === "string" &&
-      isSentMessageOpenToken(token) &&
+      isAuthenticSentMessageOpenToken(token) &&
       !isSameOriginSentMessageOpenRequest({
         requestUrl: request.url,
         referer: request.headers.get("referer"),

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
+import { SENT_MESSAGE_OPEN_THREAD_ID_LIMIT } from "@/utils/email/sent-message-open";
 
 const threadIdSchema = z.string().min(1).max(512);
-const MAX_THREAD_IDS = 100;
 
 export type GetSentMessageOpensResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -23,7 +23,7 @@ export const GET = withEmailAccount(
         { status: 400 },
       );
     }
-    if (threadIds.length > MAX_THREAD_IDS) {
+    if (threadIds.length > SENT_MESSAGE_OPEN_THREAD_ID_LIMIT) {
       return NextResponse.json(
         { error: "Too many thread IDs" },
         { status: 400 },
@@ -37,6 +37,7 @@ export const GET = withEmailAccount(
 
     return NextResponse.json(
       await getData(request.auth.emailAccountId, parsed.data),
+      { headers: { "Cache-Control": "no-store" } },
     );
   },
 );

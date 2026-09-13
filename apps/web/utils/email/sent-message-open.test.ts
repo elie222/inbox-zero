@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   appendSentMessageOpenPixel,
+  chunkSentMessageOpenThreadIds,
   describeSentMessageOpen,
   isSameOriginSentMessageOpenRequest,
   isSentMessageOpenPixelUrl,
   isSentMessageOpenToken,
+  mergeSentMessageOpenResponses,
   sentMessageOpenPath,
   stripSentMessageOpenPixels,
 } from "./sent-message-open";
@@ -157,6 +159,30 @@ describe("describeSentMessageOpen", () => {
     ).toEqual({
       label: "Opened",
       detail: "Opened 3 times · Last opened 2 hours ago",
+    });
+  });
+});
+
+describe("chunkSentMessageOpenThreadIds", () => {
+  it("dedupes and batches thread ids", () => {
+    expect(
+      chunkSentMessageOpenThreadIds(["a", "b", "a", "", "c", "d"], 2),
+    ).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+});
+
+describe("mergeSentMessageOpenResponses", () => {
+  it("merges batched open maps", () => {
+    expect(
+      mergeSentMessageOpenResponses([
+        { opens: { msg1: { openCount: 1 } } },
+        { opens: { msg2: { openCount: 2 } } },
+      ]),
+    ).toEqual({
+      opens: { msg1: { openCount: 1 }, msg2: { openCount: 2 } },
     });
   });
 });

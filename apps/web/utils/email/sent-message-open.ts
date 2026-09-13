@@ -1,6 +1,7 @@
 export const SENT_MESSAGE_OPEN_PATH_PREFIX = "/t/";
 export const SENT_MESSAGE_OPEN_TOKEN_LENGTH = 32;
 export const SENT_MESSAGE_OPEN_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32}$/;
+export const SENT_MESSAGE_OPEN_THREAD_ID_LIMIT = 100;
 
 export function isSentMessageOpenToken(token: string) {
   return SENT_MESSAGE_OPEN_TOKEN_PATTERN.test(token);
@@ -50,6 +51,28 @@ export function isSameOriginSentMessageOpenRequest({
   } catch {
     return false;
   }
+}
+
+export function chunkSentMessageOpenThreadIds(
+  threadIds: string[],
+  limit = SENT_MESSAGE_OPEN_THREAD_ID_LIMIT,
+) {
+  const uniqueIds = [...new Set(threadIds.filter(Boolean))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += limit) {
+    chunks.push(uniqueIds.slice(i, i + limit));
+  }
+  return chunks;
+}
+
+export function mergeSentMessageOpenResponses<
+  T extends { opens: Record<string, unknown> },
+>(responses: T[]): { opens: T["opens"] } {
+  const opens = {} as T["opens"];
+  for (const response of responses) {
+    Object.assign(opens, response.opens);
+  }
+  return { opens };
 }
 
 export function describeSentMessageOpen(

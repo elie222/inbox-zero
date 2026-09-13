@@ -85,7 +85,6 @@ export function ThreadList({
               thread.messages.at(-1)?.labelIds?.includes(GmailLabel.SENT),
             )
             .map((thread) => thread.id)
-            .slice(0, 100)
         : [],
     [showSentOpenStatus, threads],
   );
