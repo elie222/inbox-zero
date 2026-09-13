@@ -128,7 +128,7 @@ export function MailSearchFiltersForm({
       </FilterField>
 
       <FilterField id="mail-search-date-within" label="Date within">
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] items-end gap-2">
+        <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-end gap-2">
           <select
             id="mail-search-date-within"
             aria-label="Date range"

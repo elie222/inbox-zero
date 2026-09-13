@@ -61,9 +61,38 @@ for (const accountScope of ["single", "all"] as const) {
   });
 }
 
-test("advanced search composes Gmail operators and filters the list", async ({
+test("advanced search composes Gmail operators and restores them", async ({
   page,
 }, testInfo) => {
+  await openMail(page);
+
+  await page.getByRole("button", { name: "Show search options" }).click();
+  const filters = page.getByRole("form", { name: "Search options" });
+  await expect(filters).toBeVisible();
+  await filters.getByLabel("From").fill("alice@example.com");
+  await filters.getByLabel("Subject").fill("weekly report");
+  await filters.getByLabel("Has attachment").click();
+  await capturePlaywrightCheckpoint(filters, testInfo, "mail-advanced-search");
+  await filters.getByRole("button", { name: "Search" }).click();
+
+  await expect(page).toHaveURL(/[?&]q=/);
+  expect(new URL(page.url()).searchParams.get("q")).toBe(
+    'from:alice@example.com subject:"weekly report" has:attachment',
+  );
+  await expect(page.getByPlaceholder("Search mail")).toHaveValue(
+    'from:alice@example.com subject:"weekly report" has:attachment',
+  );
+
+  await page.getByRole("button", { name: "Show search options" }).click();
+  const restored = page.getByRole("form", { name: "Search options" });
+  await expect(restored.getByLabel("From")).toHaveValue("alice@example.com");
+  await expect(restored.getByLabel("Subject")).toHaveValue("weekly report");
+  await expect(restored.getByLabel("Has attachment")).toBeChecked();
+});
+
+test("advanced search still filters the mailbox by Has the words", async ({
+  page,
+}) => {
   const { conversations } = await openMail(page);
   const matching = conversationWithSubject(
     page,
@@ -80,24 +109,11 @@ test("advanced search composes Gmail operators and filters the list", async ({
 
   await page.getByRole("button", { name: "Show search options" }).click();
   const filters = page.getByRole("form", { name: "Search options" });
-  await expect(filters).toBeVisible();
-  await filters.getByLabel("Subject").fill("Archive Action");
-  await filters.getByLabel("Has the words").fill("Message");
-  await capturePlaywrightCheckpoint(filters, testInfo, "mail-advanced-search");
+  await filters.getByLabel("Has the words").fill("Archive Action");
   await filters.getByRole("button", { name: "Search" }).click();
 
   await expect(page).toHaveURL(/[?&]q=/);
-  expect(new URL(page.url()).searchParams.get("q")).toBe(
-    'subject:"Archive Action" Message',
-  );
-  await expect(page.getByPlaceholder("Search mail")).toHaveValue(
-    'subject:"Archive Action" Message',
-  );
+  expect(new URL(page.url()).searchParams.get("q")).toBe("Archive Action");
   await expect(matching).toBeVisible();
   await expect(nonMatching).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Show search options" }).click();
-  const restored = page.getByRole("form", { name: "Search options" });
-  await expect(restored.getByLabel("Subject")).toHaveValue("Archive Action");
-  await expect(restored.getByLabel("Has the words")).toHaveValue("Message");
 });
