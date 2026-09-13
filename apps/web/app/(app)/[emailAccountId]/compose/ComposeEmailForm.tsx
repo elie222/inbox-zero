@@ -812,7 +812,8 @@ function ComposeEmailFormContent({
           (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
           localDraftIdentity?.messageId ??
           requestId;
-        const holdUntil = getUndoSendHoldUntil(navigator.onLine);
+        const online = navigator.onLine;
+        const holdUntil = getUndoSendHoldUntil(online);
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
         try {
           outcome = await queueReaderEmail({
@@ -821,7 +822,7 @@ function ComposeEmailFormContent({
             emailAccountId: selectedEmailAccountId,
             holdUntil,
             messageIds: [readerMessageId],
-            online: navigator.onLine,
+            online,
             threadId: readerThreadId,
             onQueued: async () => {
               deliveryAccepted = true;
@@ -839,7 +840,7 @@ function ComposeEmailFormContent({
                   "thread-deliveries",
                   selectedEmailAccountId,
                   readerThreadId,
-                ]);
+                ]).catch(() => {});
               }
               onClose?.();
             },

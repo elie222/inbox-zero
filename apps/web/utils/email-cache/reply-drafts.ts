@@ -340,6 +340,8 @@ export async function restoreReplyFromOutbox(
     identity.messageId,
   ];
   const previous = await transaction.objectStore("replyDrafts").get(key);
+  const draftBlocksRestore =
+    Boolean(previous?.content) && identityOverride === undefined;
   if (
     !current ||
     current.updatedAt !== row.updatedAt ||
@@ -347,11 +349,11 @@ export async function restoreReplyFromOutbox(
     !["pending", "retry_wait", "blocked_auth", "failed"].includes(
       current.status,
     ) ||
-    previous?.content
+    draftBlocksRestore
   ) {
     await transaction.done;
     throw new Error(
-      previous?.content
+      draftBlocksRestore
         ? "Finish or discard the current draft first."
         : "Sending has already started. This reply cannot be edited safely.",
     );

@@ -73,7 +73,7 @@ export async function queueReaderEmail({
     );
   }
   await onQueued?.();
-  if (mutation.nextAttemptAt > Date.now()) {
+  if (holdUntil !== undefined && mutation.nextAttemptAt > Date.now()) {
     return {
       status: "held",
       holdUntil: mutation.nextAttemptAt,

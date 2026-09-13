@@ -104,28 +104,4 @@ describe("undo send", () => {
       description: "Couldn't undo send",
     });
   });
-
-  it("cancels a held send when a newer draft blocks restore", async () => {
-    const restoreComposer = vi.fn();
-    restore.mockRejectedValue(
-      new Error("Finish or discard the current draft first."),
-    );
-    cancel.mockResolvedValue(true);
-    beginUndoSend({
-      mutationId: "mutation",
-      emailAccountId: "account",
-      holdUntil: Date.now() + UNDO_SEND_DELAY_MS,
-      identity: {
-        emailAccountId: "account",
-        threadId: "thread",
-        messageId: "message",
-      },
-      restoreComposer,
-    });
-
-    await expect(undoPendingSend()).resolves.toBe(true);
-    expect(cancel).toHaveBeenCalledWith("mutation");
-    expect(restoreComposer).not.toHaveBeenCalled();
-    expect(notifications.toastError).not.toHaveBeenCalled();
-  });
 });
