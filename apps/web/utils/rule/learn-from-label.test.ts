@@ -20,6 +20,7 @@ vi.mock("@/utils/prisma", () => ({
     rule: {
       findUnique: vi.fn().mockResolvedValue(null),
       findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     action: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
   },
@@ -211,7 +212,13 @@ describe("learn-from-label", () => {
   });
 
   describe("unlearnSenderFromLabel", () => {
-    it("excludes the sender from the rule", async () => {
+    it("excludes the sender from every enabled rule, the un-trained one first", async () => {
+      vi.mocked(prisma.rule.findMany).mockResolvedValue([
+        { id: "rule-a" },
+        { id: "rule-123" },
+        { id: "rule-b" },
+      ] as any);
+
       await unlearnSenderFromLabel({
         emailAccountId: "email-account-id",
         labelId: "Label_1",
@@ -222,15 +229,20 @@ describe("learn-from-label", () => {
         logger,
       });
 
-      expect(saveLearnedPattern).toHaveBeenCalledWith(
-        expect.objectContaining({
-          emailAccountId: "email-account-id",
-          from: "sender@example.com",
-          ruleId: "rule-123",
-          exclude: true,
-          source: GroupItemSource.LABEL_REMOVED,
-        }),
-      );
+      const ruleIds = vi
+        .mocked(saveLearnedPattern)
+        .mock.calls.map(([args]) => args.ruleId);
+      expect(ruleIds).toEqual(["rule-123", "rule-a", "rule-b"]);
+      for (const [args] of vi.mocked(saveLearnedPattern).mock.calls) {
+        expect(args).toEqual(
+          expect.objectContaining({
+            emailAccountId: "email-account-id",
+            from: "sender@example.com",
+            exclude: true,
+            source: GroupItemSource.LABEL_REMOVED,
+          }),
+        );
+      }
     });
   });
 });

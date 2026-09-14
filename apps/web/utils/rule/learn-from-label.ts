@@ -73,8 +73,9 @@ export async function learnSenderFromLabel({
 }
 
 /**
- * The user took the label off again (e.g. moved the email back to the inbox).
- * Flip the sender to an exclusion so the rule stops matching them.
+ * The user moved the email back to the inbox. That means "this sender stays
+ * in the inbox", so the sender is excluded from every enabled rule - not just
+ * the one whose label came off, or another rule would file the next email.
  */
 export async function unlearnSenderFromLabel({
   emailAccountId,
@@ -98,17 +99,30 @@ export async function unlearnSenderFromLabel({
     ruleId,
   });
 
-  await saveLearnedPattern({
-    emailAccountId,
-    from: sender,
-    ruleId,
-    exclude: true,
-    logger,
-    messageId,
-    threadId,
-    reason: "Moved out of label by user",
-    source: GroupItemSource.LABEL_REMOVED,
+  const rules = await prisma.rule.findMany({
+    where: { emailAccountId, enabled: true },
+    select: { id: true },
   });
+  // The rule that was un-trained goes first so the exclusion that carries the
+  // message context is written even if a later one fails.
+  const ruleIds = [
+    ruleId,
+    ...rules.map((r) => r.id).filter((id) => id !== ruleId),
+  ];
+
+  for (const id of ruleIds) {
+    await saveLearnedPattern({
+      emailAccountId,
+      from: sender,
+      ruleId: id,
+      exclude: true,
+      logger,
+      messageId,
+      threadId,
+      reason: "Moved out of label by user",
+      source: GroupItemSource.LABEL_REMOVED,
+    });
+  }
 }
 
 async function createRuleForLabel({
