@@ -204,6 +204,35 @@ describe("searchContacts", () => {
     ).rejects.toBe(rateLimitError);
   });
 
+  it.each([
+    "rateLimitExceeded",
+    "userRateLimitExceeded",
+    "quotaExceeded",
+  ] as const)("does not treat a nested %s PERMISSION_DENIED error as missing contact access", async (reason) => {
+    const rateLimitError = Object.assign(new Error("Rate Limit Exceeded"), {
+      errors: [{ reason }],
+      code: 403,
+      status: "PERMISSION_DENIED",
+      response: {
+        data: {
+          error: {
+            code: 403,
+            message: "Rate Limit Exceeded",
+            errors: [{ reason }],
+            status: "PERMISSION_DENIED",
+          },
+        },
+      },
+    });
+    const { client } = createPeopleClient({
+      searchContactsMock: vi.fn().mockRejectedValue(rateLimitError),
+    });
+
+    await expect(
+      searchContacts(client, "contact", createTestLogger()),
+    ).rejects.toBe(rateLimitError);
+  });
+
   it("does not search Other Contacts when that flag is off", async () => {
     envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
     const { client, searchContactsMock, searchOtherContactsMock } =

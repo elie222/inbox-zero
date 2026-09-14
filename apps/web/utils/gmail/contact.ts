@@ -5,7 +5,11 @@ import {
   normalizeContactCandidates,
 } from "@/utils/email/contact";
 import { env } from "@/env";
-import { isGmailInsufficientPermissionsError } from "@/utils/error";
+import {
+  isGmailInsufficientPermissionsError,
+  isGmailQuotaExceededError,
+  isGmailRateLimitExceededError,
+} from "@/utils/error";
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 
@@ -61,6 +65,14 @@ async function loadContactSource(
 }
 
 function isContactSourceDenied(error: unknown) {
+  // Google 403 rate-limit payloads reuse PERMISSION_DENIED; do not treat them as missing access.
+  if (
+    isGmailRateLimitExceededError(error) ||
+    isGmailQuotaExceededError(error)
+  ) {
+    return false;
+  }
+
   if (isGmailInsufficientPermissionsError(error)) return true;
 
   const record = error as { code?: unknown; status?: unknown };
