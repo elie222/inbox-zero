@@ -1539,7 +1539,7 @@ export class GmailProvider implements EmailProvider {
     if (isGoogleOauthEmulationEnabled()) return [];
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
-      searchContacts(client, query),
+      searchContacts(client, query, this.logger),
     );
   }
 
