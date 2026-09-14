@@ -30,6 +30,11 @@ import {
   persistSwrEntries,
   readPersistedSwrEntries,
 } from "@/utils/swr-persistence";
+import {
+  shouldResetSwrCacheForAccountId,
+  shouldRevalidateAllLiveSwrKeysForAccountId,
+  getDevSWRErrorRetryMs,
+} from "@/utils/swr";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -142,12 +147,14 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     setProvider(new Map());
   }, []);
 
-  // Reset cache when emailAccountId changes (account switching)
+  // Replace the provider Map on account switch. Empty → id is handled inside
+  // SWRConfig: module-level mutate() talks to SWR's default cache, not this
+  // custom Map, so it cannot drop a first-paint 403.
   useEffect(() => {
+    const previousEmailAccountId = previousEmailAccountIdRef.current;
     if (
-      emailAccountId &&
-      previousEmailAccountIdRef.current &&
-      emailAccountId !== previousEmailAccountIdRef.current
+      shouldResetSwrCacheForAccountId(previousEmailAccountId, emailAccountId) &&
+      previousEmailAccountId !== ""
     ) {
       resetCache();
     }
@@ -195,6 +202,7 @@ function PersistedSwrCache() {
   const { cache, mutate: scopedMutate } = useSWRConfig();
   const { emailAccountId } = useAccount();
   const hydratedForRef = useRef<string | null>(null);
+  const previousEmailAccountIdRef = useRef<string | null>(null);
 
   useEffect(
     () => connectThreadCacheInvalidation(cache, scopedMutate),
@@ -202,7 +210,11 @@ function PersistedSwrCache() {
   );
 
   useEffect(() => {
-    if (!emailAccountId || hydratedForRef.current === emailAccountId) return;
+    if (hydratedForRef.current === emailAccountId) return;
+    if (!emailAccountId) {
+      hydratedForRef.current = "";
+      return;
+    }
     const isAccountSwitch = hydratedForRef.current !== null;
     hydratedForRef.current = emailAccountId;
     const persisted = readPersistedSwrEntries(emailAccountId);
@@ -220,6 +232,19 @@ function PersistedSwrCache() {
       }
     }
   }, [emailAccountId, cache, scopedMutate]);
+
+  useEffect(() => {
+    const previousEmailAccountId = previousEmailAccountIdRef.current;
+    if (
+      shouldRevalidateAllLiveSwrKeysForAccountId(
+        previousEmailAccountId,
+        emailAccountId,
+      )
+    ) {
+      scopedMutate(shouldRevalidateLiveKeyOnEmptyAccountId);
+    }
+    previousEmailAccountIdRef.current = emailAccountId;
+  }, [emailAccountId, scopedMutate]);
 
   // If another tab removes an account's snapshot (logout or account
   // deletion), stop this tab from re-persisting it out of its warm cache.
@@ -269,15 +294,15 @@ function getDevOnlySWRConfig() {
       revalidate: (opts: { retryCount: number }) => void,
       { retryCount }: { retryCount: number },
     ) => {
-      // Retry 404s quickly (likely HMR transient errors)
-      if (error.status === 404) {
-        setTimeout(() => revalidate({ retryCount }), 500);
-        return;
-      }
-      // Don't retry on other client errors (4xx)
-      if (error.status && error.status >= 400 && error.status < 500) return;
-      // Default exponential backoff for server errors
-      setTimeout(() => revalidate({ retryCount }), 5000 * 2 ** retryCount);
+      const delayMs = getDevSWRErrorRetryMs(error, retryCount);
+      if (delayMs == null) return;
+      setTimeout(() => revalidate({ retryCount }), delayMs);
     },
   };
+}
+
+function shouldRevalidateLiveKeyOnEmptyAccountId(key: unknown) {
+  const path = Array.isArray(key) ? key[0] : key;
+  if (typeof path !== "string") return true;
+  return !(PERSISTED_SWR_KEYS as readonly string[]).includes(path);
 }

@@ -16,6 +16,7 @@ import {
 } from "@/utils/email-cache/reply-drafts";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import { GmailLabel } from "@/utils/gmail/label";
+import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 
 export function EmailThread({
   messages,
@@ -53,6 +54,7 @@ export function EmailThread({
   const { emailAccountId } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
+  const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
     () => organizeMessages(messages),
     [messages],
@@ -266,6 +268,7 @@ export function EmailThread({
                     }
               }
               refetch={refetch}
+              sentMessageOpen={sentMessageOpens?.opens[message.id]}
               showReplyButton={
                 showReplyButton && !message.labelIds?.includes(GmailLabel.DRAFT)
               }

@@ -19,6 +19,7 @@ import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
+  EMAIL_ACCOUNT_ID_REQUIRED_ERROR,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
@@ -365,7 +366,7 @@ async function emailAccountMiddleware(
 
   if (!emailAccountId) {
     return NextResponse.json(
-      { error: "Email account ID is required", isKnownError: true },
+      { error: EMAIL_ACCOUNT_ID_REQUIRED_ERROR, isKnownError: true },
       { status: 403 },
     );
   }

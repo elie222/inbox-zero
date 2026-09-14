@@ -1588,6 +1588,7 @@ export function MailShell() {
                   showLoadMore={hasMore}
                   isLoadingMore={isLoadingMore}
                   onLoadMore={loadMore}
+                  showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
                   listKey={
                     isAllAccounts
                       ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

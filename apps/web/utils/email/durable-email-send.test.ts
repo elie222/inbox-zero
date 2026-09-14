@@ -5,8 +5,16 @@ import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { executeDurableEmailSend } from "./durable-email-send";
+import type { sendHtmlEmailWithOpenTracking } from "./sent-message-open/sent-message-open.server";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/email/sent-message-open/sent-message-open.server", () => ({
+  sendHtmlEmailWithOpenTracking: ({
+    email,
+    emailProvider,
+  }: Parameters<typeof sendHtmlEmailWithOpenTracking>[0]) =>
+    emailProvider.sendEmailWithHtml(email),
+}));
 
 const input = {
   mutationId: "7f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",
