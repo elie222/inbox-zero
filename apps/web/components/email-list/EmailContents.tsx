@@ -35,18 +35,19 @@ const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
  */
 const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
 /**
- * Mail route surface from `styles/globals.css` (`:root[data-theme="mail"]`).
- * Iframes cannot inherit those variables, and the default `.dark` tokens are
- * the near-black void this palette replaced.
+ * Mail reader surface from `styles/globals.css` (`:root[data-theme="mail"]`
+ * card tokens). The thread pane is `bg-card`; iframes cannot inherit those
+ * variables, and the default `.dark` tokens are the near-black void this
+ * palette replaced.
  */
 const MAIL_SURFACE = {
   light: {
-    background: "0 0% 99.2%",
+    background: "0 0% 100%",
     foreground: "0 0% 14.1%",
     mutedForeground: "0 0% 51.8%",
   },
   dark: {
-    background: "220 7% 16%",
+    background: "220 7% 19%",
     foreground: "220 8% 92%",
     mutedForeground: "220 5% 62%",
   },

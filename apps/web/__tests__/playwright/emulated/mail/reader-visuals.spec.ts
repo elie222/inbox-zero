@@ -33,16 +33,31 @@ test("uses the system dark theme when opening HTML emails", async ({
   ).toBeVisible();
   await expect(emailFrame.locator("html")).toHaveCSS("color-scheme", "dark");
   await expect(emailFrame.locator("body")).toHaveCSS("color-scheme", "dark");
-  const appBackground = await page.evaluate(
-    () => getComputedStyle(document.body).backgroundColor,
-  );
+  const paneBackground = await page
+    .locator('iframe[title="Email content preview"]')
+    .last()
+    .evaluate((iframe) => {
+      let node = iframe.parentElement;
+      while (node) {
+        const background = getComputedStyle(node).backgroundColor;
+        if (
+          background &&
+          background !== "transparent" &&
+          background !== "rgba(0, 0, 0, 0)"
+        ) {
+          return background;
+        }
+        node = node.parentElement;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    });
   await expect(emailFrame.locator("html")).toHaveCSS(
     "background-color",
-    appBackground,
+    paneBackground,
   );
   await expect(emailFrame.locator("body")).toHaveCSS(
     "background-color",
-    appBackground,
+    paneBackground,
   );
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });

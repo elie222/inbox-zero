@@ -98,7 +98,7 @@ describe("HtmlEmail", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.body.classList.contains("dark")).toBe(true);
     expect(iframe.srcdoc).toContain("color-scheme: dark");
-    expect(iframe.srcdoc).toContain("--background: 220 7% 16%");
+    expect(iframe.srcdoc).toContain("--background: 220 7% 19%");
   });
 
   it.each([
