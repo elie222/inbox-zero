@@ -2,10 +2,15 @@ import { app, Menu, type MenuItemConstructorOptions } from "electron";
 
 const PRODUCT_NAME = "Inbox Zero";
 
-export function configureDesktopApplicationMenu(
-  checkForUpdates: () => void,
+export function configureDesktopApplicationMenu({
+  checkForUpdates,
+  createWindow,
   platform = process.platform,
-) {
+}: {
+  checkForUpdates: () => void;
+  createWindow: () => void;
+  platform?: NodeJS.Platform;
+}) {
   app.setAboutPanelOptions({
     applicationName: PRODUCT_NAME,
     applicationVersion: app.getVersion(),
@@ -36,7 +41,20 @@ export function configureDesktopApplicationMenu(
           } satisfies MenuItemConstructorOptions,
         ]
       : []),
-    { role: "fileMenu" },
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "New Window",
+          accelerator: "CommandOrControl+N",
+          click: createWindow,
+        },
+        { role: "close" },
+        ...(platform === "darwin"
+          ? []
+          : [{ type: "separator" as const }, { role: "quit" as const }]),
+      ],
+    },
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },

@@ -8,6 +8,7 @@ export type InboxZeroDesktopApi = {
     emailAccountId: string;
     messages: { id: string; receivedAt: number }[];
   }) => void;
+  openWindow?: (path: string) => Promise<void>;
   startAuth: (
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
