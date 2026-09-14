@@ -138,9 +138,7 @@ export function useCombinedMailThreads({
     );
   useEffect(() => {
     if (!enabled) return;
-    return subscribeToVisibleRevalidation(() => {
-      mutate().catch(() => {});
-    });
+    return subscribeToVisibleRevalidation(() => mutate());
   }, [enabled, mutate]);
   const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
