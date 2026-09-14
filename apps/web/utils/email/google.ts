@@ -1536,7 +1536,7 @@ export class GmailProvider implements EmailProvider {
   async searchContacts(query: string) {
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
-      searchContacts(client, query),
+      searchContacts(client, query, this.logger),
     );
   }
 

@@ -100,7 +100,7 @@ describe("handleGmailPermissionsCheck", () => {
       grantedScope: null,
     });
 
-    expect(SCOPES).toHaveLength(REQUIRED_SCOPES.length + 1);
+    expect(SCOPES).toHaveLength(REQUIRED_SCOPES.length + 2);
     expect(result).toEqual({
       hasAllPermissions: true,
       missingScopes: [],
