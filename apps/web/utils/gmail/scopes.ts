@@ -18,8 +18,6 @@ export const SCOPES = [
   // different times. Accounts consented before either was requested keep
   // working with whichever they hold.
   ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_SCOPE] : []),
-  // Other Contacts is a separate sensitive scope and must not be requested in
-  // production until Google verifies it.
   ...(env.NEXT_PUBLIC_CONTACTS_ENABLED &&
   env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED
     ? [GOOGLE_OTHER_CONTACTS_SCOPE]
