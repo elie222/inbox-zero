@@ -34,6 +34,23 @@ const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
  * to restate it or the two drift apart on screen.
  */
 const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
+/**
+ * Mail route surface from `styles/globals.css` (`:root[data-theme="mail"]`).
+ * Iframes cannot inherit those variables, and the default `.dark` tokens are
+ * the near-black void this palette replaced.
+ */
+const MAIL_SURFACE = {
+  light: {
+    background: "0 0% 99.2%",
+    foreground: "0 0% 14.1%",
+    mutedForeground: "0 0% 51.8%",
+  },
+  dark: {
+    background: "220 7% 16%",
+    foreground: "220 8% 92%",
+    mutedForeground: "220 5% 62%",
+  },
+} as const;
 
 export function HtmlEmail({
   html,
@@ -217,6 +234,8 @@ function getIframeHtml(
       // Single style attribute is ok (probably just a link)
       styleAttributeCount === 1);
 
+  const colorScheme = isDarkMode ? "dark" : "light";
+  const surface = isDarkMode ? MAIL_SURFACE.dark : MAIL_SURFACE.light;
   const defaultFontStyles = hasHeavyStyling
     ? `
     <style>
@@ -236,18 +255,11 @@ function getIframeHtml(
     : `
     <style>
       :root {
-        color-scheme: light;
-        --foreground: 222.2 47.4% 11.2%;
-        --muted-foreground: 215.4 16.3% 46.9%;
-        --background: 0 0% 100%;
+        color-scheme: ${colorScheme};
+        --foreground: ${surface.foreground};
+        --muted-foreground: ${surface.mutedForeground};
+        --background: ${surface.background};
         background-color: hsl(var(--background));
-      }
-
-      .dark {
-        color-scheme: dark;
-        --foreground: 0 0% 98%;
-        --muted-foreground: 240 5% 64.9%;
-        --background: 240 10% 3.9%;
       }
 
       /* Contain wide content within the pane */
@@ -256,6 +268,7 @@ function getIframeHtml(
 
       /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
       body {
+        color-scheme: ${colorScheme};
         font-family: ${SANS_FONT_STACK};
         overflow-wrap: anywhere;
       }
