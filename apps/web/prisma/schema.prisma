@@ -224,6 +224,7 @@ model EmailAccount {
   emailMessages       EmailMessage[]
   emailTokens         EmailToken[]
   knowledge           Knowledge[]
+  snippets            Snippet[]
   replyMemories       ReplyMemory[]
   chats               Chat[]
   chatMemories        ChatMemory[]
@@ -1185,6 +1186,21 @@ model Knowledge {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, title])
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  shortcut  String
+  content   String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, shortcut])
+  @@index([emailAccountId])
 }
 
 model ReplyMemory {

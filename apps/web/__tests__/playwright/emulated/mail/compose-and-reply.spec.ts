@@ -32,6 +32,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("button", { exact: true, name: "Send" }),
     dialog.getByRole("button", { name: "Send later" }),
     dialog.getByRole("button", { name: "Remind me" }),
+    dialog.getByRole("button", { name: "Insert snippet" }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
     dialog.getByRole("button", { name: "Discard draft" }),
@@ -46,6 +47,28 @@ test("keeps keyboard focus in the composer and follows the message field order",
   await expect(
     dialog.getByRole("button", { name: "Expand compose" }),
   ).toBeFocused();
+});
+
+test("opens the snippet picker from slash in the composer", async ({
+  page,
+}) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.click();
+  await page.keyboard.type("/");
+
+  const picker = page.getByRole("listbox", { name: "Snippets" });
+  await expect(picker).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: /Turn into snippet/ }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(picker).toBeHidden();
+  await expect(editor).toContainText("/");
 });
 
 test("focuses the message field from the empty composer body", async ({

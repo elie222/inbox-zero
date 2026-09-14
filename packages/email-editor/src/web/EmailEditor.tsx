@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { AnyExtension } from "@tiptap/core";
 import {
   EditorContent,
   useEditor,
@@ -49,7 +50,9 @@ export type EmailEditorPreservedBlock = {
 
 export type EmailEditorHandle = {
   focus: () => void;
+  getSelectedText: () => string;
   getValue: () => EmailEditorValue;
+  insertHtml: (html: string, range?: { from: number; to: number }) => boolean;
   insertInlineImage: (image: {
     alt: string;
     contentId: string;
@@ -60,6 +63,7 @@ export type EmailEditorHandle = {
 
 export type EmailEditorProps = {
   appearance?: "contained" | "seamless";
+  extraExtensions?: AnyExtension[];
   initialHtml: string;
   mode?: "rich" | "fallback";
   preservedBlocks?: EmailEditorPreservedBlock[];
@@ -80,6 +84,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
       unsupported = [],
       placeholder = "Write a message…",
       autofocus = true,
+      extraExtensions = [],
       onStateChange,
       onImageFiles,
     },
@@ -91,6 +96,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
       mode,
       placeholder,
       autofocus,
+      extraExtensions,
       preservedBlocks: preservedBlocks.map((block) => ({
         id: block.id,
         kind: block.kind,
@@ -121,6 +127,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
         initialHtml={initialState.initialHtml}
         onStateChange={onStateChange}
         onImageFiles={onImageFiles}
+        extraExtensions={initialState.extraExtensions}
         placeholder={initialState.placeholder}
         preservedBlocks={initialState.preservedBlocks}
       />
@@ -137,12 +144,14 @@ const RichEmailEditor = forwardRef<
     >
   > &
     Pick<EmailEditorProps, "onStateChange" | "onImageFiles"> & {
+      extraExtensions: AnyExtension[];
       preservedBlocks: RenderedPreservedEmailBlock[];
     }
 >(function RichEmailEditor(
   {
     appearance,
     autofocus,
+    extraExtensions,
     initialHtml,
     onStateChange,
     onImageFiles,
@@ -196,7 +205,7 @@ const RichEmailEditor = forwardRef<
     {
       immediatelyRender: false,
       shouldRerenderOnTransaction: false,
-      extensions: createEmailEditorExtensions(placeholder),
+      extensions: createEmailEditorExtensions(placeholder, extraExtensions),
       content: initialHtml,
       editorProps: {
         attributes: {
@@ -366,10 +375,22 @@ const RichEmailEditor = forwardRef<
     ref,
     () => ({
       focus: () => editor?.commands.focus(),
+      getSelectedText: () => {
+        if (!editor) return "";
+        const { from, to } = editor.state.selection;
+        return editor.state.doc.textBetween(from, to, "\n");
+      },
       getValue: () =>
         editor
           ? getRichEditorValue(editor)
           : emptyEditorValue("rich", initialHtml),
+      insertHtml: (html, range) => {
+        if (!editor) return false;
+        const chain = editor.chain().focus();
+        if (range) chain.deleteRange(range);
+        if (html) chain.insertContent(html);
+        return chain.run();
+      },
       insertInlineImage: ({ alt, contentId, previewUrl }) => {
         if (!editor) return false;
         return editor
@@ -625,7 +646,19 @@ const FallbackEmailEditor = forwardRef<
     ref,
     () => ({
       focus: () => editorRef.current?.focus(),
+      getSelectedText: () => {
+        const selection = window.getSelection();
+        if (!selection || !editorRef.current?.contains(selection.anchorNode)) {
+          return "";
+        }
+        return selection.toString();
+      },
       getValue,
+      insertHtml: (html, _range) => {
+        if (!html) return false;
+        editorRef.current?.focus();
+        return document.execCommand("insertHTML", false, html);
+      },
       insertInlineImage: () => false,
       removeInlineImage: () => false,
     }),

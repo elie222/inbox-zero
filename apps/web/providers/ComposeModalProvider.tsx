@@ -67,7 +67,8 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             const target = event.target;
             if (
               target instanceof Element &&
-              target.closest("[data-email-editor-link-dialog]")
+              (target.closest("[data-email-editor-link-dialog]") ||
+                document.querySelector("[data-snippet-picker]"))
             ) {
               event.preventDefault();
             }
