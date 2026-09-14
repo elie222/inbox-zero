@@ -85,3 +85,102 @@ describe("inspectUnsubscribeHtml", () => {
     ).toBe("token=a+b&email=user%40example.com");
   });
 });
+
+describe("inspectUnsubscribeHtml confirmation detection", () => {
+  it("ignores confirmation copy embedded in scripts and templates", () => {
+    const result = inspectUnsubscribeHtml({
+      html: `<body>
+        <h1>Confirm your request</h1>
+        <script>var successMessage = "You have been unsubscribed.";</script>
+        <template><p>You are now unsubscribed</p></template>
+        <form action="/done" method="post">
+          <input type="hidden" name="token" value="abc">
+          <button type="submit">Confirm</button>
+        </form>
+      </body>`,
+      pageUrl: "https://example.com/unsub",
+    });
+
+    expect(result.kind).toBe("simple_form");
+  });
+
+  it("does not treat a confirmation prompt as a completed unsubscribe", () => {
+    expect(
+      isUnsubscribeAcknowledged(
+        "Are you sure? If you confirm, you will no longer receive emails from us.",
+      ),
+    ).toBe(false);
+
+    const result = inspectUnsubscribeHtml({
+      html: `<body>
+        <p>If you confirm, you will no longer receive emails from us.</p>
+        <form action="/done" method="post">
+          <input type="hidden" name="token" value="abc">
+          <button type="submit">Confirm</button>
+        </form>
+      </body>`,
+      pageUrl: "https://example.com/unsub",
+    });
+
+    expect(result.kind).toBe("simple_form");
+  });
+});
+
+describe("inspectUnsubscribeHtml form controls", () => {
+  it("does not submit an ambiguous choice of buttons", () => {
+    const result = inspectUnsubscribeHtml({
+      html: `<form action="/done" method="post">
+        <input type="hidden" name="t" value="abc">
+        <button type="submit" name="action" value="cancel">Keep subscription</button>
+        <button type="submit" name="action" value="unsubscribe">Unsubscribe</button>
+      </form>`,
+      pageUrl: "https://example.com/unsub",
+    });
+
+    expect(result.kind).toBe("unsupported");
+  });
+
+  it("keeps prefilled values and only fills an empty email field", () => {
+    const result = inspectUnsubscribeHtml({
+      html: `<form action="/done" method="post">
+        <input type="hidden" name="email_hash" value="9f8a7b">
+        <input type="email" name="email" value="">
+        <button type="submit">Unsubscribe</button>
+      </form>`,
+      pageUrl: "https://example.com/unsub",
+      recipientEmail: "user@example.com",
+    });
+
+    expect(result).toEqual({
+      kind: "simple_form",
+      form: {
+        method: "POST",
+        actionUrl: "https://example.com/done",
+        fields: [
+          { name: "email_hash", value: "9f8a7b" },
+          { name: "email", value: "user@example.com" },
+        ],
+      },
+    });
+  });
+
+  it("leaves an already prefilled email address alone", () => {
+    const result = inspectUnsubscribeHtml({
+      html: `<form action="/done" method="post">
+        <input type="email" name="email" value="prefilled@example.com">
+        <button type="submit">Unsubscribe</button>
+      </form>`,
+      pageUrl: "https://example.com/unsub",
+      recipientEmail: "user@example.com",
+    });
+
+    expect(result).toEqual({
+      kind: "simple_form",
+      form: {
+        method: "POST",
+        actionUrl: "https://example.com/done",
+        fields: [{ name: "email", value: "prefilled@example.com" }],
+      },
+    });
+  });
+});

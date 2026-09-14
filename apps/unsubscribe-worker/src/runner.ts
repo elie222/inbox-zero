@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { request } from "node:https";
 import { z } from "zod";
 import {
@@ -11,9 +10,7 @@ import { unsubscribeInBrowser } from "./browser.ts";
 
 const timeout = setTimeout(() => process.exit(1), MAX_JOB_MS);
 try {
-  const raw = process.argv[2]
-    ? await readFile("/tmp/unsubscribe-job.json", "utf8")
-    : await readStdin();
+  const raw = await readStdin();
   const input = jobSchema
     .extend({
       brokerUrl: z.url(),

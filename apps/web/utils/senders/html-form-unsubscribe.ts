@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
 const CONFIRMATION =
-  /\b(successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|you are now unsubscribed|no longer (?:receive|receiving|subscribed)|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
+  /\b(successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|you are now unsubscribed|no longer subscribed|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
 
 const ALLOWED_INPUT_TYPES = new Set([
   "hidden",
@@ -36,6 +36,9 @@ export function inspectUnsubscribeHtml({
   | { kind: "simple_form"; form: SimpleUnsubscribeForm }
   | { kind: "unsupported" } {
   const $ = cheerio.load(html);
+  // Success copy often sits unused inside inline scripts or templates, so
+  // counting it would confirm an unsubscribe that never happened.
+  $("script, style, noscript, template").remove();
   const pageText = $("body").text() || $.root().text();
   if (isUnsubscribeAcknowledged(pageText)) return { kind: "confirmed" };
 
@@ -66,6 +69,16 @@ export function inspectUnsubscribeHtml({
   const controls = $form.find("input, select, textarea, button");
   if (controls.length > 12) return { kind: "unsupported" };
 
+  // A browser submits only the button the user activated. With several to pick
+  // from we cannot tell "Unsubscribe" from "Keep subscription".
+  if (
+    $form.find(
+      "button:not([type=button]):not([type=reset]), input[type=submit], input[type=image]",
+    ).length > 1
+  ) {
+    return { kind: "unsupported" };
+  }
+
   for (const element of controls.toArray()) {
     const $control = $(element);
     const tag = element.tagName.toLowerCase();
@@ -78,12 +91,18 @@ export function inspectUnsubscribeHtml({
 
     const name = $control.attr("name");
     if (!name) continue;
-    if (type === "email" || /e-?mail/i.test(name)) {
+
+    const value = $control.attr("value") || "";
+    // A prefilled value is the sender's own token or address; only an empty
+    // field is actually asking for the recipient.
+    const asksForRecipient =
+      type === "email" || (type !== "hidden" && /e-?mail/i.test(name));
+    if (asksForRecipient && !value) {
       if (!recipientEmail) return { kind: "unsupported" };
       fields.push({ name, value: recipientEmail });
       continue;
     }
-    fields.push({ name, value: $control.attr("value") || "" });
+    fields.push({ name, value });
   }
 
   return {
