@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ChevronsUpDownIcon,
@@ -31,6 +31,8 @@ import {
   getShortcut,
   getShortcutHint,
 } from "@/lib/shortcuts/registry";
+import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { cn } from "@/utils";
 
 export function MailAccountSwitcher({
@@ -158,6 +160,7 @@ export function MailAccountSwitcher({
           {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
+              isDesktopApp={isDesktopApp}
               key={account.id}
               onSelect={onSelectAccount}
               shortcutKey={
@@ -193,17 +196,43 @@ export function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  isDesktopApp,
   onSelect,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  isDesktopApp: boolean;
   onSelect: (accountId: string) => void;
   shortcutKey: string | undefined;
 }) {
+  // Radix onSelect receives a CustomEvent without metaKey/ctrlKey.
+  const openInNewWindow = useRef(false);
+
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={() => onSelect(account.id)}
+      onPointerDown={(event) => {
+        openInNewWindow.current =
+          isDesktopApp && isDesktopNewWindowClick(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          openInNewWindow.current =
+            isDesktopApp && isDesktopNewWindowClick(event);
+        }
+      }}
+      onSelect={() => {
+        const shouldOpenWindow = openInNewWindow.current;
+        openInNewWindow.current = false;
+        if (shouldOpenWindow) {
+          const openWindow = getInboxZeroDesktopApp()?.openWindow;
+          if (openWindow) {
+            openWindow(getMailAccountUrl(account.id, "")).catch(() => {});
+            return;
+          }
+        }
+        onSelect(account.id);
+      }}
     >
       <ProfileImage
         className="size-10"
@@ -240,4 +269,11 @@ function AllAccountsIcon() {
       <span className="size-2 rounded-full bg-emerald-500" />
     </span>
   );
+}
+
+function isDesktopNewWindowClick(event: {
+  metaKey: boolean;
+  ctrlKey: boolean;
+}) {
+  return event.metaKey || event.ctrlKey;
 }

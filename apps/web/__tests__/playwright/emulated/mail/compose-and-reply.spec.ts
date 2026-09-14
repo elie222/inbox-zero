@@ -646,7 +646,7 @@ test("opens and sends a reply from the reader with Enter", async ({
       await route.fulfill({ response });
     },
   );
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
     conversations,
@@ -728,6 +728,10 @@ test("opens and sends a reply from the reader with Enter", async ({
   await sendButton.click();
 
   const localReply = page.locator('[data-thread-message-id^="outbox:"]');
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
   try {
     await expect(replyEditor).toHaveCount(0);
     await expect(
@@ -736,10 +740,31 @@ test("opens and sends a reply from the reader with Enter", async ({
         .getByText(replyBody, { exact: true }),
     ).toBeVisible();
     await expect(
-      page
-        .getByRole("region", { name: "Reply delivery status" })
-        .getByText("Reply sent", { exact: true }),
-    ).toBeVisible({ timeout: 20_000 });
+      notifications.getByText("Email sent!", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      notifications.getByRole("button", { name: /^Undo/ }),
+    ).toBeVisible();
+    await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      delivery.getByRole("button", { name: "Edit reply" }),
+    ).toHaveCount(0);
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "reply",
+            threadId: "thr_playwright_reply",
+          }),
+        { timeout: 20_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
     await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
     await capturePlaywrightCheckpoint(
       page,

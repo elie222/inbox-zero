@@ -2,7 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { StoredMailMutation } from "@/utils/email-cache/database";
-import { getOutboxReplyPreview } from "./outbox-reply";
+import {
+  getOutboxReplyPreview,
+  shouldShowOutboxDeliveryStatus,
+} from "./outbox-reply";
 
 describe("getOutboxReplyPreview", () => {
   it.each([
@@ -107,6 +110,59 @@ describe("getOutboxReplyPreview", () => {
     expect(preview?.attachments).toEqual([
       expect.objectContaining({ filename: "image.png", content: imageContent }),
     ]);
+  });
+});
+
+describe("shouldShowOutboxDeliveryStatus", () => {
+  it.each([
+    "pending",
+    "processing",
+    "succeeded",
+    "awaiting_sync",
+    "reconciling",
+  ] as const)("hides the sending row while an online reply is %s", (status) => {
+    expect(
+      shouldShowOutboxDeliveryStatus({
+        hasPreview: true,
+        online: true,
+        status,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    "failed",
+    "blocked_auth",
+    "uncertain",
+    "retry_wait",
+  ] as const)("keeps delivery actions visible when delivery is %s", (status) => {
+    expect(
+      shouldShowOutboxDeliveryStatus({
+        hasPreview: true,
+        online: true,
+        status,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps the queued row visible while offline", () => {
+    expect(
+      shouldShowOutboxDeliveryStatus({
+        hasPreview: true,
+        online: false,
+        status: "pending",
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a status row when there is no message preview", () => {
+    expect(
+      shouldShowOutboxDeliveryStatus({
+        hasPreview: false,
+        online: true,
+        status: "pending",
+      }),
+    ).toBe(true);
   });
 });
 

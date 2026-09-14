@@ -18,7 +18,8 @@
   ],
   "compose-and-reply.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
-    "components/email-list/EmailThread.tsx"
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
@@ -57,7 +58,8 @@
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
   "reader-visuals.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
+    "components/email-list/EmailContents.tsx"
   ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",

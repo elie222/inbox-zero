@@ -7,6 +7,7 @@ import {
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
+  getDesktopMailAccountId,
   getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
@@ -203,6 +204,17 @@ describe("desktop shell helpers", () => {
     ).toBeNull();
     expect(getDesktopSessionRestoreUrl(origin, null)).toBeNull();
     expect(getDesktopSessionRestoreUrl(origin, 42)).toBeNull();
+  });
+
+  it("reads a mail account id only from same-origin mailbox URLs", () => {
+    const origin = "https://www.getinboxzero.com";
+    expect(
+      getDesktopMailAccountId(`${origin}/account-1/mail?type=inbox`, origin),
+    ).toBe("account-1");
+    expect(getDesktopMailAccountId(`${origin}/mail`, origin)).toBeNull();
+    expect(
+      getDesktopMailAccountId("https://evil.test/account-1/mail", origin),
+    ).toBeNull();
   });
 
   it("scopes window dragging to a titlebar strip instead of the whole page", () => {

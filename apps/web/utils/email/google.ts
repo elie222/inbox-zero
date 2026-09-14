@@ -111,6 +111,7 @@ import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
+import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
 
 const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 
@@ -1534,6 +1535,8 @@ export class GmailProvider implements EmailProvider {
   }
 
   async searchContacts(query: string) {
+    // The Google emulator has no People API, so compose would otherwise 404.
+    if (isGoogleOauthEmulationEnabled()) return [];
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
       searchContacts(client, query),

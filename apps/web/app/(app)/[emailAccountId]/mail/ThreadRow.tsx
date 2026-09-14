@@ -10,6 +10,7 @@ import type {
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { EmailDate } from "@/components/email-list/EmailDate";
+import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenStatus";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +46,11 @@ export type ThreadRowProps = {
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
+  sentMessageOpen?: {
+    firstOpenedAt: string | null;
+    lastOpenedAt: string | null;
+    openCount: number;
+  };
 };
 
 export const ThreadRow = memo(function ThreadRow({
@@ -63,6 +69,7 @@ export const ThreadRow = memo(function ThreadRow({
   onToggleSelect,
   onSelectRangeTo,
   rowRef,
+  sentMessageOpen,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
 
@@ -142,10 +149,15 @@ export const ThreadRow = memo(function ThreadRow({
 
   // `EmailDate` is shared with the old list, which sets a heavier type ramp.
   const date = (
-    <EmailDate
-      className="font-normal text-xs"
-      date={internalDateToDate(message.internalDate)}
-    />
+    <div className="flex items-center justify-end gap-1.5">
+      {sentMessageOpen ? (
+        <SentMessageOpenStatus compact open={sentMessageOpen} />
+      ) : null}
+      <EmailDate
+        className="font-normal text-xs"
+        date={internalDateToDate(message.internalDate)}
+      />
+    </div>
   );
   const draftMarker = isDraft ? (
     <span className="shrink-0 text-primary text-sm">Draft</span>
