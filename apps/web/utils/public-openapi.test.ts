@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import staticOpenApiDocument from "../../../docs/openapi.json";
 
 vi.mock("@/env", () => ({
@@ -32,6 +35,7 @@ describe("createPublicOpenApiDocument", () => {
         STATS_READ: expect.any(String),
         RULES_READ: expect.any(String),
         RULES_WRITE: expect.any(String),
+        SENDERS_WRITE: expect.any(String),
       },
     });
     expect(docs.components?.securitySchemes).not.toHaveProperty("ApiKeyScopes");
@@ -55,6 +59,7 @@ describe("createPublicOpenApiDocument", () => {
       "getRule",
       "replaceRule",
       "deleteRule",
+      "unsubscribeSender",
     ]);
     expect(new Set(operationIds).size).toBe(operationIds.length);
 
@@ -71,6 +76,9 @@ describe("createPublicOpenApiDocument", () => {
       "RULES_WRITE",
     ]);
     expect(docs.paths?.["/rules"]?.post?.responses?.["405"]).toBeTruthy();
+    expect(docs.paths?.["/senders/unsubscribe"]?.post?.security).toEqual([
+      { ApiKeyAuth: ["SENDERS_WRITE"] },
+    ]);
     expect(JSON.stringify(docs)).not.toContain('"nullable"');
   });
 
@@ -92,7 +100,15 @@ describe("createPublicOpenApiDocument", () => {
     const { createPublicOpenApiDocument } = await import(
       "@/utils/public-openapi"
     );
+    const docs = createPublicOpenApiDocument();
+    const openApiPath = path.join(
+      fileURLToPath(new URL(".", import.meta.url)),
+      "../../../docs/openapi.json",
+    );
+    if (process.env.UPDATE_OPENAPI === "true") {
+      writeFileSync(openApiPath, `${JSON.stringify(docs, null, 2)}\n`);
+    }
 
-    expect(staticOpenApiDocument).toEqual(createPublicOpenApiDocument());
+    expect(staticOpenApiDocument).toEqual(docs);
   });
 });

@@ -7,6 +7,7 @@ export const API_KEY_SCOPES = [
   "SETTINGS_READ",
   "SETTINGS_WRITE",
   "ASSISTANT_CHAT",
+  "SENDERS_WRITE",
 ] as const;
 
 export const apiKeyScopeSchema = z.enum(API_KEY_SCOPES);
@@ -43,6 +44,10 @@ const API_KEY_SCOPE_METADATA: Record<
     label: "Assistant chat",
     description: "Start assistant chat sessions for this inbox.",
   },
+  SENDERS_WRITE: {
+    label: "Unsubscribe senders",
+    description: "Unsubscribe from senders for this inbox.",
+  },
 };
 
 export const API_KEY_SCOPE_OPTIONS: Array<{
@@ -61,6 +66,10 @@ export const API_KEY_SCOPE_OPTIONS: Array<{
   {
     value: "STATS_READ",
     ...API_KEY_SCOPE_METADATA.STATS_READ,
+  },
+  {
+    value: "SENDERS_WRITE",
+    ...API_KEY_SCOPE_METADATA.SENDERS_WRITE,
   },
 ];
 

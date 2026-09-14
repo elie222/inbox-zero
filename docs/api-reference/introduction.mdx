@@ -2,7 +2,7 @@
 title: "Introduction"
 ---
 
-Use the Inbox Zero API to read inbox statistics and manage automation rules programmatically.
+Use the Inbox Zero API to read inbox statistics, manage automation rules, and unsubscribe from senders programmatically.
 
 If you prefer a CLI wrapper for scripts or bots, see the [API CLI](/api-reference/cli).
 
@@ -33,6 +33,7 @@ API keys are scoped to a specific inbox account and only grant access to the per
 | `STATS_READ` | `GET /stats/by-period`, `GET /stats/response-time` |
 | `RULES_READ` | `GET /rules`, `GET /rules/{id}` |
 | `RULES_WRITE` | `POST /rules`, `PUT /rules/{id}`, `DELETE /rules/{id}` |
+| `SENDERS_WRITE` | `POST /senders/unsubscribe` |
 
 A key may include more than one scope. Keys are also bound to one inbox account; they cannot read or change another inbox.
 
@@ -56,11 +57,19 @@ Include your API key in the header of each request:
 API-Key: YOUR_API_KEY
 ```
 
-For example:
+For example, list rules:
 
 ```bash
 curl "https://www.getinboxzero.com/api/v1/rules" \
   -H "API-Key: YOUR_API_KEY"
+```
+
+Unsubscribe from a sender, using the same `API-Key` header as above:
+
+```bash
+curl -X POST "https://www.getinboxzero.com/api/v1/senders/unsubscribe" \
+  -H "Content-Type: application/json" \
+  --data '{ "senderEmail": "news@example.com" }'
 ```
 
 To create a rule:

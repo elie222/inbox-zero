@@ -10,11 +10,11 @@ export type UnsubscribeSenderResponse = Awaited<
 export const maxDuration = 180;
 
 /**
- * REST equivalent of `unsubscribeSenderAction`. Uses the isolated browser worker
- * when configured, otherwise the existing HTTP unsubscribe flow.
- *
- * Check `unsubscribe.success` in the response: when it is false the sender was
- * left unchanged and the caller should fall back to opening `unsubscribeLink`.
+ * Tries RFC 8058 one-click POST, then a simple HTML form, then the isolated
+ * browser worker when configured. Otherwise uses the existing HTTP GET
+ * fallback. Check `unsubscribe.success` in the response: when it is false
+ * the sender was left unchanged and the caller should fall back to opening
+ * `unsubscribeLink`.
  */
 export const POST = withEmailAccount(
   "user/senders/unsubscribe",

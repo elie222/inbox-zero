@@ -10,7 +10,7 @@ There are no schema changes. Existing structured logs record the successful meth
 
 ## Architecture and privacy boundary
 
-- The coordinator is trusted and holds the service secret, provider credentials and model credentials. It runs separately from the web app. A compromised coordinator can access concurrent job data, so its host and dependencies remain part of the trusted computing base.
+- The coordinator is trusted and holds the service secret and model credentials. Mailbox provider credentials remain in the web app, which resolves the unsubscribe link and sends only `jobId`, `url`, and `recipientEmail`. The coordinator runs separately from the web app. A compromised coordinator can access concurrent job data, so its host and dependencies remain part of the trusted computing base.
 - Each job has its own OS sandbox, browser process/context, capability token, model history and network namespace. Sandboxes never receive mailbox OAuth tokens, database credentials, other jobs or model/provider API keys. No browser or sandbox is pooled between jobs.
 - Browser traffic goes through a TLS CONNECT broker. It resolves and pins public IPv4 destinations, rejects private/reserved addresses and its own IP, and allows only destination port 443. Requests, tunnels, bytes, controls and model steps are bounded. TLS verification remains enabled. This deliberately excludes plaintext and IPv6-only sites.
 - The runner can click observed controls, enter only the owning recipient email, select an observed option, or stop. The new model prompt treats pages as untrusted and limits actions to the requested unsubscribe. This is an AI judgment boundary, not a proof against deceptive same-page content. It cannot execute model-supplied scripts or access another job.
@@ -51,7 +51,7 @@ Every job starts a small trusted router container that installs deny-by-default 
 
 ## Enable the web app
 
-Set only `UNSUBSCRIBE_WORKER_URL` and `UNSUBSCRIBE_WORKER_SECRET` on the web app. Use the same high-entropy secret (at least 32 characters) on the coordinator. Model credentials belong only on the coordinator. Existing unsubscribe actions then use the browser flow; worker failures do not fall back to treating a successful HTTP response as an unsubscribe confirmation. Leave the URL unset to retain the existing behavior.
+Set only `UNSUBSCRIBE_WORKER_URL` and `UNSUBSCRIBE_WORKER_SECRET` on the web app. Use the same high-entropy secret (at least 32 characters) on the coordinator. Model credentials belong only on the coordinator. Existing unsubscribe actions then use one-click POST, a simple HTML form, and the browser worker in that order. Worker failures do not fall back to treating a successful HTTP GET as an unsubscribe confirmation. Leave the URL unset to retain the existing HTTP behavior, including GET success.
 
 The caller pages and unsubscribe route allow 180 seconds. Configure your hosting platform to support that duration. Large bulk requests may exceed the platform deadline because each selected sender starts separate work; this implementation does not add a durable queue or batch scheduler.
 
@@ -65,7 +65,10 @@ Docker + gVisor is the only shipped adapter. `SandboxAdapter` in `src/contracts.
 pnpm --filter @inboxzero/unsubscribe-worker typecheck
 pnpm --filter @inboxzero/unsubscribe-worker exec playwright install chromium
 pnpm --filter @inboxzero/unsubscribe-worker test
-pnpm test utils/senders/browser-unsubscribe.test.ts utils/senders/unsubscribe.test.ts
+pnpm --filter @inboxzero/unsubscribe-worker test-ai
+pnpm test utils/senders/browser-unsubscribe.test.ts utils/senders/unsubscribe.test.ts utils/senders/html-form-unsubscribe.test.ts
 ```
 
-Tests cover real local browser forms with controlled decisions, cross-job capabilities/history, cancellation, cleanup failure, credential separation, private proxy destinations, response bounds, and Docker isolation command construction. They do not establish live model accuracy or host isolation. Before using real account links, test synthetic jobs on the chosen host: direct Internet/private/metadata access must fail, broker access must succeed, parallel jobs must not see each other's files/processes, and killing the coordinator must still remove sandboxes by the independent expiry. Test delayed confirmations, login/CAPTCHA and prompt injection with the configured model. Verify deletion operationally.
+Default tests cover local browser forms with scripted decisions, HTTP one-click, simple HTML forms, worker fallback, and Docker isolation. They do not establish live model accuracy or host isolation.
+
+`pnpm --filter @inboxzero/unsubscribe-worker test-ai` runs the same pages with the real model (`UNSUBSCRIBE_MODEL_*`, or `OPENAI_API_KEY`). Those fixtures are injected with `page.setContent`; they do not need HTTPS or the sandbox. Before using real account links, test synthetic jobs on the chosen host: direct Internet/private/metadata access must fail, broker access must succeed, parallel jobs must not see each other's files/processes, and killing the coordinator must still remove sandboxes by the independent expiry. Test delayed confirmations, login/CAPTCHA and prompt injection with the configured model. Verify deletion operationally.

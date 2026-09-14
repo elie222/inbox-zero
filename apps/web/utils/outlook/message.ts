@@ -1046,6 +1046,10 @@ export function convertMessage(
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
       "message-id": message.internetMessageId || "",
       "in-reply-to": getInternetHeader(message, "in-reply-to") ?? undefined,
+      "list-unsubscribe":
+        getInternetHeader(message, "list-unsubscribe") ?? undefined,
+      "list-unsubscribe-post":
+        getInternetHeader(message, "list-unsubscribe-post") ?? undefined,
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),

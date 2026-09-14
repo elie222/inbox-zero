@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.ts",
     "test": "node --test src/*.test.ts src/adapters/*.test.ts",
+    "test-ai": "RUN_AI_TESTS=true node --test src/eval/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -19,6 +19,10 @@ import {
   ruleResponseSchema,
   rulesResponseSchema,
 } from "@/app/api/v1/rules/validation";
+import {
+  unsubscribeSenderRequestSchema,
+  unsubscribeSenderResponseSchema,
+} from "@/app/api/v1/senders/unsubscribe/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
 import {
   API_KEY_SCOPE_OPTIONS,
@@ -66,7 +70,7 @@ export function createPublicOpenApiDocument() {
       title: `${BRAND_NAME} API`,
       version: "1.0.0",
       description: [
-        `Programmatic access to ${BRAND_NAME} inbox stats and automation rules.`,
+        `Programmatic access to ${BRAND_NAME} inbox stats, automation rules, and sender unsubscribe.`,
         `Docs: ${PUBLIC_API_DOCS_URL}`,
         `Machine-readable schema: ${PUBLIC_API_OPENAPI_PATH}`,
         "Authenticate with an account-scoped API key via the API-Key header.",
@@ -289,6 +293,36 @@ function createRegistry() {
         description: "Rule deleted",
       },
       ...errorResponses([400, 401, 403, 404, 405, 429, 500]),
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/senders/unsubscribe",
+    operationId: "unsubscribeSender",
+    description:
+      "Unsubscribe from a sender for the scoped inbox. Looks up List-Unsubscribe from that sender's mail when a link is not provided. Check unsubscribe.success: when it is false the sender was left unchanged.",
+    security: apiKeySecurity(["SENDERS_WRITE"]),
+    "x-required-scopes": ["SENDERS_WRITE"],
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: unsubscribeSenderRequestSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Unsubscribe attempt completed",
+        content: {
+          "application/json": {
+            schema: unsubscribeSenderResponseSchema,
+          },
+        },
+      },
+      ...errorResponses([400, 401, 403, 405, 429, 500]),
     },
   });
 
