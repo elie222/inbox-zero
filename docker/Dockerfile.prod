@@ -112,18 +112,6 @@ RUN cd /app/apps/web \
  && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && rm -rf apps/web/.next/cache
 
-# Tracing resolves meriyah through the `require` condition and ships only
-# dist/meriyah.cjs, but @sentry/nextjs imports it as ESM at runtime. Kept narrow
-# on purpose; tracing omits files by design. outputFileTracingIncludes does not
-# work here, Turbopack builds skip collect-build-traces. Meriyah may be absent
-# from the trace; the runner also receives the deployed production dependencies.
-RUN set -eux; \
-    src=/app/node_modules/meriyah/dist; \
-    test -f "$src/meriyah.mjs"; \
-    for d in $(find /app/apps/web/.next/standalone -type d -path '*/node_modules/meriyah/dist'); do \
-        cp "$src/meriyah.mjs" "$src/meriyah.min.mjs" "$d/"; \
-    done
-
 RUN rm -f /app/apps/web/.env /app/apps/web/.next/standalone/apps/web/.env
 
 FROM node:24-alpine AS runner
