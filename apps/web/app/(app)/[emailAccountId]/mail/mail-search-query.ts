@@ -130,12 +130,27 @@ export function parseMailSearchQuery(query: string): MailSearchFields {
   const doesntHave: string[] = [];
   let afterDate: Date | null = null;
   let beforeDate: Date | null = null;
+  let afterToken = "";
+  let beforeToken = "";
 
   for (const token of tokenizeSearchQuery(query)) {
     const parsed = parseSearchToken(token);
     if (!parsed.operator || !KNOWN_OPERATORS.has(parsed.operator)) {
-      if (parsed.excluded && parsed.value) doesntHave.push(parsed.value);
-      else if (token) hasWords.push(token);
+      if (parsed.excluded && isSimpleExclusion(token, parsed.value)) {
+        doesntHave.push(parsed.value);
+      } else if (token) {
+        hasWords.push(token);
+      }
+      continue;
+    }
+
+    // The form only represents -in:chats and simple -word leftovers.
+    if (parsed.excluded) {
+      if (parsed.operator === "in" && parsed.value.toLowerCase() === "chats") {
+        fields.excludeChats = true;
+        continue;
+      }
+      hasWords.push(token);
       continue;
     }
 
@@ -155,15 +170,7 @@ export function parseMailSearchQuery(query: string): MailSearchFields {
       parsed.operator === "has" &&
       parsed.value.toLowerCase() === "attachment"
     ) {
-      fields.hasAttachment = !parsed.excluded;
-      continue;
-    }
-    if (
-      parsed.operator === "in" &&
-      parsed.value.toLowerCase() === "chats" &&
-      parsed.excluded
-    ) {
-      fields.excludeChats = true;
+      fields.hasAttachment = true;
       continue;
     }
     if (parsed.operator === "larger" || parsed.operator === "smaller") {
@@ -180,11 +187,13 @@ export function parseMailSearchQuery(query: string): MailSearchFields {
     if (parsed.operator === "after") {
       afterDate = parseGmailDate(parsed.value);
       if (!afterDate) hasWords.push(token);
+      else afterToken = token;
       continue;
     }
     if (parsed.operator === "before") {
       beforeDate = parseGmailDate(parsed.value);
       if (!beforeDate) hasWords.push(token);
+      else beforeToken = token;
       continue;
     }
     if (parsed.operator === "label") {
@@ -202,10 +211,17 @@ export function parseMailSearchQuery(query: string): MailSearchFields {
   }
 
   if (afterDate && beforeDate) {
-    applyDateWindow(fields, afterDate, beforeDate);
+    applyDateWindow(
+      fields,
+      afterDate,
+      beforeDate,
+      hasWords,
+      afterToken,
+      beforeToken,
+    );
   } else {
-    if (afterDate) hasWords.push(`after:${formatGmailDate(afterDate)}`);
-    if (beforeDate) hasWords.push(`before:${formatGmailDate(beforeDate)}`);
+    if (afterToken) hasWords.push(afterToken);
+    if (beforeToken) hasWords.push(beforeToken);
   }
 
   fields.hasWords = hasWords.join(" ").trim();
@@ -244,20 +260,27 @@ function applyDateWindow(
   fields: MailSearchFields,
   afterDate: Date,
   beforeDate: Date,
+  hasWords: string[],
+  afterToken: string,
+  beforeToken: string,
 ) {
-  const spanDays = Math.max(0, daysBetween(afterDate, beforeDate));
-  const windowDays = Math.max(1, Math.round(spanDays / 2));
-  const match =
-    DATE_WITHIN_OPTIONS.find((option) => option.days === windowDays) ??
-    closestDateWithin(windowDays);
-  fields.dateWithin = match.value;
-  fields.date = formatInputDate(addDays(afterDate, match.days));
+  const spanDays = daysBetween(afterDate, beforeDate);
+  if (spanDays > 0 && spanDays % 2 === 0) {
+    const windowDays = spanDays / 2;
+    const match = DATE_WITHIN_OPTIONS.find(
+      (option) => option.days === windowDays,
+    );
+    if (match) {
+      fields.dateWithin = match.value;
+      fields.date = formatInputDate(addDays(afterDate, match.days));
+      return;
+    }
+  }
+  hasWords.push(afterToken, beforeToken);
 }
 
-function closestDateWithin(days: number) {
-  return DATE_WITHIN_OPTIONS.reduce((best, option) =>
-    Math.abs(option.days - days) < Math.abs(best.days - days) ? option : best,
-  );
+function isSimpleExclusion(token: string, value: string): boolean {
+  return Boolean(value) && token === `-${value}` && !/[\s":():]/.test(value);
 }
 
 function assignSingle(
@@ -290,7 +313,7 @@ function assignSearchIn(
 function parseSizeValue(
   value: string,
 ): { value: string; unit: "MB" | "KB" } | null {
-  const match = value.trim().match(/^(\d+(?:\.\d+)?)([kKmM])?$/);
+  const match = value.trim().match(/^(\d+(?:\.\d+)?)([kKmM])$/);
   if (!match) return null;
   const unit = match[2]?.toLowerCase() === "k" ? "KB" : "MB";
   return { value: match[1], unit };

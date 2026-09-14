@@ -132,6 +132,36 @@ describe("parseMailSearchQuery", () => {
       original,
     );
   });
+
+  it("keeps negated operators the form cannot edit in Has the words", () => {
+    expect(parseMailSearchQuery("-from:alice@example.com")).toEqual(
+      fields({ hasWords: "-from:alice@example.com" }),
+    );
+    expect(parseMailSearchQuery('-"weekly report"')).toEqual(
+      fields({ hasWords: '-"weekly report"' }),
+    );
+    expect(parseMailSearchQuery("-unsubscribe -in:chats")).toEqual(
+      fields({ doesntHave: "unsubscribe", excludeChats: true }),
+    );
+  });
+
+  it("only fills Date within when after/before match a supported window", () => {
+    expect(parseMailSearchQuery("after:2024/3/14 before:2024/3/16")).toEqual(
+      fields({ dateWithin: "1d", date: "2024-03-15" }),
+    );
+    expect(parseMailSearchQuery("after:2024/1/1 before:2024/1/10")).toEqual(
+      fields({ hasWords: "after:2024/1/1 before:2024/1/10" }),
+    );
+  });
+
+  it("only fills Size when larger/smaller includes a unit suffix", () => {
+    expect(parseMailSearchQuery("larger:1000M")).toEqual(
+      fields({ sizeComparison: "greater", sizeValue: "1000", sizeUnit: "MB" }),
+    );
+    expect(parseMailSearchQuery("larger:1000")).toEqual(
+      fields({ hasWords: "larger:1000" }),
+    );
+  });
 });
 
 function fields(overrides: Partial<MailSearchFields>): MailSearchFields {
