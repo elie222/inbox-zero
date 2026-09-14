@@ -77,6 +77,22 @@ describe("mail mutation cache settlement", () => {
       },
     });
     await expect(
+      database?.get("threadDetails", [
+        "account-1",
+        "shared",
+        "drafts:0|replies:0",
+      ]),
+    ).resolves.toMatchObject({
+      data: {
+        thread: {
+          messages: [
+            { id: "old", labelIds: ["UNREAD"] },
+            { id: "new", labelIds: ["INBOX"] },
+          ],
+        },
+      },
+    });
+    await expect(
       database?.get("threadViews", ["account-1", "inbox"]),
     ).resolves.toMatchObject({ threadIds: ["shared"] });
   });
@@ -100,6 +116,19 @@ describe("mail mutation cache settlement", () => {
       database?.get("threadRows", ["account-1", "shared"]),
     ).resolves.toMatchObject({
       data: { messages: [{ id: "old", labelIds: ["UNREAD", "INBOX"] }] },
+    });
+    await expect(
+      database?.get("threadDetails", [
+        "account-1",
+        "shared",
+        "drafts:0|replies:0",
+      ]),
+    ).resolves.toMatchObject({
+      data: {
+        thread: {
+          messages: [{ id: "old", labelIds: ["UNREAD", "INBOX"] }],
+        },
+      },
     });
   });
 
@@ -303,6 +332,15 @@ async function seedCachedThread({
     data: { id: "shared", messages },
     fetchedAt: 1,
     lastAccessedAt: 1,
+  });
+  await database?.put("threadDetails", {
+    emailAccountId: "account-1",
+    threadId: "shared",
+    variant: "drafts:0|replies:0",
+    data: { thread: { id: "shared", messages } },
+    fetchedAt: 1,
+    lastAccessedAt: 1,
+    byteSize: 100,
   });
   await database?.put("threadViews", {
     emailAccountId: "account-1",

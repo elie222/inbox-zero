@@ -19,7 +19,7 @@ export async function settleMailMutationBatchInCache(
   const database = await getEmailCacheDatabase();
   if (!database) return;
   const transaction = database.transaction(
-    ["mailboxMessages", "threadRows"],
+    ["mailboxMessages", "threadRows", "threadDetails"],
     "readwrite",
   );
   const mailboxMessages = transaction.objectStore("mailboxMessages");
@@ -56,31 +56,33 @@ export async function settleMailMutationBatchInCache(
     );
   }
 
-  let cursor = await transaction.objectStore("threadRows").openCursor();
-  while (cursor) {
-    const row = cursor.value;
-    const matchingMutations = [
-      ...(mutationsByRawRow.get(
-        getMailMutationThreadKey(row.emailAccountId, row.threadId),
-      ) ?? []),
-      ...(mutationsByCompositeRow.get(
-        getMailMutationThreadKey(row.emailAccountId, row.threadId),
-      ) ?? []),
-    ];
-    if (matchingMutations.length) {
-      const updated = matchingMutations.reduce<unknown>(
-        (data, mutation) => updateRowData(data, mutation),
-        row.data,
-      );
-      if (updated !== row.data) {
-        await cursor.update({
-          ...row,
-          data: updated,
-          lastAccessedAt: settledAt,
-        });
+  for (const storeName of ["threadRows", "threadDetails"] as const) {
+    let cursor = await transaction.objectStore(storeName).openCursor();
+    while (cursor) {
+      const row = cursor.value;
+      const matchingMutations = [
+        ...(mutationsByRawRow.get(
+          getMailMutationThreadKey(row.emailAccountId, row.threadId),
+        ) ?? []),
+        ...(mutationsByCompositeRow.get(
+          getMailMutationThreadKey(row.emailAccountId, row.threadId),
+        ) ?? []),
+      ];
+      if (matchingMutations.length) {
+        const updated = matchingMutations.reduce<unknown>(
+          (data, mutation) => updateRowData(data, mutation),
+          row.data,
+        );
+        if (updated !== row.data) {
+          await cursor.update({
+            ...row,
+            data: updated,
+            lastAccessedAt: settledAt,
+          });
+        }
       }
+      cursor = await cursor.continue();
     }
-    cursor = await cursor.continue();
   }
   await transaction.done;
   for (const emailAccountId of new Set(
