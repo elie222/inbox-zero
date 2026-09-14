@@ -51,21 +51,68 @@ describe("mail mutation cache settlement", () => {
     }
   });
 
-  it("removes only the owning raw row and matching composite rows", async () => {
+  it("keeps archived messages with INBOX removed instead of deleting them", async () => {
+    const database = await seedCachedThread({
+      messages: [
+        { id: "old", labelIds: ["INBOX", "UNREAD"] },
+        { id: "new", labelIds: ["INBOX"] },
+      ],
+    });
+
+    await settleMailMutationInCache(mutation("old"));
+
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "old"]),
+    ).resolves.toMatchObject({
+      data: { labelIds: ["UNREAD"] },
+    });
+    await expect(
+      database?.get("threadRows", ["account-1", "shared"]),
+    ).resolves.toMatchObject({
+      data: {
+        messages: [
+          { id: "old", labelIds: ["UNREAD"] },
+          { id: "new", labelIds: ["INBOX"] },
+        ],
+      },
+    });
+    await expect(
+      database?.get("threadViews", ["account-1", "inbox"]),
+    ).resolves.toMatchObject({ threadIds: ["shared"] });
+  });
+
+  it("restores INBOX when unarchiving a cached message", async () => {
+    const database = await seedCachedThread({
+      messages: [{ id: "old", labelIds: ["UNREAD"] }],
+    });
+
+    await settleMailMutationInCache({
+      ...mutation("old"),
+      kind: "unarchive",
+    });
+
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "old"]),
+    ).resolves.toMatchObject({
+      data: { labelIds: ["UNREAD", "INBOX"] },
+    });
+    await expect(
+      database?.get("threadRows", ["account-1", "shared"]),
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "old", labelIds: ["UNREAD", "INBOX"] }] },
+    });
+  });
+
+  it("updates only the owning account's cached rows", async () => {
     const database = await getEmailCacheDatabase();
     for (const emailAccountId of ["account-1", "account-2"]) {
       await database?.put("threadRows", {
         emailAccountId,
         threadId: "shared",
-        data: { id: "shared", messages: [{ id: `${emailAccountId}-message` }] },
-        fetchedAt: 1,
-        lastAccessedAt: 1,
-      });
-      await database?.put("threadViews", {
-        emailAccountId,
-        viewKey: "inbox",
-        threadIds: ["shared"],
-        hasMore: false,
+        data: {
+          id: "shared",
+          messages: [{ id: `${emailAccountId}-message`, labelIds: ["INBOX"] }],
+        },
         fetchedAt: 1,
         lastAccessedAt: 1,
       });
@@ -74,13 +121,14 @@ describe("mail mutation cache settlement", () => {
 
     await expect(
       database?.get("threadRows", ["account-1", "shared"]),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "account-1-message", labelIds: [] }] },
+    });
     await expect(
       database?.get("threadRows", ["account-2", "shared"]),
-    ).resolves.toBeDefined();
-    await expect(
-      database?.get("threadViews", ["account-2", "inbox"]),
-    ).resolves.toMatchObject({ threadIds: ["shared"] });
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "account-2-message", labelIds: ["INBOX"] }] },
+    });
   });
 
   it("scopes legacy composite rows to their owning account", async () => {
@@ -91,7 +139,7 @@ describe("mail mutation cache settlement", () => {
         threadId: "account-1:shared",
         data: {
           id: "shared",
-          messages: [{ id: "account-1-message" }],
+          messages: [{ id: "account-1-message", labelIds: ["INBOX"] }],
         },
         fetchedAt: 1,
         lastAccessedAt: 1,
@@ -102,38 +150,14 @@ describe("mail mutation cache settlement", () => {
 
     await expect(
       database?.get("threadRows", ["account-1", "account-1:shared"]),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "account-1-message", labelIds: [] }] },
+    });
     await expect(
       database?.get("threadRows", ["account-2", "account-1:shared"]),
-    ).resolves.toBeDefined();
-  });
-
-  it("preserves a new untargeted message in the same cached thread", async () => {
-    const database = await getEmailCacheDatabase();
-    await database?.put("threadRows", {
-      emailAccountId: "account-1",
-      threadId: "shared",
-      data: { id: "shared", messages: [{ id: "old" }, { id: "new" }] },
-      fetchedAt: 1,
-      lastAccessedAt: 1,
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "account-1-message", labelIds: ["INBOX"] }] },
     });
-    await database?.put("threadViews", {
-      emailAccountId: "account-1",
-      viewKey: "inbox",
-      threadIds: ["shared"],
-      hasMore: false,
-      fetchedAt: 1,
-      lastAccessedAt: 1,
-    });
-
-    await settleMailMutationInCache(mutation("old"));
-
-    await expect(
-      database?.get("threadRows", ["account-1", "shared"]),
-    ).resolves.toMatchObject({ data: { messages: [{ id: "new" }] } });
-    await expect(
-      database?.get("threadViews", ["account-1", "inbox"]),
-    ).resolves.toMatchObject({ threadIds: ["shared"] });
   });
 
   it("keeps read-state mutations in cached thread views", async () => {
@@ -185,7 +209,7 @@ describe("mail mutation cache settlement", () => {
     }
   });
 
-  it("settles a large archive batch in one cached-state pass", async () => {
+  it("settles a large archive batch by rewriting labels in one pass", async () => {
     const database = await getEmailCacheDatabase();
     for (const threadId of ["first", "second", "untouched"]) {
       await database?.put("threadRows", {
@@ -193,7 +217,7 @@ describe("mail mutation cache settlement", () => {
         threadId,
         data: {
           id: threadId,
-          messages: [{ id: `${threadId}-message` }],
+          messages: [{ id: `${threadId}-message`, labelIds: ["INBOX"] }],
         },
         fetchedAt: 1,
         lastAccessedAt: 1,
@@ -215,16 +239,24 @@ describe("mail mutation cache settlement", () => {
 
     await expect(
       database?.get("threadRows", ["account-1", "first"]),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "first-message", labelIds: [] }] },
+    });
     await expect(
       database?.get("threadRows", ["account-1", "second"]),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "second-message", labelIds: [] }] },
+    });
     await expect(
       database?.get("threadRows", ["account-1", "untouched"]),
-    ).resolves.toBeDefined();
+    ).resolves.toMatchObject({
+      data: { messages: [{ id: "untouched-message", labelIds: ["INBOX"] }] },
+    });
     await expect(
       database?.get("threadViews", ["account-1", "inbox"]),
-    ).resolves.toMatchObject({ threadIds: ["untouched"] });
+    ).resolves.toMatchObject({
+      threadIds: ["first", "second", "untouched"],
+    });
   });
 });
 
@@ -242,4 +274,43 @@ function mutation(messageId: string, threadId = "shared"): MailMutation {
     createdAt: 0,
     updatedAt: 0,
   };
+}
+
+async function seedCachedThread({
+  messages,
+}: {
+  messages: Array<{ id: string; labelIds: string[] }>;
+}) {
+  const database = await getEmailCacheDatabase();
+  for (const message of messages) {
+    await database?.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: message.id,
+      threadId: "shared",
+      data: {
+        id: message.id,
+        threadId: "shared",
+        labelIds: message.labelIds,
+        headers: { from: "sender@example.com" },
+      },
+      receivedAt: 1,
+      lastAccessedAt: 1,
+    });
+  }
+  await database?.put("threadRows", {
+    emailAccountId: "account-1",
+    threadId: "shared",
+    data: { id: "shared", messages },
+    fetchedAt: 1,
+    lastAccessedAt: 1,
+  });
+  await database?.put("threadViews", {
+    emailAccountId: "account-1",
+    viewKey: "inbox",
+    threadIds: ["shared"],
+    hasMore: false,
+    fetchedAt: 1,
+    lastAccessedAt: 1,
+  });
+  return database;
 }

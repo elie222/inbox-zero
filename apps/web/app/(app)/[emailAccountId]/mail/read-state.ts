@@ -14,6 +14,15 @@ export function isThreadUnread(
   );
 }
 
+/** Inbox and unread views are INBOX-scoped, so archive is dropping this label. */
+export function isThreadInInbox(
+  messages: readonly { labelIds?: string[] | null }[],
+) {
+  return messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.INBOX),
+  );
+}
+
 /** Read state lives on every message, so marking a thread rewrites all of them. */
 export function withThreadReadState<T extends ListThread>(
   thread: T,

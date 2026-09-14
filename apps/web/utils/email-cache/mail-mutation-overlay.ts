@@ -123,20 +123,80 @@ export function createMailMutationOverlay(mutations: MailMutation[]) {
   };
 }
 
-export function updateMessageReadState(message: ParsedMessage, read: boolean) {
-  const labelIds = new Set(message.labelIds ?? []);
-  if (read) labelIds.delete("UNREAD");
-  else labelIds.add("UNREAD");
-  return { ...message, labelIds: [...labelIds] };
+export function applyMailMutationToMessage<T extends LabeledMessage>(
+  message: T,
+  mutation: MailMutation,
+): T {
+  switch (mutation.kind) {
+    case "set_read_state":
+      return updateMessageReadState(message, mutation.read);
+    case "set_starred_state":
+      return updateMessageStarredState(message, mutation.starred);
+    case "archive":
+      return updateMessageLabels(message, {
+        add: mutation.labelId ? [mutation.labelId] : [],
+        remove: [GmailLabel.INBOX],
+      });
+    case "snooze":
+      return updateMessageLabels(message, { remove: [GmailLabel.INBOX] });
+    case "unarchive":
+    case "cancel_snooze":
+      return updateMessageLabels(message, { add: [GmailLabel.INBOX] });
+    case "spam":
+      return updateMessageLabels(message, {
+        add: [GmailLabel.SPAM],
+        remove: [GmailLabel.INBOX],
+      });
+    case "trash":
+      return updateMessageLabels(message, {
+        add: [GmailLabel.TRASH],
+        remove: [GmailLabel.INBOX],
+      });
+    case "untrash":
+      return updateMessageLabels(message, {
+        add: [GmailLabel.INBOX],
+        remove: [GmailLabel.TRASH],
+      });
+    case "reply":
+      return message;
+  }
 }
 
-export function updateMessageStarredState(
-  message: ParsedMessage,
+export function updateMessageReadState<T extends LabeledMessage>(
+  message: T,
+  read: boolean,
+) {
+  return updateMessageLabels(
+    message,
+    read ? { remove: [GmailLabel.UNREAD] } : { add: [GmailLabel.UNREAD] },
+  );
+}
+
+export function updateMessageStarredState<T extends LabeledMessage>(
+  message: T,
   starred: boolean,
 ) {
+  return updateMessageLabels(
+    message,
+    starred ? { add: [GmailLabel.STARRED] } : { remove: [GmailLabel.STARRED] },
+  );
+}
+
+type LabeledMessage = { labelIds?: string[] | null };
+
+function updateMessageLabels<T extends LabeledMessage>(
+  message: T,
+  {
+    add = [],
+    remove = [],
+  }: {
+    add?: string[];
+    remove?: string[];
+  },
+) {
   const labelIds = new Set(message.labelIds ?? []);
-  if (starred) labelIds.add(GmailLabel.STARRED);
-  else labelIds.delete(GmailLabel.STARRED);
+  for (const labelId of remove) labelIds.delete(labelId);
+  for (const labelId of add) labelIds.add(labelId);
   return { ...message, labelIds: [...labelIds] };
 }
 

@@ -136,6 +136,26 @@ describe("useMailThreads", () => {
     expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual(["INBOX"]);
   });
 
+  it("hides a persisted thread once INBOX has been removed", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: false,
+      threads: [createThread("archived-locally", ["UNREAD"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-archived-local",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("removes a pending-read thread from an unread-only view", async () => {
     mutationStore.read.mockResolvedValue([
       createMutation({
@@ -1128,7 +1148,11 @@ describe("useMailThreads", () => {
   });
 });
 
-function createThread(id: string, labelIds: string[] = [], internalDate = "0") {
+function createThread(
+  id: string,
+  labelIds: string[] = ["INBOX"],
+  internalDate = "0",
+) {
   return {
     id,
     messages: [

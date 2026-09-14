@@ -24,7 +24,7 @@ import {
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
 import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
-import { isThreadUnread } from "./read-state";
+import { isThreadInInbox, isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
   useRetainedMailMutationOverlay,
@@ -299,9 +299,11 @@ export function useCombinedMailThreads({
       mutations: mailMutations,
       threads: baseThreads,
     });
-    return isUnread
-      ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
-      : overlaidThreads;
+    return overlaidThreads.filter(
+      (thread) =>
+        isThreadInInbox(thread.messages) &&
+        (!isUnread || isThreadUnread(thread.messages)),
+    );
   }, [baseThreads, isUnread, mailMutations, mutationOverlayReady]);
   const hasMore = Boolean(
     remoteHasMore ||
