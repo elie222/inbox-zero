@@ -112,3 +112,34 @@ test("does not type recipient data into password fields or invent a missing cont
     await browser.close();
   }
 });
+
+test("caps observation of a large page without collecting every matching control", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(
+      `<p>${"word ".repeat(20_000)}</p>${'<a hidden href="#">pad</a>'.repeat(3000)}<button>Unsubscribe</button>`,
+    );
+    let observed = false;
+    const result = await completeUnsubscribe(
+      page,
+      "user@example.com",
+      async (observation) => {
+        if (observed) return { action: "needs_user", ref: null, option: null };
+        observed = true;
+        assert.ok(observation.text.length <= 16_000);
+        assert.ok(observation.controls.length <= 200);
+        const button = observation.controls.find(
+          (control) => control.tag === "button",
+        );
+        assert.ok(button);
+        assert.match(button.label, /Unsubscribe/);
+        return { action: "click", ref: button.ref, option: null };
+      },
+    );
+    assert.equal(observed, true);
+    assert.deepEqual(result, { status: "needs_user" });
+  } finally {
+    await browser.close();
+  }
+});

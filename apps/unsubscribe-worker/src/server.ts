@@ -53,6 +53,7 @@ export function attachServer(
 
   server.on("connect", async (request, client, head) => {
     const socket = client as Socket;
+    socket.pause();
     socket.on("error", () => {});
     socket.setTimeout(30_000, () => socket.destroy());
     let upstream: Socket | undefined;
@@ -120,6 +121,7 @@ export function attachServer(
         }
         socket.pipe(remote);
         remote.pipe(socket);
+        socket.resume();
       });
     } catch {
       upstream?.destroy();

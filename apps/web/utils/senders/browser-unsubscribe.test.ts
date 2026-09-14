@@ -144,4 +144,20 @@ describe("browser unsubscribe", () => {
       vi.useRealTimers();
     }
   });
+
+  it("fails mailbox resolution that exceeds the job deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      getMessagesFromSender.mockImplementation(() => new Promise(() => {}));
+      const pending = browserUnsubscribe(options);
+      await vi.advanceTimersByTimeAsync(170_000);
+      await expect(pending).resolves.toMatchObject({
+        success: false,
+        reason: "request_failed",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

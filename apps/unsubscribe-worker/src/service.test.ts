@@ -212,3 +212,98 @@ test("client cancellation returns even when a provider ignores abort and destroy
   assert.equal(destroyed, true);
   assert.equal(ran, false);
 });
+
+test("keeps the job reservation until a late create settles", async () => {
+  let resolveCreate: (
+    sandbox: Awaited<ReturnType<SandboxAdapter["create"]>>,
+  ) => void = () => {};
+  let creates = 0;
+  const service = new UnsubscribeService({
+    adapter: {
+      create: () => {
+        creates++;
+        if (creates === 1)
+          return new Promise((resolve) => {
+            resolveCreate = resolve;
+          });
+        return Promise.resolve({
+          run: async () => ({ status: "needs_user" as const }),
+          destroy: async () => {},
+        });
+      },
+    },
+    brokerUrl: "https://broker.example.com",
+    brokerIp: "8.8.8.8",
+    maxConcurrent: 1,
+    decide: async () => ({ action: "needs_user", ref: null, option: null }),
+  });
+  const job = {
+    jobId: randomUUID(),
+    url: "https://example.com",
+    recipientEmail: "user@example.com",
+  };
+  const controller = new AbortController();
+  const result = service.execute(job, controller.signal);
+  controller.abort();
+  assert.deepEqual(await result, { status: "failed" });
+  await assert.rejects(service.execute(job));
+  await assert.rejects(service.execute({ ...job, jobId: randomUUID() }));
+  let destroyed = false;
+  resolveCreate({
+    run: async () => ({ status: "confirmed" }),
+    destroy: async () => {
+      destroyed = true;
+    },
+  });
+  while (!destroyed) await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(await service.execute({ ...job, jobId: randomUUID() }), {
+    status: "needs_user",
+  });
+});
+
+test("refuses further work when a late sandbox destroy fails", async () => {
+  let resolveCreate: (
+    sandbox: Awaited<ReturnType<SandboxAdapter["create"]>>,
+  ) => void = () => {};
+  const service = new UnsubscribeService({
+    adapter: {
+      create: () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+    },
+    brokerUrl: "https://broker.example.com",
+    brokerIp: "8.8.8.8",
+    maxConcurrent: 1,
+    decide: async () => ({ action: "needs_user", ref: null, option: null }),
+  });
+  const controller = new AbortController();
+  const result = service.execute(
+    {
+      jobId: randomUUID(),
+      url: "https://example.com",
+      recipientEmail: "user@example.com",
+    },
+    controller.signal,
+  );
+  controller.abort();
+  assert.deepEqual(await result, { status: "failed" });
+  let destroyed = false;
+  resolveCreate({
+    run: async () => ({ status: "confirmed" }),
+    destroy: async () => {
+      destroyed = true;
+      throw new Error("cleanup failed");
+    },
+  });
+  while (!destroyed) await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(
+    service.execute({
+      jobId: randomUUID(),
+      url: "https://example.com",
+      recipientEmail: "user@example.com",
+    }),
+  );
+});

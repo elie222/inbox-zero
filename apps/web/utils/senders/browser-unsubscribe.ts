@@ -39,10 +39,13 @@ export async function browserUnsubscribe({
       provider: account.account.provider,
       logger,
     });
-    const { messages } = await provider.getMessagesFromSender({
-      senderEmail,
-      maxResults: 5,
-    });
+    const { messages } = await withDeadline(
+      provider.getMessagesFromSender({
+        senderEmail,
+        maxResults: 5,
+      }),
+      Math.max(1, deadline - Date.now()),
+    );
     // Resolve from this account's mailbox, never a client-supplied recipient URL.
     let unsubscribeUrl: string | undefined;
     for (const message of messages) {
@@ -97,6 +100,18 @@ export async function browserUnsubscribe({
       method: "browser",
       reason: "request_failed",
     };
+  }
+}
+
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Mailbox lookup timed out")), ms);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer!);
   }
 }
 

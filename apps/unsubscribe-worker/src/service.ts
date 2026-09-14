@@ -75,34 +75,42 @@ export class UnsubscribeService {
     const { adapter, brokerUrl, brokerIp } = this.options;
     let sandbox: Awaited<ReturnType<SandboxAdapter["create"]>> | undefined;
     let result: Result = { status: "failed" };
+    let createWork:
+      | Promise<Awaited<ReturnType<SandboxAdapter["create"]>>>
+      | undefined;
+    let createState: "idle" | "pending" | "settled" = "idle";
     try {
       session.controller.signal.throwIfAborted();
-      const createdSandbox = await abortable(
-        adapter
-          .create({
-            jobId: job.jobId,
-            brokerIp,
-            brokerPort: Number(new URL(brokerUrl).port || 443),
-            signal: session.controller.signal,
-          })
-          .then(async (created) => {
-            if (session.controller.signal.aborted) {
-              try {
-                await created.destroy();
-              } catch {
-                throw new SandboxCleanupUnconfirmed();
-              }
-              throw new Error("Job expired during creation");
+      createState = "pending";
+      createWork = adapter
+        .create({
+          jobId: job.jobId,
+          brokerIp,
+          brokerPort: Number(new URL(brokerUrl).port || 443),
+          signal: session.controller.signal,
+        })
+        .then(async (created) => {
+          if (session.controller.signal.aborted) {
+            try {
+              await created.destroy();
+            } catch {
+              this.healthy = false;
+              throw new SandboxCleanupUnconfirmed();
             }
-            return created;
-          }),
-        session.controller.signal,
+            throw new Error("Job expired during creation");
+          }
+          return created;
+        });
+      settleInBackground(
+        createWork.finally(() => {
+          createState = "settled";
+        }),
       );
-      sandbox = createdSandbox;
+      sandbox = await abortable(createWork, session.controller.signal);
       session.controller.signal.throwIfAborted();
       result = resultSchema.parse(
         await abortable(
-          createdSandbox.run(
+          sandbox.run(
             { ...job, brokerUrl, brokerIp, token },
             session.controller.signal,
           ),
@@ -125,14 +133,25 @@ export class UnsubscribeService {
       for (const socket of session.sockets) socket.destroy();
       clearTimeout(timeout);
       clientSignal?.removeEventListener("abort", abort);
-      try {
-        if (sandbox)
-          await abortable(sandbox.destroy(), AbortSignal.timeout(30_000));
-      } catch {
-        this.healthy = false;
-        result = { status: "failed" };
-      }
-      this.jobs.delete(job.jobId);
+      const release = async () => {
+        try {
+          if (sandbox)
+            await abortable(sandbox.destroy(), AbortSignal.timeout(30_000));
+          else if (createWork)
+            await createWork.catch((error) => {
+              if (error instanceof SandboxCleanupUnconfirmed)
+                this.healthy = false;
+            });
+        } catch {
+          this.healthy = false;
+          result = { status: "failed" };
+        } finally {
+          this.jobs.delete(job.jobId);
+        }
+      };
+      const pendingRelease = release();
+      if (sandbox || createState !== "pending") await pendingRelease;
+      else settleInBackground(pendingRelease);
     }
     return result;
   }
@@ -178,6 +197,10 @@ export class UnsubscribeService {
       for (const socket of session.sockets) socket.destroy();
     }
   }
+}
+
+function settleInBackground(work: Promise<unknown>) {
+  work.catch(() => {});
 }
 
 async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {

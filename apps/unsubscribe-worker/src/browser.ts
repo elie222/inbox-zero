@@ -97,26 +97,38 @@ export async function completeUnsubscribe(
 }
 
 async function observe(page: Page) {
-  const candidates = await page.evaluateHandle(() =>
-    Array.from(
-      document.querySelectorAll(
-        "a,button,input,select,[role=button],[role=checkbox]",
-      ),
-    ),
-  );
-  const properties = await candidates.getProperties();
-  const all = [...properties.values()].flatMap((value) => {
-    const element = value.asElement();
-    return element ? [element] : [];
-  });
-  await candidates.dispose();
-  const handles: ElementHandle<HTMLElement | SVGElement>[] = [];
-  const controls: Observation["controls"] = [];
-  for (const handle of all) {
-    if (handles.length >= 200 || !(await handle.isVisible())) {
-      await handle.dispose();
-      continue;
+  const candidates = await page.evaluateHandle(() => {
+    const selected: Element[] = [];
+    for (const element of document.querySelectorAll(
+      "a,button,input,select,[role=button],[role=checkbox]",
+    )) {
+      if (selected.length >= 200) break;
+      if (!(element instanceof HTMLElement) && !(element instanceof SVGElement))
+        continue;
+      if (element instanceof HTMLElement && element.hidden) continue;
+      const style = getComputedStyle(element);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        Number(style.opacity) === 0
+      )
+        continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      selected.push(element);
     }
+    return selected;
+  });
+  const properties = await candidates.getProperties();
+  const handles: ElementHandle<HTMLElement | SVGElement>[] = [];
+  for (const value of properties.values()) {
+    const element = value.asElement();
+    if (element) handles.push(element);
+    else await value.dispose();
+  }
+  await candidates.dispose();
+  const controls: Observation["controls"] = [];
+  for (const handle of handles) {
     const details = await handle.evaluate((element) => ({
       tag: element.tagName.toLowerCase(),
       type: (element.getAttribute("type") || "text").slice(0, 30),
@@ -139,13 +151,30 @@ async function observe(page: Page) {
               }))
           : [],
     }));
-    controls.push({ ref: handles.length, ...details });
-    handles.push(handle);
+    controls.push({ ref: controls.length, ...details });
   }
   return {
     handles,
     observation: {
-      text: await page.evaluate(() => document.body.innerText.slice(0, 16_000)),
+      text: await page.evaluate(() => {
+        const limit = 16_000;
+        const root = document.body;
+        if (!root) return "";
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let text = "";
+        while (text.length < limit) {
+          const node = walker.nextNode();
+          if (!node) break;
+          const parent = node.parentElement;
+          if (parent) {
+            const style = getComputedStyle(parent);
+            if (style.display === "none" || style.visibility === "hidden")
+              continue;
+          }
+          text += node.textContent ?? "";
+        }
+        return text.slice(0, limit);
+      }),
       controls,
     },
   };
