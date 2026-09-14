@@ -49,7 +49,9 @@ export function beginUndoSend({
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
     duration: Math.max(0, holdUntil - Date.now()),
-    onUndo: () => undoPendingSend(),
+    onUndo: async () => {
+      await undoPendingSend();
+    },
   });
 }
 
