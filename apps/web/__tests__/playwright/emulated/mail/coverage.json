@@ -18,7 +18,8 @@
   ],
   "compose-and-reply.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
-    "components/email-list/EmailThread.tsx"
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
