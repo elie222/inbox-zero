@@ -133,19 +133,20 @@ describe("subscribeToVisibleRevalidation", () => {
   });
 
   it("retries after a failed refetch", async () => {
+    vi.useRealTimers();
     const revalidate = vi
       .fn()
-      .mockRejectedValueOnce(new Error("network"))
-      .mockResolvedValueOnce(undefined);
+      .mockImplementationOnce(() => Promise.reject(new Error("network")))
+      .mockImplementationOnce(() => Promise.resolve());
     const unsubscribe = subscribeToVisibleRevalidation(revalidate, 10_000);
 
     actVisibilityChange("hidden");
     actVisibilityChange("visible");
-    await flushRevalidate();
+    await waitForRevalidateToSettle();
     expect(revalidate).toHaveBeenCalledOnce();
 
     actFocus();
-    await flushRevalidate();
+    await waitForRevalidateToSettle();
 
     expect(revalidate).toHaveBeenCalledTimes(2);
     unsubscribe();
@@ -184,4 +185,9 @@ async function flushRevalidate() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+}
+
+async function waitForRevalidateToSettle() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await flushRevalidate();
 }
