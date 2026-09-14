@@ -115,16 +115,14 @@ RUN cd /app/apps/web \
 # Tracing resolves meriyah through the `require` condition and ships only
 # dist/meriyah.cjs, but @sentry/nextjs imports it as ESM at runtime. Kept narrow
 # on purpose; tracing omits files by design. outputFileTracingIncludes does not
-# work here, Turbopack builds skip collect-build-traces.
+# work here, Turbopack builds skip collect-build-traces. Meriyah may be absent
+# from the trace; the runner also receives the deployed production dependencies.
 RUN set -eux; \
     src=/app/node_modules/meriyah/dist; \
     test -f "$src/meriyah.mjs"; \
-    found=0; \
     for d in $(find /app/apps/web/.next/standalone -type d -path '*/node_modules/meriyah/dist'); do \
         cp "$src/meriyah.mjs" "$src/meriyah.min.mjs" "$d/"; \
-        found=$((found + 1)); \
-    done; \
-    test "$found" -gt 0
+    done
 
 RUN rm -f /app/apps/web/.env /app/apps/web/.next/standalone/apps/web/.env
 
