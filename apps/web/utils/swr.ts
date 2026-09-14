@@ -31,6 +31,15 @@ export function shouldResetSwrCacheForAccountId(
   return previousEmailAccountId !== emailAccountId;
 }
 
+// Empty → id must revalidate the live scoped cache, including keys that are
+// not persisted (for example a first-paint 403 on /api/user/email-account).
+export function shouldRevalidateAllLiveSwrKeysForAccountId(
+  previousEmailAccountId: string | null,
+  emailAccountId: string,
+) {
+  return previousEmailAccountId === "" && Boolean(emailAccountId);
+}
+
 export function getDevSWRErrorRetryMs(
   error: { status?: number; message?: string },
   retryCount: number,

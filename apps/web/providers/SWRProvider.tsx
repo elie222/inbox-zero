@@ -32,6 +32,7 @@ import {
 } from "@/utils/swr-persistence";
 import {
   shouldResetSwrCacheForAccountId,
+  shouldRevalidateAllLiveSwrKeysForAccountId,
   getDevSWRErrorRetryMs,
 } from "@/utils/swr";
 
@@ -146,18 +147,16 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     setProvider(new Map());
   }, []);
 
-  // Reset cache when emailAccountId changes (account switching). Also runs
-  // when the id goes from empty to set so a first-paint 403 is not sticky.
+  // Replace the provider Map on account switch. Empty → id is handled inside
+  // SWRConfig: module-level mutate() talks to SWR's default cache, not this
+  // custom Map, so it cannot drop a first-paint 403.
   useEffect(() => {
     const previousEmailAccountId = previousEmailAccountIdRef.current;
     if (
-      shouldResetSwrCacheForAccountId(previousEmailAccountId, emailAccountId)
+      shouldResetSwrCacheForAccountId(previousEmailAccountId, emailAccountId) &&
+      previousEmailAccountId !== ""
     ) {
-      if (previousEmailAccountId === "") {
-        mutate(() => true);
-      } else {
-        resetCache();
-      }
+      resetCache();
     }
     previousEmailAccountIdRef.current = emailAccountId;
   }, [emailAccountId, resetCache]);
@@ -203,6 +202,7 @@ function PersistedSwrCache() {
   const { cache, mutate: scopedMutate } = useSWRConfig();
   const { emailAccountId } = useAccount();
   const hydratedForRef = useRef<string | null>(null);
+  const previousEmailAccountIdRef = useRef<string | null>(null);
 
   useEffect(
     () => connectThreadCacheInvalidation(cache, scopedMutate),
@@ -232,6 +232,19 @@ function PersistedSwrCache() {
       }
     }
   }, [emailAccountId, cache, scopedMutate]);
+
+  useEffect(() => {
+    const previousEmailAccountId = previousEmailAccountIdRef.current;
+    if (
+      shouldRevalidateAllLiveSwrKeysForAccountId(
+        previousEmailAccountId,
+        emailAccountId,
+      )
+    ) {
+      scopedMutate(shouldRevalidateLiveKeyOnEmptyAccountId);
+    }
+    previousEmailAccountIdRef.current = emailAccountId;
+  }, [emailAccountId, scopedMutate]);
 
   // If another tab removes an account's snapshot (logout or account
   // deletion), stop this tab from re-persisting it out of its warm cache.
@@ -286,4 +299,10 @@ function getDevOnlySWRConfig() {
       setTimeout(() => revalidate({ retryCount }), delayMs);
     },
   };
+}
+
+function shouldRevalidateLiveKeyOnEmptyAccountId(key: unknown) {
+  const path = Array.isArray(key) ? key[0] : key;
+  if (typeof path !== "string") return true;
+  return !(PERSISTED_SWR_KEYS as readonly string[]).includes(path);
 }

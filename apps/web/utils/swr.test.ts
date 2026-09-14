@@ -3,6 +3,7 @@ import { EMAIL_ACCOUNT_ID_REQUIRED_ERROR } from "@/utils/config";
 import {
   getAccountScopedKey,
   getDevSWRErrorRetryMs,
+  shouldRevalidateAllLiveSwrKeysForAccountId,
   shouldResetSwrCacheForAccountId,
 } from "./swr";
 
@@ -45,6 +46,27 @@ describe("shouldResetSwrCacheForAccountId", () => {
       false,
     );
     expect(shouldResetSwrCacheForAccountId("account-1", "")).toBe(false);
+  });
+});
+
+describe("shouldRevalidateAllLiveSwrKeysForAccountId", () => {
+  it("revalidates when an account id appears after an empty id", () => {
+    expect(shouldRevalidateAllLiveSwrKeysForAccountId("", "account-1")).toBe(
+      true,
+    );
+  });
+
+  it("does not revalidate on first paint, account switch, or an empty next id", () => {
+    expect(shouldRevalidateAllLiveSwrKeysForAccountId(null, "account-1")).toBe(
+      false,
+    );
+    expect(
+      shouldRevalidateAllLiveSwrKeysForAccountId("account-1", "account-2"),
+    ).toBe(false);
+    expect(shouldRevalidateAllLiveSwrKeysForAccountId("", "")).toBe(false);
+    expect(shouldRevalidateAllLiveSwrKeysForAccountId("account-1", "")).toBe(
+      false,
+    );
   });
 });
 
