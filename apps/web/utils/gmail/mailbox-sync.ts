@@ -8,7 +8,6 @@ import {
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getHistory } from "@/utils/gmail/history";
-import { GmailLabel } from "@/utils/gmail/label";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 
@@ -82,11 +81,9 @@ export async function getGmailMailboxSyncPage({
     });
     const afterTimestamp = new Date(decoded.after).getTime();
     const upsertedMessages = fetchedMessages.filter((message) => {
-      const isInSnapshotScope =
-        (!message.labelIds || message.labelIds.includes(GmailLabel.INBOX)) &&
-        Number(message.internalDate) >= afterTimestamp;
-      if (!isInSnapshotScope) deletedIds.add(message.id);
-      return isInSnapshotScope;
+      const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
+      if (!inTimeWindow) deletedIds.add(message.id);
+      return inTimeWindow;
     });
     const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
     for (const messageId of upsertIds) {
@@ -157,7 +154,7 @@ export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
       if (change.message?.id) deletedIds.add(change.message.id);
     }
     // Typed arrays can be omitted; the summary `messages` list still names
-    // every affected id so an INBOX removal is fetched and dropped.
+    // every affected id so current labels can be written to the cache.
     for (const message of record.messages ?? []) {
       if (message.threadId) changedThreadIds.add(message.threadId);
       if (message.id) upsertIds.add(message.id);

@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 describe("getGmailMailboxSyncPage", () => {
-  it("only upserts recent Inbox messages and removes messages outside the snapshot scope", async () => {
+  it("keeps recent messages including archived mail and removes ones outside the time window", async () => {
     const recentInternalDate = new Date("2026-07-02T00:00:00.000Z")
       .getTime()
       .toString();
@@ -100,17 +100,17 @@ describe("getGmailMailboxSyncPage", () => {
     expect(page.upsertedMessages.map((message) => message.id)).toEqual([
       "inbox-message",
       "unavailable-label-message",
+      "archived-message",
     ]);
     expect(page.changedThreadIds).toEqual(["changed-thread"]);
     expect(page.deletedMessageIds).toEqual([
       "deleted-message",
-      "archived-message",
       "old-message",
       "missing-message",
     ]);
   });
 
-  it("drops an archived inbox message from a labelsRemoved history record", async () => {
+  it("writes current labels for an archived message instead of deleting it", async () => {
     vi.mocked(getHistory).mockResolvedValue({
       history: [
         {
@@ -148,8 +148,11 @@ describe("getGmailMailboxSyncPage", () => {
       limit: 100,
     });
 
-    expect(page.upsertedMessages).toEqual([]);
-    expect(page.deletedMessageIds).toEqual(["archived-message"]);
+    expect(page.upsertedMessages.map((message) => message.id)).toEqual([
+      "archived-message",
+    ]);
+    expect(page.upsertedMessages[0]?.labelIds).toEqual(["UNREAD"]);
+    expect(page.deletedMessageIds).toEqual([]);
     expect(page.changedThreadIds).toEqual(["alert-thread"]);
   });
 });

@@ -820,6 +820,53 @@ describe("synced mailbox cache", () => {
     ]);
   });
 
+  it("keeps archived messages cached and hides them from inbox and unread views", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "inbox-message",
+            threadId: "inbox-thread",
+            internalDate: "2026-08-23T11:00:00.000Z",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "archived-message",
+            threadId: "archived-thread",
+            internalDate: "2026-08-23T12:00:00.000Z",
+            labelIds: ["UNREAD"],
+          }),
+        ],
+      },
+    });
+
+    const inbox = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "inbox" },
+    });
+    const unread = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "unread" },
+    });
+    const database = await getEmailCacheDatabase();
+    const cached = await database?.get("mailboxMessages", [
+      "account-1",
+      "archived-message",
+    ]);
+
+    expect(inbox?.threads.map((thread) => thread.id)).toEqual(["inbox-thread"]);
+    expect(unread?.threads.map((thread) => thread.id)).toEqual([
+      "inbox-thread",
+    ]);
+    expect(cached?.data.labelIds).toEqual(["UNREAD"]);
+  });
+
   it("notifies active subscribers after mailbox changes", async () => {
     const listener = vi.fn();
     const unsubscribe = subscribeToMailboxStore(listener);
