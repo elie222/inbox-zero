@@ -54,6 +54,40 @@ describe("SWRProvider persisted cache", () => {
     });
   });
 
+  it("clears a first-paint cache once an account id appears", async () => {
+    accountState.emailAccountId = "";
+    window.localStorage.setItem(
+      snapshotKey("account-a"),
+      JSON.stringify({ "/api/labels": { labels: ["a-label"] } }),
+    );
+
+    const view = render(
+      <SWRProvider>
+        <CacheProbe />
+      </SWRProvider>,
+    );
+
+    await waitFor(() => {
+      expect(scopedCache).toBeDefined();
+    });
+    scopedCache?.set("/api/labels", {
+      data: { labels: ["stale-without-account"] },
+    });
+
+    accountState.emailAccountId = "account-a";
+    view.rerender(
+      <SWRProvider>
+        <CacheProbe />
+      </SWRProvider>,
+    );
+
+    await waitFor(() => {
+      expect(scopedCache?.get("/api/labels")?.data).toEqual({
+        labels: ["a-label"],
+      });
+    });
+  });
+
   it("replaces whitelisted entries on account switch instead of leaking them", async () => {
     window.localStorage.setItem(
       snapshotKey("account-a"),
