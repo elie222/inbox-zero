@@ -5,7 +5,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   chunkSentMessageOpenThreadIds,
   mergeSentMessageOpenResponses,
-} from "@/utils/email/sent-message-open";
+} from "@/utils/email/sent-message-open/sent-message-open";
 import { getAccountScopedKey } from "@/utils/swr";
 
 export function useSentMessageOpens(threadId: string | null) {

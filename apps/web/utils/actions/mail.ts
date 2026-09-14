@@ -7,7 +7,7 @@ import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open.server";
+import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
   deleteMailboxItemBody,
   removeThreadLabelBody,

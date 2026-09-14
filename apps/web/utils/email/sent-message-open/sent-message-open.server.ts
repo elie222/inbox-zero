@@ -13,7 +13,7 @@ import {
   isSentMessageOpenToken,
   sentMessageOpenPath,
   stripSentMessageOpenPixels,
-} from "@/utils/email/sent-message-open";
+} from "./sent-message-open";
 
 const SENT_MESSAGE_OPEN_TOKEN_PAYLOAD_BYTES = 18;
 const SENT_MESSAGE_OPEN_TOKEN_MAC_BYTES = 6;

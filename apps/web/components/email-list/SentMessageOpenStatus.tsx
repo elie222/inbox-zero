@@ -3,7 +3,7 @@
 import { CheckCheckIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { Tooltip } from "@/components/Tooltip";
-import { describeSentMessageOpen } from "@/utils/email/sent-message-open";
+import { describeSentMessageOpen } from "@/utils/email/sent-message-open/sent-message-open";
 import { cn } from "@/utils";
 
 export type SentMessageOpenState = {

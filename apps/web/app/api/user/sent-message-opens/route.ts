@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { SENT_MESSAGE_OPEN_THREAD_ID_LIMIT } from "@/utils/email/sent-message-open";
+import { SENT_MESSAGE_OPEN_THREAD_ID_LIMIT } from "@/utils/email/sent-message-open/sent-message-open";
 
 const threadIdSchema = z.string().min(1).max(512);
 

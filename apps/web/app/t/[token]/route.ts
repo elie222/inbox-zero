@@ -1,9 +1,9 @@
 import { after } from "next/server";
-import { isSameOriginSentMessageOpenRequest } from "@/utils/email/sent-message-open";
+import { isSameOriginSentMessageOpenRequest } from "@/utils/email/sent-message-open/sent-message-open";
 import {
   isAuthenticSentMessageOpenToken,
   recordSentMessageOpen,
-} from "@/utils/email/sent-message-open.server";
+} from "@/utils/email/sent-message-open/sent-message-open.server";
 
 const TRANSPARENT_GIF = Buffer.from(
   "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",

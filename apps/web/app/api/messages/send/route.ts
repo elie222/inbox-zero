@@ -6,7 +6,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { EMAIL_SEND_LIMITS, sendEmailBody } from "@/utils/types/mail";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
-import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open.server";
+import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
   DURABLE_MULTIPART_ATTACHMENT_LIMIT_MESSAGE,
   DURABLE_MULTIPART_EMAIL_SEND_LIMITS,
