@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import {
   ArchiveIcon,
+  ChevronDownIcon,
   ColumnsIcon,
   RowsIcon,
   SearchIcon,
@@ -12,10 +13,17 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
+import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
+import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
@@ -28,6 +36,8 @@ export type ListToolbarProps = {
   onSearch: (query: string) => void;
   /** Lets `/` focus the mail search field from the shortcut handler. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  /** User labels offered in the Gmail-style Search dropdown. */
+  searchLabels?: { name: string }[];
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
@@ -48,6 +58,7 @@ export function ListToolbar({
   searchQuery = "",
   onSearch,
   searchInputRef,
+  searchLabels,
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
@@ -157,6 +168,7 @@ export function ListToolbar({
           searchQuery={searchQuery}
           onSearch={onSearch}
           inputRef={searchInputRef}
+          searchLabels={searchLabels}
         />
       )}
 
@@ -218,60 +230,125 @@ function MailSearchInput({
   searchQuery,
   onSearch,
   inputRef: inputRefProp,
+  searchLabels = [],
 }: {
   searchQuery: string;
   onSearch: (query: string) => void;
   inputRef?: RefObject<HTMLInputElement | null>;
+  searchLabels?: { name: string }[];
 }) {
   const localRef = useRef<HTMLInputElement>(null);
   const inputRef = inputRefProp ?? localRef;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterDraft, setFilterDraft] = useState(searchQuery);
 
   return (
-    <form
-      // Remount when the committed query changes elsewhere (sidebar
-      // navigation, clearing) so the uncontrolled input tracks it without
-      // mirroring the value into state.
-      key={searchQuery}
-      role="search"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSearch(inputRef.current?.value.trim() ?? "");
+    <Popover
+      modal
+      open={filtersOpen}
+      onOpenChange={(open) => {
+        if (open) setFilterDraft(inputRef.current?.value ?? searchQuery);
+        setFiltersOpen(open);
       }}
-      className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar px-2.5 text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]"
     >
-      <SearchIcon className="size-3.5 shrink-0" />
-      <input
-        ref={inputRef}
-        defaultValue={searchQuery}
-        placeholder="Search mail"
-        enterKeyHint="search"
-        aria-label="Search mail"
-        className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none focus:ring-0 placeholder:text-muted-foreground"
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") return;
-          if (inputRef.current?.value || searchQuery) {
-            if (inputRef.current) inputRef.current.value = "";
-            onSearch("");
-          } else {
-            inputRef.current?.blur();
+      <div
+        className={cn(
+          "group flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
+          filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
+        )}
+      >
+        <form
+          // Remount when the committed query changes elsewhere (sidebar
+          // navigation, clearing) so the uncontrolled input tracks it without
+          // mirroring the value into state.
+          key={searchQuery}
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSearch(inputRef.current?.value.trim() ?? "");
+          }}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5"
+        >
+          <SearchIcon className="size-3.5 shrink-0" />
+          <input
+            ref={inputRef}
+            defaultValue={searchQuery}
+            placeholder="Search mail"
+            enterKeyHint="search"
+            aria-label="Search mail"
+            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none focus:ring-0 placeholder:text-muted-foreground"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              if (filtersOpen) {
+                setFiltersOpen(false);
+                return;
+              }
+              if (inputRef.current?.value || searchQuery) {
+                if (inputRef.current) inputRef.current.value = "";
+                onSearch("");
+              } else {
+                inputRef.current?.blur();
+              }
+            }}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => onSearch("")}
+              className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          ) : !filtersOpen ? (
+            <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
+              {getShortcutHint("search")}
+            </Kbd>
+          ) : null}
+        </form>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Show search options"
+            aria-expanded={filtersOpen}
+            className={cn(
+              "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              filtersOpen && "text-foreground",
+            )}
+          >
+            <ChevronDownIcon
+              className={cn(
+                "size-3.5 transition-transform",
+                filtersOpen && "rotate-180",
+              )}
+            />
+          </button>
+        </PopoverTrigger>
+      </div>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="w-[min(34rem,calc(100vw-1.5rem))] p-4"
+        onPointerDownOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest("[data-radix-select-viewport]")) {
+            event.preventDefault();
           }
         }}
-      />
-      {searchQuery ? (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => onSearch("")}
-          className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <XIcon className="size-3.5" />
-        </button>
-      ) : (
-        <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
-          {getShortcutHint("search")}
-        </Kbd>
-      )}
-    </form>
+      >
+        {filtersOpen ? (
+          <MailSearchFiltersForm
+            key={filterDraft}
+            initialFields={parseMailSearchQuery(filterDraft)}
+            extraLocations={searchLabels}
+            onSearch={(query) => {
+              onSearch(query);
+              setFiltersOpen(false);
+            }}
+          />
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }
 

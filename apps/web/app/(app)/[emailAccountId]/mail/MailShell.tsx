@@ -1510,6 +1510,7 @@ export function MailShell() {
               searchQuery={searchQuery ?? ""}
               onSearch={setSearch}
               searchInputRef={searchInputRef}
+              searchLabels={isAllAccounts ? [] : visibleLabels}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
