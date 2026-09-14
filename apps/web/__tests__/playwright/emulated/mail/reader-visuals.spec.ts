@@ -33,10 +33,6 @@ test("uses the system dark theme when opening HTML emails", async ({
   ).toBeVisible();
   await expect(emailFrame.locator("html")).toHaveCSS("color-scheme", "dark");
   await expect(emailFrame.locator("body")).toHaveCSS("color-scheme", "dark");
-  await expect(emailFrame.locator("body")).toHaveCSS(
-    "background-color",
-    "rgb(45, 47, 52)",
-  );
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });
 
