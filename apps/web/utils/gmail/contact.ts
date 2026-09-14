@@ -4,6 +4,7 @@ import {
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
 } from "@/utils/email/contact";
+import { env } from "@/env";
 import { isGmailInsufficientPermissionsError } from "@/utils/error";
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
@@ -16,6 +17,10 @@ export async function searchContacts(
   query: string,
   logger: Logger,
 ) {
+  if (!env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED) {
+    return normalizeContactCandidates(await searchSavedContacts(client, query));
+  }
+
   // Saved Google Contacts are only the address book the user curated. Gmail's
   // compose autocomplete also searches Other Contacts — people the user has
   // emailed — so both sources are required for Gmail-like suggestions.

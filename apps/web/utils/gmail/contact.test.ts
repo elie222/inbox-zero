@@ -1,8 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+
+const envMock = vi.hoisted(() => ({
+  NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED: true,
+}));
+
+vi.mock("@/env", () => ({
+  env: envMock,
+}));
+
 import { searchContacts } from "./contact";
 
 describe("searchContacts", () => {
+  beforeEach(() => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = true;
+  });
+
   it("maps all usable Google contact addresses to compose suggestions", async () => {
     const searchContactsMock = vi.fn().mockResolvedValue({
       data: {
@@ -189,6 +202,37 @@ describe("searchContacts", () => {
     await expect(
       searchContacts(client, "contact", createTestLogger()),
     ).rejects.toBe(rateLimitError);
+  });
+
+  it("does not search Other Contacts when that flag is off", async () => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const { client, searchContactsMock, searchOtherContactsMock } =
+      createPeopleClient({
+        searchContactsMock: vi.fn().mockResolvedValue({
+          data: {
+            results: [
+              {
+                person: {
+                  names: [{ displayName: "Saved Contact" }],
+                  emailAddresses: [{ value: "saved@example.com" }],
+                },
+              },
+            ],
+          },
+        }),
+      });
+
+    await expect(
+      searchContacts(client, "sa", createTestLogger()),
+    ).resolves.toEqual([
+      {
+        emailAddress: "saved@example.com",
+        name: "Saved Contact",
+        profilePictureUrl: undefined,
+      },
+    ]);
+    expect(searchContactsMock).toHaveBeenCalled();
+    expect(searchOtherContactsMock).not.toHaveBeenCalled();
   });
 });
 
