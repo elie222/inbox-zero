@@ -34,24 +34,6 @@ const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
  * to restate it or the two drift apart on screen.
  */
 const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
-/**
- * Mail reader surface from `styles/globals.css` (`:root[data-theme="mail"]`
- * card tokens). The thread pane is `bg-card`; iframes cannot inherit those
- * variables, and the default `.dark` tokens are the near-black void this
- * palette replaced.
- */
-const MAIL_SURFACE = {
-  light: {
-    background: "0 0% 100%",
-    foreground: "0 0% 14.1%",
-    mutedForeground: "0 0% 51.8%",
-  },
-  dark: {
-    background: "220 7% 19%",
-    foreground: "220 8% 92%",
-    mutedForeground: "220 5% 62%",
-  },
-} as const;
 
 export function HtmlEmail({
   html,
@@ -235,8 +217,6 @@ function getIframeHtml(
       // Single style attribute is ok (probably just a link)
       styleAttributeCount === 1);
 
-  const colorScheme = isDarkMode ? "dark" : "light";
-  const surface = isDarkMode ? MAIL_SURFACE.dark : MAIL_SURFACE.light;
   const defaultFontStyles = hasHeavyStyling
     ? `
     <style>
@@ -256,11 +236,19 @@ function getIframeHtml(
     : `
     <style>
       :root {
-        color-scheme: ${colorScheme};
-        --foreground: ${surface.foreground};
-        --muted-foreground: ${surface.mutedForeground};
-        --background: ${surface.background};
+        color-scheme: light;
+        --foreground: 222.2 47.4% 11.2%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+        --background: 0 0% 100%;
         background-color: hsl(var(--background));
+      }
+
+      /* Match mail dark card surface. Iframes cannot inherit those variables. */
+      .dark {
+        color-scheme: dark;
+        --foreground: 220 8% 92%;
+        --muted-foreground: 220 5% 62%;
+        --background: 220 7% 19%;
       }
 
       /* Contain wide content within the pane */
@@ -269,7 +257,6 @@ function getIframeHtml(
 
       /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
       body {
-        color-scheme: ${colorScheme};
         font-family: ${SANS_FONT_STACK};
         overflow-wrap: anywhere;
       }

@@ -156,8 +156,8 @@ export function EmailThread({
   );
 
   return (
-    // Same card surface as unstyled HTML in the email iframe, so a simple
-    // message is not boxed against a different pane color.
+    // White regardless of the surface it is dropped on: an email body renders
+    // on white inside its iframe, so anything else leaves each message boxed.
     <div className="min-w-0 bg-card" ref={threadRef}>
       {renderToolbar?.({
         allExpanded,
