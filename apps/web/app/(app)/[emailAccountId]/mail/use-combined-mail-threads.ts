@@ -299,12 +299,20 @@ export function useCombinedMailThreads({
       mutations: mailMutations,
       threads: baseThreads,
     });
+    const requiresInbox = !labelIdentity && !searchQuery;
     return overlaidThreads.filter(
       (thread) =>
-        isThreadInInbox(thread.messages) &&
+        (!requiresInbox || isThreadInInbox(thread.messages)) &&
         (!isUnread || isThreadUnread(thread.messages)),
     );
-  }, [baseThreads, isUnread, mailMutations, mutationOverlayReady]);
+  }, [
+    baseThreads,
+    isUnread,
+    labelIdentity,
+    mailMutations,
+    mutationOverlayReady,
+    searchQuery,
+  ]);
   const hasMore = Boolean(
     remoteHasMore ||
       syncedView?.truncated ||
