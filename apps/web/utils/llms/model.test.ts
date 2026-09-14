@@ -1395,6 +1395,22 @@ describe("Models", () => {
       });
     });
 
+    it("should configure Grok CLI provider when explicitly enabled", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.GROK_CLI, "default");
+      vi.mocked(env).CLI_LLM_ENABLED = true;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.GROK_CLI);
+      expect(result.modelName).toBe("default");
+      expect(result.model).toMatchObject({
+        provider: Provider.GROK_CLI,
+        modelId: "default",
+      });
+    });
+
     it("should skip CLI fallback providers when CLI LLMs are disabled", () => {
       const userAi = defaultUserAi();
 

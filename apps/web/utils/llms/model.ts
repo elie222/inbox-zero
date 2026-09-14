@@ -314,6 +314,17 @@ function selectModel(
         }),
       };
     }
+    case Provider.GROK_CLI: {
+      const modelName = aiModel || "default";
+      return {
+        provider: Provider.GROK_CLI,
+        modelName,
+        model: createCliLanguageModel({
+          provider: Provider.GROK_CLI,
+          modelName,
+        }),
+      };
+    }
 
     case Provider.BEDROCK: {
       const modelName = aiModel || "global.anthropic.claude-sonnet-4-6";
@@ -564,6 +575,7 @@ function getProviderApiKey(provider: string) {
       env.LLM_API_KEY || process.env.LLM_API_KEY || "not-required",
     [Provider.CODEX_CLI]: getCliProviderAvailability(Provider.CODEX_CLI),
     [Provider.CLAUDE_CODE]: getCliProviderAvailability(Provider.CLAUDE_CODE),
+    [Provider.GROK_CLI]: getCliProviderAvailability(Provider.GROK_CLI),
   };
 
   return providerApiKeys[provider];

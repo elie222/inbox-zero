@@ -156,6 +156,7 @@ function getLegacyProviderDefaultModel(
     "openai-compatible": env.OPENAI_COMPATIBLE_MODEL,
     "codex-cli": "gpt-5.3-codex",
     "claude-code": "sonnet",
+    "grok-cli": "default",
   };
 
   return defaultModelByLegacyProvider[provider];

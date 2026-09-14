@@ -15,6 +15,7 @@ export const Provider = {
   OPENAI_COMPATIBLE: "openai-compatible",
   CODEX_CLI: "codex-cli",
   CLAUDE_CODE: "claude-code",
+  GROK_CLI: "grok-cli",
 };
 
 export const providerOptions: { label: string; value: string }[] = [
