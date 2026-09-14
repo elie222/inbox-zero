@@ -437,6 +437,65 @@ describe("useCombinedMailThreads", () => {
     expect(mailbox.read).not.toHaveBeenCalled();
   });
 
+  it("keeps sent-only threads in combined search and label results", async () => {
+    const sent = createThread("account-1", "sent-only", undefined, ["SENT"]);
+    const fetcher = vi.fn(() =>
+      Promise.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [sent],
+      }),
+    );
+
+    for (const extras of [
+      { searchQuery: "invoice" },
+      { labelNames: ["Sent"] },
+    ]) {
+      const { result, unmount } = renderHook(
+        () =>
+          useCombinedMailThreads({
+            accounts: ACCOUNTS,
+            emailAccountId: "account-1",
+            enabled: true,
+            isUnread: false,
+            ...extras,
+          }),
+        { wrapper: createWrapper(fetcher) },
+      );
+      await waitFor(() =>
+        expect(result.current.threads.map((thread) => thread.id)).toEqual([
+          "sent-only",
+        ]),
+      );
+      unmount();
+    }
+  });
+
+  it("hides archived threads from the default combined inbox", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [createThread("account-1", "archived", undefined, ["UNREAD"])],
+      }),
+    );
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("uses a newer server page when the persisted mailbox predates the request", async () => {
     mailbox.read.mockResolvedValue({
       accountStates: ACCOUNT_STATES,
@@ -1130,6 +1189,7 @@ function createThread(
   accountId: string,
   id: string,
   internalDate = "2026-08-23T10:00:00.000Z",
+  labelIds = ["INBOX"],
 ) {
   return {
     account: createAccount(accountId),
@@ -1140,7 +1200,7 @@ function createThread(
         headers: { subject: id },
         id: `${id}-message`,
         internalDate,
-        labelIds: ["INBOX"],
+        labelIds,
         snippet: id,
         subject: id,
         threadId: id,

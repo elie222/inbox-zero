@@ -27,7 +27,8 @@ import {
   type ThreadsQuery,
   threadsQueryToSearchParams,
 } from "@/utils/threads/validation";
-import { isThreadUnread } from "./read-state";
+import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
+import { isThreadInInbox, isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
   useRetainedMailMutationOverlay,
@@ -106,6 +107,10 @@ export function useMailThreads({
       revalidateOnFocus: false,
       revalidateFirstPage: false,
     });
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeToVisibleRevalidation(() => mutate());
+  }, [enabled, mutate]);
   const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
@@ -254,15 +259,19 @@ export function useMailThreads({
       threads: sourceThreads ?? [],
     });
     const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
+    const requiresInbox = query.type === "inbox" || query.type === "unread";
     return overlaidThreads.filter(
       (thread) =>
-        (!query.isUnread || isThreadUnread(thread.messages)) && isOther(thread),
+        (!requiresInbox || isThreadInInbox(thread.messages)) &&
+        (!query.isUnread || isThreadUnread(thread.messages)) &&
+        isOther(thread),
     );
   }, [
     emailAccountId,
     mailMutations,
     mutationOverlayReady,
     query.isUnread,
+    query.type,
     query.excludeSplits,
     sourceThreads,
   ]);
