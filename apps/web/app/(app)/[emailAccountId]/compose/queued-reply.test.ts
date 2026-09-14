@@ -232,6 +232,65 @@ describe("queueReaderEmail", () => {
     });
   });
 
+  it("holds an online send so undo can cancel it before delivery", async () => {
+    const holdUntil = Date.now() + 5000;
+    const onQueued = vi.fn();
+
+    await expect(
+      queueReaderEmail({
+        email: createEmail(),
+        emailAccountId: "account",
+        holdUntil,
+        messageIds: ["message"],
+        onQueued,
+        online: true,
+        threadId: "thread",
+      }),
+    ).resolves.toEqual({
+      holdUntil,
+      mutationId: "mutation-id",
+      status: "held",
+      threadId: "thread",
+    });
+    expect(outbox.enqueue).toHaveBeenCalledWith({
+      email: createEmail(),
+      emailAccountId: "account",
+      kind: "reply",
+      messageIds: ["message"],
+      nextAttemptAt: holdUntil,
+      threadId: "thread",
+    });
+    expect(onQueued).toHaveBeenCalledOnce();
+    expect(outbox.get).not.toHaveBeenCalled();
+  });
+
+  it("does not treat retry backoff as an undo hold", async () => {
+    vi.useFakeTimers();
+    const nextAttemptAt = Date.now() + 30_000;
+    outbox.get.mockResolvedValue(
+      createMutation("retry_wait", { id: "mutation", nextAttemptAt }),
+    );
+
+    const pending = queueReaderEmail({
+      email: createEmail(),
+      emailAccountId: "account",
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      settlementTimeoutMs: 100,
+      threadId: "thread",
+    });
+    await vi.advanceTimersByTimeAsync(100);
+
+    await expect(pending).resolves.toEqual({
+      reason: "pending",
+      status: "queued",
+      threadId: "thread",
+    });
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("explains when the queued email is waiting for account reconnection", async () => {
     outbox.get.mockResolvedValue(createMutation("blocked_auth"));
 

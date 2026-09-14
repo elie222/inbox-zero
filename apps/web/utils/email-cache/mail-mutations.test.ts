@@ -1120,6 +1120,28 @@ describe("mail mutation outbox", () => {
     await expect(getMailMutation("blocked")).resolves.toBeUndefined();
   });
 
+  it("does not claim a send until its undo hold elapses", async () => {
+    await enqueueMailMutation(
+      {
+        id: "reply",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "reply",
+        email: { to: "to@example.com", subject: "Hi", messageHtml: "Hi" },
+        nextAttemptAt: 50,
+      },
+      10,
+    );
+
+    await expect(
+      claimNextMailMutation({ ownerId: "worker", leaseMs: 100, now: 40 }),
+    ).resolves.toBeUndefined();
+    await expect(getNextMailMutationWakeAt()).resolves.toBe(50);
+    await expect(cancelPendingMailMutation("reply")).resolves.toBe(true);
+    await expect(getMailMutation("reply")).resolves.toBeUndefined();
+  });
+
   it("reports the earliest retry wake time", async () => {
     for (const [id, now] of [
       ["later", 200],

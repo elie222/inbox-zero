@@ -29,6 +29,7 @@ export type EnqueueMailMutationInput = MailMutationPayload & {
   emailAccountId: string;
   threadId: string;
   messageIds: string[];
+  nextAttemptAt?: number;
 };
 
 export type MailMutationSyncGroup = {
@@ -798,7 +799,7 @@ async function enqueueInStore(
         messageIds: [...new Set(input.messageIds)],
         payload: getStoredPayload(input),
         status: "pending",
-        nextAttemptAt: now,
+        nextAttemptAt: input.nextAttemptAt ?? now,
         updatedAt: now,
         lastError: undefined,
       };
@@ -819,7 +820,7 @@ async function enqueueInStore(
     status: "pending",
     attempts: 0,
     syncAttempts: 0,
-    nextAttemptAt: now,
+    nextAttemptAt: input.nextAttemptAt ?? now,
     createdAt: now,
     updatedAt: now,
   };

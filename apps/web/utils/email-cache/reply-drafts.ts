@@ -289,6 +289,7 @@ function notifyReplyDraftChange(scope: ReplyDraftScope) {
 export async function restoreReplyFromOutbox(
   id: string,
   emailAccountId: string,
+  identityOverride?: ReplyDraftIdentity,
 ) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
@@ -319,9 +320,9 @@ export async function restoreReplyFromOutbox(
     })),
   };
   const originalMessageId = row.messageIds[0];
-  if (!originalMessageId)
+  if (!identityOverride && !originalMessageId)
     throw new Error("The reply's original message is unavailable.");
-  const identity = {
+  const identity = identityOverride ?? {
     emailAccountId: row.emailAccountId,
     threadId: row.threadId,
     messageId: getReplyDraftSessionId(originalMessageId, composeMode),
@@ -339,6 +340,8 @@ export async function restoreReplyFromOutbox(
     identity.messageId,
   ];
   const previous = await transaction.objectStore("replyDrafts").get(key);
+  const draftBlocksRestore =
+    Boolean(previous?.content) && identityOverride === undefined;
   if (
     !current ||
     current.updatedAt !== row.updatedAt ||
@@ -346,11 +349,11 @@ export async function restoreReplyFromOutbox(
     !["pending", "retry_wait", "blocked_auth", "failed"].includes(
       current.status,
     ) ||
-    previous?.content
+    draftBlocksRestore
   ) {
     await transaction.done;
     throw new Error(
-      previous?.content
+      draftBlocksRestore
         ? "Finish or discard the current draft first."
         : "Sending has already started. This reply cannot be edited safely.",
     );
@@ -366,5 +369,9 @@ export async function restoreReplyFromOutbox(
   for (const listener of listeners) listener(identity);
   channel?.postMessage(identity);
   notifyMailMutationChange();
-  return { messageId: originalMessageId, mode: composeMode };
+  return {
+    messageId:
+      identityOverride?.messageId ?? originalMessageId ?? identity.messageId,
+    mode: composeMode,
+  };
 }
