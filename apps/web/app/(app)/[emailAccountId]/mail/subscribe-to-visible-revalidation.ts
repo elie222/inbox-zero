@@ -19,6 +19,7 @@ export function subscribeToVisibleRevalidation(
     if (!lastHiddenAt) return;
     const now = Date.now();
     if (now - lastRefetchAt < throttleMs) return;
+    lastHiddenAt = 0;
     lastRefetchAt = now;
     revalidate();
   };

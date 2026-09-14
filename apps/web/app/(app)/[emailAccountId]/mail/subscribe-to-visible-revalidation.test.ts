@@ -63,6 +63,41 @@ describe("subscribeToVisibleRevalidation", () => {
     expect(revalidate).toHaveBeenCalledTimes(2);
     unsubscribe();
   });
+
+  it("does not refetch on later focus after the return was already handled", () => {
+    const revalidate = vi.fn();
+    const unsubscribe = subscribeToVisibleRevalidation(revalidate, 10_000);
+
+    actVisibilityChange("hidden");
+    actVisibilityChange("visible");
+    expect(revalidate).toHaveBeenCalledOnce();
+
+    vi.setSystemTime(new Date("2026-09-14T12:00:11.000Z"));
+    actFocus();
+
+    expect(revalidate).toHaveBeenCalledOnce();
+    unsubscribe();
+  });
+
+  it("still refetches a throttled return once the window elapses", () => {
+    const revalidate = vi.fn();
+    const unsubscribe = subscribeToVisibleRevalidation(revalidate, 10_000);
+
+    actVisibilityChange("hidden");
+    actVisibilityChange("visible");
+    expect(revalidate).toHaveBeenCalledOnce();
+
+    actVisibilityChange("hidden");
+    vi.setSystemTime(new Date("2026-09-14T12:00:05.000Z"));
+    actVisibilityChange("visible");
+    expect(revalidate).toHaveBeenCalledOnce();
+
+    vi.setSystemTime(new Date("2026-09-14T12:00:11.000Z"));
+    actFocus();
+
+    expect(revalidate).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
 });
 
 function actVisibilityChange(state: DocumentVisibilityState) {
