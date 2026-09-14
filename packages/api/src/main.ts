@@ -287,22 +287,18 @@ function addSenderCommands() {
 
       if (options.json) {
         printJson(response);
-        return;
-      }
-
-      if (response.unsubscribe.success) {
+      } else if (response.unsubscribe.success) {
         process.stdout.write(`Unsubscribed ${response.senderEmail}\n`);
-        return;
+      } else {
+        process.stderr.write(
+          `Could not unsubscribe ${response.senderEmail}` +
+            (response.unsubscribe.reason
+              ? ` (${response.unsubscribe.reason})`
+              : "") +
+            "\n",
+        );
       }
-
-      process.stderr.write(
-        `Could not unsubscribe ${response.senderEmail}` +
-          (response.unsubscribe.reason
-            ? ` (${response.unsubscribe.reason})`
-            : "") +
-          "\n",
-      );
-      process.exitCode = 1;
+      if (!response.unsubscribe.success) process.exitCode = 1;
     });
 }
 

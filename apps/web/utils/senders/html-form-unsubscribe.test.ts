@@ -8,6 +8,10 @@ import {
 describe("isUnsubscribeAcknowledged", () => {
   it("requires a completed unsubscribe, not a form prompt", () => {
     expect(isUnsubscribeAcknowledged("Unsubscribe from this list")).toBe(false);
+    expect(isUnsubscribeAcknowledged("You are not unsubscribed")).toBe(false);
+    expect(isUnsubscribeAcknowledged("Click confirm to be unsubscribed")).toBe(
+      false,
+    );
     expect(
       isUnsubscribeAcknowledged(
         "You have been unsubscribed from Weekly Digest",

@@ -32,7 +32,7 @@ test("creates, authorizes, lists, and revokes an API key", async ({
     name: "Create new secret key",
   });
   await createDialog.getByLabel("Name (optional)").fill(API_KEY_NAME);
-  await expect(createDialog.getByRole("checkbox")).toHaveCount(3);
+  await expect(createDialog.getByRole("checkbox")).toHaveCount(4);
   for (const checkbox of await createDialog.getByRole("checkbox").all()) {
     await expect(checkbox).toBeChecked();
   }

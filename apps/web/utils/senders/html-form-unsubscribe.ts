@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
 const CONFIRMATION =
-  /\b(unsubscribed|successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|no longer (?:receive|receiving|subscribed)|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
+  /\b(successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|you are now unsubscribed|no longer (?:receive|receiving|subscribed)|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
 
 const ALLOWED_INPUT_TYPES = new Set([
   "hidden",

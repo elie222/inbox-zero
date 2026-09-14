@@ -2243,6 +2243,7 @@
           "SENDERS_WRITE"
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {

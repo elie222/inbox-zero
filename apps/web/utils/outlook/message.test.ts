@@ -33,6 +33,31 @@ describe("convertMessage", () => {
     });
   });
 
+  it("maps list-unsubscribe headers from internet message headers", () => {
+    const result = convertMessage(
+      {
+        id: "msg-123",
+        conversationId: "thread-456",
+        internetMessageHeaders: [
+          {
+            name: "List-Unsubscribe",
+            value: "<https://example.com/unsubscribe>",
+          },
+          {
+            name: "List-Unsubscribe-Post",
+            value: "List-Unsubscribe=One-Click",
+          },
+        ],
+      },
+      {},
+    );
+
+    expect(result.headers).toMatchObject({
+      "list-unsubscribe": "<https://example.com/unsubscribe>",
+      "list-unsubscribe-post": "List-Unsubscribe=One-Click",
+    });
+  });
+
   it("normalizes null reply headers", () => {
     const result = convertMessage(
       {

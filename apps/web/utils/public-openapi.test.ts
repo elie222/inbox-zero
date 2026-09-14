@@ -79,6 +79,9 @@ describe("createPublicOpenApiDocument", () => {
     expect(docs.paths?.["/senders/unsubscribe"]?.post?.security).toEqual([
       { ApiKeyAuth: ["SENDERS_WRITE"] },
     ]);
+    expect(
+      docs.paths?.["/senders/unsubscribe"]?.post?.requestBody?.required,
+    ).toBe(true);
     expect(JSON.stringify(docs)).not.toContain('"nullable"');
   });
 

@@ -77,6 +77,7 @@ export const DEFAULT_API_KEY_SCOPES: ApiKeyScopeValue[] = [
   "RULES_READ",
   "RULES_WRITE",
   "STATS_READ",
+  "SENDERS_WRITE",
 ];
 
 export const API_KEY_EXPIRY_OPTIONS = [

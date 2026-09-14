@@ -306,6 +306,7 @@ function createRegistry() {
     "x-required-scopes": ["SENDERS_WRITE"],
     request: {
       body: {
+        required: true,
         content: {
           "application/json": {
             schema: unsubscribeSenderRequestSchema,
