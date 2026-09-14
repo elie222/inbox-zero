@@ -488,6 +488,56 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("drops a Gmail-archived thread after returning to the tab", async () => {
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+    let includeArchived = true;
+    const fetcher = vi.fn(async () => ({
+      threads: includeArchived ? [createThread("stale-archived")] : [],
+    }));
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useMailThreads({
+            emailAccountId: "account-gmail-archive",
+            query: { type: "inbox" },
+          }),
+        { wrapper: createWrapper(fetcher) },
+      );
+
+      await waitFor(() =>
+        expect(result.current.threads.map(({ id }) => id)).toEqual([
+          "stale-archived",
+        ]),
+      );
+
+      visibility = "hidden";
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      includeArchived = false;
+      visibility = "visible";
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+      await waitFor(() => expect(result.current.threads).toEqual([]));
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          document,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      }
+    }
+  });
+
   it("keeps loading when an empty cached page is awaiting server rows", async () => {
     const network = Promise.withResolvers<unknown>();
     cache.read.mockResolvedValue({

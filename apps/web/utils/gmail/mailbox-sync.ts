@@ -12,6 +12,15 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 
+// Archive, read, and star are label events. Gmail does not treat archive as
+// messagesDeleted, so mailbox delta sync must ask for labelRemoved explicitly.
+const GMAIL_MAILBOX_HISTORY_TYPES = [
+  "messageAdded",
+  "messageDeleted",
+  "labelAdded",
+  "labelRemoved",
+] as const;
+
 export async function getGmailMailboxSyncPage({
   gmail,
   accessToken,
@@ -58,6 +67,7 @@ export async function getGmailMailboxSyncPage({
       gmail,
       {
         startHistoryId: decoded.historyId,
+        historyTypes: [...GMAIL_MAILBOX_HISTORY_TYPES],
         maxResults: limit,
         pageToken: decoded.pageToken,
       },
@@ -145,6 +155,12 @@ export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
     }
     for (const change of record.messagesDeleted ?? []) {
       if (change.message?.id) deletedIds.add(change.message.id);
+    }
+    // Typed arrays can be omitted; the summary `messages` list still names
+    // every affected id so an INBOX removal is fetched and dropped.
+    for (const message of record.messages ?? []) {
+      if (message.threadId) changedThreadIds.add(message.threadId);
+      if (message.id) upsertIds.add(message.id);
     }
   }
 

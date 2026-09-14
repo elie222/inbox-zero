@@ -84,6 +84,19 @@ describe("getGmailMailboxSyncPage", () => {
       limit: 100,
     });
 
+    expect(getHistory).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        historyTypes: [
+          "messageAdded",
+          "messageDeleted",
+          "labelAdded",
+          "labelRemoved",
+        ],
+        startHistoryId: "100",
+      }),
+      logger,
+    );
     expect(page.upsertedMessages.map((message) => message.id)).toEqual([
       "inbox-message",
       "unavailable-label-message",
@@ -95,6 +108,49 @@ describe("getGmailMailboxSyncPage", () => {
       "old-message",
       "missing-message",
     ]);
+  });
+
+  it("drops an archived inbox message from a labelsRemoved history record", async () => {
+    vi.mocked(getHistory).mockResolvedValue({
+      history: [
+        {
+          labelsRemoved: [
+            {
+              labelIds: ["INBOX"],
+              message: { id: "archived-message", threadId: "alert-thread" },
+            },
+          ],
+        },
+      ],
+      historyId: "200",
+    });
+    vi.mocked(getMessagesBatch).mockResolvedValue([
+      {
+        ...getMockMessage({
+          id: "archived-message",
+          labelIds: ["UNREAD"],
+        }),
+        internalDate: new Date("2026-07-02T00:00:00.000Z").getTime().toString(),
+      },
+    ]);
+
+    const page = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "delta",
+        historyId: "100",
+        after: "2026-07-01T00:00:00.000Z",
+      }),
+      limit: 100,
+    });
+
+    expect(page.upsertedMessages).toEqual([]);
+    expect(page.deletedMessageIds).toEqual(["archived-message"]);
+    expect(page.changedThreadIds).toEqual(["alert-thread"]);
   });
 });
 
@@ -117,5 +173,16 @@ describe("getGmailMailboxChangeIds", () => {
 
     expect(result.upsertIds).toEqual(["added", "label-change"]);
     expect(result.deletedIds).toEqual(new Set(["deleted"]));
+  });
+
+  it("fetches summary messages when Gmail omits typed history arrays", () => {
+    const result = getGmailMailboxChangeIds([
+      {
+        messages: [{ id: "archived", threadId: "alert-thread" }],
+      },
+    ]);
+
+    expect(result.upsertIds).toEqual(["archived"]);
+    expect(result.changedThreadIds).toEqual(new Set(["alert-thread"]));
   });
 });

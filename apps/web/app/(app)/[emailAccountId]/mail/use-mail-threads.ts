@@ -27,6 +27,7 @@ import {
   type ThreadsQuery,
   threadsQueryToSearchParams,
 } from "@/utils/threads/validation";
+import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
@@ -106,6 +107,12 @@ export function useMailThreads({
       revalidateOnFocus: false,
       revalidateFirstPage: false,
     });
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeToVisibleRevalidation(() => {
+      mutate().catch(() => {});
+    });
+  }, [enabled, mutate]);
   const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({

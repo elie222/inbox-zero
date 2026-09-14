@@ -23,6 +23,7 @@ import {
 } from "@/utils/email-cache/telemetry";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
+import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
@@ -135,6 +136,12 @@ export function useCombinedMailThreads({
         revalidateOnFocus: false,
       },
     );
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeToVisibleRevalidation(() => {
+      mutate().catch(() => {});
+    });
+  }, [enabled, mutate]);
   const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
