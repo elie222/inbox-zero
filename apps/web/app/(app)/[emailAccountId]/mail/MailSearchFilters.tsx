@@ -3,14 +3,23 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   buildMailSearchQuery,
   DATE_WITHIN_OPTIONS,
   SEARCH_IN_OPTIONS,
   type MailSearchFields,
 } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
-import { cn } from "@/utils";
 
 export function MailSearchFiltersForm({
   initialFields,
@@ -42,68 +51,72 @@ export function MailSearchFiltersForm({
       onSubmit={handleSubmit}
     >
       <FilterField id="mail-search-from" label="From">
-        <input
+        <Input
           id="mail-search-from"
           value={fields.from}
           onChange={(event) => update("from", event.target.value)}
-          className={underlineField}
+          className={mailControlClassName}
         />
       </FilterField>
 
       <FilterField id="mail-search-to" label="To">
-        <input
+        <Input
           id="mail-search-to"
           value={fields.to}
           onChange={(event) => update("to", event.target.value)}
-          className={underlineField}
+          className={mailControlClassName}
         />
       </FilterField>
 
       <FilterField id="mail-search-subject" label="Subject">
-        <input
+        <Input
           id="mail-search-subject"
           value={fields.subject}
           onChange={(event) => update("subject", event.target.value)}
-          className={underlineField}
+          className={mailControlClassName}
         />
       </FilterField>
 
       <FilterField id="mail-search-has-words" label="Has the words">
-        <input
+        <Input
           id="mail-search-has-words"
           value={fields.hasWords}
           onChange={(event) => update("hasWords", event.target.value)}
-          className={underlineField}
+          className={mailControlClassName}
         />
       </FilterField>
 
       <FilterField id="mail-search-doesnt-have" label="Doesn't have">
-        <input
+        <Input
           id="mail-search-doesnt-have"
           value={fields.doesntHave}
           onChange={(event) => update("doesntHave", event.target.value)}
-          className={underlineField}
+          className={mailControlClassName}
         />
       </FilterField>
 
       <FilterField id="mail-search-size" label="Size">
-        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] items-end gap-2">
-          <select
-            id="mail-search-size"
-            aria-label="Size comparison"
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] items-center gap-2">
+          <Select
             value={fields.sizeComparison}
-            onChange={(event) =>
-              update(
-                "sizeComparison",
-                event.target.value === "less" ? "less" : "greater",
-              )
+            onValueChange={(value) =>
+              update("sizeComparison", value === "less" ? "less" : "greater")
             }
-            className={underlineSelect}
           >
-            <option value="greater">greater than</option>
-            <option value="less">less than</option>
-          </select>
-          <input
+            <SelectTrigger
+              id="mail-search-size"
+              type="button"
+              aria-label="Size comparison"
+              className={mailSelectTriggerClassName}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="greater">greater than</SelectItem>
+              <SelectItem value="less">less than</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
             type="number"
             min="0"
             step="any"
@@ -111,74 +124,99 @@ export function MailSearchFiltersForm({
             aria-label="Size amount"
             value={fields.sizeValue}
             onChange={(event) => update("sizeValue", event.target.value)}
-            className={underlineField}
+            className={mailControlClassName}
           />
-          <select
-            aria-label="Size unit"
+          <Select
             value={fields.sizeUnit}
-            onChange={(event) =>
-              update("sizeUnit", event.target.value === "KB" ? "KB" : "MB")
+            onValueChange={(value) =>
+              update("sizeUnit", value === "KB" ? "KB" : "MB")
             }
-            className={cn(underlineSelect, "w-16")}
           >
-            <option value="MB">MB</option>
-            <option value="KB">KB</option>
-          </select>
+            <SelectTrigger
+              type="button"
+              aria-label="Size unit"
+              className={`${mailSelectTriggerClassName} w-20`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="MB">MB</SelectItem>
+              <SelectItem value="KB">KB</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </FilterField>
 
       <FilterField id="mail-search-date-within" label="Date within">
-        <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-end gap-2">
-          <select
-            id="mail-search-date-within"
-            aria-label="Date range"
+        <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-2">
+          <Select
             value={fields.dateWithin}
-            onChange={(event) => {
+            onValueChange={(value) => {
               const next = DATE_WITHIN_OPTIONS.find(
-                (option) => option.value === event.target.value,
+                (option) => option.value === value,
               );
               if (next) update("dateWithin", next.value);
             }}
-            className={underlineSelect}
           >
-            {DATE_WITHIN_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-          <input
+            <SelectTrigger
+              id="mail-search-date-within"
+              type="button"
+              aria-label="Date range"
+              className={mailSelectTriggerClassName}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DATE_WITHIN_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
             type="date"
             aria-label="Date"
             value={fields.date}
             onChange={(event) => update("date", event.target.value)}
-            className={underlineField}
+            className={mailControlClassName}
           />
         </div>
       </FilterField>
 
       <FilterField id="mail-search-in" label="Search">
-        <select
-          id="mail-search-in"
+        <Select
           value={fields.searchIn}
-          onChange={(event) => update("searchIn", event.target.value)}
-          className={underlineSelect}
+          onValueChange={(value) => update("searchIn", value)}
         >
-          {SEARCH_IN_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.name}
-            </option>
-          ))}
-          {extraLocations.length ? (
-            <optgroup label="Labels">
-              {extraLocations.map((location) => (
-                <option key={location.name} value={`label:${location.name}`}>
-                  {location.name}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-        </select>
+          <SelectTrigger
+            id="mail-search-in"
+            type="button"
+            className={mailSelectTriggerClassName}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SEARCH_IN_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.name}
+              </SelectItem>
+            ))}
+            {extraLocations.length ? (
+              <SelectGroup>
+                <SelectLabel>Labels</SelectLabel>
+                {extraLocations.map((location) => (
+                  <SelectItem
+                    key={location.name}
+                    value={`label:${location.name}`}
+                  >
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ) : null}
+          </SelectContent>
+        </Select>
       </FilterField>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
@@ -215,7 +253,7 @@ export function MailSearchFiltersForm({
       </div>
 
       <div className="flex justify-end pt-1">
-        <Button type="submit" size="sm">
+        <Button type="submit" variant="gradient" size="sm">
           Search
         </Button>
       </div>
@@ -242,8 +280,5 @@ function FilterField({
   );
 }
 
-const underlineField =
-  "h-8 w-full rounded-none border-0 border-b border-input bg-transparent px-1 text-sm outline-none transition-colors focus:border-foreground";
-
-const underlineSelect =
-  "h-8 w-full cursor-pointer rounded-none border-0 border-b border-input bg-transparent px-0 text-sm outline-none transition-colors focus:border-foreground";
+const mailControlClassName = "h-8 text-xs";
+const mailSelectTriggerClassName = "h-8 w-full text-xs";

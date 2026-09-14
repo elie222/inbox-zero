@@ -329,6 +329,12 @@ function MailSearchInput({
         align="start"
         sideOffset={6}
         className="w-[min(34rem,calc(100vw-1.5rem))] p-4"
+        onPointerDownOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest("[data-radix-select-viewport]")) {
+            event.preventDefault();
+          }
+        }}
       >
         {filtersOpen ? (
           <MailSearchFiltersForm
