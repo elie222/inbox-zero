@@ -17,6 +17,7 @@ const logger = createScopedLogger("usage");
 
 export type AiUsageEvent = {
   cachedInputTokens: number;
+  cacheCreationInputTokens: number;
   estimatedCost: number;
   inputTokens: number;
   label: string;
@@ -57,6 +58,7 @@ export async function saveAiUsage({
   providerRequestIds,
   stepCount,
   toolCallCount,
+  cacheCreationInputTokens: providedCacheCreationInputTokens,
 }: {
   userId?: string;
   email: string;
@@ -72,6 +74,7 @@ export async function saveAiUsage({
   providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
+  cacheCreationInputTokens?: number;
 }) {
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
@@ -85,6 +88,7 @@ export async function saveAiUsage({
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
   const cachedInputTokens = usage.cachedInputTokens ?? 0;
+  const cacheCreationInputTokens = providedCacheCreationInputTokens ?? 0;
   const reasoningTokens = usage.reasoningTokens ?? 0;
   const totalTokens = usage.totalTokens ?? 0;
 
@@ -113,6 +117,7 @@ export async function saveAiUsage({
 
   notifyAiUsageListeners({
     cachedInputTokens,
+    cacheCreationInputTokens,
     estimatedCost,
     inputTokens,
     label,
@@ -138,6 +143,7 @@ export async function saveAiUsage({
         completionTokens: outputTokens,
         promptTokens: inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         reasoningTokens,
         cost: platformCost,
         estimatedCost,
