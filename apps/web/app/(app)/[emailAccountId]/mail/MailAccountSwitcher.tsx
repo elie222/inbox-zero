@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ChevronsUpDownIcon,
@@ -205,11 +205,26 @@ function AccountItem({
   onSelect: (accountId: string) => void;
   shortcutKey: string | undefined;
 }) {
+  // Radix onSelect receives a CustomEvent without metaKey/ctrlKey.
+  const openInNewWindow = useRef(false);
+
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={(event) => {
-        if (isDesktopApp && isDesktopNewWindowClick(event)) {
+      onPointerDown={(event) => {
+        openInNewWindow.current =
+          isDesktopApp && isDesktopNewWindowClick(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          openInNewWindow.current =
+            isDesktopApp && isDesktopNewWindowClick(event);
+        }
+      }}
+      onSelect={() => {
+        const shouldOpenWindow = openInNewWindow.current;
+        openInNewWindow.current = false;
+        if (shouldOpenWindow) {
           const openWindow = getInboxZeroDesktopApp()?.openWindow;
           if (openWindow) {
             openWindow(getMailAccountUrl(account.id, "")).catch(() => {});
@@ -256,9 +271,9 @@ function AllAccountsIcon() {
   );
 }
 
-function isDesktopNewWindowClick(event: Event) {
-  return (
-    ("metaKey" in event && event.metaKey === true) ||
-    ("ctrlKey" in event && event.ctrlKey === true)
-  );
+function isDesktopNewWindowClick(event: {
+  metaKey: boolean;
+  ctrlKey: boolean;
+}) {
+  return event.metaKey || event.ctrlKey;
 }

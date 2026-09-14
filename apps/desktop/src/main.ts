@@ -125,7 +125,7 @@ function startDesktopApp() {
     if (!callbackPath) return;
     const url = new URL(callbackPath, appOrigin).toString();
     if (!isAllowedDesktopNavigation(url, appOrigin)) return;
-    openAppWindow(url);
+    openAppWindow(url, { navigate: true });
   });
 
   app.on("second-instance", (_event, argv) => {
@@ -174,7 +174,8 @@ function startDesktopApp() {
 
   app.on("before-quit", () => {
     isQuitting = true;
-    persistWindowsNow();
+    // Skip if windows already closed; last-window `close` already wrote the snapshot.
+    if (windows.length > 0) persistWindowsNow();
   });
 
   app.whenReady().then(async () => {
@@ -269,6 +270,9 @@ function createAppWindow(options?: {
     if (process.platform === "darwin" && !isQuitting && windows.length <= 1) {
       event.preventDefault();
       window.hide();
+    } else if (!isQuitting && windows.length === 1) {
+      // Persist before the last window is removed so quit/close cannot write [].
+      persistWindowsNow();
     }
   });
   window.on("closed", () => {
@@ -277,7 +281,7 @@ function createAppWindow(options?: {
     unreadByContents.delete(window.webContents.id);
     applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
-    persistWindowsNow();
+    if (!isQuitting && windows.length > 0) persistWindowsNow();
   });
 
   applyNavigationPolicy(window.webContents);
@@ -422,7 +426,7 @@ function applyDesktopWindowDragRegion(contents: WebContents) {
 function applyNavigationPolicy(contents: WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (isAllowedDesktopNavigation(url, appOrigin)) {
-      openAppWindow(url);
+      openAppWindow(url, { navigate: true });
     } else {
       openExternal(url).catch(showSignInError);
     }
@@ -439,12 +443,17 @@ function guardNavigation(event: { preventDefault: () => void }, url: string) {
   openExternal(url).catch(showSignInError);
 }
 
-function openAppWindow(url: string) {
+function openAppWindow(url: string, options?: { navigate?: boolean }) {
   const accountId = getDesktopMailAccountId(url, appOrigin);
   const existing = accountId
     ? windows.find((window) => windowAccountId(window) === accountId)
     : undefined;
   if (existing) {
+    if (options?.navigate) {
+      const current =
+        lastUrlByWindow.get(existing) ?? existing.webContents.getURL();
+      if (current !== url) existing.loadURL(url).catch(() => {});
+    }
     showWindow(existing);
     return existing;
   }
