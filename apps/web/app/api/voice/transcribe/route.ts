@@ -48,6 +48,6 @@ export const POST = withEmailAccount("voice/transcribe", async (request) => {
     });
     return NextResponse.json({ text: result.text });
   } catch (error) {
-    return voiceErrorResponse(error);
+    return voiceErrorResponse(error, request.logger);
   }
 });

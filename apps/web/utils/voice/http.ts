@@ -95,8 +95,7 @@ export async function transcribeOpenAiCompatible(options: {
       body,
     );
   }
-  const text = String((body as { text?: unknown } | null)?.text ?? "").trim();
-  return { text };
+  return { text: transcriptionTextFromBody(body) };
 }
 
 export async function postJson(options: {
@@ -115,4 +114,18 @@ export async function postJson(options: {
     signal: voiceDeadline(options.signal),
   });
   return { status: response.status, body: await readJsonBody(response) };
+}
+
+export function transcriptionTextFromBody(body: unknown): string {
+  const text =
+    body && typeof body === "object" && "text" in body
+      ? (body as { text: unknown }).text
+      : undefined;
+  if (typeof text !== "string") {
+    throw new VoiceRequestError(
+      "Voice provider returned an invalid transcription.",
+      502,
+    );
+  }
+  return text.trim();
 }

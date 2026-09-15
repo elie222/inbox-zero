@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetVoiceStatusResponse } from "@/app/api/voice/status/route";
 import { env } from "@/env";
+import { getAccountScopedKey } from "@/utils/swr";
 
 const DISABLED_STATUS = {
   enabled: false,
@@ -20,7 +21,7 @@ export function useVoiceStatus() {
   const { emailAccountId } = useAccount();
   const disabled = env.NEXT_PUBLIC_VOICE_ENABLED === false;
   const { data, error, isLoading, mutate } = useSWR<GetVoiceStatusResponse>(
-    disabled || !emailAccountId ? null : "/api/voice/status",
+    disabled ? null : getAccountScopedKey("/api/voice/status", emailAccountId),
   );
 
   return {

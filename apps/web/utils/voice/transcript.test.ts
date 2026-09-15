@@ -10,7 +10,7 @@ describe("transcript grouping", () => {
     const fragments = appendTranscriptDelta(
       appendTranscriptDelta([], "user", "draft a reply", 0, 400),
       "user",
-      "keep it brief",
+      " keep it brief",
       500,
       900,
     );
@@ -22,6 +22,19 @@ describe("transcript grouping", () => {
         startMs: 0,
         endMs: 900,
       },
+    ]);
+  });
+
+  it("keeps fragment boundaries instead of inserting spaces", () => {
+    const fragments = appendTranscriptDelta(
+      appendTranscriptDelta([], "user", "hel", 0, 200),
+      "user",
+      "lo",
+      210,
+      400,
+    );
+    expect(groupTranscriptTurns(fragments).map((turn) => turn.text)).toEqual([
+      "hello",
     ]);
   });
 
@@ -63,6 +76,6 @@ describe("transcript grouping", () => {
   });
 
   it("ignores empty deltas", () => {
-    expect(appendTranscriptDelta([], "user", "   ", 0, 10)).toEqual([]);
+    expect(appendTranscriptDelta([], "user", "", 0, 10)).toEqual([]);
   });
 });

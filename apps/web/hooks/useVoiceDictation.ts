@@ -17,6 +17,11 @@ export type VoiceDictationStatus =
   | "transcribing"
   | "error";
 
+export type VoiceDictationResult = {
+  text: string;
+  error: string | null;
+};
+
 export function useVoiceDictation() {
   const { emailAccountId } = useAccount();
   const [status, setStatus] = useState<VoiceDictationStatus>("idle");
@@ -102,7 +107,7 @@ export function useVoiceDictation() {
     }
   }, [cleanup]);
 
-  const stop = useCallback(async (): Promise<string> => {
+  const stop = useCallback(async (): Promise<VoiceDictationResult> => {
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
@@ -113,7 +118,7 @@ export function useVoiceDictation() {
 
     if (!blob.size) {
       setStatus("idle");
-      return "";
+      return { text: "", error: null };
     }
 
     setStatus("transcribing");
@@ -135,15 +140,15 @@ export function useVoiceDictation() {
         throw new Error(body.error || "Could not transcribe that recording.");
       }
       setStatus("idle");
-      return (body.text ?? "").trim();
+      return { text: (body.text ?? "").trim(), error: null };
     } catch (err) {
-      setStatus("error");
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "Could not transcribe that recording.",
-      );
-      return "";
+          : "Could not transcribe that recording.";
+      setStatus("error");
+      setError(message);
+      return { text: "", error: message };
     }
   }, [cleanup, emailAccountId]);
 

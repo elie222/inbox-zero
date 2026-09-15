@@ -52,14 +52,15 @@ export function VoiceInput({
 
   const finishDictation = useCallback(
     async (submit: boolean) => {
-      const text = await dictation.stop();
-      if (!text) {
-        setMode(null);
+      const { text, error } = await dictation.stop();
+      setMode(null);
+      if (error) {
+        toastError({ description: error });
         return;
       }
+      if (!text) return;
       if (submit) onSend(text);
       else onInsert(text);
-      setMode(null);
     },
     [dictation, onInsert, onSend],
   );
@@ -88,12 +89,7 @@ export function VoiceInput({
               data-testid="voice-dictate-button"
               onClick={() => {
                 beginDictation().catch((error) => {
-                  toastError({
-                    description:
-                      error instanceof Error
-                        ? error.message
-                        : "Could not start the microphone.",
-                  });
+                  toastVoiceError(error, "Could not start the microphone.");
                 });
               }}
               size="icon"
@@ -112,12 +108,10 @@ export function VoiceInput({
               data-testid="voice-live-button"
               onClick={() => {
                 beginLive().catch((error) => {
-                  toastError({
-                    description:
-                      error instanceof Error
-                        ? error.message
-                        : "Could not start a live conversation.",
-                  });
+                  toastVoiceError(
+                    error,
+                    "Could not start a live conversation.",
+                  );
                 });
               }}
               size="icon"
@@ -149,15 +143,27 @@ export function VoiceInput({
           }}
           onSend={() => {
             if (mode === "live") finishLive(true);
-            else finishDictation(true).catch(() => undefined);
+            else
+              finishDictation(true).catch((error) => {
+                toastVoiceError(error, "Could not finish dictation.");
+              });
           }}
           onStop={() => {
             if (mode === "live") finishLive(false);
-            else finishDictation(false).catch(() => undefined);
+            else
+              finishDictation(false).catch((error) => {
+                toastVoiceError(error, "Could not finish dictation.");
+              });
           }}
           transcript={mode === "live" ? live.userTranscript : ""}
         />
       ) : null}
     </>
   );
+}
+
+function toastVoiceError(error: unknown, fallback: string) {
+  toastError({
+    description: error instanceof Error ? error.message : fallback,
+  });
 }

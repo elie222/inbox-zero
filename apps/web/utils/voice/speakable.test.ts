@@ -51,4 +51,21 @@ describe("toUtterances", () => {
     );
     expect(out).toHaveLength(1);
   });
+
+  it("does not merge utterances past maxChars", () => {
+    const out = toUtterances(`${"A".repeat(317)}. Yes.`, {
+      minChars: 12,
+      maxChars: 320,
+    });
+    expect(out.every((utterance) => utterance.length <= 320)).toBe(true);
+    expect(out).toEqual([`${"A".repeat(317)}.`, "Yes."]);
+  });
+
+  it("hard-splits a token with no whitespace", () => {
+    const token = "A".repeat(500);
+    const out = toUtterances(token, { maxChars: 320 });
+    expect(out.join("")).toBe(token);
+    expect(out.every((utterance) => utterance.length <= 320)).toBe(true);
+    expect(out.length).toBeGreaterThan(1);
+  });
 });

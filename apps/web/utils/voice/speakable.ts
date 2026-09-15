@@ -66,10 +66,13 @@ export function toUtterances(
     for (const part of parts) {
       const prev = out[out.length - 1];
       if (prev && (prev.length < minChars || part.length < minChars)) {
-        out[out.length - 1] = `${prev} ${part}`;
-      } else {
-        out.push(part);
+        const merged = `${prev} ${part}`;
+        if (merged.length <= maxChars) {
+          out[out.length - 1] = merged;
+          continue;
+        }
       }
+      out.push(part);
     }
   }
   return out;
@@ -100,8 +103,10 @@ function splitLong(text: string, maxChars: number): string[] {
   while (rest.length > maxChars) {
     const window = rest.slice(0, maxChars);
     const at = Math.max(window.lastIndexOf(", "), window.lastIndexOf("; "));
-    const cut = at > maxChars / 2 ? at + 1 : window.lastIndexOf(" ");
-    if (cut <= 0) break;
+    const space = window.lastIndexOf(" ");
+    let cut = maxChars;
+    if (at > maxChars / 2) cut = at + 1;
+    else if (space > 0) cut = space;
     out.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }

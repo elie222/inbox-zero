@@ -52,6 +52,6 @@ export const POST = withEmailAccount("voice/speak", async (request) => {
       },
     });
   } catch (error) {
-    return voiceErrorResponse(error);
+    return voiceErrorResponse(error, request.logger);
   }
 });

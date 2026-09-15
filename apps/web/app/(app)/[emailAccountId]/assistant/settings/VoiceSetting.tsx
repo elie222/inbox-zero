@@ -63,11 +63,9 @@ function HearSampleButton() {
             throw new Error(body.error || "Could not play a sample.");
           }
           const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.onended = () => URL.revokeObjectURL(url);
-          await audio.play();
-          toastSuccess({ description: "Playing a sample." });
+          await playAudioBlob(blob, () => {
+            toastSuccess({ description: "Playing a sample." });
+          });
         } catch (error) {
           toastError({
             description:
@@ -86,4 +84,18 @@ function HearSampleButton() {
       {playing ? "Playing…" : "Hear a sample"}
     </Button>
   );
+}
+
+async function playAudioBlob(blob: Blob, onStarted: () => void): Promise<void> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const audio = new Audio(url);
+    await new Promise<void>((resolve, reject) => {
+      audio.onended = () => resolve();
+      audio.onerror = () => reject(new Error("Could not play a voice sample."));
+      audio.play().then(onStarted, reject);
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }

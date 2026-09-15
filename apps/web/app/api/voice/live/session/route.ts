@@ -52,6 +52,6 @@ export const POST = withEmailAccount("voice/live/session", async (request) => {
     });
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
-    return voiceErrorResponse(error);
+    return voiceErrorResponse(error, request.logger);
   }
 });

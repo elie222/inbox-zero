@@ -373,7 +373,14 @@ const RichEmailEditor = forwardRef<
           : emptyEditorValue("rich", initialHtml),
       insertText: (text: string) => {
         if (!editor || !text) return false;
-        return editor.chain().focus().insertContent(text).run();
+        return editor
+          .chain()
+          .focus()
+          .command(({ dispatch, tr }) => {
+            if (dispatch) tr.insertText(text);
+            return true;
+          })
+          .run();
       },
       insertInlineImage: ({ alt, contentId, previewUrl }) => {
         if (!editor) return false;

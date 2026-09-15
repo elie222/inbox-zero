@@ -30,6 +30,22 @@ describe("voice providers", () => {
     );
   });
 
+  it("rejects a successful transcription without string text", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ text: { nested: true } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const provider = new OpenAIVoiceProvider({ apiKey: "sk-test" });
+    await expect(
+      provider.transcribe({
+        audio: new Uint8Array([1, 2, 3]),
+        mimeType: "audio/webm",
+      }),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+
   it("creates a GPT-Live WebRTC session without exposing the API key", async () => {
     fetchMock.mockResolvedValue(
       new Response(
