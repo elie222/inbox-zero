@@ -73,11 +73,12 @@ export const API_KEY_SCOPE_OPTIONS: Array<{
   },
 ];
 
+// SENDERS_WRITE is selectable but not preselected: unsubscribing sends
+// requests to third parties on the user's behalf and cannot be undone.
 export const DEFAULT_API_KEY_SCOPES: ApiKeyScopeValue[] = [
   "RULES_READ",
   "RULES_WRITE",
   "STATS_READ",
-  "SENDERS_WRITE",
 ];
 
 export const API_KEY_EXPIRY_OPTIONS = [
