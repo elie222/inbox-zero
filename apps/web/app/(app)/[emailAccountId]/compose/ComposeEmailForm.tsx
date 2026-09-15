@@ -127,6 +127,11 @@ export type ReplyingToEmail = {
   headerMessageId?: string;
   messageId?: string;
   forwardedMessageId?: string;
+  /**
+   * The files that travel with a forward. They stay on the provider until the
+   * send, so the composer shows them without ever holding their bytes.
+   */
+  forwardedAttachments?: ForwardedAttachment[];
   references?: string;
   subject: string;
   to: string;
@@ -156,6 +161,13 @@ type ComposeEmailFormProps = {
 
 type ComposeAttachment = EmailComposerAttachment & {
   previewUrl?: string;
+};
+
+export type ForwardedAttachment = {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
 };
 
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
@@ -371,6 +383,7 @@ function ComposeEmailFormContent({
   const focusRecipientField = !replyingToEmail;
   const [attachments, setAttachments] =
     useState<ComposeAttachment[]>(restoredAttachments);
+  const forwardedAttachments = replyingToEmail?.forwardedAttachments ?? [];
   const attachmentsRef = useRef<ComposeAttachment[]>(restoredAttachments);
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
@@ -1273,7 +1286,7 @@ function ComposeEmailFormContent({
           {submissionError}
         </p>
       )}
-      {!!attachments.length && (
+      {!!(attachments.length || forwardedAttachments.length) && (
         <ul
           aria-label="Attachments"
           className={cn(
@@ -1281,6 +1294,19 @@ function ComposeEmailFormContent({
             isComposeWindow && "shrink-0 px-4 py-2",
           )}
         >
+          {forwardedAttachments.map((attachment) => (
+            <li
+              className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+              key={attachment.id}
+              title="Included from the message you are forwarding"
+            >
+              <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
+              <span className="max-w-52 truncate">{attachment.filename}</span>
+              <span className="text-muted-foreground">
+                {formatFileSize(attachment.size)}
+              </span>
+            </li>
+          ))}
           {attachments.map((attachment) => (
             <li
               className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"

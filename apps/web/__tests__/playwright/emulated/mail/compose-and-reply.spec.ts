@@ -828,6 +828,33 @@ test("keeps a sent forward in the thread it came from", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "forward-sent-in-thread");
 });
 
+test("shows the files a forward carries", async ({ page }, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const sourceMessage = page
+    .locator("[data-thread-message-id]")
+    .filter({ hasText: "reader-preview.png" })
+    .last();
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+
+  // The provider holds the bytes until the send, so the composer lists them
+  // without ever downloading them.
+  await expect(
+    page
+      .getByRole("list", { name: "Attachments" })
+      .getByText("reader-preview.png"),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-attachments");
+});
+
 test("keeps reply and forward drafts in separate composer sessions", async ({
   page,
 }) => {
