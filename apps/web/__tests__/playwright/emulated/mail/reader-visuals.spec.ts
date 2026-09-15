@@ -36,7 +36,7 @@ test("uses the system dark theme when opening HTML emails", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });
 
-test("renders the replacement email after expanding quoted content", async ({
+test("keeps the quote toggle between the reply and expanded history", async ({
   page,
 }, testInfo) => {
   const { conversations } = await openMail(page);
@@ -45,28 +45,50 @@ test("renders the replacement email after expanding quoted content", async ({
     conversations,
     "Re: Reader Visual Message",
   ).click();
-  const frame = page.frameLocator('iframe[title="Email content preview"]');
+  const frame = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .first();
   await expect(
     frame.getByText("The current reply stays concise and easy to scan."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Show quoted content" }).click();
+  const toggle = page.getByRole("button", { name: "Show quoted content" });
+  const initialTop = (await toggle.boundingBox())!.y;
+  await toggle.click();
+  const quoteFrame = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .last();
   await expect(
-    frame.getByText("This earlier quoted message is hidden until expanded."),
+    quoteFrame.getByText(
+      "This earlier quoted message is hidden until expanded.",
+    ),
   ).toBeVisible();
   await expect(
     frame.getByText("The current reply stays concise and easy to scan."),
   ).toBeVisible();
-  await expect
-    .poll(() =>
-      page
-        .locator('iframe[title="Email content preview"]')
-        .evaluate((iframe) => iframe.getBoundingClientRect().height),
-    )
-    .toBeGreaterThan(1);
+  const collapse = page.getByRole("button", { name: "Hide quoted content" });
+  const expandedBox = (await collapse.boundingBox())!;
+  expect(Math.abs(expandedBox.y - initialTop)).toBeLessThan(2);
+  const quoteBox = (await page
+    .locator('iframe[title="Email content preview"]')
+    .last()
+    .boundingBox())!;
+  expect(quoteBox.y).toBeGreaterThanOrEqual(expandedBox.y + expandedBox.height);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
-    "mail-reader-quote-swap-complete",
+    "mail-reader-quote-toggle-expanded",
+  );
+  await collapse.click();
+  await expect(
+    page.locator('iframe[title="Email content preview"]'),
+  ).toHaveCount(1);
+  expect(Math.abs((await toggle.boundingBox())!.y - initialTop)).toBeLessThan(
+    2,
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-quote-toggle-collapsed",
   );
 });
 
@@ -87,7 +109,9 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     page.getByRole("heading", { name: "Re: Reader Visual Message" }),
   ).toBeVisible();
 
-  const emailFrame = page.frameLocator('iframe[title="Email content preview"]');
+  const emailFrame = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .first();
   await expect(
     emailFrame.getByText("The current reply stays concise and easy to scan."),
   ).toBeVisible();
@@ -184,9 +208,10 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
 
   await page.getByRole("button", { name: "Show quoted content" }).click();
   await expect(
-    emailFrame.getByText(
-      "This earlier quoted message is hidden until expanded.",
-    ),
+    page
+      .frameLocator('iframe[title="Email content preview"]')
+      .last()
+      .getByText("This earlier quoted message is hidden until expanded."),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
