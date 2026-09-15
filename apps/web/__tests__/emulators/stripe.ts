@@ -610,7 +610,10 @@ function parseForm(body: string): StripeObject {
 
   for (const [key, value] of new URLSearchParams(body)) {
     const [root, ...rest] = key.split("[");
-    const segments = [root, ...rest.map((segment) => segment.replace("]", ""))];
+    const segments = [
+      root,
+      ...rest.map((segment) => segment.replaceAll("]", "")),
+    ];
     let target: Record<string, unknown> | unknown[] = result;
 
     for (const [index, segment] of segments.entries()) {

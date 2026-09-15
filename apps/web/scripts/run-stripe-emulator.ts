@@ -25,17 +25,25 @@ const WEBHOOK_URL =
 const USAGE = "Commands: end-trial <subscriptionId> paid|failed | reset";
 
 async function main() {
+  const suppliedSecretKey = process.env.STRIPE_SECRET_KEY;
+  const suppliedWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const emulator = await createStripeEmulator({
     port: PORT,
-    secretKey: process.env.STRIPE_SECRET_KEY,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    secretKey: suppliedSecretKey,
+    webhookSecret: suppliedWebhookSecret,
     webhookUrl: WEBHOOK_URL,
   });
 
   console.log(`Stripe emulator listening on ${emulator.url}`);
   console.log(`  STRIPE_API_BASE_URL=${emulator.url}`);
-  console.log(`  STRIPE_SECRET_KEY=${emulator.secretKey}`);
-  console.log(`  STRIPE_WEBHOOK_SECRET=${emulator.webhookSecret}`);
+  // Only echo the emulator's own defaults. A value that came from the
+  // environment could be a real key, and this output reaches CI logs.
+  console.log(
+    `  STRIPE_SECRET_KEY=${suppliedSecretKey ? "(kept from the environment)" : emulator.secretKey}`,
+  );
+  console.log(
+    `  STRIPE_WEBHOOK_SECRET=${suppliedWebhookSecret ? "(kept from the environment)" : emulator.webhookSecret}`,
+  );
   console.log(`  webhooks -> ${WEBHOOK_URL}`);
   console.log(`\n${USAGE}\n`);
 
