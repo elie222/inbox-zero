@@ -397,11 +397,11 @@ export async function aiDraftReplyWithConfidence(
   const generate = () =>
     generateObject({
       ...modelOptions,
-      system: appendOllamaOnlySystemGuidance(
-        { system: systemPrompt },
+      instructions: appendOllamaOnlySystemGuidance(
+        { instructions: systemPrompt },
         modelOptions,
         OLLAMA_DRAFT_RESPONSE_GUIDANCE,
-      ).system,
+      ).instructions,
       prompt,
       schema: draftSchema,
     });

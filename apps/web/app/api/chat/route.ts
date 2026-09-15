@@ -312,11 +312,11 @@ export const POST = withEmailAccount("chat", async (request) => {
         assistantRun.provider = resolvedModel.provider;
         assistantRun.modelName = resolvedModel.modelName ?? null;
       },
-      onStepFinish: (step) => {
+      onStepEnd: (step) => {
         assistantRun.stepCount += 1;
         assistantRun.toolCallCount += step.toolCalls.length;
       },
-      onFinish: (result) => {
+      onEnd: (result) => {
         assistantRun.finishReason = result.finishReason;
       },
       logger: runLogger,
@@ -328,7 +328,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
         for await (const chunk of result.toUIMessageStream({
           sendFinish: false,
-          onFinish: ({ responseMessage: finishedResponseMessage }) => {
+          onEnd: ({ responseMessage: finishedResponseMessage }) => {
             responseMessage = finishedResponseMessage;
           },
         })) {
@@ -349,7 +349,7 @@ export const POST = withEmailAccount("chat", async (request) => {
         });
         writer.write({ type: "text-end", id: warningPartId });
       },
-      onFinish: async ({ messages }) => {
+      onEnd: async ({ messages }) => {
         assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
         const persistableMessages = messages.filter(
           isPersistableAssistantMessage,

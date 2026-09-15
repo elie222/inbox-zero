@@ -14,15 +14,15 @@ import {
   RetryError,
   streamText,
   smoothStream,
-  stepCountIs,
-  type StreamTextOnFinishCallback,
-  type StreamTextOnStepFinishCallback,
+  isStepCount,
+  type StreamTextOnEndCallback,
+  type GenerateTextOnStepEndCallback,
   type PrepareStepFunction,
   type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { withTracing } from "@posthog/ai/vercel";
 import { jsonrepair } from "jsonrepair";
 import { saveAiUsage } from "@/utils/usage";
@@ -89,7 +89,7 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
-// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV3
+// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV4
 // boundary. Route tool-bearing calls through the package's MCP bridge so the
 // CLI can execute them locally; clear `tools` so the AI SDK does not also try
 // to drive them. No-op for every other provider and for tool-less calls.
@@ -102,11 +102,11 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
 }: {
   provider: string;
   modelName: string;
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   tools: T | undefined;
   activeTools?: Array<string>;
 }): Promise<{
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   tools: T | undefined;
   bridged: boolean;
 }> {
@@ -214,10 +214,10 @@ export type ToolCallAgentResolvedModel = {
 };
 
 const commonOptions: {
-  experimental_telemetry: { isEnabled: boolean };
+  telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
   providerOptions?: LLMProviderOptions;
-} = { experimental_telemetry: { isEnabled: true } };
+} = { telemetry: { isEnabled: true } };
 
 type ModelRouteSelection =
   | { modelType?: ModelType; useCase?: never }
@@ -238,8 +238,8 @@ type BaseStreamOptions = ModelRouteSelection & {
 
 type ChatCompletionStreamOptions = BaseStreamOptions & {
   tools?: Record<string, Tool>;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onEnd?: StreamTextOnEndCallback<Record<string, Tool>>;
+  onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
 };
 
 type ToolCallAgentStreamOptions = BaseStreamOptions & {
@@ -247,8 +247,8 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
   stopWhen?: StopCondition<Record<string, Tool>>;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onEnd?: StreamTextOnEndCallback<Record<string, Tool>>;
+  onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
   temperature?: number;
 };
@@ -282,11 +282,14 @@ export function createGenerateText({
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
-        system: typeof options.system === "string" ? options.system : undefined,
+        instructions:
+          typeof options.instructions === "string"
+            ? options.instructions
+            : undefined,
         promptHardening,
       });
       const protectedOptions = enforceSensitiveDataPolicy({
-        options: { ...options, system: systemText },
+        options: { ...options, instructions: systemText },
         policy: emailAccount.sensitiveDataPolicy,
         logger,
         label,
@@ -304,9 +307,9 @@ export function createGenerateText({
       logger.trace("Generating text", {
         label,
         promptHardening,
-        system: redactSensitiveContentForLogging(
-          typeof protectedOptions.system === "string"
-            ? protectedOptions.system
+        instructions: redactSensitiveContentForLogging(
+          typeof protectedOptions.instructions === "string"
+            ? protectedOptions.instructions
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
         prompt: redactSensitiveContentForLogging(
@@ -472,12 +475,15 @@ export function createGenerateObject({
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
-        system: typeof options.system === "string" ? options.system : undefined,
+        instructions:
+          typeof options.instructions === "string"
+            ? options.instructions
+            : undefined,
         promptHardening,
       });
       const protectedOptions = appendOllamaOnlySystemGuidance(
         enforceSensitiveDataPolicy({
-          options: { ...options, system: systemText },
+          options: { ...options, instructions: systemText },
           policy: emailAccount.sensitiveDataPolicy,
           logger,
           label,
@@ -491,9 +497,9 @@ export function createGenerateObject({
       logger.trace("Generating object", {
         label,
         promptHardening,
-        system: redactSensitiveContentForLogging(
-          typeof protectedOptions.system === "string"
-            ? protectedOptions.system
+        instructions: redactSensitiveContentForLogging(
+          typeof protectedOptions.instructions === "string"
+            ? protectedOptions.instructions
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
         prompt: redactSensitiveContentForLogging(
@@ -507,8 +513,8 @@ export function createGenerateObject({
       // `prompt` string) are out of scope; scanning every message for
       // the literal "JSON" would be brittle and noisy.
       const systemIncludesJson =
-        typeof protectedOptions.system === "string" &&
-        protectedOptions.system.includes("JSON");
+        typeof protectedOptions.instructions === "string" &&
+        protectedOptions.instructions.includes("JSON");
       if (
         !systemIncludesJson &&
         typeof protectedOptions.prompt === "string" &&
@@ -531,7 +537,7 @@ export function createGenerateObject({
       });
 
       const request = {
-        experimental_repairText: async ({ text }: { text: string }) => {
+        repairText: async ({ text }: { text: string }) => {
           logger.info("Repairing text", { label });
           const repairResult = repairObjectText(text, label);
           latestRepairAttempt = repairResult.attempt;
@@ -719,8 +725,8 @@ export async function chatCompletionStream(
     usageLabel: label,
     providerOptions: requestProviderOptions,
     sensitiveDataPolicy,
-    onFinish,
-    onStepFinish,
+    onEnd,
+    onStepEnd,
   } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModelOptionsForRoute(options),
@@ -783,12 +789,12 @@ export async function chatCompletionStream(
         model,
         messages: protectedMessages as ModelMessage[],
         tools: bridgedChat.tools,
-        stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+        stopWhen: maxSteps ? isStepCount(maxSteps) : undefined,
         ...commonOptions,
         providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
-        onStepFinish,
-        onFinish: async (result) => {
+        onStepEnd,
+        onEnd: async (result) => {
           const usagePromise = saveUsageWithMetadata({
             result,
             usage: result.usage,
@@ -801,12 +807,12 @@ export async function chatCompletionStream(
             hasUserApiKey: modelOptions.hasUserApiKey,
           });
 
-          const finishPromise = onFinish?.(result);
+          const finishPromise = onEnd?.(result);
 
           try {
             await Promise.all([usagePromise, finishPromise]);
           } catch (error) {
-            logger.error("Error in onFinish callback", {
+            logger.error("Error in onEnd callback", {
               label,
               userEmail,
               error,
@@ -873,8 +879,8 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     userEmail,
     usageLabel: label,
     providerOptions: requestProviderOptions,
-    onFinish,
-    onStepFinish,
+    onEnd,
+    onStepEnd,
     onModelResolved,
     sensitiveDataPolicy,
     temperature,
@@ -948,11 +954,11 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
-      stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
+      stopWhen: stopWhen ?? (maxSteps ? isStepCount(maxSteps) : undefined),
       temperature,
       ...commonOptions,
       providerOptions,
-      onFinish: async (result) => {
+      onEnd: async (result) => {
         const usagePromise = saveUsageWithMetadata({
           result,
           usage: result.totalUsage,
@@ -965,16 +971,16 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
           hasUserApiKey: modelOptions.hasUserApiKey,
         });
 
-        const finishPromise = onFinish?.(
+        const finishPromise = onEnd?.(
           result as Parameters<
-            NonNullable<StreamTextOnFinishCallback<Record<string, Tool>>>
+            NonNullable<StreamTextOnEndCallback<Record<string, Tool>>>
           >[0],
         );
 
         try {
           await Promise.all([usagePromise, finishPromise]);
         } catch (error) {
-          logger.error("Error in onFinish callback", {
+          logger.error("Error in onEnd callback", {
             label,
             userEmail,
             error,
@@ -992,17 +998,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       return await agent.stream({
         messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
-        onStepFinish: onStepFinish
-          ? async (stepResult) => {
-              await onStepFinish(
-                stepResult as Parameters<
-                  NonNullable<
-                    StreamTextOnStepFinishCallback<Record<string, Tool>>
-                  >
-                >[0],
-              );
-            }
-          : undefined,
+        onStepEnd,
       });
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
@@ -1974,7 +1970,7 @@ function withPosthogTracing({
   provider,
   modelName,
 }: {
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;

@@ -123,14 +123,14 @@ describe("aiGetCalendarAvailability", () => {
 
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining(
+        instructions: expect.stringContaining(
           "The user has a booking link available for scheduling.",
         ),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining(
+        instructions: expect.stringContaining(
           "do not call checkCalendarAvailability or returnSuggestedTimes",
         ),
       }),

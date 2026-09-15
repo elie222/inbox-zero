@@ -54,7 +54,7 @@ export async function judgeBinary(options: {
   try {
     const result = await generateObject({
       model,
-      system,
+      instructions: system,
       prompt,
       schema: judgeSchema,
       providerOptions,
@@ -72,7 +72,7 @@ export async function judgeBinary(options: {
           aiModel: null,
         },
         providerOptions,
-        system,
+        instructions: system,
         prompt,
         result,
       },
@@ -96,7 +96,7 @@ export async function judgeBinary(options: {
           aiModel: null,
         },
         providerOptions,
-        system,
+        instructions: system,
         prompt,
         error,
       },

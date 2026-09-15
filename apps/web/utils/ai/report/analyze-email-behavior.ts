@@ -68,7 +68,7 @@ Analyze the email patterns and identify:
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: emailBehaviorSchema,
   });

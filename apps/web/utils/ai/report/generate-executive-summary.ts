@@ -148,7 +148,7 @@ Generate:
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: executiveSummarySchema,
   });

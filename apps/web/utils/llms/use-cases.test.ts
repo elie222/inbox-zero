@@ -26,7 +26,7 @@ vi.mock("@ai-sdk/amazon-bedrock", () => ({
 }));
 
 vi.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: vi.fn(() => (model: string) => ({ model })),
+  createGoogle: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@ai-sdk/google-vertex", () => ({
@@ -53,6 +53,10 @@ vi.mock("ollama-ai-provider-v2", () => ({
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
+}));
+
+vi.mock("@ai-sdk/cerebras", () => ({
+  createCerebras: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@/env", () => ({

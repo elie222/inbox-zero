@@ -66,7 +66,7 @@ export async function judgeCriteria({
     model,
     providerOptions,
     schema: criteriaResultSchema,
-    system: SYSTEM_PROMPT,
+    instructions: SYSTEM_PROMPT,
     prompt: buildPrompt({
       inboundThread,
       draft,

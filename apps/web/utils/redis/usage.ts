@@ -474,11 +474,19 @@ function getUsageIncrementOperations(
     usage.inputTokens
       ? redis.hincrby(key, "promptTokensUsed", usage.inputTokens)
       : null,
-    usage.cachedInputTokens
-      ? redis.hincrby(key, "cachedInputTokensUsed", usage.cachedInputTokens)
+    usage.inputTokenDetails?.cacheReadTokens
+      ? redis.hincrby(
+          key,
+          "cachedInputTokensUsed",
+          usage.inputTokenDetails.cacheReadTokens,
+        )
       : null,
-    usage.reasoningTokens
-      ? redis.hincrby(key, "reasoningTokensUsed", usage.reasoningTokens)
+    usage.outputTokenDetails?.reasoningTokens
+      ? redis.hincrby(
+          key,
+          "reasoningTokensUsed",
+          usage.outputTokenDetails.reasoningTokens,
+        )
       : null,
     cost ? redis.hincrbyfloat(key, "cost", cost) : null,
   ];

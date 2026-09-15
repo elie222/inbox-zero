@@ -7,7 +7,7 @@ import {
 describe("prompt hardening", () => {
   it("appends full untrusted-content instructions to system prompts", () => {
     const system = applyPromptHardeningToSystem({
-      system: "Base system prompt.",
+      instructions: "Base system prompt.",
       promptHardening: { trust: "untrusted", level: "full" },
     });
 
@@ -21,7 +21,7 @@ describe("prompt hardening", () => {
 
   it("appends compact untrusted-content instructions to system prompts", () => {
     const system = applyPromptHardeningToSystem({
-      system: "Base system prompt.",
+      instructions: "Base system prompt.",
       promptHardening: { trust: "untrusted", level: "compact" },
     });
 
@@ -34,7 +34,7 @@ describe("prompt hardening", () => {
 
   it("leaves untrusted prompts unchanged when hardening is intentionally skipped", () => {
     const system = applyPromptHardeningToSystem({
-      system: "Base system prompt.",
+      instructions: "Base system prompt.",
       promptHardening: { trust: "untrusted", level: "none" },
     });
 
@@ -43,7 +43,7 @@ describe("prompt hardening", () => {
 
   it("appends plain-text output constraints when requested", () => {
     const system = applyPromptHardeningToSystem({
-      system: "Base system prompt.",
+      instructions: "Base system prompt.",
       promptHardening: {
         trust: "untrusted",
         level: "full",
@@ -56,7 +56,7 @@ describe("prompt hardening", () => {
 
   it("leaves trusted prompts unchanged unless an output constraint is requested", () => {
     const system = applyPromptHardeningToSystem({
-      system: "Base system prompt.",
+      instructions: "Base system prompt.",
       promptHardening: { trust: "trusted" },
     });
 

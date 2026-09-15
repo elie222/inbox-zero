@@ -1,4 +1,4 @@
-import { stepCountIs, type ToolSet } from "ai";
+import { isStepCount, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
@@ -70,10 +70,10 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
   const result = await generateText({
     ...modelOptions,
     tools: mcpTools,
-    system,
+    instructions: system,
     prompt,
-    stopWhen: stepCountIs(10),
-    onStepFinish: async ({ text, toolCalls }) => {
+    stopWhen: isStepCount(10),
+    onStepEnd: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
   });

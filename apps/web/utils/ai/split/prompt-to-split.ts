@@ -132,7 +132,7 @@ ${prompt}
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt: userPrompt,
     schema: promptToSplitSchema,
   });

@@ -115,7 +115,7 @@ Select the ids of the memories relevant to drafting a reply to this email.`;
 
     const result = await generateObject({
       ...modelOptions,
-      system,
+      instructions: system,
       prompt,
       schema: selectionSchema,
     });

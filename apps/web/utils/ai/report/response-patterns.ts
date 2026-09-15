@@ -99,7 +99,7 @@ Only suggest categories that are meaningful and provide clear organizational val
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: responsePatternsSchema,
   });

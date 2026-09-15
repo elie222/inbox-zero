@@ -105,7 +105,7 @@ describe("createCliLanguageModel", () => {
     });
     const doStream = vi.fn().mockResolvedValue({ stream });
     const innerModel = {
-      specificationVersion: "v3",
+      specificationVersion: "v4",
       provider: "claude-code",
       modelId: "sonnet",
       supportedUrls: {},

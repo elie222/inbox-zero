@@ -12,6 +12,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createGateway } from "@ai-sdk/gateway";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createCerebras } from "@ai-sdk/cerebras";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider-v2";
 
@@ -36,7 +37,7 @@ vi.mock("@ai-sdk/amazon-bedrock", () => ({
 }));
 
 vi.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: vi.fn(() => (model: string) => ({ model })),
+  createGoogle: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@ai-sdk/google-vertex", () => ({
@@ -63,6 +64,10 @@ vi.mock("ollama-ai-provider-v2", () => ({
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
+}));
+
+vi.mock("@ai-sdk/cerebras", () => ({
+  createCerebras: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@/env", () => ({
@@ -415,10 +420,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         cerebras: { reasoningEffort: "medium" },
       });
-      expect(createOpenAICompatible).toHaveBeenCalledWith({
-        name: "cerebras",
-        baseURL: "https://api.cerebras.ai/v1",
-        supportsStructuredOutputs: true,
+      expect(createCerebras).toHaveBeenCalledWith({
         apiKey: "user-api-key",
       });
     });

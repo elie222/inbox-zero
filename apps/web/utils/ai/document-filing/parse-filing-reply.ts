@@ -92,7 +92,7 @@ Determine the action and write a reply.`;
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema,
   });

@@ -101,7 +101,7 @@ ${formatCategoriesForPrompt(categories)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: categorizeSendersSchema,
   });
