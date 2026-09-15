@@ -7,6 +7,7 @@ import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
@@ -23,6 +24,7 @@ import {
   parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
 import {
+  decodeMicrosoftIdTokenClaims,
   fetchMicrosoftGraph,
   fetchMicrosoftOidcUserInfo,
   fetchMicrosoftUserProfile,
@@ -94,7 +96,8 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code, stateNonce } = validation;
+  const { targetUserId, code, stateNonce, reconnectEmailAccountId } =
+    validation;
   logger = logOAuthLinkingCallbackValidation({
     actorUserId,
     logger,
@@ -164,18 +167,29 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     >["profile"];
     let providerEmail: string;
     let providerAccountId: string;
-    let legacyProviderAccountId: string | null = null;
+    // Account keys this app wrote before it settled on the Entra object id:
+    // the pairwise OIDC subject, and before that the Graph user id.
+    let legacyProviderAccountIds: string[] = [];
 
     try {
       const result = await fetchMicrosoftUserProfile(tokens.access_token);
       profile = result.profile;
       providerEmail = result.email;
-      legacyProviderAccountId = profile.id || null;
+
+      const { oid } = decodeMicrosoftIdTokenClaims(tokens.id_token);
+      if (!oid) {
+        throw new MicrosoftUserProfileError(
+          "Microsoft did not return an account identifier",
+        );
+      }
+      providerAccountId = oid;
 
       const oidcUserInfo = await fetchMicrosoftOidcUserInfo(
         tokens.access_token,
       );
-      providerAccountId = oidcUserInfo.sub;
+      legacyProviderAccountIds = [oidcUserInfo.sub, profile.id].filter(
+        (id): id is string => !!id && id !== providerAccountId,
+      );
     } catch (error) {
       if (error instanceof MicrosoftUserProfileError) {
         if (error.status) {
@@ -194,11 +208,27 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       await findMicrosoftAccountByProviderAccountId(providerAccountId);
     let shouldMigrateProviderAccountId = false;
 
-    if (!existingAccount && legacyProviderAccountId) {
-      existingAccount = await findMicrosoftAccountByProviderAccountId(
-        legacyProviderAccountId,
-      );
+    for (const legacyId of legacyProviderAccountIds) {
+      if (existingAccount) break;
+      existingAccount = await findMicrosoftAccountByProviderAccountId(legacyId);
       shouldMigrateProviderAccountId = !!existingAccount;
+    }
+
+    if (
+      isReconnectTargetMismatch({
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id,
+      })
+    ) {
+      logger.warn("Reconnect authorized a different provider account", {
+        targetUserId,
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id ?? null,
+      });
+      return createAccountLinkingRedirect({
+        query: { error: "reconnect_account_mismatch" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     assertMicrosoftLinkingConsent({

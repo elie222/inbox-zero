@@ -809,7 +809,7 @@ test("focuses the To field when forwarding", async ({ page }) => {
   ).not.toBeFocused();
 });
 
-test("opens a sent forward in its provider thread", async ({
+test("keeps a sent forward in the thread it came from", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
@@ -818,6 +818,8 @@ test("opens a sent forward in its provider thread", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  const sentByMe = page.getByText("Me", { exact: true });
+  const initialSentByMeCount = await sentByMe.count();
 
   await sourceMessage
     .getByRole("button", { name: "Forward", exact: true })
@@ -834,17 +836,20 @@ test("opens a sent forward in its provider thread", async ({
     .getByRole("button", { name: "Send", exact: true })
     .click();
 
-  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/, {
-    timeout: 20_000,
-  });
-  await expect(
-    page.getByRole("heading", { name: "Fwd: Reply Workflow Message" }),
-  ).toBeVisible({ timeout: 20_000 });
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText(forwardBody),
-  ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(sourceMessage).toBeVisible();
+  await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await expect(
     page
       .getByRole("region", { name: "Reply delivery status" })

@@ -4,7 +4,11 @@ import { ErrorDisplay } from "./ErrorDisplay";
 
 interface LoadingContentProps {
   children: React.ReactNode;
-  error?: { info?: { error: string }; error?: string; status?: number };
+  error?: {
+    info?: { error?: string; isKnownError?: boolean };
+    error?: string;
+    status?: number;
+  };
   errorComponent?: React.ReactNode;
   loading: boolean;
   loadingComponent?: React.ReactNode;
@@ -30,9 +34,10 @@ export function LoadingContent(props: LoadingContentProps) {
   return <>{props.children}</>;
 }
 
-// In development, ignore 404 errors (likely transient HMR errors)
+// In development, ignore 404 errors (likely transient HMR errors), unless the
+// API sent one on purpose and the user is meant to read it.
 function shouldIgnoreError(error: LoadingContentProps["error"]): boolean {
   if (process.env.NODE_ENV !== "development") return false;
-  const status = (error as { status?: number })?.status;
-  return status === 404;
+  if (error?.info?.isKnownError) return false;
+  return error?.status === 404;
 }

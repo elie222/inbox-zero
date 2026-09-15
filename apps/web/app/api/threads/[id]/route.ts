@@ -5,6 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { parseMessageReply } from "@/utils/email/parse-message-reply";
 import { getEmailProviderRateLimitMessage, SafeError } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -63,6 +64,14 @@ export const GET = withEmailProvider(
         throw new SafeError(
           getEmailProviderRateLimitMessage(emailProvider.name),
           429,
+        );
+      }
+      if (isThreadNotFoundError(error)) {
+        // A just-sent message can take a few seconds to become readable, so
+        // this is not always a permanent failure.
+        throw new SafeError(
+          "This conversation isn't available yet. It may still be syncing with your mailbox, or it was deleted.",
+          404,
         );
       }
       throw error;

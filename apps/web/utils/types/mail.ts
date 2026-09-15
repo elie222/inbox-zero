@@ -27,9 +27,13 @@ export const sendEmailBody = z
     replyToEmail: z
       .object({
         threadId: z.string(),
-        headerMessageId: z.string(),
+        // Absent on a forward, which threads on the thread id alone.
+        headerMessageId: z.string().optional(),
         references: z.string().optional(),
         messageId: z.string().optional(),
+        // The message being forwarded, which Outlook drafts from to keep the
+        // forward in its conversation.
+        forwardedMessageId: z.string().optional(),
       })
       .optional(),
     to: z.string(),
