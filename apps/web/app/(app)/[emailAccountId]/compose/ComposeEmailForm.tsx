@@ -126,6 +126,7 @@ export type ReplyingToEmail = {
   threadId?: string;
   headerMessageId?: string;
   messageId?: string;
+  forwardedMessageId?: string;
   references?: string;
   subject: string;
   to: string;

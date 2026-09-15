@@ -8,8 +8,9 @@ describe("getReplyToEmailPayload", () => {
         threadId: "thread-1",
         headerMessageId: undefined,
         references: "",
+        forwardedMessageId: "message-1",
       }),
-    ).toEqual({ threadId: "thread-1" });
+    ).toEqual({ threadId: "thread-1", forwardedMessageId: "message-1" });
   });
 
   it("sends the full threading metadata of a reply", () => {

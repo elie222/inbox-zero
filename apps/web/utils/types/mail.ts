@@ -31,6 +31,9 @@ export const sendEmailBody = z
         headerMessageId: z.string().optional(),
         references: z.string().optional(),
         messageId: z.string().optional(),
+        // The message being forwarded, which Outlook drafts from to keep the
+        // forward in its conversation.
+        forwardedMessageId: z.string().optional(),
       })
       .optional(),
     to: z.string(),
