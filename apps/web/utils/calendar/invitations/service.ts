@@ -1,3 +1,4 @@
+import { normalizeCalendarInvitationContent } from "@/utils/calendar/invitations/content";
 import prisma from "@/utils/prisma";
 import { createCalendarEventProvider } from "@/utils/calendar/event-provider";
 import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
@@ -121,6 +122,8 @@ async function getInvitationFromMessage(
   let content = message.calendarContent || undefined;
   if (content && content.length > CALENDAR_INVITATION_LIMITS.content)
     return null;
+  if (content !== undefined)
+    content = normalizeCalendarInvitationContent(content);
   for (const metadata of attachments) {
     const attachment = await emailProvider.getAttachment(
       messageId,
@@ -131,7 +134,9 @@ async function getInvitationFromMessage(
       attachment.data.length > CALENDAR_INVITATION_LIMITS.encoded
     )
       return null;
-    const decoded = Buffer.from(attachment.data, "base64").toString("utf8");
+    const rawContent = Buffer.from(attachment.data, "base64").toString("utf8");
+    if (rawContent.length > CALENDAR_INVITATION_LIMITS.content) return null;
+    const decoded = normalizeCalendarInvitationContent(rawContent);
     // Calendar emails can include both a MIME alternative and a downloadable copy.
     if (content !== undefined && content !== decoded) return null;
     content = decoded;

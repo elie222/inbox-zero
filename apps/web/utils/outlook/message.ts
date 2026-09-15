@@ -1,3 +1,5 @@
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
+import { normalizeCalendarInvitationContent } from "@/utils/calendar/invitations/content";
 import { escapeSearchValue } from "@/utils/outlook/search-escape";
 import PostalMime from "postal-mime";
 import { ResponseType } from "@microsoft/microsoft-graph-client";
@@ -888,11 +890,27 @@ export async function getMessage(
           attachmentEncoding: "utf8",
         });
         const calendars = mime.attachments.filter(
-          (attachment) => attachment.mimeType === "text/calendar",
+          (attachment) =>
+            attachment.mimeType === "text/calendar" ||
+            attachment.mimeType === "application/ics",
         );
-        if (calendars.length > 1) parsed.isMeetingInvitation = false;
-        if (calendars.length === 1)
-          parsed.calendarContent = String(calendars[0].content);
+        const contents = calendars.map((attachment) =>
+          String(attachment.content),
+        );
+        const content = contents[0];
+        if (
+          calendars.length > CALENDAR_INVITATION_LIMITS.attachments ||
+          contents.some(
+            (candidate) =>
+              candidate.length > CALENDAR_INVITATION_LIMITS.content ||
+              normalizeCalendarInvitationContent(candidate) !==
+                normalizeCalendarInvitationContent(content),
+          )
+        ) {
+          parsed.isMeetingInvitation = false;
+        } else if (content !== undefined) {
+          parsed.calendarContent = content;
+        }
       }
     } catch (error) {
       logger.warn("Failed to read calendar MIME content; using attachments", {
