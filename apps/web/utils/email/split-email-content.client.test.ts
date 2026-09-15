@@ -25,6 +25,20 @@ describe("splitEmailContent", () => {
     expect(result.mainContent).not.toContain("History");
   });
 
+  it("preserves styles in HTML fragments without document tags", () => {
+    const result = splitEmailContent(
+      '<style>.gmail_quote { color: red; }</style><p>Reply</p><div class="gmail_quote">History</div>',
+    );
+    const quoted = new DOMParser().parseFromString(
+      result.quotedContent,
+      "text/html",
+    );
+    expect(quoted.head.querySelector("style")?.textContent).toBe(
+      ".gmail_quote { color: red; }",
+    );
+    expect(quoted.body.textContent).toBe("History");
+  });
+
   it("removes blank quote spacing without removing reply content", () => {
     const result = splitEmailContent(
       '<p>Reply</p><br><div dir="ltr"></div><br><div class="gmail_quote">History</div>',

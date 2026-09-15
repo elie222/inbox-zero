@@ -15,8 +15,9 @@ export function splitEmailContent(html: string): {
   quotedContent: string;
   hasQuotedContent: boolean;
 } {
-  const hasDocumentStructure = DOCUMENT_STRUCTURE_PATTERN.test(html);
   const doc = new DOMParser().parseFromString(html, "text/html");
+  const hasDocumentStructure =
+    DOCUMENT_STRUCTURE_PATTERN.test(html) || doc.head.childNodes.length > 0;
   const quoteBoundary = findQuoteBoundary(doc);
 
   if (!quoteBoundary) {
