@@ -169,6 +169,7 @@ const slackPreviews: SlackPreview[] = [
       videoConferenceLink: "https://meet.example.com/customer-review",
       eventUrl: "https://calendar.example.com/event/123",
       briefingContent: {
+        priorities: [],
         guests: [
           {
             name: "Jamie Lee",

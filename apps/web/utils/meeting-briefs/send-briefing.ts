@@ -346,6 +346,15 @@ function formatMeetingBriefingText({
     sections.push(`Calendar link: ${eventUrl}`);
   }
 
+  if (briefingContent.priorities.length > 0) {
+    sections.push(
+      [
+        "Meeting priorities",
+        ...briefingContent.priorities.map((priority) => `- ${priority}`),
+      ].join("\n"),
+    );
+  }
+
   for (const guest of briefingContent.guests) {
     sections.push(
       [guest.name ? `${guest.name} (${guest.email})` : guest.email]
