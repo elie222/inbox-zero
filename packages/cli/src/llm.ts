@@ -42,7 +42,10 @@ const DEFAULT_MODELS = {
     economy: "claude-haiku-4-5-20251001",
   },
   openai: { default: "gpt-5.4-mini", economy: "gpt-5.4-nano" },
-  google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
+  google: {
+    default: "gemini-3-flash-preview",
+    economy: "gemini-2.5-flash",
+  },
   openrouter: {
     default: "anthropic/claude-sonnet-4.6",
     economy: "anthropic/claude-haiku-4.5",
