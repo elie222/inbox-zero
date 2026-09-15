@@ -5,12 +5,13 @@ import {
   moveTrainedSenderBody,
   trainedSenderBody,
 } from "@/utils/actions/trained-senders.validation";
+import { GroupItemSource } from "@/generated/prisma/enums";
 import {
   forgetTrainedSender,
-  keepSenderInInbox,
   moveTrainedSender,
   trainSenderToDelete,
 } from "@/utils/group/move-trained-sender";
+import { keepSenderInInbox } from "@/utils/rule/learn-from-label";
 
 export const moveTrainedSenderAction = actionClient
   .metadata({ name: "moveTrainedSender" })
@@ -38,7 +39,13 @@ export const keepSenderInInboxAction = actionClient
   .inputSchema(trainedSenderBody)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { sender } }) => {
-      await keepSenderInInbox({ emailAccountId, sender, logger });
+      await keepSenderInInbox({
+        emailAccountId,
+        sender,
+        reason: "Keep in inbox",
+        source: GroupItemSource.USER,
+        logger,
+      });
     },
   );
 

@@ -6,9 +6,13 @@ import {
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 
-export const TRAINED_SENDERS_PAGE_SIZE = 50;
+const PAGE_SIZE = 50;
 
-export const trainedItemSelect = {
+export function parsePage(url: URL) {
+  return Math.max(1, Number.parseInt(url.searchParams.get("page") || "1") || 1);
+}
+
+const trainedItemSelect = {
   id: true,
   value: true,
   exclude: true,
@@ -22,7 +26,6 @@ export const trainedItemSelect = {
         select: {
           id: true,
           name: true,
-          enabled: true,
           actions: { select: { type: true, label: true } },
         },
       },
@@ -34,7 +37,7 @@ type TrainedItem = Prisma.GroupItemGetPayload<{
   select: typeof trainedItemSelect;
 }>;
 
-export function trainedItemsWhere({
+function trainedItemsWhere({
   emailAccountIds,
   query,
 }: {
@@ -54,14 +57,13 @@ function toRule(item: TrainedItem) {
   return {
     id: rule?.id ?? "",
     name: rule?.name ?? "",
-    enabled: rule?.enabled ?? false,
     label: actions.find((a) => a.type === ActionType.LABEL)?.label ?? null,
     deletes: actions.some((a) => a.type === ActionType.DELETE),
   };
 }
 
 /** One row per (mailbox, sender), newest item first within a row. */
-export function groupTrainedItems(items: TrainedItem[]) {
+function groupTrainedItems(items: TrainedItem[]) {
   const bySender = new Map<string, TrainedItem[]>();
   for (const item of items) {
     const key = `${item.group?.emailAccountId} ${item.value}`;
@@ -84,8 +86,6 @@ export function groupTrainedItems(items: TrainedItem[]) {
     };
   });
 }
-
-export type TrainedSenderRow = ReturnType<typeof groupTrainedItems>[number];
 
 /**
  * Senders across several mailboxes, newest training first, paginated.
@@ -146,12 +146,12 @@ export async function getTrainedSendersAcrossAccounts({
   const rows = [...trained, ...extra].sort(
     (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
   );
-  const start = (page - 1) * TRAINED_SENDERS_PAGE_SIZE;
+  const start = (page - 1) * PAGE_SIZE;
 
   return {
-    senders: rows.slice(start, start + TRAINED_SENDERS_PAGE_SIZE),
+    senders: rows.slice(start, start + PAGE_SIZE),
     total: rows.length,
     unsubscribed: unsubscribedSenders.length,
-    totalPages: Math.max(1, Math.ceil(rows.length / TRAINED_SENDERS_PAGE_SIZE)),
+    totalPages: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
   };
 }

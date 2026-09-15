@@ -1,9 +1,8 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
-  findOrCreateDeleteRule,
   forgetTrainedSender,
-  keepSenderInInbox,
   moveTrainedSender,
+  trainSenderToDelete,
 } from "./move-trained-sender";
 import {
   ActionType,
@@ -11,30 +10,21 @@ import {
   GroupItemType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
-import { setSenderStatus } from "@/utils/senders/unsubscribe";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma", () => ({
   default: {
-    groupItem: {
-      upsert: vi.fn(),
-      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
-    },
+    groupItem: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     rule: { findUnique: vi.fn(), findMany: vi.fn() },
-    $transaction: vi.fn().mockResolvedValue([]),
   },
 }));
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
-  getOrCreateGroupForRule: vi.fn().mockResolvedValue("target-group"),
-}));
-
-vi.mock("@/utils/senders/unsubscribe", () => ({
-  setSenderStatus: vi.fn().mockResolvedValue(undefined),
+  saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/rule/rule", () => ({
@@ -49,54 +39,26 @@ const args = {
   logger,
 };
 
-const moved = {
-  exclude: false,
-  reason: "Moved by user",
-  source: GroupItemSource.USER,
-};
-
 describe("moveTrainedSender", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.rule.findUnique).mockResolvedValue({
       id: "rule-new",
-      name: "Receipts",
-      groupId: null,
     } as any);
   });
 
-  it("adds the sender to the target rule and removes it from the others", async () => {
+  it("learns the sender into the target rule as a user inclusion", async () => {
     await moveTrainedSender({ ...args, ruleId: "rule-new" });
 
-    expect(getOrCreateGroupForRule).toHaveBeenCalledWith(
-      expect.objectContaining({ ruleId: "rule-new", ruleName: "Receipts" }),
-    );
-    expect(prisma.groupItem.upsert).toHaveBeenCalledWith({
-      where: {
-        groupId_type_value: {
-          groupId: "target-group",
-          type: GroupItemType.FROM,
-          value: "sender@example.com",
-        },
-      },
-      update: moved,
-      create: {
-        groupId: "target-group",
-        type: GroupItemType.FROM,
-        value: "sender@example.com",
-        ...moved,
-      },
-    });
-    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
-      where: {
-        type: GroupItemType.FROM,
-        value: "sender@example.com",
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-id",
+        from: "sender@example.com",
+        ruleId: "rule-new",
         exclude: false,
-        groupId: { not: "target-group" },
-        group: { emailAccountId: "email-account-id" },
-      },
-    });
-    expect(prisma.$transaction).toHaveBeenCalled();
+        source: GroupItemSource.USER,
+      }),
+    );
   });
 
   it("rejects a rule that belongs to another account", async () => {
@@ -105,7 +67,7 @@ describe("moveTrainedSender", () => {
     await expect(
       moveTrainedSender({ ...args, ruleId: "rule-new" }),
     ).rejects.toThrow("Rule not found");
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 });
 
@@ -128,47 +90,7 @@ describe("forgetTrainedSender", () => {
   });
 });
 
-describe("keepSenderInInbox", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(prisma.rule.findMany).mockResolvedValue([
-      { id: "rule-a", name: "Later", groupId: "group-a" },
-      { id: "rule-b", name: "Receipts", groupId: null },
-    ] as any);
-  });
-
-  it("drops the sender's training and excludes it from every enabled rule", async () => {
-    await keepSenderInInbox(args);
-
-    expect(setSenderStatus).toHaveBeenCalledWith({
-      emailAccountId: "email-account-id",
-      senderEmail: "sender@example.com",
-      status: null,
-    });
-
-    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
-      where: {
-        type: GroupItemType.FROM,
-        value: "sender@example.com",
-        exclude: false,
-        group: { emailAccountId: "email-account-id" },
-      },
-    });
-    expect(getOrCreateGroupForRule).toHaveBeenCalledTimes(2);
-    expect(prisma.groupItem.upsert).toHaveBeenCalledTimes(2);
-    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: {
-          exclude: true,
-          reason: "Keep in inbox",
-          source: GroupItemSource.USER,
-        },
-      }),
-    );
-  });
-});
-
-describe("findOrCreateDeleteRule", () => {
+describe("trainSenderToDelete", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
@@ -182,24 +104,34 @@ describe("findOrCreateDeleteRule", () => {
       },
       { id: "just-deletes", actions: [{ type: ActionType.DELETE }] },
     ] as any);
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "just-deletes",
+    } as any);
 
-    await expect(
-      findOrCreateDeleteRule({ emailAccountId: "email-account-id", logger }),
-    ).resolves.toBe("just-deletes");
+    await trainSenderToDelete(args);
+
     expect(createRuleWithResolvedActions).not.toHaveBeenCalled();
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleId: "just-deletes" }),
+    );
   });
 
   it("creates the delete rule when there is none", async () => {
     vi.mocked(prisma.rule.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.rule.findUnique)
+      .mockResolvedValueOnce(null) // no rule named Delete
+      .mockResolvedValueOnce({ id: "delete-rule" } as any); // moveTrainedSender lookup
 
-    await expect(
-      findOrCreateDeleteRule({ emailAccountId: "email-account-id", logger }),
-    ).resolves.toBe("delete-rule");
+    await trainSenderToDelete(args);
+
     expect(createRuleWithResolvedActions).toHaveBeenCalledWith({
       emailAccountId: "email-account-id",
       data: { name: "Delete", enabled: true, runOnThreads: false },
       actions: [{ type: ActionType.DELETE }],
     });
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleId: "delete-rule" }),
+    );
   });
 
   it("refuses to shadow an unrelated rule named Delete", async () => {
@@ -208,9 +140,9 @@ describe("findOrCreateDeleteRule", () => {
       id: "other",
     } as any);
 
-    await expect(
-      findOrCreateDeleteRule({ emailAccountId: "email-account-id", logger }),
-    ).rejects.toThrow('A rule named "Delete" exists');
+    await expect(trainSenderToDelete(args)).rejects.toThrow(
+      'A rule named "Delete" exists',
+    );
     expect(createRuleWithResolvedActions).not.toHaveBeenCalled();
   });
 });

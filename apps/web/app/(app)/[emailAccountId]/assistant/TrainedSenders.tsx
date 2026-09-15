@@ -5,11 +5,10 @@ import useSWR from "swr";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { TrashIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import type { TrainedSendersResponse } from "@/app/api/user/trained-senders/route";
+import type { AllTrainedSendersResponse } from "@/app/api/user/trained-senders/all/route";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
 import { useRules } from "@/hooks/useRules";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   forgetTrainedSenderAction,
   keepSenderInInboxAction,
@@ -55,24 +54,24 @@ import { MutedText } from "@/components/Typography";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 
-type TrainedSender = TrainedSendersResponse["senders"][number];
-export type RuleOption = { id: string; name: string; label: string | null };
+// The per-mailbox route returns the same shape minus `accounts`.
+type Response = Omit<AllTrainedSendersResponse, "accounts"> &
+  Partial<Pick<AllTrainedSendersResponse, "accounts">>;
+type TrainedSender = Response["senders"][number];
+type RuleOption = { id: string; name: string };
 
 // Picker values that are not rules.
 const INBOX = "__inbox__";
 const DELETE = "__delete__";
 const NONE = "__none__";
 
-// `emailAccountId` lets a page outside the account route (the organization
-// view) render one of these per mailbox.
-// ponytail: page/q live in the URL, so stacked instances page together.
+// `url` defaults to the current mailbox; the organization page passes the
+// cross-mailbox route, whose rows carry their own mailbox.
 export function TrainedSenders({
-  emailAccountId,
+  url = "/api/user/trained-senders",
 }: {
-  emailAccountId?: string;
+  url?: string;
 }) {
-  const { emailAccountId: contextId } = useAccount();
-  const accountId = emailAccountId ?? contextId;
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [query, setQuery] = useQueryState("q", parseAsString.withDefault(""));
   const [draft, setDraft] = useState(query);
@@ -87,14 +86,15 @@ export function TrainedSenders({
     return () => window.clearTimeout(id);
   }, [draft, query, setQuery, setPage]);
 
-  const { data, isLoading, error, mutate } = useSWR<TrainedSendersResponse>([
-    `/api/user/trained-senders?page=${page}&q=${encodeURIComponent(query)}`,
-    accountId,
-  ]);
-  const { data: rules } = useRules(accountId);
+  const sep = url.includes("?") ? "&" : "?";
+  const { data, isLoading, error, mutate } = useSWR<Response>(
+    `${url}${sep}page=${page}&q=${encodeURIComponent(query)}`,
+  );
 
-  const ruleOptions = useMemo(() => toRuleOptions(rules), [rules]);
-
+  const emailById = useMemo(
+    () => new Map(data?.accounts?.map((a) => [a.id, a.email])),
+    [data?.accounts],
+  );
   const senders = data?.senders ?? [];
 
   return (
@@ -139,10 +139,9 @@ export function TrainedSenders({
                   <TableBody>
                     {senders.map((sender) => (
                       <TrainedSenderRow
-                        key={sender.sender}
+                        key={`${sender.emailAccountId} ${sender.sender}`}
                         sender={sender}
-                        ruleOptions={ruleOptions}
-                        emailAccountId={accountId}
+                        mailbox={emailById.get(sender.emailAccountId)}
                         mutate={mutate}
                       />
                     ))}
@@ -172,7 +171,7 @@ export function TrainedSenders({
 }
 
 // Delete-only rules are represented by the "Delete" entry instead.
-export function toRuleOptions(rules: RulesResponse | undefined): RuleOption[] {
+function toRuleOptions(rules: RulesResponse | undefined): RuleOption[] {
   return (rules ?? [])
     .filter(
       (rule) =>
@@ -182,39 +181,31 @@ export function toRuleOptions(rules: RulesResponse | undefined): RuleOption[] {
           rule.actions.every((a) => a.type === ActionType.DELETE)
         ),
     )
-    .map((rule) => ({
-      id: rule.id,
-      name: rule.name,
-      label:
-        rule.actions.find((action) => action.type === ActionType.LABEL)
-          ?.label ?? null,
-    }));
+    .map((rule) => ({ id: rule.id, name: rule.name }));
 }
 
-export function TrainedSenderRow({
+// Rules are per mailbox, so each row loads its own (SWR dedupes per mailbox).
+function TrainedSenderRow({
   sender,
-  ruleOptions,
-  emailAccountId,
   mailbox,
   mutate,
 }: {
   sender: TrainedSender;
-  ruleOptions: RuleOption[];
-  emailAccountId: string;
   mailbox?: string;
   mutate: () => void;
 }) {
+  const { emailAccountId } = sender;
   const deleteEnabled = isDeleteEmailActionEnabled();
+  const { data: rules } = useRules(emailAccountId);
+  const ruleOptions = useMemo(() => toRuleOptions(rules), [rules]);
 
   const feedback = (done: string) => ({
     onSuccess: () => {
       toastSuccess({ description: `${done} ${sender.sender}` });
       mutate();
     },
-    onError: (error: {
-      error: Parameters<typeof getActionErrorMessage>[0];
-    }) => {
-      toastError({ description: getActionErrorMessage(error.error) });
+    onError: (e: { error: Parameters<typeof getActionErrorMessage>[0] }) => {
+      toastError({ description: getActionErrorMessage(e.error) });
     },
   });
 
@@ -262,10 +253,7 @@ export function TrainedSenderRow({
   // selectable so the value still renders.
   const options =
     current && !current.deletes && !ruleOptions.some((r) => r.id === current.id)
-      ? [
-          ...ruleOptions,
-          { id: current.id, name: `${current.name} (disabled)`, label: null },
-        ]
+      ? [...ruleOptions, { id: current.id, name: `${current.name} (disabled)` }]
       : ruleOptions;
 
   const onPick = (picked: string) => {
@@ -367,7 +355,7 @@ export function TrainedSenderRow({
   );
 }
 
-export function PageNumbers({
+function PageNumbers({
   page,
   totalPages,
   onChange,

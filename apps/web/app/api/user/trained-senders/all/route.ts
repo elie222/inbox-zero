@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
-import { getTrainedSendersAcrossAccounts } from "@/utils/trained-senders";
-import { parsePage } from "@/app/api/user/trained-senders/route";
+import {
+  getTrainedSendersAcrossAccounts,
+  parsePage,
+} from "@/utils/trained-senders";
 
 export type AllTrainedSendersResponse = Awaited<
   ReturnType<typeof getTrainedSendersAcrossAccounts>

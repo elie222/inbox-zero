@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getTrainedSendersAcrossAccounts } from "@/utils/trained-senders";
+import {
+  getTrainedSendersAcrossAccounts,
+  parsePage,
+} from "@/utils/trained-senders";
 
 export type TrainedSendersResponse = Awaited<
   ReturnType<typeof getTrainedSendersAcrossAccounts>
 >;
-
-export function parsePage(url: URL) {
-  return Math.max(1, Number.parseInt(url.searchParams.get("page") || "1") || 1);
-}
 
 // One row per sender in this mailbox: the rules it is trained into (with the
 // label each applies) and the rules it is excluded from. Newest first.

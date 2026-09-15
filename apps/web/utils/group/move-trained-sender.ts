@@ -6,16 +6,14 @@ import {
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
-import { setSenderStatus } from "@/utils/senders/unsubscribe";
 
 const DELETE_RULE_NAME = "Delete";
 
 /**
- * Files a sender under one rule: the pattern is added to that rule's group
- * as an inclusion and removed from every other rule it was trained into.
- * Exclusions are left alone.
+ * Files a sender under one rule. saveLearnedPattern creates the group, upserts
+ * the pattern and evicts the sender from every other rule.
  */
 export async function moveTrainedSender({
   emailAccountId,
@@ -30,48 +28,19 @@ export async function moveTrainedSender({
 }) {
   const rule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
-    select: { id: true, name: true, groupId: true },
+    select: { id: true },
   });
   if (!rule) throw new SafeError("Rule not found");
 
-  const groupId = await getOrCreateGroupForRule({
+  await saveLearnedPattern({
     emailAccountId,
-    ruleId: rule.id,
-    ruleName: rule.name,
-    existingGroupId: rule.groupId,
-    logger,
-  });
-
-  const pattern = {
+    from: sender,
+    ruleId,
     exclude: false,
+    logger,
     reason: "Moved by user",
     source: GroupItemSource.USER,
-  };
-
-  await prisma.$transaction([
-    prisma.groupItem.upsert({
-      where: {
-        groupId_type_value: {
-          groupId,
-          type: GroupItemType.FROM,
-          value: sender,
-        },
-      },
-      update: pattern,
-      create: { groupId, type: GroupItemType.FROM, value: sender, ...pattern },
-    }),
-    prisma.groupItem.deleteMany({
-      where: {
-        type: GroupItemType.FROM,
-        value: sender,
-        exclude: false,
-        groupId: { not: groupId },
-        group: { emailAccountId },
-      },
-    }),
-  ]);
-
-  logger.info("Moved trained sender to rule", { ruleId });
+  });
 }
 
 /** Drops the sender from every rule it was trained into. Exclusions stay. */
@@ -97,66 +66,6 @@ export async function forgetTrainedSender({
 }
 
 /**
- * Keeps a sender in the inbox: dropped from any rule it was trained into,
- * excluded from every enabled rule, and no longer treated as unsubscribed
- * (which would otherwise tag their mail), so nothing touches it.
- */
-export async function keepSenderInInbox({
-  emailAccountId,
-  sender,
-  logger,
-}: {
-  emailAccountId: string;
-  sender: string;
-  logger: Logger;
-}) {
-  await setSenderStatus({ emailAccountId, senderEmail: sender, status: null });
-
-  await prisma.groupItem.deleteMany({
-    where: {
-      type: GroupItemType.FROM,
-      value: sender,
-      exclude: false,
-      group: { emailAccountId },
-    },
-  });
-
-  const rules = await prisma.rule.findMany({
-    where: { emailAccountId, enabled: true },
-    select: { id: true, name: true, groupId: true },
-  });
-
-  const pattern = {
-    exclude: true,
-    reason: "Keep in inbox",
-    source: GroupItemSource.USER,
-  };
-
-  for (const rule of rules) {
-    const groupId = await getOrCreateGroupForRule({
-      emailAccountId,
-      ruleId: rule.id,
-      ruleName: rule.name,
-      existingGroupId: rule.groupId,
-      logger,
-    });
-    await prisma.groupItem.upsert({
-      where: {
-        groupId_type_value: {
-          groupId,
-          type: GroupItemType.FROM,
-          value: sender,
-        },
-      },
-      update: pattern,
-      create: { groupId, type: GroupItemType.FROM, value: sender, ...pattern },
-    });
-  }
-
-  logger.info("Keeping sender in inbox", { rules: rules.length });
-}
-
-/**
  * Trains a sender into the account's delete rule (a rule whose only action
  * is DELETE), creating that rule on first use. Delete moves mail to trash.
  */
@@ -173,7 +82,7 @@ export async function trainSenderToDelete({
   await moveTrainedSender({ emailAccountId, sender, ruleId, logger });
 }
 
-export async function findOrCreateDeleteRule({
+async function findOrCreateDeleteRule({
   emailAccountId,
   logger,
 }: {
