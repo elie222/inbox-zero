@@ -49,6 +49,7 @@ import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
+import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -1344,6 +1345,18 @@ function ComposeEmailFormContent({
         </div>
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
+          <VoiceInput
+            onInsert={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+            onSend={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+          />
           <input
             className="hidden"
             data-testid="compose-attachments-input"

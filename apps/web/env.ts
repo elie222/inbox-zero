@@ -191,6 +191,12 @@ const parsedEnv = createEnv({
     CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
+    VOICE_PROVIDER: z.enum(["openai", "groq"]).optional(),
+    VOICE_STT_MODEL: z.string().optional(),
+    VOICE_TTS_MODEL: z.string().optional(),
+    VOICE_TTS_VOICE: z.string().optional(),
+    VOICE_LIVE_MODEL: z.string().optional(),
+    VOICE_LIVE_VOICE: z.string().optional(),
 
     UPSTASH_REDIS_URL: z
       .string()
@@ -437,6 +443,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_VOICE_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
@@ -542,6 +549,7 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
+    NEXT_PUBLIC_VOICE_ENABLED: process.env.NEXT_PUBLIC_VOICE_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:

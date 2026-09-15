@@ -40,8 +40,10 @@ import {
   getChatHistoryLabel,
 } from "@/components/assistant-chat/chat-history-types";
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
-import { randomUuid } from "@/utils/uuid";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
+import { randomUuid } from "@/utils/uuid";
+import { VoiceInput } from "@/components/voice/VoiceInput";
+import { liveHistoryFromUiMessages } from "@/utils/voice/live-history";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -72,6 +74,7 @@ export function Chat({
     setContext,
     attachments,
     setAttachments,
+    submitTextMessage,
   } = useChat();
   const { messages, status, stop, regenerate, setMessages } = chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
@@ -230,7 +233,7 @@ export function Chat({
           setInput(e.currentTarget.value)
         }
         onPaste={handlePaste}
-        className="pr-24"
+        className="pr-48"
       />
 
       <input
@@ -244,6 +247,23 @@ export function Chat({
       />
 
       <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        <VoiceInput
+          liveEnabled
+          liveHistory={liveHistoryFromUiMessages(messages)}
+          onInsert={(text) => {
+            setInput(input.trim() ? `${input.trim()} ${text}` : text);
+          }}
+          onSend={(text) => {
+            analytics.captureAction("chat_message_submitted", {
+              has_text: true,
+              attachment_count: attachments.length,
+              has_context: Boolean(context),
+              message_count: messages.length,
+              via_voice: true,
+            });
+            submitTextMessage(text).catch(() => undefined);
+          }}
+        />
         <Tooltip content="Attach images">
           <Button
             type="button"
