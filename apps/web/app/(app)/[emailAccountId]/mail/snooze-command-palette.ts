@@ -19,7 +19,7 @@ export function buildSnoozeCommandPalette({
     return [
       {
         id: "mail-snooze-natural-language",
-        label: `Snooze until ${format(naturalLanguageDate, "EEE, MMM d 'at' p")}`,
+        label: `Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
         icon: Clock3Icon,
         section: "actions",
         priority: 0,
@@ -32,10 +32,11 @@ export function buildSnoozeCommandPalette({
   return getSnoozePresets(now).map((preset, index) => ({
     id: `mail-snooze-${preset.id}`,
     label: preset.label,
+    description: formatSnoozeTime(preset.until),
     icon: Clock3Icon,
     section: "actions",
     priority: index,
-    keywords: ["snooze", "later", "remind", preset.id],
+    keywords: ["snooze", "later", "remind", preset.id, preset.label],
     action: () => onSnooze(preset.until),
   }));
 }
@@ -53,27 +54,70 @@ export function parseSnoozeDate(input: string, now = new Date()) {
   return date;
 }
 
+const MORNING_HOUR = 9;
+const AFTERNOON_HOUR = 17;
+const EVENING_HOUR = 20;
+
 export function getSnoozePresets(now: Date) {
-  const tomorrowMorning = new Date(now);
-  tomorrowMorning.setDate(tomorrowMorning.getDate() + 1);
-  tomorrowMorning.setHours(9, 0, 0, 0);
-
-  const nextWeek = new Date(now);
-  const daysUntilMonday = (8 - nextWeek.getDay()) % 7 || 7;
-  nextWeek.setDate(nextWeek.getDate() + daysUntilMonday);
-  nextWeek.setHours(9, 0, 0, 0);
-
-  return [
+  const weekend = weekendMorning(now);
+  const candidates = [
     {
-      id: "three-hours",
-      label: "In 3 hours",
-      until: new Date(now.getTime() + 3 * 60 * 60 * 1000),
+      id: "this-afternoon",
+      label: "This afternoon",
+      until: atHour(now, 0, AFTERNOON_HOUR),
     },
     {
-      id: "tomorrow",
+      id: "this-evening",
+      label: "This evening",
+      until: atHour(now, 0, EVENING_HOUR),
+    },
+    {
+      id: "tomorrow-morning",
       label: "Tomorrow morning",
-      until: tomorrowMorning,
+      until: atHour(now, 1, MORNING_HOUR),
     },
-    { id: "next-week", label: "Next week", until: nextWeek },
+    ...(weekend
+      ? [{ id: "this-weekend", label: "This weekend", until: weekend }]
+      : []),
+    {
+      id: "next-monday",
+      label: "Next Monday",
+      until: atHour(now, daysUntilNextMonday(now), MORNING_HOUR),
+    },
+    {
+      id: "next-week",
+      label: "Next week",
+      until: atHour(now, 7, MORNING_HOUR),
+    },
   ];
+
+  const seen = new Set<number>();
+  return candidates.filter((preset) => {
+    if (preset.until <= now) return false;
+    const key = preset.until.getTime();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function formatSnoozeTime(date: Date) {
+  return format(date, "EEE, MMM d 'at' p");
+}
+
+function atHour(now: Date, daysFromNow: number, hour: number) {
+  const date = new Date(now);
+  date.setDate(date.getDate() + daysFromNow);
+  date.setHours(hour, 0, 0, 0);
+  return date;
+}
+
+function weekendMorning(now: Date) {
+  const day = now.getDay();
+  if (day === 0 || day === 6) return null;
+  return atHour(now, 6 - day, MORNING_HOUR);
+}
+
+function daysUntilNextMonday(now: Date) {
+  return (8 - now.getDay()) % 7 || 7;
 }

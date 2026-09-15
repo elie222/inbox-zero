@@ -3,7 +3,6 @@
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
 import {
-  ArrowLeftIcon,
   Loader2Icon,
   MonitorIcon,
   MoonIcon,
@@ -284,24 +283,10 @@ function CommandPaletteContent({
 
   let allCommands: Command[];
   if (page === "snooze" && mailCommandContext?.actions.snooze) {
-    const snoozeCommands = buildSnoozeCommandPalette({
+    allCommands = buildSnoozeCommandPalette({
       onSnooze: mailCommandContext.actions.snooze,
       query: search,
     });
-    allCommands = search.trim()
-      ? snoozeCommands
-      : [
-          {
-            id: "mail-snooze-back",
-            label: "Back to commands",
-            icon: ArrowLeftIcon,
-            section: "actions",
-            priority: -1,
-            closeOnSelect: false,
-            action: () => setPage("root"),
-          },
-          ...snoozeCommands,
-        ];
   } else {
     const actionCommands = mailCommandContext
       ? [
@@ -446,6 +431,11 @@ function CommandPaletteContent({
                           <command.icon className="mr-2 h-4 w-4" />
                         )}
                         <span className="flex-1">{command.label}</span>
+                        {command.description && (
+                          <span className="ml-3 shrink-0 text-xs text-muted-foreground">
+                            {command.description}
+                          </span>
+                        )}
                         {command.shortcut && (
                           <CommandShortcut>{command.shortcut}</CommandShortcut>
                         )}
