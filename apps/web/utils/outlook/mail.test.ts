@@ -435,6 +435,50 @@ describe("sendEmailWithHtml", () => {
     });
   });
 
+  it("sends the forward outside its conversation when the source is gone", async () => {
+    const createForwardPost = vi.fn(async () => {
+      throw Object.assign(new Error("Item not found"), {
+        code: "ErrorItemNotFound",
+      });
+    });
+    const draftPost = vi.fn(
+      async () =>
+        ({ id: "draft-1", conversationId: "conversation-2" }) as Message,
+    );
+    const sendPost = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1/createForward")
+        return { post: createForwardPost };
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const result = await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Fwd: Subject",
+        messageHtml: "<p>Passing this on</p>",
+        replyToEmail: {
+          threadId: "conversation-1",
+          forwardedMessageId: "message-1",
+        },
+      },
+      createTestLogger(),
+    );
+
+    expect(draftPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Fwd: Subject",
+        body: { contentType: "html", content: "<p>Passing this on</p>" },
+      }),
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ id: "draft-1", conversationId: "conversation-2" });
+  });
+
   it("sends a forward as a new message when its source is unknown", async () => {
     const draftPost = vi.fn(
       async () =>
