@@ -174,8 +174,13 @@ function SnippetTableRow({
             }}
             title="Delete snippet"
             trigger={
-              <Button loading={isDeleting} size="sm" variant="outline">
-                <Trash2 className="h-4 w-4" />
+              <Button
+                aria-label={`Delete /${item.shortcut}`}
+                loading={isDeleting}
+                size="sm"
+                variant="outline"
+              >
+                <Trash2 aria-hidden="true" className="h-4 w-4" />
               </Button>
             }
           />
