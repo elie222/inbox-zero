@@ -6,7 +6,7 @@ export function useUser(enabled = true) {
   const { fetcher } = useSWRConfig();
   const swrResult = useSWR<UserResponse | { error: string }>(
     enabled ? "/api/user/me" : null,
-    fetcher ?? fetchUser,
+    fetcher ? {} : { fetcher: fetchUser },
   );
   const processed = processSWRResponse<UserResponse>(swrResult);
 
@@ -20,7 +20,7 @@ export function useUser(enabled = true) {
   return processed;
 }
 
-// Public pricing routes also need the session, without loading mailbox providers.
+// The upgrade page needs user data without loading mailbox providers.
 async function fetchUser(
   url: string,
 ): Promise<UserResponse | { error: string }> {
