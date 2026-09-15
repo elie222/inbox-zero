@@ -68,6 +68,7 @@ Unsubscribe from a sender, using the same `API-Key` header as above:
 
 ```bash
 curl -X POST "https://www.getinboxzero.com/api/v1/senders/unsubscribe" \
+  -H "API-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   --data '{ "senderEmail": "news@example.com" }'
 ```
