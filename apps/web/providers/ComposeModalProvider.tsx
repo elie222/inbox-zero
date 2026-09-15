@@ -58,7 +58,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             "fixed z-50 flex max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden bg-background p-0",
             isExpanded
               ? "inset-0 h-dvh w-screen rounded-none border-0 shadow-none"
-              : "bottom-3 left-auto right-3 top-auto h-[min(42rem,calc(100dvh-1.5rem))] w-[calc(100vw-1.5rem)] rounded-xl border border-border shadow-2xl sm:bottom-4 sm:right-4 sm:w-[38rem]",
+              : "bottom-3 left-auto right-3 top-auto h-[min(42rem,calc(100dvh-1.5rem))] w-[calc(100vw-1.5rem)] origin-bottom-right rounded-xl border border-border shadow-2xl duration-200 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=open]:animate-in motion-reduce:animate-none sm:bottom-4 sm:right-4 sm:w-[38rem]",
           )}
           data-compose-expanded={isExpanded}
           hideCloseButton

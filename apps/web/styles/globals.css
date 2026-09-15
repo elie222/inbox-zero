@@ -50,6 +50,9 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
+    --shadow-border:
+      0px 0px 0px 1px oklch(0 0 0 / 0.06), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
+
     --chart-1: oklch(0.75 0.15 250);
     --chart-2: oklch(0.65 0.18 250);
     --chart-3: oklch(0.55 0.2 250);
@@ -92,6 +95,7 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 240 4.9% 83.9%;
+    --shadow-border: 0 0 0 1px oklch(1 0 0 / 0.08);
   }
 }
 
@@ -146,6 +150,10 @@
     --sidebar-accent-foreground: 0 0% 14.1%; /* #242424 */
     --sidebar-border: 0 0% 93.7%;
     --sidebar-ring: 221.2 83.2% 53.3%;
+
+    /* Elevation ring for selected rows — transparent so it sits on any fill */
+    --shadow-border:
+      0px 0px 0px 1px oklch(0 0 0 / 0.06), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
   }
 
   :root[data-theme="mail"].dark {
@@ -189,6 +197,8 @@
     --sidebar-accent-foreground: 220 8% 95%;
     --sidebar-border: 220 6% 20%; /* #303236 */
     --sidebar-ring: 213.1 93.9% 67.8%;
+
+    --shadow-border: 0 0 0 1px oklch(1 0 0 / 0.08);
   }
 }
 

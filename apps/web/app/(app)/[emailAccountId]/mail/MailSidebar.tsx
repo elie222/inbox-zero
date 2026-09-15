@@ -246,7 +246,7 @@ export function MailSidebar({
             size="icon"
             onClick={onCompose}
             aria-label="Compose"
-            className="mb-3.5 size-10 shrink-0 self-center rounded-xl"
+            className="mb-3.5 size-10 shrink-0 self-center rounded-xl transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:active:scale-100"
           >
             <PenLineIcon className="size-4" />
           </Button>
@@ -255,7 +255,7 @@ export function MailSidebar({
         <Button
           variant="gradient"
           onClick={onCompose}
-          className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
+          className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl ps-2.5 pe-3 transition-[transform,box-shadow] duration-150 ease-out active:scale-[0.96] motion-reduce:active:scale-100"
         >
           <PenLineIcon className="size-4 shrink-0" />
           <span className="flex-1 text-left">Compose</span>
@@ -647,7 +647,7 @@ function NavRow({
       : "gap-2.5 px-2.5 py-1.5",
     nested && "pl-7",
     active
-      ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]"
+      ? "bg-card font-medium text-foreground shadow-[var(--shadow-border)]"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
   );
   const content = collapsed ? (
@@ -666,7 +666,7 @@ function NavRow({
       {count !== null && (
         <span
           className={cn(
-            "shrink-0 text-xs",
+            "shrink-0 text-xs tabular-nums",
             emphasizeCount
               ? "rounded-full bg-primary/10 px-1.5 py-px font-medium text-primary"
               : "text-sidebar-muted-foreground",
