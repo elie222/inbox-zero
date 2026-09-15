@@ -139,6 +139,74 @@ describe("sending a Gmail draft from the reader", () => {
     expect(drafts.send).not.toHaveBeenCalled();
   });
 
+  it("carries the attachments of the message being forwarded", async () => {
+    const { gmail, messages } = createGmail();
+    messages.get.mockResolvedValue({
+      data: {
+        id: "forwarded-message",
+        payload: {
+          mimeType: "multipart/mixed",
+          parts: [
+            { mimeType: "text/html", body: { data: "" } },
+            {
+              mimeType: "application/pdf",
+              filename: "report.pdf",
+              headers: [
+                {
+                  name: "Content-Disposition",
+                  value: 'attachment; filename="report.pdf"',
+                },
+              ],
+              body: { attachmentId: "attachment-1", size: 12 },
+            },
+          ],
+        },
+      },
+    });
+
+    await sendEmailWithHtml(gmail, {
+      to: "recipient@example.com",
+      subject: "Fwd: Question",
+      messageHtml: "<p>Passing this on</p>",
+      replyToEmail: {
+        threadId: "thread-1",
+        forwardedMessageId: "forwarded-message",
+      },
+    });
+
+    expect(messages.attachments.get).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "attachment-1",
+        messageId: "forwarded-message",
+      }),
+    );
+    const raw = messages.send.mock.calls.at(0)?.[0].requestBody.raw;
+    const mime = Buffer.from(raw, "base64url").toString();
+    expect(mime).toContain("report.pdf");
+    expect(mime).toContain(Buffer.from("report bytes").toString("base64"));
+  });
+
+  it("still sends the forward when the message it quotes is gone", async () => {
+    const { gmail, messages } = createGmail();
+    messages.get.mockRejectedValue(
+      Object.assign(new Error("Requested entity was not found."), {
+        status: 404,
+      }),
+    );
+
+    await sendEmailWithHtml(gmail, {
+      to: "recipient@example.com",
+      subject: "Fwd: Question",
+      messageHtml: "<p>Passing this on</p>",
+      replyToEmail: {
+        threadId: "thread-1",
+        forwardedMessageId: "forwarded-message",
+      },
+    });
+
+    expect(messages.send).toHaveBeenCalledTimes(1);
+  });
+
   it("sends new messages without looking up a draft", async () => {
     const { gmail, drafts, messages } = createGmail();
 
@@ -155,6 +223,11 @@ function createGmail() {
   const messages = {
     get: vi.fn().mockResolvedValue({ data: { labelIds: ["DRAFT"] } }),
     send: vi.fn().mockResolvedValue(sent),
+    attachments: {
+      get: vi.fn().mockResolvedValue({
+        data: { data: Buffer.from("report bytes").toString("base64url") },
+      }),
+    },
   };
   const drafts = {
     list: vi.fn().mockResolvedValue({
