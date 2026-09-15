@@ -11,7 +11,7 @@ export function EmailDate({
   return (
     <div
       className={cn(
-        "flex-shrink-0 text-sm font-medium leading-5 text-muted-foreground",
+        "flex-shrink-0 text-sm font-medium leading-5 text-muted-foreground tabular-nums",
         className,
       )}
     >

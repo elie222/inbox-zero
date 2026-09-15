@@ -52,7 +52,7 @@ export function ReaderToolbar({
       <div className="flex items-center gap-1">
         <Button
           aria-label="Back to inbox"
-          className="h-7 w-7"
+          className="h-7 w-7 transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:active:scale-100"
           onClick={onBackToInbox}
           size="icon"
           title="Back to inbox"
@@ -108,7 +108,7 @@ export function ReaderToolbar({
                 ? "Collapse all messages"
                 : "Expand all messages"
             }
-            className="h-7 w-7"
+            className="h-7 w-7 transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:active:scale-100"
             size="icon"
             variant="ghost"
             onClick={messageExpansion.onToggleAll}
@@ -120,7 +120,12 @@ export function ReaderToolbar({
             )}
           </Button>
         )}
-        <Button onClick={onArchive} size="xs-2" variant="outline">
+        <Button
+          onClick={onArchive}
+          size="xs-2"
+          variant="outline"
+          className="transition-transform duration-150 ease-out active:scale-[0.96] motion-reduce:active:scale-100"
+        >
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
         </Button>
