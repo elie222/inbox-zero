@@ -404,6 +404,10 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
+  const toRecipients = buildGraphRecipients(body.to);
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
@@ -419,13 +423,9 @@ async function sendReplyUsingCreateReply(
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients: [{ emailAddress: { address: body.to } }],
-          ...(body.cc
-            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
-            : {}),
-          ...(body.bcc
-            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
-            : {}),
+          ...(toRecipients ? { toRecipients } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
         }),
     logger,
   );

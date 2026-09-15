@@ -49,6 +49,61 @@ describe("sendEmailWithHtml", () => {
     expect(api).not.toHaveBeenCalled();
   });
 
+  it("parses the recipients of a reply", async () => {
+    const createReplyPost = vi.fn(
+      async () =>
+        ({ id: "reply-1", conversationId: "conversation-1" }) as Message,
+    );
+    const patchDraft = vi.fn(async () => ({}));
+    const sendPost = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1/createReply")
+        return { post: createReplyPost };
+      if (path === "/me/messages/reply-1") return { patch: patchDraft };
+      if (path === "/me/messages/reply-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "Recipient Name <recipient@example.com>, second@example.com",
+        cc: "Copied Name <copied@example.com>",
+        subject: "Re: Subject",
+        messageHtml: "<p>Replying</p>",
+        replyToEmail: {
+          threadId: "conversation-1",
+          headerMessageId: "<message-1@example.com>",
+          messageId: "message-1",
+        },
+      },
+      createTestLogger(),
+    );
+
+    expect(patchDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [
+          {
+            emailAddress: {
+              address: "recipient@example.com",
+              name: "Recipient Name",
+            },
+          },
+          { emailAddress: { address: "second@example.com" } },
+        ],
+        ccRecipients: [
+          {
+            emailAddress: {
+              address: "copied@example.com",
+              name: "Copied Name",
+            },
+          },
+        ],
+      }),
+    );
+  });
+
   it("parses formatted recipients when sending a new draft", async () => {
     const draftPost = vi.fn(
       async () =>
