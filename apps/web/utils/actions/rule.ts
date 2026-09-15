@@ -1,5 +1,6 @@
 "use server";
 
+import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { revalidatePath } from "next/cache";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
@@ -9,6 +10,7 @@ import {
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
+  enableLearnFromLabelsBody,
   updateDraftReplyConfidenceBody,
   deleteRuleBody,
   createRulesOnboardingBody,
@@ -60,7 +62,7 @@ import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
-import { seedDefaultMailSplits } from "@/utils/mail/default-splits.server";
+import { setDefaultMailSplits } from "@/utils/mail/default-splits.server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -278,6 +280,22 @@ export const enableMultiRuleSelectionAction = actionClient
     });
   });
 
+export const enableLearnFromLabelsAction = actionClient
+  .metadata({ name: "enableLearnFromLabels" })
+  .inputSchema(enableLearnFromLabelsBody)
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
+      if (enable && !isGoogleProvider(provider)) {
+        throw new SafeError("Learn from labels is only available for Gmail");
+      }
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { learnFromLabels: enable },
+      });
+    },
+  );
+
 export const updateDraftReplyConfidenceAction = actionClient
   .metadata({ name: "updateDraftReplyConfidence" })
   .inputSchema(updateDraftReplyConfidenceBody)
@@ -486,9 +504,10 @@ export const createRulesOnboardingAction = actionClient
 
       try {
         const systemRules = await Promise.all(defaultSplitRulePromises);
-        await seedDefaultMailSplits({
+        await setDefaultMailSplits({
           emailAccountId,
-          rules: systemRules,
+          defaultSplits: getDefaultMailSplitDrafts(systemRules),
+          enabled: true,
         });
       } catch (error) {
         logger.error("Error creating default mail splits", { error });

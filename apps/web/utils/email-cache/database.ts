@@ -3,7 +3,7 @@ import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 8;
+const DATABASE_VERSION = 9;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -237,6 +237,10 @@ export function getEmailCacheDatabase() {
         mutations.createIndex("byBatch", "batchId");
         mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
         mutations.createIndex("byUpdatedAt", "updatedAt");
+      }
+      if (oldVersion < 9) {
+        // Older clients could retain details after their sync cursor had advanced.
+        transaction.objectStore("threadDetails").clear();
       }
       if (oldVersion < 8) {
         if (oldVersion >= 6)

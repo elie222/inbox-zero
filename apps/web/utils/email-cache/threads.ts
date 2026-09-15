@@ -10,6 +10,10 @@ import {
   getEmailCacheDatabase,
   isEmailCacheEpochCurrent,
 } from "./database";
+import {
+  getThreadCacheVersion,
+  canReadPersistedThread,
+} from "./thread-invalidation";
 import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
 
 export type CachedThreadDetail = {
@@ -24,12 +28,14 @@ export async function writeCachedThreadDetail({
   variant,
   data,
   now = Date.now(),
+  version = getThreadCacheVersion(emailAccountId, threadId),
 }: {
   emailAccountId: string;
   threadId: string;
   variant: string;
   data: ThreadResponse;
   now?: number;
+  version?: string;
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const sanitized = sanitizeThreadResponse(data);
@@ -38,7 +44,17 @@ export async function writeCachedThreadDetail({
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    await database.put("threadDetails", {
+    const transaction = database.transaction("threadDetails", "readwrite");
+    // Wait behind pending sync deletions before checking this response’s version.
+    await transaction.store.getKey([emailAccountId, threadId, variant]);
+    if (
+      !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
+      version !== getThreadCacheVersion(emailAccountId, threadId)
+    ) {
+      await transaction.done;
+      return;
+    }
+    await transaction.store.put({
       emailAccountId,
       threadId,
       variant,
@@ -47,6 +63,7 @@ export async function writeCachedThreadDetail({
       lastAccessedAt: now,
       byteSize,
     });
+    await transaction.done;
     scheduleEmailCacheCleanup();
   } catch {
     scheduleEmailCacheCleanup({ force: true });
@@ -63,6 +80,7 @@ export async function readCachedThreadDetail({
   threadId: string;
   variant: string;
 }): Promise<CachedThreadDetail | undefined> {
+  if (!canReadPersistedThread(emailAccountId, threadId)) return;
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
@@ -92,7 +110,11 @@ export async function readCachedThreadDetail({
       byteSize,
     });
     await transaction.done;
-    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+    if (
+      !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
+      !canReadPersistedThread(emailAccountId, threadId)
+    )
+      return;
     scheduleEmailCacheCleanup();
     return {
       data: sanitized,

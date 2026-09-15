@@ -55,7 +55,7 @@ export function useThread(
     request?.key ?? null,
     request && fetcher && id
       ? () =>
-          fetchThreadRequest(request, async () => {
+          fetchThreadRequest(request, async (version) => {
             if (
               !hasMatchingMemoryData &&
               !checkedPersistentCache.current.has(request.cacheIdentity)
@@ -79,6 +79,7 @@ export function useThread(
               emailAccountId,
               threadId: id,
               variant: request.variant,
+              version,
               data,
             });
             return data;

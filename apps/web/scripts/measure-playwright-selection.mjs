@@ -11,7 +11,7 @@ const appRoot = path.resolve(import.meta.dirname, "..");
 const mail = "apps/web/app/(app)/[emailAccountId]/mail/";
 const scenarios = {
   "Split tabs": [`${mail}SplitTabs.tsx`],
-  "Nested split picker": [`${mail}NewSplitPopover.tsx`],
+  "Nested split picker": [`${mail}NewSplitDialog.tsx`],
   "Sender profile": [`${mail}SenderContextPanel.tsx`],
   "Sender profile hook": [`${mail}use-public-contact-context.ts`],
   "Label picker": [`${mail}LabelPickerDialog.tsx`],

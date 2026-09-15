@@ -63,6 +63,24 @@ const sharedAppEntryFiles = [
   "app/(app)/[emailAccountId]/error.tsx",
 ];
 
+// Shared feature entry points have focused coverage; their imported foundations
+// still use the dependency graph's broad fallback.
+const sharedFeatureMappings = [
+  {
+    files: [
+      "components/CommandK.tsx",
+      "hooks/useCommandPaletteCommands.ts",
+      "store/command-palette.ts",
+    ],
+    targets: [
+      "mail/command-palette.spec.ts",
+      "mail/starring.spec.ts",
+      "mail/theme.spec.ts",
+      "settings/settings-dialog.spec.ts",
+    ],
+  },
+];
+
 const directSuiteMappings = [
   ["app/(redirects)/assistant/", ["chat"]],
   ["app/(redirects)/automation/", ["automation"]],
@@ -163,6 +181,7 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
     const { dependenciesBySuite, sharedDependencies } =
       getDependenciesBySuite(appRoot);
     const uncoveredFiles = [];
+    const focusedSharedFiles = [];
 
     for (const file of productFiles) {
       const directlyAffectedSuites = getDirectlyAffectedSuites(file.appPath);
@@ -173,6 +192,24 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
           reason: `${file.repoPath} was deleted or cannot be analyzed.`,
           targetFiles: [],
         };
+      }
+
+      const sharedFeature = sharedFeatureMappings.find(({ files }) =>
+        files.includes(file.appPath),
+      );
+      if (fileExists && sharedFeature) {
+        const featureTargets = sharedFeature.targets.map(
+          getPlaywrightTargetPath,
+        );
+        if (
+          featureTargets.every((target) =>
+            existsSync(path.join(appRoot, target)),
+          )
+        ) {
+          for (const target of featureTargets) targetFiles.add(target);
+          focusedSharedFiles.push(file.repoPath);
+          continue;
+        }
       }
 
       const affectedSuites = directlyAffectedSuites.length
@@ -207,11 +244,14 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
     const uncoveredReason = uncoveredFiles.length
       ? ` No emulated E2E area covers: ${uncoveredFiles.join(", ")}.`
       : "";
+    const sharedFeatureReason = focusedSharedFiles.length
+      ? ` Focused shared-feature coverage: ${focusedSharedFiles.join(", ")}.`
+      : "";
 
     return {
       runFullSuite: false,
       reason: targetFiles.size
-        ? `Selected E2E features and fallback areas from the pull request's changed files.${uncoveredReason}`
+        ? `Selected E2E features and fallback areas from the pull request's changed files.${sharedFeatureReason}${uncoveredReason}`
         : `The changed files do not affect emulated browser coverage.${uncoveredReason}`,
       targetFiles: [...targetFiles],
     };

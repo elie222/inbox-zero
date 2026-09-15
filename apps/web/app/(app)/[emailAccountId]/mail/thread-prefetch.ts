@@ -8,6 +8,7 @@ import {
   readCachedThreadDetail,
   writeCachedThreadDetail,
 } from "@/utils/email-cache/threads";
+import { getThreadCacheVersion } from "@/utils/email-cache/thread-invalidation";
 import { prepareEmailHtml } from "@/utils/email/prepare-html.client";
 
 /**
@@ -33,13 +34,14 @@ export async function prefetchThreadDetail({
     threadId,
     options: { includeDrafts: true },
   });
+  let version = getThreadCacheVersion(emailAccountId, threadId);
   const cached = await readCachedThreadDetail({
     emailAccountId,
     threadId,
     variant: request.variant,
   });
   if (isCancelled?.()) return;
-  if (cached) {
+  if (cached && version === getThreadCacheVersion(emailAccountId, threadId)) {
     await mutate<ThreadResponse>(
       request.key,
       (current) => current ?? cached.data,
@@ -55,9 +57,17 @@ export async function prefetchThreadDetail({
 
   const data = await fetchThreadRequest<ThreadResponse | undefined>(
     request,
-    async () => (await fetcher(request.key)) as ThreadResponse | undefined,
+    async (requestVersion) => {
+      version = requestVersion;
+      return (await fetcher(request.key)) as ThreadResponse | undefined;
+    },
   );
-  if (!data || isCancelled?.()) return;
+  if (
+    !data ||
+    isCancelled?.() ||
+    version !== getThreadCacheVersion(emailAccountId, threadId)
+  )
+    return;
   await mutate(request.key, data, {
     populateCache: true,
     revalidate: false,
@@ -68,6 +78,7 @@ export async function prefetchThreadDetail({
       emailAccountId,
       threadId,
       variant: request.variant,
+      version,
       data,
     }),
     prepareVisibleMessageHtml(data),

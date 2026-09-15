@@ -9,6 +9,7 @@ import {
   useRef,
 } from "react";
 import { SWRConfig, mutate, useSWRConfig } from "swr";
+import { connectThreadCacheInvalidation } from "@/utils/email-cache/thread-invalidation";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -191,6 +192,11 @@ function PersistedSwrCache() {
   const { cache, mutate: scopedMutate } = useSWRConfig();
   const { emailAccountId } = useAccount();
   const hydratedForRef = useRef<string | null>(null);
+
+  useEffect(
+    () => connectThreadCacheInvalidation(cache, scopedMutate),
+    [cache, scopedMutate],
+  );
 
   useEffect(() => {
     if (!emailAccountId || hydratedForRef.current === emailAccountId) return;

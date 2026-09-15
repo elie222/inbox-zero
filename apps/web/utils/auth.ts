@@ -1,3 +1,4 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -717,6 +718,12 @@ export async function handleLinkAccount(account: Account) {
         create: {
           ...data,
           email: normalizedEmail,
+          mailSplits: {
+            create: INITIAL_MAIL_SPLITS.map((split, order) => ({
+              ...split,
+              order,
+            })),
+          },
         },
         select: { id: true },
       }),

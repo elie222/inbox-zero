@@ -1,7 +1,10 @@
 import type { Logger } from "@/utils/logger";
 import type { EmailLabel, EmailLabels } from "@/providers/email-label-types";
 import type { ThreadListItem } from "@/utils/threads/load";
-import { mergePaginatedSources } from "@/utils/threads/merge-paginated-sources";
+import {
+  mergePaginatedSources,
+  type PageBuffer,
+} from "@/utils/threads/merge-paginated-sources";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 
 const ACCOUNT_CONCURRENCY = 4;
@@ -24,6 +27,7 @@ export async function loadCombinedThreads({
   limit,
   loadPage,
   logger,
+  pageBuffer,
 }: {
   accounts: CombinedThreadsAccount[];
   cursor: string | null;
@@ -37,10 +41,12 @@ export async function loadCombinedThreads({
     labels?: EmailLabel[];
   }>;
   logger: Logger;
+  pageBuffer?: PageBuffer<CombinedListThread, EmailLabel[]>;
 }) {
   const { items, metaBySourceId, failedSourceIds, nextPageToken } =
     await mergePaginatedSources({
       sources: accounts,
+      pageBuffer,
       cursor,
       limit,
       concurrency: ACCOUNT_CONCURRENCY,

@@ -6,11 +6,38 @@ import {
   clearEmailCacheForAccount,
   getEmailCacheDatabase,
 } from "./database";
+import {
+  getThreadCacheVersion,
+  invalidateThreadCaches,
+} from "./thread-invalidation";
 import { readCachedThreadDetail, writeCachedThreadDetail } from "./threads";
 
 describe("cached thread details", () => {
   beforeEach(async () => {
     await clearEmailCache();
+  });
+
+  it("does not persist a response from before thread invalidation", async () => {
+    const identity = {
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    };
+    const version = getThreadCacheVersion(
+      identity.emailAccountId,
+      identity.threadId,
+    );
+    invalidateThreadCaches({
+      emailAccountId: identity.emailAccountId,
+      threadIds: [identity.threadId],
+      reset: false,
+    });
+    await writeCachedThreadDetail({
+      ...identity,
+      version,
+      data: getThreadResponse({ textPlain: "stale" }),
+    });
+    await expect(readCachedThreadDetail(identity)).resolves.toBeUndefined();
   });
 
   it("isolates thread response variants", async () => {

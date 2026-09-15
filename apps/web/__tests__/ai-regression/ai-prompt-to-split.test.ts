@@ -87,8 +87,6 @@ describe.runIf(isAiTest)("aiPromptToSplit", () => {
     TIMEOUT,
   );
 
-  // The failure that motivated multi-label splits: a description spanning two
-  // of the user's labels used to come back as no match at all.
   it(
     "returns every label a description spans",
     async () => {

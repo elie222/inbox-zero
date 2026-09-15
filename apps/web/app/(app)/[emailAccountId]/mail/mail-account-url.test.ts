@@ -6,7 +6,7 @@ describe("getMailAccountUrl", () => {
     const url = new URL(
       getMailAccountUrl(
         "next-account",
-        "?accountScope=all&thread-id=thread&thread-account-id=previous-account&side-panel-thread-id=thread&labelId=label&type=label&layout=list&q=receipt",
+        "?accountScope=all&split=previous-account-split&thread-id=thread&thread-account-id=previous-account&side-panel-thread-id=thread&labelId=label&type=label&layout=list&q=receipt",
       ),
       "https://example.com",
     );

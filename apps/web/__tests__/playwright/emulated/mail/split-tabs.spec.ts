@@ -99,6 +99,7 @@ test("shows a combined picker and creates a matching split", async ({
   await expect(conversations.getByRole("option")).toHaveCount(1);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-created");
 
+  await page.getByRole("button", { name: "Manage splits" }).click();
   await page
     .getByRole("button", { name: "Remove the Promotions split" })
     .click();
@@ -197,6 +198,7 @@ test("builds one tab from several labels and names it", async ({
     conversationWithSubject(page, conversations, "Project Label Message"),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Manage splits" }).click();
   await page
     .getByRole("button", { name: "Remove the Two labels split" })
     .click();
@@ -222,6 +224,7 @@ for (const accountScope of ["single", "all"] as const) {
       exact: true,
     });
     await expect(split).toBeVisible();
+    await page.getByRole("button", { name: "Manage splits" }).click();
     await page
       .getByRole("button", { name: "Remove the Project Alpha split" })
       .click();
@@ -236,9 +239,11 @@ for (const accountScope of ["single", "all"] as const) {
           const response = await request.get("/api/mail/settings", {
             headers: { "X-Email-Account-ID": emailAccountId },
           });
-          return new Set((await response.json()).hiddenBuiltInSplits);
+          return (await response.json()).splits.some(
+            (split: { name: string }) => split.name === name,
+          );
         })
-        .toEqual(new Set(name === "All" ? ["all"] : ["all", "unread"]));
+        .toBe(false);
       await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
         0,
       );
@@ -256,9 +261,11 @@ for (const accountScope of ["single", "all"] as const) {
           const response = await request.get("/api/mail/settings", {
             headers: { "X-Email-Account-ID": emailAccountId },
           });
-          return new Set((await response.json()).hiddenBuiltInSplits);
+          return (await response.json()).splits.some(
+            (split: { name: string }) => split.name === name,
+          );
         })
-        .toEqual(new Set(name === "All" ? ["unread"] : []));
+        .toBe(true);
       await expect(
         page.getByRole("button", { name, exact: true }),
       ).toBeVisible();
@@ -274,3 +281,49 @@ for (const accountScope of ["single", "all"] as const) {
     }
   });
 }
+
+test("keeps removal in the dialog and persists tab order", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await expect(
+    page.getByRole("button", { name: /Remove the .* split/ }),
+  ).toHaveCount(0);
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThanOrEqual(2);
+  await page.getByRole("button", { name: "Manage splits" }).click();
+  const dialog = page.getByRole("dialog", { name: "Manage splits" });
+  await dialog
+    .getByRole("button", { name: `Move ${original[1]} up`, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: `Move ${original[1]} up`, exact: true }),
+  ).toBeDisabled();
+  await expect(dialog.getByRole("list")).toHaveAttribute("aria-busy", "false");
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-manage-splits");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(tabs.first()).toHaveText(original[1]);
+  await expect(tabs.filter({ hasText: original[0] })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await page.reload();
+  await expect(tabs.first()).toHaveText(original[1]);
+  await page.getByRole("button", { name: "Manage splits" }).click();
+  const rows = dialog.getByRole("listitem");
+  await rows.nth(1).locator("[data-drag-split]").dragTo(rows.first());
+  await expect(dialog.getByRole("list")).toHaveAttribute("aria-busy", "false");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(tabs).toHaveText(original);
+  await page.reload();
+  await expect(tabs).toHaveText(original);
+  await expect(
+    page.getByRole("listbox", { name: "Conversations" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-splits-clean-tab-bar",
+  );
+});

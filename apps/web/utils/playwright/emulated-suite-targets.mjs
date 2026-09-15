@@ -12,6 +12,23 @@ export function expandPlaywrightTargets(paths, appRoot) {
   }));
 }
 
+export function batchPlaywrightTargets(targets) {
+  const batchCount = Math.min(targets.length, 20);
+  const batches = Array.from({ length: batchCount }, (_, index) => ({
+    name:
+      targets.length <= batchCount ? targets[index].name : `batch-${index + 1}`,
+    paths: [],
+  }));
+  // Spread neighboring specs across runners so one large area cannot monopolize a job.
+  for (const [index, target] of targets.entries()) {
+    batches[index % batchCount].paths.push(target.path);
+  }
+  return batches.map((batch) => ({
+    ...batch,
+    timeoutMinutes: 4 + batch.paths.length * 8,
+  }));
+}
+
 /**
  * Result directories are named after the spec path with `/` encoded as `_s`.
  * Existing underscores double up first so the encoding stays reversible.

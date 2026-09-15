@@ -152,6 +152,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean              @default(false)
   multiRuleSelectionEnabled Boolean              @default(false)
+  learnFromLabels           Boolean              @default(false) // moving an email to a label teaches the sender -> label rule
   sensitiveDataPolicy       String?
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
   draftCleanupDays          Int?                 @default(14)
@@ -160,7 +161,6 @@ model EmailAccount {
 
   mailLayout          MailLayout @default(LIST)
   mailExpandedPreview Boolean    @default(false)
-  mailHiddenBuiltInSplits String[] @default([])
 
   includeInAllAccounts Boolean @default(true)
 
@@ -257,7 +257,7 @@ model MailSplit {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, name])
-  @@unique([emailAccountId, order])
+  @@index([emailAccountId, order])
 }
 
 model Organization {
