@@ -9,6 +9,10 @@ import {
   startMicrophoneLevelMeter,
 } from "@/utils/voice/recording";
 import { MAX_RECORDING_MS } from "@/utils/voice/limits";
+import {
+  clientVoiceApiError,
+  clientVoiceError,
+} from "@/utils/voice/client-error";
 
 export type VoiceDictationStatus =
   | "idle"
@@ -33,6 +37,7 @@ export function useVoiceDictation() {
   const stopMeterRef = useRef<(() => void) | null>(null);
   const timeoutRef = useRef<number>(0);
   const blobWaiterRef = useRef<Promise<Blob> | null>(null);
+  const stopInFlightRef = useRef<Promise<VoiceDictationResult> | null>(null);
   const activeRef = useRef(true);
 
   const cleanup = useCallback(() => {
@@ -101,56 +106,74 @@ export function useVoiceDictation() {
     } catch (err) {
       cleanup();
       setStatus("error");
-      setError(
-        err instanceof Error ? err.message : "Microphone access was blocked.",
-      );
+      setError(clientVoiceError(err, "Microphone access was blocked."));
     }
   }, [cleanup]);
 
-  const stop = useCallback(async (): Promise<VoiceDictationResult> => {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    const blob = (await blobWaiterRef.current) ?? new Blob();
-    blobWaiterRef.current = null;
-    cleanup();
-
-    if (!blob.size) {
-      setStatus("idle");
-      return { text: "", error: null };
-    }
-
-    setStatus("transcribing");
-    try {
-      const response = await fetchWithAccount({
-        url: "/api/voice/transcribe",
-        emailAccountId,
-        init: {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            audioBase64: await blobToBase64(blob),
-            mimeType: blob.type || "audio/webm",
-          }),
-        },
-      });
-      const body = (await response.json()) as { text?: string; error?: string };
-      if (!response.ok) {
-        throw new Error(body.error || "Could not transcribe that recording.");
+  const finishRecording =
+    useCallback(async (): Promise<VoiceDictationResult> => {
+      setStatus("transcribing");
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
       }
-      setStatus("idle");
-      return { text: (body.text ?? "").trim(), error: null };
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Could not transcribe that recording.";
-      setStatus("error");
-      setError(message);
-      return { text: "", error: message };
-    }
-  }, [cleanup, emailAccountId]);
+      const blob = (await blobWaiterRef.current) ?? new Blob();
+      blobWaiterRef.current = null;
+      cleanup();
+
+      if (!blob.size) {
+        setStatus("idle");
+        return { text: "", error: null };
+      }
+
+      try {
+        const response = await fetchWithAccount({
+          url: "/api/voice/transcribe",
+          emailAccountId,
+          init: {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              audioBase64: await blobToBase64(blob),
+              mimeType: blob.type || "audio/webm",
+            }),
+          },
+        });
+        const body = (await response.json()) as {
+          text?: string;
+          error?: string;
+        };
+        if (!response.ok) {
+          const message = clientVoiceApiError(
+            body,
+            "Could not transcribe that recording.",
+          );
+          setStatus("error");
+          setError(message);
+          return { text: "", error: message };
+        }
+        setStatus("idle");
+        return { text: (body.text ?? "").trim(), error: null };
+      } catch (err) {
+        const message = clientVoiceError(
+          err,
+          "Could not transcribe that recording.",
+        );
+        setStatus("error");
+        setError(message);
+        return { text: "", error: message };
+      }
+    }, [cleanup, emailAccountId]);
+
+  const stop = useCallback((): Promise<VoiceDictationResult> => {
+    if (stopInFlightRef.current) return stopInFlightRef.current;
+
+    const pending = finishRecording();
+    stopInFlightRef.current = pending;
+    return pending.finally(() => {
+      if (stopInFlightRef.current === pending) stopInFlightRef.current = null;
+    });
+  }, [finishRecording]);
 
   const cancel = useCallback(() => {
     cleanup();

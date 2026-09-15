@@ -1,7 +1,7 @@
 "use client";
 
 import { AudioLinesIcon, MicIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { VoiceOverlay } from "@/components/voice/VoiceOverlay";
@@ -11,7 +11,10 @@ import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import { useVoiceLive } from "@/hooks/useVoiceLive";
 import { useVoiceStatus } from "@/hooks/useVoiceStatus";
 import { cn } from "@/utils";
+import { createClientLogger } from "@/utils/logger-client";
 import type { LiveHistoryMessage } from "@/utils/voice/types";
+
+const logger = createClientLogger("voice-input");
 
 export function VoiceInput({
   liveEnabled = false,
@@ -31,12 +34,14 @@ export function VoiceInput({
   const dictation = useVoiceDictation();
   const live = useVoiceLive();
   const [mode, setMode] = useState<"dictation" | "live" | null>(null);
+  const finishingDictationRef = useRef(false);
 
   const canDictate = Boolean(voiceStatus.transcribe);
   const canLive = Boolean(liveEnabled && voiceStatus.live);
   const overlayOpen = mode !== null;
 
   const beginDictation = useCallback(async () => {
+    finishingDictationRef.current = false;
     setMode("dictation");
     analytics.captureAction("chat_voice_dictation_started", {
       live_available: canLive,
@@ -52,6 +57,8 @@ export function VoiceInput({
 
   const finishDictation = useCallback(
     async (submit: boolean) => {
+      if (finishingDictationRef.current) return;
+      finishingDictationRef.current = true;
       const { text, error } = await dictation.stop();
       setMode(null);
       if (error) {
@@ -163,7 +170,8 @@ export function VoiceInput({
 }
 
 function toastVoiceError(error: unknown, fallback: string) {
-  toastError({
-    description: error instanceof Error ? error.message : fallback,
+  logger.error("Voice UI error", {
+    error: error instanceof Error ? error.message : String(error),
   });
+  toastError({ description: fallback });
 }

@@ -16,6 +16,10 @@ import {
   type TranscriptFragment,
 } from "@/utils/voice/transcript";
 import type { LiveHistoryMessage } from "@/utils/voice/types";
+import {
+  clientVoiceApiError,
+  clientVoiceError,
+} from "@/utils/voice/client-error";
 
 export type VoiceLiveStatus = "idle" | "connecting" | "live" | "error";
 
@@ -137,9 +141,12 @@ export function useVoiceLive() {
           error?: string;
         };
         if (!response.ok || !body.sdp) {
-          throw new Error(
-            body.error || "Could not start a live voice session.",
+          cleanup();
+          setStatus("error");
+          setError(
+            clientVoiceApiError(body, "Could not start a live voice session."),
           );
+          return;
         }
         await connection.setRemoteDescription({
           type: "answer",
@@ -149,9 +156,7 @@ export function useVoiceLive() {
         cleanup();
         setStatus("error");
         setError(
-          err instanceof Error
-            ? err.message
-            : "Could not start a live voice session.",
+          clientVoiceError(err, "Could not start a live voice session."),
         );
       }
     },
