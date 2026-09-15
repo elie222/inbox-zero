@@ -332,7 +332,7 @@ export function TrainedSenderRow({
             <Badge variant="outline">Kept in inbox</Badge>
           </Tooltip>
         ) : null}
-        {sender.unsubscribed && (
+        {sender.unsubscribed && !unsubscribedOnly && (
           <Tooltip content="Unsubscribed. New mail from this sender is tagged and left in the inbox. Choose Inbox to lift this.">
             <Badge variant="outline" className="ml-1">
               Unsubscribed
