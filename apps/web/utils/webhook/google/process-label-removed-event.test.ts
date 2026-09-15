@@ -13,7 +13,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 import {
   isLearnFromLabelsEnabled,
-  unlearnSenderFromLabel,
+  keepSenderInInbox,
 } from "@/utils/rule/learn-from-label";
 
 const logger = createTestLogger();
@@ -90,7 +90,7 @@ vi.mock("@/utils/rule/consts", async (importOriginal) => {
 
 vi.mock("@/utils/rule/learn-from-label", () => ({
   isLearnFromLabelsEnabled: vi.fn().mockResolvedValue(false),
-  unlearnSenderFromLabel: vi.fn().mockResolvedValue(undefined),
+  keepSenderInInbox: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("process-label-removed-event", () => {
@@ -160,14 +160,13 @@ describe("process-label-removed-event", () => {
 
       await removeLabel();
 
-      expect(unlearnSenderFromLabel).toHaveBeenCalledWith(
+      expect(keepSenderInInbox).toHaveBeenCalledWith(
         expect.objectContaining({
           emailAccountId: "email-account-id",
-          labelId: "label-2",
           sender: "sender@example.com",
           messageId: "123",
           threadId: "thread-123",
-          ruleId: "rule-custom",
+          source: GroupItemSource.LABEL_REMOVED,
         }),
       );
     });
@@ -183,7 +182,7 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPattern).toHaveBeenCalledWith(
         expect.objectContaining({ ruleId: "rule-cold", exclude: true }),
       );
-      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
     });
 
     it("does nothing when the setting is off", async () => {
@@ -195,7 +194,7 @@ describe("process-label-removed-event", () => {
 
       await removeLabel();
 
-      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
     });
 
     it("does nothing when no rule uses the label", async () => {
@@ -203,7 +202,7 @@ describe("process-label-removed-event", () => {
 
       await removeLabel();
 
-      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
     });
 
     it("does not unlearn when the label came off because the mail was trashed", async () => {
@@ -214,7 +213,7 @@ describe("process-label-removed-event", () => {
 
       await removeLabel(["TRASH"]);
 
-      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
     });
 
     it("does not unlearn when the mail stayed archived", async () => {
@@ -225,7 +224,7 @@ describe("process-label-removed-event", () => {
 
       await removeLabel([]);
 
-      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
     });
   });
 

@@ -17,7 +17,7 @@ import {
 } from "@/utils/rule/consts";
 import {
   isLearnFromLabelsEnabled,
-  unlearnSenderFromLabel,
+  keepSenderInInbox,
 } from "@/utils/rule/learn-from-label";
 import {
   findRuleByLabelId,
@@ -166,13 +166,13 @@ async function learnFromRemovedLabel({
   const coveredAbove =
     !!rule?.systemType && shouldLearnFromLabelRemoval(rule.systemType);
   if (learnFromLabels && backInInbox && rule && sender && !coveredAbove) {
-    await unlearnSenderFromLabel({
+    await keepSenderInInbox({
       emailAccountId,
-      labelId,
       sender,
       messageId,
       threadId,
-      ruleId: rule.id,
+      reason: "Moved out of label by user",
+      source: GroupItemSource.LABEL_REMOVED,
       logger,
     });
   }

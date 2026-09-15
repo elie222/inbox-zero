@@ -2,14 +2,19 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
   isLearnFromLabelsEnabled,
   learnSenderFromLabel,
-  unlearnSenderFromLabel,
+  keepSenderInInbox,
 } from "./learn-from-label";
-import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  GroupItemSource,
+  GroupItemType,
+} from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
+import { setSenderStatus } from "@/utils/senders/unsubscribe";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
@@ -23,7 +28,12 @@ vi.mock("@/utils/prisma", () => ({
       findMany: vi.fn().mockResolvedValue([]),
     },
     action: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    groupItem: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   },
+}));
+
+vi.mock("@/utils/senders/unsubscribe", () => ({
+  setSenderStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/prisma-helpers", () => ({
@@ -223,32 +233,43 @@ describe("learn-from-label", () => {
     });
   });
 
-  describe("unlearnSenderFromLabel", () => {
-    it("excludes the sender from every enabled rule, the un-trained one first", async () => {
+  describe("keepSenderInInbox", () => {
+    it("clears the unsubscribe, drops training and excludes the sender from every enabled rule", async () => {
       vi.mocked(prisma.rule.findMany).mockResolvedValue([
         { id: "rule-a" },
-        { id: "rule-123" },
         { id: "rule-b" },
       ] as any);
 
-      await unlearnSenderFromLabel({
+      await keepSenderInInbox({
         emailAccountId: "email-account-id",
-        labelId: "Label_1",
         sender: "sender@example.com",
         messageId: "123",
         threadId: "thread-123",
-        ruleId: "rule-123",
+        reason: "Moved out of label by user",
+        source: GroupItemSource.LABEL_REMOVED,
         logger,
       });
 
+      expect(setSenderStatus).toHaveBeenCalledWith({
+        emailAccountId: "email-account-id",
+        senderEmail: "sender@example.com",
+        status: null,
+      });
+      expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          type: GroupItemType.FROM,
+          value: "sender@example.com",
+          exclude: false,
+          group: { emailAccountId: "email-account-id" },
+        },
+      });
       const ruleIds = vi
         .mocked(saveLearnedPattern)
         .mock.calls.map(([args]) => args.ruleId);
-      expect(ruleIds).toEqual(["rule-123", "rule-a", "rule-b"]);
+      expect(ruleIds).toEqual(["rule-a", "rule-b"]);
       for (const [args] of vi.mocked(saveLearnedPattern).mock.calls) {
         expect(args).toEqual(
           expect.objectContaining({
-            emailAccountId: "email-account-id",
             from: "sender@example.com",
             exclude: true,
             source: GroupItemSource.LABEL_REMOVED,

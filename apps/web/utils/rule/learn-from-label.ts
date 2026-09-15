@@ -1,4 +1,8 @@
-import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  GroupItemSource,
+  GroupItemType,
+} from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
@@ -6,6 +10,7 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
+import { setSenderStatus } from "@/utils/senders/unsubscribe";
 
 export async function isLearnFromLabelsEnabled(emailAccountId: string) {
   const emailAccount = await prisma.emailAccount.findUnique({
@@ -73,54 +78,57 @@ export async function learnSenderFromLabel({
 }
 
 /**
- * The user moved the email back to the inbox. That means "this sender stays
- * in the inbox", so the sender is excluded from every enabled rule - not just
- * the one whose label came off, or another rule would file the next email.
+ * "This sender stays in the inbox": dropped from any rule it was trained
+ * into, excluded from every enabled rule, and no longer treated as
+ * unsubscribed (which would otherwise tag their mail). Used both when the
+ * user moves an email back to the inbox and when they pick Inbox in the UI.
  */
-export async function unlearnSenderFromLabel({
+export async function keepSenderInInbox({
   emailAccountId,
-  labelId,
   sender,
+  reason,
+  source,
   messageId,
   threadId,
-  ruleId,
   logger,
 }: {
   emailAccountId: string;
-  labelId: string;
   sender: string;
-  messageId: string;
-  threadId: string;
-  ruleId: string;
+  reason: string;
+  source: GroupItemSource;
+  messageId?: string;
+  threadId?: string;
   logger: Logger;
 }) {
-  logger.info("Unlearning sender from user-removed label", {
-    labelId,
-    ruleId,
+  logger.info("Keeping sender in inbox", { reason });
+
+  await setSenderStatus({ emailAccountId, senderEmail: sender, status: null });
+
+  await prisma.groupItem.deleteMany({
+    where: {
+      type: GroupItemType.FROM,
+      value: sender,
+      exclude: false,
+      group: { emailAccountId },
+    },
   });
 
   const rules = await prisma.rule.findMany({
     where: { emailAccountId, enabled: true },
     select: { id: true },
   });
-  // The rule that was un-trained goes first so the exclusion that carries the
-  // message context is written even if a later one fails.
-  const ruleIds = [
-    ruleId,
-    ...rules.map((r) => r.id).filter((id) => id !== ruleId),
-  ];
 
-  for (const id of ruleIds) {
+  for (const rule of rules) {
     await saveLearnedPattern({
       emailAccountId,
       from: sender,
-      ruleId: id,
+      ruleId: rule.id,
       exclude: true,
       logger,
       messageId,
       threadId,
-      reason: "Moved out of label by user",
-      source: GroupItemSource.LABEL_REMOVED,
+      reason,
+      source,
     });
   }
 }
