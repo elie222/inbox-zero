@@ -52,6 +52,9 @@ for (const draftOnly of [false, true]) {
     await expect(editors.nth(0)).toContainText("First saved reply");
     await expect(editors.nth(1)).toContainText("Second saved reply");
     await editors.nth(0).fill("Independent first edit");
+    await expect(
+      page.getByText("First saved reply", { exact: true }),
+    ).toHaveCount(0);
     await expect(editors.nth(1)).toContainText("Second saved reply");
     await capturePlaywrightCheckpoint(
       page,

@@ -245,20 +245,21 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {message.textHtml ? (
-            <HtmlEmail
-              onForwardMessage={showReplyButton ? onForward : undefined}
-              onReplyMessage={showReplyButton ? onReply : undefined}
-              onNavigateMessage={onNavigateMessage}
-              onFocusMessage={onSelect}
-              emailAccountId={emailAccountId}
-              html={message.textHtml}
-              inlineAttachments={message.inline}
-              messageId={message.id}
-            />
-          ) : (
-            <PlainEmail text={message.textPlain || ""} />
-          )}
+          {!serverDrafts.some((draft) => draft.id === message.id) &&
+            (message.textHtml ? (
+              <HtmlEmail
+                onForwardMessage={showReplyButton ? onForward : undefined}
+                onReplyMessage={showReplyButton ? onReply : undefined}
+                onNavigateMessage={onNavigateMessage}
+                onFocusMessage={onSelect}
+                emailAccountId={emailAccountId}
+                html={message.textHtml}
+                inlineAttachments={message.inline}
+                messageId={message.id}
+              />
+            ) : (
+              <PlainEmail text={message.textPlain || ""} />
+            ))}
 
           {message.attachments && <EmailAttachments message={message} />}
 
