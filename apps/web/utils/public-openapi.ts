@@ -302,8 +302,8 @@ function createRegistry() {
     operationId: "unsubscribeSender",
     description:
       "Unsubscribe from a sender for the scoped inbox. Looks up List-Unsubscribe from that sender's mail when a link is not provided. Check unsubscribe.success: when it is false the sender was left unchanged.",
-    security: apiKeySecurity(["SENDERS_WRITE"]),
-    "x-required-scopes": ["SENDERS_WRITE"],
+    security: apiKeySecurity(["SENDERS_UNSUBSCRIBE"]),
+    "x-required-scopes": ["SENDERS_UNSUBSCRIBE"],
     request: {
       body: {
         required: true,

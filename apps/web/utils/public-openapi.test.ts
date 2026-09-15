@@ -35,7 +35,7 @@ describe("createPublicOpenApiDocument", () => {
         STATS_READ: expect.any(String),
         RULES_READ: expect.any(String),
         RULES_WRITE: expect.any(String),
-        SENDERS_WRITE: expect.any(String),
+        SENDERS_UNSUBSCRIBE: expect.any(String),
       },
     });
     expect(docs.components?.securitySchemes).not.toHaveProperty("ApiKeyScopes");
@@ -77,7 +77,7 @@ describe("createPublicOpenApiDocument", () => {
     ]);
     expect(docs.paths?.["/rules"]?.post?.responses?.["405"]).toBeTruthy();
     expect(docs.paths?.["/senders/unsubscribe"]?.post?.security).toEqual([
-      { ApiKeyAuth: ["SENDERS_WRITE"] },
+      { ApiKeyAuth: ["SENDERS_UNSUBSCRIBE"] },
     ]);
     expect(
       docs.paths?.["/senders/unsubscribe"]?.post?.requestBody?.required,

@@ -22,12 +22,12 @@
         "type": "apiKey",
         "in": "header",
         "name": "API-Key",
-        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox.\n- SENDERS_WRITE: Unsubscribe from senders for this inbox.",
+        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox.\n- SENDERS_UNSUBSCRIBE: Unsubscribe from senders for this inbox.",
         "x-scopes": {
           "RULES_READ": "List and inspect automation rules for this inbox.",
           "RULES_WRITE": "Create, update, and delete automation rules for this inbox.",
           "STATS_READ": "Read aggregated inbox statistics for this inbox.",
-          "SENDERS_WRITE": "Unsubscribe from senders for this inbox."
+          "SENDERS_UNSUBSCRIBE": "Unsubscribe from senders for this inbox."
         }
       }
     },
@@ -2235,12 +2235,12 @@
         "security": [
           {
             "ApiKeyAuth": [
-              "SENDERS_WRITE"
+              "SENDERS_UNSUBSCRIBE"
             ]
           }
         ],
         "x-required-scopes": [
-          "SENDERS_WRITE"
+          "SENDERS_UNSUBSCRIBE"
         ],
         "requestBody": {
           "required": true,

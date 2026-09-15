@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ApiKeyScope" ADD VALUE 'SENDERS_UNSUBSCRIBE';

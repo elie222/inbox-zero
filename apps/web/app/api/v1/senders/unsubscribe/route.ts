@@ -18,7 +18,7 @@ export const DELETE = createPublicApiMethodNotAllowedHandler(["POST"]);
 
 export const POST = withAccountApiKey(
   "v1/senders/unsubscribe",
-  ["SENDERS_WRITE"],
+  ["SENDERS_UNSUBSCRIBE"],
   async (request) => {
     const { emailAccountId, provider } = request.apiAuth;
     const body = unsubscribeSenderRequestSchema.parse(
