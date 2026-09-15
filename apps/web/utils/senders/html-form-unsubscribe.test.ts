@@ -104,6 +104,18 @@ describe("inspectUnsubscribeHtml confirmation detection", () => {
     expect(result.kind).toBe("simple_form");
   });
 
+  it("does not treat a prospective or conditional state as completed", () => {
+    expect(
+      isUnsubscribeAcknowledged("Click confirm to be no longer subscribed"),
+    ).toBe(false);
+    expect(
+      isUnsubscribeAcknowledged(
+        "If you are no longer subscribed but still receive mail, contact support.",
+      ),
+    ).toBe(false);
+    expect(isUnsubscribeAcknowledged("You are now unsubscribed.")).toBe(true);
+  });
+
   it("does not treat a confirmation prompt as a completed unsubscribe", () => {
     expect(
       isUnsubscribeAcknowledged(
@@ -138,6 +150,42 @@ describe("inspectUnsubscribeHtml form controls", () => {
     });
 
     expect(result.kind).toBe("unsupported");
+  });
+
+  it("omits buttons the user never activated", () => {
+    const result = inspectUnsubscribeHtml({
+      html: `<form action="/done" method="post">
+        <input type="hidden" name="t" value="abc">
+        <button type="button" name="action" value="cancel">Cancel</button>
+        <input type="button" name="dismiss" value="close">
+        <button type="submit" name="action" value="unsubscribe">Unsubscribe</button>
+      </form>`,
+      pageUrl: "https://example.com/unsub",
+    });
+
+    expect(result).toEqual({
+      kind: "simple_form",
+      form: {
+        method: "POST",
+        actionUrl: "https://example.com/done",
+        fields: [
+          { name: "t", value: "abc" },
+          { name: "action", value: "unsubscribe" },
+        ],
+      },
+    });
+  });
+
+  it("does not submit an image button it cannot send coordinates for", () => {
+    expect(
+      inspectUnsubscribeHtml({
+        html: `<form action="/done" method="post">
+          <input type="hidden" name="t" value="abc">
+          <input type="image" name="go" src="go.png" value="submitted">
+        </form>`,
+        pageUrl: "https://example.com/unsub",
+      }).kind,
+    ).toBe("unsupported");
   });
 
   it("keeps prefilled values and only fills an empty email field", () => {

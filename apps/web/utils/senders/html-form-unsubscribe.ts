@@ -1,16 +1,21 @@
 import * as cheerio from "cheerio";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
+// Every alternative must describe a completed action. A bare state like
+// "no longer subscribed" also reads as a condition ("if you are no longer
+// subscribed") or a promise ("to be no longer subscribed"), which would
+// confirm an unsubscribe that never happened.
 const CONFIRMATION =
-  /\b(successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|you are now unsubscribed|no longer subscribed|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
+  /\b(successfully (opted[- ]out|unsubscribed)|subscription (has been )?(removed|cancelled|canceled|deleted|ended)|you(?:'ve| have) been (removed|unsubscribed)|you are now unsubscribed|opt-?out (?:is |was )?complete|you have been removed from)\b/i;
 
+// No "image": a browser submits those as name.x/name.y coordinates, which we
+// cannot reproduce, so the form is left to the browser worker instead.
 const ALLOWED_INPUT_TYPES = new Set([
   "hidden",
   "email",
   "text",
   "submit",
   "button",
-  "image",
 ]);
 
 export type SimpleUnsubscribeForm = {
@@ -88,6 +93,9 @@ export function inspectUnsubscribeHtml({
     if (tag === "input" && !ALLOWED_INPUT_TYPES.has(type)) {
       return { kind: "unsupported" };
     }
+    // A browser never submits a button it did not activate, so sending these
+    // could hand the endpoint a "cancel" instead of the unsubscribe.
+    if (type === "button" || type === "reset") continue;
 
     const name = $control.attr("name");
     if (!name) continue;
