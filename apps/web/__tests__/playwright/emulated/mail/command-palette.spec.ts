@@ -71,8 +71,7 @@ test("Command K archives the open side-panel conversation through the durable ou
   await expect(archivedConversation).toHaveCount(1, { timeout: 60_000 });
   await page.keyboard.press(`${commandModifier}+KeyK`);
   const archiveCommand = page.getByRole("option", {
-    exact: true,
-    name: "Archive E",
+    name: /^Archive\b/,
   });
   await expect(archiveCommand).toBeVisible();
   await archiveCommand.click();
