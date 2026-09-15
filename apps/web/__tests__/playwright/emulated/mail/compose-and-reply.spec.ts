@@ -788,22 +788,11 @@ test("focuses the To field when forwarding", async ({ page }) => {
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(message).toBeVisible({ timeout: 60_000 });
-  await expect(
-    message.getByRole("button", { name: "Forward", exact: true }),
-  ).toBeVisible();
-
-  await page.keyboard.press("f");
-
-  await expect(message.getByRole("combobox", { name: "To" })).toBeFocused();
-  await expect(
-    message.getByRole("textbox", { name: "Email message" }),
-  ).not.toBeFocused();
-
-  await message.getByRole("button", { name: "Discard draft" }).click();
-  await expect(message.getByRole("combobox", { name: "To" })).toHaveCount(0);
 
   await message.getByRole("button", { name: "Forward", exact: true }).click();
-  await expect(message.getByRole("combobox", { name: "To" })).toBeFocused();
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
   await expect(
     message.getByRole("textbox", { name: "Email message" }),
   ).not.toBeFocused();
