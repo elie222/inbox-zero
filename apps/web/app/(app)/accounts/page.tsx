@@ -331,6 +331,13 @@ function getAccountErrorMessage(
       description: "This account is already linked to your profile.",
       toastDescription: "This account is already linked to your profile.",
     },
+    provider_sign_in_required: {
+      title: "Provider sign-in required",
+      description:
+        "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again.",
+      toastDescription:
+        "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again.",
+    },
     invalid_state: {
       title: "Invalid request",
       description: "The authentication request was invalid. Please try again.",

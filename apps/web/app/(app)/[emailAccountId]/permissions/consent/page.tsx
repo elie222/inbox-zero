@@ -25,10 +25,13 @@ export default function PermissionsConsentPage() {
         reconnectEmailAccountId: emailAccountId,
       });
       redirectToSafeUrl(url, { allowExternal: true });
-    } catch {
+    } catch (error) {
       toastError({
         title: "Error initiating reconnection",
-        description: "Please try again or contact support",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again or contact support",
       });
     } finally {
       setIsReconnecting(false);
