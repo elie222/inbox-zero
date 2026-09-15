@@ -62,11 +62,17 @@ export function Referrals({ source }: { source: ReferralSurface }) {
 
   const link = generateReferralLink(codeData?.code || "");
 
-  const copyToClipboard = async (text: string, type: "code" | "link") => {
-    posthog?.capture("Clicked Referral Surface", {
-      action: `copy_${type}`,
-      source,
-    });
+  const copyToClipboard = async (
+    text: string,
+    type: "code" | "link",
+    captureAction = true,
+  ) => {
+    if (captureAction) {
+      posthog?.capture("Clicked Referral Surface", {
+        action: `copy_${type}`,
+        source,
+      });
+    }
 
     try {
       await navigator.clipboard.writeText(text);
@@ -107,7 +113,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
         }
       }
     } else {
-      copyToClipboard(link, "link");
+      copyToClipboard(link, "link", false);
     }
   };
 
