@@ -60,12 +60,16 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
       to?: string;
       threadId?: string;
       forwardedMessageId?: string;
+      forwardedAttachments?: Array<{ filename: string }>;
     };
   }) => (
     <div
       data-testid="composer"
       data-thread-id={replyingToEmail?.threadId}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
+      data-forwarded-attachments={replyingToEmail?.forwardedAttachments
+        ?.map((attachment) => attachment.filename)
+        .join(",")}
     >
       <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
       <button onClick={onDiscard} type="button">
@@ -142,6 +146,8 @@ describe("EmailMessage forward", () => {
     expect(composer.dataset.threadId).toBe("thread-1");
     // Outlook needs the source message to keep the forward in its conversation.
     expect(composer.dataset.forwardedMessageId).toBe("message-1");
+    // The files travel with the forward, so the composer has to show them.
+    expect(composer.dataset.forwardedAttachments).toBe("report.pdf");
   });
 });
 
@@ -154,6 +160,19 @@ function createMessage(id: string) {
       subject: "Subject",
       to: "user@example.com",
     },
+    attachments: [
+      {
+        attachmentId: "attachment-1",
+        filename: "report.pdf",
+        mimeType: "application/pdf",
+        size: 1024,
+        headers: {
+          "content-description": "",
+          "content-id": "",
+          "content-transfer-encoding": "base64",
+        },
+      },
+    ],
     historyId: "history-1",
     id,
     inline: [],
