@@ -16,6 +16,7 @@ type ValidationResult =
       success: true;
       targetUserId: string;
       stateNonce: string;
+      reconnectEmailAccountId: string | null;
       code: string;
     }
   | {
@@ -60,6 +61,7 @@ export function validateOAuthCallback({
     success: true,
     targetUserId: stateValidation.targetUserId,
     stateNonce: stateValidation.stateNonce,
+    reconnectEmailAccountId: stateValidation.reconnectEmailAccountId,
     code,
   };
 }
@@ -81,6 +83,7 @@ function validateMatchingSignedOAuthState(params: {
       success: true;
       targetUserId: string;
       stateNonce: string;
+      reconnectEmailAccountId: string | null;
     }
   | {
       success: false;
@@ -102,9 +105,10 @@ function validateMatchingSignedOAuthState(params: {
   }
 
   try {
-    const payload = parseSignedOAuthState<{ userId: string }>(
-      params.storedState,
-    );
+    const payload = parseSignedOAuthState<{
+      userId: string;
+      reconnectEmailAccountId?: string;
+    }>(params.storedState);
 
     if (typeof payload.userId !== "string") {
       params.logger.error("Failed to decode OAuth callback state", {
@@ -120,6 +124,7 @@ function validateMatchingSignedOAuthState(params: {
       success: true,
       targetUserId: payload.userId,
       stateNonce: payload.nonce,
+      reconnectEmailAccountId: payload.reconnectEmailAccountId ?? null,
     };
   } catch (error) {
     params.logger.error("Failed to verify OAuth callback state", {
