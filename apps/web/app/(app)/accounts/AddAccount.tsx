@@ -31,7 +31,10 @@ export function AddAccount({
       console.error(`Error initiating ${provider} link:`, error);
       toastError({
         title: `Error initiating ${isGoogleProvider(provider) ? "Google" : "Microsoft"} link`,
-        description: "Please try again or contact support",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again or contact support",
       });
       setLoading(false);
     }
