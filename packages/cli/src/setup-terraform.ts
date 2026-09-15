@@ -56,6 +56,7 @@ const LLM_PROVIDER_OPTIONS = [
   { value: "google", label: "Google Gemini" },
   { value: "openrouter", label: "OpenRouter" },
   { value: "groq", label: "Groq" },
+  { value: "cerebras", label: "Cerebras" },
   { value: "aigateway", label: "AI Gateway" },
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "ollama", label: "Ollama (self-hosted)" },
@@ -516,6 +517,22 @@ async function getLlmSecrets(config: {
           : await promptRequiredText({
               message: "Groq API key:",
               placeholder: "gsk_...",
+            }));
+      if (config.nonInteractive) {
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
+      }
+      return { llmApiKey };
+    }
+    case "cerebras": {
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
+        process.env.CEREBRAS_API_KEY ||
+        (config.nonInteractive
+          ? ""
+          : await promptRequiredText({
+              message: "Cerebras API key:",
+              placeholder: "sk-...",
             }));
       if (config.nonInteractive) {
         assertNonEmpty("LLM_API_KEY", llmApiKey);

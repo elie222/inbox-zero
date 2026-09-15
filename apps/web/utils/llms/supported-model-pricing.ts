@@ -189,6 +189,16 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.59 / 1_000_000,
     output: 0.79 / 1_000_000,
   },
+  // https://inference-docs.cerebras.ai/models/qwen-3.8-27b
+  "qwen-3.8-27b": {
+    input: 0.99 / 1_000_000,
+    output: 1.49 / 1_000_000,
+  },
+  // https://inference-docs.cerebras.ai/api-reference/models/public-models
+  "gpt-oss-120b": {
+    input: 0.35 / 1_000_000,
+    output: 0.75 / 1_000_000,
+  },
 };
 
 // Source model ids to use when fetching OpenRouter pricing for our supported models.

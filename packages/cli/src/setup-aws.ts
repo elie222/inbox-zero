@@ -523,6 +523,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
         },
         { value: "bedrock", label: "AWS Bedrock" },
         { value: "groq", label: "Groq", hint: "fast inference" },
+        { value: "cerebras", label: "Cerebras", hint: "fast inference" },
       ],
     });
 
@@ -560,6 +561,9 @@ export async function runAwsSetup(options: AwsSetupOptions) {
         },
         groq: {
           url: "https://console.groq.com/keys",
+        },
+        cerebras: {
+          url: "https://cloud.cerebras.ai",
         },
       };
 

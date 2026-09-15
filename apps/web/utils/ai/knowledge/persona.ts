@@ -103,7 +103,7 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 1000 })}
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: personaAnalysisSchema,
   });

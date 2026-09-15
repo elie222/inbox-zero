@@ -142,7 +142,7 @@ describe("chat route rule freshness persistence", () => {
     mockCreateUIMessageStreamResponse.mockImplementation(async ({ stream }) => {
       const writer = { write: vi.fn() };
       await stream.execute({ writer });
-      await stream.onFinish({ messages: streamState.finishMessages });
+      await stream.onEnd({ messages: streamState.finishMessages });
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
 
@@ -502,9 +502,9 @@ describe("chat route rule freshness persistence", () => {
         provider: "openrouter",
         modelName: "test-model",
       });
-      await args.onStepFinish?.({ toolCalls: [{}, {}] });
-      await args.onStepFinish?.({ toolCalls: [{}] });
-      await args.onFinish?.({ finishReason: "stop" });
+      await args.onStepEnd?.({ toolCalls: [{}, {}] });
+      await args.onStepEnd?.({ toolCalls: [{}] });
+      await args.onEnd?.({ finishReason: "stop" });
 
       return createAssistantStreamResult();
     });
@@ -579,14 +579,14 @@ function createAssistantStreamResult({
 } = {}) {
   return {
     toUIMessageStream: ({
-      onFinish,
+      onEnd,
     }: {
-      onFinish?: (event: {
+      onEnd?: (event: {
         responseMessage: (typeof streamState.finishMessages)[number] | null;
       }) => void;
     }) =>
       (async function* () {
-        onFinish?.({
+        onEnd?.({
           responseMessage: finishMessage,
         });
         yield { type: "text-start", id: "part-1" };

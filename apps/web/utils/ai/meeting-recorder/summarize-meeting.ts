@@ -97,7 +97,7 @@ export async function aiSummarizeMeeting({
 
   const result = await generateObject({
     ...modelOptions,
-    system: systemPrompt,
+    instructions: systemPrompt,
     prompt: buildMeetingSummaryModelInput({
       eventTitle,
       attendees,

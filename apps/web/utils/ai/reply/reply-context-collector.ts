@@ -119,7 +119,7 @@ ${getTodayForLLM()}`;
 
     await generateText({
       ...modelOptions,
-      system: agentSystem,
+      instructions: agentSystem,
       prompt,
       stopWhen: (result) =>
         result.steps.some((step) =>

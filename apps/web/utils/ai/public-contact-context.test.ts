@@ -137,7 +137,7 @@ describe("getPublicContactContext", () => {
     expect(request.prompt).toContain("acme.com");
     expect(request.prompt).not.toContain("Confidential acquisition");
     expect(request.prompt).not.toContain("owner@inboxzero.com");
-    expect(request.system).toContain("Do not include any email address");
+    expect(request.instructions).toContain("Do not include any email address");
     expect(request.providerOptions).toEqual({
       openrouter: { max_tool_calls: 1 },
     });

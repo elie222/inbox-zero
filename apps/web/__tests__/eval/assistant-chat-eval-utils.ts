@@ -104,7 +104,7 @@ export async function captureAssistantChatTrace({
     chatHasHistory,
     chatLastSeenRulesRevision,
     logger,
-    onStepFinish: async (step) => {
+    onStepEnd: async (step) => {
       steps.push(step);
 
       const { text, toolCalls } = step;

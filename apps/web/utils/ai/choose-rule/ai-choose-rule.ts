@@ -192,7 +192,7 @@ ${stringifyEmail(email, 500)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       reasoning: z
@@ -304,11 +304,11 @@ ${stringifyEmail(email, 500)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system: appendOllamaOnlySystemGuidance(
-      { system },
+    instructions: appendOllamaOnlySystemGuidance(
+      { instructions: system },
       modelOptions,
       OLLAMA_MULTI_RULE_SELECTION_GUIDANCE,
-    ).system,
+    ).instructions,
     prompt,
     schema: z.object({
       matchedRules: z

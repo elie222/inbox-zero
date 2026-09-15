@@ -174,7 +174,7 @@ export async function extractMemories({
   const result = await generateObject({
     ...modelOptions,
     schema: memoriesSchema,
-    system: MEMORY_EXTRACTION_SYSTEM_PROMPT,
+    instructions: MEMORY_EXTRACTION_SYSTEM_PROMPT,
     prompt,
   });
 

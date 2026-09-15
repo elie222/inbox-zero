@@ -119,7 +119,7 @@ export async function getPublicContactContext({
     const researchStartedAt = new Date();
     const result = await generateText({
       model: searchModelOptions.model,
-      system: `Research public professional information about an email sender.
+      instructions: `Research public professional information about an email sender.
 
 Use web search before answering. Return only facts supported by public web pages.
 Never use or return email contents, the Inbox Zero user's identity, relationship or communication history, private contact details, home addresses, family details, protected traits, personal social accounts, or unsupported inferences.

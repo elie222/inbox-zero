@@ -32,6 +32,7 @@ export const saveAiSettingsBody = z.object({
     Provider.AZURE,
     Provider.GOOGLE,
     Provider.GROQ,
+    Provider.CEREBRAS,
     Provider.OPENROUTER,
   ]),
   aiModel: z.string(),

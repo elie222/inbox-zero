@@ -70,7 +70,7 @@ Focus on practical, implementable solutions that improve email organization and 
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: actionableRecommendationsSchema,
   });

@@ -103,11 +103,11 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
   const result = await generateObject({
     ...modelOptions,
-    system: appendOllamaOnlySystemGuidance(
-      { system: getSystemPrompt({ allowDomainScope }) },
+    instructions: appendOllamaOnlySystemGuidance(
+      { instructions: getSystemPrompt({ allowDomainScope }) },
       modelOptions,
       getOllamaReplyMemoryGuidance({ allowDomainScope }),
-    ).system,
+    ).instructions,
     prompt,
     schema: isOllamaProvider(modelOptions.provider)
       ? ollamaReplyMemorySchema

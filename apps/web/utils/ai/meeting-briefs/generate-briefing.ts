@@ -114,13 +114,13 @@ export async function aiGenerateMeetingBriefing({
   try {
     await generateText({
       ...modelOptions,
-      system: AGENTIC_SYSTEM_PROMPT,
+      instructions: AGENTIC_SYSTEM_PROMPT,
       prompt,
       stopWhen: (stepResult) =>
         stepResult.steps.some((step) =>
           step.toolCalls?.some((call) => call.toolName === "finalizeBriefing"),
         ) || stepResult.steps.length > MAX_AGENT_STEPS,
-      onStepFinish: async ({ toolCalls }) => {
+      onStepEnd: async ({ toolCalls }) => {
         if (toolCalls.length > 0) {
           logger.info("Tool calls", {
             tools: toolCalls.map((call) => call.toolName),

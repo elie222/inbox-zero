@@ -94,7 +94,7 @@ Return the analysis as a JSON array of objects.`;
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       summaries: z

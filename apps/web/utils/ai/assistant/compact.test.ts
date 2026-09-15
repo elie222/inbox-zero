@@ -179,7 +179,7 @@ describe("chat compaction", () => {
     ]);
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining(
+        instructions: expect.stringContaining(
           "Extract only durable insights that the user directly stated",
         ),
         prompt: expect.stringContaining("<user_messages>"),

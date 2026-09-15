@@ -150,6 +150,7 @@ function getApiKeyForProvider(provider: string): string | null {
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,
     groq: process.env.GROQ_API_KEY,
+    cerebras: process.env.CEREBRAS_API_KEY,
     [Provider.AZURE_FOUNDRY]: process.env.AZURE_FOUNDRY_API_KEY,
     "openai-compatible": process.env.LLM_API_KEY || "not-required",
     ollama: "ollama-local",

@@ -165,6 +165,7 @@ export function generateEnvFile(config: {
     openrouter: "OPENROUTER_API_KEY",
     aigateway: "AI_GATEWAY_API_KEY",
     groq: "GROQ_API_KEY",
+    cerebras: "CEREBRAS_API_KEY",
   };
   const legacyApiKeyName = legacyProviderApiKeyMap[llmProvider];
   setValue(
@@ -183,6 +184,8 @@ export function generateEnvFile(config: {
   } else if (llmProvider === "openai-compatible") {
     setValue("OPENAI_COMPATIBLE_BASE_URL", env.OPENAI_COMPATIBLE_BASE_URL);
     setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
+  } else if (llmProvider === "cerebras") {
+    setValue("CEREBRAS_API_KEY", env.CEREBRAS_API_KEY || env.LLM_API_KEY);
   }
 
   return content;
@@ -204,6 +207,7 @@ const SENSITIVE_KEYS = new Set([
   "OPENROUTER_API_KEY",
   "AI_GATEWAY_API_KEY",
   "GROQ_API_KEY",
+  "CEREBRAS_API_KEY",
   "BEDROCK_ACCESS_KEY",
   "BEDROCK_SECRET_KEY",
   "AUTH_SECRET",

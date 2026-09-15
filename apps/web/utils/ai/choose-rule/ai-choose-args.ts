@@ -113,7 +113,7 @@ export async function aiGenerateArgs({
     () =>
       generateObject({
         ...modelOptions,
-        system,
+        instructions: system,
         prompt,
         schemaDescription: "The arguments for the rule",
         schema: z.object(

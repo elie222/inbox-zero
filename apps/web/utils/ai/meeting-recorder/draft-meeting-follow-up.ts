@@ -66,7 +66,7 @@ export async function aiDraftMeetingFollowUp(
 
   const result = await generateObject({
     ...modelOptions,
-    system: systemPrompt,
+    instructions: systemPrompt,
     prompt: buildMeetingFollowUpModelInput(input),
     schema: draftSchema,
   });

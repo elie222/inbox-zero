@@ -102,7 +102,7 @@ export async function aiExtractRelevantKnowledge({
 
     const result = await generateObject({
       ...modelOptions,
-      system,
+      instructions: system,
       prompt,
       schema: extractionSchema,
     });

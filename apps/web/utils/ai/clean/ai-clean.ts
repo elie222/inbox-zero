@@ -104,7 +104,7 @@ The current date is ${currentDate}.
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema,
   });

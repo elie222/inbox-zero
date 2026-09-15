@@ -160,7 +160,7 @@ Based on the full thread context above, determine the current status of this thr
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema,
   });
