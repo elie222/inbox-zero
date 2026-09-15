@@ -96,9 +96,11 @@ for (const draftOnly of [false, true]) {
         .nth(0)
         .click();
       await expect(editors).toHaveCount(1);
-      await expect.poll(() => discards).toBe(2);
+      // Server Actions dispatch sequentially even though both drafts close optimistically.
+      await expect.poll(() => discards).toBe(1);
       pendingDiscards[0].resolve();
       await expect(editors).toHaveCount(2);
+      await expect.poll(() => discards).toBe(2);
       pendingDiscards[1].resolve();
       await expect(editors).toHaveCount(3);
       await expect(editors.nth(0)).toContainText("Independent first edit");
