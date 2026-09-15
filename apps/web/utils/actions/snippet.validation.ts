@@ -15,7 +15,6 @@ const snippetShortcutSchema = z
 
 export const createSnippetBody = z.object({
   content: z.string().trim().min(1, "Content is required").max(10_000),
-  name: z.string().trim().min(1, "Name is required").max(80),
   shortcut: snippetShortcutSchema,
 });
 export type CreateSnippetBody = z.infer<typeof createSnippetBody>;
@@ -23,7 +22,6 @@ export type CreateSnippetBody = z.infer<typeof createSnippetBody>;
 export const updateSnippetBody = z.object({
   content: z.string().trim().min(1, "Content is required").max(10_000),
   id: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required").max(80),
   shortcut: snippetShortcutSchema,
 });
 export type UpdateSnippetBody = z.infer<typeof updateSnippetBody>;

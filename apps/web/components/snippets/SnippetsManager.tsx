@@ -33,6 +33,7 @@ import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSnippets } from "@/hooks/useSnippets";
 import { deleteSnippetAction } from "@/utils/actions/snippet";
+import { snippetPreview } from "@/utils/snippets/match-snippets";
 import type { GetSnippetsResponse } from "@/app/api/user/snippets/route";
 
 type SnippetItem = GetSnippetsResponse["snippets"][number];
@@ -87,8 +88,8 @@ export function SnippetsManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
                 <TableHead>Shortcut</TableHead>
+                <TableHead>Content</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -143,8 +144,10 @@ function SnippetTableRow({
 
   return (
     <TableRow>
-      <TableCell>{item.name}</TableCell>
-      <TableCell>/{item.shortcut}</TableCell>
+      <TableCell className="w-32 font-medium">/{item.shortcut}</TableCell>
+      <TableCell className="max-w-0 truncate text-muted-foreground">
+        {snippetPreview(item.content)}
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           <Button onClick={onEdit} size="sm" variant="outline">

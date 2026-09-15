@@ -17,7 +17,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     select: {
       content: true,
       id: true,
-      name: true,
       shortcut: true,
       updatedAt: true,
     },

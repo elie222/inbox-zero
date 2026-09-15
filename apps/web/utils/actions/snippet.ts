@@ -14,16 +14,12 @@ export const createSnippetAction = actionClient
   .metadata({ name: "createSnippet" })
   .inputSchema(createSnippetBody)
   .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { content, name, shortcut },
-    }) => {
+    async ({ ctx: { emailAccountId }, parsedInput: { content, shortcut } }) => {
       try {
         const snippet = await prisma.snippet.create({
           data: {
             content,
             emailAccountId,
-            name,
             shortcut,
           },
         });
@@ -43,12 +39,12 @@ export const updateSnippetAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { content, id, name, shortcut },
+      parsedInput: { content, id, shortcut },
     }) => {
       try {
         const { count } = await prisma.snippet.updateMany({
           where: { emailAccountId, id },
-          data: { content, name, shortcut },
+          data: { content, shortcut },
         });
         if (count === 0) throw new SafeError("Snippet not found");
       } catch (error) {

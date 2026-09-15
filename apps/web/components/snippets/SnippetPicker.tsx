@@ -13,6 +13,7 @@ import { cn } from "@/utils";
 import {
   filterSnippets,
   initialSnippetSelectionIndex,
+  snippetPreview,
   type SnippetMatchItem,
 } from "@/utils/snippets/match-snippets";
 
@@ -169,8 +170,4 @@ function PickerRow({
       {children}
     </button>
   );
-}
-
-function snippetPreview(content: string): string {
-  return content.replace(/\s+/g, " ").trim();
 }

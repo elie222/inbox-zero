@@ -8,19 +8,16 @@ import {
 const snippets: SnippetMatchItem[] = [
   {
     id: "1",
-    name: "Thanks",
     shortcut: "thanks",
     content: "Thanks for taking the time.",
   },
   {
     id: "2",
-    name: "Availability",
     shortcut: "avail",
     content: "I am free Thursday afternoon.",
   },
   {
     id: "3",
-    name: "Follow up",
     shortcut: "followup",
     content: "Checking in on the notes from last week.",
   },
@@ -39,7 +36,7 @@ describe("filterSnippets", () => {
     ).toEqual(["thanks"]);
   });
 
-  it("matches name and body text", () => {
+  it("matches body text", () => {
     expect(
       filterSnippets(snippets, "thursday").map((snippet) => snippet.shortcut),
     ).toEqual(["avail"]);

@@ -46,12 +46,10 @@ export function SnippetForm({
       ? {
           content: editingItem.content,
           id: editingItem.id,
-          name: editingItem.name,
           shortcut: editingItem.shortcut,
         }
       : {
           content: initialValues?.content ?? "",
-          name: initialValues?.name ?? "",
           shortcut: initialValues?.shortcut ?? "",
         },
   });
@@ -61,14 +59,12 @@ export function SnippetForm({
       reset({
         content: editingItem.content,
         id: editingItem.id,
-        name: editingItem.name,
         shortcut: editingItem.shortcut,
       });
       return;
     }
     reset({
       content: initialValues?.content ?? "",
-      name: initialValues?.name ?? "",
       shortcut: initialValues?.shortcut ?? "",
     });
   }, [editingItem, initialValues, reset]);
@@ -98,13 +94,6 @@ export function SnippetForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-      <Input
-        error={errors.name}
-        label="Name"
-        name="name"
-        registerProps={register("name")}
-        type="text"
-      />
       <Input
         error={errors.shortcut}
         label="Shortcut"

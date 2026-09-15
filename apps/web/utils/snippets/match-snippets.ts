@@ -1,7 +1,6 @@
 export type SnippetMatchItem = {
   content: string;
   id: string;
-  name: string;
   shortcut: string;
 };
 
@@ -48,13 +47,16 @@ export function normalizeSnippetQuery(query: string): string {
   return query.trim().replace(/^\/+/, "").toLowerCase();
 }
 
+export function snippetPreview(content: string): string {
+  return content.replace(/\s+/g, " ").trim();
+}
+
 function matchesSnippetQuery(
   snippet: SnippetMatchItem,
   query: string,
 ): boolean {
   return (
     snippet.shortcut.includes(query) ||
-    snippet.name.toLowerCase().includes(query) ||
     snippet.content.toLowerCase().includes(query)
   );
 }
@@ -63,6 +65,5 @@ function snippetMatchRank(snippet: SnippetMatchItem, query: string): number {
   if (!query) return 1;
   if (snippet.shortcut === query) return 0;
   if (snippet.shortcut.startsWith(query)) return 1;
-  if (snippet.name.toLowerCase().startsWith(query)) return 2;
-  return 3;
+  return 2;
 }

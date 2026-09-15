@@ -77,7 +77,6 @@ export function useComposeSnippets({
         defaults: {
           content:
             defaults?.content ?? editorRef.current?.getSelectedText() ?? "",
-          name: defaults?.name ?? defaults?.shortcut ?? "",
           shortcut: defaults?.shortcut ?? "",
         },
         insertOnCreate: options?.insertOnCreate ?? false,
@@ -99,7 +98,6 @@ export function useComposeSnippets({
         onCreate: ({ shortcut }) => {
           openCreateRef.current(
             {
-              name: shortcut,
               shortcut,
             },
             { insertOnCreate: true },

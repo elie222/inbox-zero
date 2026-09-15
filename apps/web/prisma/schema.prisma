@@ -1192,7 +1192,6 @@ model Snippet {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  name      String
   shortcut  String
   content   String
 
