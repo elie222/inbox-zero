@@ -2,9 +2,6 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("translate-email");
 
 const MAX_TEXT_LENGTH = 30_000;
 
@@ -29,7 +26,7 @@ export async function aiTranslateEmails({
   const system = `You are a precise email translator.
 Translate each provided text into the target language identified by the BCP 47 language tag.
 Return only translations — no commentary, preface, or explanation.
-Preserve the original formatting as much as possible (markdown, line breaks, bullet points, links, and whitespace structure).
+Preserve each input's line-by-line structure exactly: keep every line break, blank line, list marker, link, and indentation in the same position, and translate only the human-language text within that structure.
 Keep proper nouns, email addresses, URLs, and code-like tokens unchanged when translating would break them.
 If a text is empty or only whitespace, return an empty string for that entry.
 The translations array must have the same length and order as the input texts.`;
@@ -59,27 +56,26 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     schema: translationSchema(texts.length),
   });
 
-  const translations = result.object.translations;
-
-  if (translations.length !== texts.length) {
-    logger.error("Translation count mismatch", {
-      expected: texts.length,
-      actual: translations.length,
-      targetLanguage,
-    });
-    throw new Error(
-      `Expected ${texts.length} translations, received ${translations.length}`,
-    );
-  }
-
-  return translations;
+  return result.object.translations.map((translation, index) =>
+    texts[index].trim() ? translation : "",
+  );
 }
 
 function translationSchema(textCount: number) {
   return z.object({
     translations: z
       .array(z.string())
-      .length(textCount)
+      // `.length()` compiles to JSON Schema minItems/maxItems, which OpenRouter
+      // still forwards. superRefine keeps the check in Zod so generateObject
+      // can retry via TypeValidationError / NoObjectGeneratedError.
+      .superRefine((translations, ctx) => {
+        if (translations.length !== textCount) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Expected ${textCount} translations, received ${translations.length}`,
+          });
+        }
+      })
       .describe(
         "Translated texts in the same order and length as the input texts",
       ),
