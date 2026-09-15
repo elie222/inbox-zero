@@ -57,7 +57,7 @@ function renderReader({
       refetch={refetch}
       thread={null}
       threadId="thread-1"
-      userLabels={[]}
+      userLabels={{}}
     />,
   );
 }
