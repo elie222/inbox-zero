@@ -68,8 +68,8 @@ export function SnippetsManager() {
             <DialogTitle>
               {editingItem ? "Edit snippet" : "Add snippet"}
             </DialogTitle>
-            <DialogDescription>
-              Insert a snippet in a draft by typing / followed by its shortcut.
+            <DialogDescription className="sr-only">
+              {editingItem ? "Edit this snippet." : "Add a reusable snippet."}
             </DialogDescription>
           </DialogHeader>
           <SnippetForm

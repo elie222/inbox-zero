@@ -107,7 +107,6 @@ export function SnippetForm({
       />
       <Input
         error={errors.shortcut}
-        explainText="Type / then this shortcut in a draft to insert the snippet."
         label="Shortcut"
         leftText="/"
         name="shortcut"
@@ -117,7 +116,7 @@ export function SnippetForm({
       <Input
         autosizeTextarea
         error={errors.content}
-        explainText="Use {first_name}, {name}, or {email} to fill in the first recipient."
+        explainText="Use {first_name}, {name}, or {email} for the first recipient."
         label="Content"
         name="content"
         registerProps={register("content")}

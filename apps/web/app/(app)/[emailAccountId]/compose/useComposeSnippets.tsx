@@ -166,8 +166,8 @@ export function useComposeSnippets({
         >
           <DialogHeader>
             <DialogTitle>Save snippet</DialogTitle>
-            <DialogDescription>
-              Insert it later by typing / followed by its shortcut.
+            <DialogDescription className="sr-only">
+              Save a reusable snippet.
             </DialogDescription>
           </DialogHeader>
           <SnippetForm
