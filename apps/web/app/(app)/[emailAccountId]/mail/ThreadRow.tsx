@@ -98,7 +98,9 @@ export const ThreadRow = memo(function ThreadRow({
   const isUnread = isThreadUnread(thread.messages);
   const isStarred = isThreadStarred(thread.messages);
   // Both providers normalise to this id, so this is not a provider branch.
-  const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
+  const isDraft = thread.messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.DRAFT),
+  );
   const isWide = layout === "list" && !compact;
 
   const messageCount = thread.messages.length;

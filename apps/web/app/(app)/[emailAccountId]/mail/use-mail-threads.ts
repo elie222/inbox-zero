@@ -513,6 +513,7 @@ export function useMailThreads({
       }
     }, [data, setSize, viewIdentity]),
     optimisticallyUpdateThreads,
+    refetch: mutate,
   };
 }
 
