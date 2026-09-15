@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
-import { Loader2Icon, MailIcon } from "lucide-react";
+import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
@@ -18,6 +18,8 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
+import { getSWRFetchErrorMessage } from "@/providers/swr-error";
+import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
@@ -110,6 +112,7 @@ export function ThreadReader({
         <LoadingContent
           error={error}
           loading={loading}
+          errorComponent={<ThreadReaderError error={error} onRetry={refetch} />}
           loadingComponent={
             <Loader2Icon
               aria-label="Loading email"
@@ -202,6 +205,34 @@ export function ThreadReader({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Loading a thread can fail for reasons the reader can recover from, such as a
+ * message that the provider has not made readable yet, so this offers a retry
+ * instead of the generic app-wide error screen.
+ */
+function ThreadReaderError({
+  error,
+  onRetry,
+}: {
+  error: ThreadReaderProps["error"];
+  onRetry: () => void;
+}) {
+  return (
+    <>
+      <AlertCircleIcon className="size-6 text-muted-foreground" />
+      <div className="text-foreground text-sm">
+        Couldn't open this conversation
+      </div>
+      <div className="text-muted-foreground text-xs">
+        {getSWRFetchErrorMessage(error?.info)}
+      </div>
+      <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">
+        Try again
+      </Button>
+    </>
   );
 }
 

@@ -193,6 +193,12 @@ const parsedEnv = createEnv({
     CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
+    VOICE_PROVIDER: z.enum(["openai", "groq"]).optional(),
+    VOICE_STT_MODEL: z.string().optional(),
+    VOICE_TTS_MODEL: z.string().optional(),
+    VOICE_TTS_VOICE: z.string().optional(),
+    VOICE_LIVE_MODEL: z.string().optional(),
+    VOICE_LIVE_VOICE: z.string().optional(),
 
     UPSTASH_REDIS_URL: z
       .string()
@@ -256,6 +262,8 @@ const parsedEnv = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Points the Stripe SDK at a local emulator during browser tests.
+    STRIPE_API_BASE_URL: z.string().url().optional(),
     STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     // Apple App Store
@@ -363,6 +371,11 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
+    UNSUBSCRIBE_WORKER_URL: z
+      .url()
+      .refine((value) => new URL(value).protocol === "https:")
+      .optional(),
+    UNSUBSCRIBE_WORKER_SECRET: z.string().min(32).optional(),
   },
   client: {
     // stripe
@@ -439,6 +452,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_VOICE_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
@@ -544,6 +558,7 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
+    NEXT_PUBLIC_VOICE_ENABLED: process.env.NEXT_PUBLIC_VOICE_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
@@ -574,6 +589,15 @@ const parsedEnv = createEnv({
 if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_SECRET_TOKEN) {
   throw new Error(
     "TELEGRAM_BOT_SECRET_TOKEN is required when TELEGRAM_BOT_TOKEN is set.",
+  );
+}
+
+if (
+  process.env.UNSUBSCRIBE_WORKER_URL &&
+  !process.env.UNSUBSCRIBE_WORKER_SECRET
+) {
+  throw new Error(
+    "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
   );
 }
 

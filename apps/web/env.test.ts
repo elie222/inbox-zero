@@ -114,4 +114,23 @@ describe("env LLM compatibility conversion", () => {
 
     expect(env.DEFAULT_LLMS).toBe("anthropic:claude-sonnet-4-6");
   });
+
+  it("rejects an HTTP unsubscribe worker URL", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.UNSUBSCRIBE_WORKER_URL = "http://worker.example.com";
+    process.env.UNSUBSCRIBE_WORKER_SECRET =
+      "test-secret-with-at-least-32-characters";
+    await expect(import("./env")).rejects.toThrow(
+      "Invalid environment variables",
+    );
+  });
+
+  it("requires a worker secret when the worker URL is set", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.UNSUBSCRIBE_WORKER_URL = "https://worker.example.com";
+    delete process.env.UNSUBSCRIBE_WORKER_SECRET;
+    await expect(import("./env")).rejects.toThrow(
+      "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
+    );
+  });
 });

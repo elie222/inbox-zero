@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Logger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const { envMock, publishToQstashMock } = vi.hoisted(() => ({
   envMock: {
@@ -28,15 +28,27 @@ import {
 } from "@/utils/analytics/server-conversion-events";
 
 describe("trackServerConversionEvent", () => {
-  const logger = {
-    error: vi.fn(),
-  } as unknown as Logger;
+  const logger = createTestLogger();
+  vi.spyOn(logger, "error");
 
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.CONVERSION_ANALYTICS_SERVER_URL = "/rill";
     envMock.CONVERSION_ANALYTICS_SERVER_SECRET = undefined;
     publishToQstashMock.mockResolvedValue(undefined);
+  });
+
+  it("propagates queue errors when the caller must retry delivery", async () => {
+    publishToQstashMock.mockRejectedValue(new Error("queue unavailable"));
+    await expect(
+      trackServerConversionEvent({
+        name: "subscription_created",
+        id: "in_test:trial_converted",
+        timestamp: new Date(),
+        logger,
+        throwOnError: true,
+      }),
+    ).rejects.toThrow("queue unavailable");
   });
 
   it("skips tracking when no server conversion endpoint is configured", async () => {

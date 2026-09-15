@@ -50,6 +50,7 @@ export type EmailEditorPreservedBlock = {
 export type EmailEditorHandle = {
   focus: () => void;
   getValue: () => EmailEditorValue;
+  insertText: (text: string) => boolean;
   insertInlineImage: (image: {
     alt: string;
     contentId: string;
@@ -370,6 +371,17 @@ const RichEmailEditor = forwardRef<
         editor
           ? getRichEditorValue(editor)
           : emptyEditorValue("rich", initialHtml),
+      insertText: (text: string) => {
+        if (!editor || !text) return false;
+        return editor
+          .chain()
+          .focus()
+          .command(({ dispatch, tr }) => {
+            if (dispatch) tr.insertText(text);
+            return true;
+          })
+          .run();
+      },
       insertInlineImage: ({ alt, contentId, previewUrl }) => {
         if (!editor) return false;
         return editor
@@ -626,6 +638,14 @@ const FallbackEmailEditor = forwardRef<
     () => ({
       focus: () => editorRef.current?.focus(),
       getValue,
+      insertText: (text: string) => {
+        const editorElement = editorRef.current;
+        if (!editorElement || !text) return false;
+        editorElement.focus();
+        const inserted = document.execCommand("insertText", false, text);
+        currentHtmlRef.current = editorElement.innerHTML;
+        return inserted;
+      },
       insertInlineImage: () => false,
       removeInlineImage: () => false,
     }),

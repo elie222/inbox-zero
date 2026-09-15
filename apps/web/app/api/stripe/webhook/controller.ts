@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { after } from "next/server";
 import {
   getStripeCustomerIdForRefund,
   isStripeRefundEventType,
@@ -26,7 +27,10 @@ import {
 import prisma from "@/utils/prisma";
 import { completeReferralAndGrantReward } from "@/utils/referral/referral-tracking";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
-import { getStripeTrialConvertedAt } from "./trial-conversion";
+import {
+  getStripeTrialConversion,
+  recordStripeTrialConversion,
+} from "./trial-conversion";
 
 const allowedEvents: Stripe.Event.Type[] = [
   "checkout.session.completed",
@@ -67,19 +71,28 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const [stripeSync] = syncResult;
 
-  const customer = await getCustomerOrUndefined(customerId, event, logger);
+  const customer =
+    event.type === "invoice.payment_succeeded"
+      ? await getCustomer(customerId)
+      : await getCustomerOrUndefined(customerId, event, logger);
   const email = customer?.email;
 
   const tasks: Promise<unknown>[] = [
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
-    handleReferralCompletion(customerId, event, logger),
     trackTrialStartedConversion(event, customer, logger),
-    trackPaidSubscriptionConversion(event, customer, logger),
     recordCancellationInitiated(customerId, event, logger),
   ];
 
+  let paidTrialConversion: Promise<void> | undefined;
   if (stripeSync.status === "fulfilled") {
+    paidTrialConversion = handlePaidTrialConversion(
+      customerId,
+      event,
+      customer,
+      logger,
+    );
+    tasks.push(paidTrialConversion);
     tasks.push(
       syncStripeInvoicePayment({ event, logger }).then(() =>
         enqueueStripeInvoiceEmail({ event, logger }),
@@ -97,59 +110,84 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     );
   }
 
-  return await Promise.allSettled(tasks);
+  const settledTasks = Promise.allSettled(tasks);
+  if (event.type === "invoice.payment_succeeded") {
+    after(() => settledTasks);
+    if (stripeSync.status === "rejected") throw stripeSync.reason;
+    await paidTrialConversion;
+    return;
+  }
+  return await settledTasks;
 }
 
-async function handleReferralCompletion(
+async function handlePaidTrialConversion(
   customerId: string,
   event: Stripe.Event,
+  customer: StripeCustomerIdentity | undefined,
   logger: Logger,
 ) {
-  const trialConvertedAt = getStripeTrialConvertedAt(event);
-  if (!trialConvertedAt) return;
+  if (event.type !== "invoice.payment_succeeded") return;
 
   const premium = await prisma.premium.findUnique({
     where: { stripeCustomerId: customerId },
-    select: { id: true, users: { select: { id: true } } },
-  });
-
-  if (!premium) {
-    logger.warn("No user found for customer during referral completion", {
-      customerId,
-    });
-    return;
-  }
-
-  const updateResult = await prisma.premium.updateMany({
-    where: {
-      id: premium.id,
-      stripeTrialConvertedAt: null,
-    },
-    data: {
-      stripeTrialConvertedAt: trialConvertedAt,
+    select: {
+      id: true,
+      stripeSubscriptionId: true,
+      stripeTrialConvertedAt: true,
+      stripeTrialConversionInvoiceId: true,
+      users: { select: { id: true } },
     },
   });
-
-  if (updateResult.count === 0) return;
-
-  const userIds = premium.users.map((user) => user.id);
-  if (userIds.length === 0) {
-    logger.warn("No users linked to premium during referral completion", {
-      customerId,
-      premiumId: premium.id,
-    });
+  const invoiceId = (event.data.object as Stripe.Invoice).id;
+  if (
+    !premium ||
+    (premium.stripeTrialConvertedAt &&
+      premium.stripeTrialConversionInvoiceId !== invoiceId)
+  )
     return;
-  }
 
-  logger.info("Trial converted to paid subscription, completing referral", {
-    customerId,
-    trialConvertedAt,
-    userIds,
+  const trialConversion = await getStripeTrialConversion(event);
+  if (
+    !trialConversion ||
+    premium.stripeSubscriptionId !== trialConversion.subscription.id
+  )
+    return;
+
+  const { subscription, invoice, convertedAt } = trialConversion;
+  const recorded = await recordStripeTrialConversion({
+    premiumId: premium.id,
+    subscriptionId: subscription.id,
+    invoiceId: invoice.id,
+    convertedAt,
   });
+  if (!recorded) return;
 
-  for (const userId of userIds) {
-    await completeReferralAndGrantReward(userId, logger);
-  }
+  const conversion = getStripeSubscriptionConversionProperties(subscription);
+  conversion.properties.amount = invoice.amount_paid;
+  conversion.properties.currency = invoice.currency.toUpperCase();
+  const conversionId = `${invoice.id}:trial_converted`;
+
+  await Promise.all([
+    ...premium.users.map((user) =>
+      completeReferralAndGrantReward(user.id, logger),
+    ),
+    trackServerConversionEvent({
+      name: "subscription_created",
+      throwOnError: true,
+      id: conversionId,
+      timestamp: convertedAt,
+      ...conversion,
+      logger,
+    }),
+    trackFacebookBillingConversion({
+      eventName: "Subscribe",
+      eventId: conversionId,
+      eventTime: convertedAt,
+      conversion,
+      customer,
+      logger,
+    }),
+  ]);
 }
 
 async function recordCancellationInitiated(
@@ -176,36 +214,6 @@ async function recordCancellationInitiated(
     customerId,
     initiatedAt,
   });
-}
-
-async function trackPaidSubscriptionConversion(
-  event: Stripe.Event,
-  customer: StripeCustomerIdentity | undefined,
-  logger: Logger,
-) {
-  const trialConvertedAt = getStripeTrialConvertedAt(event);
-  if (!trialConvertedAt) return;
-
-  const subscription = event.data.object as Stripe.Subscription;
-  const conversion = getStripeSubscriptionConversionProperties(subscription);
-
-  await Promise.all([
-    trackServerConversionEvent({
-      name: "subscription_created",
-      id: event.id,
-      timestamp: trialConvertedAt,
-      ...conversion,
-      logger,
-    }),
-    trackFacebookBillingConversion({
-      eventName: "Subscribe",
-      eventId: event.id,
-      eventTime: trialConvertedAt,
-      conversion,
-      customer,
-      logger,
-    }),
-  ]);
 }
 
 async function trackTrialStartedConversion(
@@ -295,6 +303,7 @@ async function trackFacebookBillingConversion({
       eventName,
       eventId,
     });
+    if (eventName === "Subscribe") throw error;
   }
 }
 

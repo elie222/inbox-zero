@@ -115,6 +115,7 @@ export interface ParsedMessageHeaders {
   from: string;
   "in-reply-to"?: string;
   "list-unsubscribe"?: string;
+  "list-unsubscribe-post"?: string;
   "message-id"?: string;
   references?: string;
   "reply-to"?: string;

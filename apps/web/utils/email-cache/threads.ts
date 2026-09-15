@@ -203,6 +203,7 @@ function sanitizeHeaders(headers: ParsedMessageHeaders): ParsedMessageHeaders {
     from: headers.from,
     "in-reply-to": headers["in-reply-to"],
     "list-unsubscribe": headers["list-unsubscribe"],
+    "list-unsubscribe-post": headers["list-unsubscribe-post"],
     "message-id": headers["message-id"],
     references: headers.references,
     "reply-to": headers["reply-to"],

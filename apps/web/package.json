@@ -14,6 +14,7 @@
     "emulate:google": "pnpm emulate:seed && emulate --service google --seed .tmp/emulate.generated.json --port 4002",
     "emulate:microsoft": "pnpm emulate:seed && emulate --service microsoft --seed .tmp/emulate.generated.json --port 4003",
     "emulate:recall": "tsx scripts/run-recall-emulator.ts",
+    "emulate:stripe": "tsx scripts/run-stripe-emulator.ts",
     "emulate:seed": "tsx scripts/write-emulate-seed.ts",
     "eval:ablate": "dotenv -o -e .env.test -- tsx --tsconfig tsconfig.eval-script.json scripts/eval-ablate.ts",
     "eval:compare": "tsx --tsconfig tsconfig.eval-script.json scripts/eval-compare-runs.ts",

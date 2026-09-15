@@ -27,6 +27,11 @@ export const POST = withError("stripe/webhook", async (request) => {
     env.STRIPE_WEBHOOK_SECRET,
   );
 
+  if (event.type === "invoice.payment_succeeded") {
+    await processEvent(event, logger);
+    return NextResponse.json({ received: true });
+  }
+
   after(async () => {
     try {
       await processEvent(event, logger);

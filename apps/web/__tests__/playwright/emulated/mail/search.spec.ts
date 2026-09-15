@@ -117,3 +117,54 @@ test("advanced search still filters the mailbox by Has the words", async ({
   await expect(matching).toBeVisible();
   await expect(nonMatching).toHaveCount(0);
 });
+
+test("search suggests contacts and recent searches", async ({
+  page,
+}, testInfo) => {
+  await page.route("**/api/user/contacts?*", async (route) => {
+    const query =
+      new URL(route.request().url()).searchParams.get("query") ?? "";
+    await route.fulfill({
+      json: {
+        contacts: query.startsWith("ali")
+          ? [{ name: "Alice Example", emailAddress: "alice@example.com" }]
+          : [],
+      },
+    });
+  });
+  await openMail(page);
+
+  const searchInput = page.getByPlaceholder("Search mail");
+  // The forms plugin sizes untyped inputs at 1rem; the field must stay on the
+  // toolbar's 14px ramp.
+  await expect(searchInput).toHaveCSS("font-size", "14px");
+  await searchInput.fill("ali");
+  const suggestions = page.getByRole("listbox", { name: "Search suggestions" });
+  await expect(
+    suggestions.getByRole("option", { name: /Alice Example/ }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-search-suggestions");
+
+  await searchInput.press("ArrowDown");
+  await searchInput.press("Enter");
+  await expect(page).toHaveURL(/[?&]q=/);
+  expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
+  await expect(suggestions).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Clear search" }).click();
+  await expect(page).not.toHaveURL(/[?&]q=/);
+  await searchInput.click();
+  const recent = suggestions.getByRole("option", {
+    name: "alice@example.com",
+  });
+  await expect(recent).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-search-recent");
+
+  await searchInput.press("Escape");
+  await expect(suggestions).toHaveCount(0);
+  await expect(searchInput).toBeFocused();
+
+  await searchInput.fill("exa");
+  await recent.click();
+  expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
+});

@@ -49,6 +49,7 @@ import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
+import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -120,11 +121,21 @@ import {
   getUndoSendHoldUntil,
   UNDO_SEND_DELAY_MS,
 } from "./undo-send";
+import { getReplyToEmailPayload } from "./reply-to-email-payload";
 
 export type ReplyingToEmail = {
   threadId?: string;
   headerMessageId?: string;
   messageId?: string;
+  forwardedMessageId?: string;
+  /**
+   * The files that travel with a forward. They stay on the provider until the
+   * send, so the composer shows them without ever holding their bytes.
+   */
+  forwardedAttachments?: Pick<
+    EmailAttachmentMetadata,
+    "id" | "filename" | "mimeType" | "size"
+  >[];
   references?: string;
   subject: string;
   to: string;
@@ -369,6 +380,7 @@ function ComposeEmailFormContent({
   const focusRecipientField = !replyingToEmail;
   const [attachments, setAttachments] =
     useState<ComposeAttachment[]>(restoredAttachments);
+  const forwardedAttachments = replyingToEmail?.forwardedAttachments ?? [];
   const attachmentsRef = useRef<ComposeAttachment[]>(restoredAttachments);
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
@@ -965,7 +977,9 @@ function ComposeEmailFormContent({
       const oauthProvider = isMicrosoftProvider(accountProvider)
         ? "microsoft"
         : "google";
-      const url = await getAccountLinkingUrl(oauthProvider);
+      const url = await getAccountLinkingUrl(oauthProvider, {
+        reconnectEmailAccountId: selectedEmailAccountId,
+      });
       redirectToSafeUrl(url, { allowExternal: true });
     } catch {
       toastError({
@@ -1269,7 +1283,7 @@ function ComposeEmailFormContent({
           {submissionError}
         </p>
       )}
-      {!!attachments.length && (
+      {!!(attachments.length || forwardedAttachments.length) && (
         <ul
           aria-label="Attachments"
           className={cn(
@@ -1277,6 +1291,19 @@ function ComposeEmailFormContent({
             isComposeWindow && "shrink-0 px-4 py-2",
           )}
         >
+          {forwardedAttachments.map((attachment) => (
+            <li
+              className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+              key={attachment.id}
+              title="Included from the message you are forwarding"
+            >
+              <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
+              <span className="max-w-52 truncate">{attachment.filename}</span>
+              <span className="text-muted-foreground">
+                {formatFileSize(attachment.size)}
+              </span>
+            </li>
+          ))}
           {attachments.map((attachment) => (
             <li
               className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
@@ -1344,6 +1371,18 @@ function ComposeEmailFormContent({
         </div>
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
+          <VoiceInput
+            onInsert={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+            onSend={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+          />
           <input
             className="hidden"
             data-testid="compose-attachments-input"
@@ -1655,28 +1694,6 @@ type ContactsFetchError = Error & {
   info?: Partial<ContactsErrorResponse>;
   status?: number;
 };
-
-function getReplyToEmailPayload(
-  replyingToEmail:
-    | Pick<
-        ReplyingToEmail,
-        "threadId" | "headerMessageId" | "references" | "messageId"
-      >
-    | undefined,
-): SendEmailBody["replyToEmail"] | undefined {
-  const threadId = replyingToEmail?.threadId?.trim();
-  const headerMessageId = replyingToEmail?.headerMessageId?.trim();
-  if (!threadId || !headerMessageId) return;
-  const references = replyingToEmail?.references;
-  const messageId = replyingToEmail?.messageId;
-
-  return {
-    threadId,
-    headerMessageId,
-    ...(references ? { references } : {}),
-    ...(messageId ? { messageId } : {}),
-  };
-}
 
 function createComposeAttachmentMetadata(
   file: File,
