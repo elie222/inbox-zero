@@ -7,6 +7,10 @@ let stripe: Stripe | null = null;
 export const getStripe = () => {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY is not set");
   if (!stripe) {
+    const apiBaseUrl = env.STRIPE_API_BASE_URL
+      ? new URL(env.STRIPE_API_BASE_URL)
+      : null;
+
     stripe = new Stripe(env.STRIPE_SECRET_KEY, {
       appInfo: {
         name: "Inbox Zero",
@@ -14,6 +18,11 @@ export const getStripe = () => {
         url: "https://www.getinboxzero.com",
       },
       typescript: true,
+      ...(apiBaseUrl && {
+        host: apiBaseUrl.hostname,
+        port: apiBaseUrl.port,
+        protocol: apiBaseUrl.protocol === "https:" ? "https" : "http",
+      }),
     });
   }
   return stripe;

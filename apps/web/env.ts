@@ -254,6 +254,8 @@ const parsedEnv = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Points the Stripe SDK at a local emulator during browser tests.
+    STRIPE_API_BASE_URL: z.string().url().optional(),
     STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     // Apple App Store
