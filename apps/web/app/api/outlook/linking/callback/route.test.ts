@@ -546,6 +546,14 @@ describe("outlook linking callback route", () => {
     expect(response.headers.get("location")).toContain(
       "success=tokens_updated",
     );
+    expect(findUniqueAccountKeys()).toEqual(["entra-object-id"]);
+    expect(mockHandleAccountLinking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        existingAccountId: "account-123",
+        hasEmailAccount: true,
+        provider: "microsoft",
+      }),
+    );
   });
 
   it("fails the callback when Microsoft returns no object id", async () => {
