@@ -56,7 +56,12 @@ for (const view of ["mail", "settings"]) {
     const search = page.getByPlaceholder("Type a command or search...");
     await expect(search).toBeVisible();
     await search.fill("settings");
-    await page.getByRole("option", { name: "Settings", exact: true }).click();
+    await page
+      .getByRole("option")
+      .filter({
+        has: page.getByText("Settings", { exact: true }),
+      })
+      .click();
 
     const dialog = page.getByRole("dialog");
     await expect(

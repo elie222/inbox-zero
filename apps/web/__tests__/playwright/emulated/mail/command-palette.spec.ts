@@ -70,9 +70,8 @@ test("Command K archives the open side-panel conversation through the durable ou
     .filter({ hasText: SIDE_PANEL_ARCHIVE_SUBJECT });
   await expect(archivedConversation).toHaveCount(1, { timeout: 60_000 });
   await page.keyboard.press(`${commandModifier}+KeyK`);
-  const archiveCommand = page.getByRole("option", {
-    exact: true,
-    name: "Archive E",
+  const archiveCommand = page.getByRole("option").filter({
+    has: page.getByText("Archive", { exact: true }),
   });
   await expect(archiveCommand).toBeVisible();
   await archiveCommand.click();
