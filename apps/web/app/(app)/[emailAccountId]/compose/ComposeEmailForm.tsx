@@ -107,6 +107,7 @@ import {
 } from "./compose-recipients";
 import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
 import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
+import { useComposeSnippets } from "./useComposeSnippets";
 import {
   getReminderAfterSendTimeChange,
   parseDeliveryTimes,
@@ -407,6 +408,10 @@ function ComposeEmailFormContent({
       cc: replyingToEmail?.cc,
       bcc: replyingToEmail?.bcc,
     },
+  });
+  const { extraExtensions, toolbar: snippetToolbar } = useComposeSnippets({
+    editorRef,
+    to: watch("to"),
   });
 
   const lastDraftContent = useRef<ReplyDraftContent | undefined>(undefined);
@@ -1259,6 +1264,7 @@ function ComposeEmailFormContent({
         placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
+        extraExtensions={extraExtensions}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -1371,6 +1377,7 @@ function ComposeEmailFormContent({
         </div>
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
+          {snippetToolbar}
           <VoiceInput
             onInsert={(text) => {
               editorRef.current?.insertText(

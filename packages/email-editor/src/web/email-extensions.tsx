@@ -1,4 +1,4 @@
-import { Extension, Node } from "@tiptap/core";
+import { Extension, Node, type AnyExtension } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
@@ -84,7 +84,10 @@ const EmailDirection = Extension.create({
   },
 });
 
-export function createEmailEditorExtensions(placeholder: string) {
+export function createEmailEditorExtensions(
+  placeholder: string,
+  extraExtensions: AnyExtension[] = [],
+) {
   return [
     StarterKit.configure({
       code: false,
@@ -119,6 +122,7 @@ export function createEmailEditorExtensions(placeholder: string) {
       showOnlyCurrent: true,
       showOnlyWhenEditable: true,
     }),
+    ...extraExtensions,
   ];
 }
 
