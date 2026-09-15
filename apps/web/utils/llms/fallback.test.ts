@@ -653,6 +653,53 @@ describe("createGenerateText fallback chain", () => {
     );
   });
 
+  it("captures instructions with messages and tool-only output", async () => {
+    const model = createModel("openai-model");
+    mockGenerateText.mockResolvedValue(createTextResult());
+
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "user-123" }),
+      label: "PostHog structured capture",
+      modelOptions: createOpenAiModelOptions(model),
+    });
+
+    await generateText({
+      prompt: "sensitive prompt",
+      model,
+    });
+
+    const request = mockGenerateText.mock.calls[0][0];
+    const messages = [{ role: "user", content: "hello" }];
+    await flushGenerateTextTelemetry(
+      request,
+      {
+        instructions: "Be concise.",
+        messages,
+      },
+      {
+        text: "",
+        finishReason: "tool-calls",
+        toolCalls: [{ toolName: "searchEmails" }],
+        toolResults: [{ toolName: "searchEmails", output: { count: 1 } }],
+      },
+    );
+
+    expect(mockCaptureAiGeneration).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        input: {
+          instructions: "Be concise.",
+          messages,
+        },
+        output: {
+          toolCalls: [{ toolName: "searchEmails" }],
+          toolResults: [{ toolName: "searchEmails", output: { count: 1 } }],
+        },
+        stopReason: "tool-calls",
+      }),
+    );
+  });
+
   it("skips PostHog generation capture when client is unavailable", async () => {
     const model = createModel("openai-model");
     mockGetPosthogLlmClient.mockReturnValue(undefined);

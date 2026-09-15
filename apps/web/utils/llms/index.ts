@@ -2028,24 +2028,50 @@ function buildLlmTelemetry({
 }
 
 function getTelemetryPrompt(event: unknown) {
-  const prompt = getProperty(event, "prompt");
-  if (typeof prompt === "string" && prompt) return prompt;
-
   const messages = getProperty(event, "messages");
-  if (Array.isArray(messages) && messages.length > 0) return messages;
-
+  const hasMessages = Array.isArray(messages) && messages.length > 0;
   const instructions =
     getProperty(event, "instructions") ?? getProperty(event, "system");
-  if (typeof instructions === "string" && instructions) return instructions;
+  const hasInstructions =
+    typeof instructions === "string" && instructions.length > 0;
+  const prompt = getProperty(event, "prompt");
+  const hasPrompt = typeof prompt === "string" && prompt.length > 0;
 
+  if (hasMessages && hasInstructions) {
+    return { instructions, messages };
+  }
+  if (hasMessages) return messages;
+  if (hasPrompt) return prompt;
+  if (hasInstructions) return instructions;
   return null;
 }
 
 function getTelemetryOutput(event: unknown) {
-  const text = getProperty(event, "text");
-  if (typeof text === "string") return text;
+  const object = getProperty(event, "object");
+  if (object != null) return object;
 
-  return getProperty(event, "object") ?? null;
+  const text = getProperty(event, "text");
+  const hasText = typeof text === "string" && text.length > 0;
+  const toolCalls = getNonEmptyArrayProperty(event, "toolCalls");
+  const toolResults = getNonEmptyArrayProperty(event, "toolResults");
+  const content = getNonEmptyArrayProperty(event, "content");
+
+  if (toolCalls || toolResults || content) {
+    return {
+      ...(hasText ? { text } : {}),
+      ...(toolCalls ? { toolCalls } : {}),
+      ...(toolResults ? { toolResults } : {}),
+      ...(content ? { content } : {}),
+    };
+  }
+
+  return hasText ? text : null;
+}
+
+function getNonEmptyArrayProperty(event: unknown, key: string) {
+  const value = getProperty(event, key);
+  if (!Array.isArray(value) || value.length === 0) return;
+  return value;
 }
 
 function getTelemetryFinishReason(event: unknown) {
