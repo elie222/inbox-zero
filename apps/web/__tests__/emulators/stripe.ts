@@ -283,8 +283,11 @@ export async function createStripeEmulator(
       return;
     }
 
-    await deliver("invoice.payment_failed", invoice);
+    // Set the status before delivering, not after: the webhook handler re-reads
+    // the subscription through the API, and two handlers racing on this event
+    // pair would otherwise be able to persist `active` last.
     subscription.status = "past_due";
+    await deliver("invoice.payment_failed", invoice);
     await deliver("customer.subscription.updated", subscription, {
       status: "active",
     });
@@ -349,13 +352,23 @@ export async function createStripeEmulator(
         return respondHtml(response, 200, renderCheckoutPage(session));
       }
 
-      const subscription = await completeCheckout(session);
+      if (request.method !== "POST") {
+        return respondText(response, 405, "Complete checkout with POST");
+      }
+
+      // A retry or duplicate submission must not create a second subscription
+      // and repeat the webhook sequence for the same session.
+      const subscriptionId =
+        session.status === "complete"
+          ? String(session.subscription)
+          : String((await completeCheckout(session)).id);
+
       const successUrl = String(session.success_url).replace(
         "{CHECKOUT_SESSION_ID}",
         String(session.id),
       );
       response.writeHead(303, { location: successUrl });
-      response.end(String(subscription.id));
+      response.end(subscriptionId);
       return;
     }
 

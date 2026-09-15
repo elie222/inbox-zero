@@ -7,9 +7,7 @@ let stripe: Stripe | null = null;
 export const getStripe = () => {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY is not set");
   if (!stripe) {
-    const apiBaseUrl = env.STRIPE_API_BASE_URL
-      ? new URL(env.STRIPE_API_BASE_URL)
-      : null;
+    const apiBaseUrl = getEmulatorApiBaseUrl();
 
     stripe = new Stripe(env.STRIPE_SECRET_KEY, {
       appInfo: {
@@ -27,6 +25,32 @@ export const getStripe = () => {
   }
   return stripe;
 };
+
+/**
+ * Resolves the local Stripe emulator override. This client carries
+ * STRIPE_SECRET_KEY on every request, so the override is restricted to a
+ * loopback address: a misconfigured or injected value must not be able to send
+ * a live key to another host. Production runs of the browser suite also set
+ * NODE_ENV=production, so the environment cannot be the discriminator here.
+ */
+function getEmulatorApiBaseUrl() {
+  if (!env.STRIPE_API_BASE_URL) return null;
+
+  const url = new URL(env.STRIPE_API_BASE_URL);
+  const isLoopbackHost =
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "localhost" ||
+    url.hostname === "[::1]";
+  const isHttpProtocol = url.protocol === "http:" || url.protocol === "https:";
+
+  if (!isLoopbackHost || !isHttpProtocol) {
+    throw new Error(
+      "STRIPE_API_BASE_URL must be an http or https loopback address",
+    );
+  }
+
+  return url;
+}
 
 export const updateStripeSubscriptionItemQuantity = async ({
   subscriptionItemId,
