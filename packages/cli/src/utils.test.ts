@@ -264,6 +264,32 @@ OPENAI_COMPATIBLE_MODEL=
     );
   });
 
+  it("should handle Cerebras provider settings", () => {
+    const cerebrasEnv: EnvConfig = {
+      ...baseEnv,
+      LLM_API_KEY: undefined,
+      DEFAULT_LLMS: "cerebras:qwen-3.8-27b",
+      CHAT_LLMS: "cerebras:qwen-3.8-27b",
+      CEREBRAS_API_KEY: "csk-test",
+    };
+
+    const templateWithCerebras = `${baseTemplate}
+CEREBRAS_API_KEY=
+`;
+
+    const result = generateEnvFile({
+      env: cerebrasEnv,
+      useDockerInfra: false,
+      llmProvider: "cerebras",
+      template: templateWithCerebras,
+    });
+
+    expect(result).toContain("CEREBRAS_API_KEY=csk-test");
+    expect(result).toContain("LLM_API_KEY=csk-test");
+    expect(result).toContain("DEFAULT_LLMS=cerebras:qwen-3.8-27b");
+    expect(result).toContain("CHAT_LLMS=cerebras:qwen-3.8-27b");
+  });
+
   it("should handle commented lines in template", () => {
     const templateWithComments = `# Config
 # DATABASE_URL=commented-placeholder
@@ -664,6 +690,7 @@ describe("isSensitiveKey", () => {
   it("should identify known sensitive keys", () => {
     expect(isSensitiveKey("LLM_API_KEY")).toBe(true);
     expect(isSensitiveKey("ANTHROPIC_API_KEY")).toBe(true);
+    expect(isSensitiveKey("CEREBRAS_API_KEY")).toBe(true);
     expect(isSensitiveKey("AUTH_SECRET")).toBe(true);
     expect(isSensitiveKey("CRON_SECRET")).toBe(true);
   });

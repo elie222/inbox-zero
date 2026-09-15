@@ -90,6 +90,8 @@ function hasConfiguredProvider(provider: string): boolean {
       return Boolean(process.env.GOOGLE_VERTEX_PROJECT);
     case Provider.GROQ:
       return Boolean(process.env.GROQ_API_KEY);
+    case Provider.CEREBRAS:
+      return Boolean(process.env.CEREBRAS_API_KEY);
     case Provider.BEDROCK:
       return Boolean(
         process.env.BEDROCK_ACCESS_KEY &&
@@ -115,6 +117,7 @@ function hasAnyConfiguredProvider(): boolean {
       process.env.GOOGLE_API_KEY ||
       process.env.GOOGLE_VERTEX_PROJECT ||
       process.env.GROQ_API_KEY ||
+      process.env.CEREBRAS_API_KEY ||
       process.env.OPENROUTER_API_KEY ||
       hasAzureFoundryCredentials() ||
       process.env.AI_GATEWAY_API_KEY ||

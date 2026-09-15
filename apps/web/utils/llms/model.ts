@@ -225,6 +225,26 @@ function selectModel(
         })(modelName),
       };
     }
+    case Provider.CEREBRAS: {
+      const modelName = aiModel || "qwen-3.8-27b";
+      const cerebras = createOpenAICompatible({
+        name: "cerebras",
+        baseURL: "https://api.cerebras.ai/v1",
+        supportsStructuredOutputs: true,
+        apiKey: resolveApiKey(aiApiKey, env.CEREBRAS_API_KEY),
+      });
+      return {
+        provider: Provider.CEREBRAS,
+        modelName,
+        model: cerebras(modelName),
+        // qwen-3.8-27b defaults to high reasoning; map role effort like OpenAI.
+        providerOptions: {
+          cerebras: {
+            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+          },
+        },
+      };
+    }
     case Provider.OPENROUTER: {
       const modelName = aiModel || "anthropic/claude-sonnet-4.6";
 
@@ -555,6 +575,7 @@ function getProviderApiKey(provider: string) {
       ? "vertex-credentials"
       : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.CEREBRAS]: resolveApiKey(null, env.CEREBRAS_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",

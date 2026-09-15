@@ -80,6 +80,7 @@ vi.mock("@/env", () => ({
     GOOGLE_APPLICATION_CREDENTIALS: undefined,
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
+    CEREBRAS_API_KEY: "test-cerebras-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
     AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",

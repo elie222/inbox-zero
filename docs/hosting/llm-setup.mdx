@@ -28,6 +28,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex) | `vertex` |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `openrouter` |
 | [Groq](https://console.groq.com/docs/quickstart) | `groq` |
+| [Cerebras](https://inference-docs.cerebras.ai/quickstart) | `cerebras` |
 | [Vercel AI Gateway](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway) | `aigateway` |
 | [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
 | [Ollama](https://ollama.com/) | `ollama` |
@@ -75,7 +76,8 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 ## Provider-specific details
 
 - `azure-foundry` requires `AZURE_FOUNDRY_API_KEY` and `AZURE_FOUNDRY_BASE_URL`. Use the deployment name as the model portion of the `azure-foundry:<deployment>` entry.
-- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization.
+- `cerebras` uses `CEREBRAS_API_KEY` (or `LLM_API_KEY`) against `https://api.cerebras.ai/v1`. Example chat model: `CHAT_LLMS=cerebras:qwen-3.8-27b`.
+- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization. This can point at Cerebras (`https://api.cerebras.ai/v1`) if you do not want the dedicated provider, but then you cannot also use a local OpenAI-compatible server.
 - `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
 
 ## Fallbacks

@@ -151,6 +151,7 @@ function getLegacyProviderDefaultModel(
     bedrock: "global.anthropic.claude-sonnet-4-6",
     openrouter: "anthropic/claude-sonnet-4.6",
     groq: "llama-3.3-70b-versatile",
+    cerebras: "qwen-3.8-27b",
     aigateway: "anthropic/claude-sonnet-4.6",
     ollama: env.OLLAMA_MODEL,
     "openai-compatible": env.OPENAI_COMPATIBLE_MODEL,
