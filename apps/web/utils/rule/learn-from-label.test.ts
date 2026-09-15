@@ -155,6 +155,18 @@ describe("learn-from-label", () => {
       );
     });
 
+    it("does not create a rule for an app-managed label", async () => {
+      getLabelById.mockResolvedValue({
+        id: "Label_1",
+        name: "Inbox Zero/Unsubscribed",
+      });
+
+      await learnSenderFromLabel({ ...baseArgs, ruleId: null });
+
+      expect(createRuleWithResolvedActions).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
     it("does not learn when the label cannot be read", async () => {
       getLabelById.mockResolvedValue(null);
 

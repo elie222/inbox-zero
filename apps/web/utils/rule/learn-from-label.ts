@@ -144,6 +144,13 @@ async function createRuleForLabel({
   });
   if (!label?.name) return null;
 
+  // Labels the app manages itself (e.g. "Inbox Zero/Unsubscribed") mark
+  // state, not a folder the user files into. Never turn one into a rule.
+  if (label.name.startsWith("Inbox Zero/")) {
+    logger.info("Skipping app-managed label", { labelId });
+    return null;
+  }
+
   // A rule may already label with this name but not know the ID yet (org rule
   // copies only carry the name until they first run). Adopt it instead of
   // creating a duplicate.
