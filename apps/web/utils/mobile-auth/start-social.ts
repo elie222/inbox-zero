@@ -1,7 +1,5 @@
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
-import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
-import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
 import {
   createMobileAuthState,
   storeMobileAuthState,
@@ -38,27 +36,14 @@ export async function startMobileSocialAuth(input: {
   ).toString();
   const webCallbackUrl = getMobileAuthWebCallbackUrl(state);
 
-  const useOauth2 =
-    (input.provider === "google" && isGoogleOauthEmulationEnabled()) ||
-    (input.provider === "microsoft" && isMicrosoftEmulationEnabled());
-  const signInPath = useOauth2
-    ? "/api/auth/sign-in/oauth2"
-    : "/api/auth/sign-in/social";
-  const signInPayload = useOauth2
-    ? {
-        providerId: input.provider,
-        callbackURL: webCallbackUrl,
-        errorCallbackURL: webCallbackUrl,
-        newUserCallbackURL: webCallbackUrl,
-        disableRedirect: true,
-      }
-    : {
-        provider: input.provider,
-        callbackURL: webCallbackUrl,
-        errorCallbackURL: webCallbackUrl,
-        newUserCallbackURL: webCallbackUrl,
-        disableRedirect: true,
-      };
+  const signInPath = "/api/auth/sign-in/social";
+  const signInPayload = {
+    provider: input.provider,
+    callbackURL: webCallbackUrl,
+    errorCallbackURL: webCallbackUrl,
+    newUserCallbackURL: webCallbackUrl,
+    disableRedirect: true,
+  };
 
   const signInResponse = await betterAuthConfig.handler(
     new Request(new URL(signInPath, getMobileAuthBaseUrlOrigin()), {

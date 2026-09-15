@@ -113,7 +113,7 @@ describe("GET /api/labels/counts", () => {
     expect(body.partial).toBe(false);
   });
 
-  it("caches the response and serves later requests from the cache", async () => {
+  it("caches label counts but refreshes the inbox count on later requests", async () => {
     const first = await GET(request());
     const firstBody = await first.json();
 
@@ -126,12 +126,26 @@ describe("GET /api/labels/counts", () => {
     mockGetLabelById.mockClear();
     mockGetLabels.mockClear();
     mockRedisGet.mockResolvedValue(firstBody);
+    mockGetLabelById.mockResolvedValue({
+      id: "INBOX",
+      name: "Inbox",
+      threadsTotal: 8,
+      threadsUnread: 1,
+    });
 
     const second = await GET(request());
+    const secondBody = await second.json();
 
-    expect(await second.json()).toEqual(firstBody);
+    expect(secondBody.counts[0]).toEqual({
+      id: "INBOX",
+      name: "Inbox",
+      kind: "system",
+      total: 8,
+      unread: 1,
+    });
     expect(mockGetLabels).not.toHaveBeenCalled();
-    expect(mockGetLabelById).not.toHaveBeenCalled();
+    expect(mockGetLabelById).toHaveBeenCalledOnce();
+    expect(mockGetLabelById).toHaveBeenCalledWith("INBOX");
   });
 
   it("keeps the other counts when a single label lookup fails", async () => {

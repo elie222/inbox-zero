@@ -71,6 +71,10 @@ vi.mock("@/components/assistant-chat/DeleteChatDialog", () => ({
   DeleteChatDialog: () => null,
 }));
 
+vi.mock("@/components/voice/VoiceInput", () => ({
+  VoiceInput: () => null,
+}));
+
 vi.mock("next-safe-action/hooks", () => ({
   useAction: () => ({
     execute: vi.fn(),
@@ -186,6 +190,7 @@ vi.mock("@/providers/ChatProvider", () => ({
     attachments: [],
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
+    submitTextMessage: vi.fn(),
   }),
 }));
 

@@ -51,7 +51,7 @@ export async function loadThreads({
       reason: true,
       createdAt: true,
     },
-    // The aggregation below keeps the first execution of each rule.
+    // The aggregation below keeps the first execution of each rule per message.
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
@@ -112,6 +112,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
         date: message.date,
         internalDate: message.internalDate,
         labelIds: message.labelIds,
+        parentFolderId: message.parentFolderId,
         headers: message.headers,
       })),
     })),
@@ -124,12 +125,20 @@ export type ThreadListItem = ReturnType<
 >["threads"][number];
 
 function aggregateThreadPlans<
-  T extends { id: string; createdAt: Date; rule: { id: string } | null },
+  T extends {
+    id: string;
+    messageId: string;
+    createdAt: Date;
+    rule: { id: string } | null;
+  },
 >(executedRules: T[]): Omit<T, "createdAt">[] {
   const latestByRule = new Map<string, Omit<T, "createdAt">>();
 
   for (const executedRule of executedRules) {
-    const key = executedRule.rule?.id ?? executedRule.id;
+    const key = JSON.stringify([
+      executedRule.messageId,
+      executedRule.rule?.id ?? executedRule.id,
+    ]);
     if (latestByRule.has(key)) continue;
     const { createdAt: _createdAt, ...plan } = executedRule;
     latestByRule.set(key, plan);

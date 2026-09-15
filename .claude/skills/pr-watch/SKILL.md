@@ -30,9 +30,11 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 
 ## The cycle
 
-1. Run `"$PRD" --watch` with **`run_in_background: true`**. It blocks until
-   every check run and commit status on the exact head SHA is terminal, then
-   prints the digest. You are re-invoked when it exits.
+1. Run `"$PRD" --watch` with **`run_in_background: true`**. It reports a failed,
+   cancelled or timed-out check on the exact head SHA
+   immediately, even while other checks are pending. Otherwise it waits for
+   checks to settle. At its wait deadline it prints `WAIT_LIMIT` and names
+   the pending checks; that deadline is not itself a CI failure. You are re-invoked when it exits.
 
    Never wait in the foreground. `sleep` is blocked and an `until` loop is
    killed at the execution tool's timeout, costing an error round-trip plus a
@@ -53,13 +55,18 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 
 ## Failures
 
-Each `FAIL` line names the job and the step that broke. A step that failed or
-was cancelled with *"later steps skipped, tests did not run"* is infrastructure,
-not your diff — `gh run rerun <run-id> --failed` and go back to 1.
+Each `FAIL` line names the job and the step that broke. Report a timeout or
+failure promptly; do not keep saying checks are merely running. Skipped later
+steps do not prove infrastructure failure: compilation errors also skip steps.
 
-Otherwise `"$PRD" --logs <job-id>` for the assertion and code frame. Raw CI
-logs prefix every line with job name, step name, and a timestamp, and a
-Playwright job can exceed two megabytes; the flag strips all of that.
+Use `"$PRD" --logs <job-id>` for the assertion and code frame. Raw CI
+logs can be large; the flag reads the completed job directly, even while
+sibling jobs run, and retains relevant server-startup diagnostics.
+
+For a Playwright webServer timeout, identify the named service and inspect its
+startup output before classifying the cause. If the logs do not establish why
+it stalled, say so. Retry only confirmed transient infrastructure failures, and
+do not repeatedly retry the same startup timeout without investigating it.
 
 Before calling a failure unrelated, prove it: restore the base branch's version
 of the touched paths, rerun that one spec, and report the result. Do not sync

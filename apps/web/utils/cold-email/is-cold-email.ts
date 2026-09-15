@@ -173,7 +173,7 @@ ${stringifyEmail(email, 500)}
 
   const response = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       coldEmail: z.boolean(),

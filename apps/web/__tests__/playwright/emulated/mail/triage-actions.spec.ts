@@ -1,4 +1,5 @@
 import { expect, type Locator } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -20,6 +21,11 @@ test("archives a selected conversation and restores it with undo", async ({
     .getByRole("checkbox", { name: "Select conversation with Erin Example" })
     .click();
   await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("button", { name: "Mark as read" })
+      .or(page.getByRole("button", { name: "Mark as unread" })),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Archive", exact: true }).click();
 
   await expect(archiveConversation).toHaveCount(0);
@@ -64,6 +70,14 @@ test("deletes an open conversation and returns to the list", async ({
 test("advances the split reader after archiving an open conversation", async ({
   page,
 }, testInfo) => {
+  await page.route("**/api/threads/thr_playwright_3?**", async (route) => {
+    const response = await route.fetch();
+    const body: ThreadResponse = await response.json();
+    for (const message of body.thread.messages) {
+      message.textHtml = "<p>Message body for keyboard shortcut coverage.</p>";
+    }
+    await route.fulfill({ response, json: body });
+  });
   const settingsResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -98,7 +112,24 @@ test("advances the split reader after archiving an open conversation", async ({
   let archived = false;
   let restoreSucceeded: boolean | undefined;
   try {
-    await page.getByRole("button", { name: /^Archive/ }).click();
+    const emailFrame = page
+      .locator('iframe[title="Email content preview"]')
+      .last();
+    await expect(emailFrame).toHaveAttribute("data-email-ready", "true");
+    const emailBody = emailFrame.contentFrame().locator("body");
+    await emailBody.click();
+    await emailBody.press("h");
+    await expect(
+      page.getByPlaceholder("When should it return? Try Friday at 3pm"),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await emailBody.click();
+    await emailBody.press("e");
     archived = true;
     await expect(
       page
@@ -152,6 +183,45 @@ test("selects ranges and opens conversations with the keyboard", async ({
   await expect(page).toHaveURL(/thread-id=/);
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
+});
+
+test("selects and clears all conversations from the list toolbar", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const options = conversations.getByRole("option");
+  const conversationCount = await options.count();
+  expect(conversationCount).toBeGreaterThan(1);
+
+  const selectAll = page.getByRole("checkbox", {
+    name: "Select all conversations",
+  });
+  await expect(selectAll).not.toBeChecked();
+
+  await selectAll.click();
+
+  await expect(
+    page.getByText(`${conversationCount} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(selectAll).toBeChecked();
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
+  await capturePlaywrightCheckpoint(page, testInfo, "select-all-conversations");
+
+  await options.nth(1).getByRole("checkbox").click();
+
+  await expect(
+    page.getByText(`${conversationCount - 1} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(selectAll).toHaveAttribute("aria-checked", "mixed");
+
+  await selectAll.click();
+  await expect(selectAll).toBeChecked();
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
+
+  await selectAll.click();
+  await expect(selectAll).not.toBeChecked();
+  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+  await expect.poll(() => allRowsAreSelected(options, false)).toBe(true);
 });
 
 test("selects every conversation with Command A", async ({ page }) => {

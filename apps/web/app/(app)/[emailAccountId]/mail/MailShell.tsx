@@ -1,5 +1,10 @@
 "use client";
 
+import { MailPanelErrorBoundary } from "@/app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary";
+
+import { MessageActionsMenu } from "@/app/(app)/[emailAccountId]/mail/MessageActionsMenu";
+
+import { GmailLabel } from "@/utils/gmail/label";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
   type CSSProperties,
@@ -35,7 +40,6 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
-import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import {
   NewSplitDialog,
@@ -45,6 +49,7 @@ import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 import { extractEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
+import { BufferedThreadReader } from "@/app/(app)/[emailAccountId]/mail/BufferedThreadReader";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
@@ -67,6 +72,7 @@ import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbo
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
 import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
@@ -75,6 +81,7 @@ import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
   senderCommandContextAtom,
+  shortcutsDialogOpenAtom,
 } from "@/store/command-palette";
 import {
   EmailAccountScopeProvider,
@@ -86,6 +93,7 @@ import {
 } from "@/utils/email/provider-types";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -99,6 +107,7 @@ import {
   buildMailSplitFromPromptAction,
   createMailSplitAction,
   deleteMailSplitAction,
+  reorderMailSplitsAction,
   updateMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
@@ -111,6 +120,8 @@ import {
 } from "@/utils/actions/mail";
 import {
   getPortableLabelSplits,
+  OTHER_SPLIT_ID,
+  otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
 } from "@/utils/mail/split-query";
@@ -147,12 +158,18 @@ export function MailShell() {
   const { userLabels } = useEmail();
   const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
-  const { countsById, mutate: mutateCounts } = useLabelCounts();
+  const {
+    adjustInboxUnread,
+    countsById,
+    mutate: mutateCounts,
+  } = useLabelCounts({ emailAccountId });
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
   const { state: openSidebars, toggleSidebar } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
+  const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
+  const setIsHelpOpen = useSetAtom(shortcutsDialogOpenAtom);
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const [isNewSplitOpen, setIsNewSplitOpen] = useState(false);
   const [editingSplitId, setEditingSplitId] = useState<string | null>(null);
@@ -178,7 +195,6 @@ export function MailShell() {
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
@@ -207,12 +223,14 @@ export function MailShell() {
 
   const isAllAccounts = accountScope === "all";
   const setOpenThread = useCallback(
-    (selection: ThreadSelection | null) =>
-      setOpenThreadQuery({
+    (selection: ThreadSelection | null) => {
+      setIsMenuOpen(false);
+      return setOpenThreadQuery({
         "thread-id": selection?.threadId ?? null,
         "thread-account-id":
           isAllAccounts && selection ? selection.emailAccountId : null,
-      }),
+      });
+    },
     [isAllAccounts, setOpenThreadQuery],
   );
   const combinedAccounts = useMemo(
@@ -310,7 +328,25 @@ export function MailShell() {
 
   const splits = useMemo(
     () =>
-      (settings?.splits ?? []).filter(
+      [
+        ...(settings?.splits ?? []).map((split) => ({
+          ...split,
+          name:
+            isGoogle && split.name.trim().toLowerCase() === "other"
+              ? `${split.name} (custom)`
+              : split.name,
+        })),
+        ...(isGoogle && !isAllAccounts
+          ? [
+              {
+                id: OTHER_SPLIT_ID,
+                name: "Other",
+                matchAll: true,
+                filters: [],
+              },
+            ]
+          : []),
+      ].filter(
         (split) =>
           !isAllAccounts ||
           split.filters.every(
@@ -318,7 +354,7 @@ export function MailShell() {
           ) ||
           combinedLabelSplits.some((portable) => portable.id === split.id),
       ),
-    [settings?.splits, isAllAccounts, combinedLabelSplits],
+    [settings?.splits, isAllAccounts, combinedLabelSplits, isGoogle],
   );
   const activeSplit =
     splits.find((split) => split.id === activeSplitId) ?? splits[0];
@@ -332,10 +368,11 @@ export function MailShell() {
     if (searchQuery) return { q: searchQuery };
     if (scopeQuery) return scopeQuery;
 
+    if (activeSplit?.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
     return activeSplit
       ? mailSplitToThreadsQuery(activeSplit)
       : { type: "inbox" };
-  }, [searchQuery, scopeQuery, activeSplit]);
+  }, [searchQuery, scopeQuery, activeSplit, splits]);
 
   const accountThreadState = useMailThreads({
     emailAccountId,
@@ -404,7 +441,12 @@ export function MailShell() {
   const deferredReaderSelection = useDeferredValue(openThreadSelection);
   const readerThreadKey = getThreadSelectionKey(deferredReaderSelection);
   const openReaderThreadKey = getThreadSelectionKey(openThreadSelection);
+  useLayoutEffect(() => {
+    if (openReaderThreadKey) setIsMenuOpen(false);
+  }, [openReaderThreadKey]);
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
+  const [visibleReaderThreadKey, setVisibleReaderThreadKey] =
+    useState<string>();
   const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
   const adjacentPrefetchScopeKey = `adjacent:${readerThreadKey ?? "none"}`;
   const threadSelections = useMemo(
@@ -464,6 +506,13 @@ export function MailShell() {
     readerSelectionSettled,
   ]);
   const actionTargets = useMemo(() => {
+    // Navigation can outpace the visible reader; do not act on an unseen email.
+    if (
+      openReaderThreadKey &&
+      openReaderThreadKey !== visibleReaderThreadKey &&
+      !selection.hasSelection
+    )
+      return [];
     const listTargets = threads.map((thread) => ({
       key: getListThreadKey(thread),
       messages: thread.messages,
@@ -487,6 +536,9 @@ export function MailShell() {
   }, [
     emailAccountId,
     focusedThread,
+    openReaderThreadKey,
+    visibleReaderThreadKey,
+    selection.hasSelection,
     openMessages,
     openThread,
     openThreadKey,
@@ -498,9 +550,8 @@ export function MailShell() {
   const {
     archive,
     trash,
-    markRead,
     markSpam,
-    setReadState,
+    setReadState: queueReadState,
     setStarredState,
     snooze,
     undo,
@@ -509,6 +560,42 @@ export function MailShell() {
     readerTarget,
     threads,
   });
+  const inboxFolderId = folders.find(
+    (folder) => folder.systemType === "INBOX",
+  )?.id;
+  // Behind a ref so setReadState stays referentially stable across thread-list
+  // refreshes, matching useThreadActions.
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+  const setReadState = useCallback(
+    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
+      const threadsBeforeQueue = threadsRef.current;
+      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
+      if (!isAllAccounts) {
+        adjustInboxUnread(
+          getInboxUnreadDelta({
+            countByMessage: isOutlook,
+            inboxFolderId,
+            read,
+            threadKeys: queuedKeys,
+            threads: threadsBeforeQueue,
+          }),
+        );
+      }
+      return queuedKeys;
+    },
+    [
+      adjustInboxUnread,
+      inboxFolderId,
+      isAllAccounts,
+      isOutlook,
+      queueReadState,
+    ],
+  );
+  const markRead = useCallback(
+    (threadKeys: string[]) => setReadState(threadKeys, true, false),
+    [setReadState],
+  );
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
@@ -694,7 +781,6 @@ export function MailShell() {
     [clampIndex, clampedIndex, selection],
   );
 
-  const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   useEffect(() => {
     if (!openReaderThreadKey) {
       readAttemptedForOpenThread.current = null;
@@ -1027,7 +1113,10 @@ export function MailShell() {
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
-      undo: () => undo(),
+      undo: async () => {
+        if (await undoLatestToast()) return;
+        await undo();
+      },
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
       togglePreview,
       help: () => setIsHelpOpen(true),
@@ -1062,12 +1151,15 @@ export function MailShell() {
 
   const splitLabelChoices = useMemo(
     () =>
-      visibleLabels.map((label) => ({
+      [
+        ...visibleLabels,
+        ...(isGoogle ? [{ id: GmailLabel.IMPORTANT, name: "Important" }] : []),
+      ].map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         value: label.id,
       })),
-    [visibleLabels],
+    [visibleLabels, isGoogle],
   );
   const splitCategoryChoices = useMemo(
     () =>
@@ -1179,6 +1271,20 @@ export function MailShell() {
       return result?.data ?? null;
     },
     [emailAccountId, splitCategoryChoices, splitLabelChoices, splitSenders],
+  );
+
+  const onReorderSplits = useCallback(
+    async (ids: string[]) => {
+      const result = await reorderMailSplitsAction(emailAccountId, { ids });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        await mutateSettings();
+        return false;
+      }
+      await mutateSettings();
+      return true;
+    },
+    [emailAccountId, mutateSettings],
   );
 
   const onDeleteSplit = useCallback(
@@ -1369,7 +1475,6 @@ export function MailShell() {
               onCreateLabel={onCreateLabel}
               onEditMailboxItem={onEditMailboxItem}
               onDeleteMailboxItem={onDeleteMailboxItem}
-              onOpenShortcuts={openShortcuts}
               labelEditMode={isOutlook ? "color" : "name-and-color"}
               labelColorOptions={
                 isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
@@ -1408,14 +1513,22 @@ export function MailShell() {
               searchQuery={searchQuery ?? ""}
               onSearch={setSearch}
               searchInputRef={searchInputRef}
+              searchLabels={isAllAccounts ? [] : visibleLabels}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showLayoutToggle={!isAllAccounts}
+              threadCount={threads.length}
               selectedCount={selection.selectedCount}
+              onSelectAll={selection.selectAll}
               onArchiveSelected={archiveTargets}
               onDeleteSelected={trashTargets}
+              isUnreadSelected={actionTargets.some((target) =>
+                isThreadUnread(target.messages),
+              )}
+              onMarkReadSelected={markReadTargets}
+              onMarkUnreadSelected={markUnreadTargets}
               onLabelSelected={canLabel ? openLabelPicker : undefined}
               onClearSelection={selection.clear}
             />
@@ -1449,97 +1562,132 @@ export function MailShell() {
                 their connections.
               </div>
             ) : null}
-            <LoadingContent
-              loading={isLoading && !threads.length}
-              error={error}
+            <MailPanelErrorBoundary
+              resetKey={JSON.stringify([
+                emailAccountId,
+                isAllAccounts,
+                query,
+                displayedActiveSplitId,
+                searchQuery,
+              ])}
+              title="Unable to show your mail list"
             >
-              <ThreadList
-                threads={threads}
-                layout={layout}
-                expandedPreview={expandedPreview}
-                userEmail={userEmail}
-                userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                labelsByAccount={labelsByAccount}
-                focusedIndex={clampedIndex}
-                isSelected={selection.isSelected}
-                selectedCount={selection.selectedCount}
-                onOpenThread={openAt}
-                onToggleSelect={selection.toggle}
-                onSelectRangeTo={selection.selectRangeTo}
-                showLoadMore={hasMore}
-                isLoadingMore={isLoadingMore}
-                onLoadMore={loadMore}
-                listKey={
-                  isAllAccounts
-                    ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                    : JSON.stringify(query)
-                }
-              />
-            </LoadingContent>
+              <LoadingContent
+                loading={isLoading && !threads.length}
+                error={error}
+              >
+                <ThreadList
+                  threads={threads}
+                  layout={layout}
+                  expandedPreview={expandedPreview}
+                  userEmail={userEmail}
+                  userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                  labelsByAccount={labelsByAccount}
+                  focusedIndex={clampedIndex}
+                  isSelected={selection.isSelected}
+                  selectedCount={selection.selectedCount}
+                  onOpenThread={openAt}
+                  onToggleSelect={selection.toggle}
+                  onSelectRangeTo={selection.selectRangeTo}
+                  showLoadMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                  showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
+                  listKey={
+                    isAllAccounts
+                      ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                      : JSON.stringify(query)
+                  }
+                />
+              </LoadingContent>
+            </MailPanelErrorBoundary>
           </section>
         )}
 
         {showReader && (!openThreadSelection || readerEmailAccount) ? (
-          <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
-            <ThreadReader
-              enableMessageNavigation={!sidePanelThreadId}
-              key={openReaderThreadKey ?? "empty"}
-              thread={openThread ?? null}
-              threadId={openThreadId}
-              detailSelectionSettled={readerSelectionSettled}
-              loading={
-                Boolean(openThreadSelection) &&
-                (!readerSelectionSettled || isOpenThreadLoading)
-              }
-              error={readerSelectionSettled ? openThreadError : undefined}
-              messages={openMessages}
-              userLabels={readerUserLabels}
-              layout={layout}
-              labelHref={labelHref}
-              onRemoveLabel={onRemoveLabel}
-              onBackToInbox={closeReader}
-              onArchive={archiveTargets}
-              refetch={refetchOpenThread}
-              onSendSuccess={(_messageId, sentThreadId) => {
-                if (
+          <MailPanelErrorBoundary
+            resetKey={openReaderThreadKey ?? "empty"}
+            title="Unable to show this conversation"
+            onBack={closeReader}
+          >
+            <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
+              <BufferedThreadReader
+                key={readerEmailAccount?.id ?? "empty"}
+                threadKey={openReaderThreadKey ?? "empty"}
+                dataReady={
                   !openThreadSelection ||
-                  !sentThreadId.trim() ||
-                  sentThreadId === openThreadSelection.threadId
-                )
-                  return;
-                setReplyToMessageId(undefined);
-                setOpenThread({
-                  emailAccountId: openThreadSelection.emailAccountId,
-                  threadId: sentThreadId,
-                });
-              }}
-              autoOpenReplyForMessageId={replyToMessageId}
-              autoOpenForwardForMessageId={forwardToMessageId}
-              menu={
-                <ThreadActionsMenu
-                  plans={openThread?.plans ?? []}
-                  message={openMessages.at(-1) ?? null}
-                  setChatInput={setChatInput}
+                  (readerSelectionSettled &&
+                    Boolean(openThreadData || openThreadError))
+                }
+                onReady={setVisibleReaderThreadKey}
+              >
+                <ThreadReader
+                  enableMessageNavigation={!sidePanelThreadId}
+                  thread={openThread ?? null}
+                  threadId={openThreadId}
+                  detailSelectionSettled={readerSelectionSettled}
+                  loading={
+                    Boolean(openThreadSelection) &&
+                    (!readerSelectionSettled || isOpenThreadLoading)
+                  }
+                  error={readerSelectionSettled ? openThreadError : undefined}
+                  messages={openMessages}
+                  userLabels={readerUserLabels}
+                  layout={layout}
+                  labelHref={labelHref}
+                  onRemoveLabel={onRemoveLabel}
+                  onBackToInbox={closeReader}
+                  onArchive={archiveTargets}
                   isUnread={isOpenThreadUnread}
-                  onMarkSpam={markSpamTargets}
-                  onDelete={trashTargets}
-                  onLabel={canLabel ? openLabelPicker : undefined}
-                  onMove={canLabel ? openMovePicker : undefined}
                   onMarkRead={() => {
                     if (!openThreadKey) return;
                     setReadState([openThreadKey], true);
                   }}
                   onMarkUnread={markUnreadTargets}
-                  showFixWithChat={
-                    !isAllAccounts ||
-                    openThreadSelection?.emailAccountId === emailAccountId
+                  refetch={refetchOpenThread}
+                  onSendSuccess={(_messageId, sentThreadId) => {
+                    if (
+                      !openThreadSelection ||
+                      !sentThreadId.trim() ||
+                      sentThreadId === openThreadSelection.threadId
+                    )
+                      return;
+                    setReplyToMessageId(undefined);
+                    setOpenThread({
+                      emailAccountId: openThreadSelection.emailAccountId,
+                      threadId: sentThreadId,
+                    });
+                  }}
+                  autoOpenReplyForMessageId={replyToMessageId}
+                  autoOpenForwardForMessageId={forwardToMessageId}
+                  renderMessageMenu={(message) => (
+                    <MessageActionsMenu
+                      message={message}
+                      plans={openThread?.plans ?? []}
+                      setChatInput={setChatInput}
+                      showFixWithChat={
+                        !isAllAccounts ||
+                        openThreadSelection?.emailAccountId === emailAccountId
+                      }
+                    />
+                  )}
+                  menu={
+                    <ThreadActionsMenu
+                      message={openMessages.at(-1) ?? null}
+                      isStarred={allStarred}
+                      onToggleStar={starTargets}
+                      onMarkSpam={markSpamTargets}
+                      onDelete={trashTargets}
+                      onLabel={canLabel ? openLabelPicker : undefined}
+                      onMove={canLabel ? openMovePicker : undefined}
+                      open={isMenuOpen}
+                      onOpenChange={setIsMenuOpen}
+                    />
                   }
-                  open={isMenuOpen}
-                  onOpenChange={setIsMenuOpen}
                 />
-              }
-            />
-          </EmailAccountScopeProvider>
+              </BufferedThreadReader>
+            </EmailAccountScopeProvider>
+          </MailPanelErrorBoundary>
         ) : null}
 
         {showReader && openThreadSelection && !readerEmailAccount ? (
@@ -1588,6 +1736,8 @@ export function MailShell() {
           onCreate={onCreateSplit}
           onUpdate={onUpdateSplit}
           onDelete={onDeleteSplit}
+          onReorder={onReorderSplits}
+          onEdit={setEditingSplitId}
           onDescribe={onDescribeSplit}
         />
       )}
@@ -1640,11 +1790,6 @@ export function MailShell() {
           />
         </EmailAccountScopeProvider>
       )}
-      <ShortcutsDialog
-        isDesktopApp={isDesktopApp}
-        open={isHelpOpen}
-        onOpenChange={setIsHelpOpen}
-      />
     </div>
   );
 }

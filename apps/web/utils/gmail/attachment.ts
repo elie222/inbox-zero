@@ -18,7 +18,7 @@ export async function getGmailAttachment(
   return attachmentData;
 }
 
-export async function getGmailDraftAttachments(
+export async function getGmailMessageAttachments(
   gmail: gmail_v1.Gmail,
   messageId: string,
   payload: gmail_v1.Schema$MessagePart | null | undefined,
@@ -28,7 +28,7 @@ export async function getGmailDraftAttachments(
     const attachments = [];
     for (const part of payload.parts) {
       attachments.push(
-        ...(await getGmailDraftAttachments(gmail, messageId, part)),
+        ...(await getGmailMessageAttachments(gmail, messageId, part)),
       );
     }
     return attachments;

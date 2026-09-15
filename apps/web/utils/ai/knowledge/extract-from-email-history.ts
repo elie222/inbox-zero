@@ -99,7 +99,7 @@ export async function aiExtractFromEmailHistory({
 
     const result = await generateObject({
       ...modelOptions,
-      system,
+      instructions: system,
       prompt,
       schema,
     });

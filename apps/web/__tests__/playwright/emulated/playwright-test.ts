@@ -93,7 +93,11 @@ export const test = base.extend<BrowserEvidenceFixtures>({
         const pageTitle = page.isClosed()
           ? null
           : await page.title().catch(() => null);
-        if (!page.isClosed() && testInfo.errors.length === 0) {
+        if (
+          !page.isClosed() &&
+          page.url() !== "about:blank" &&
+          testInfo.errors.length === 0
+        ) {
           try {
             await capturePlaywrightCheckpoint(page, testInfo, "final-state");
           } catch (error) {

@@ -14,6 +14,7 @@ const llmProviderEnum = z.enum([
   "bedrock",
   "openrouter",
   "groq",
+  "cerebras",
   "aigateway",
   "ollama",
   "openai-compatible",
@@ -51,6 +52,7 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
@@ -60,6 +62,7 @@ const parsedEnv = createEnv({
     ),
 
     AUTH_SECRET: z.string().optional(),
+    SCIM_CREDENTIAL_HASH_SECRET: z.string().min(32).optional(),
     NEXTAUTH_SECRET: z.string().optional(),
     AUTH_ALLOWED_EMAILS: z
       .string()
@@ -174,6 +177,7 @@ const parsedEnv = createEnv({
     GOOGLE_VERTEX_PRIVATE_KEY: z.string().optional(),
     GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
+    CEREBRAS_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     PERPLEXITY_API_KEY: z.string().optional(),
@@ -189,6 +193,12 @@ const parsedEnv = createEnv({
     CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
+    VOICE_PROVIDER: z.enum(["openai", "groq"]).optional(),
+    VOICE_STT_MODEL: z.string().optional(),
+    VOICE_TTS_MODEL: z.string().optional(),
+    VOICE_TTS_VOICE: z.string().optional(),
+    VOICE_LIVE_MODEL: z.string().optional(),
+    VOICE_LIVE_VOICE: z.string().optional(),
 
     UPSTASH_REDIS_URL: z
       .string()
@@ -252,6 +262,8 @@ const parsedEnv = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Points the Stripe SDK at a local emulator during browser tests.
+    STRIPE_API_BASE_URL: z.string().url().optional(),
     STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     // Apple App Store
@@ -310,6 +322,7 @@ const parsedEnv = createEnv({
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    MCP_SERVER_ENABLED: booleanString.optional().default(false),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
@@ -358,6 +371,11 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
+    UNSUBSCRIBE_WORKER_URL: z
+      .url()
+      .refine((value) => new URL(value).protocol === "https:")
+      .optional(),
+    UNSUBSCRIBE_WORKER_SECRET: z.string().min(32).optional(),
   },
   client: {
     // stripe
@@ -403,6 +421,9 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
@@ -431,6 +452,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_VOICE_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
@@ -509,6 +531,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
       process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:
+      process.env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
@@ -534,6 +558,7 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
+    NEXT_PUBLIC_VOICE_ENABLED: process.env.NEXT_PUBLIC_VOICE_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
@@ -564,6 +589,15 @@ const parsedEnv = createEnv({
 if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_SECRET_TOKEN) {
   throw new Error(
     "TELEGRAM_BOT_SECRET_TOKEN is required when TELEGRAM_BOT_TOKEN is set.",
+  );
+}
+
+if (
+  process.env.UNSUBSCRIBE_WORKER_URL &&
+  !process.env.UNSUBSCRIBE_WORKER_SECRET
+) {
+  throw new Error(
+    "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
   );
 }
 

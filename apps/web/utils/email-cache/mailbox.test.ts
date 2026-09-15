@@ -23,6 +23,118 @@ describe("synced mailbox cache", () => {
     await clearEmailCache();
   });
 
+  it("matches cached domains and defers unsupported unions to the server", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2020-01-01"),
+      page: {
+        cursor: "complete",
+        reset: true,
+        hasMore: false,
+        deletedMessageIds: [],
+        upsertedMessages: [
+          getMessage({
+            id: "hit",
+            threadId: "hit",
+            from: "User <USER@example.com>",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "sub",
+            threadId: "sub",
+            from: "user@sub.example.com",
+            labelIds: ["INBOX"],
+          }),
+          getMessage({
+            id: "archived",
+            threadId: "archived",
+            from: "user@example.com",
+            labelIds: [],
+          }),
+          getMessage({
+            id: "mixed-inbox",
+            threadId: "mixed",
+            from: "user@sub.example.com",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "mixed-archive",
+            threadId: "mixed",
+            from: "user@example.com",
+            labelIds: [],
+          }),
+        ],
+      },
+    });
+    for (const query of [
+      { labelIds: ["INBOX"], fromEmail: "@example.com", isUnread: true },
+      {
+        labelIds: ["INBOX"],
+        anyOf: [
+          { fromEmail: "@example.com" },
+          { fromEmail: "other@elsewhere.com" },
+        ],
+      },
+    ]) {
+      const result = await readSyncedMailboxThreads({
+        emailAccountId: "account-1",
+        query,
+      });
+      if (query.anyOf) expect(result).toBeUndefined();
+      else expect(result?.threads.map(({ id }) => id)).toEqual(["hit"]);
+    }
+  });
+
+  it("excludes named splits from cached Other results", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2020-01-01"),
+      page: {
+        cursor: "complete",
+        reset: true,
+        hasMore: false,
+        deletedMessageIds: [],
+        upsertedMessages: [
+          getMessage({
+            id: "important",
+            threadId: "important",
+            labelIds: ["INBOX", "IMPORTANT"],
+          }),
+          getMessage({ id: "other", threadId: "other", labelIds: ["INBOX"] }),
+        ],
+      },
+    });
+    const result = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: {
+        type: "inbox",
+        excludeSplits: [
+          {
+            matchAll: true,
+            filters: [{ kind: "LABEL", value: "IMPORTANT" }],
+          },
+        ],
+      },
+    });
+    expect(result?.threads.map(({ id }) => id)).toEqual(["other"]);
+  });
+
+  it("falls back when a cached exclusion filter is malformed", async () => {
+    const result = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: {
+        type: "inbox",
+        excludeSplits: [
+          {
+            matchAll: true,
+            filters: [{ kind: "OLDER_THAN", value: "invalid" }],
+          },
+        ],
+      },
+    });
+    expect(result).toBeUndefined();
+  });
+
   it("invalidates all detail variants for changed threads and deleted cached drafts", async () => {
     const database = await getEmailCacheDatabase();
     if (!database) throw new Error("Database unavailable");
@@ -706,6 +818,53 @@ describe("synced mailbox cache", () => {
     expect(snapshot?.threads).toMatchObject([
       { account: { id: "account-1" }, id: "unread-thread" },
     ]);
+  });
+
+  it("keeps archived messages cached and hides them from inbox and unread views", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "inbox-message",
+            threadId: "inbox-thread",
+            internalDate: "2026-08-23T11:00:00.000Z",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+          getMessage({
+            id: "archived-message",
+            threadId: "archived-thread",
+            internalDate: "2026-08-23T12:00:00.000Z",
+            labelIds: ["UNREAD"],
+          }),
+        ],
+      },
+    });
+
+    const inbox = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "inbox" },
+    });
+    const unread = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "unread" },
+    });
+    const database = await getEmailCacheDatabase();
+    const cached = await database?.get("mailboxMessages", [
+      "account-1",
+      "archived-message",
+    ]);
+
+    expect(inbox?.threads.map((thread) => thread.id)).toEqual(["inbox-thread"]);
+    expect(unread?.threads.map((thread) => thread.id)).toEqual([
+      "inbox-thread",
+    ]);
+    expect(cached?.data.labelIds).toEqual(["UNREAD"]);
   });
 
   it("notifies active subscribers after mailbox changes", async () => {

@@ -341,30 +341,31 @@ async function runDev(state: WorktreeState) {
 
 async function cleanWorktree() {
   const state = readState();
-  const branch = state?.branch ?? (await getCurrentBranch());
-  const dbName = state?.dbName ?? buildDatabaseName(branch);
+  if (state) {
+    const dbName = state.dbName;
+    const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
+    const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv, {
+      purpose: "clean the branch database",
+    });
 
-  ensureSharedEnvLinks();
+    assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
+    assertSafeWorktreeDatabaseName(dbName);
 
-  const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
-  const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv, {
-    purpose: "clean the branch database",
-  });
+    const parsedUrl = new URL(sourceDatabaseUrl);
+    const port = Number.parseInt(parsedUrl.port || "5432", 10);
 
-  assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
-  assertSafeWorktreeDatabaseName(dbName);
-
-  const parsedUrl = new URL(sourceDatabaseUrl);
-  const port = Number.parseInt(parsedUrl.port || "5432", 10);
-
-  if (await canConnectToPort(port, parsedUrl.hostname)) {
-    const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
-    await dropDatabase(adminUrl, dbName);
-    log(`Removed branch database ${dbName}`);
+    if (await canConnectToPort(port, parsedUrl.hostname)) {
+      const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
+      await dropDatabase(adminUrl, dbName);
+      log(`Removed branch database ${dbName}`);
+    } else {
+      log(
+        `Skipping database drop for ${dbName}; no Postgres service is listening at ${parsedUrl.hostname}:${port}`,
+      );
+      return;
+    }
   } else {
-    log(
-      `Skipping database drop for ${dbName}; no Postgres service is listening at ${parsedUrl.hostname}:${port}`,
-    );
+    log("Skipping database cleanup; no saved dev setup state");
   }
 
   rmSync(GENERATED_EMULATE_SEED_PATH, { force: true });

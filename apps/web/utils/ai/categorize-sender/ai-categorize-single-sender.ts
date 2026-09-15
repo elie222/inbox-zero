@@ -61,7 +61,7 @@ ${formatCategoriesForPrompt(categories)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       rationale: strictOptional(z.string()).describe(

@@ -96,8 +96,8 @@ checks are still running is a report of nothing:
 "$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest" --watch
 ```
 
-That call blocks until the checks on this commit are terminal and then prints a
-digest ending in a `VERDICT` line. Read `.claude/skills/pr-watch/SKILL.md` for
+That call reports a failure or timeout immediately, or waits for the checks
+on this commit to settle, then prints a digest ending in a `VERDICT` line. Read `.claude/skills/pr-watch/SKILL.md` for
 how to act on each verdict, triage a failing job, and answer review comments.
 
 Starting the command matters more than remembering the skill: once it is

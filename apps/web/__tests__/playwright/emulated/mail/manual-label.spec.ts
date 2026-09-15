@@ -156,8 +156,10 @@ test("L labels the open conversation after it leaves the unread list", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await page
+    .getByRole("group", { name: "Thread actions" })
+    .getByRole("button", { name: /Mark as unread/ })
+    .click();
   await expect
     .poll(
       () =>
@@ -194,6 +196,7 @@ test("L labels the open conversation after it leaves the unread list", async ({
   await page.keyboard.press("Escape");
   await expect(picker).toBeHidden();
   await expect(heading).toBeVisible();
+  await expect(page.locator("body")).toBeFocused();
   await page.keyboard.press("l");
   await picker.getByRole("combobox").fill("Project Alpha");
   await expect(

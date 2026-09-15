@@ -5,6 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { parseMessageReply } from "@/utils/email/parse-message-reply";
 import { getEmailProviderRateLimitMessage, SafeError } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -37,7 +38,6 @@ export const GET = withEmailProvider(
   "threads/detail",
   async (request, context) => {
     const { emailProvider } = request;
-    const { emailAccountId } = request.auth;
 
     const params = await context.params;
     const { id } = threadQuery.parse(params);
@@ -66,15 +66,15 @@ export const GET = withEmailProvider(
           429,
         );
       }
-      request.logger.error("Error fetching thread", {
-        error,
-        emailAccountId,
-        threadId: id,
-      });
-      return NextResponse.json(
-        { error: "Failed to fetch thread" },
-        { status: 500 },
-      );
+      if (isThreadNotFoundError(error)) {
+        // A just-sent message can take a few seconds to become readable, so
+        // this is not always a permanent failure.
+        throw new SafeError(
+          "This conversation isn't available yet. It may still be syncing with your mailbox, or it was deleted.",
+          404,
+        );
+      }
+      throw error;
     }
   },
 );

@@ -130,4 +130,61 @@ describe("meeting recorder upcoming route", () => {
       }),
     ]);
   });
+
+  it.each([
+    MeetingRecordingStatus.IN_CALL,
+    MeetingRecordingStatus.RECORDING,
+  ])("keeps an active call in the upcoming list after its scheduled end (%s)", async (status) => {
+    fetchEventsMock.mockResolvedValue({ complete: true, events: [] });
+    prisma.meeting.findMany.mockResolvedValue([
+      {
+        id: "meeting-1",
+        calendarEventId: "event-1",
+        eventTitle: "Planning",
+        startTime: new Date("2026-07-30T09:00:00.000Z"),
+        endTime: new Date("2026-07-30T09:30:00.000Z"),
+        joinOverride: null,
+        recording: { status, failureReason: null },
+      },
+    ] as never);
+
+    const response = await GET(
+      new Request(
+        "https://example.com/api/user/meeting-recorder/upcoming",
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(prisma.meeting.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId: "email-account-1",
+          OR: [
+            { calendarEventId: { in: [] } },
+            {
+              recording: {
+                status: {
+                  in: [
+                    MeetingRecordingStatus.IN_CALL,
+                    MeetingRecordingStatus.RECORDING,
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      }),
+    );
+    expect(body.events).toEqual([
+      expect.objectContaining({
+        id: "event-1",
+        meetingId: "meeting-1",
+        title: "Planning",
+        startTime: "2026-07-30T09:00:00.000Z",
+        endTime: "2026-07-30T09:30:00.000Z",
+        hasCancellableBooking: true,
+        recordingStatus: status,
+      }),
+    ]);
+  });
 });

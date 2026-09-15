@@ -241,12 +241,10 @@
 .preservedBlock {
   margin: 0.5rem 0;
   color: var(--email-editor-muted-foreground);
-  border-top: 1px solid var(--email-editor-border);
 }
 
 [data-inline-reply="true"] .preservedBlock {
   margin: 0;
-  border-top: 0;
 }
 
 .preservedToggle {

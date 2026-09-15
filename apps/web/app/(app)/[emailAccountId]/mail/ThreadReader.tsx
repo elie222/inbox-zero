@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
-import { Loader2Icon, MailIcon } from "lucide-react";
+import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
@@ -18,6 +18,8 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
+import { getSWRFetchErrorMessage } from "@/providers/swr-error";
+import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
@@ -56,6 +58,9 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  isUnread: boolean;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
@@ -68,6 +73,7 @@ export type ThreadReaderProps = {
   autoOpenForwardForMessageId?: string;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
+  renderMessageMenu?: (message: ThreadMessage) => ReactNode;
 };
 
 export function ThreadReader({
@@ -84,11 +90,15 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  isUnread,
+  onMarkRead,
+  onMarkUnread,
   refetch,
   onSendSuccess,
   autoOpenReplyForMessageId,
   autoOpenForwardForMessageId,
   menu,
+  renderMessageMenu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
     messageId: string;
@@ -108,6 +118,7 @@ export function ThreadReader({
         <LoadingContent
           error={error}
           loading={loading}
+          errorComponent={<ThreadReaderError error={error} onRetry={refetch} />}
           loadingComponent={
             <Loader2Icon
               aria-label="Loading email"
@@ -138,11 +149,14 @@ export function ThreadReader({
       isStarred={isThreadStarred(
         thread?.messages.length ? thread.messages : messages,
       )}
+      isUnread={isUnread}
       messageExpansion={messageExpansion}
       labelHref={labelHref}
       labels={labels}
       menu={menu}
       onArchive={onArchive}
+      onMarkRead={onMarkRead}
+      onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
       subject={headerMessage.headers.subject}
@@ -162,6 +176,7 @@ export function ThreadReader({
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}
+              renderMessageMenu={renderMessageMenu}
               enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               autoOpenForwardForMessageId={autoOpenForwardForMessageId}
@@ -199,6 +214,34 @@ export function ThreadReader({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Loading a thread can fail for reasons the reader can recover from, such as a
+ * message that the provider has not made readable yet, so this offers a retry
+ * instead of the generic app-wide error screen.
+ */
+function ThreadReaderError({
+  error,
+  onRetry,
+}: {
+  error: ThreadReaderProps["error"];
+  onRetry: () => void;
+}) {
+  return (
+    <>
+      <AlertCircleIcon className="size-6 text-muted-foreground" />
+      <div className="text-foreground text-sm">
+        Couldn't open this conversation
+      </div>
+      <div className="text-muted-foreground text-xs">
+        {getSWRFetchErrorMessage(error?.info)}
+      </div>
+      <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">
+        Try again
+      </Button>
+    </>
   );
 }
 

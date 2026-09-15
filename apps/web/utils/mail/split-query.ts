@@ -18,6 +18,22 @@ export type MailSplit = {
   filters: MailSplitFilter[];
 };
 
+type QuerySplit = Pick<MailSplit, "matchAll" | "filters"> & { name?: string };
+
+export const OTHER_SPLIT_ID = "other-inbox";
+
+export function otherMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
+  return {
+    type: "inbox",
+    excludeSplits: splits
+      .filter((split) => split.filters.length > 0)
+      .map(({ matchAll, filters }) => ({
+        matchAll,
+        filters: filters.map(({ kind, value }) => ({ kind, value })),
+      })),
+  };
+}
+
 export type PortableLabelSplit = MailSplit & { labelNames: string[] };
 
 /** Tokens the "Older than" condition offers, and how far back each one reaches. */
@@ -40,7 +56,7 @@ export const OLDER_THAN_OPTIONS = [
  * `now` is injected so the "older than" window is testable.
  */
 export function mailSplitToThreadsQuery(
-  split: MailSplit,
+  split: QuerySplit,
   now: Date = new Date(),
 ): ThreadsQuery {
   // A split with no conditions is the plain inbox — that's what "All" is.
@@ -83,7 +99,7 @@ export function getPortableLabelSplits(
 }
 
 /** Everything ANDs into a single provider query. */
-function matchAllQuery(split: MailSplit, now: Date): ThreadsQuery {
+function matchAllQuery(split: QuerySplit, now: Date): ThreadsQuery {
   const labelIds = ["INBOX"];
   const query: ThreadsQuery = {};
 
@@ -130,7 +146,7 @@ function matchAllQuery(split: MailSplit, now: Date): ThreadsQuery {
  * "Match any" is a disjunction, which a single flat query can't express, so each
  * condition becomes its own leaf and the provider ORs them inside the inbox.
  */
-function matchAnyQuery(split: MailSplit, now: Date): ThreadsQuery {
+function matchAnyQuery(split: QuerySplit, now: Date): ThreadsQuery {
   const anyOf = split.filters.map<ThreadsQueryLeaf>((filter) => {
     switch (filter.kind) {
       case MailSplitFilterKind.UNREAD:
@@ -159,16 +175,18 @@ function matchAnyQuery(split: MailSplit, now: Date): ThreadsQuery {
 
 function requireValue(
   filter: MailSplitFilter,
-  split: MailSplit,
+  split: QuerySplit,
   what: string,
 ): string {
-  if (!filter.value) throw new Error(`Split "${split.name}" has no ${what}`);
+  if (!filter.value)
+    throw new Error(`Split "${split.name ?? "Other"}" has no ${what}`);
   return filter.value;
 }
 
-function olderThanDate(token: string, split: MailSplit, now: Date): Date {
+function olderThanDate(token: string, split: QuerySplit, now: Date): Date {
   const days = OLDER_THAN_DAYS[token];
-  if (!days) throw new Error(`Split "${split.name}" has an unknown age`);
+  if (!days)
+    throw new Error(`Split "${split.name ?? "Other"}" has an unknown age`);
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 }
 

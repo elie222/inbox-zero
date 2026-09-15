@@ -36,6 +36,15 @@ for (const tier of ["PLUS_MONTHLY", "PROFESSIONAL_MONTHLY"] as const) {
     await expect(
       dialog.getByText("Run your rules on emails already in your inbox."),
     ).toBeVisible();
+    const generateDraftReplies = dialog.getByRole("switch", {
+      name: "Generate draft replies",
+    });
+    await expect(generateDraftReplies).not.toBeChecked();
+    await generateDraftReplies.click();
+    await expect(generateDraftReplies).toBeChecked();
+    await generateDraftReplies.click();
+    await expect(generateDraftReplies).not.toBeChecked();
+
     const includeRead = dialog.getByRole("switch").first();
 
     if (tier === "PLUS_MONTHLY") {

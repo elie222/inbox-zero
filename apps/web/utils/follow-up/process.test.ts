@@ -149,6 +149,20 @@ function createMockProvider(
     ...overrides,
   } as any;
 
+  if (!provider.getThreadsWithQuery) {
+    provider.getThreadsWithQuery = vi.fn(
+      async ({
+        query,
+        maxResults,
+      }: Parameters<EmailProvider["getThreadsWithQuery"]>[0]) => ({
+        threads: await provider.getThreadsWithLabel({
+          labelId: query?.labelId,
+          maxResults,
+        }),
+      }),
+    );
+  }
+
   if (!provider.getLatestMessageFromThreadSnapshot) {
     provider.getLatestMessageFromThreadSnapshot = vi.fn(
       async (thread: { id: string }) =>
@@ -386,6 +400,162 @@ describe("processAccountFollowUps - dedup logic", () => {
         messageId: "msg-refetched",
       }),
     );
+  });
+
+  it.each([
+    "google",
+    "microsoft",
+  ])("reaches an older candidate beyond a completed page for %s", async (providerName) => {
+    const completedThreads = Array.from({ length: 50 }, (_, index) => ({
+      id: `completed-${index}`,
+      messages: [],
+      snippet: "",
+    }));
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue(completedThreads),
+      getThreadsWithQuery: vi
+        .fn()
+        .mockImplementation(async ({ query, pageToken }) => {
+          expect(query).toEqual({ labelId: "awaiting-label" });
+          return pageToken
+            ? { threads: [{ id: "pending", messages: [], snippet: "" }] }
+            : { threads: completedThreads, nextPageToken: "older" };
+        }),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockImplementation(async (id) =>
+          mockAwaitingMessage(`message-${id}`, OLD_DATE),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue(
+      completedThreads.map(({ id }) => ({
+        threadId: id,
+        messageId: `message-${id}`,
+      })) as any,
+    );
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-pending",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount({
+        account: { provider: providerName },
+      } as any),
+      logger,
+    });
+
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+    expect(generateFollowUpDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: "pending" }),
+    );
+  });
+
+  it("keeps the candidate budget across pages and ignores overlapping threads", async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      id: `thread-${index}`,
+      messages: [],
+      snippet: "",
+    }));
+    const secondPage = [
+      firstPage[49],
+      ...Array.from({ length: 24 }, (_, index) => ({
+        id: `older-${index}`,
+        messages: [],
+        snippet: "",
+      })),
+    ];
+    const provider = createMockProvider({
+      getThreadsWithQuery: vi
+        .fn()
+        .mockResolvedValueOnce({ threads: firstPage, nextPageToken: "second" })
+        .mockResolvedValueOnce({ threads: secondPage, nextPageToken: "third" })
+        .mockResolvedValueOnce({
+          threads: [{ id: "last", messages: [], snippet: "" }],
+          nextPageToken: "unused",
+        }),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockImplementation(async (id) => mockAwaitingMessage(id, OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue(
+      firstPage
+        .slice(0, 25)
+        .map(({ id }) => ({ threadId: id, messageId: id })) as any,
+    );
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(50);
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(3);
+    expect(provider.getThreadsWithQuery).toHaveBeenLastCalledWith({
+      query: { labelId: "awaiting-label" },
+      maxResults: 1,
+      pageToken: "third",
+    });
+    expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(75);
+  });
+
+  it("stops when the provider repeats a page token without new candidates", async () => {
+    const provider = createMockProvider({
+      getThreadsWithQuery: vi
+        .fn()
+        .mockResolvedValue({ threads: [], nextPageToken: "repeated" }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(2);
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("retries a labeled candidate after the tracker write fails", async () => {
+    const message = {
+      ...mockAwaitingMessage("partial", OLD_DATE),
+      labelIds: ["follow-up-label"],
+    };
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "partial", messages: [message], snippet: "" },
+        ]),
+      getThreadsWithQuery: vi.fn().mockImplementation(async ({ query }) => ({
+        threads: query.excludeLabelNames?.length
+          ? []
+          : [{ id: "partial", messages: [message], snippet: "" }],
+      })),
+      getLatestMessageInThread: vi.fn().mockResolvedValue(message),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create)
+      .mockRejectedValueOnce(new Error("Database unavailable"))
+      .mockResolvedValue({ id: "recovered" } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+    expect(prisma.threadTracker.create).toHaveBeenCalledTimes(2);
   });
 
   it("processes the same labeled message only once across repeated runs", async () => {

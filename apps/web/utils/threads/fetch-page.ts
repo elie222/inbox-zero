@@ -4,6 +4,8 @@ import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
+import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
+
 const LABEL_CONCURRENCY = 4;
 
 /**
@@ -26,6 +28,31 @@ export async function fetchThreadsPage({
   pageToken?: string;
   messageFormat: "full" | "metadata";
 }): Promise<{ threads: EmailThread[]; nextPageToken?: string }> {
+  if (query.excludeSplits?.length) {
+    if (emailProvider.name !== "google")
+      throw new Error("Other split exclusions are only supported for Gmail");
+    const { excludeSplits, ...base } = query;
+    const isOther = createOtherSplitFilter(excludeSplits);
+    const threads: EmailThread[] = [];
+    let nextPageToken = pageToken;
+    // Bound sparse-inbox scans per request. Returning the continuation, even
+    // with an empty page, lets the reader keep going without losing messages.
+    for (let page = 0; page < 5; page++) {
+      const result = await fetchThreadsPage({
+        query: base,
+        emailProvider,
+        emailAccountId,
+        maxResults: maxResults - threads.length,
+        pageToken: nextPageToken,
+        messageFormat,
+      });
+      threads.push(...result.threads.filter(isOther));
+      nextPageToken = result.nextPageToken;
+      if (!nextPageToken || threads.length >= maxResults) break;
+    }
+    return { threads, nextPageToken };
+  }
+
   if (query.q) {
     return emailProvider.searchThreads({
       query: query.q,

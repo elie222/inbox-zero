@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { assertComparableEvalRuns } from "@/__tests__/eval/harness/eval-run-compatibility";
 import type { EvalCaseEnvelope } from "@/__tests__/eval/harness/case-schema";
 import {
   readEvalFiltersFromEnv,
@@ -267,4 +271,42 @@ describe("runEvalSuite", () => {
       else process.env.EVAL_VARIANT_ID = previous;
     }
   });
+});
+
+it("invalidates changed evidence without changing comparison case identity", async () => {
+  const cacheDir = mkdtempSync(path.join(tmpdir(), "eval-evidence-"));
+  vi.stubEnv("EVAL_CACHE", "readwrite");
+  vi.stubEnv("EVAL_CACHE_DIR", cacheDir);
+  const invoke = vi.fn().mockResolvedValue("reply");
+  const run = (evidence: string, model = "model-a") =>
+    runEvalSuite({
+      evalName: "evidence",
+      cases: [makeCase()],
+      invoke,
+      model,
+      variantId: "baseline",
+      samples: 1,
+      filters: noFilters,
+      writeHistory: false,
+      caseFingerprintOf: () => "same-case",
+      cacheFingerprintOf: () => evidence,
+      judgeIdentity: { provider: "test", model: "judge", fingerprint: "judge" },
+    });
+  try {
+    const baseline = await run("evidence-a");
+    await run("evidence-a");
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const changed = await run("evidence-b");
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(() => assertComparableEvalRuns(baseline, changed)).not.toThrow();
+    const otherModel = await run("evidence-c", "model-b");
+    expect(() =>
+      assertComparableEvalRuns(baseline, otherModel, {
+        allowModelChange: true,
+      }),
+    ).not.toThrow();
+  } finally {
+    vi.unstubAllEnvs();
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
 });

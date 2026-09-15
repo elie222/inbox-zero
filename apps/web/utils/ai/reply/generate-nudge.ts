@@ -50,7 +50,7 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
 
   const response = await generateText({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
   });
 

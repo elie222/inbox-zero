@@ -44,11 +44,16 @@ import {
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
+import {
+  SentMessageOpenStatus,
+  type SentMessageOpenState,
+} from "@/components/email-list/SentMessageOpenStatus";
 
 type ComposeSession = { id: number; mode: ReplyDraftMode };
 
 export function EmailMessage({
   message,
+  menu,
   refetch,
   showReplyButton,
   defaultComposeMode,
@@ -62,8 +67,10 @@ export function EmailMessage({
   selected,
   onSelect,
   onNavigateMessage,
+  sentMessageOpen,
 }: {
   message: ThreadMessage;
+  menu?: React.ReactNode;
   draftMessages?: ThreadMessage[];
   refetch: () => void;
   showReplyButton: boolean;
@@ -78,6 +85,7 @@ export function EmailMessage({
   selected?: boolean;
   onSelect?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
+  sentMessageOpen?: SentMessageOpenState;
 }) {
   const { emailAccountId } = useAccount();
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
@@ -90,27 +98,19 @@ export function EmailMessage({
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  useEffect(() => {
-    const liveIds = new Set(serverDrafts.map((draft) => draft.id));
+  const setDraftDismissed = (draftId: string, dismissed: boolean) => {
     setDismissedDraftIds((previous) => {
-      const next = new Set(
-        [...previous].filter((draftId) => liveIds.has(draftId)),
-      );
-      return next.size === previous.size ? previous : next;
+      if (previous.has(draftId) === dismissed) return previous;
+      const next = new Set(previous);
+      if (dismissed) next.add(draftId);
+      else next.delete(draftId);
+      return next;
     });
-  }, [serverDrafts]);
+  };
   const visibleDrafts = serverDrafts.filter(
     (draft) => !dismissedDraftIds.has(draft.id),
   );
-  // Server drafts render their own composers. A blank reply/forward panel is
-  // only needed when there are no server drafts at all, or the user explicitly
-  // opened Reply/Forward. Dismissing a server draft must not open a blank one.
-  const showBlankComposer =
-    composeOverride === "reply" ||
-    composeOverride === "forward" ||
-    (composeOverride === null &&
-      Boolean(composeMode) &&
-      serverDrafts.length === 0);
+  const showBlankComposer = Boolean(composeMode);
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
@@ -127,6 +127,8 @@ export function EmailMessage({
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
+  const [composerKey, setComposerKey] = useState(0);
+  const undoSendSessionRef = useRef<ComposeSession | null>(null);
 
   const onStartDiscard = useCallback((): ComposeSession | undefined => {
     if (!composeMode) return;
@@ -142,6 +144,22 @@ export function EmailMessage({
     if (composeSessionRef.current !== composeSession.id) return;
     composeSessionRef.current += 1;
     setComposeOverride(composeSession.mode);
+  }, []);
+  const onCloseComposeAfterSend = useCallback(() => {
+    if (composeMode) {
+      undoSendSessionRef.current = {
+        id: composeSessionRef.current,
+        mode: composeMode,
+      };
+    }
+    onCloseCompose();
+  }, [composeMode, onCloseCompose]);
+  const onRestoreComposeAfterSend = useCallback(() => {
+    const session = undoSendSessionRef.current;
+    if (!session) return;
+    composeSessionRef.current += 1;
+    setComposerKey((key) => key + 1);
+    setComposeOverride(session.mode);
   }, []);
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
@@ -205,6 +223,7 @@ export function EmailMessage({
       <MessageHeader
         expanded={expanded}
         message={message}
+        menu={menu}
         onForward={onForward}
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
@@ -214,6 +233,7 @@ export function EmailMessage({
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
         hasDraft={hasDraft || visibleDrafts.length > 0}
+        sentMessageOpen={sentMessageOpen}
       />
 
       {expanded && (
@@ -248,30 +268,15 @@ export function EmailMessage({
               autoScroll={
                 !showBlankComposer && index === visibleDrafts.length - 1
               }
-              defaultComposeMode="reply"
               draftMessage={draft}
               message={message}
-              onCloseCompose={() =>
-                setDismissedDraftIds((previous) =>
-                  new Set(previous).add(draft.id),
-                )
-              }
-              onRestoreCompose={(composeSession) => {
-                // Ignore stale restores if the user already opened another
-                // composer (Reply/Forward increments composeSessionRef).
-                if (composeSessionRef.current !== composeSession.id) return;
-                setDismissedDraftIds((previous) => {
-                  const next = new Set(previous);
-                  next.delete(draft.id);
-                  return next;
-                });
-              }}
+              onCloseCompose={() => setDraftDismissed(draft.id, true)}
+              onRestoreCompose={() => setDraftDismissed(draft.id, false)}
+              onRestore={() => setDraftDismissed(draft.id, false)}
               onSendSuccess={onSendSuccess}
               onMarkDone={onMarkDone}
               onStartDiscard={() => {
-                setDismissedDraftIds((previous) =>
-                  new Set(previous).add(draft.id),
-                );
+                setDraftDismissed(draft.id, true);
                 return {
                   id: composeSessionRef.current,
                   mode: "reply" as const,
@@ -283,12 +288,11 @@ export function EmailMessage({
           ))}
           {showBlankComposer && composeMode && (
             <ReplyPanel
+              key={composerKey}
               autoScroll
-              defaultComposeMode={
-                composeOverride !== null ? undefined : defaultComposeMode
-              }
               message={message}
-              onCloseCompose={onCloseCompose}
+              onCloseCompose={onCloseComposeAfterSend}
+              onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onMarkDone={onMarkDone}
@@ -310,6 +314,7 @@ export function EmailMessage({
  */
 function MessageHeader({
   message,
+  menu,
   expanded,
   showDetails,
   toggleDetails,
@@ -320,8 +325,10 @@ function MessageHeader({
   onToggle,
   onToggleKeyDown,
   hasDraft,
+  sentMessageOpen,
 }: {
   message: ParsedMessage;
+  menu?: React.ReactNode;
   expanded: boolean;
   showDetails: boolean;
   toggleDetails: (e: React.MouseEvent) => void;
@@ -332,6 +339,7 @@ function MessageHeader({
   onToggle?: () => void;
   onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
+  sentMessageOpen?: SentMessageOpenState;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -473,42 +481,46 @@ function MessageHeader({
         </span>
       )}
 
-      {hasDraft && !expanded && (
-        <span className="shrink-0 text-primary text-xs">Draft</span>
-      )}
+      {hasDraft &&
+        (!expanded || message.labelIds?.includes(GmailLabel.DRAFT)) && (
+          <span className="shrink-0 text-primary text-xs">Draft</span>
+        )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {showReplyButton && (
-          <span
-            className={cn(
-              "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
-              expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
+        {(showReplyButton || menu) && (
+          <span className="flex shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 has-[[data-state=open]]:opacity-100 sm:opacity-0">
+            {showReplyButton && (
+              <>
+                <Tooltip content="Reply">
+                  <Button
+                    className="size-7 text-muted-foreground"
+                    onClick={compose(onReply)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <ReplyIcon className="size-3.5" />
+                    <span className="sr-only">Reply</span>
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Forward">
+                  <Button
+                    className="size-7 text-muted-foreground"
+                    onClick={compose(onForward)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <ForwardIcon className="size-3.5" />
+                    <span className="sr-only">Forward</span>
+                  </Button>
+                </Tooltip>
+              </>
             )}
-          >
-            <Tooltip content="Reply">
-              <Button
-                className="size-7 text-muted-foreground"
-                onClick={compose(onReply)}
-                size="icon"
-                variant="ghost"
-              >
-                <ReplyIcon className="size-3.5" />
-                <span className="sr-only">Reply</span>
-              </Button>
-            </Tooltip>
-            <Tooltip content="Forward">
-              <Button
-                className="size-7 text-muted-foreground"
-                onClick={compose(onForward)}
-                size="icon"
-                variant="ghost"
-              >
-                <ForwardIcon className="size-3.5" />
-                <span className="sr-only">Forward</span>
-              </Button>
-            </Tooltip>
+            {menu}
           </span>
         )}
+        {isSent &&
+          !message.labelIds?.includes(GmailLabel.DRAFT) &&
+          sentMessageOpen && <SentMessageOpenStatus open={sentMessageOpen} />}
         <time
           className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
           dateTime={message.headers.date}
@@ -526,9 +538,9 @@ function ReplyPanel({
   onSendSuccess,
   onMarkDone,
   onCloseCompose,
+  onRestore,
   onRestoreCompose,
   onStartDiscard,
-  defaultComposeMode,
   composeMode,
   draftMessage,
   autoScroll = false,
@@ -538,9 +550,9 @@ function ReplyPanel({
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
+  onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
-  defaultComposeMode?: ReplyDraftMode;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
   autoScroll?: boolean;
@@ -625,13 +637,14 @@ function ReplyPanel({
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
         }
-        draftKeyMessageId={draftMessage?.id ?? message.id}
+        draftKeyMessageId={message.id}
         draftMode={composeMode}
         draftSessionId={getReplyDraftSessionId(
           draftMessage?.id ?? message.id,
           composeMode,
         )}
         onClose={onCloseCompose}
+        onRestore={onRestore}
         onDiscard={onDiscard}
         onMarkDone={onMarkDone}
         onSuccess={(messageId: string, threadId: string) => {
@@ -713,6 +726,13 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
+  forwardedMessageId: message.id || undefined,
+  forwardedAttachments: message.attachments?.map((attachment) => ({
+    id: attachment.attachmentId,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+  })),
   cc: "",
   references: "",
   draftHtml: forwardEmailHtml({ content: "", message }),

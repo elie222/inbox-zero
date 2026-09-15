@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Suspense, startTransition } from "react";
 import type { ShortcutHandlers, ShortcutScope } from "./registry";
 import { ShortcutsProvider } from "./ShortcutsProvider";
 import { useShortcuts } from "./useShortcuts";
@@ -12,6 +19,30 @@ const GLOBAL_SCOPES: ShortcutScope[] = ["global"];
 afterEach(cleanup);
 
 describe("useShortcuts", () => {
+  it("keeps shortcuts on the visible state while a transition is suspended", async () => {
+    const visibleHandler = vi.fn();
+    const pendingHandler = vi.fn();
+    const pending = new Promise<void>(() => {});
+    const view = (handler: () => void, suspend: boolean) => (
+      <ShortcutsProvider scopes={MAIL_SCOPES}>
+        <Suspense fallback={<div>Loading next conversation</div>}>
+          <SuspendingShortcuts
+            handler={handler}
+            pending={suspend ? pending : undefined}
+          />
+        </Suspense>
+      </ShortcutsProvider>
+    );
+    const { rerender } = render(view(visibleHandler, false));
+    await act(async () => {
+      startTransition(() => rerender(view(pendingHandler, true)));
+    });
+    expect(screen.getByText("Visible conversation")).toBeTruthy();
+    press({ key: "s", code: "KeyS" });
+    expect(visibleHandler).toHaveBeenCalledOnce();
+    expect(pendingHandler).not.toHaveBeenCalled();
+  });
+
   it("runs the handler for a mail shortcut while the mail scope is active", () => {
     const archive = vi.fn();
     const snooze = vi.fn();
@@ -357,4 +388,16 @@ function press(init: KeyboardEventInit, target: Element = document.body) {
   });
   fireEvent(target, event);
   return event;
+}
+
+function SuspendingShortcuts({
+  handler,
+  pending,
+}: {
+  handler: () => void;
+  pending?: Promise<void>;
+}) {
+  useShortcuts({ star: handler });
+  if (pending) throw pending;
+  return <div>Visible conversation</div>;
 }

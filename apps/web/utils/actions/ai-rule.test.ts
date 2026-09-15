@@ -130,6 +130,23 @@ describe("runRulesAction", () => {
     expect(settled).toBe(true);
   });
 
+  it.each([
+    undefined,
+    false,
+    true,
+  ])("passes the draft preference through validation (%s)", async (skipDraftReplies) => {
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+      skipDraftReplies,
+    });
+    expect(result?.serverError).toBeUndefined();
+    expect(runRulesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDraftReplies }),
+    );
+  });
+
   it("does not flush logger for non-test runs", async () => {
     const result = await runRulesAction("account-1", {
       messageId: "message-1",

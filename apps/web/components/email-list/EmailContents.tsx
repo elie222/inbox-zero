@@ -243,11 +243,12 @@ function getIframeHtml(
         background-color: hsl(var(--background));
       }
 
+      /* Match mail dark card surface. Iframes cannot inherit those variables. */
       .dark {
         color-scheme: dark;
-        --foreground: 0 0% 98%;
-        --muted-foreground: 240 5% 64.9%;
-        --background: 240 10% 3.9%;
+        --foreground: 220 8% 92%;
+        --muted-foreground: 220 5% 62%;
+        --background: 220 7% 19%;
       }
 
       /* Contain wide content within the pane */

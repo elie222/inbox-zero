@@ -9,7 +9,7 @@ export type CreateGroupBody = z.infer<typeof createGroupBody>;
 export const addGroupItemBody = z.object({
   groupId: z.string(),
   type: z.enum([GroupItemType.FROM, GroupItemType.SUBJECT]),
-  value: z.string(),
+  value: z.string().trim().min(1, "Pattern is required"),
   exclude: z.boolean().optional(),
 });
 export type AddGroupItemBody = z.infer<typeof addGroupItemBody>;

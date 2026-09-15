@@ -57,14 +57,14 @@ const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   messaging: 60_000,
 } satisfies Record<"web" | "messaging", number>;
 
-type AssistantChatOnStepFinish = NonNullable<
-  Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
+type AssistantChatOnStepEnd = NonNullable<
+  Parameters<typeof toolCallAgentStream>[0]["onStepEnd"]
 >;
 type AssistantChatOnModelResolved = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onModelResolved"]
 >;
-type AssistantChatOnFinish = NonNullable<
-  Parameters<typeof toolCallAgentStream>[0]["onFinish"]
+type AssistantChatOnEnd = NonNullable<
+  Parameters<typeof toolCallAgentStream>[0]["onEnd"]
 >;
 
 export async function aiProcessAssistantChat({
@@ -81,9 +81,9 @@ export async function aiProcessAssistantChat({
   responseSurface = "web",
   messagingPlatform,
   onRulesStateExposed,
-  onStepFinish,
+  onStepEnd,
   onModelResolved,
-  onFinish,
+  onEnd,
   logger,
 }: {
   messages: ModelMessage[];
@@ -99,9 +99,9 @@ export async function aiProcessAssistantChat({
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
-  onStepFinish?: AssistantChatOnStepFinish;
+  onStepEnd?: AssistantChatOnStepEnd;
   onModelResolved?: AssistantChatOnModelResolved;
-  onFinish?: AssistantChatOnFinish;
+  onEnd?: AssistantChatOnEnd;
   logger: Logger;
 }) {
   const startedAt = Date.now();
@@ -322,12 +322,12 @@ export async function aiProcessAssistantChat({
     providerOptions: getChatProviderOptionsForCaching({ chatId }),
     messages: messagesWithCacheControl,
     sensitiveDataPolicy: user.sensitiveDataPolicy,
-    onStepFinish: async (step) => {
+    onStepEnd: async (step) => {
       logger.trace("Step finished", {
         text: step.text,
         toolCalls: step.toolCalls,
       });
-      await onStepFinish?.(step);
+      await onStepEnd?.(step);
     },
     onModelResolved: (resolvedModel) => {
       logger.info("Assistant chat model resolved", {
@@ -338,7 +338,7 @@ export async function aiProcessAssistantChat({
       });
       onModelResolved?.(resolvedModel);
     },
-    onFinish,
+    onEnd,
     stopWhen: () => false,
     prepareStep: () => {
       if (

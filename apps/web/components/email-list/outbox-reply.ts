@@ -66,3 +66,25 @@ export function getOutboxReplyPreview(
   };
   return { message, attachments: email.attachments ?? [] };
 }
+
+const NEEDS_DELIVERY_ATTENTION = new Set<StoredMailMutation["status"]>([
+  "blocked_auth",
+  "failed",
+  "retry_wait",
+  "uncertain",
+]);
+
+// Happy-path sends already look delivered in the thread. Undo lives in the
+// toast, so hide the "Sending... Edit reply" row unless delivery needs attention.
+export function shouldShowOutboxDeliveryStatus({
+  hasPreview,
+  online,
+  status,
+}: {
+  hasPreview: boolean;
+  online: boolean;
+  status: StoredMailMutation["status"];
+}) {
+  if (!hasPreview || !online) return true;
+  return NEEDS_DELIVERY_ATTENTION.has(status);
+}

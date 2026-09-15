@@ -3,12 +3,14 @@
 import {
   createApiKeyBody,
   deactivateApiKeyBody,
+  updateMcpServerAccessBody,
 } from "@/utils/actions/api-key.validation";
 import prisma from "@/utils/prisma";
 import { generateSecureToken, hashApiKey } from "@/utils/api-key";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { isMcpServerAvailable } from "@/utils/mcp/config";
 import type { ApiKeyExpiryValue } from "@/utils/api-key-scopes";
 
 const apiKeyActionClient = actionClient.use(async ({ ctx, next }) => {
@@ -58,6 +60,39 @@ export const deactivateApiKeyAction = apiKeyActionClient
       where: { id, userId, emailAccountId },
       data: { isActive: false },
     });
+  });
+
+export const updateMcpServerAccessAction = actionClientUser
+  .metadata({ name: "updateMcpServerAccess" })
+  .inputSchema(updateMcpServerAccessBody)
+  .action(async ({ ctx: { userId, session }, parsedInput: { enabled } }) => {
+    if (session.session.emailOtp) {
+      throw new SafeError(
+        "Sign in with your connected provider to manage MCP access.",
+      );
+    }
+    if (enabled && !isMcpServerAvailable()) {
+      throw new SafeError("MCP server is not enabled");
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          mcpServerEnabled: enabled,
+          ...(!enabled && { mcpTokenVersion: { increment: 1 } }),
+        },
+      }),
+      ...(!enabled
+        ? [
+            prisma.oauthAccessToken.deleteMany({ where: { userId } }),
+            prisma.oauthRefreshToken.deleteMany({ where: { userId } }),
+            prisma.oauthConsent.deleteMany({ where: { userId } }),
+          ]
+        : []),
+    ]);
+
+    return { enabled };
   });
 
 function getApiKeyExpiryDate(expiresIn: ApiKeyExpiryValue): Date | null {

@@ -31,6 +31,10 @@ DATABASE_URL="postgresql://postgres:password@localhost:5432/inboxzero_test?schem
 Point `DATABASE_URL` at a throwaway database. These tests delete rows in
 `beforeEach`, so never aim them at a database you care about.
 
+The group item normalization migration regression should also run on PostgreSQL 15.
+Its string escape behavior differs from newer versions, which can hide invalid
+whitespace normalization.
+
 ## Conventions
 
 - Seed the rows the test needs in `beforeEach` and delete them again, rather

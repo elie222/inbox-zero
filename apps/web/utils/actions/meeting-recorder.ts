@@ -23,6 +23,7 @@ import {
   reconcileSingleEvent,
   releaseAccountBookings,
   releaseAutomaticAccountBookings,
+  releaseMeetingBooking,
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
@@ -111,6 +112,17 @@ export const setMeetingJoinOverrideAction = actionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!emailAccount.meetingRecorderEnabled) {
         throw new SafeError("The notetaker is turned off for this account");
+      }
+
+      if (
+        !join &&
+        (await releaseMeetingBooking({
+          emailAccountId,
+          calendarEventId,
+          logger,
+        }))
+      ) {
+        return;
       }
 
       if (join) {

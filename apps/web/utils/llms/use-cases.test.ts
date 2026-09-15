@@ -26,7 +26,7 @@ vi.mock("@ai-sdk/amazon-bedrock", () => ({
 }));
 
 vi.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: vi.fn(() => (model: string) => ({ model })),
+  createGoogle: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@ai-sdk/google-vertex", () => ({
@@ -55,6 +55,10 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("@ai-sdk/cerebras", () => ({
+  createCerebras: vi.fn(() => (model: string) => ({ model })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLMS: "openrouter:openai/gpt-5.4-mini,openai:gpt-5.4-mini",
@@ -80,6 +84,7 @@ vi.mock("@/env", () => ({
     GOOGLE_APPLICATION_CREDENTIALS: undefined,
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
+    CEREBRAS_API_KEY: "test-cerebras-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
     AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
@@ -148,6 +153,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ReplyNudge]: "chat",
       [LlmUseCase.Summarise]: "default",
       [LlmUseCase.TranslateEmail]: "economy",
+      [LlmUseCase.UnsubscribePageState]: "economy",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });
   });

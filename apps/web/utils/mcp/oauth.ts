@@ -521,13 +521,17 @@ async function getOAuthClient(
     );
   }
 
+  const scope = integrationConfig.scopes.join(" ");
+
   const clientMetadata: OAuthClientMetadata = {
     client_name: "Inbox Zero",
     redirect_uris: [redirectUri],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     token_endpoint_auth_method: "none", // Public client with PKCE
-    scope: integrationConfig.scopes.join(" "),
+    // Omit rather than send an empty string: some servers reject `scope: ""`
+    // with invalid_scope instead of falling back to their defaults
+    ...(scope && { scope }),
     logo_uri: "https://getinboxzero.com/icon.png",
     tos_uri: "https://getinboxzero.com/terms",
   };

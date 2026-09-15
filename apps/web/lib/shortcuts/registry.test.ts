@@ -256,6 +256,25 @@ describe("buildShortcutPaletteCommands", () => {
     expect(commands.map((command) => command.id)).not.toContain("reply");
   });
 
+  it("surfaces keyboard shortcuts in the palette when help is registered", () => {
+    const help = vi.fn();
+    const commands = buildShortcutPaletteCommands({ help });
+
+    expect(commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "help",
+          label: "Keyboard shortcuts",
+          section: "settings",
+          shortcut: "?",
+        }),
+      ]),
+    );
+
+    commands.find((command) => command.id === "help")?.action();
+    expect(help).toHaveBeenCalledOnce();
+  });
+
   it("surfaces forwarding in the palette when a message can be forwarded", () => {
     const forward = vi.fn();
     const commands = buildShortcutPaletteCommands({ forward });

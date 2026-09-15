@@ -16,6 +16,7 @@ const googleOpenIdProfileSchema = z.object({
   email: z.string().min(1),
   email_verified: z.boolean().optional(),
   family_name: z.string().optional(),
+  hd: z.string().optional(),
   given_name: z.string().optional(),
   name: z.string().optional(),
   picture: z.string().nullish(),

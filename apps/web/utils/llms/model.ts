@@ -1,16 +1,17 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGoogle } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createCerebras } from "@ai-sdk/cerebras";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -34,7 +35,7 @@ export type ModelType = "default" | "economy" | "chat" | "nano" | "draft";
 export type ResolvedModel = {
   provider: string;
   modelName: string;
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>;
 };
@@ -45,7 +46,7 @@ export type SelectModel = ResolvedModel & {
 };
 
 type AiGatewayProviderOptions = {
-  google?: GoogleGenerativeAIProviderOptions;
+  google?: GoogleLanguageModelOptions;
   openai?: {
     reasoningEffort: "low" | "medium";
     reasoningSummary: "concise";
@@ -192,7 +193,7 @@ function selectModel(
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
-        model: createGoogleGenerativeAI({
+        model: createGoogle({
           apiKey: resolveApiKey(aiApiKey, env.GOOGLE_API_KEY),
         })(mod),
         providerOptions: googleProviderOptions
@@ -223,6 +224,22 @@ function selectModel(
         model: createGroq({
           apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
         })(modelName),
+      };
+    }
+    case Provider.CEREBRAS: {
+      const modelName = aiModel || "qwen-3.8-27b";
+      return {
+        provider: Provider.CEREBRAS,
+        modelName,
+        model: createCerebras({
+          apiKey: resolveApiKey(aiApiKey, env.CEREBRAS_API_KEY),
+        })(modelName),
+        // qwen-3.8-27b defaults to high reasoning; map role effort like OpenAI.
+        providerOptions: {
+          cerebras: {
+            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+          },
+        },
       };
     }
     case Provider.OPENROUTER: {
@@ -555,6 +572,7 @@ function getProviderApiKey(provider: string) {
       ? "vertex-credentials"
       : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.CEREBRAS]: resolveApiKey(null, env.CEREBRAS_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
@@ -689,7 +707,7 @@ function getOpenRouterProviderOptions(
 function getGoogleProviderOptions(
   modelName: string,
   modelType: ModelType,
-): GoogleGenerativeAIProviderOptions | undefined {
+): GoogleLanguageModelOptions | undefined {
   const thinkingConfig = getGoogleThinkingConfig(modelName, modelType);
   if (!thinkingConfig) return;
 
@@ -699,7 +717,7 @@ function getGoogleProviderOptions(
 function getGoogleThinkingConfig(
   modelName: string,
   modelType: ModelType,
-): GoogleGenerativeAIProviderOptions["thinkingConfig"] | undefined {
+): GoogleLanguageModelOptions["thinkingConfig"] | undefined {
   if (isGemini3Model(modelName)) {
     return { thinkingLevel: REASONING_EFFORT_BY_MODEL_TYPE[modelType] };
   }

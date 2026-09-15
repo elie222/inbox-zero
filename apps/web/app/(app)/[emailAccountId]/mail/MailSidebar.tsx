@@ -11,7 +11,6 @@ import {
   FileIcon,
   FolderIcon,
   InboxIcon,
-  KeyboardIcon,
   type LucideIcon,
   MegaphoneIcon,
   MessagesSquareIcon,
@@ -76,7 +75,6 @@ export type MailSidebarProps = {
   onCreateLabel: (name: string) => void;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
-  onOpenShortcuts: () => void;
   labelEditMode: "color" | "name-and-color";
   labelColorOptions: readonly MailboxItemColorOption[];
   /** Hide the categories group behind a toggle, collapsed by default. */
@@ -167,7 +165,6 @@ export function MailSidebar({
   onCreateLabel,
   onEditMailboxItem,
   onDeleteMailboxItem,
-  onOpenShortcuts,
   labelEditMode,
   labelColorOptions,
   collapsibleCategories = false,
@@ -225,7 +222,7 @@ export function MailSidebar({
           <Link
             href={backToAppHref}
             data-desktop-mac-end
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeftIcon className="size-3.5 shrink-0" />
             <span className="flex-1 truncate" data-hide-on-desktop-mac>
@@ -433,29 +430,6 @@ export function MailSidebar({
           </>
         ) : null}
       </div>
-
-      {collapsed ? (
-        <RailTooltip label="Keyboard shortcuts">
-          <button
-            type="button"
-            onClick={onOpenShortcuts}
-            aria-label="Keyboard shortcuts"
-            className="mt-2 flex size-10 shrink-0 items-center justify-center self-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <KeyboardIcon className="size-4" />
-          </button>
-        </RailTooltip>
-      ) : (
-        <button
-          type="button"
-          onClick={onOpenShortcuts}
-          className="mt-2 flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <KeyboardIcon className="size-3.5 shrink-0" />
-          <span className="flex-1 text-left">Keyboard shortcuts</span>
-          <Kbd>{getShortcutHint("help")}</Kbd>
-        </button>
-      )}
       {footer}
     </aside>
   );
@@ -647,8 +621,8 @@ function NavRow({
       : "gap-2.5 px-2.5 py-1.5",
     nested && "pl-7",
     active
-      ? "bg-primary/10 font-medium text-foreground"
-      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+      ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]"
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
   );
   const content = collapsed ? (
     <>
@@ -669,7 +643,7 @@ function NavRow({
             "shrink-0 text-xs",
             emphasizeCount
               ? "rounded-full bg-primary/10 px-1.5 py-px font-medium text-primary"
-              : "text-muted-foreground",
+              : "text-sidebar-muted-foreground",
           )}
         >
           {count}

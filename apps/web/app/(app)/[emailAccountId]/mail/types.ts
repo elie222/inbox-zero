@@ -4,7 +4,7 @@ import type { ThreadListItem } from "@/utils/threads/load";
 export type ListThread = ThreadListItem | CombinedListThread;
 export type ListMessage = ListThread["messages"][number];
 
-/** One rule that fired on a thread, with the reason it matched. */
+/** One rule execution for a message in a thread, with its matched reason. */
 export type ThreadPlan = NonNullable<ListThread["plans"]>[number];
 
 /** Split view is the two-column list + reader; list view gives the list the full width. */

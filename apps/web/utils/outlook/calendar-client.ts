@@ -14,6 +14,8 @@ import {
   type AuthenticationProvider,
 } from "@microsoft/microsoft-graph-client";
 
+const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000;
+
 class CalendarAuthProvider implements AuthenticationProvider {
   private readonly accessToken: string;
 
@@ -58,7 +60,11 @@ export const getCalendarClientWithRefresh = async ({
   if (!refreshToken) throw new SafeError("No refresh token");
 
   // Check if token is still valid
-  if (expiresAt && expiresAt > Date.now() && accessToken) {
+  if (
+    expiresAt &&
+    expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS &&
+    accessToken
+  ) {
     const authProvider = new CalendarAuthProvider(accessToken);
     return Client.initWithMiddleware({
       authProvider,
@@ -83,7 +89,10 @@ export const getCalendarClientWithRefresh = async ({
     const tokens = await response.json();
 
     if (!response.ok) {
-      throw new Error(tokens.error_description || "Failed to refresh token");
+      throw new Error(
+        [tokens.error, tokens.error_description].filter(Boolean).join(": ") ||
+          "Failed to refresh token",
+      );
     }
 
     if (!tokens.expires_in) {
@@ -123,10 +132,43 @@ export const getCalendarClientWithRefresh = async ({
     });
   } catch (error) {
     if (isInvalidGrantError(error)) {
-      logger.warn("Error refreshing Calendar access token", {
-        emailAccountId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn("Microsoft calendar authorization expired");
+      try {
+        // Tokens are encrypted at rest, so compare the decrypted values before
+        // guarding the write against a concurrent refresh or reconnect.
+        const connections = await prisma.calendarConnection.findMany({
+          where: { emailAccountId, provider: "microsoft", isConnected: true },
+          select: {
+            id: true,
+            accessToken: true,
+            refreshToken: true,
+            updatedAt: true,
+          },
+        });
+        for (const connection of connections) {
+          if (
+            connection.refreshToken !== refreshToken ||
+            connection.accessToken !== (accessToken ?? null)
+          )
+            continue;
+
+          await prisma.calendarConnection.updateMany({
+            where: {
+              id: connection.id,
+              updatedAt: connection.updatedAt,
+              isConnected: true,
+            },
+            data: { isConnected: false },
+          });
+        }
+      } catch (disconnectError) {
+        logger.error("Failed to mark Microsoft calendar disconnected", {
+          error: disconnectError,
+        });
+      }
+      throw new SafeError(
+        "Your Microsoft calendar authorization has expired. Please reconnect your calendar.",
+      );
     }
 
     throw error;

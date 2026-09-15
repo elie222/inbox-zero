@@ -60,4 +60,25 @@ describe("useReplyDraftPersistence", () => {
     await act(() => vi.advanceTimersByTimeAsync(300));
     expect(save).toHaveBeenCalledTimes(2);
   });
+
+  it("flushes the latest draft when the composer closes before the debounce", async () => {
+    vi.useFakeTimers();
+    save.mockResolvedValue({});
+    const { result, unmount } = renderHook(() =>
+      useReplyDraftPersistence({
+        identity: {
+          emailAccountId: "account",
+          threadId: "compose:new-message",
+          messageId: "compose:new-message",
+        },
+        getContent: () => content,
+      }),
+    );
+
+    act(() => result.current.capture());
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(save).toHaveBeenCalledWith(content);
+  });
 });

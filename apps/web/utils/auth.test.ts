@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import type { Account } from "better-auth";
+import { setSessionCookie } from "better-auth/cookies";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
-import { getContactsClient } from "@/utils/gmail/client";
+import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
@@ -45,6 +46,13 @@ vi.mock("better-auth", () => {
   };
 });
 vi.mock("@/utils/prisma");
+vi.mock("better-auth/cookies", async (importActual) => ({
+  ...(await importActual<typeof import("better-auth/cookies")>()),
+  setSessionCookie: vi.fn(),
+}));
+vi.mock("@/utils/redis/account-validation", () => ({
+  invalidateAccountValidation: vi.fn(),
+}));
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
   clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
@@ -63,8 +71,9 @@ vi.mock("@googleapis/gmail", () => ({
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
 }));
-vi.mock("@/utils/gmail/client", () => ({
-  getContactsClient: vi.fn(),
+vi.mock("@/utils/google/oauth", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/google/oauth")>()),
+  fetchGoogleOpenIdProfile: vi.fn(),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({
   ensureEmailAccountsWatched: vi.fn(),
@@ -320,6 +329,75 @@ describe("handleLinkAccount", () => {
     vi.clearAllMocks();
   });
 
+  it.each([
+    "/callback/google",
+    "/callback/:id",
+    "/oauth2/callback/google",
+  ])("renames and refreshes the new session on %s", async (path) => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "mailbox",
+      email: "old@example.com",
+      userId: "user_1",
+      accountId: "account_1",
+      account: { provider: "google" },
+    } as any);
+    prisma.user.findUnique.mockImplementation(async ({ where }) =>
+      where.id
+        ? ({ email: "old@example.com", name: "Test User", image: null } as any)
+        : null,
+    );
+    prisma.$transaction.mockResolvedValue([{ id: "mailbox" }, {}] as never);
+    const context = { path, params: { id: "google" }, context: {} as any };
+    const options = (betterAuthConfig as any).options;
+    await options.databaseHooks.account.update.after(
+      getGoogleAccount(),
+      context,
+    );
+    context.context.newSession = {
+      user: { id: "user_1", email: "old@example.com", emailVerified: false },
+      session: {},
+    };
+    await options.hooks.after(context);
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { email: "user@example.com", emailVerified: true },
+      }),
+    );
+    expect(setSessionCookie).toHaveBeenCalledWith(
+      expect.objectContaining({ path }),
+      expect.objectContaining({
+        user: expect.objectContaining({
+          email: "user@example.com",
+          emailVerified: true,
+        }),
+      }),
+    );
+  });
+
+  it("does not rename during token refresh", async () => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "mailbox",
+      email: "old@example.com",
+      userId: "user_1",
+      accountId: "account_1",
+      account: { provider: "google" },
+    } as any);
+    prisma.user.findUnique.mockResolvedValue({
+      email: "old@example.com",
+    } as any);
+    prisma.$transaction.mockResolvedValue([{ id: "mailbox" }, {}] as never);
+    await (betterAuthConfig as any).options.databaseHooks.account.update.after(
+      getGoogleAccount(),
+      { path: "/get-access-token", context: {} },
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { name: "Test User", image: null } }),
+    );
+  });
+
   it("skips auth-only providers without requiring an access token", async () => {
     await expect(
       handleLinkAccount({
@@ -356,12 +434,14 @@ describe("handleLinkAccount", () => {
       }),
       getUserPhoto: vi.fn().mockResolvedValue(null),
     } as any);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      id: "email_account_1",
-      userId: "existing_user",
-      accountId: "existing_account",
-      account: { provider: "microsoft" },
-    } as any);
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({
+        id: "email_account_1",
+        userId: "existing_user",
+        accountId: "existing_account",
+        account: { provider: "microsoft" },
+      } as any);
 
     await expect(
       handleLinkAccount({
@@ -377,6 +457,69 @@ describe("handleLinkAccount", () => {
         message: "email_already_linked",
       },
     });
+  });
+
+  it("reuses the linked mailbox when the provider profile email changes", async () => {
+    mockGoogleProfile();
+    const mailbox = {
+      id: "email_account_1",
+      userId: "user_1",
+      accountId: "account_1",
+      email: "original@example.com",
+      account: { provider: "google" },
+    };
+    prisma.emailAccount.findUnique.mockImplementation(async ({ where }) =>
+      where.accountId === mailbox.accountId ? (mailbox as any) : null,
+    );
+    prisma.user.findUnique.mockResolvedValue({
+      email: "original@example.com",
+      name: "Test User",
+      image: null,
+    } as any);
+    prisma.emailAccount.update.mockImplementation(({ where }) => {
+      if (
+        where.id !== mailbox.id ||
+        where.userId !== mailbox.userId ||
+        where.accountId !== mailbox.accountId
+      ) {
+        throw new Error("Mailbox ownership changed");
+      }
+      return Promise.resolve(mailbox) as any;
+    });
+    prisma.$transaction.mockResolvedValue([mailbox, {}] as never);
+
+    await expect(
+      handleLinkAccount(getGoogleAccount()),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
+    const update = prisma.emailAccount.update.mock.calls[0]?.[0];
+    expect(update?.data).not.toHaveProperty("email");
+    expect(update?.data).not.toHaveProperty("userId");
+    expect(update?.data).not.toHaveProperty("mailSplits");
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalled();
+    expect(mockAfter).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a provider account linked to another user despite a changed email", async () => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockImplementation(async ({ where }) =>
+      where.accountId === "account_1"
+        ? ({
+            id: "email_account_1",
+            userId: "other_user",
+            accountId: "account_1",
+            email: "original@example.com",
+            account: { provider: "google" },
+          } as any)
+        : null,
+    );
+
+    await expect(handleLinkAccount(getGoogleAccount())).rejects.toMatchObject({
+      body: { code: "email_already_linked" },
+    });
+    expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("schedules email watch registration after a Google account is linked", async () => {
@@ -437,11 +580,13 @@ describe("handleLinkAccount", () => {
       accountId: "microsoft_account_1",
       account: { provider: "microsoft" },
     };
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      existingEmailAccount as Awaited<
-        ReturnType<typeof prisma.emailAccount.findUnique>
-      >,
-    );
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(
+        existingEmailAccount as Awaited<
+          ReturnType<typeof prisma.emailAccount.findUnique>
+        >,
+      );
     prisma.$transaction.mockResolvedValue([] as never);
     vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
 
@@ -459,24 +604,13 @@ describe("handleLinkAccount", () => {
 });
 
 function mockGoogleProfile() {
-  const people = {
-    get: vi.fn().mockResolvedValue({
-      data: {
-        emailAddresses: [
-          {
-            value: "user@example.com",
-            metadata: { primary: true },
-          },
-        ],
-        names: [{ displayName: "Test User", metadata: { primary: true } }],
-        photos: [],
-      },
-    }),
-  } as ReturnType<typeof getContactsClient>["people"];
-
-  vi.mocked(getContactsClient).mockReturnValue({
-    people,
-  } as ReturnType<typeof getContactsClient>);
+  vi.mocked(fetchGoogleOpenIdProfile).mockResolvedValue({
+    email: "user@example.com",
+    sub: "provider_account_1",
+    name: "Test User",
+    email_verified: true,
+    hd: "example.com",
+  });
 }
 
 function getGoogleAccount(): Account {

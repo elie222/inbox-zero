@@ -4,10 +4,28 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/env", () => ({
+  env: envMock,
+}));
+vi.mock("@/utils/senders/browser-unsubscribe", () => ({
+  browserUnsubscribe: browserUnsubscribeMock,
+}));
+vi.mock("@/utils/ai/senders/unsubscribe-page", () => ({
+  aiCheckUnsubscribePageState: checkUnsubscribePageStateMock,
+}));
 
-const { dnsLookupMock, httpsRequestMock } = vi.hoisted(() => ({
+const {
+  dnsLookupMock,
+  httpsRequestMock,
+  envMock,
+  browserUnsubscribeMock,
+  checkUnsubscribePageStateMock,
+} = vi.hoisted(() => ({
   dnsLookupMock: vi.fn(),
   httpsRequestMock: vi.fn(),
+  envMock: { UNSUBSCRIBE_WORKER_URL: undefined as string | undefined },
+  browserUnsubscribeMock: vi.fn(),
+  checkUnsubscribePageStateMock: vi.fn(),
 }));
 
 vi.mock("node:dns/promises", () => ({
@@ -211,9 +229,17 @@ describe("sender-unsubscribe", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.UNSUBSCRIBE_WORKER_URL = undefined;
     prisma.$queryRaw.mockResolvedValue([]);
     prisma.newsletter.updateManyAndReturn.mockResolvedValue([]);
     prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "email-account-1",
+      userId: "user-1",
+      email: "owner@example.com",
+      user: { aiProvider: null, aiModel: null, aiApiKey: null },
+    } as any);
+    checkUnsubscribePageStateMock.mockResolvedValue("not_confirmed");
   });
 
   it("normalizes sender emails when setting status", async () => {
@@ -374,14 +400,204 @@ describe("sender-unsubscribe", () => {
     );
     expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
+
+  it("treats a GET acknowledgment page as success after one-click POST fails", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: "<p>You have been unsubscribed from this list.</p>",
+    });
+    checkUnsubscribePageStateMock.mockResolvedValue("confirmed");
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        success: true,
+        method: "get",
+        statusCode: 200,
+      }),
+    );
+    expect(browserUnsubscribeMock).not.toHaveBeenCalled();
+  });
+
+  it("submits a simple HTML form when one-click POST is not enough", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: `<form action="https://example.com/done" method="post">
+        <input type="hidden" name="token" value="abc">
+        <label>Email <input type="email" name="email"></label>
+        <button type="submit">Unsubscribe</button>
+      </form>`,
+    });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: "<p>You have been unsubscribed.</p>",
+    });
+    checkUnsubscribePageStateMock
+      .mockResolvedValueOnce("not_confirmed")
+      .mockResolvedValueOnce("confirmed");
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(httpsRequestMock).toHaveBeenCalledTimes(3);
+    expect(httpsRequestMock.mock.calls[2]?.[1]).toEqual(
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        success: true,
+        method: "form",
+        statusCode: 200,
+      }),
+    );
+  });
+
+  it("does not pay for classification a successful GET already decides", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: "<p>Thanks for visiting.</p>",
+    });
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(checkUnsubscribePageStateMock).not.toHaveBeenCalled();
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({ success: true, method: "get" }),
+    );
+  });
+
+  it("classifies a failed GET, which the fallback would otherwise reject", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 404,
+      body: "<p>You have been unsubscribed.</p>",
+    });
+    checkUnsubscribePageStateMock.mockResolvedValue("confirmed");
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(checkUnsubscribePageStateMock).toHaveBeenCalledTimes(1);
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({ success: true, method: "get" }),
+    );
+  });
+
+  it("classifies a successful GET when the browser worker can take over", async () => {
+    envMock.UNSUBSCRIBE_WORKER_URL = "https://worker.example.com";
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: "<p>You have been unsubscribed.</p>",
+    });
+    checkUnsubscribePageStateMock.mockResolvedValue("confirmed");
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(checkUnsubscribePageStateMock).toHaveBeenCalledTimes(1);
+    expect(browserUnsubscribeMock).not.toHaveBeenCalled();
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({ success: true, method: "get" }),
+    );
+  });
+
+  it("tries one-click POST before the browser worker", async () => {
+    envMock.UNSUBSCRIBE_WORKER_URL = "https://worker.example.com";
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 200 });
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe?id=1",
+      logger,
+    });
+
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        success: true,
+        method: "post",
+      }),
+    );
+    expect(browserUnsubscribeMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the browser worker only after HTTP one-click and simple forms fail", async () => {
+    envMock.UNSUBSCRIBE_WORKER_URL = "https://worker.example.com";
+    browserUnsubscribeMock.mockResolvedValue({
+      attempted: true,
+      success: true,
+      method: "browser",
+    });
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 404 });
+    queueHttpsResponse({
+      statusCode: 200,
+      body: `<form>
+        <label>Password <input type="password" name="password"></label>
+        <button>Log in</button>
+      </form>`,
+    });
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      senderEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(browserUnsubscribeMock).toHaveBeenCalledTimes(1);
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        success: true,
+        method: "browser",
+      }),
+    );
+  });
 });
 
 function queueHttpsResponse({
   statusCode,
   headers = {},
+  body,
 }: {
   statusCode: number;
   headers?: Record<string, string>;
+  body?: string;
 }) {
   httpsRequestMock.mockImplementationOnce(
     (
@@ -389,7 +605,7 @@ function queueHttpsResponse({
       _options: Record<string, unknown>,
       callback: (response: {
         headers: Record<string, string>;
-        on: (event: string, handler: () => void) => void;
+        on: (event: string, handler: (chunk?: Buffer) => void) => void;
         resume: () => void;
         statusCode: number;
       }) => void,
@@ -403,7 +619,8 @@ function queueHttpsResponse({
         end: vi.fn(() => {
           const response = {
             headers,
-            on: vi.fn((event: string, handler: () => void) => {
+            on: vi.fn((event: string, handler: (chunk?: Buffer) => void) => {
+              if (event === "data" && body) handler(Buffer.from(body));
               if (event === "end") handler();
             }),
             resume: vi.fn(),

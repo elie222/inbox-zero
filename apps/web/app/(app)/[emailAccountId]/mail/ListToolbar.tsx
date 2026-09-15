@@ -1,9 +1,12 @@
 "use client";
 
-import { useRef, type RefObject } from "react";
+import { useId, useRef, useState, type RefObject } from "react";
 import {
   ArchiveIcon,
+  ChevronDownIcon,
   ColumnsIcon,
+  MailIcon,
+  MailOpenIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
@@ -12,10 +15,28 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
+import {
+  MailSearchSuggestionList,
+  suggestionOptionId,
+  useMailSearchSuggestions,
+} from "@/app/(app)/[emailAccountId]/mail/MailSearchSuggestions";
+import {
+  readRecentSearches,
+  rememberRecentSearch,
+} from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
+import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
+import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
-import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 
 export type ListToolbarProps = {
@@ -27,12 +48,19 @@ export type ListToolbarProps = {
   onSearch: (query: string) => void;
   /** Lets `/` focus the mail search field from the shortcut handler. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  /** User labels offered in the Gmail-style Search dropdown. */
+  searchLabels?: { name: string }[];
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
+  threadCount: number;
   selectedCount: number;
+  onSelectAll: () => void;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
+  isUnreadSelected: boolean;
+  onMarkReadSelected: () => void;
+  onMarkUnreadSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
@@ -45,19 +73,54 @@ export function ListToolbar({
   searchQuery = "",
   onSearch,
   searchInputRef,
+  searchLabels,
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
+  threadCount,
   selectedCount,
+  onSelectAll,
   onArchiveSelected,
   onDeleteSelected,
+  isUnreadSelected,
+  onMarkReadSelected,
+  onMarkUnreadSelected,
   onLabelSelected,
   onClearSelection,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const allSelected = threadCount > 0 && selectedCount === threadCount;
+  let selectAllState: boolean | "indeterminate" = false;
+  if (allSelected) {
+    selectAllState = true;
+  } else if (selectedCount > 0) {
+    selectAllState = "indeterminate";
+  }
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
+      <Tooltip
+        content={
+          allSelected
+            ? "Deselect all conversations"
+            : "Select all conversations"
+        }
+      >
+        <Checkbox
+          aria-label="Select all conversations"
+          checked={selectAllState}
+          className="size-4 rounded border-input"
+          disabled={threadCount === 0}
+          onCheckedChange={(checked) => {
+            if (checked === true) {
+              onSelectAll();
+            } else {
+              onClearSelection();
+            }
+          }}
+        />
+      </Tooltip>
+
       {/* Selection swaps the toolbar's controls in place so the list never
           shifts down to make room for a new row. */}
       {selectedCount > 0 ? (
@@ -75,6 +138,29 @@ export function ListToolbar({
               className={cn(toolbarButton, "w-8 justify-center px-0")}
             >
               <ArchiveIcon className="size-3.5" />
+            </button>
+          </Tooltip>
+
+          <Tooltip
+            content={
+              isUnreadSelected
+                ? "Mark as read"
+                : `Mark as unread (${getShortcutHint("markUnread")})`
+            }
+          >
+            <button
+              type="button"
+              onClick={
+                isUnreadSelected ? onMarkReadSelected : onMarkUnreadSelected
+              }
+              aria-label={isUnreadSelected ? "Mark as read" : "Mark as unread"}
+              className={cn(toolbarButton, "w-8 justify-center px-0")}
+            >
+              {isUnreadSelected ? (
+                <MailOpenIcon className="size-3.5" />
+              ) : (
+                <MailIcon className="size-3.5" />
+              )}
             </button>
           </Tooltip>
 
@@ -120,9 +206,14 @@ export function ListToolbar({
         </>
       ) : (
         <MailSearchInput
+          // Remount when the committed query changes elsewhere (sidebar
+          // navigation, clearing) so the draft tracks it without mirroring
+          // the value into state.
+          key={searchQuery}
           searchQuery={searchQuery}
           onSearch={onSearch}
           inputRef={searchInputRef}
+          searchLabels={searchLabels}
         />
       )}
 
@@ -184,60 +275,197 @@ function MailSearchInput({
   searchQuery,
   onSearch,
   inputRef: inputRefProp,
+  searchLabels = [],
 }: {
   searchQuery: string;
   onSearch: (query: string) => void;
   inputRef?: RefObject<HTMLInputElement | null>;
+  searchLabels?: { name: string }[];
 }) {
   const localRef = useRef<HTMLInputElement>(null);
   const inputRef = inputRefProp ?? localRef;
+  const { emailAccountId } = useAccount();
+  const suggestionListId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterDraft, setFilterDraft] = useState(searchQuery);
+  const [draft, setDraft] = useState(searchQuery);
+  const [focused, setFocused] = useState(false);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  const suggestions = useMailSearchSuggestions({
+    draft,
+    emailAccountId,
+    enabled: focused && !filtersOpen && !suggestionsDismissed,
+    recentSearches,
+  });
+  const suggestionsOpen = suggestions.length > 0;
+  const highlightedIndex = activeIndex < suggestions.length ? activeIndex : -1;
+
+  const commitSearch = (query: string) => {
+    const trimmed = query.trim();
+    if (trimmed) rememberRecentSearch(emailAccountId, trimmed);
+    onSearch(trimmed);
+  };
 
   return (
-    <form
-      // Remount when the committed query changes elsewhere (sidebar
-      // navigation, clearing) so the uncontrolled input tracks it without
-      // mirroring the value into state.
-      key={searchQuery}
-      role="search"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSearch(inputRef.current?.value.trim() ?? "");
+    <Popover
+      modal
+      open={filtersOpen}
+      onOpenChange={(open) => {
+        if (open) setFilterDraft(draft);
+        setFiltersOpen(open);
       }}
-      className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar px-2.5 text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]"
     >
-      <SearchIcon className="size-3.5 shrink-0" />
-      <input
-        ref={inputRef}
-        defaultValue={searchQuery}
-        placeholder="Search mail"
-        enterKeyHint="search"
-        aria-label="Search mail"
-        className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none focus:ring-0 placeholder:text-muted-foreground"
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") return;
-          if (inputRef.current?.value || searchQuery) {
-            if (inputRef.current) inputRef.current.value = "";
-            onSearch("");
-          } else {
-            inputRef.current?.blur();
+      <div
+        className={cn(
+          "group relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
+          filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
+        )}
+      >
+        <form
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            commitSearch(draft);
+          }}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5"
+        >
+          <SearchIcon className="size-3.5 shrink-0" />
+          <input
+            ref={inputRef}
+            value={draft}
+            placeholder="Search mail"
+            enterKeyHint="search"
+            role="combobox"
+            aria-label="Search mail"
+            aria-autocomplete="list"
+            aria-expanded={suggestionsOpen}
+            aria-controls={suggestionsOpen ? suggestionListId : undefined}
+            aria-activedescendant={
+              highlightedIndex >= 0
+                ? suggestionOptionId(suggestionListId, highlightedIndex)
+                : undefined
+            }
+            // The forms plugin sizes untyped inputs at 1rem, so the size has
+            // to be stated for the field to match the rest of the toolbar.
+            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setActiveIndex(-1);
+              setSuggestionsDismissed(false);
+            }}
+            onFocus={() => {
+              setRecentSearches(readRecentSearches(emailAccountId));
+              setFocused(true);
+            }}
+            onBlur={() => {
+              setFocused(false);
+              setActiveIndex(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && suggestionsOpen) {
+                event.preventDefault();
+                setActiveIndex(
+                  Math.min(highlightedIndex + 1, suggestions.length - 1),
+                );
+                return;
+              }
+              if (event.key === "ArrowUp" && suggestionsOpen) {
+                event.preventDefault();
+                setActiveIndex(Math.max(highlightedIndex - 1, -1));
+                return;
+              }
+              if (event.key === "Enter" && highlightedIndex >= 0) {
+                event.preventDefault();
+                commitSearch(suggestions[highlightedIndex].query);
+                return;
+              }
+              if (event.key !== "Escape") return;
+              if (suggestionsOpen) {
+                setSuggestionsDismissed(true);
+                setActiveIndex(-1);
+                return;
+              }
+              if (filtersOpen) {
+                setFiltersOpen(false);
+                return;
+              }
+              if (draft || searchQuery) {
+                setDraft("");
+                onSearch("");
+              } else {
+                inputRef.current?.blur();
+              }
+            }}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => onSearch("")}
+              className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          ) : !filtersOpen ? (
+            <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
+              {getShortcutHint("search")}
+            </Kbd>
+          ) : null}
+        </form>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Show search options"
+            aria-expanded={filtersOpen}
+            className={cn(
+              "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              filtersOpen && "text-foreground",
+            )}
+          >
+            <ChevronDownIcon
+              className={cn(
+                "size-3.5 transition-transform",
+                filtersOpen && "rotate-180",
+              )}
+            />
+          </button>
+        </PopoverTrigger>
+        {suggestionsOpen ? (
+          <MailSearchSuggestionList
+            activeIndex={highlightedIndex}
+            id={suggestionListId}
+            onSelect={(suggestion) => commitSearch(suggestion.query)}
+            suggestions={suggestions}
+          />
+        ) : null}
+      </div>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="w-[min(34rem,calc(100vw-1.5rem))] p-4"
+        onPointerDownOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest("[data-radix-select-viewport]")) {
+            event.preventDefault();
           }
         }}
-      />
-      {searchQuery ? (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => onSearch("")}
-          className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <XIcon className="size-3.5" />
-        </button>
-      ) : (
-        <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
-          {getShortcutHint("search")}
-        </Kbd>
-      )}
-    </form>
+      >
+        {filtersOpen ? (
+          <MailSearchFiltersForm
+            key={filterDraft}
+            initialFields={parseMailSearchQuery(filterDraft)}
+            extraLocations={searchLabels}
+            onSearch={(query) => {
+              commitSearch(query);
+              setFiltersOpen(false);
+            }}
+          />
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }
 

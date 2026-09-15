@@ -17,12 +17,14 @@ export async function onRun(
     startDate,
     endDate,
     includeRead,
+    generateDraftReplies = false,
     rerun,
     maxEmails,
   }: {
     startDate: Date;
     endDate?: Date;
     includeRead?: boolean;
+    generateDraftReplies?: boolean;
     rerun?: boolean;
     maxEmails?: number;
   },
@@ -113,12 +115,10 @@ export async function onRun(
       if (completeIfCancelled()) return;
 
       onThreadsQueued(threadsToQueue);
-      await runAiRules(
-        emailAccountId,
-        threadsToQueue,
-        !!rerun,
-        abortController.signal,
-      );
+      await runAiRules(emailAccountId, threadsToQueue, !!rerun, {
+        signal: abortController.signal,
+        skipDraftReplies: !generateDraftReplies,
+      });
       totalProcessed += threadsToQueue.length;
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;

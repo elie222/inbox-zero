@@ -176,7 +176,7 @@ export async function getReplyDraftForSession(
 export function getReplyDraftMode(draft: StoredReplyDraft) {
   if (!draft.content) return;
   if (draft.content.composeMode) return draft.content.composeMode;
-  return draft.content.values.replyToEmail ? "reply" : "forward";
+  return getComposeMode(draft.content.values.replyToEmail);
 }
 
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
@@ -223,7 +223,7 @@ export function createReplyDraftWriter(
         if ((previous?.revision ?? 0) !== revision) {
           await transaction.done;
           throw new Error(
-            "This draft changed in another tab. Reopen the reply to load that version.",
+            "This draft changed in another tab. Reopen the composer to load that version.",
           );
         }
         await transaction.store.put({
@@ -251,7 +251,9 @@ export function createReplyDraftWriter(
     save(content: ReplyDraftContent) {
       if (stopped)
         return Promise.reject(
-          new Error("This draft is closed. Reopen the reply before editing."),
+          new Error(
+            "This draft is closed. Reopen the composer before editing.",
+          ),
         );
       return write(content);
     },
@@ -287,6 +289,7 @@ function notifyReplyDraftChange(scope: ReplyDraftScope) {
 export async function restoreReplyFromOutbox(
   id: string,
   emailAccountId: string,
+  identityOverride?: ReplyDraftIdentity,
 ) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
@@ -298,7 +301,7 @@ export async function restoreReplyFromOutbox(
   if (row?.kind !== "reply" || row.emailAccountId !== emailAccountId)
     throw new Error("Queued reply was not found.");
   const email = sendEmailBody.parse((row.payload as { email: unknown }).email);
-  const composeMode: ReplyDraftMode = email.replyToEmail ? "reply" : "forward";
+  const composeMode = getComposeMode(email.replyToEmail);
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
@@ -317,9 +320,9 @@ export async function restoreReplyFromOutbox(
     })),
   };
   const originalMessageId = row.messageIds[0];
-  if (!originalMessageId)
+  if (!identityOverride && !originalMessageId)
     throw new Error("The reply's original message is unavailable.");
-  const identity = {
+  const identity = identityOverride ?? {
     emailAccountId: row.emailAccountId,
     threadId: row.threadId,
     messageId: getReplyDraftSessionId(originalMessageId, composeMode),
@@ -337,6 +340,8 @@ export async function restoreReplyFromOutbox(
     identity.messageId,
   ];
   const previous = await transaction.objectStore("replyDrafts").get(key);
+  const draftBlocksRestore =
+    Boolean(previous?.content) && identityOverride === undefined;
   if (
     !current ||
     current.updatedAt !== row.updatedAt ||
@@ -344,11 +349,11 @@ export async function restoreReplyFromOutbox(
     !["pending", "retry_wait", "blocked_auth", "failed"].includes(
       current.status,
     ) ||
-    previous?.content
+    draftBlocksRestore
   ) {
     await transaction.done;
     throw new Error(
-      previous?.content
+      draftBlocksRestore
         ? "Finish or discard the current draft first."
         : "Sending has already started. This reply cannot be edited safely.",
     );
@@ -364,5 +369,19 @@ export async function restoreReplyFromOutbox(
   for (const listener of listeners) listener(identity);
   channel?.postMessage(identity);
   notifyMailMutationChange();
-  return { messageId: originalMessageId, mode: composeMode };
+  return {
+    messageId:
+      identityOverride?.messageId ?? originalMessageId ?? identity.messageId,
+    mode: composeMode,
+  };
+}
+
+/**
+ * A forward carries only the thread it came from, while a reply also targets
+ * the message it answers.
+ */
+function getComposeMode(
+  replyToEmail: SendEmailBody["replyToEmail"],
+): ReplyDraftMode {
+  return replyToEmail?.headerMessageId ? "reply" : "forward";
 }

@@ -34,6 +34,9 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
+vi.mock("@/utils/microsoft/oauth", () => ({
+  isMicrosoftEmulationEnabled: vi.fn(() => false),
+}));
 
 vi.mock("@/utils/outlook/message", async () => {
   const actual = await vi.importActual<
@@ -674,6 +677,93 @@ describe("OutlookProvider.searchMessages", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it("pages domain filters without dropping inbox, unread, or date constraints", async () => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=domain";
+    const miss = createMessage({
+      id: "miss",
+      conversationId: "miss",
+      parentFolderId: "inbox-folder-id",
+      isRead: false,
+    });
+    miss.from = { emailAddress: { address: "user@sub.example.com" } };
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": { value: [miss], "@odata.nextLink": next },
+        [next]: {
+          value: [
+            createMessage({
+              id: "hit",
+              conversationId: "hit",
+              parentFolderId: "inbox-folder-id",
+              isRead: false,
+            }),
+          ],
+        },
+      },
+    });
+    const result = await new OutlookProvider(client).getThreadsWithQuery({
+      query: {
+        type: "inbox",
+        fromEmail: "@example.com",
+        isUnread: true,
+        before: new Date("2026-02-01"),
+      },
+      maxResults: 1,
+    });
+    expect(result.threads.map((thread) => thread.id)).toEqual(["hit"]);
+    expect(client.getRequestLog()[0].filter).toContain("parentFolderId eq");
+    expect(client.getRequestLog()[0].filter).toContain("isRead eq false");
+    expect(client.getRequestLog()[0].filter).toContain("receivedDateTime lt");
+    expect(client.getRequestLog()[0].filter).not.toContain("from/emailAddress");
+    expect(client.getRequestLog()[1].apiPath).toBe(next);
+  });
+
+  it.each([
+    undefined,
+    ["INBOX"],
+  ])("bounds domain scans with local label filters %s", async (labelIds) => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=domain";
+    const miss = createMessage({
+      id: "miss",
+      parentFolderId: "inbox-folder-id",
+    });
+    miss.from = { emailAddress: { address: "user@other.com" } };
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": { value: [miss], "@odata.nextLink": next },
+        [next]: { value: [miss], "@odata.nextLink": next },
+      },
+    });
+    const result = await new OutlookProvider(client).getThreadsWithQuery({
+      query: { type: "inbox", fromEmail: "@example.com", labelIds },
+    });
+    expect(result).toEqual({ threads: [], nextPageToken: next });
+    expect(client.getRequestLog()).toHaveLength(5);
+  });
+
+  it.each([
+    { type: "draft" },
+    { labelId: "DRAFT" },
+  ])("scopes draft queries to the drafts folder with an uncached folder map: %j", async (query) => {
+    getFolderIdsMock.mockImplementation(async (_client, _logger, options) => ({
+      inbox: "inbox-folder-id",
+      ...(options?.includeDrafts ? { drafts: "drafts-folder-id" } : {}),
+    }));
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({ query });
+
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/messages",
+        filter: "parentFolderId eq 'drafts-folder-id'",
+      }),
+    );
+  });
+
   it.each([
     true,
     undefined,
@@ -1575,6 +1665,16 @@ describe("OutlookProvider.deleteLabel", () => {
 
     await expect(provider.deleteLabel("category-1")).resolves.toBeUndefined();
     expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("OutlookProvider.searchContacts", () => {
+  it("skips Graph contact lookups during Microsoft emulation", async () => {
+    const oauth = await import("@/utils/microsoft/oauth");
+    vi.mocked(oauth.isMicrosoftEmulationEnabled).mockReturnValue(true);
+    const provider = new OutlookProvider({} as never, createTestLogger());
+
+    await expect(provider.searchContacts("ada")).resolves.toEqual([]);
   });
 });
 

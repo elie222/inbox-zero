@@ -72,4 +72,13 @@ describe("sanitizeEmailHtml", () => {
       false,
     );
   });
+
+  it("strips sent-message open pixels so viewing mail does not count as opened", () => {
+    const sanitized = sanitizeEmailHtml(
+      '<p>Hi</p><img src="https://app.example.com/t/abcdefghijklmnopqrstuvwxyz012345" width="1" height="1" alt="">',
+    );
+
+    expect(sanitized).not.toContain("/t/abcdefghijklmnopqrstuvwxyz012345");
+    expect(sanitized).toContain("<p>Hi</p>");
+  });
 });

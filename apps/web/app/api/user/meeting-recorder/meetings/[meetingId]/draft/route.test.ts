@@ -42,12 +42,15 @@ describe("meeting follow-up draft route", () => {
     getEmailAccountMock.mockResolvedValue("user@gmail.com");
   });
 
-  it("opens the related Gmail draft using its embedded message ID", async () => {
+  it("opens the related Gmail draft's conversation in Drafts", async () => {
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "google" } },
     } as never);
-    emailProvider.getDraft.mockResolvedValue({ id: "draft-message-123" });
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+    });
 
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
@@ -58,8 +61,51 @@ describe("meeting follow-up draft route", () => {
     );
     expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/thread-123",
     );
+  });
+
+  // The Graph webLink resolves the item without translating a REST id into the
+  // EWS id the compose deeplink expects.
+  it("opens the related Outlook draft through the link Graph supplied", async () => {
+    getEmailAccountMock.mockResolvedValue("user@contoso.com");
+    prisma.meeting.findFirst.mockResolvedValue({
+      followUpDraftId: "draft-resource-123",
+      emailAccount: { account: { provider: "microsoft" } },
+    } as never);
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+      externalUrl:
+        "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+    });
+
+    const response = await GET(new NextRequest(requestUrl), routeContext);
+
+    expect(response.headers.get("location")).toBe(
+      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+    );
+  });
+
+  it("returns an explicit error when Outlook has no trusted draft link", async () => {
+    getEmailAccountMock.mockResolvedValue("user@contoso.com");
+    prisma.meeting.findFirst.mockResolvedValue({
+      followUpDraftId: "draft-resource-123",
+      emailAccount: { account: { provider: "microsoft" } },
+    } as never);
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+    });
+
+    const response = await GET(new NextRequest(requestUrl), routeContext);
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error:
+        "The draft exists, but no trusted provider link is available to open it.",
+    });
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("rejects email accounts the user does not own", async () => {

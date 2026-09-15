@@ -56,9 +56,21 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     replyingToEmail,
   }: {
     onDiscard: () => void;
-    replyingToEmail?: { to?: string };
+    replyingToEmail?: {
+      to?: string;
+      threadId?: string;
+      forwardedMessageId?: string;
+      forwardedAttachments?: Array<{ filename: string }>;
+    };
   }) => (
-    <div data-testid="composer">
+    <div
+      data-testid="composer"
+      data-thread-id={replyingToEmail?.threadId}
+      data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
+      data-forwarded-attachments={replyingToEmail?.forwardedAttachments
+        ?.map((attachment) => attachment.filename)
+        .join(",")}
+    >
       <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
       <button onClick={onDiscard} type="button">
         Discard draft
@@ -85,7 +97,6 @@ describe("EmailMessage draft recovery", () => {
 
     render(
       <EmailMessage
-        defaultComposeMode="reply"
         draftMessages={[createMessage("draft-1")]}
         expanded
         message={createMessage("message-1")}
@@ -106,11 +117,38 @@ describe("EmailMessage draft recovery", () => {
       rejectDiscard(new Error("Request failed"));
     });
 
-    expect(screen.getByTestId("composer").textContent).toContain("forward");
+    expect(
+      screen.getAllByTestId("composer").map((composer) => composer.textContent),
+    ).toEqual(["replyDiscard draft", "forwardDiscard draft"]);
     expect(mocks.toastError).toHaveBeenCalledWith({
       description: "Failed to discard draft",
     });
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EmailMessage forward", () => {
+  afterEach(cleanup);
+
+  it("composes the forward against the thread it came from", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.threadId).toBe("thread-1");
+    // Outlook needs the source message to keep the forward in its conversation.
+    expect(composer.dataset.forwardedMessageId).toBe("message-1");
+    // The files travel with the forward, so the composer has to show them.
+    expect(composer.dataset.forwardedAttachments).toBe("report.pdf");
   });
 });
 
@@ -123,6 +161,19 @@ function createMessage(id: string) {
       subject: "Subject",
       to: "user@example.com",
     },
+    attachments: [
+      {
+        attachmentId: "attachment-1",
+        filename: "report.pdf",
+        mimeType: "application/pdf",
+        size: 1024,
+        headers: {
+          "content-description": "",
+          "content-id": "",
+          "content-transfer-encoding": "base64",
+        },
+      },
+    ],
     historyId: "history-1",
     id,
     inline: [],

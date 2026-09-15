@@ -1,79 +1,84 @@
-import { APIError } from "better-auth";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import { assertScimUserActive, getScimOptions } from "@/utils/auth/scim";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  assertCanGenerateScimToken,
-  getScimProviderIdFromToken,
-} from "@/utils/auth/scim";
-import { isAdmin } from "@/utils/admin";
-
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/admin", () => ({
-  isAdmin: vi.fn(),
+vi.mock("@/env", () => ({
+  env: {
+    SCIM_CREDENTIAL_HASH_SECRET:
+      "test-scim-credential-secret-with-32-characters",
+  },
 }));
+beforeEach(() => vi.clearAllMocks());
 
-describe("getScimProviderIdFromToken", () => {
-  it("extracts the provider id from a Better Auth SCIM bearer token", () => {
-    const token = createToken("secret", "provider-id");
-
-    expect(getScimProviderIdFromToken(token)).toBe("provider-id");
+it("links only a reviewed connection and external identity mapping", async () => {
+  prisma.scimIdentityLink.findUnique.mockResolvedValue({
+    userId: "existing-user",
+  } as never);
+  const result = await getScimOptions().identity?.resolveUser?.(
+    {
+      connectionId: "connection",
+      provisioningDomainId: "domain",
+      resource: {
+        externalId: "directory-subject",
+        primaryEmail: "same@example.com",
+      } as never,
+    },
+    {} as never,
+  );
+  expect(result).toEqual({
+    action: "link",
+    userId: "existing-user",
+    profile: "preserve",
   });
-
-  it("returns null when the token does not contain a provider id", () => {
-    const token = Buffer.from("secret-only", "utf8").toString("base64url");
-
-    expect(getScimProviderIdFromToken(token)).toBeNull();
-  });
-});
-
-describe("assertCanGenerateScimToken", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("rejects non-admin users before checking providers", async () => {
-    vi.mocked(isAdmin).mockReturnValue(false);
-
-    await expect(
-      assertCanGenerateScimToken({
-        userEmail: "user@example.com",
-        scimToken: createToken("secret", "provider-id"),
-      }),
-    ).rejects.toBeInstanceOf(APIError);
-
-    expect(prisma.ssoProvider.findUnique).not.toHaveBeenCalled();
-  });
-
-  it("rejects tokens for providers that are not registered for SSO", async () => {
-    vi.mocked(isAdmin).mockReturnValue(true);
-    prisma.ssoProvider.findUnique.mockResolvedValue(null);
-
-    await expect(
-      assertCanGenerateScimToken({
-        userEmail: "admin@example.com",
-        scimToken: createToken("secret", "missing-provider"),
-      }),
-    ).rejects.toBeInstanceOf(APIError);
-
-    expect(prisma.ssoProvider.findUnique).toHaveBeenCalledWith({
-      where: { providerId: "missing-provider" },
-      select: { id: true },
-    });
-  });
-
-  it("allows admins to generate tokens for registered SSO providers", async () => {
-    vi.mocked(isAdmin).mockReturnValue(true);
-    prisma.ssoProvider.findUnique.mockResolvedValue({ id: "sso-provider-id" });
-
-    await expect(
-      assertCanGenerateScimToken({
-        userEmail: "admin@example.com",
-        scimToken: createToken("secret", "provider-id"),
-      }),
-    ).resolves.toBeUndefined();
+  expect(prisma.scimIdentityLink.findUnique).toHaveBeenCalledWith({
+    where: {
+      connectionId_externalId: {
+        connectionId: "connection",
+        externalId: "directory-subject",
+      },
+    },
+    select: { userId: true },
   });
 });
-
-function createToken(secret: string, providerId: string) {
-  return Buffer.from(`${secret}:${providerId}`, "utf8").toString("base64url");
-}
+it("does not link an existing user by email", async () => {
+  const result = await getScimOptions().identity?.resolveUser?.(
+    {
+      connectionId: "connection",
+      provisioningDomainId: "domain",
+      resource: { primaryEmail: "same@example.com" } as never,
+    },
+    {} as never,
+  );
+  expect(result).toEqual({ action: "create" });
+  expect(prisma.scimIdentityLink.findUnique).not.toHaveBeenCalled();
+});
+it("disables future logins and revokes sessions when deprovisioned", async () => {
+  const database = { update: vi.fn(), deleteMany: vi.fn() };
+  await getScimOptions().identity?.reconcileUser?.(
+    { userId: "user", active: false, sources: [] },
+    { database: database as never },
+  );
+  expect(database.update).toHaveBeenCalledWith({
+    model: "user",
+    where: [{ field: "id", value: "user" }],
+    update: { scimAccessDisabled: true },
+  });
+  expect(database.deleteMany).toHaveBeenCalledWith({
+    model: "session",
+    where: [{ field: "userId", value: "user" }],
+  });
+});
+it("blocks new sessions for users disabled through SCIM", async () => {
+  prisma.user.findUnique.mockResolvedValue({
+    scimAccessDisabled: true,
+  } as never);
+  await expect(assertScimUserActive("user")).rejects.toThrow(
+    "Account access was disabled",
+  );
+});
+it("allows sessions for users who are not disabled", async () => {
+  prisma.user.findUnique.mockResolvedValue({
+    scimAccessDisabled: false,
+  } as never);
+  await expect(assertScimUserActive("user")).resolves.toBeUndefined();
+});

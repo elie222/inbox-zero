@@ -102,7 +102,7 @@ describe("buildPrompt", () => {
     });
     const prompt = buildPrompt(data, mockEmailAccountNoTz, []);
 
-    expect(prompt).toContain("<recent_emails>");
+    expect(prompt).toContain("<email_threads>");
     expect(prompt).toContain("Partnership proposal");
   });
 
@@ -282,7 +282,9 @@ describe.runIf(isAiTest)(
       expect(result.guests).toHaveLength(1);
       expect(result.guests[0].email).toBe("partner@startup.io");
       // Should reference partnership or the email context
-      const bulletText = result.guests[0].bullets.join(" ").toLowerCase();
+      const bulletText = [...result.priorities, ...result.guests[0].bullets]
+        .join(" ")
+        .toLowerCase();
       expect(
         bulletText.includes("partnership") ||
           bulletText.includes("ai") ||
@@ -385,7 +387,9 @@ describe.runIf(isAiTest)(
       expect(result.guests[0].email).toBe("prospect@bigcorp.com");
 
       // Should reference the past meeting or demo
-      const bulletText = result.guests[0].bullets.join(" ").toLowerCase();
+      const bulletText = [...result.priorities, ...result.guests[0].bullets]
+        .join(" ")
+        .toLowerCase();
       expect(
         bulletText.includes("demo") ||
           bulletText.includes("product") ||

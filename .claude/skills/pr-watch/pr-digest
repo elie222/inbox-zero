@@ -2,7 +2,7 @@
 # Compact PR status for agents. Prints only what needs a decision.
 #
 #   pr-digest [PR]            one-shot digest
-#   pr-digest --watch [PR]    poll until checks settle, then digest
+#   pr-digest --watch [PR]    report failures immediately, otherwise wait for checks
 #   pr-digest --all [PR]      re-print findings already shown once
 #   pr-digest --logs JOB_ID   failing CI log, stripped of timestamp noise
 #   pr-digest --reply ID BODY reply to a review comment thread
@@ -38,7 +38,7 @@ api() {
 
 check_runs() {
   api --paginate "repos/$1/commits/$2/check-runs?per_page=100" \
-    --jq '.check_runs[] | {name, status, conclusion, html_url}' | jq -s .
+    --jq '.check_runs[] | {name, status, conclusion, html_url, started_at}' | jq -s .
 }
 
 commit_statuses() {
@@ -47,27 +47,27 @@ commit_statuses() {
 }
 
 logs() {
-  local job=$1 keep out
-  keep='^[0-9]+\) |^ *(Error|TimeoutError|AssertionError):|^ *(Locator|Expected|Received|Timeout|Call log):|^ *- (Expect|waiting for|locator resolved)|^ *>? *[0-9]+ \| |^ *\^|^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (failed|passed|flaky|skipped)|^ *(✘|✗|×) |^##\[error\]'
-  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
-    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
-    grep -v '^\[WebServer\]' |
-    grep -E "$keep" |
-    perl -pe 's/\e\[[0-9;]*m//g' |
-    awk '!/^##\[error\]/ || !seen[$0]++' |
+  local job=$1 repo raw cleaned out startup
+  local log_flag=""
+  if gh api --help 2>/dev/null | grep -- --allow-escape-sequences >/dev/null; then
+    log_flag=--allow-escape-sequences
+  fi
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
+  # The completed job's endpoint works while sibling jobs are still running.
+  raw=$(api "repos/$repo/actions/jobs/$job/logs" ${log_flag:+"$log_flag"}) || die "job $job logs unavailable; inspect the job URL and retry log retrieval when available"
+  cleaned=$(printf '%s\n' "$raw" | perl -0777 -pe 's/\e\][^\a\e]*(?:\a|\e\\)//g; s/\e[P^_X].*?\e\\//sg; s/\e\[[0-?]*[ -\/]*[@-~]//g; s/\e[ -\/]*[@-~]//g; s/[\x00-\x08\x0b-\x1f\x7f]//g; s/^[^\t\n]*\t[^\t\n]*\t\S+[^\S\n]//mg; s/^\d{4}-\d\d-\d\dT\S+[^\S\n]//mg')
+  grep '[^[:space:]]' <<<"$cleaned" >/dev/null || die "job $job logs unavailable; no log content was returned"
+  out=$(printf '%s\n' "$cleaned" |
+    grep -E -A 3 -B 2 '(^|[^a-zA-Z])(Error|TimeoutError|AssertionError|Type error|error TS[0-9]+|ERR_|EADDRINUSE|ECONNREFUSED|timed out|Timed out|timeout|failed|Failed|FAIL|Cannot find|Cannot resolve|Cannot connect)|config\.webServer|^ *[0-9]+\) |^ *(Locator|Expected|Received|Call log):|^ *>? *[0-9]+ \| |^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (passed|flaky|skipped)|^##\[error\]' |
     tail -n "${PR_DIGEST_LOG_LINES:-80}")
-  if [ -n "$out" ]; then
-    echo "$out"
-    return 0
+  if [ -z "$out" ]; then out=$(printf '%s\n' "$cleaned" | tail -n 40); fi
+  printf '%s\n' "$out"
+  if grep -q 'Timed out waiting.*config.webServer' <<<"$cleaned"; then
+    echo "Server output preceding the startup timeout:"
+    startup=$(printf '%s\n' "$cleaned" | sed -n '1,/Timed out waiting.*config.webServer/p' |
+      grep -E 'pw:webserver|\[Next\.js\]|\[WebServer|\[.*(emulator|app|server).*\]|Starting|Listening|Ready in' | tail -n 30)
+    printf '%s\n' "${startup:-No server output was retained before the timeout.}"
   fi
-  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
-    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
-    grep -vE '^\s*$|^\[WebServer\]' | tail -n 40)
-  if [ -n "$out" ]; then
-    echo "$out"
-    return 0
-  fi
-  die "no failed log for job $job"
 }
 
 # The reply endpoint needs the pull number, which the comment itself carries.
@@ -121,11 +121,12 @@ digest() {
              $(jq '[.[] | select(.state | test("^(failure|error)$"))] | length' <<<"$statuses") ))
 
   jq -r '"checks " + (if length == 0 then "none"
-    else ([.[].conclusion // "pending"] | group_by(.) | map("\(length) \(.[0])") | join(" · ")) end)' <<<"$runs"
+    else ([.[] | .conclusion // "pending"] | group_by(.) | map("\(length) \(.[0])") | join(" · ")) end)' <<<"$runs"
   jq -r '.[] | select(.state != "success") | "STATUS \(.context) \(.state)"' <<<"$statuses"
 
-  # Failing checks, annotated with the step that broke so infra cancellations
-  # are distinguishable from real test failures without another round trip.
+  jq -r '.[] | select(.status != "completed") | "PENDING \(.name) [\(.status)] since \(.started_at // "not started")"' <<<"$runs"
+
+  # Skipped later steps do not identify the cause of the failed step.
   if [ "$failed" -gt 0 ]; then
     while IFS=$'\t' read -r name conclusion url; do
       local job step_info=""
@@ -133,11 +134,11 @@ digest() {
       if [[ $job =~ ^[0-9]+$ ]]; then
         step_info=$(gh api "repos/$repo/actions/jobs/$job" --jq '
           (.steps // []) as $s
-          | ([$s[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | first) as $bad
+          | ([$s[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")] | first) as $bad
           | if $bad == null then ""
             else " · step \"\($bad.name)\" \($bad.conclusion)"
                  + (if ([$s[] | select(.number > $bad.number and .conclusion == "skipped")] | length) > 0
-                    then " (later steps skipped, tests did not run)" else "" end)
+                    then " (later steps skipped)" else "" end)
             end' 2>/dev/null)
       fi
       echo "FAIL $name [$conclusion]$step_info"
@@ -325,9 +326,13 @@ main() {
   if [ "$watch" -eq 1 ]; then
     local started=$SECONDS head runs statuses empty=0 left
     while :; do
-      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)
+      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) || die "could not read PR head"
       runs=$(check_runs "$repo" "$head") || die "could not read check runs"
       statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
+      if [ "$(jq '[.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not))] | length' <<<"$runs")" != "0" ] ||
+         [ "$(jq '[.[] | select(.state == "failure" or .state == "error")] | length' <<<"$statuses")" != "0" ]; then
+        break
+      fi
       if [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")" = "0" ] &&
          [ "$(jq '[.[] | select(.state == "pending")] | length' <<<"$statuses")" = "0" ]; then
         # Nothing outstanding. Wait a few polls before believing a PR that has
@@ -340,7 +345,10 @@ main() {
         empty=$((empty + 1))
       fi
       left=$((DEADLINE - (SECONDS - started)))
-      [ "$left" -le 0 ] && break
+      if [ "$left" -le 0 ]; then
+        echo "WAIT_LIMIT reached after ${DEADLINE}s; CI is still pending (not a CI failure)"
+        break
+      fi
       sleep "$(( POLL < left ? POLL : left ))"
     done
   fi

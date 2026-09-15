@@ -254,7 +254,7 @@ describe("GET /api/threads", () => {
       expect(body.threads[0].plan.id).toBe("executed-rule-2");
     });
 
-    it("keeps only the most recent execution of each rule", async () => {
+    it("keeps only the most recent execution of each rule per message", async () => {
       mockGetThreadsWithQuery.mockResolvedValue({
         threads: [{ id: "thread-1", snippet: "", messages: [getMessage()] }],
       });
@@ -266,7 +266,7 @@ describe("GET /api/threads", () => {
           reason: "Latest reason",
           createdAt: new Date("2024-01-03T00:00:00Z"),
         }),
-        getExecutedRule({ id: "executed-rule-oldest" }),
+        getExecutedRule({ id: "executed-rule-oldest", messageId: "message-2" }),
       ]);
 
       const response = await GET(

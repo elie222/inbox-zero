@@ -241,6 +241,8 @@ describe("local reply drafts", () => {
         to: "person@example.com",
         subject: "Fwd: Reply",
         messageHtml: "<p>Forward this text</p>",
+        // A forward threads on the thread id alone, with no message to reply to.
+        replyToEmail: { threadId: identity.threadId },
       },
     });
 
@@ -261,6 +263,94 @@ describe("local reply drafts", () => {
         })
       )?.content,
     ).toMatchObject({ composeMode: "forward" });
+  });
+  it("restores a new compose draft into the provided identity", async () => {
+    const composeIdentity = {
+      emailAccountId: "account",
+      threadId: "compose:new-message",
+      messageId: "compose:new-message",
+    };
+    const queued = await enqueueMailMutation({
+      ...composeIdentity,
+      messageIds: [composeIdentity.messageId],
+      kind: "reply",
+      email: {
+        to: "person@example.com",
+        subject: "Hello",
+        messageHtml: "<p>New message</p>",
+      },
+    });
+
+    const restored = await restoreReplyFromOutbox(
+      queued.id,
+      composeIdentity.emailAccountId,
+      composeIdentity,
+    );
+
+    expect(restored).toEqual({
+      messageId: composeIdentity.messageId,
+      mode: "forward",
+    });
+    expect(
+      (await getReplyDraft(composeIdentity))?.content?.draft.editableHtml,
+    ).toContain("New message");
+  });
+  it("overwrites an existing draft when restoring with an identity override", async () => {
+    const composeIdentity = {
+      emailAccountId: "account",
+      threadId: "compose:new-message",
+      messageId: "compose:new-message",
+    };
+    await createReplyDraftWriter(composeIdentity).save({
+      ...content,
+      draft: { ...content.draft, editableHtml: "<p>Newer local edits</p>" },
+    });
+    const queued = await enqueueMailMutation({
+      ...composeIdentity,
+      messageIds: [composeIdentity.messageId],
+      kind: "reply",
+      email: {
+        to: "person@example.com",
+        subject: "Hello",
+        messageHtml: "<p>Queued send body</p>",
+      },
+    });
+
+    await restoreReplyFromOutbox(
+      queued.id,
+      composeIdentity.emailAccountId,
+      composeIdentity,
+    );
+
+    expect(await getMailMutation(queued.id)).toBeUndefined();
+    expect(
+      (await getReplyDraft(composeIdentity))?.content?.draft.editableHtml,
+    ).toContain("Queued send body");
+  });
+  it("refuses to restore over an existing draft without an identity override", async () => {
+    await createReplyDraftWriter(replyIdentity).save(content);
+    const queued = await enqueueMailMutation({
+      ...identity,
+      messageIds: [identity.messageId],
+      kind: "reply",
+      email: {
+        replyToEmail: {
+          threadId: identity.threadId,
+          headerMessageId: "header-message-id",
+        },
+        to: "person@example.com",
+        subject: "Reply",
+        messageHtml: "<p>Queued send body</p>",
+      },
+    });
+
+    await expect(
+      restoreReplyFromOutbox(queued.id, identity.emailAccountId),
+    ).rejects.toThrow("current draft first");
+    expect((await getMailMutation(queued.id))?.id).toBe(queued.id);
+    expect(
+      (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
+    ).toContain("My reply");
   });
   it("does not restore a reply already claimed for sending", async () => {
     const queued = await enqueueMailMutation({

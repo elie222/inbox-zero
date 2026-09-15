@@ -11,3 +11,7 @@ export const updateSentWithSignatureBody = z.object({
 export const updateHiddenAiDraftLinksBody = z.object({
   enabled: z.boolean(),
 });
+
+export const updateSentMessageOpenTrackingBody = z.object({
+  enabled: z.boolean(),
+});

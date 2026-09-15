@@ -10,5 +10,6 @@ export const runRulesBody = z.object({
   threadId: z.string(),
   rerun: z.boolean().nullish(),
   isTest: z.boolean(),
+  skipDraftReplies: z.boolean().optional(),
 });
 export type RunRulesBody = z.infer<typeof runRulesBody>;

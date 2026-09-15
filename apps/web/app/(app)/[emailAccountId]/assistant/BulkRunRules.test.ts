@@ -53,7 +53,7 @@ describe("onRun", () => {
     } as Response);
     const activeAction = createDeferred();
     vi.mocked(runAiRules).mockImplementation(
-      (_emailAccountId, _threads, _rerun, signal) =>
+      (_emailAccountId, _threads, _rerun, { signal } = {}) =>
         new Promise((_resolve, reject) => {
           signal?.addEventListener("abort", () => {
             activeAction.promise.then(() => {
@@ -158,7 +158,7 @@ describe("onRun", () => {
       "account-id",
       [expect.objectContaining({ id: "unprocessed-thread" })],
       false,
-      expect.any(AbortSignal),
+      { signal: expect.any(AbortSignal), skipDraftReplies: true },
     );
   });
 
@@ -183,7 +183,7 @@ describe("onRun", () => {
         expect.objectContaining({ id: "unprocessed-thread" }),
       ],
       true,
-      expect.any(AbortSignal),
+      { signal: expect.any(AbortSignal), skipDraftReplies: true },
     );
   });
 
@@ -209,7 +209,7 @@ describe("onRun", () => {
       "account-id",
       [expect.objectContaining({ id: "processed-thread" })],
       true,
-      expect.any(AbortSignal),
+      { signal: expect.any(AbortSignal), skipDraftReplies: true },
     );
   });
 });

@@ -27,6 +27,7 @@ import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
+import { getGmailMessageAttachments } from "@/utils/gmail/attachment";
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -115,7 +116,19 @@ export async function sendEmailWithHtml(
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
+  const forwardedAttachments = await getForwardedAttachments(
+    gmail,
+    body.replyToEmail?.forwardedMessageId,
+    sendLogger,
+  );
+
+  const raw = await createRawMailMessage({
+    ...body,
+    attachments: forwardedAttachments.length
+      ? [...(body.attachments ?? []), ...forwardedAttachments]
+      : body.attachments,
+    messageText,
+  });
   sendLogger.info("Prepared Gmail send", getGmailSendMetadata(raw, body));
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
@@ -497,6 +510,40 @@ async function trackGmailSend<T>(
     });
     throw error;
   }
+}
+
+/**
+ * Graph carries a forward's files across on its own, but a Gmail send composes
+ * its own MIME, so the parts of the message being forwarded have to be fetched
+ * and re-attached.
+ */
+async function getForwardedAttachments(
+  gmail: gmail_v1.Gmail,
+  forwardedMessageId: string | undefined,
+  sendLogger: Logger,
+): Promise<Attachment[]> {
+  if (!forwardedMessageId) return [];
+
+  const message = await getMessage(forwardedMessageId, gmail).catch(
+    (error: unknown) => {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      // The body already quotes the message, so a source that has since been
+      // deleted costs the forward its files rather than the whole send.
+      sendLogger.warn("Forwarded message is gone, sending without its files", {
+        forwardedMessageId,
+      });
+      return null;
+    },
+  );
+  if (!message) return [];
+
+  // A part that fails to download fails the send: silently dropping one file
+  // from a forward is worse than asking the user to try again.
+  return await getGmailMessageAttachments(
+    gmail,
+    forwardedMessageId,
+    message.payload,
+  );
 }
 
 function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {

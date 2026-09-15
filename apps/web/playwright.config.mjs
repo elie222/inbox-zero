@@ -4,6 +4,12 @@ import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
 const allocatedPorts = new Set();
+const production = process.env.PLAYWRIGHT_PRODUCTION === "1";
+if (production && !process.env.NEXT_PUBLIC_BASE_URL) {
+  throw new Error(
+    "Production Playwright requires NEXT_PUBLIC_BASE_URL to match the URL used for next build.",
+  );
+}
 const baseURL =
   process.env.NEXT_PUBLIC_BASE_URL ??
   `http://localhost:${await getAvailablePort()}`;
@@ -19,6 +25,26 @@ const emailBaseUrl =
   `http://127.0.0.1:${await getAvailablePort()}`;
 const emailPort = getUrlPort(emailBaseUrl);
 process.env.PLAYWRIGHT_EMAIL_BASE_URL = emailBaseUrl;
+const stripeBaseUrl =
+  process.env.PLAYWRIGHT_STRIPE_BASE_URL ??
+  `http://127.0.0.1:${await getAvailablePort()}`;
+const stripePort = getUrlPort(stripeBaseUrl);
+const stripeSecretKey = "playwright-stripe-key";
+// The emulator accepts any price id; these only have to match what the app was
+// built with so the tier lookup resolves.
+const stripeEmulatorPriceIds = {
+  NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID:
+    "price_playwright_starter_monthly",
+  NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID:
+    "price_playwright_starter_annually",
+  NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: "price_playwright_plus_monthly",
+  NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: "price_playwright_plus_annually",
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID:
+    "price_playwright_professional_monthly",
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
+    "price_playwright_professional_annually",
+};
+const stripeWebhookSecret = "whsec_playwright";
 const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
 const todoistBaseUrl = todoistEnabled
   ? `http://localhost:${await getAvailablePort()}`
@@ -56,10 +82,15 @@ process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
+process.env.PLAYWRIGHT_STRIPE_BASE_URL = stripeBaseUrl;
+// Only a default. Production runs freeze NEXT_PUBLIC_* into the build, which
+// happens in a separate job before this config loads, so those runs must set
+// these in the workflow and have their values win here.
+for (const [key, priceId] of Object.entries(stripeEmulatorPriceIds)) {
+  process.env[key] ??= priceId;
+}
 if (todoistBaseUrl) {
-  process.env.MCP_SERVER_URL_OVERRIDES = JSON.stringify({
-    todoist: `${todoistBaseUrl}/mcp`,
-  });
+  process.env.PLAYWRIGHT_TODOIST_BASE_URL = todoistBaseUrl;
 }
 
 export default defineConfig({
@@ -109,12 +140,16 @@ export default defineConfig({
   ],
   webServer: [
     {
+      name: "Email emulator",
+      stdout: "pipe",
       command: `node __tests__/playwright/email-server.mjs ${emailPort}`,
       cwd: process.cwd(),
       url: emailBaseUrl,
       timeout: 30_000,
     },
     {
+      name: "Google emulator",
+      stdout: "pipe",
       command: emulateCommand,
       cwd: process.cwd(),
       url: `${emulateBaseUrl}/.well-known/openid-configuration`,
@@ -124,6 +159,8 @@ export default defineConfig({
     ...(todoistBaseUrl && todoistPort
       ? [
           {
+            name: "Todoist emulator",
+            stdout: "pipe",
             command: `pnpm exec tsx scripts/todoist-mcp-emulator.ts ${todoistPort}`,
             cwd: process.cwd(),
             url: `${todoistBaseUrl}/health`,
@@ -133,19 +170,46 @@ export default defineConfig({
         ]
       : []),
     {
-      command: `pnpm exec next dev --turbopack --port ${basePort}`,
+      name: "Stripe emulator",
+      stdout: "pipe",
+      command: `pnpm exec tsx scripts/run-stripe-emulator.ts ${stripePort}`,
+      cwd: process.cwd(),
+      url: `${stripeBaseUrl}/health`,
+      timeout: 60_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        STRIPE_EMULATOR_WEBHOOK_URL: `${baseURL}/api/stripe/webhook`,
+        STRIPE_SECRET_KEY: stripeSecretKey,
+        STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
+      },
+    },
+    {
+      name: "Next.js",
+      stdout: "pipe",
+      command: `${
+        todoistEnabled
+          ? "pnpm exec node --import tsx --import ./__tests__/playwright/todoist-transport.ts node_modules/next/dist/bin/next"
+          : "pnpm exec next"
+      } ${production ? "start" : "dev --turbopack"} --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
-        NODE_ENV: "development",
+        MCP_SERVER_URL_OVERRIDES: "",
+        NODE_ENV: production ? "production" : "development",
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
         PREVIEW_DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
+        ...(process.env.PLAYWRIGHT_SCIM_TEST === "true" && {
+          ADMINS: playwrightTestEmail,
+          SCIM_CREDENTIAL_HASH_SECRET:
+            "playwright-only-scim-credential-secret-32-characters",
+        }),
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
         GOOGLE_CLIENT_SECRET:
           process.env.GOOGLE_CLIENT_SECRET ?? "client_secret",
@@ -183,9 +247,14 @@ export default defineConfig({
         NEXT_PUBLIC_POSTHOG_API_HOST: "",
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
-        NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_CONTACTS_ENABLED:
+          process.env.NEXT_PUBLIC_CONTACTS_ENABLED ?? "true",
         NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
+        NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
+        STRIPE_API_BASE_URL: stripeBaseUrl,
+        STRIPE_SECRET_KEY: stripeSecretKey,
+        STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
     },
@@ -199,7 +268,7 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   );
   const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
-  const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
+  const redirectUri = new URL("/api/auth/callback/google", baseURL).href;
   const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
   const profileImage = fs.readFileSync(

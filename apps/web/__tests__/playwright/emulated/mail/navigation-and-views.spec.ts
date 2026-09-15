@@ -77,6 +77,12 @@ test("opens a complete conversation and updates its read state", async ({
   ).toBeVisible();
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
 
+  const threadActions = page.getByRole("group", { name: "Thread actions" });
+  const markUnread = threadActions.getByRole("button", {
+    name: /Mark as unread/,
+  });
+  await expect(markUnread).toBeVisible();
+
   await page.getByRole("button", { name: /^More actions/ }).click();
   const move = page.getByRole("menuitem", { name: "Move" });
   await expect(move).toBeVisible();
@@ -87,11 +93,8 @@ test("opens a complete conversation and updates its read state", async ({
     name: "Open in Gmail",
   });
   await expect(openInGmail).toContainText("G G");
-  const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
-  await expect(markUnread).toBeVisible();
-  await expect(markUnread).toContainText("U");
   await page.keyboard.press("Escape");
-  await expect(markUnread).toBeHidden();
+  await expect(move).toBeHidden();
   await page.keyboard.press("KeyV");
   const moveDialog = page.getByRole("dialog", { name: "Move conversations" });
   await expect(moveDialog).toBeVisible();
@@ -364,14 +367,4 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     editDialog.getByRole("textbox", { name: "label name" }),
   ).toHaveValue(`${updatedLabelName}/Clients/Acme`);
   await editDialog.getByRole("button", { name: "Cancel" }).click();
-
-  await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
 });

@@ -62,7 +62,7 @@ ${getEmailListPrompt({ messages: sentEmails, messageMaxLength: 2000 })}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       snippets: z.array(

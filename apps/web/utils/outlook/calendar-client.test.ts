@@ -1,0 +1,209 @@
+import type { CalendarConnection } from "@/generated/prisma/client";
+import { Client } from "@microsoft/microsoft-graph-client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
+import { SafeError } from "@/utils/error";
+import prisma from "@/utils/__mocks__/prisma";
+import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
+import { getCalendarClientWithRefresh } from "./calendar-client";
+
+vi.mock("@microsoft/microsoft-graph-client", () => ({
+  Client: {
+    initWithMiddleware: vi.fn(),
+  },
+}));
+
+vi.mock("@/utils/prisma");
+
+vi.mock("@/utils/microsoft/oauth", () => ({
+  getMicrosoftGraphClientOptions: vi.fn(() => ({
+    baseUrl: "http://localhost:4003/",
+  })),
+  getMicrosoftOauthAuthorizeUrl: vi.fn(
+    () => "http://localhost:4003/oauth2/v2.0/authorize",
+  ),
+  requestMicrosoftToken: vi.fn(),
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    MICROSOFT_CLIENT_ID: "client-id",
+    MICROSOFT_CLIENT_SECRET: "client-secret",
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+  },
+}));
+
+const logger = createTestLogger();
+
+describe("getCalendarClientWithRefresh", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.calendarConnection.findMany.mockResolvedValue([
+      calendarConnection(),
+    ]);
+    prisma.calendarConnection.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("marks Microsoft calendar disconnected and throws a reconnect SafeError for invalid_grant", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("invalid_grant: refresh token revoked"),
+    );
+
+    await expect(refreshExpiredCalendarClient()).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage:
+        "Your Microsoft calendar authorization has expired. Please reconnect your calendar.",
+    });
+
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "connection-id",
+        updatedAt: new Date("2026-09-01T00:00:00Z"),
+        isConnected: true,
+      },
+      data: { isConnected: false },
+    });
+    expect(Client.initWithMiddleware).not.toHaveBeenCalled();
+  });
+
+  it("marks Microsoft calendar disconnected and throws a reconnect SafeError for AADSTS reauth failures", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse(
+        "AADSTS50173: The provided grant has expired due to it being revoked.",
+      ),
+    );
+
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "connection-id",
+        updatedAt: new Date("2026-09-01T00:00:00Z"),
+        isConnected: true,
+      },
+      data: { isConnected: false },
+    });
+  });
+
+  it("does not disconnect other accounts or credentials replaced by a reconnect", async () => {
+    prisma.calendarConnection.findMany.mockResolvedValue([
+      calendarConnection({
+        id: "other-connection",
+        accessToken: "other-access",
+        refreshToken: "other-refresh",
+      }),
+      calendarConnection({
+        id: "connection-id",
+        accessToken: "new-access",
+        refreshToken: "refresh-token",
+      }),
+    ]);
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("invalid_grant"),
+    );
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+    expect(prisma.calendarConnection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("preserves the reconnect error when the disconnect write fails", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("invalid_grant"),
+    );
+    prisma.calendarConnection.updateMany.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+  });
+
+  it("preserves the reconnect error when a concurrent update wins", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("invalid_grant"),
+    );
+    prisma.calendarConnection.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
+  });
+
+  it("recognizes the OAuth error code when the description has no code", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: "invalid_grant",
+          error_description: "The refresh token has expired.",
+        }),
+        { status: 400 },
+      ),
+    );
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the reconnect error when reading connections fails", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("invalid_grant"),
+    );
+    prisma.calendarConnection.findMany.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    await expect(refreshExpiredCalendarClient()).rejects.toBeInstanceOf(
+      SafeError,
+    );
+  });
+
+  it("rethrows non-reauth token refresh failures without disconnecting the calendar", async () => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue(
+      tokenErrorResponse("temporarily_unavailable"),
+    );
+
+    await expect(refreshExpiredCalendarClient()).rejects.toThrow(
+      "temporarily_unavailable",
+    );
+
+    expect(prisma.calendarConnection.findMany).not.toHaveBeenCalled();
+    expect(prisma.calendarConnection.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+function refreshExpiredCalendarClient() {
+  return getCalendarClientWithRefresh({
+    accessToken: "stale-access-token",
+    refreshToken: "refresh-token",
+    expiresAt: Date.now() - 1000,
+    emailAccountId: "email-account-id",
+    logger,
+  });
+}
+
+function tokenErrorResponse(errorDescription: string) {
+  return new Response(JSON.stringify({ error_description: errorDescription }), {
+    status: 400,
+  });
+}
+
+function calendarConnection(
+  overrides: Partial<CalendarConnection> = {},
+): CalendarConnection {
+  return {
+    id: "connection-id",
+    emailAccountId: "email-account-id",
+    provider: "microsoft",
+    email: "calendar@example.com",
+    accessToken: "stale-access-token",
+    refreshToken: "refresh-token",
+    expiresAt: null,
+    isConnected: true,
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+    updatedAt: new Date("2026-09-01T00:00:00Z"),
+    ...overrides,
+  };
+}

@@ -6,6 +6,7 @@ import {
   buildMailSplitFromPromptAction,
   createMailSplitAction,
   deleteMailSplitAction,
+  reorderMailSplitsAction,
   updateMailPreferencesAction,
   updateMailSplitAction,
 } from "@/utils/actions/mail-split";
@@ -41,6 +42,14 @@ describe("mail split actions", () => {
       email: "user@example.com",
       account: { userId: "user-1", provider: "google" },
     } as never);
+  });
+
+  it("rejects duplicate split IDs before attempting a reorder", async () => {
+    const result = await reorderMailSplitsAction(EMAIL_ACCOUNT_ID, {
+      ids: ["split-1", "split-1"],
+    });
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("only deletes filtered splits belonging to the account", async () => {

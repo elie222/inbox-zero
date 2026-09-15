@@ -18,6 +18,24 @@ describe("runAiRules", () => {
     vi.clearAllMocks();
   });
 
+  it.each([
+    undefined,
+    false,
+    true,
+  ])("passes the draft preference to rule execution (%s)", async (skipDraftReplies) => {
+    vi.mocked(runRulesAction).mockResolvedValue({ data: [] });
+    await runAiRules("account-id", createThreads("thread-id"), false, {
+      skipDraftReplies,
+    });
+    expect(runRulesAction).toHaveBeenCalledWith("account-id", {
+      messageId: "thread-id-message",
+      threadId: "thread-id",
+      rerun: false,
+      isTest: false,
+      skipDraftReplies: skipDraftReplies ?? false,
+    });
+  });
+
   it("rejects when rule processing returns a server error", async () => {
     vi.mocked(runRulesAction).mockResolvedValue({
       serverError: "AI automation is unavailable.",
@@ -106,7 +124,7 @@ describe("runAiRules", () => {
       "account-id",
       createThreads("thread-1", "thread-2"),
       false,
-      abortController.signal,
+      { signal: abortController.signal },
     );
     let settled = false;
     const settlementPromise = runPromise.then(

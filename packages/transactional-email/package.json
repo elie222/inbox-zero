@@ -12,11 +12,11 @@
   "dependencies": {
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.1.0",
-    "nanoid": "6.0.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "react-email": "6.9.1",
-    "resend": "6.18.1"
+    "nanoid": "6.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-email": "6.9.5",
+    "resend": "6.27.0"
   },
   "devDependencies": {
     "@react-email/preview-server": "5.2.10",

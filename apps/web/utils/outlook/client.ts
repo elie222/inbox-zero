@@ -309,7 +309,11 @@ export const getAccessTokenFromClient = (client: OutlookClient): string =>
   client.getAccessToken();
 
 // Helper function to get the OAuth2 URL for linking accounts
-export function getLinkingOAuth2Url() {
+export function getLinkingOAuth2Url({
+  loginHint,
+}: {
+  loginHint?: string;
+} = {}) {
   if (!env.MICROSOFT_CLIENT_ID) {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
@@ -322,6 +326,10 @@ export function getLinkingOAuth2Url() {
     // we can't use select_account because we need a new refresh token if the users is stale
     prompt: "consent",
   });
+
+  // Reconnects target one mailbox, so point Microsoft at it rather than letting
+  // whichever account the browser is already signed into decide.
+  if (loginHint) params.set("login_hint", loginHint);
 
   return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
 }

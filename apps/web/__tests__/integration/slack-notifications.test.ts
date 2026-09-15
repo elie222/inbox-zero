@@ -139,6 +139,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         videoConferenceLink: "https://meet.example.com/sprint",
         eventUrl: "https://calendar.example.com/event/123",
         briefingContent: {
+          priorities: [],
           guests: [
             {
               name: "Jane Doe",

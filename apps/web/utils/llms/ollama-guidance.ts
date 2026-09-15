@@ -9,7 +9,7 @@ export function isOllamaProvider(provider: string) {
 }
 
 export function appendOllamaOnlySystemGuidance<
-  OPTIONS extends { system?: unknown },
+  OPTIONS extends { instructions?: unknown },
 >(
   options: OPTIONS,
   modelOptions: ProviderLike,
@@ -19,7 +19,7 @@ export function appendOllamaOnlySystemGuidance<
 
   return {
     ...options,
-    system: appendSystemGuidance(options.system, guidance),
+    instructions: appendSystemGuidance(options.instructions, guidance),
   };
 }
 

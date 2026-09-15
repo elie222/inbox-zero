@@ -130,6 +130,59 @@ export async function seedAutomationHistory(emailAccountId: string) {
   });
 }
 
+export async function seedAutomationThreadHistory(
+  emailAccountId: string,
+  additionalThreads = 0,
+  olderMessageCount = 51,
+) {
+  await seedAutomationHistory(emailAccountId);
+  await withClient(async (client) => {
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       SELECT $1 || '-' || n, 'thr_playwright_1', 'history-message-' || n,
+              'APPLIED', true, 'Older conversation message', $2, $3,
+              CURRENT_TIMESTAMP - n * INTERVAL '1 minute', CURRENT_TIMESTAMP
+       FROM generate_series(1, $4::int) AS n`,
+      [
+        HISTORY_EXECUTED_RULE_ID,
+        HISTORY_RULE_ID,
+        emailAccountId,
+        olderMessageCount,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       VALUES ($1, 'thr_playwright_1', 'msg_playwright_1', 'APPLIED', false,
+               'Second execution on the latest message', $2, $3,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        `${HISTORY_EXECUTED_RULE_ID}-duplicate`,
+        HISTORY_RULE_ID,
+        emailAccountId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       SELECT $1 || '-thread-' || n, 'history-thread-' || n, 'history-single-message-' || n,
+              'APPLIED', true, 'Another conversation', $2, $3,
+              CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP
+       FROM generate_series(1, $4::int) AS n`,
+      [
+        HISTORY_EXECUTED_RULE_ID,
+        HISTORY_RULE_ID,
+        emailAccountId,
+        additionalThreads,
+      ],
+    );
+  });
+}
+
 export async function cleanupAutomationHistory() {
   await withClient(deleteAutomationHistory);
 }
@@ -345,9 +398,10 @@ export async function getKnowledgeState(emailAccountId: string) {
 }
 
 async function deleteAutomationHistory(client: Client) {
-  await client.query(`DELETE FROM "ExecutedRule" WHERE id = $1`, [
-    HISTORY_EXECUTED_RULE_ID,
-  ]);
+  await client.query(
+    `DELETE FROM "ExecutedRule" WHERE id = $1 OR "ruleId" = $2`,
+    [HISTORY_EXECUTED_RULE_ID, HISTORY_RULE_ID],
+  );
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [HISTORY_RULE_ID]);
 }
 

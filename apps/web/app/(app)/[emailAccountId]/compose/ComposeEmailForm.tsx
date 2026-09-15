@@ -22,7 +22,6 @@ import {
   ComboboxOptions,
 } from "@headlessui/react";
 import {
-  CheckCircleIcon,
   ChevronDownIcon,
   ImageIcon,
   PaperclipIcon,
@@ -46,10 +45,11 @@ import type {
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
-import { Input, Label } from "@/components/Input";
+import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
+import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -71,16 +71,19 @@ import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
-import { sendEmailAction, updateDraftAction } from "@/utils/actions/mail";
+import { updateDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
+  extractEmailAddress,
   extractNameFromEmail,
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { getMailMutation } from "@/utils/email-cache/mail-mutations";
 import type {
   ReplyDraftContent,
+  ReplyDraftIdentity,
   ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
@@ -104,16 +107,36 @@ import {
 } from "./compose-recipients";
 import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
 import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
+import { useComposeSnippets } from "./useComposeSnippets";
 import {
   getReminderAfterSendTimeChange,
   parseDeliveryTimes,
 } from "./delivery-times";
-import { queueReaderEmail } from "./queued-reply";
+import {
+  queueReaderEmail,
+  READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+  waitForReaderEmailSettlement,
+} from "./queued-reply";
+import {
+  beginUndoSend,
+  getUndoSendHoldUntil,
+  UNDO_SEND_DELAY_MS,
+} from "./undo-send";
+import { getReplyToEmailPayload } from "./reply-to-email-payload";
 
 export type ReplyingToEmail = {
   threadId?: string;
   headerMessageId?: string;
   messageId?: string;
+  forwardedMessageId?: string;
+  /**
+   * The files that travel with a forward. They stay on the provider until the
+   * send, so the composer shows them without ever holding their bytes.
+   */
+  forwardedAttachments?: Pick<
+    EmailAttachmentMetadata,
+    "id" | "filename" | "mimeType" | "size"
+  >[];
   references?: string;
   subject: string;
   to: string;
@@ -137,6 +160,7 @@ type ComposeEmailFormProps = {
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onClose?: () => void;
+  onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
 };
 
@@ -178,15 +202,19 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
       )
     : "";
 
+  const localDraftIdentity = props.draftSessionId
+    ? {
+        emailAccountId: selectedEmailAccountId,
+        threadId: props.replyingToEmail?.threadId ?? props.draftSessionId,
+        messageId: props.draftSessionId,
+      }
+    : undefined;
+
   const localDraft = useLocalReplyDraft(
-    props.draftSessionId && props.replyingToEmail?.threadId
-      ? {
-          emailAccountId: selectedEmailAccountId,
-          threadId: props.replyingToEmail.threadId,
-          messageId: props.draftSessionId,
-        }
-      : undefined,
-    props.draftKeyMessageId && props.replyingToEmail?.threadId
+    localDraftIdentity,
+    !props.providerDraftMessageId &&
+      props.draftKeyMessageId &&
+      props.replyingToEmail?.threadId
       ? {
           emailAccountId: selectedEmailAccountId,
           threadId: props.replyingToEmail.threadId,
@@ -204,6 +232,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
           <ComposeEmailFormContent
             {...props}
+            localDraftIdentity={localDraftIdentity}
             storedDraft={localDraft.draft}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
@@ -224,7 +253,6 @@ function ComposeEmailFormContent({
   draftKeyMessageId,
   providerDraftMessageId,
   draftMode,
-  draftSessionId,
   storedDraft,
   draftLoadError,
   replyingToEmail,
@@ -238,8 +266,11 @@ function ComposeEmailFormContent({
   onSuccess,
   onMarkDone,
   onClose,
+  onRestore,
   onDiscard,
+  localDraftIdentity,
 }: ComposeEmailFormProps & {
+  localDraftIdentity?: ReplyDraftIdentity;
   storedDraft?: StoredReplyDraft;
   draftLoadError?: Error;
   accountProvider: string;
@@ -250,6 +281,7 @@ function ComposeEmailFormContent({
 }) {
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
+  const canScheduleDelivery = isInlineReply || isComposeWindow;
   const { mutate } = useSWRConfig();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
   const [remindAt, setRemindAt] = useState(
@@ -348,24 +380,17 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
-  const [showCcBcc, setShowCcBcc] = useState(
-    Boolean(
-      storedDraft?.content?.values.cc ||
-        storedDraft?.content?.values.bcc ||
-        replyingToEmail?.cc ||
-        replyingToEmail?.bcc,
-    ),
-  );
-  const focusRecipientField = !replyingToEmail;
+  // Forwards start without a recipient, so focus To. Replies already have one.
+  const focusRecipientField = draftMode === "forward" || !replyingToEmail;
   const [attachments, setAttachments] =
     useState<ComposeAttachment[]>(restoredAttachments);
+  const forwardedAttachments = replyingToEmail?.forwardedAttachments ?? [];
   const attachmentsRef = useRef<ComposeAttachment[]>(restoredAttachments);
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const inlineReplySummaryButtonRef = useRef<HTMLButtonElement>(null);
   const collapseInlineReplyFieldsButtonRef = useRef<HTMLButtonElement>(null);
-  const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
@@ -386,6 +411,10 @@ function ComposeEmailFormContent({
       cc: replyingToEmail?.cc,
       bcc: replyingToEmail?.bcc,
     },
+  });
+  const { extraExtensions, toolbar: snippetToolbar } = useComposeSnippets({
+    editorRef,
+    to: watch("to"),
   });
 
   const lastDraftContent = useRef<ReplyDraftContent | undefined>(undefined);
@@ -436,14 +465,7 @@ function ComposeEmailFormContent({
     flush: flushDraft,
     saveError: draftSaveError,
   } = useReplyDraftPersistence({
-    identity:
-      isInlineReply && draftSessionId
-        ? {
-            emailAccountId: selectedEmailAccountId,
-            threadId: replyingToEmail!.threadId!,
-            messageId: draftSessionId,
-          }
-        : undefined,
+    identity: localDraftIdentity,
     initialRevision: storedDraft?.revision,
     loadError: draftLoadError,
     getContent: getDraftContent,
@@ -757,11 +779,15 @@ function ComposeEmailFormContent({
         }
         captureDraft();
         await flushDraft();
-        if (isInlineReply && deliveryPath.current === "scheduled") {
+        const isScheduled = isInlineReply
+          ? deliveryPath.current === "scheduled"
+          : canScheduleDelivery && Boolean(sendAt || remindAt);
+        if (isScheduled) {
+          const scheduledThreadId = replyingToEmail?.threadId ?? null;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
-            threadId: replyingToEmail!.threadId!,
-            messageIds: [draftKeyMessageId!],
+            threadId: scheduledThreadId,
+            messageIds: draftKeyMessageId ? [draftKeyMessageId] : [],
             email: enrichedData,
             sendAt: deliveryTimes.sendAt,
             remindAt: deliveryTimes.remindAt,
@@ -769,7 +795,9 @@ function ComposeEmailFormContent({
           if (!result?.data) {
             setSubmissionError(
               getActionErrorMessage(result ?? {}, {
-                prefix: "Could not schedule this reply",
+                prefix: scheduledThreadId
+                  ? "Could not schedule this reply"
+                  : "Could not schedule this email",
               }),
             );
             return;
@@ -784,102 +812,133 @@ function ComposeEmailFormContent({
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
-          await mutate([
-            `/api/user/scheduled-emails?threadId=${encodeURIComponent(replyingToEmail!.threadId!)}`,
-            selectedEmailAccountId,
-          ]);
+          if (scheduledThreadId) {
+            await mutate([
+              `/api/user/scheduled-emails?threadId=${encodeURIComponent(scheduledThreadId)}`,
+              selectedEmailAccountId,
+            ]);
+          } else {
+            toastSuccess({ description: "Email scheduled." });
+          }
           onClose?.();
           refetch?.();
           return;
         }
-        const readerThreadId = replyingToEmail?.threadId?.trim();
-        const readerMessageId = isInlineReply
-          ? draftKeyMessageId
-          : replyingToEmail?.messageId;
-        if (readerThreadId) {
-          let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
-          try {
-            outcome = await queueReaderEmail({
-              email: enrichedData,
-              mutationId: isInlineReply ? requestId : undefined,
-              emailAccountId: selectedEmailAccountId,
-              messageIds: readerMessageId ? [readerMessageId] : [],
-              online: navigator.onLine,
-              threadId: readerThreadId,
-              onQueued: isInlineReply
-                ? async () => {
-                    deliveryAccepted = true;
-                    try {
-                      await clearLocalDraft();
-                    } catch {
-                      toastError({
-                        description:
-                          "Reply queued, but its local draft copy could not be cleared.",
-                      });
-                    }
-                    await mutate([
-                      "thread-deliveries",
-                      selectedEmailAccountId,
-                      readerThreadId,
-                    ]);
-                    onClose?.();
-                  }
-                : undefined,
-            });
-          } catch (error) {
-            console.error(error);
-            const description =
-              error instanceof Error
-                ? error.message
-                : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
-            setSubmissionError(description);
-            toastError({ description });
-            return;
-          }
-          if (outcome.status === "sent") {
-            deliveryAccepted = true;
-            if (!isInlineReply) toastSuccess({ description: "Email sent!" });
-            if (markDoneAfterSend) onMarkDone?.();
-            onSuccess?.(outcome.messageId, outcome.threadId);
-            refetch?.();
-          } else if (outcome.status === "queued") {
-            deliveryAccepted = true;
-            if (!isInlineReply)
-              toastSuccess({
-                description: getQueuedEmailDescription(outcome.reason),
-              });
-            if (markDoneAfterSend) onMarkDone?.();
-            onClose?.();
-          } else if (outcome.status === "uncertain") {
-            deliveryAccepted = true;
-            if (outcome.ownsNotification) {
-              toastError({
-                description:
-                  "This reply may have sent. Check Sent before retrying.",
-              });
-            }
-            onClose?.();
-          } else if (outcome.ownsNotification) {
-            toastError({ description: outcome.error });
-          }
+        const readerThreadId =
+          replyingToEmail?.threadId?.trim() ||
+          localDraftIdentity?.threadId ||
+          requestId;
+        const readerMessageId =
+          (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
+          localDraftIdentity?.messageId ??
+          requestId;
+        const online = navigator.onLine;
+        const holdUntil = getUndoSendHoldUntil(online);
+        let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
+        try {
+          outcome = await queueReaderEmail({
+            email: enrichedData,
+            mutationId: requestId,
+            emailAccountId: selectedEmailAccountId,
+            holdUntil,
+            messageIds: [readerMessageId],
+            online,
+            threadId: readerThreadId,
+            onQueued: async () => {
+              deliveryAccepted = true;
+              try {
+                await clearLocalDraft();
+              } catch {
+                toastError({
+                  description: isInlineReply
+                    ? "Reply queued, but its local draft copy could not be cleared."
+                    : "Email queued, but its local draft copy could not be cleared.",
+                });
+              }
+              if (replyingToEmail?.threadId?.trim()) {
+                await mutate([
+                  "thread-deliveries",
+                  selectedEmailAccountId,
+                  readerThreadId,
+                ]).catch(() => {});
+              }
+              onClose?.();
+            },
+          });
+        } catch (error) {
+          console.error(error);
+          const description =
+            error instanceof Error
+              ? error.message
+              : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+          setSubmissionError(description);
+          toastError({ description });
           return;
         }
-
-        const result = await sendEmailAction(
-          selectedEmailAccountId,
-          enrichedData,
-        );
-        if (result?.data) {
-          deliveryAccepted = true;
-          toastSuccess({ description: "Email sent!" });
-          if (markDoneAfterSend) onMarkDone?.();
-          onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
-        } else {
-          toastError({
-            description: getActionErrorMessage(result ?? {}, {
-              prefix: "There was an error sending the email",
-            }),
+        if (outcome.status === "held") {
+          const draftIdentity = localDraftIdentity ?? {
+            emailAccountId: selectedEmailAccountId,
+            threadId: outcome.threadId,
+            messageId: readerMessageId,
+          };
+          beginUndoSend({
+            mutationId: outcome.mutationId,
+            emailAccountId: selectedEmailAccountId,
+            holdUntil: outcome.holdUntil,
+            identity: draftIdentity,
+            restoreComposer: () => onRestore?.(),
           });
+          waitForReaderEmailSettlement({
+            mutationId: outcome.mutationId,
+            settlementTimeoutMs:
+              UNDO_SEND_DELAY_MS + READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+            threadId: outcome.threadId,
+          })
+            .then(async (settled) => {
+              if (!(await getMailMutation(outcome.mutationId))) return;
+              if (settled.status === "sent") {
+                if (markDoneAfterSend) onMarkDone?.();
+                onSuccess?.(settled.messageId, settled.threadId);
+                refetch?.();
+                return;
+              }
+              if (settled.status === "failed" && settled.ownsNotification) {
+                toastError({ description: settled.error });
+              } else if (
+                settled.status === "uncertain" &&
+                settled.ownsNotification
+              ) {
+                toastError({
+                  description:
+                    "This reply may have sent. Check Sent before retrying.",
+                });
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+        if (outcome.status === "sent") {
+          if (!isInlineReply) toastSuccess({ description: "Email sent!" });
+          if (markDoneAfterSend) onMarkDone?.();
+          onSuccess?.(outcome.messageId, outcome.threadId);
+          refetch?.();
+        } else if (outcome.status === "queued") {
+          if (!isInlineReply)
+            toastSuccess({
+              description: getQueuedEmailDescription(outcome.reason),
+            });
+          if (markDoneAfterSend) onMarkDone?.();
+          onClose?.();
+        } else if (outcome.status === "uncertain") {
+          if (outcome.ownsNotification) {
+            toastError({
+              description:
+                "This reply may have sent. Check Sent before retrying.",
+            });
+          }
+          onClose?.();
+        } else if (outcome.ownsNotification) {
+          toastError({ description: outcome.error });
         }
       } catch (error) {
         console.error(error);
@@ -896,8 +955,10 @@ function ComposeEmailFormContent({
     [
       stopProviderAutosave,
       resumeProviderAutosave,
+      canScheduleDelivery,
       initialDraft,
       isInlineReply,
+      localDraftIdentity,
       sendAt,
       remindAt,
       requestId,
@@ -907,6 +968,7 @@ function ComposeEmailFormContent({
       flushDraft,
       mutate,
       onClose,
+      onRestore,
       onMarkDone,
       onSuccess,
       preservedBlocks,
@@ -923,7 +985,9 @@ function ComposeEmailFormContent({
       const oauthProvider = isMicrosoftProvider(accountProvider)
         ? "microsoft"
         : "google";
-      const url = await getAccountLinkingUrl(oauthProvider);
+      const url = await getAccountLinkingUrl(oauthProvider, {
+        reconnectEmailAccountId: selectedEmailAccountId,
+      });
       redirectToSafeUrl(url, { allowExternal: true });
     } catch {
       toastError({
@@ -1041,14 +1105,14 @@ function ComposeEmailFormContent({
         }
       : undefined,
     sendLater:
-      isInlineReply && !isSubmitting
+      canScheduleDelivery && !isSubmitting
         ? (event) => {
             if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("sendLater");
           }
         : undefined,
     remindMe:
-      isInlineReply && !isSubmitting
+      canScheduleDelivery && !isSubmitting
         ? (event) => {
             if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("remindMe");
@@ -1088,17 +1152,13 @@ function ComposeEmailFormContent({
         isComposeWindow
           ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
           : "space-y-2",
-        isInlineReply && "space-y-2 border-t border-border pt-4",
+        isInlineReply &&
+          "space-y-2 border-t border-border pt-4 [&_[data-email-editor-root]]:text-neutral-900 dark:[&_[data-email-editor-root]]:text-neutral-100",
       )}
     >
-      <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
+      <div className={cn(isComposeWindow ? "shrink-0 px-4 pt-3" : "contents")}>
         {!!fromAccounts?.length && !replyingToEmail && (
-          <div
-            className={cn(
-              "flex items-center gap-2",
-              isComposeWindow && "min-h-11 border-b",
-            )}
-          >
+          <div className="flex min-h-7 items-center gap-2">
             <ComposeFieldLabel htmlFor="from-account" label="From" />
             <Select
               value={selectedEmailAccountId}
@@ -1106,7 +1166,7 @@ function ComposeEmailFormContent({
             >
               <SelectTrigger
                 aria-label="From"
-                className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus:ring-0 focus:ring-offset-0"
+                className="h-7 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0 focus:ring-offset-0"
                 id="from-account"
               >
                 <SelectValue />
@@ -1127,7 +1187,7 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {showInlineReplySummary && (
+        {showInlineReplySummary ? (
           <button
             type="button"
             aria-expanded={false}
@@ -1145,38 +1205,20 @@ function ComposeEmailFormContent({
             </span>
             <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
           </button>
-        )}
-        {replyingToEmail?.to && !editReply ? (
-          !isInlineReply && (
-            <button
-              type="button"
-              className={cn(
-                "flex items-center gap-1 text-left",
-                isComposeWindow && "min-h-11 items-center border-b",
-              )}
-              onClick={() => setEditReply(true)}
-            >
-              <span className="text-muted-foreground text-sm">To</span>
-              <span className="max-w-md break-words text-foreground">
-                {extractNameFromEmail(watch("to") || replyingToEmail.to)}
-              </span>
-            </button>
-          )
-        ) : isInlineReply ? (
+        ) : (
           <div className="space-y-1 [&_input]:bg-transparent">
             {(["to", "cc", "bcc"] as const).map((field) => (
               <div key={field} className="flex min-h-7 items-center gap-2">
-                <label
+                <ComposeFieldLabel
                   htmlFor={field}
-                  className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
-                >
-                  {RECIPIENT_LABELS[field]}
-                </label>
+                  label={RECIPIENT_LABELS[field]}
+                />
                 <div className="min-w-0 flex-1">
                   {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
                     <ComposeContactRecipientField
                       {...recipientFieldProps}
                       active={activeRecipientField === field}
+                      autoFocus={field === "to" && focusRecipientField}
                       className="min-h-8"
                       name={field}
                       selectedRecipients={watch(field) ?? ""}
@@ -1185,9 +1227,10 @@ function ComposeEmailFormContent({
                     <Input
                       type="text"
                       name={field}
-                      registerProps={register(field, {
-                        required: field === "to",
-                      })}
+                      registerProps={{
+                        ...register(field, { required: field === "to" }),
+                        autoFocus: field === "to" && focusRecipientField,
+                      }}
                       error={errors[field]}
                       className="h-7 rounded-none border-0 bg-transparent p-0 text-sm leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
                     />
@@ -1213,132 +1256,10 @@ function ComposeEmailFormContent({
                 registerProps={register("subject", { required: true })}
                 error={errors.subject}
                 placeholder="Subject"
-                aria-label="Subject"
                 className="h-8 rounded-none border-0 bg-transparent p-0 text-sm font-medium text-foreground shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
               />
             </div>
           </div>
-        ) : (
-          <>
-            <div
-              className={cn(
-                "flex items-start gap-2",
-                isComposeWindow && "min-h-11 items-center border-b",
-              )}
-            >
-              {showCcBcc && (
-                <button
-                  aria-label="Hide Cc/Bcc"
-                  className={cn(
-                    "order-last mt-2 text-xs text-muted-foreground hover:text-foreground",
-                    isComposeWindow && "mt-0",
-                  )}
-                  onClick={() => setShowCcBcc(false)}
-                  ref={hideCcBccButtonRef}
-                  type="button"
-                >
-                  Cc/Bcc
-                </button>
-              )}
-              {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
-              <div className="min-w-0 flex-1">
-                {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-                  <div className="flex space-x-2">
-                    {!isComposeWindow && (
-                      <div className="mt-2">
-                        <Label label="To" name="to" />
-                      </div>
-                    )}
-                    <ComposeContactRecipientField
-                      {...recipientFieldProps}
-                      active={activeRecipientField === "to"}
-                      autoFocus={focusRecipientField}
-                      name="to"
-                      selectedRecipients={watch("to") ?? ""}
-                    />
-                  </div>
-                ) : (
-                  <Input
-                    type="text"
-                    name="to"
-                    label={isComposeWindow ? undefined : "To"}
-                    registerProps={{
-                      ...register("to", { required: true }),
-                      autoFocus: focusRecipientField,
-                    }}
-                    error={errors.to}
-                    className={cn(
-                      isComposeWindow &&
-                        "h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus:border-transparent focus:ring-0",
-                    )}
-                  />
-                )}
-              </div>
-              {!showCcBcc && (
-                <button
-                  className={cn(
-                    "mt-2 text-xs text-muted-foreground hover:text-foreground",
-                    isComposeWindow && "mt-0",
-                  )}
-                  onClick={() => {
-                    setShowCcBcc(true);
-                    requestAnimationFrame(() =>
-                      hideCcBccButtonRef.current?.focus(),
-                    );
-                  }}
-                  type="button"
-                >
-                  Cc/Bcc
-                </button>
-              )}
-            </div>
-
-            {showCcBcc && (
-              <div
-                className={cn(
-                  "grid gap-2 sm:grid-cols-2",
-                  isComposeWindow && "border-b py-2",
-                )}
-              >
-                {(["cc", "bcc"] as const).map((field) =>
-                  env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-                    <div key={field}>
-                      <Label label={RECIPIENT_LABELS[field]} name={field} />
-                      <ComposeContactRecipientField
-                        {...recipientFieldProps}
-                        active={activeRecipientField === field}
-                        className="mt-1 border border-slate-300 px-3 shadow-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black dark:border-slate-700 dark:focus-within:border-slate-400 dark:focus-within:ring-slate-400"
-                        name={field}
-                        selectedRecipients={watch(field) ?? ""}
-                      />
-                    </div>
-                  ) : (
-                    <Input
-                      error={errors[field]}
-                      key={field}
-                      label={RECIPIENT_LABELS[field]}
-                      name={field}
-                      registerProps={register(field)}
-                      type="text"
-                    />
-                  ),
-                )}
-              </div>
-            )}
-
-            <Input
-              type="text"
-              name="subject"
-              registerProps={register("subject", { required: true })}
-              error={errors.subject}
-              placeholder="Subject"
-              className={cn(
-                "border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200",
-                isComposeWindow &&
-                  "h-11 rounded-none border-0 border-b bg-transparent px-0 shadow-none focus:border-border focus:ring-0",
-              )}
-            />
-          </>
         )}
       </div>
 
@@ -1346,6 +1267,7 @@ function ComposeEmailFormContent({
         placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
+        extraExtensions={extraExtensions}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -1360,18 +1282,37 @@ function ComposeEmailFormContent({
       />
 
       {submissionError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p
+          role="alert"
+          className={cn(
+            "text-destructive text-sm",
+            isComposeWindow && "shrink-0 px-4",
+          )}
+        >
           {submissionError}
         </p>
       )}
-      {!!attachments.length && (
+      {!!(attachments.length || forwardedAttachments.length) && (
         <ul
           aria-label="Attachments"
           className={cn(
             "flex flex-wrap gap-2",
-            isComposeWindow && "shrink-0 border-t px-3 py-2",
+            isComposeWindow && "shrink-0 px-4 py-2",
           )}
         >
+          {forwardedAttachments.map((attachment) => (
+            <li
+              className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+              key={attachment.id}
+              title="Included from the message you are forwarding"
+            >
+              <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
+              <span className="max-w-52 truncate">{attachment.filename}</span>
+              <span className="text-muted-foreground">
+                {formatFileSize(attachment.size)}
+              </span>
+            </li>
+          ))}
           {attachments.map((attachment) => (
             <li
               className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
@@ -1402,7 +1343,7 @@ function ComposeEmailFormContent({
       <div
         className={cn(
           "flex flex-wrap items-center justify-between gap-2",
-          isComposeWindow && "shrink-0 border-t px-4 py-2",
+          isComposeWindow && "shrink-0 px-4 py-2",
         )}
       >
         <div className="flex flex-wrap items-center gap-1">
@@ -1413,15 +1354,7 @@ function ComposeEmailFormContent({
               />
             }
           >
-            <Button
-              className={cn(
-                isComposeWindow &&
-                  "h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground",
-              )}
-              disabled={isSubmitting}
-              type="submit"
-              variant={isComposeWindow ? "ghost" : "gradient"}
-            >
+            <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
               Send
             </Button>
@@ -1433,7 +1366,7 @@ function ComposeEmailFormContent({
             tabIndex={-1}
             type="submit"
           />
-          {isInlineReply && (
+          {canScheduleDelivery && (
             <DeliveryOptions
               ref={deliveryOptionsRef}
               sendAt={sendAt}
@@ -1447,6 +1380,19 @@ function ComposeEmailFormContent({
         </div>
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
+          {snippetToolbar}
+          <VoiceInput
+            onInsert={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+            onSend={(text) => {
+              editorRef.current?.insertText(
+                text.endsWith(" ") ? text : `${text} `,
+              );
+            }}
+          />
           <input
             className="hidden"
             data-testid="compose-attachments-input"
@@ -1464,7 +1410,7 @@ function ComposeEmailFormContent({
               aria-label="Attach files"
               className="text-muted-foreground hover:bg-transparent hover:text-foreground"
               onClick={() => attachmentInputRef.current?.click()}
-              size={isComposeWindow ? "iconSm" : "icon"}
+              size="icon"
               type="button"
               variant="ghost"
             >
@@ -1484,7 +1430,7 @@ function ComposeEmailFormContent({
             aria-label="Insert inline images"
             className="text-muted-foreground hover:bg-transparent hover:text-foreground"
             onClick={() => inlineImageInputRef.current?.click()}
-            size={isComposeWindow ? "iconSm" : "icon"}
+            size="icon"
             type="button"
             variant="ghost"
           >
@@ -1501,7 +1447,7 @@ function ComposeEmailFormContent({
                 className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                 disabled={isSubmitting}
                 onClick={handleDiscard}
-                size={isComposeWindow ? "iconSm" : "icon"}
+                size="icon"
                 type="button"
                 variant="ghost"
               >
@@ -1516,7 +1462,7 @@ function ComposeEmailFormContent({
           {providerAutosave.error}
         </p>
       )}
-      {isInlineReply && draftSaveError && (
+      {localDraftIdentity && draftSaveError && (
         <p role="alert" className="text-xs text-destructive">
           {draftSaveError}
         </p>
@@ -1564,26 +1510,49 @@ function ComposeContactRecipientField({
   selectedRecipients: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
   const label = RECIPIENT_LABELS[name];
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
   const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
-    reconnectRequired
+    reconnectRequired || !active
       ? null
       : [
-          `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`,
+          `/api/user/contacts?query=${encodeURIComponent(debouncedQuery)}`,
           emailAccountId,
         ],
     {
-      keepPreviousData: true,
+      dedupingInterval: 5 * 60 * 1000,
+      keepPreviousData: false,
+      revalidateOnFocus: true,
       onError(error) {
         if (error.info?.reconnectRequired) onReconnectRequired();
       },
     },
   );
 
-  // The local input state resets on unmount (e.g. hiding Cc/Bcc), so the
-  // parent's pending entry must reset with it or hidden text would still send.
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedQuery(normalizedQuery), 200);
+    return () => clearTimeout(timeout);
+  }, [normalizedQuery]);
+
+  const selectedAddresses = new Set(
+    selectedEmailAddresses.map((address) =>
+      extractEmailAddress(address).toLowerCase(),
+    ),
+  );
+  const suggestions =
+    normalizedQuery && normalizedQuery === debouncedQuery
+      ? (contacts?.contacts ?? []).filter(
+          (contact) =>
+            !selectedAddresses.has(contact.emailAddress.toLowerCase()),
+        )
+      : [];
+
+  // The local input state resets on unmount (e.g. collapsing the recipient
+  // fields), so the parent's pending entry must reset with it or hidden text
+  // would still send.
   useEffect(
     () => () => onSearchQueryChange(name, ""),
     [name, onSearchQueryChange],
@@ -1688,47 +1657,39 @@ function ComposeContactRecipientField({
             </div>
           )}
 
-          {active && !!contacts?.contacts.length && (
-            <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
-              <ComboboxOption
-                className="h-0 w-0 overflow-hidden"
-                value={searchQuery}
-              />
-              {contacts.contacts.map((contact) => (
+          {active && !!suggestions.length && (
+            <ComboboxOptions className="absolute z-20 mt-1 max-h-72 w-max min-w-full max-w-[min(28rem,calc(100vw-3rem))] overflow-auto rounded-md border bg-popover py-1 text-sm shadow-lg focus:outline-none">
+              {suggestions.map((contact) => (
                 <ComboboxOption
                   className={({ focus }) =>
-                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                    `cursor-pointer select-none px-3 py-1 text-foreground ${focus ? "bg-accent" : ""}`
                   }
                   key={contact.emailAddress}
                   value={contact.emailAddress}
                 >
-                  {({ selected }: { selected: boolean }) => (
-                    <div className="my-2 flex items-center">
-                      {selected ? (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                          <CheckCircleIcon className="h-6 w-6" />
+                  <div className="my-2 flex items-center">
+                    <Avatar className="shrink-0">
+                      <AvatarImage
+                        alt={contact.name ?? contact.emailAddress}
+                        src={contact.profilePictureUrl ?? undefined}
+                      />
+                      <AvatarFallback>
+                        {(contact.name || contact.emailAddress)
+                          .at(0)
+                          ?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="ml-3 flex min-w-0 flex-col justify-center">
+                      {contact.name && (
+                        <div className="truncate font-medium text-foreground">
+                          {contact.name}
                         </div>
-                      ) : (
-                        <Avatar>
-                          <AvatarImage
-                            alt={contact.emailAddress}
-                            src={contact.profilePictureUrl ?? undefined}
-                          />
-                          <AvatarFallback>
-                            {contact.emailAddress.at(0) || "A"}
-                          </AvatarFallback>
-                        </Avatar>
                       )}
-                      <div className="ml-4 flex flex-col justify-center">
-                        {contact.name && (
-                          <div className="text-foreground">{contact.name}</div>
-                        )}
-                        <div className="text-sm font-semibold text-muted-foreground">
-                          {contact.emailAddress}
-                        </div>
+                      <div className="truncate text-sm text-muted-foreground">
+                        {contact.emailAddress}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </ComboboxOption>
               ))}
             </ComboboxOptions>
@@ -1743,28 +1704,6 @@ type ContactsFetchError = Error & {
   info?: Partial<ContactsErrorResponse>;
   status?: number;
 };
-
-function getReplyToEmailPayload(
-  replyingToEmail:
-    | Pick<
-        ReplyingToEmail,
-        "threadId" | "headerMessageId" | "references" | "messageId"
-      >
-    | undefined,
-): SendEmailBody["replyToEmail"] | undefined {
-  const threadId = replyingToEmail?.threadId?.trim();
-  const headerMessageId = replyingToEmail?.headerMessageId?.trim();
-  if (!threadId || !headerMessageId) return;
-  const references = replyingToEmail?.references;
-  const messageId = replyingToEmail?.messageId;
-
-  return {
-    threadId,
-    headerMessageId,
-    ...(references ? { references } : {}),
-    ...(messageId ? { messageId } : {}),
-  };
-}
 
 function createComposeAttachmentMetadata(
   file: File,
@@ -1812,7 +1751,7 @@ function ComposeFieldLabel({
 }) {
   return (
     <label
-      className="shrink-0 text-sm font-medium text-foreground"
+      className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
       htmlFor={htmlFor}
     >
       {label}

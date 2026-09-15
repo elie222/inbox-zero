@@ -3,6 +3,7 @@ const ACCOUNT_PATH = "/api/user/email-accounts";
 export const OFFLINE_MAIL_CACHE_PREFIX = "inbox-zero:offline-mail:";
 export const CLEAR_OFFLINE_MAIL = "inbox-zero:clear-offline-mail";
 export const SAVE_OFFLINE_MAIL = "inbox-zero:save-offline-mail";
+export const SKIP_WAITING = "SKIP_WAITING";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
@@ -56,7 +57,7 @@ export function createOfflineMailCache({
     const cached = async () => {
       if (startedAtGeneration !== generation) return;
       try {
-        await writes;
+        // An in-flight refresh must not block reading the previous saved copy.
         const response = await (await caches.open(cacheName)).match(key);
         return startedAtGeneration === generation ? response : undefined;
       } catch {

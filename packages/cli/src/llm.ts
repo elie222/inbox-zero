@@ -17,6 +17,7 @@ export const LLM_PROVIDER_OPTIONS = [
   },
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "groq", label: "Groq" },
+  { value: "cerebras", label: "Cerebras", hint: "fast inference" },
   { value: "ollama", label: "Ollama", hint: "self-hosted" },
   {
     value: "openai-compatible",
@@ -32,6 +33,7 @@ const LLM_LINKS: Record<string, string> = {
   openrouter: "https://openrouter.ai/settings/keys",
   aigateway: "https://vercel.com/docs/ai-gateway",
   groq: "https://console.groq.com/keys",
+  cerebras: "https://cloud.cerebras.ai",
 };
 
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/api";
@@ -58,6 +60,10 @@ const DEFAULT_MODELS = {
   groq: {
     default: "llama-3.3-70b-versatile",
     economy: "llama-3.1-8b-instant",
+  },
+  cerebras: {
+    default: "qwen-3.8-27b",
+    economy: "gpt-oss-120b",
   },
 } as const;
 

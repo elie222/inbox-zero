@@ -65,7 +65,7 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
   await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
   await expect(
-    page.getByRole("textbox", { name: "Cc", exact: true }),
+    page.getByRole("combobox", { name: "Cc", exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "07-reply-recipients");
   await page
@@ -191,10 +191,22 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       window.dispatchEvent(new Event("online"));
     });
     await expect.poll(() => sendRequestStarted, { timeout: 60_000 }).toBe(true);
+    const delivery = page.getByRole("region", {
+      name: "Reply delivery status",
+    });
     await expect(
-      page
-        .getByRole("region", { name: "Reply delivery status" })
-        .getByText("Sending…", { exact: true }),
+      delivery.getByText("Waiting for connection", { exact: true }),
+    ).toHaveCount(0);
+    await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      delivery.getByRole("button", { name: "Edit reply" }),
+    ).toHaveCount(0);
+    await expect(
+      delivery
+        .frameLocator('iframe[title="Email content preview"]')
+        .getByText(replyBody, { exact: true }),
     ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "24-sending-reply");
   } finally {

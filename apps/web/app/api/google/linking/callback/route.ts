@@ -14,6 +14,7 @@ import {
   logOAuthLinkingCallbackValidation,
 } from "@/utils/oauth/linking-audit";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import {
@@ -56,7 +57,8 @@ export const GET = withError("google/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code, stateNonce } = validation;
+  const { targetUserId, code, stateNonce, reconnectEmailAccountId } =
+    validation;
   logger = logOAuthLinkingCallbackValidation({
     actorUserId,
     logger,
@@ -123,6 +125,23 @@ export const GET = withError("google/linking/callback", async (request) => {
         emailAccount: true,
       },
     });
+
+    if (
+      isReconnectTargetMismatch({
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id,
+      })
+    ) {
+      logger.warn("Reconnect authorized a different provider account", {
+        targetUserId,
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id ?? null,
+      });
+      return createAccountLinkingRedirect({
+        query: { error: "reconnect_account_mismatch" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      });
+    }
 
     const linkingResult = await handleAccountLinking({
       existingAccountId: existingAccount?.id || null,

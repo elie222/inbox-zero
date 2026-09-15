@@ -1,42 +1,55 @@
+import type { scim } from "@better-auth/scim";
 import { APIError } from "better-auth";
-import { isAdmin } from "@/utils/admin";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 
-export async function assertCanGenerateScimToken({
-  userEmail,
-  scimToken,
-}: {
-  userEmail?: string | null;
-  scimToken: string;
-}) {
-  if (!isAdmin({ email: userEmail })) {
-    throw new APIError("FORBIDDEN", {
-      message: "Only admins can generate SCIM tokens",
-    });
-  }
-
-  const providerId = getScimProviderIdFromToken(scimToken);
-  if (!providerId) {
-    throw new APIError("BAD_REQUEST", {
-      message: "Invalid SCIM token",
-    });
-  }
-
-  const ssoProvider = await prisma.ssoProvider.findUnique({
-    where: { providerId },
-    select: { id: true },
-  });
-
-  if (!ssoProvider) {
-    throw new APIError("BAD_REQUEST", {
-      message: "SCIM tokens can only be generated for registered SSO providers",
-    });
-  }
+export function getScimOptions(): Parameters<typeof scim>[0] {
+  return {
+    connections: [],
+    ...(env.SCIM_CREDENTIAL_HASH_SECRET && {
+      managedConnections: {
+        credentialHashSecret: env.SCIM_CREDENTIAL_HASH_SECRET,
+      },
+    }),
+    identity: {
+      async resolveUser({ connectionId, resource }) {
+        if (!resource.externalId) return { action: "create" };
+        const link = await prisma.scimIdentityLink.findUnique({
+          where: {
+            connectionId_externalId: {
+              connectionId,
+              externalId: resource.externalId,
+            },
+          },
+          select: { userId: true },
+        });
+        return link
+          ? { action: "link", userId: link.userId, profile: "preserve" }
+          : { action: "create" };
+      },
+      async reconcileUser({ userId, active }, { database }) {
+        await database.update({
+          model: "user",
+          where: [{ field: "id", value: userId }],
+          update: { scimAccessDisabled: !active },
+        });
+        if (!active)
+          await database.deleteMany({
+            model: "session",
+            where: [{ field: "userId", value: userId }],
+          });
+      },
+    },
+  };
 }
 
-export function getScimProviderIdFromToken(scimToken: string) {
-  const decoded = Buffer.from(scimToken, "base64url").toString("utf8");
-  const [, providerId] = decoded.split(":");
-
-  return providerId || null;
+export async function assertScimUserActive(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { scimAccessDisabled: true },
+  });
+  if (user?.scimAccessDisabled)
+    throw new APIError("FORBIDDEN", {
+      message: "Account access was disabled by your organization",
+    });
 }

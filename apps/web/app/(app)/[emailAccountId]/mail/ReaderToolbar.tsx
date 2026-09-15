@@ -6,14 +6,18 @@ import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   ArrowLeftIcon,
+  MailIcon,
+  MailOpenIcon,
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type ReaderToolbarProps = {
   subject: string;
   isStarred: boolean;
+  isUnread: boolean;
   labels: EmailMessageCellLabel[];
   /**
    * Chips navigate to a label's view and nothing else: a label carries no
@@ -24,6 +28,8 @@ type ReaderToolbarProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -35,15 +41,19 @@ type ReaderToolbarProps = {
 
 /**
  * The reader's header: what the thread is, and what you can do to it.
+ * Archive and read state stay visible; everything else lives in `menu`.
  */
 export function ReaderToolbar({
   subject,
   isStarred,
+  isUnread,
   labels,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  onMarkRead,
+  onMarkUnread,
   menu,
   messageExpansion,
 }: ReaderToolbarProps) {
@@ -124,8 +134,41 @@ export function ReaderToolbar({
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
         </Button>
+        <ReadStateButton
+          isUnread={isUnread}
+          onMarkRead={onMarkRead}
+          onMarkUnread={onMarkUnread}
+        />
         {menu}
       </div>
     </div>
+  );
+}
+
+function ReadStateButton({
+  isUnread,
+  onMarkRead,
+  onMarkUnread,
+}: {
+  isUnread: boolean;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
+}) {
+  const label = isUnread ? "Mark as read" : "Mark as unread";
+  const hint = isUnread ? undefined : getShortcutHint("markUnread");
+  const title = hint ? `${label} (${hint})` : label;
+  const Icon = isUnread ? MailOpenIcon : MailIcon;
+
+  return (
+    <Button
+      aria-label={title}
+      className="h-7 w-7"
+      onClick={isUnread ? onMarkRead : onMarkUnread}
+      size="icon"
+      title={title}
+      variant="outline"
+    >
+      <Icon className="size-3.5" />
+    </Button>
   );
 }

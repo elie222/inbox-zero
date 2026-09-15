@@ -84,8 +84,8 @@ export async function saveAiUsage({
       });
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
-  const cachedInputTokens = usage.cachedInputTokens ?? 0;
-  const reasoningTokens = usage.reasoningTokens ?? 0;
+  const cachedInputTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
+  const reasoningTokens = usage.outputTokenDetails?.reasoningTokens ?? 0;
   const totalTokens = usage.totalTokens ?? 0;
 
   logger.info("AI call completed", {
@@ -177,7 +177,7 @@ export function calculateUsageCost(options: {
   const pricing = getModelPricing({ provider, model });
   if (!pricing) return 0;
 
-  const rawCachedInputTokens = usage.cachedInputTokens ?? 0;
+  const rawCachedInputTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
   const normalizedCachedInputTokens = Math.max(0, rawCachedInputTokens);
   const inputTokens = Math.max(
     0,

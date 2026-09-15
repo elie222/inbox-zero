@@ -1,3 +1,4 @@
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import { SafeError } from "@/utils/error";
@@ -63,7 +64,7 @@ import {
 import { searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
-  getGmailDraftAttachments,
+  getGmailMessageAttachments,
 } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -110,6 +111,7 @@ import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
+import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
 
 const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 
@@ -991,7 +993,7 @@ export class GmailProvider implements EmailProvider {
 
     const subject = params.subject ?? currentDraft.subject ?? "";
     const content = params.messageHtml ?? currentDraft.textHtml ?? "";
-    const attachments = await getGmailDraftAttachments(
+    const attachments = await getGmailMessageAttachments(
       this.client,
       currentDraft.id,
       currentDraft.payload,
@@ -1533,9 +1535,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   async searchContacts(query: string) {
+    // The Google emulator has no People API, so compose would otherwise 404.
+    if (isGoogleOauthEmulationEnabled()) return [];
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
-      searchContacts(client, query),
+      searchContacts(client, query, this.logger),
     );
   }
 
@@ -1703,20 +1707,48 @@ export class GmailProvider implements EmailProvider {
         }
       }
 
-      const { threads: gmailThreads, nextPageToken } =
-        await getThreadsWithNextPageToken({
+      const threads: EmailThread[] = [];
+      const maxResults = options.maxResults || 50;
+      const domainFilter = fromEmail?.trim().startsWith("@") ? fromEmail : null;
+      let nextPageToken = options.pageToken;
+      for (let page = 0; page < (domainFilter ? 5 : 1); page++) {
+        const result = await getThreadsWithNextPageToken({
           gmail: this.client,
           q: getQuery(),
           labelIds: getLabelIds(type) || [],
-          maxResults: options.maxResults || 50,
-          pageToken: options.pageToken || undefined,
+          maxResults: maxResults - threads.length,
+          pageToken: nextPageToken,
           logger: this.logger,
         });
-
-      return {
-        threads: await this.hydrateThreads(gmailThreads, options.messageFormat),
-        nextPageToken: nextPageToken || undefined,
-      };
+        const hydrated = await this.hydrateThreads(
+          result.threads,
+          options.messageFormat,
+        );
+        threads.push(
+          ...hydrated.filter(
+            (thread) =>
+              !domainFilter ||
+              thread.messages.some((message) => {
+                if (!matchesSenderFilter(message.headers.from, domainFilter))
+                  return false;
+                const labels = message.labelIds ?? [];
+                if (getLabelIds(type)?.some((label) => !labels.includes(label)))
+                  return false;
+                if (isUnread && !labels.includes(GmailLabel.UNREAD))
+                  return false;
+                if (type === "archive" && labels.includes(GmailLabel.INBOX))
+                  return false;
+                const timestamp = Number(message.internalDate);
+                if (after && !(timestamp > after.getTime())) return false;
+                if (before && !(timestamp < before.getTime())) return false;
+                return true;
+              }),
+          ),
+        );
+        nextPageToken = result.nextPageToken || undefined;
+        if (!nextPageToken || threads.length >= maxResults) break;
+      }
+      return { threads, nextPageToken };
     });
   }
 

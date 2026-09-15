@@ -1,3 +1,4 @@
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -110,6 +111,7 @@ import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
+import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
@@ -1535,6 +1537,8 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async searchContacts(query: string) {
+    // The Microsoft emulator has no people/contacts Graph endpoints.
+    if (isMicrosoftEmulationEnabled()) return [];
     return searchContacts(this.client, query, this.logger);
   }
 
@@ -1636,6 +1640,9 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
+    const senderFilter = options.query?.fromEmail?.trim();
+    const domainFilter = senderFilter?.startsWith("@") ? senderFilter : null;
+
     const {
       fromEmail,
       after,
@@ -1660,7 +1667,8 @@ export class OutlookProvider implements EmailProvider {
       ? requiredLabelIds
       : undefined;
     const resolvedFolderIds = await getFolderIds(this.client, this.logger, {
-      includeDrafts: false,
+      includeDrafts:
+        requiredLabelIds?.some((id) => id.toUpperCase() === "DRAFT") ?? false,
     });
     const cachedCategoryMap = this.client.getCategoryMapCache() || undefined;
     const needsCategoryMapForFiltering = shouldFetchOutlookCategoryMap({
@@ -1739,7 +1747,7 @@ export class OutlookProvider implements EmailProvider {
         }
       }
 
-      if (fromEmail) {
+      if (fromEmail && !domainFilter) {
         const escapedEmail = escapeODataString(fromEmail);
         filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
       }
@@ -1767,7 +1775,7 @@ export class OutlookProvider implements EmailProvider {
         request = request.filter(filter);
       }
 
-      if (!fromEmail) {
+      if (!fromEmail || domainFilter) {
         request = request.orderby("receivedDateTime DESC");
       }
 
@@ -1785,6 +1793,14 @@ export class OutlookProvider implements EmailProvider {
 
     do {
       const response = await fetchThreadPage(nextPageTokenToFetch);
+      if (domainFilter) {
+        response.value = response.value.filter((message: Message) =>
+          matchesSenderFilter(
+            message.from?.emailAddress?.address ?? "",
+            domainFilter,
+          ),
+        );
+      }
       const currentPageIndex = fetchedPages.length;
       fetchedPages.push({
         pageToken: nextPageTokenToFetch,
@@ -1803,7 +1819,14 @@ export class OutlookProvider implements EmailProvider {
       collectedMessages.push(...response.value);
       nextPageToken = response["@odata.nextLink"];
 
-      if (!requiresLocalLabelFiltering || !nextPageToken) break;
+      // Graph search caps results and cannot preserve OData filters. Scan
+      // normal query pages instead, bounding sparse domain scans per request.
+      if (
+        (!requiresLocalLabelFiltering && !domainFilter) ||
+        !nextPageToken ||
+        (domainFilter && fetchedPages.length >= 5)
+      )
+        break;
 
       const matchedThreads = buildOutlookThreadsFromMessages({
         messages: collectedMessages,

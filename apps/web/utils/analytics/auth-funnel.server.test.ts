@@ -26,7 +26,7 @@ describe("server auth funnel analytics", () => {
     ).toBe("google");
     expect(
       getAuthProviderFromContext({
-        path: "/oauth2/callback/microsoft",
+        path: "/callback/microsoft",
         params: { providerId: "microsoft" },
       }),
     ).toBe("microsoft");

@@ -322,3 +322,39 @@ test("opens the sender profile beside the reader", async ({
   await expect(panel).toHaveCount(0);
   await expect(subject).toBeVisible();
 });
+
+for (const parentId of [undefined, "<missing-parent@example.com>"]) {
+  test(`renders a draft-only thread with ${parentId ? "a missing parent" : "no parent"}`, async ({
+    page,
+  }, testInfo) => {
+    await page.route(
+      "**/api/threads/thr_playwright_reader_visual?**",
+      async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        const draft = body.thread.messages[0];
+        draft.labelIds = ["DRAFT"];
+        draft.headers.references = parentId;
+        draft.headers["in-reply-to"] = parentId;
+        draft.textHtml = "<p>This unsent draft should remain visible.</p>";
+        body.thread.messages = [draft];
+        await route.fulfill({ response, json: body });
+      },
+    );
+    const { conversations } = await openMail(page);
+    await conversationWithSubject(
+      page,
+      conversations,
+      "Re: Reader Visual Message",
+    ).click();
+    const message = page.locator("[data-thread-message-id]");
+    await expect(message).toHaveCount(1);
+    await expect(message.getByText("Draft", { exact: true })).toBeVisible();
+    await expect(
+      message
+        .frameLocator('iframe[title="Email content preview"]')
+        .getByText("This unsent draft should remain visible."),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-draft-only");
+  });
+}

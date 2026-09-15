@@ -27,6 +27,7 @@ test("inspects an account's local queue and refreshes its progress", async ({
     });
     const transaction = database.transaction("mailMutations", "readwrite");
     const store = transaction.objectStore("mailMutations");
+    const now = Date.now();
     for (let index = 0; index < 201; index++) {
       store.put({
         id: `queue-diagnostics-${index}`,
@@ -38,9 +39,9 @@ test("inspects an account's local queue and refreshes its progress", async ({
         payload: {},
         status: "pending",
         attempts: 0,
-        createdAt: Date.now() - index,
-        updatedAt: Date.now(),
-        nextAttemptAt: Date.now(),
+        createdAt: now - index,
+        updatedAt: now,
+        nextAttemptAt: now,
       });
     }
     await new Promise<void>((resolve, reject) => {

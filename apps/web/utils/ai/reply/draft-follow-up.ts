@@ -111,7 +111,7 @@ export async function aiDraftFollowUp({
 
   const result = await generateObject({
     ...modelOptions,
-    system: systemPrompt,
+    instructions: systemPrompt,
     prompt,
     schema: draftSchema,
   });

@@ -1,6 +1,7 @@
+import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
-import { canonicalizeEmailAddress } from "@/utils/email";
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
@@ -188,6 +189,7 @@ export async function readSyncedMailboxThreads({
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
+    const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
@@ -288,7 +290,10 @@ export async function readSyncedMailboxThreads({
           const threadMessages = threadRecords
             .map((record) => record.data)
             .filter((message) => !isIgnoredSender(message.headers.from));
-          if (threadMatchesQuery(threadMessages, query)) {
+          if (
+            isOther({ messages: threadMessages }) &&
+            threadMatchesQuery(threadMessages, query)
+          ) {
             selectedRecords.push(threadRecords);
             if (selectedRecords.length >= limit + 1) break;
           }
@@ -308,7 +313,10 @@ export async function readSyncedMailboxThreads({
         .filter((message) => !isIgnoredSender(message.headers.from)),
     );
     const matchingThreads = [...messagesByThread.entries()]
-      .filter(([, messages]) => threadMatchesQuery(messages, query))
+      .filter(
+        ([, messages]) =>
+          isOther({ messages }) && threadMatchesQuery(messages, query),
+      )
       .sort(
         ([, left], [, right]) =>
           getMessageTimestamp(right.at(-1)) - getMessageTimestamp(left.at(-1)),
@@ -498,7 +506,9 @@ export function subscribeToMailboxStore(
   listener: (emailAccountId: string) => void,
 ) {
   mailboxListeners.add(listener);
-  return () => mailboxListeners.delete(listener);
+  return () => {
+    mailboxListeners.delete(listener);
+  };
 }
 
 export function notifyMailboxStoreChange(emailAccountId: string) {
@@ -536,6 +546,7 @@ function groupMessagesByThread(messages: ParsedMessage[]) {
 function isSupportedMailboxQuery(query: ThreadsQuery) {
   if (
     query.q ||
+    query.anyOf?.length ||
     query.nextPageToken ||
     query.inboxSection ||
     query.excludeLabelNames?.length
@@ -555,6 +566,7 @@ function isCompleteMailboxQuery(query: ThreadsQuery) {
 function isRecentInboxQuery(query: ThreadsQuery) {
   return (
     query.type === "inbox" &&
+    !query.excludeSplits?.length &&
     !query.fromEmail &&
     !query.folderId &&
     !query.isUnread &&
@@ -604,8 +616,12 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
   return messages.some((message) => {
     if (
       query.fromEmail &&
-      canonicalizeEmailAddress(message.headers.from) !==
-        canonicalizeEmailAddress(query.fromEmail)
+      (!matchesSenderFilter(message.headers.from, query.fromEmail) ||
+        !requiredLabelIds.every((labelId) =>
+          message.labelIds?.includes(labelId),
+        ) ||
+        ((query.isUnread || query.type === "unread") &&
+          !message.labelIds?.includes("UNREAD")))
     ) {
       return false;
     }
@@ -650,6 +666,7 @@ function toListMessage(message: ParsedMessage) {
     date: message.date,
     internalDate: message.internalDate,
     labelIds: message.labelIds,
+    parentFolderId: message.parentFolderId,
     headers: message.headers,
   };
 }

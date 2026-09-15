@@ -7,6 +7,7 @@ import {
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
+  getDesktopMailAccountId,
   getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
@@ -205,6 +206,17 @@ describe("desktop shell helpers", () => {
     expect(getDesktopSessionRestoreUrl(origin, 42)).toBeNull();
   });
 
+  it("reads a mail account id only from same-origin mailbox URLs", () => {
+    const origin = "https://www.getinboxzero.com";
+    expect(
+      getDesktopMailAccountId(`${origin}/account-1/mail?type=inbox`, origin),
+    ).toBe("account-1");
+    expect(getDesktopMailAccountId(`${origin}/mail`, origin)).toBeNull();
+    expect(
+      getDesktopMailAccountId("https://evil.test/account-1/mail", origin),
+    ).toBeNull();
+  });
+
   it("scopes window dragging to a titlebar strip instead of the whole page", () => {
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("-webkit-app-region: drag");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("html::before");
@@ -214,6 +226,11 @@ describe("desktop shell helpers", () => {
     expect(getDesktopWindowDragCss("win32")).toBeNull();
     expect(getDesktopWindowDragCss("linux")).toBeNull();
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-hide-on-desktop-mac]");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "[data-desktop-mac-titlebar-spacer]",
+    );
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("padding-top: 52px");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-end]");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "--desktop-traffic-lights-width: 78px",
     );

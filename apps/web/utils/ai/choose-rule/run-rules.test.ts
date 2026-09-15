@@ -457,6 +457,133 @@ describe("runRules draft attribution persistence", () => {
     ]);
   });
 
+  it.each([
+    ActionType.DRAFT_EMAIL,
+    ActionType.DRAFT_MESSAGING_CHANNEL,
+  ])("skips %s before generating action args when requested", async (draftType) => {
+    const bulkRule = createRule("bulk-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "label-action-1",
+        type: ActionType.LABEL,
+        label: "To Reply",
+      }),
+      getAction({
+        id: "draft-action-1",
+        type: draftType,
+      }),
+    ]);
+
+    mockMatchingRules([{ rule: bulkRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) => {
+        expect(
+          selectedRule.actions.some((action) =>
+            isDraftReplyActionType(action.type),
+          ),
+        ).toBe(false);
+
+        return selectedRule.actions.map((action) => ({
+          ...action,
+          type: action.type as ActionType,
+        }));
+      },
+    );
+
+    const createSpy = mockExecutedRuleCreate({ rule: bulkRule });
+
+    await runRulesWithDefaults({
+      rules: [bulkRule],
+      skipDraftReplies: true,
+    });
+
+    const createdActions = getCreatedActionItems(createSpy);
+    expect(createdActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.LABEL,
+        label: "To Reply",
+      }),
+    ]);
+  });
+
+  it("records draft-only historical matches as skipped after draft replies are removed", async () => {
+    const draftOnlyRule = createRule("draft-only-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    mockMatchingRules([{ rule: draftOnlyRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    const result = await runRulesWithDefaults({
+      rules: [draftOnlyRule],
+      skipDraftReplies: true,
+    });
+
+    expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: "draft-only-rule" }),
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    ]);
+    expect(prisma.executedRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
+  });
+
+  it("records a skipped draft-only rule alongside another applied rule", async () => {
+    const draftRule = createRule("draft-only-rule", null, [
+      getAction({ id: "draft-action", type: ActionType.DRAFT_EMAIL }),
+    ]);
+    const labelRule = createRule("label-rule", null, [
+      getAction({
+        id: "label-action",
+        type: ActionType.LABEL,
+        label: "Review",
+      }),
+    ]);
+    mockMatchingRules([
+      { rule: draftRule, matchReasons: [] },
+      { rule: labelRule, matchReasons: [] },
+    ]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue(labelRule.actions);
+    const createSpy = mockExecutedRuleCreate({ rule: labelRule });
+    vi.mocked(executeAct).mockResolvedValueOnce(ExecutedRuleStatus.APPLIED);
+
+    const results = await runRulesWithDefaults({
+      rules: [draftRule, labelRule],
+      skipDraftReplies: true,
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: draftRule.id }),
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: labelRule.id }),
+        status: ExecutedRuleStatus.APPLIED,
+      }),
+    ]);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledTimes(1);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedRule: labelRule }),
+    );
+    expect(createSpy).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        rule: { connect: { id: draftRule.id } },
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
+  });
+
   it("persists a null draft pipeline version when draft attribution is missing", async () => {
     const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
       getAction({

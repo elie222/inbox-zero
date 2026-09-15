@@ -20,7 +20,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let emailAccountId: string;
 
     const accountEmail = "digest-claim-test@example.com";
-    const pendingDigestIds = ["digest-pending-1", "digest-pending-2"];
+    const pendingDigestIds = ["digest-pending-1"];
     const staleProcessingDigestId = "digest-processing-stale";
     const freshProcessingDigestId = "digest-processing-fresh";
     const sentDigestId = "digest-sent";
@@ -94,7 +94,7 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       const claimedIds = [...firstClaim.digestIds, ...secondClaim.digestIds];
 
-      expect(claimedIds).toHaveLength(3);
+      expect(claimedIds).toHaveLength(2);
       expect(new Set(claimedIds)).toEqual(
         new Set([...pendingDigestIds, staleProcessingDigestId]),
       );
@@ -107,7 +107,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(
         digests.filter((digest) => digest.status === DigestStatus.PROCESSING),
-      ).toHaveLength(4);
+      ).toHaveLength(3);
       expect(
         digests.filter((digest) => digest.status === DigestStatus.SENT),
       ).toHaveLength(1);

@@ -165,13 +165,15 @@
             "pages": [
               "api-reference/introduction",
               "api-reference/cli",
+              "api-reference/mcp",
               "api-reference/endpoint/get-statsby-period",
               "api-reference/endpoint/get-statsresponse-time",
               "api-reference/endpoint/get-rules",
               "api-reference/endpoint/post-rules",
               "api-reference/endpoint/get-rules-id",
               "api-reference/endpoint/put-rules-id",
-              "api-reference/endpoint/delete-rules-id"
+              "api-reference/endpoint/delete-rules-id",
+              "api-reference/endpoint/post-senders-unsubscribe"
             ]
           }
         ]

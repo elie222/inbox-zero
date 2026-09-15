@@ -1,4 +1,8 @@
 {
+  "server-drafts.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx"
+  ],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
   "account-selection.spec.ts": [
@@ -11,11 +15,16 @@
   "command-palette.spec.ts": [
     "components/CommandK.tsx",
     "store/command-palette.ts",
-    "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts"
+    "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
+  ],
+  "contact-autocomplete.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
   ],
   "compose-and-reply.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
-    "components/email-list/EmailThread.tsx"
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
@@ -40,7 +49,7 @@
   "navigation-and-views.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx",
-    "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
   ],
   "offline-loading.spec.ts": [
     "app/sw.ts",
@@ -54,7 +63,8 @@
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
   "reader-visuals.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
+    "components/email-list/EmailContents.tsx"
   ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",
@@ -62,6 +72,8 @@
   ],
   "search.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx",
+    "app/(app)/[emailAccountId]/mail/mail-search-history.ts",
     "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
@@ -85,7 +97,18 @@
   ],
   "triage-actions.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-selection.ts"
+  ],
+  "reader-transition.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
+    "components/email-list/BufferedEmailIframe.tsx"
+  ],
+  "message-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "utils/threads/load.ts"
   ]
 }

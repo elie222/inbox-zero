@@ -1,20 +1,6 @@
 import type { KnownBlock, Block } from "@slack/types";
 
-type GuestBriefing = {
-  name: string;
-  email: string;
-  bullets: string[];
-};
-
-type InternalTeamMember = {
-  name?: string;
-  email: string;
-};
-
-type BriefingContent = {
-  guests: GuestBriefing[];
-  internalTeamMembers?: InternalTeamMember[];
-};
+import type { BriefingContent } from "@inboxzero/transactional-email/emails/meeting-briefing";
 
 export type MeetingBriefingBlocksParams = {
   meetingTitle: string;
@@ -68,6 +54,20 @@ export function buildMeetingBriefingBlocks({
   }
 
   blocks.push({ type: "divider" });
+
+  if (briefingContent.priorities.length > 0) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: "*Meeting priorities*" },
+    });
+    for (const priority of briefingContent.priorities) {
+      blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: `• ${priority}` },
+      });
+    }
+    blocks.push({ type: "divider" });
+  }
 
   for (const guest of briefingContent.guests) {
     const bulletsText = guest.bullets.map((b) => `• ${b}`).join("\n");

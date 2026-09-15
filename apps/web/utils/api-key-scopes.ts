@@ -7,6 +7,7 @@ export const API_KEY_SCOPES = [
   "SETTINGS_READ",
   "SETTINGS_WRITE",
   "ASSISTANT_CHAT",
+  "SENDERS_UNSUBSCRIBE",
 ] as const;
 
 export const apiKeyScopeSchema = z.enum(API_KEY_SCOPES);
@@ -43,6 +44,10 @@ const API_KEY_SCOPE_METADATA: Record<
     label: "Assistant chat",
     description: "Start assistant chat sessions for this inbox.",
   },
+  SENDERS_UNSUBSCRIBE: {
+    label: "Unsubscribe senders",
+    description: "Unsubscribe from senders for this inbox.",
+  },
 };
 
 export const API_KEY_SCOPE_OPTIONS: Array<{
@@ -62,8 +67,14 @@ export const API_KEY_SCOPE_OPTIONS: Array<{
     value: "STATS_READ",
     ...API_KEY_SCOPE_METADATA.STATS_READ,
   },
+  {
+    value: "SENDERS_UNSUBSCRIBE",
+    ...API_KEY_SCOPE_METADATA.SENDERS_UNSUBSCRIBE,
+  },
 ];
 
+// SENDERS_UNSUBSCRIBE is selectable but not preselected: unsubscribing sends
+// requests to third parties on the user's behalf and cannot be undone.
 export const DEFAULT_API_KEY_SCOPES: ApiKeyScopeValue[] = [
   "RULES_READ",
   "RULES_WRITE",

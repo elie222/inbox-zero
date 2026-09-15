@@ -157,14 +157,9 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByPlaceholder("When should it return? Try Friday at 3pm"),
   ).toBeFocused();
   await expect(
-    palette.getByRole("option", { name: "In 3 hours" }),
-  ).toBeVisible();
-  await expect(
     palette.getByRole("option", { name: "Tomorrow morning" }),
   ).toBeVisible();
-  await expect(
-    palette.getByRole("option", { name: "Next week" }),
-  ).toBeVisible();
+  await expect(palette.getByText("Back to commands")).toHaveCount(0);
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
   await attachScreenshotForChangedTest(
     testInfo,
@@ -182,9 +177,9 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(naturalLanguageOption).toHaveCount(1);
   await expect(naturalLanguageOption).toBeVisible();
   await expect(naturalLanguageOption).toHaveAttribute("aria-selected", "true");
-  await expect(palette.getByRole("option", { name: "In 3 hours" })).toHaveCount(
-    0,
-  );
+  await expect(
+    palette.getByRole("option", { name: "Tomorrow morning" }),
+  ).toHaveCount(0);
   await attachScreenshotForChangedTest(
     testInfo,
     palette,
@@ -244,7 +239,7 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Snooze 2 conversations" }),
   ).toBeVisible();
   await palette.getByRole("option", { name: "Snooze 2 conversations" }).click();
-  await palette.getByRole("option", { name: "In 3 hours" }).click();
+  await palette.getByRole("option", { name: "Tomorrow morning" }).click();
   await expect(options).toHaveCount(initialConversationCount - 2);
 });
 
@@ -421,7 +416,33 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   await page.keyboard.press("Escape");
   await expect(palette).toBeHidden();
   await page.keyboard.press("KeyF");
-  await expect(page.getByRole("textbox", { name: "To" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "To" })).toBeVisible();
+});
+
+test("Command K opens the keyboard shortcuts dialog", async ({ page }) => {
+  await openMail(page);
+  await page.getByRole("listbox", { name: "Conversations" }).click();
+
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await palette
+    .getByPlaceholder("Type a command or search...")
+    .fill("shortcuts");
+  await palette.getByRole("option", { name: /Keyboard shortcuts/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.keyboard.press("?");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });
 
 async function ensureReadState(

@@ -2,6 +2,8 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
+import { env } from "@/env";
+import { browserUnsubscribe } from "@/utils/senders/browser-unsubscribe";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { findAutoArchiveFilters } from "@/utils/senders/filters";
@@ -14,21 +16,29 @@ import {
   resolveSafeExternalHttpUrl,
 } from "@/utils/network/safe-http-url";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
+import {
+  encodeFormBody,
+  inspectUnsubscribeHtml,
+} from "@/utils/senders/html-form-unsubscribe";
+import { aiCheckUnsubscribePageState } from "@/utils/ai/senders/unsubscribe-page";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const ONE_CLICK_REQUEST_BODY = "List-Unsubscribe=One-Click";
 const UNSUBSCRIBE_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_UNSUBSCRIBE_REDIRECTS = 5;
+const MAX_UNSUBSCRIBE_BODY_BYTES = 256_000;
 
 export type AutomaticUnsubscribeResult = {
   attempted: boolean;
   success: boolean;
-  method?: "post" | "get";
+  method?: "post" | "get" | "form" | "browser";
   statusCode?: number;
   reason?:
     | "no_unsubscribe_url"
     | "unsafe_unsubscribe_url"
     | "request_timeout"
     | "request_failed"
+    | "needs_user"
     | "request_rejected";
 };
 
@@ -135,7 +145,9 @@ export async function unsubscribeSenderAndMark({
     action: "unsubscribe-sender",
   });
 
-  const unsubscribe = await attemptAutomaticUnsubscribe({
+  const unsubscribe = await unsubscribeByLadder({
+    emailAccountId,
+    senderEmail,
     unsubscribeLink,
     listUnsubscribeHeader,
     logger: log,
@@ -143,10 +155,15 @@ export async function unsubscribeSenderAndMark({
 
   const status = unsubscribe.success ? NewsletterStatus.UNSUBSCRIBED : null;
   if (status) {
-    await setSenderStatus({
+    const sender = await setSenderStatus({
       emailAccountId,
       senderEmail: senderEmail,
       status,
+    });
+    log.info("Unsubscribe completed", {
+      senderId: sender.id,
+      method: unsubscribe.method,
+      completedAt: new Date().toISOString(),
     });
     log.trace("Marked sender as unsubscribed", { senderEmail });
   } else {
@@ -164,11 +181,38 @@ export async function unsubscribeSenderAndMark({
   };
 }
 
-async function attemptAutomaticUnsubscribe({
+async function unsubscribeByLadder({
+  emailAccountId,
+  senderEmail,
   unsubscribeLink,
   listUnsubscribeHeader,
   logger,
 }: {
+  emailAccountId: string;
+  senderEmail: string;
+  unsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+  logger: Logger;
+}): Promise<AutomaticUnsubscribeResult> {
+  const httpResult = await attemptAutomaticUnsubscribe({
+    emailAccountId,
+    unsubscribeLink,
+    listUnsubscribeHeader,
+    logger,
+  });
+  if (httpResult.success || !env.UNSUBSCRIBE_WORKER_URL) return httpResult;
+
+  logger.trace("Falling back to browser unsubscribe");
+  return browserUnsubscribe({ emailAccountId, senderEmail, logger });
+}
+
+async function attemptAutomaticUnsubscribe({
+  emailAccountId,
+  unsubscribeLink,
+  listUnsubscribeHeader,
+  logger,
+}: {
+  emailAccountId: string;
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
   logger: Logger;
@@ -201,6 +245,7 @@ async function attemptAutomaticUnsubscribe({
   const postResult = await sendUnsubscribeRequest({
     method: "POST",
     unsubscribeUrl,
+    body: ONE_CLICK_REQUEST_BODY,
   });
   if (postResult.success) {
     return {
@@ -211,16 +256,97 @@ async function attemptAutomaticUnsubscribe({
     };
   }
 
-  const getResult = await sendUnsubscribeRequest({
+  const page = await sendUnsubscribeRequest({
     method: "GET",
     unsubscribeUrl,
+    includeResponseBody: true,
   });
-  if (getResult.success) {
+
+  let submittedUnconfirmedForm = false;
+
+  if (page.body && page.finalUrl) {
+    const account = await getEmailAccountWithAi({ emailAccountId });
+    const inspected = inspectUnsubscribeHtml({
+      html: page.body,
+      pageUrl: page.finalUrl,
+      recipientEmail: account?.email,
+    });
+    // With no worker to escalate to, a successful GET already resolves as
+    // success below, so classifying it costs a model call and changes nothing.
+    const classifierCanChangeOutcome =
+      !!env.UNSUBSCRIBE_WORKER_URL ||
+      !page.success ||
+      inspected.kind === "simple_form";
+    const pageState =
+      account && classifierCanChangeOutcome
+        ? await aiCheckUnsubscribePageState({
+            pageText: inspected.pageText,
+            emailAccount: account,
+          })
+        : "not_confirmed";
+    if (pageState === "confirmed") {
+      return {
+        attempted: true,
+        success: true,
+        method: "get",
+        statusCode: page.statusCode,
+      };
+    }
+    if (inspected.kind === "simple_form") {
+      submittedUnconfirmedForm = true;
+      const submitted = await sendUnsubscribeRequest(
+        inspected.form.method === "GET"
+          ? {
+              method: "GET",
+              unsubscribeUrl: withFormQuery(
+                inspected.form.actionUrl,
+                inspected.form.fields,
+              ),
+              includeResponseBody: true,
+            }
+          : {
+              method: "POST",
+              unsubscribeUrl: inspected.form.actionUrl,
+              body: encodeFormBody(inspected.form.fields),
+              includeResponseBody: true,
+            },
+      );
+      if (account && submitted.success && submitted.body) {
+        const submittedState = await aiCheckUnsubscribePageState({
+          pageText: inspectUnsubscribeHtml({
+            html: submitted.body,
+            pageUrl: submitted.finalUrl || inspected.form.actionUrl,
+          }).pageText,
+          emailAccount: account,
+        });
+        if (submittedState === "confirmed") {
+          return {
+            attempted: true,
+            success: true,
+            method: "form",
+            statusCode: submitted.statusCode,
+          };
+        }
+      }
+    }
+  }
+
+  if (env.UNSUBSCRIBE_WORKER_URL || submittedUnconfirmedForm) {
+    return {
+      attempted: true,
+      success: false,
+      method: "get",
+      statusCode: page.statusCode || postResult.statusCode,
+      reason: page.reason || postResult.reason || "request_rejected",
+    };
+  }
+
+  if (page.success) {
     return {
       attempted: true,
       success: true,
       method: "get",
-      statusCode: getResult.statusCode,
+      statusCode: page.statusCode,
     };
   }
 
@@ -228,21 +354,27 @@ async function attemptAutomaticUnsubscribe({
     attempted: true,
     success: false,
     method: "get",
-    statusCode: getResult.statusCode || postResult.statusCode,
-    reason: getResult.reason || postResult.reason || "request_rejected",
+    statusCode: page.statusCode || postResult.statusCode,
+    reason: page.reason || postResult.reason || "request_rejected",
   };
 }
 
 async function sendUnsubscribeRequest({
   method,
   unsubscribeUrl,
+  body,
+  includeResponseBody = false,
 }: {
   method: "POST" | "GET";
   unsubscribeUrl: string;
+  body?: string;
+  includeResponseBody?: boolean;
 }): Promise<{
   success: boolean;
   statusCode?: number;
   reason?: AutomaticUnsubscribeResult["reason"];
+  body?: string;
+  finalUrl?: string;
 }> {
   try {
     let currentUrl = unsubscribeUrl;
@@ -256,6 +388,8 @@ async function sendUnsubscribeRequest({
       const response = await sendPinnedUnsubscribeRequest({
         method: currentMethod,
         unsubscribeUrl: currentUrl,
+        body: currentMethod === method ? body : undefined,
+        includeResponseBody,
       });
 
       if (response.blocked) {
@@ -270,6 +404,8 @@ async function sendUnsubscribeRequest({
           success: response.ok,
           statusCode: response.statusCode,
           reason: response.ok ? undefined : "request_rejected",
+          body: response.body,
+          finalUrl: currentUrl,
         };
       }
 
@@ -316,14 +452,19 @@ async function sendUnsubscribeRequest({
 async function sendPinnedUnsubscribeRequest({
   method,
   unsubscribeUrl,
+  body,
+  includeResponseBody = false,
 }: {
   method: "POST" | "GET";
   unsubscribeUrl: string;
+  body?: string;
+  includeResponseBody?: boolean;
 }): Promise<{
   blocked: boolean;
   ok: boolean;
   statusCode: number;
   headers: IncomingHttpHeaders;
+  body?: string;
 }> {
   const resolvedUrl = await resolveSafeExternalHttpUrl(unsubscribeUrl);
   if (!resolvedUrl) {
@@ -335,13 +476,12 @@ async function sendPinnedUnsubscribeRequest({
     };
   }
 
-  const requestBody = method === "POST" ? ONE_CLICK_REQUEST_BODY : undefined;
-
   return new Promise<{
     blocked: boolean;
     ok: boolean;
     statusCode: number;
     headers: IncomingHttpHeaders;
+    body?: string;
   }>((resolve, reject) => {
     const request = (
       resolvedUrl.url.protocol === "https:" ? httpsRequest : httpRequest
@@ -352,17 +492,30 @@ async function sendPinnedUnsubscribeRequest({
         lookup: resolvedUrl.lookup,
         headers: {
           Accept: "*/*",
-          ...(requestBody
+          ...(body
             ? {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Content-Length": Buffer.byteLength(requestBody).toString(),
+                "Content-Length": Buffer.byteLength(body).toString(),
               }
             : {}),
         },
       },
       (response) => {
-        response.resume();
+        const chunks: Buffer[] = [];
+        let size = 0;
         response.on("error", reject);
+        if (includeResponseBody) {
+          response.on("data", (chunk: Buffer) => {
+            size += chunk.byteLength;
+            if (size > MAX_UNSUBSCRIBE_BODY_BYTES) {
+              request.destroy(new Error("Unsubscribe response too large"));
+              return;
+            }
+            chunks.push(chunk);
+          });
+        } else {
+          response.resume();
+        }
         response.on("end", () =>
           resolve({
             blocked: false,
@@ -371,6 +524,9 @@ async function sendPinnedUnsubscribeRequest({
               (response.statusCode || 0) < 300,
             statusCode: response.statusCode || 0,
             headers: response.headers,
+            body: includeResponseBody
+              ? Buffer.concat(chunks).toString("utf8")
+              : undefined,
           }),
         );
       },
@@ -382,7 +538,7 @@ async function sendPinnedUnsubscribeRequest({
 
     request.on("error", reject);
 
-    if (requestBody) request.write(requestBody);
+    if (body) request.write(body);
     request.end();
   });
 }
@@ -436,6 +592,15 @@ function getRedirectMethod({
   }
 
   return currentMethod;
+}
+
+function withFormQuery(
+  actionUrl: string,
+  fields: Array<{ name: string; value: string }>,
+) {
+  const url = new URL(actionUrl);
+  for (const field of fields) url.searchParams.set(field.name, field.value);
+  return url.toString();
 }
 
 function isRequestTimeoutError(error: unknown) {

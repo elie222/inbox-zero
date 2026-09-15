@@ -170,7 +170,7 @@ ${threadContent}
 
   await generateText({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     stopWhen: (result) =>
       result.steps.some((step) =>

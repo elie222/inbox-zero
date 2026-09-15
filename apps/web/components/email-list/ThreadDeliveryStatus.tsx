@@ -32,7 +32,10 @@ import {
 import { getActionErrorMessage } from "@/utils/error";
 import { getLatestScheduledSendId } from "@/components/email-list/latest-scheduled-send";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
-import { getOutboxReplyPreview } from "@/components/email-list/outbox-reply";
+import {
+  getOutboxReplyPreview,
+  shouldShowOutboxDeliveryStatus,
+} from "@/components/email-list/outbox-reply";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ThreadDeliveryStatus({
@@ -164,92 +167,107 @@ export function ThreadDeliveryStatus({
   );
   return (
     <section className="space-y-1" aria-label="Reply delivery status">
-      {visible.map(({ row, preview }) => (
-        <div key={row.id}>
-          {preview && (
-            <>
-              <ul>
-                <EmailMessage
-                  message={preview.message}
-                  expanded
-                  showReplyButton={false}
-                  refetch={refetch}
-                  onSendSuccess={refetch}
-                />
-              </ul>
-              {preview.attachments.length > 0 && (
-                <ul
-                  aria-label="Attachments"
-                  className="flex flex-wrap gap-3 px-2 sm:pl-14 text-sm"
-                >
-                  {preview.attachments.map((attachment, index) => (
-                    <li key={attachment.id ?? index}>
-                      <a
-                        className="underline underline-offset-4"
-                        download={attachment.filename}
-                        href={`data:${attachment.contentType};base64,${attachment.content}`}
-                      >
-                        {attachment.filename}
-                      </a>
-                    </li>
-                  ))}
+      {visible.map(({ row, preview }) => {
+        const showStatus = shouldShowOutboxDeliveryStatus({
+          hasPreview: Boolean(preview),
+          online,
+          status: row.status,
+        });
+        return (
+          <div key={row.id}>
+            {preview && (
+              <>
+                <ul>
+                  <EmailMessage
+                    message={preview.message}
+                    expanded
+                    showReplyButton={false}
+                    refetch={refetch}
+                    onSendSuccess={refetch}
+                  />
                 </ul>
-              )}
-            </>
-          )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
-            <p
-              role="status"
-              className="flex items-center gap-2 font-medium text-foreground"
-            >
-              <DeliveryIcon
-                status={
-                  online && row.status === "pending" ? "processing" : row.status
-                }
-                offline={!online}
-              />
-              {deliveryLabel(row, online)}
-            </p>
-            {row.status !== "succeeded" && row.lastError && (
-              <p className="order-last basis-full pl-5 text-muted-foreground">
-                {row.lastError}
-              </p>
+                {preview.attachments.length > 0 && (
+                  <ul
+                    aria-label="Attachments"
+                    className="flex flex-wrap gap-3 px-2 sm:pl-14 text-sm"
+                  >
+                    {preview.attachments.map((attachment, index) => (
+                      <li key={attachment.id ?? index}>
+                        <a
+                          className="underline underline-offset-4"
+                          download={attachment.filename}
+                          href={`data:${attachment.contentType};base64,${attachment.content}`}
+                        >
+                          {attachment.filename}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
-            {row.status === "uncertain" && (
-              <a
-                className="underline underline-offset-4"
-                href={`/${emailAccountId}/mail?type=sent`}
-              >
-                Check Sent
-              </a>
-            )}
-            {canEditReply &&
-              !(online && row.status === "pending") &&
-              ["pending", "retry_wait", "blocked_auth", "failed"].includes(
-                row.status,
-              ) && (
-                <Button
-                  disabled={busy}
-                  type="button"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
-                  size="sm"
-                  onClick={() =>
-                    act(async () => {
-                      const restored = await restoreReplyFromOutbox(
-                        row.id,
-                        emailAccountId,
-                      );
-                      onEditReply(restored.messageId, restored.mode);
-                    })
-                  }
+            {showStatus && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
+                <p
+                  role="status"
+                  className="flex items-center gap-2 font-medium text-foreground"
                 >
-                  Edit reply
-                </Button>
-              )}
+                  <DeliveryIcon
+                    status={
+                      online && row.status === "pending"
+                        ? "processing"
+                        : row.status
+                    }
+                    offline={!online}
+                  />
+                  {deliveryLabel(row, online)}
+                </p>
+                {row.status !== "succeeded" && row.lastError && (
+                  <p className="order-last basis-full pl-5 text-muted-foreground">
+                    {row.lastError}
+                  </p>
+                )}
+                {row.status === "uncertain" && (
+                  <a
+                    className="underline underline-offset-4"
+                    href={`/${emailAccountId}/mail?type=sent`}
+                  >
+                    Check Sent
+                  </a>
+                )}
+                {canEditReply &&
+                  !(
+                    online &&
+                    row.status === "pending" &&
+                    row.nextAttemptAt <= Date.now()
+                  ) &&
+                  ["pending", "retry_wait", "blocked_auth", "failed"].includes(
+                    row.status,
+                  ) && (
+                    <Button
+                      disabled={busy}
+                      type="button"
+                      variant="ghost"
+                      className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      size="sm"
+                      onClick={() =>
+                        act(async () => {
+                          const restored = await restoreReplyFromOutbox(
+                            row.id,
+                            emailAccountId,
+                          );
+                          onEditReply(restored.messageId, restored.mode);
+                        })
+                      }
+                    >
+                      Edit reply
+                    </Button>
+                  )}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
       {data?.scheduledEmails
         .filter(
           (row) =>
