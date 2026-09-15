@@ -44,6 +44,7 @@
   "navigation-and-views.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
   ],
   "offline-loading.spec.ts": [
@@ -92,6 +93,7 @@
   ],
   "triage-actions.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-selection.ts"
   ],

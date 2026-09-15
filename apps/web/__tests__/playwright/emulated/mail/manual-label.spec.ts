@@ -156,8 +156,10 @@ test("L labels the open conversation after it leaves the unread list", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await page
+    .getByRole("group", { name: "Thread actions" })
+    .getByRole("button", { name: /Mark as unread/ })
+    .click();
   await expect
     .poll(
       () =>

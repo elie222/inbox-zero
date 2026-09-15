@@ -58,6 +58,9 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  isUnread: boolean;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
@@ -87,6 +90,9 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  isUnread,
+  onMarkRead,
+  onMarkUnread,
   refetch,
   onSendSuccess,
   autoOpenReplyForMessageId,
@@ -143,11 +149,14 @@ export function ThreadReader({
       isStarred={isThreadStarred(
         thread?.messages.length ? thread.messages : messages,
       )}
+      isUnread={isUnread}
       messageExpansion={messageExpansion}
       labelHref={labelHref}
       labels={labels}
       menu={menu}
       onArchive={onArchive}
+      onMarkRead={onMarkRead}
+      onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
       subject={headerMessage.headers.subject}
