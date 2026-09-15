@@ -627,6 +627,31 @@ test("returns focus from a draft in a single-message email panel", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "panel-draft-escape-focus");
 });
 
+test("focuses the To field when forwarding with F", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(
+    message.getByRole("button", { name: "Forward", exact: true }),
+  ).toBeVisible();
+
+  await page.keyboard.press("KeyF");
+
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+});
+
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
