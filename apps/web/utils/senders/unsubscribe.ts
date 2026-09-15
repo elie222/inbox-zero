@@ -16,11 +16,12 @@ import {
   resolveSafeExternalHttpUrl,
 } from "@/utils/network/safe-http-url";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
-import prisma from "@/utils/prisma";
 import {
   encodeFormBody,
   inspectUnsubscribeHtml,
 } from "@/utils/senders/html-form-unsubscribe";
+import { aiCheckUnsubscribePageState } from "@/utils/ai/senders/unsubscribe-page";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const ONE_CLICK_REQUEST_BODY = "List-Unsubscribe=One-Click";
 const UNSUBSCRIBE_REQUEST_TIMEOUT_MS = 10_000;
@@ -264,16 +265,19 @@ async function attemptAutomaticUnsubscribe({
   let submittedUnconfirmedForm = false;
 
   if (page.body && page.finalUrl) {
-    const account = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { email: true },
-    });
+    const account = await getEmailAccountWithAi({ emailAccountId });
     const inspected = inspectUnsubscribeHtml({
       html: page.body,
       pageUrl: page.finalUrl,
       recipientEmail: account?.email,
     });
-    if (inspected.kind === "confirmed") {
+    const pageState = account
+      ? await aiCheckUnsubscribePageState({
+          pageText: inspected.pageText,
+          emailAccount: account,
+        })
+      : "not_confirmed";
+    if (pageState === "confirmed") {
       return {
         attempted: true,
         success: true,
@@ -300,20 +304,22 @@ async function attemptAutomaticUnsubscribe({
               includeResponseBody: true,
             },
       );
-      if (
-        submitted.success &&
-        submitted.body &&
-        inspectUnsubscribeHtml({
-          html: submitted.body,
-          pageUrl: submitted.finalUrl || inspected.form.actionUrl,
-        }).kind === "confirmed"
-      ) {
-        return {
-          attempted: true,
-          success: true,
-          method: "form",
-          statusCode: submitted.statusCode,
-        };
+      if (account && submitted.success && submitted.body) {
+        const submittedState = await aiCheckUnsubscribePageState({
+          pageText: inspectUnsubscribeHtml({
+            html: submitted.body,
+            pageUrl: submitted.finalUrl || inspected.form.actionUrl,
+          }).pageText,
+          emailAccount: account,
+        });
+        if (submittedState === "confirmed") {
+          return {
+            attempted: true,
+            success: true,
+            method: "form",
+            statusCode: submitted.statusCode,
+          };
+        }
       }
     }
   }

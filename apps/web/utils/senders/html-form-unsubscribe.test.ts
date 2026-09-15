@@ -2,34 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   encodeFormBody,
   inspectUnsubscribeHtml,
-  isUnsubscribeAcknowledged,
 } from "./html-form-unsubscribe";
 
-describe("isUnsubscribeAcknowledged", () => {
-  it("requires a completed unsubscribe, not a form prompt", () => {
-    expect(isUnsubscribeAcknowledged("Unsubscribe from this list")).toBe(false);
-    expect(isUnsubscribeAcknowledged("You are not unsubscribed")).toBe(false);
-    expect(isUnsubscribeAcknowledged("Click confirm to be unsubscribed")).toBe(
-      false,
-    );
-    expect(
-      isUnsubscribeAcknowledged(
-        "You have been unsubscribed from Weekly Digest",
-      ),
-    ).toBe(true);
-  });
-});
-
 describe("inspectUnsubscribeHtml", () => {
-  it("treats an already-completed page as confirmed", () => {
-    expect(
-      inspectUnsubscribeHtml({
-        html: "<p>You have been unsubscribed.</p>",
-        pageUrl: "https://example.com/unsub",
-      }),
-    ).toEqual({ kind: "confirmed" });
-  });
-
   it("extracts a single email confirmation form", () => {
     expect(
       inspectUnsubscribeHtml({
@@ -43,6 +18,7 @@ describe("inspectUnsubscribeHtml", () => {
       }),
     ).toEqual({
       kind: "simple_form",
+      pageText: expect.any(String),
       form: {
         method: "POST",
         actionUrl: "https://example.com/done",
@@ -86,8 +62,8 @@ describe("inspectUnsubscribeHtml", () => {
   });
 });
 
-describe("inspectUnsubscribeHtml confirmation detection", () => {
-  it("ignores confirmation copy embedded in scripts and templates", () => {
+describe("inspectUnsubscribeHtml page text", () => {
+  it("leaves out copy that only lives in scripts and templates", () => {
     const result = inspectUnsubscribeHtml({
       html: `<body>
         <h1>Confirm your request</h1>
@@ -102,39 +78,19 @@ describe("inspectUnsubscribeHtml confirmation detection", () => {
     });
 
     expect(result.kind).toBe("simple_form");
+    expect(result.pageText).toContain("Confirm your request");
+    expect(result.pageText).not.toContain("You have been unsubscribed");
+    expect(result.pageText).not.toContain("You are now unsubscribed");
   });
 
-  it("does not treat a prospective or conditional state as completed", () => {
-    expect(
-      isUnsubscribeAcknowledged("Click confirm to be no longer subscribed"),
-    ).toBe(false);
-    expect(
-      isUnsubscribeAcknowledged(
-        "If you are no longer subscribed but still receive mail, contact support.",
-      ),
-    ).toBe(false);
-    expect(isUnsubscribeAcknowledged("You are now unsubscribed.")).toBe(true);
-  });
-
-  it("does not treat a confirmation prompt as a completed unsubscribe", () => {
-    expect(
-      isUnsubscribeAcknowledged(
-        "Are you sure? If you confirm, you will no longer receive emails from us.",
-      ),
-    ).toBe(false);
-
+  it("returns the visible text of a page with no form", () => {
     const result = inspectUnsubscribeHtml({
-      html: `<body>
-        <p>If you confirm, you will no longer receive emails from us.</p>
-        <form action="/done" method="post">
-          <input type="hidden" name="token" value="abc">
-          <button type="submit">Confirm</button>
-        </form>
-      </body>`,
+      html: "<body><p>You have been unsubscribed.</p></body>",
       pageUrl: "https://example.com/unsub",
     });
 
-    expect(result.kind).toBe("simple_form");
+    expect(result.kind).toBe("unsupported");
+    expect(result.pageText).toContain("You have been unsubscribed.");
   });
 });
 
@@ -165,6 +121,7 @@ describe("inspectUnsubscribeHtml form controls", () => {
 
     expect(result).toEqual({
       kind: "simple_form",
+      pageText: expect.any(String),
       form: {
         method: "POST",
         actionUrl: "https://example.com/done",
@@ -201,6 +158,7 @@ describe("inspectUnsubscribeHtml form controls", () => {
 
     expect(result).toEqual({
       kind: "simple_form",
+      pageText: expect.any(String),
       form: {
         method: "POST",
         actionUrl: "https://example.com/done",
@@ -224,6 +182,7 @@ describe("inspectUnsubscribeHtml form controls", () => {
 
     expect(result).toEqual({
       kind: "simple_form",
+      pageText: expect.any(String),
       form: {
         method: "POST",
         actionUrl: "https://example.com/done",

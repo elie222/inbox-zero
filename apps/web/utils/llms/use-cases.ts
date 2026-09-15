@@ -45,6 +45,7 @@ export const LlmUseCase = {
   ReplyNudge: "reply-nudge",
   Summarise: "summarise",
   TranslateEmail: "translate-email",
+  UnsubscribePageState: "unsubscribe-page-state",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
 
@@ -93,6 +94,7 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ReplyNudge]: "chat",
   [LlmUseCase.Summarise]: "default",
   [LlmUseCase.TranslateEmail]: "economy",
+  [LlmUseCase.UnsubscribePageState]: "economy",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;
 

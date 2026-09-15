@@ -10,14 +10,23 @@ vi.mock("@/env", () => ({
 vi.mock("@/utils/senders/browser-unsubscribe", () => ({
   browserUnsubscribe: browserUnsubscribeMock,
 }));
+vi.mock("@/utils/ai/senders/unsubscribe-page", () => ({
+  aiCheckUnsubscribePageState: checkUnsubscribePageStateMock,
+}));
 
-const { dnsLookupMock, httpsRequestMock, envMock, browserUnsubscribeMock } =
-  vi.hoisted(() => ({
-    dnsLookupMock: vi.fn(),
-    httpsRequestMock: vi.fn(),
-    envMock: { UNSUBSCRIBE_WORKER_URL: undefined as string | undefined },
-    browserUnsubscribeMock: vi.fn(),
-  }));
+const {
+  dnsLookupMock,
+  httpsRequestMock,
+  envMock,
+  browserUnsubscribeMock,
+  checkUnsubscribePageStateMock,
+} = vi.hoisted(() => ({
+  dnsLookupMock: vi.fn(),
+  httpsRequestMock: vi.fn(),
+  envMock: { UNSUBSCRIBE_WORKER_URL: undefined as string | undefined },
+  browserUnsubscribeMock: vi.fn(),
+  checkUnsubscribePageStateMock: vi.fn(),
+}));
 
 vi.mock("node:dns/promises", () => ({
   lookup: dnsLookupMock,
@@ -225,8 +234,12 @@ describe("sender-unsubscribe", () => {
     prisma.newsletter.updateManyAndReturn.mockResolvedValue([]);
     prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
     prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "email-account-1",
+      userId: "user-1",
       email: "owner@example.com",
+      user: { aiProvider: null, aiModel: null, aiApiKey: null },
     } as any);
+    checkUnsubscribePageStateMock.mockResolvedValue("not_confirmed");
   });
 
   it("normalizes sender emails when setting status", async () => {
@@ -395,6 +408,7 @@ describe("sender-unsubscribe", () => {
       statusCode: 200,
       body: "<p>You have been unsubscribed from this list.</p>",
     });
+    checkUnsubscribePageStateMock.mockResolvedValue("confirmed");
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
@@ -429,6 +443,9 @@ describe("sender-unsubscribe", () => {
       statusCode: 200,
       body: "<p>You have been unsubscribed.</p>",
     });
+    checkUnsubscribePageStateMock
+      .mockResolvedValueOnce("not_confirmed")
+      .mockResolvedValueOnce("confirmed");
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
