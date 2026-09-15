@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const mockUseRules = vi.fn();
 const mockUseAccount = vi.fn();
@@ -152,7 +153,7 @@ describe("Rules", () => {
   });
 
   it("hides delete for default rules", () => {
-    render(<Rules />);
+    renderRules();
 
     const newsletterRow = screen.getByText("Newsletter").closest("tr");
     expect(newsletterRow).toBeTruthy();
@@ -168,7 +169,7 @@ describe("Rules", () => {
   });
 
   it("still shows delete for custom rules", () => {
-    render(<Rules />);
+    renderRules();
 
     const customRuleRow = screen.getByText("Custom rule").closest("tr");
     expect(customRuleRow).toBeTruthy();
@@ -183,3 +184,11 @@ describe("Rules", () => {
     expect(screen.getByText("Delete")).toBeTruthy();
   });
 });
+
+function renderRules() {
+  return render(
+    <TooltipProvider>
+      <Rules />
+    </TooltipProvider>,
+  );
+}
