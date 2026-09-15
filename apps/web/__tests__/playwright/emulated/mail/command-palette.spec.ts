@@ -72,7 +72,7 @@ test("Command K archives the open side-panel conversation through the durable ou
   await page.keyboard.press(`${commandModifier}+KeyK`);
   const archiveCommand = page.getByRole("option", {
     exact: true,
-    name: "Archive E",
+    name: "Archive Archive current email E",
   });
   await expect(archiveCommand).toBeVisible();
   await archiveCommand.click();
