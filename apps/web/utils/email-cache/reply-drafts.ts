@@ -176,7 +176,7 @@ export async function getReplyDraftForSession(
 export function getReplyDraftMode(draft: StoredReplyDraft) {
   if (!draft.content) return;
   if (draft.content.composeMode) return draft.content.composeMode;
-  return draft.content.values.replyToEmail ? "reply" : "forward";
+  return getComposeMode(draft.content.values.replyToEmail);
 }
 
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
@@ -301,7 +301,7 @@ export async function restoreReplyFromOutbox(
   if (row?.kind !== "reply" || row.emailAccountId !== emailAccountId)
     throw new Error("Queued reply was not found.");
   const email = sendEmailBody.parse((row.payload as { email: unknown }).email);
-  const composeMode: ReplyDraftMode = email.replyToEmail ? "reply" : "forward";
+  const composeMode = getComposeMode(email.replyToEmail);
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
@@ -374,4 +374,14 @@ export async function restoreReplyFromOutbox(
       identityOverride?.messageId ?? originalMessageId ?? identity.messageId,
     mode: composeMode,
   };
+}
+
+/**
+ * A forward carries only the thread it came from, while a reply also targets
+ * the message it answers.
+ */
+function getComposeMode(
+  replyToEmail: SendEmailBody["replyToEmail"],
+): ReplyDraftMode {
+  return replyToEmail?.headerMessageId ? "reply" : "forward";
 }

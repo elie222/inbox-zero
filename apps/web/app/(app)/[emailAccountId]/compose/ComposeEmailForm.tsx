@@ -120,6 +120,7 @@ import {
   getUndoSendHoldUntil,
   UNDO_SEND_DELAY_MS,
 } from "./undo-send";
+import { getReplyToEmailPayload } from "./reply-to-email-payload";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -1655,28 +1656,6 @@ type ContactsFetchError = Error & {
   info?: Partial<ContactsErrorResponse>;
   status?: number;
 };
-
-function getReplyToEmailPayload(
-  replyingToEmail:
-    | Pick<
-        ReplyingToEmail,
-        "threadId" | "headerMessageId" | "references" | "messageId"
-      >
-    | undefined,
-): SendEmailBody["replyToEmail"] | undefined {
-  const threadId = replyingToEmail?.threadId?.trim();
-  const headerMessageId = replyingToEmail?.headerMessageId?.trim();
-  if (!threadId || !headerMessageId) return;
-  const references = replyingToEmail?.references;
-  const messageId = replyingToEmail?.messageId;
-
-  return {
-    threadId,
-    headerMessageId,
-    ...(references ? { references } : {}),
-    ...(messageId ? { messageId } : {}),
-  };
-}
 
 function createComposeAttachmentMetadata(
   file: File,
