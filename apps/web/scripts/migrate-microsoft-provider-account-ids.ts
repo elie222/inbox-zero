@@ -27,15 +27,12 @@ type MicrosoftTokenResponse = {
 async function main() {
   const options = parseOptions(process.argv.slice(2));
 
-  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
-    throw new Error("Microsoft OAuth credentials are required");
-  }
-
   const microsoftAccounts = await prisma.account.findMany({
     where: { provider: "microsoft" },
     select: {
       id: true,
       providerAccountId: true,
+      id_token: true,
       refresh_token: true,
     },
     orderBy: { createdAt: "asc" },
@@ -54,24 +51,23 @@ async function main() {
     skippedTokenError: 0,
     skippedConflict: 0,
     skippedSameSubject: 0,
+    resolvedFromIdToken: 0,
+    resolvedFromRefresh: 0,
+    skippedNoIdToken: 0,
   };
 
   for (const account of candidates) {
-    const refreshToken = getRefreshToken(account.refresh_token);
+    // The id_token stored at sign-in already carries the object id. Reading it
+    // costs no Microsoft call and works for accounts whose refresh token is
+    // gone, which are the ones that cannot re-key themselves by signing in.
+    const storedObjectId = decodeMicrosoftIdTokenClaims(account.id_token).oid;
+    if (storedObjectId) stats.resolvedFromIdToken += 1;
 
-    if (!refreshToken) {
-      stats.skippedNoRefreshToken += 1;
-      continue;
-    }
+    const subject =
+      storedObjectId ??
+      (options.idTokenOnly ? null : await resolveViaRefresh(account, stats));
 
-    const subject = await getMicrosoftObjectId(refreshToken).catch((error) => {
-      stats.skippedTokenError += 1;
-      console.warn("Failed to resolve Microsoft object id for account", {
-        accountId: account.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
+    if (!subject && options.idTokenOnly) stats.skippedNoIdToken += 1;
 
     if (!subject) continue;
 
@@ -113,8 +109,37 @@ async function main() {
   console.log(JSON.stringify({ apply: options.apply, ...stats }, null, 2));
 }
 
+async function resolveViaRefresh(
+  account: { id: string; refresh_token: string | null },
+  stats: {
+    skippedNoRefreshToken: number;
+    skippedTokenError: number;
+    resolvedFromRefresh: number;
+  },
+) {
+  const refreshToken = getRefreshToken(account.refresh_token);
+
+  if (!refreshToken) {
+    stats.skippedNoRefreshToken += 1;
+    return null;
+  }
+
+  const objectId = await getMicrosoftObjectId(refreshToken).catch((error) => {
+    stats.skippedTokenError += 1;
+    console.warn("Failed to resolve Microsoft object id for account", {
+      accountId: account.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
+
+  if (objectId) stats.resolvedFromRefresh += 1;
+  return objectId;
+}
+
 function parseOptions(args: string[]) {
   let apply = false;
+  let idTokenOnly = false;
   let limit = Number.POSITIVE_INFINITY;
 
   for (let i = 0; i < args.length; i += 1) {
@@ -122,6 +147,12 @@ function parseOptions(args: string[]) {
 
     if (arg === "--apply") {
       apply = true;
+      continue;
+    }
+
+    // Resolve only from stored id_tokens, so the run makes no provider calls.
+    if (arg === "--id-token-only") {
+      idTokenOnly = true;
       continue;
     }
 
@@ -143,13 +174,17 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { apply, limit };
+  return { apply, idTokenOnly, limit };
 }
 
 async function getMicrosoftObjectId(refreshToken: string) {
+  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+    throw new Error("Microsoft OAuth credentials are required");
+  }
+
   const tokenResponse = await requestMicrosoftToken({
-    client_id: env.MICROSOFT_CLIENT_ID!,
-    client_secret: env.MICROSOFT_CLIENT_SECRET!,
+    client_id: env.MICROSOFT_CLIENT_ID,
+    client_secret: env.MICROSOFT_CLIENT_SECRET,
     grant_type: "refresh_token",
     refresh_token: refreshToken,
     scope: OUTLOOK_SCOPES.join(" "),
@@ -179,7 +214,7 @@ function getRefreshToken(value: string | null) {
 
 function printHelpAndExit(): never {
   process.stdout.write(
-    "Usage: tsx scripts/migrate-microsoft-provider-account-ids.ts [--apply] [--limit N]\n",
+    "Usage: tsx scripts/migrate-microsoft-provider-account-ids.ts [--apply] [--id-token-only] [--limit N]\n",
   );
   process.exit(0);
 }
