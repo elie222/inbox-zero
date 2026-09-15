@@ -271,12 +271,19 @@ async function attemptAutomaticUnsubscribe({
       pageUrl: page.finalUrl,
       recipientEmail: account?.email,
     });
-    const pageState = account
-      ? await aiCheckUnsubscribePageState({
-          pageText: inspected.pageText,
-          emailAccount: account,
-        })
-      : "not_confirmed";
+    // With no worker to escalate to, a successful GET already resolves as
+    // success below, so classifying it costs a model call and changes nothing.
+    const classifierCanChangeOutcome =
+      !!env.UNSUBSCRIBE_WORKER_URL ||
+      !page.success ||
+      inspected.kind === "simple_form";
+    const pageState =
+      account && classifierCanChangeOutcome
+        ? await aiCheckUnsubscribePageState({
+            pageText: inspected.pageText,
+            emailAccount: account,
+          })
+        : "not_confirmed";
     if (pageState === "confirmed") {
       return {
         attempted: true,
