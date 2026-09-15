@@ -131,7 +131,10 @@ export type ReplyingToEmail = {
    * The files that travel with a forward. They stay on the provider until the
    * send, so the composer shows them without ever holding their bytes.
    */
-  forwardedAttachments?: ForwardedAttachment[];
+  forwardedAttachments?: Pick<
+    EmailAttachmentMetadata,
+    "id" | "filename" | "mimeType" | "size"
+  >[];
   references?: string;
   subject: string;
   to: string;
@@ -161,13 +164,6 @@ type ComposeEmailFormProps = {
 
 type ComposeAttachment = EmailComposerAttachment & {
   previewUrl?: string;
-};
-
-export type ForwardedAttachment = {
-  id: string;
-  filename: string;
-  mimeType: string;
-  size: number;
 };
 
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
