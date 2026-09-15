@@ -37,7 +37,13 @@ export const SnippetPicker = forwardRef<SnippetPickerRef, SnippetPickerProps>(
       () => filterSnippets(snippets, query),
       [query, snippets],
     );
-    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [selectedIndex, setSelectedIndex] = useState(() =>
+      initialSnippetSelectionIndex({
+        createItem: true,
+        query,
+        snippets: filteredSnippets,
+      }),
+    );
     const itemCount = filteredSnippets.length + 1;
 
     useEffect(() => {
@@ -59,23 +65,28 @@ export const SnippetPicker = forwardRef<SnippetPickerRef, SnippetPickerProps>(
       if (snippet) onSelectSnippet(snippet);
     };
 
+    const handleKeyDown = (event: {
+      key: string;
+      preventDefault: () => void;
+    }) => {
+      if (event.key === "ArrowUp") {
+        setSelectedIndex((index) => (index + itemCount - 1) % itemCount);
+        return true;
+      }
+      if (event.key === "ArrowDown") {
+        setSelectedIndex((index) => (index + 1) % itemCount);
+        return true;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        selectItem(selectedIndex);
+        return true;
+      }
+      return false;
+    };
+
     useImperativeHandle(ref, () => ({
-      onKeyDown: ({ event }) => {
-        if (event.key === "ArrowUp") {
-          setSelectedIndex((index) => (index + itemCount - 1) % itemCount);
-          return true;
-        }
-        if (event.key === "ArrowDown") {
-          setSelectedIndex((index) => (index + 1) % itemCount);
-          return true;
-        }
-        if (event.key === "Enter") {
-          event.preventDefault();
-          selectItem(selectedIndex);
-          return true;
-        }
-        return false;
-      },
+      onKeyDown: ({ event }) => handleKeyDown(event),
     }));
 
     return (
@@ -88,6 +99,9 @@ export const SnippetPicker = forwardRef<SnippetPickerRef, SnippetPickerProps>(
             aria-label="Search snippets"
             className="h-10 w-full border-b bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
             onChange={(event) => onQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (handleKeyDown(event)) event.preventDefault();
+            }}
             placeholder="Search snippets"
             value={query}
           />

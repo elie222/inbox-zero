@@ -70,6 +70,15 @@ test("opens the snippet picker from slash in the composer", async ({
   await expect(picker).toBeHidden();
   await expect(dialog).toBeVisible();
   await expect(editor).toContainText("/");
+
+  await page.keyboard.press("Backspace");
+  await page.keyboard.type("/");
+  await expect(picker).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "Save snippet" }),
+  ).toBeVisible();
+  await expect(dialog).toBeVisible();
 });
 
 test("focuses the message field from the empty composer body", async ({

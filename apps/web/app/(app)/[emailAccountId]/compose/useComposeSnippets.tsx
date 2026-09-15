@@ -50,6 +50,9 @@ export function useComposeSnippets({
     insertOnCreate: boolean;
     open: boolean;
   }>({ open: false, insertOnCreate: false });
+  const closeForm = useCallback(() => {
+    setFormState({ insertOnCreate: false, open: false });
+  }, []);
 
   const insertSnippet = useCallback(
     (snippet: SnippetMatchItem, range?: { from: number; to: number }) => {
@@ -152,7 +155,7 @@ export function useComposeSnippets({
       </Popover>
       <Dialog
         onOpenChange={(open) => {
-          if (!open) setFormState({ open: false });
+          if (!open) closeForm();
         }}
         open={formState.open}
       >
@@ -168,7 +171,7 @@ export function useComposeSnippets({
             </DialogDescription>
           </DialogHeader>
           <SnippetForm
-            closeDialog={() => setFormState({ open: false })}
+            closeDialog={closeForm}
             initialValues={formState.defaults}
             onCreated={(snippet) => {
               if (formState.insertOnCreate) insertSnippet(snippet);
