@@ -258,6 +258,36 @@ describe("processEvent", () => {
     expect(mockSendFacebookConversionEvent).not.toHaveBeenCalled();
   });
 
+  it("propagates identity lookup failure before acknowledging a successful invoice", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockRejectedValueOnce(new Error("lookup failed"));
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("lookup failed");
+  });
+
+  it("propagates customer sync failure for successful invoice delivery retries", async () => {
+    mockSyncStripeDataToDb.mockRejectedValue(new Error("sync failed"));
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("sync failed");
+  });
+
+  it("propagates conversion failure so successful invoice delivery can retry", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      stripeSubscriptionId: "sub_test",
+      users: [],
+    });
+    mockGetStripeTrialConversion.mockRejectedValueOnce(
+      new Error("Stripe unavailable"),
+    );
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("Stripe unavailable");
+  });
+
   it("ignores a payment that loses the atomic conversion claim", async () => {
     mockSyncStripeDataToDb.mockResolvedValue(undefined);
     mockFindUnique.mockResolvedValue({
@@ -323,11 +353,17 @@ describe("processEvent", () => {
       convertedAt: new Date("2023-11-14T22:13:20Z"),
     });
     mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockSendFacebookConversionEvent.mockRejectedValueOnce(
+      new Error("delivery unavailable"),
+    );
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("delivery unavailable");
     await processEvent(
       invoiceEvent({ type: "invoice.payment_succeeded" }),
       logger,
     );
-    expect(mockCompleteReferralAndGrantReward).toHaveBeenCalledTimes(1);
+    expect(mockCompleteReferralAndGrantReward).toHaveBeenCalledTimes(2);
     expect(mockTrackServerConversionEvent).toHaveBeenCalledWith(
       expect.objectContaining({ id: "in_test:trial_converted" }),
     );

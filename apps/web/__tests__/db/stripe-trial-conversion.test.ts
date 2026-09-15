@@ -38,7 +38,9 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
         where: { id: premiumId },
       });
       expect(premium.stripeTrialConvertedAt).toEqual(convertedAt);
-      const winner = premium.stripeTrialConversionInvoiceId!;
+      const winner = premium.stripeTrialConversionInvoiceId;
+      expect(["in_first", "in_second"]).toContain(winner);
+      if (!winner) throw new Error("Missing winning invoice");
       expect(await record(winner)).toBe(true);
       expect(
         await record(winner === "in_first" ? "in_second" : "in_first"),

@@ -70,7 +70,10 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const [stripeSync] = syncResult;
 
-  const customer = await getCustomerOrUndefined(customerId, event, logger);
+  const customer =
+    event.type === "invoice.payment_succeeded"
+      ? await getCustomer(customerId)
+      : await getCustomerOrUndefined(customerId, event, logger);
   const email = customer?.email;
 
   const tasks: Promise<unknown>[] = [
@@ -80,8 +83,15 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     recordCancellationInitiated(customerId, event, logger),
   ];
 
+  let paidTrialConversion: Promise<void> | undefined;
   if (stripeSync.status === "fulfilled") {
-    tasks.push(handlePaidTrialConversion(customerId, event, customer, logger));
+    paidTrialConversion = handlePaidTrialConversion(
+      customerId,
+      event,
+      customer,
+      logger,
+    );
+    tasks.push(paidTrialConversion);
     tasks.push(
       syncStripeInvoicePayment({ event, logger }).then(() =>
         enqueueStripeInvoiceEmail({ event, logger }),
@@ -99,7 +109,12 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     );
   }
 
-  return await Promise.allSettled(tasks);
+  const results = await Promise.allSettled(tasks);
+  if (event.type === "invoice.payment_succeeded") {
+    if (stripeSync.status === "rejected") throw stripeSync.reason;
+    await paidTrialConversion;
+  }
+  return results;
 }
 
 async function handlePaidTrialConversion(
@@ -155,6 +170,7 @@ async function handlePaidTrialConversion(
     ),
     trackServerConversionEvent({
       name: "subscription_created",
+      throwOnError: true,
       id: conversionId,
       timestamp: convertedAt,
       ...conversion,
@@ -284,6 +300,7 @@ async function trackFacebookBillingConversion({
       eventName,
       eventId,
     });
+    if (eventName === "Subscribe") throw error;
   }
 }
 
