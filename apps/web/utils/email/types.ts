@@ -9,6 +9,14 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/types/mail";
 import type { EmailContact } from "@/utils/email/contact";
 
+export type PriorCommunicationOptions = {
+  from: string;
+  date: Date;
+  messageId: string;
+  excludeLabelIds?: string[];
+  excludeFolderIds?: string[];
+};
+
 export interface EmailThread {
   historyId?: string;
   id: string;
@@ -284,11 +292,9 @@ export interface EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }>;
-  hasPreviousCommunicationsWithSenderOrDomain(options: {
-    from: string;
-    date: Date;
-    messageId: string;
-  }): Promise<boolean>;
+  hasPreviousCommunicationsWithSenderOrDomain(
+    options: PriorCommunicationOptions,
+  ): Promise<boolean>;
   isReplyInThread(message: ParsedMessage): boolean;
   isSentMessage(message: ParsedMessage): boolean;
   labelMessage(options: {
