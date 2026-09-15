@@ -779,6 +779,38 @@ test("opens and sends a reply from the reader with Enter", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
+test("focuses the To field when forwarding", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(
+    message.getByRole("button", { name: "Forward", exact: true }),
+  ).toBeVisible();
+
+  await page.keyboard.press("f");
+
+  await expect(message.getByRole("combobox", { name: "To" })).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+
+  await message.getByRole("button", { name: "Discard draft" }).click();
+  await expect(message.getByRole("combobox", { name: "To" })).toHaveCount(0);
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(message.getByRole("combobox", { name: "To" })).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+});
+
 test("opens a sent forward in its provider thread", async ({
   page,
 }, testInfo) => {
