@@ -26,6 +26,9 @@ type MicrosoftTokenResponse = {
 
 async function main() {
   const options = parseOptions(process.argv.slice(2));
+  const microsoftCredentials = options.idTokenOnly
+    ? null
+    : requireMicrosoftCredentials();
 
   const microsoftAccounts = await prisma.account.findMany({
     where: { provider: "microsoft" },
@@ -65,9 +68,11 @@ async function main() {
 
     const subject =
       storedObjectId ??
-      (options.idTokenOnly ? null : await resolveViaRefresh(account, stats));
+      (microsoftCredentials
+        ? await resolveViaRefresh(account, stats, microsoftCredentials)
+        : null);
 
-    if (!subject && options.idTokenOnly) stats.skippedNoIdToken += 1;
+    if (!subject && !microsoftCredentials) stats.skippedNoIdToken += 1;
 
     if (!subject) continue;
 
@@ -109,6 +114,21 @@ async function main() {
   console.log(JSON.stringify({ apply: options.apply, ...stats }, null, 2));
 }
 
+function requireMicrosoftCredentials() {
+  // The refresh fallback cannot work without these, and a per-account catch
+  // would otherwise turn that into 900 skipped accounts and a clean exit.
+  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+    throw new Error(
+      "Microsoft OAuth credentials are required unless --id-token-only is set",
+    );
+  }
+
+  return {
+    clientId: env.MICROSOFT_CLIENT_ID,
+    clientSecret: env.MICROSOFT_CLIENT_SECRET,
+  };
+}
+
 async function resolveViaRefresh(
   account: { id: string; refresh_token: string | null },
   stats: {
@@ -116,6 +136,7 @@ async function resolveViaRefresh(
     skippedTokenError: number;
     resolvedFromRefresh: number;
   },
+  credentials: { clientId: string; clientSecret: string },
 ) {
   const refreshToken = getRefreshToken(account.refresh_token);
 
@@ -124,14 +145,16 @@ async function resolveViaRefresh(
     return null;
   }
 
-  const objectId = await getMicrosoftObjectId(refreshToken).catch((error) => {
-    stats.skippedTokenError += 1;
-    console.warn("Failed to resolve Microsoft object id for account", {
-      accountId: account.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  });
+  const objectId = await getMicrosoftObjectId(refreshToken, credentials).catch(
+    (error) => {
+      stats.skippedTokenError += 1;
+      console.warn("Failed to resolve Microsoft object id for account", {
+        accountId: account.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    },
+  );
 
   if (objectId) stats.resolvedFromRefresh += 1;
   return objectId;
@@ -177,14 +200,13 @@ function parseOptions(args: string[]) {
   return { apply, idTokenOnly, limit };
 }
 
-async function getMicrosoftObjectId(refreshToken: string) {
-  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
-    throw new Error("Microsoft OAuth credentials are required");
-  }
-
+async function getMicrosoftObjectId(
+  refreshToken: string,
+  credentials: { clientId: string; clientSecret: string },
+) {
   const tokenResponse = await requestMicrosoftToken({
-    client_id: env.MICROSOFT_CLIENT_ID,
-    client_secret: env.MICROSOFT_CLIENT_SECRET,
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
     grant_type: "refresh_token",
     refresh_token: refreshToken,
     scope: OUTLOOK_SCOPES.join(" "),
