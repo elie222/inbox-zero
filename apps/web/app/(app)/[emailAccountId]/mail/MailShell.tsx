@@ -40,7 +40,6 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
-import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import {
   NewSplitDialog,
@@ -82,6 +81,7 @@ import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
   senderCommandContextAtom,
+  shortcutsDialogOpenAtom,
 } from "@/store/command-palette";
 import {
   EmailAccountScopeProvider,
@@ -168,6 +168,8 @@ export function MailShell() {
   const { setInput: setChatInput } = useChat();
   const { state: openSidebars, toggleSidebar } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
+  const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
+  const setIsHelpOpen = useSetAtom(shortcutsDialogOpenAtom);
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const [isNewSplitOpen, setIsNewSplitOpen] = useState(false);
   const [editingSplitId, setEditingSplitId] = useState<string | null>(null);
@@ -193,7 +195,6 @@ export function MailShell() {
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
@@ -780,7 +781,6 @@ export function MailShell() {
     [clampIndex, clampedIndex, selection],
   );
 
-  const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   useEffect(() => {
     if (!openReaderThreadKey) {
       readAttemptedForOpenThread.current = null;
@@ -1475,7 +1475,6 @@ export function MailShell() {
               onCreateLabel={onCreateLabel}
               onEditMailboxItem={onEditMailboxItem}
               onDeleteMailboxItem={onDeleteMailboxItem}
-              onOpenShortcuts={openShortcuts}
               labelEditMode={isOutlook ? "color" : "name-and-color"}
               labelColorOptions={
                 isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
@@ -1791,11 +1790,6 @@ export function MailShell() {
           />
         </EmailAccountScopeProvider>
       )}
-      <ShortcutsDialog
-        isDesktopApp={isDesktopApp}
-        open={isHelpOpen}
-        onOpenChange={setIsHelpOpen}
-      />
     </div>
   );
 }

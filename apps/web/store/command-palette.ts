@@ -7,6 +7,12 @@ import { atom } from "jotai";
  */
 export const commandPaletteOpenAtom = atom(false);
 
+/**
+ * Open state for the keyboard shortcuts dialog. Command K and the `?` shortcut
+ * both write here so the dialog can live outside the mail screen.
+ */
+export const shortcutsDialogOpenAtom = atom(false);
+
 export type MailCommandContext = {
   actions: {
     archive: () => void;
