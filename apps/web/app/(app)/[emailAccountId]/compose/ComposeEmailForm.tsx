@@ -378,7 +378,8 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
-  const focusRecipientField = !replyingToEmail;
+  // Forwards start without a recipient, so focus To. Replies already have one.
+  const focusRecipientField = draftMode === "forward" || !replyingToEmail;
   const [attachments, setAttachments] =
     useState<ComposeAttachment[]>(restoredAttachments);
   const forwardedAttachments = replyingToEmail?.forwardedAttachments ?? [];

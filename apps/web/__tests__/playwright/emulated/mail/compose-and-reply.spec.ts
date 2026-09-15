@@ -665,6 +665,31 @@ test("returns focus from a draft in a single-message email panel", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "panel-draft-escape-focus");
 });
 
+test("focuses the To field when forwarding with F", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(
+    message.getByRole("button", { name: "Forward", exact: true }),
+  ).toBeVisible();
+
+  await page.keyboard.press("KeyF");
+
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+});
+
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
@@ -815,6 +840,25 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(localReply).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
+});
+
+test("focuses the To field when forwarding", async ({ page }) => {
+  const { emailAccountId } = await openMail(page);
+  // Open by thread id so this still works after an earlier reply-and-mark-done
+  // removes the conversation from the inbox list.
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
 });
 
 test("keeps a sent forward in the thread it came from", async ({
