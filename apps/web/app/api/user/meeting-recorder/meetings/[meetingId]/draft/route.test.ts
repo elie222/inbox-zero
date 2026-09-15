@@ -67,8 +67,8 @@ describe("meeting follow-up draft route", () => {
 
   // The Graph webLink resolves the item without translating a REST id into the
   // EWS id the compose deeplink expects.
-  it("opens the related Outlook draft through the link Graph supplied", async () => {
-    getEmailAccountMock.mockResolvedValue("user@contoso.com");
+  it("opens the related draft within the full Outlook client", async () => {
+    getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "microsoft" } },
@@ -83,12 +83,12 @@ describe("meeting follow-up draft route", () => {
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
     expect(response.headers.get("location")).toBe(
-      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0",
     );
   });
 
   it("returns an explicit error when Outlook has no trusted draft link", async () => {
-    getEmailAccountMock.mockResolvedValue("user@contoso.com");
+    getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "microsoft" } },

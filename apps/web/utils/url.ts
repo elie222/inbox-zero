@@ -60,7 +60,7 @@ const MICROSOFT_MAIL_HOSTS = [
 
 // The link is redirected to, so treat it as untrusted until the host proves it
 // belongs to Outlook rather than forwarding wherever the payload points.
-function getTrustedMicrosoftLink(externalUrl?: string | null) {
+function getOutlookDraftUrl(externalUrl?: string | null) {
   if (!externalUrl) return null;
 
   try {
@@ -68,7 +68,11 @@ function getTrustedMicrosoftLink(externalUrl?: string | null) {
     // Reject non-default ports: hostname alone would allow
     // https://outlook.live.com:8443/... through the whitelist.
     if (url.protocol !== "https:" || url.port !== "") return null;
-    return MICROSOFT_MAIL_HOSTS.includes(url.hostname) ? externalUrl : null;
+    if (!MICROSOFT_MAIL_HOSTS.includes(url.hostname)) return null;
+
+    // Graph webLinks default to a standalone popout without this parameter.
+    url.searchParams.set("ispopout", "0");
+    return url.toString();
   } catch {
     return null;
   }
@@ -116,7 +120,7 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
     // translation. Assembling /drafts/id/<graphId> uses the wrong id space
     // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
     buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
-      getTrustedMicrosoftLink(draft.externalUrl),
+      getOutlookDraftUrl(draft.externalUrl),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
@@ -152,7 +156,8 @@ export function getEmailUrl(
  * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
  * at link time — its message id changes on every edit.
  *
- * Outlook returns the trusted provider webLink, or null when none is available.
+ * Outlook opens the trusted provider webLink within the mail client, or returns
+ * null when none is available.
  * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
  * id the API does not expose).
  */
