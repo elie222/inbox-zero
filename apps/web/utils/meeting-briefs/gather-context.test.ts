@@ -106,6 +106,31 @@ describe("gatherContextForEvent", () => {
     );
   });
 
+  it("returns the same normalized attendee addresses used for retrieval", async () => {
+    getThreadsWithParticipant.mockResolvedValue([]);
+    const result = await gatherContextForEvent({
+      ...options,
+      externalAttendees: [{ email: " Partner@Example.com ", name: "Partner" }],
+      internalAttendees: [
+        { email: " Colleague@Example.org ", name: "Colleague" },
+      ],
+    });
+    expect(result.externalGuests).toEqual([
+      { email: "partner@example.com", name: "Partner" },
+    ]);
+    expect(result.internalTeamMembers).toEqual([
+      { email: "colleague@example.org", name: "Colleague" },
+    ]);
+    expect(
+      getThreadsWithParticipant.mock.calls.map(
+        ([input]) => input.participantEmail,
+      ),
+    ).toEqual([
+      result.externalGuests[0].email,
+      result.internalTeamMembers[0].email,
+    ]);
+  });
+
   it("deduplicates shared threads and continues after a participant lookup fails", async () => {
     getThreadsWithParticipant.mockRejectedValueOnce(new Error("Unavailable"));
     getThreadsWithParticipant.mockImplementation(async () => [

@@ -33,6 +33,7 @@ const guestBriefingSchema = z.object({
   email: z.string().describe("The guest's email address"),
   bullets: z
     .array(z.string())
+    .max(3)
     .describe(
       "Up to three concise bullets: relevant role, relationship, or context not already covered in meeting priorities. Omit irrelevant biography.",
     ),
@@ -483,6 +484,7 @@ export function formatMeetingForContext(
   return `<meeting>
 Title: ${escapeHtml(meeting.title)}
 Date: ${dateStr}
+Attendees: ${meeting.attendees.map((attendee) => `${attendee.name ? `${escapeHtml(attendee.name)} ` : ""}(${escapeHtml(attendee.email.trim().toLowerCase())})`).join(", ")}
 ${meeting.description ? `Description: ${escapeHtml(meeting.description.slice(0, MAX_DESCRIPTION_LENGTH))}` : ""}
 </meeting>
 `;

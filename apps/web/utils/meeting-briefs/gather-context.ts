@@ -53,10 +53,18 @@ export async function gatherContextForEvent({
   provider: string;
   logger: Logger;
 }): Promise<MeetingBriefingData> {
+  const externalGuests = externalAttendees.map((attendee) => ({
+    email: attendee.email.trim().toLowerCase(),
+    name: attendee.name,
+  }));
+  const internalTeamMembers = internalAttendees.map((attendee) => ({
+    email: attendee.email.trim().toLowerCase(),
+    name: attendee.name,
+  }));
   const participantEmails = [
     ...new Set(
-      [...externalAttendees, ...internalAttendees].map((a) =>
-        a.email.trim().toLowerCase(),
+      [...externalGuests, ...internalTeamMembers].map(
+        (attendee) => attendee.email,
       ),
     ),
   ];
@@ -103,14 +111,8 @@ export async function gatherContextForEvent({
 
   return {
     event,
-    externalGuests: externalAttendees.map((a) => ({
-      email: a.email,
-      name: a.name,
-    })),
-    internalTeamMembers: internalAttendees.map((a) => ({
-      email: a.email,
-      name: a.name,
-    })),
+    externalGuests,
+    internalTeamMembers,
     emailThreads: cappedThreads,
     pastMeetings,
   };

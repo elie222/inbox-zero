@@ -34,7 +34,7 @@ vi.mock("@/utils/ai/helpers", () => ({
 }));
 vi.doUnmock("@/utils/date");
 
-import { buildPrompt } from "./generate-briefing";
+import { buildPrompt, formatMeetingForContext } from "./generate-briefing";
 import { getWebSearchConfigForProvider } from "@/utils/ai/web-search";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
@@ -186,6 +186,25 @@ describe("buildPrompt timezone handling", () => {
     expect(prompt).toContain("2026-01-02T12:00:00.000Z");
     expect(prompt).toContain("report.pdf");
     expect(prompt).toContain("colleague@company.com");
+  });
+
+  it("keeps attendee identities attached to each past meeting", () => {
+    const context = formatMeetingForContext(
+      {
+        id: "past",
+        title: "Weekly review",
+        startTime: new Date("2026-01-02T12:00:00Z"),
+        endTime: new Date("2026-01-02T13:00:00Z"),
+        attendees: [
+          { email: "partner@example.com", name: "Partner & Team" },
+          { email: "colleague@example.org" },
+        ],
+      },
+      null,
+    );
+    expect(context).toContain("partner@example.com");
+    expect(context).toContain("colleague@example.org");
+    expect(context).toContain("Partner &amp; Team");
   });
 
   it("requires one OpenRouter server web search", () => {
