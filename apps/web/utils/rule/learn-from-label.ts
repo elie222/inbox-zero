@@ -47,11 +47,26 @@ export async function learnSenderFromLabel({
   provider: EmailProvider;
   logger: Logger;
 }) {
+  const label = await provider.getLabelById(labelId).catch((error) => {
+    logger.warn("Could not read label", { labelId, error });
+    return null;
+  });
+  if (!label?.name) return;
+
+  // Labels the app manages itself (e.g. "Inbox Zero/Unsubscribed") mark
+  // state, not a folder the user files into. Never learn from one, whether
+  // or not a rule already carries it.
+  if (label.name.startsWith("Inbox Zero/")) {
+    logger.info("Skipping app-managed label", { labelId });
+    return;
+  }
+
   const targetRuleId =
     ruleId ??
     (await createRuleForLabel({
       emailAccountId,
       labelId,
+      labelName: label.name,
       messageId,
       provider,
       logger,
@@ -136,28 +151,19 @@ export async function keepSenderInInbox({
 async function createRuleForLabel({
   emailAccountId,
   labelId,
+  labelName,
   messageId,
   provider,
   logger,
 }: {
   emailAccountId: string;
   labelId: string;
+  labelName: string;
   messageId: string;
   provider: EmailProvider;
   logger: Logger;
 }): Promise<string | null> {
-  const label = await provider.getLabelById(labelId).catch((error) => {
-    logger.warn("Could not read label", { labelId, error });
-    return null;
-  });
-  if (!label?.name) return null;
-
-  // Labels the app manages itself (e.g. "Inbox Zero/Unsubscribed") mark
-  // state, not a folder the user files into. Never turn one into a rule.
-  if (label.name.startsWith("Inbox Zero/")) {
-    logger.info("Skipping app-managed label", { labelId });
-    return null;
-  }
+  const label = { name: labelName };
 
   // A rule may already label with this name but not know the ID yet (org rule
   // copies only carry the name until they first run). Adopt it instead of
