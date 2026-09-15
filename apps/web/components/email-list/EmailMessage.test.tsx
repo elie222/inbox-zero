@@ -56,9 +56,17 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     replyingToEmail,
   }: {
     onDiscard: () => void;
-    replyingToEmail?: { to?: string; threadId?: string };
+    replyingToEmail?: {
+      to?: string;
+      threadId?: string;
+      forwardedMessageId?: string;
+    };
   }) => (
-    <div data-testid="composer" data-thread-id={replyingToEmail?.threadId}>
+    <div
+      data-testid="composer"
+      data-thread-id={replyingToEmail?.threadId}
+      data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
+    >
       <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
       <button onClick={onDiscard} type="button">
         Discard draft
@@ -130,7 +138,10 @@ describe("EmailMessage forward", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Forward" }));
 
-    expect(screen.getByTestId("composer").dataset.threadId).toBe("thread-1");
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.threadId).toBe("thread-1");
+    // Outlook needs the source message to keep the forward in its conversation.
+    expect(composer.dataset.forwardedMessageId).toBe("message-1");
   });
 });
 

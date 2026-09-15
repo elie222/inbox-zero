@@ -16,7 +16,7 @@ import {
   withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
-import { SafeError } from "@/utils/error";
+import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type { Logger } from "@/utils/logger";
@@ -46,6 +46,15 @@ export async function sendEmailWithHtml(
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
     return sendReplyUsingCreateReply(client, body, logger);
+  }
+
+  if (body.replyToEmail?.forwardedMessageId) {
+    return sendForwardUsingCreateForward(
+      client,
+      body,
+      body.replyToEmail.forwardedMessageId,
+      logger,
+    );
   }
 
   const ccRecipients = buildGraphRecipients(body.cc);
@@ -481,6 +490,80 @@ async function sendReplyUsingCreateReply(
   return {
     id: replyDraft.id,
     conversationId: replyDraft.conversationId,
+  };
+}
+
+/**
+ * Graph treats `conversationId` as read-only, so a draft posted to
+ * `/me/messages` always opens a new conversation. Drafting from the forwarded
+ * message is the only way to keep a forward in the thread it came from, and it
+ * carries the original attachments across as well.
+ */
+async function sendForwardUsingCreateForward(
+  client: OutlookClient,
+  body: MailSendEmailBody,
+  forwardedMessageId: string,
+  logger: Logger,
+): Promise<SentEmailResult> {
+  const forwardDraft: Message = await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${forwardedMessageId}/createForward`)
+        .post({}),
+    logger,
+  ).catch((error: unknown) => {
+    if (isOutlookItemNotFoundError(error)) {
+      logger.warn("Forward source disappeared before sending", {
+        forwardedMessageId,
+      });
+      throw new SafeError(
+        "The message you are forwarding is no longer available. Reopen the thread before sending.",
+      );
+    }
+    throw error;
+  });
+
+  const toRecipients = buildGraphRecipients(body.to);
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${forwardDraft.id}`)
+        .patch({
+          subject: body.subject,
+          body: {
+            contentType: "html",
+            content: body.messageHtml,
+          },
+          ...(toRecipients ? { toRecipients } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+        }),
+    logger,
+  );
+
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: forwardDraft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
+
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
+    logger,
+  );
+
+  return {
+    id: forwardDraft.id,
+    conversationId: forwardDraft.conversationId,
   };
 }
 

@@ -12,7 +12,11 @@ export function getReplyToEmailPayload(
   replyingToEmail:
     | Pick<
         ReplyingToEmail,
-        "threadId" | "headerMessageId" | "references" | "messageId"
+        | "threadId"
+        | "headerMessageId"
+        | "references"
+        | "messageId"
+        | "forwardedMessageId"
       >
     | undefined,
 ): SendEmailBody["replyToEmail"] | undefined {
@@ -22,11 +26,13 @@ export function getReplyToEmailPayload(
   const headerMessageId = replyingToEmail?.headerMessageId?.trim();
   const references = replyingToEmail?.references;
   const messageId = replyingToEmail?.messageId;
+  const forwardedMessageId = replyingToEmail?.forwardedMessageId;
 
   return {
     threadId,
     ...(headerMessageId ? { headerMessageId } : {}),
     ...(references ? { references } : {}),
     ...(messageId ? { messageId } : {}),
+    ...(forwardedMessageId ? { forwardedMessageId } : {}),
   };
 }
