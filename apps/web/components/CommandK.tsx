@@ -11,9 +11,10 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
+import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import {
   CommandDialog,
   CommandEmpty,
@@ -29,6 +30,7 @@ import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
   senderCommandContextAtom,
+  shortcutsDialogOpenAtom,
 } from "@/store/command-palette";
 import type {
   MailCommandContext,
@@ -69,6 +71,9 @@ const SECTION_LABELS: Record<CommandSection, string> = {
   settings: "Settings",
 };
 
+/** Still shown in ⌘K when a conversation is selected and mail actions take over. */
+const ALWAYS_VISIBLE_SHORTCUT_COMMANDS = new Set(["compose", "help"]);
+
 // Mounted app-wide. It enables the mail scope everywhere so the side-panel email
 // viewer keeps its triage keys on any page. That doesn't collide with the mail
 // route's own bindings: these handlers are only defined when the side panel has a
@@ -78,6 +83,7 @@ export function CommandK() {
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
       <CommandPalette />
+      <ShortcutsDialog />
     </ShortcutsProvider>
   );
 }
@@ -116,6 +122,7 @@ function CommandPaletteContent({
   senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
+  const setShortcutsOpen = useSetAtom(shortcutsDialogOpenAtom);
   const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
     "root",
   );
@@ -167,6 +174,7 @@ function CommandPaletteContent({
       setOpen((wasOpen) => !wasOpen);
     },
     compose: onOpenComposeModal,
+    help: () => setShortcutsOpen(true),
     archive: threadId
       ? async () => {
           if (displayedThread?.thread.id !== threadId) {
@@ -298,7 +306,9 @@ function CommandPaletteContent({
     const actionCommands = mailCommandContext
       ? [
           ...mailCommands,
-          ...shortcutCommands.filter((command) => command.id === "compose"),
+          ...shortcutCommands.filter((command) =>
+            ALWAYS_VISIBLE_SHORTCUT_COMMANDS.has(command.id),
+          ),
         ]
       : shortcutCommands;
     const themeCommands: Command[] = [

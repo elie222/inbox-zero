@@ -1,6 +1,7 @@
 import {
   ArchiveIcon,
   ForwardIcon,
+  KeyboardIcon,
   PenLineIcon,
   StarIcon,
   type LucideIcon,
@@ -349,6 +350,11 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "View",
     label: "Keyboard shortcuts",
+    palette: {
+      section: "settings",
+      keywords: ["shortcuts", "keyboard", "hotkeys", "help"],
+      icon: KeyboardIcon,
+    },
   },
   {
     id: "compose",

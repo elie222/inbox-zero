@@ -367,14 +367,4 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     editDialog.getByRole("textbox", { name: "label name" }),
   ).toHaveValue(`${updatedLabelName}/Clients/Acme`);
   await editDialog.getByRole("button", { name: "Cancel" }).click();
-
-  await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
 });

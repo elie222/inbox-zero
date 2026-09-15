@@ -70,6 +70,9 @@ vi.mock("@/lib/shortcuts/registry", () => ({
 vi.mock("@/app/(app)/[emailAccountId]/mail/mail-command-palette", () => ({
   buildMailCommandPalette: () => [],
 }));
+vi.mock("@/app/(app)/[emailAccountId]/mail/ShortcutsDialog", () => ({
+  ShortcutsDialog: () => null,
+}));
 vi.mock("@/app/(app)/[emailAccountId]/mail/snooze-command-palette", () => ({
   buildSnoozeCommandPalette: () => [],
 }));
