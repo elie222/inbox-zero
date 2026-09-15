@@ -10,6 +10,8 @@ import {
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
 import { toast } from "sonner";
+import { SWRConfig } from "swr";
+import { swrFetcher } from "./swr-fetcher";
 import {
   getInboxZeroDesktopApp,
   shouldCheckForDesktopWebUpdate,
@@ -29,7 +31,9 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
       disable={process.env.NODE_ENV !== "production"}
     >
       <ManageServiceWorker />
-      <NuqsAdapter>{props.children}</NuqsAdapter>
+      <SWRConfig value={{ fetcher: swrFetcher }}>
+        <NuqsAdapter>{props.children}</NuqsAdapter>
+      </SWRConfig>
     </SerwistProvider>
   );
 }
