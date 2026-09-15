@@ -56,9 +56,9 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     replyingToEmail,
   }: {
     onDiscard: () => void;
-    replyingToEmail?: { to?: string };
+    replyingToEmail?: { to?: string; threadId?: string };
   }) => (
-    <div data-testid="composer">
+    <div data-testid="composer" data-thread-id={replyingToEmail?.threadId}>
       <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
       <button onClick={onDiscard} type="button">
         Discard draft
@@ -111,6 +111,26 @@ describe("EmailMessage draft recovery", () => {
       description: "Failed to discard draft",
     });
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EmailMessage forward", () => {
+  afterEach(cleanup);
+
+  it("composes the forward against the thread it came from", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+
+    expect(screen.getByTestId("composer").dataset.threadId).toBe("thread-1");
   });
 });
 

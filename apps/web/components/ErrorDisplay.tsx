@@ -15,7 +15,7 @@ import { env } from "@/env";
 
 // TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
-  error: { info?: { error: string | object }; error?: string | object };
+  error: { info?: { error?: string | object }; error?: string | object };
 }) {
   const errorMessage =
     safeErrorToString(props.error?.info?.error) ||
