@@ -360,6 +360,23 @@ export async function createStripeEmulator(
     }
 
     // Test control surface, so specs can drive Stripe-side events over HTTP.
+    if (
+      path === "/__emulator/checkout-sessions/latest" &&
+      request.method === "GET"
+    ) {
+      const session = [...sessions.values()].at(-1);
+      if (!session) {
+        return respondJson(response, 404, {
+          error: { message: "No checkout session has been created" },
+        });
+      }
+      return respondJson(response, 200, {
+        id: session.id,
+        status: session.status,
+        url: session.url,
+      });
+    }
+
     if (path === "/__emulator/reset" && request.method === "POST") {
       reset();
       return respondJson(response, 200, { ok: true });

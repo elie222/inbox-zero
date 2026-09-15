@@ -84,7 +84,16 @@ export async function endStripeTrial(
 /** Clicks a tier's call to action and pays on Stripe's hosted checkout page. */
 export async function payOnStripeCheckout(page: Page, tierName: string) {
   await page.locator(`button[aria-describedby="${tierName}"]`).click();
-  await expect(page).toHaveURL(/\/checkout\/cs_test/, { timeout: 60_000 });
+
+  // Production builds refuse to send the browser to a plain-http external
+  // origin, which is correct for real traffic because Stripe's checkout page is
+  // https, but it means the emulator's page cannot be reached by following the
+  // app's redirect. Requiring the session to exist keeps the regression this
+  // covers: the upgrade-page defect created no session and went to /login.
+  const checkoutUrl = await waitForCheckoutSessionUrl();
+  await expect(page).not.toHaveURL(/\/login/);
+
+  await page.goto(checkoutUrl);
   await page.getByRole("button", { name: "Pay and subscribe" }).click();
 }
 
@@ -117,6 +126,26 @@ export async function waitForTrialingSubscription() {
   const subscriptionId = state?.stripeSubscriptionId;
   if (!subscriptionId) throw new Error("The trial has no subscription id");
   return subscriptionId;
+}
+
+async function waitForCheckoutSessionUrl() {
+  let url: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(
+          emulatorUrl("/__emulator/checkout-sessions/latest"),
+        );
+        if (!response.ok) return null;
+        url = ((await response.json()) as { url?: string }).url;
+        return url ?? null;
+      },
+      { timeout: 60_000 },
+    )
+    .not.toBeNull();
+
+  if (!url) throw new Error("The app created no Stripe checkout session");
+  return url;
 }
 
 function emulatorUrl(path: string) {
