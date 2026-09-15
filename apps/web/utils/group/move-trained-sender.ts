@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
+import { setSenderStatus } from "@/utils/senders/unsubscribe";
 
 const DELETE_RULE_NAME = "Delete";
 
@@ -96,8 +97,9 @@ export async function forgetTrainedSender({
 }
 
 /**
- * Keeps a sender in the inbox: dropped from any rule it was trained into and
- * excluded from every enabled rule, so nothing files or archives it.
+ * Keeps a sender in the inbox: dropped from any rule it was trained into,
+ * excluded from every enabled rule, and no longer treated as unsubscribed
+ * (which would otherwise tag their mail), so nothing touches it.
  */
 export async function keepSenderInInbox({
   emailAccountId,
@@ -108,6 +110,8 @@ export async function keepSenderInInbox({
   sender: string;
   logger: Logger;
 }) {
+  await setSenderStatus({ emailAccountId, senderEmail: sender, status: null });
+
   await prisma.groupItem.deleteMany({
     where: {
       type: GroupItemType.FROM,

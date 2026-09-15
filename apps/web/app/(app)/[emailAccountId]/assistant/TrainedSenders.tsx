@@ -246,6 +246,9 @@ export function TrainedSenderRow({
   // in the inbox on purpose. Once it is trained into a rule, leftover
   // exclusions from earlier corrections are just noise.
   const keptInInbox = !current && sender.excludedFrom.length > 0;
+  // Unsubscribed with no training: mail is tagged and left in the inbox.
+  // Picking Inbox lifts that too.
+  const unsubscribedOnly = !current && !keptInInbox && sender.unsubscribed;
 
   const value = current
     ? current.deletes
@@ -292,7 +295,7 @@ export function TrainedSenderRow({
           <SelectContent>
             {value === NONE && (
               <SelectItem value={NONE} disabled>
-                Not trained
+                {unsubscribedOnly ? "Unsubscribed" : "Not trained"}
               </SelectItem>
             )}
             <SelectItem value={INBOX}>Inbox</SelectItem>
@@ -329,6 +332,13 @@ export function TrainedSenderRow({
             <Badge variant="outline">Kept in inbox</Badge>
           </Tooltip>
         ) : null}
+        {sender.unsubscribed && (
+          <Tooltip content="Unsubscribed. New mail from this sender is tagged and left in the inbox. Choose Inbox to lift this.">
+            <Badge variant="outline" className="ml-1">
+              Unsubscribed
+            </Badge>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell>
         <MutedText>{describeSource(sender)}</MutedText>

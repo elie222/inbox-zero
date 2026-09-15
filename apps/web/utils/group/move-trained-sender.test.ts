@@ -13,6 +13,7 @@ import {
 import prisma from "@/utils/prisma";
 import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
+import { setSenderStatus } from "@/utils/senders/unsubscribe";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
@@ -30,6 +31,10 @@ vi.mock("@/utils/prisma", () => ({
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   getOrCreateGroupForRule: vi.fn().mockResolvedValue("target-group"),
+}));
+
+vi.mock("@/utils/senders/unsubscribe", () => ({
+  setSenderStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/rule/rule", () => ({
@@ -134,6 +139,12 @@ describe("keepSenderInInbox", () => {
 
   it("drops the sender's training and excludes it from every enabled rule", async () => {
     await keepSenderInInbox(args);
+
+    expect(setSenderStatus).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      senderEmail: "sender@example.com",
+      status: null,
+    });
 
     expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
       where: {
