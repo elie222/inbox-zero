@@ -209,7 +209,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     for (const legacyId of legacyProviderAccountIds) {
       if (existingAccount) break;
       existingAccount = await findMicrosoftAccountByProviderAccountId(legacyId);
-      // Matched on an old key, so the row needs rewriting to the current one.
       shouldMigrateProviderAccountId = !!existingAccount;
     }
 

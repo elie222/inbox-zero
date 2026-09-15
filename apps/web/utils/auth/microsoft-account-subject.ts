@@ -11,9 +11,9 @@ const logger = createScopedLogger("auth/microsoft-account-subject");
  * so a lookup by `oid` misses them, falls through to matching on email, and
  * fails sign-in with `account_not_linked`.
  *
- * Re-key them to `oid` the next time the same Entra identity authenticates.
- * Both claims come from one id_token, so the row being rewritten is the same
- * identity that just signed in.
+ * Both claims must come from the same id_token: that is what makes the row
+ * being re-keyed the identity that just authenticated, rather than one matched
+ * on a profile field Entra lets a tenant set freely.
  */
 export async function reconcileMicrosoftAccountSubject({
   oid,

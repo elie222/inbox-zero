@@ -121,9 +121,8 @@ const microsoftSocialProvider =
         scope: [...OUTLOOK_SCOPES],
         tenantId: env.MICROSOFT_TENANT_ID,
         disableIdTokenSignIn: true,
-        // Runs on the decoded id_token before better-auth looks the account up,
-        // which is the only point where both the old and new account keys are
-        // known.
+        // The only hook that sees the decoded id_token before better-auth looks
+        // the account up, so the only place both account keys are known.
         mapProfileToUser: async (profile: MicrosoftProfile) => {
           await reconcileMicrosoftAccountSubject({
             oid: typeof profile.oid === "string" ? profile.oid : null,

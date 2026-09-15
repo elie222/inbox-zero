@@ -44,10 +44,8 @@ type MicrosoftOidcUserInfo = {
 };
 
 /**
- * `oid` is the Entra object id: stable for a user across applications, and the
- * claim better-auth keys Microsoft accounts on. `sub` is pairwise per
- * application and is what better-auth stored before v1.7, so accounts created
- * back then are still keyed on it.
+ * `oid` is the Entra object id, assigned per directory object and the claim
+ * better-auth keys Microsoft accounts on. `sub` is pairwise per application.
  */
 export type MicrosoftIdTokenClaims = {
   oid: string | null;
