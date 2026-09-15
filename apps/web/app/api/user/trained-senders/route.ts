@@ -17,6 +17,7 @@ export const GET = withEmailAccount("user/trained-senders", async (request) => {
     emailAccountIds: [request.auth.emailAccountId],
     page: parsePage(url),
     query: url.searchParams.get("q")?.trim() ?? "",
+    label: url.searchParams.get("label") ?? "",
   });
   return NextResponse.json(result);
 });

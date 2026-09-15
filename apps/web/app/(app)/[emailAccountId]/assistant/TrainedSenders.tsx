@@ -64,6 +64,7 @@ type RuleOption = { id: string; name: string };
 const INBOX = "__inbox__";
 const DELETE = "__delete__";
 const NONE = "__none__";
+const ALL_LABELS = "__all__";
 
 // `url` defaults to the current mailbox; the organization page passes the
 // cross-mailbox route, whose rows carry their own mailbox.
@@ -74,6 +75,10 @@ export function TrainedSenders({
 }) {
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [query, setQuery] = useQueryState("q", parseAsString.withDefault(""));
+  const [label, setLabel] = useQueryState(
+    "label",
+    parseAsString.withDefault(""),
+  );
   const [draft, setDraft] = useState(query);
 
   // Debounce typing into the URL so each keystroke doesn't refetch.
@@ -88,7 +93,7 @@ export function TrainedSenders({
 
   const sep = url.includes("?") ? "&" : "?";
   const { data, isLoading, error, mutate } = useSWR<Response>(
-    `${url}${sep}page=${page}&q=${encodeURIComponent(query)}`,
+    `${url}${sep}page=${page}&q=${encodeURIComponent(query)}&label=${encodeURIComponent(label)}`,
   );
 
   const emailById = useMemo(
@@ -108,6 +113,25 @@ export function TrainedSenders({
           className="max-w-sm"
           aria-label="Filter trained senders"
         />
+        <Select
+          value={label || ALL_LABELS}
+          onValueChange={(v) => {
+            setLabel(v === ALL_LABELS ? null : v);
+            setPage(null);
+          }}
+        >
+          <SelectTrigger className="w-56" aria-label="Filter by label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_LABELS}>All labels</SelectItem>
+            {data?.labels.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {data && (
           <MutedText>
             {data.total} sender{data.total === 1 ? "" : "s"} total ·{" "}

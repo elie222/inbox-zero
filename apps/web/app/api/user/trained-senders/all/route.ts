@@ -30,6 +30,7 @@ export const GET = withAuth("user/trained-senders/all", async (request) => {
     emailAccountIds: accounts.map((a) => a.id),
     page: parsePage(url),
     query: url.searchParams.get("q")?.trim() ?? "",
+    label: url.searchParams.get("label") ?? "",
   });
 
   return NextResponse.json({ ...result, accounts });

@@ -96,10 +96,12 @@ export async function getTrainedSendersAcrossAccounts({
   emailAccountIds,
   page,
   query,
+  label = "",
 }: {
   emailAccountIds: string[];
   page: number;
   query: string;
+  label?: string;
 }) {
   const items = emailAccountIds.length
     ? await prisma.groupItem.findMany({
@@ -143,13 +145,23 @@ export async function getTrainedSendersAcrossAccounts({
       createdAt: n.updatedAt,
     }));
 
-  const rows = [...trained, ...extra].sort(
+  const all = [...trained, ...extra].sort(
     (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
   );
+  // Labels the listed rules apply, for the filter dropdown.
+  const labels = [
+    ...new Set(
+      all.flatMap((r) => r.trainedInto.map((x) => x.label)).filter(Boolean),
+    ),
+  ].sort() as string[];
+  const rows = label
+    ? all.filter((r) => r.trainedInto.some((x) => x.label === label))
+    : all;
   const start = (page - 1) * PAGE_SIZE;
 
   return {
     senders: rows.slice(start, start + PAGE_SIZE),
+    labels,
     total: rows.length,
     unsubscribed: unsubscribedSenders.length,
     totalPages: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
