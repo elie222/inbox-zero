@@ -105,3 +105,21 @@ export type ResponseTimeResponse = {
   emailsAnalyzed: number;
   maxEmailsCap: number;
 };
+
+export type UnsubscribeSenderResponse = {
+  senderEmail: string;
+  status: "UNSUBSCRIBED" | null;
+  unsubscribe: {
+    attempted: boolean;
+    success: boolean;
+    method?: "post" | "get" | "form" | "browser";
+    statusCode?: number;
+    reason?:
+      | "no_unsubscribe_url"
+      | "unsafe_unsubscribe_url"
+      | "request_timeout"
+      | "request_failed"
+      | "needs_user"
+      | "request_rejected";
+  };
+};

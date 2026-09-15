@@ -7,13 +7,14 @@ export type UnsubscribeSenderResponse = Awaited<
   ReturnType<typeof unsubscribeSenderAndMark>
 >;
 
+export const maxDuration = 180;
+
 /**
- * REST equivalent of `unsubscribeSenderAction`. Attempts an RFC 8058 one-click
- * unsubscribe server-side so the caller doesn't have to open a browser, and
- * marks the sender `UNSUBSCRIBED` only if that succeeds.
- *
- * Check `unsubscribe.success` in the response: when it is false the sender was
- * left unchanged and the caller should fall back to opening `unsubscribeLink`.
+ * Tries RFC 8058 one-click POST, then a simple HTML form, then the isolated
+ * browser worker when configured. Otherwise uses the existing HTTP GET
+ * fallback. Check `unsubscribe.success` in the response: when it is false
+ * the sender was left unchanged and the caller should fall back to opening
+ * `unsubscribeLink`.
  */
 export const POST = withEmailAccount(
   "user/senders/unsubscribe",

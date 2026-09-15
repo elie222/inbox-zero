@@ -29,7 +29,6 @@ import {
   stripStandaloneOutlookStateTerms,
   stripOutlookComparisonFilters,
 } from "@/utils/outlook/message";
-import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { sleep } from "@/utils/sleep";
 import { archiveCategory } from "@/utils/categorize/senders/archive-category";
 import { getCategoryOverview } from "@/utils/categorize/senders/get-category-overview";
@@ -44,6 +43,7 @@ import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
+import { getSenderUnsubscribeSource } from "@/utils/senders/source";
 import {
   getCategorizationProgress,
   getCategorizationStatusSnapshot,
@@ -2064,40 +2064,6 @@ async function runSenderUnsubscribeActions({
       } as AutomaticUnsubscribeResult,
     };
   });
-}
-
-async function getSenderUnsubscribeSource({
-  senderEmail,
-  emailProvider,
-  logger,
-}: {
-  senderEmail: string;
-  emailProvider: EmailProvider;
-  logger: Logger;
-}) {
-  try {
-    const { messages } = await emailProvider.getMessagesFromSender({
-      senderEmail,
-      maxResults: 5,
-    });
-
-    for (const message of messages) {
-      const listUnsubscribeHeader = message.headers["list-unsubscribe"];
-      const unsubscribeLink = findUnsubscribeLink(message.textHtml);
-
-      if (listUnsubscribeHeader || unsubscribeLink) {
-        return {
-          listUnsubscribeHeader,
-          unsubscribeLink,
-        };
-      }
-    }
-  } catch (error) {
-    logger.warn("Failed to fetch sender messages for unsubscribe", { error });
-    logger.trace("Sender lookup failed", { senderEmail });
-  }
-
-  return {};
 }
 
 const MICROSOFT_SEARCH_FAILURE_MESSAGES = {

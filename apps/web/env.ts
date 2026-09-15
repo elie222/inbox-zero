@@ -363,6 +363,11 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
+    UNSUBSCRIBE_WORKER_URL: z
+      .url()
+      .refine((value) => new URL(value).protocol === "https:")
+      .optional(),
+    UNSUBSCRIBE_WORKER_SECRET: z.string().min(32).optional(),
   },
   client: {
     // stripe
@@ -574,6 +579,15 @@ const parsedEnv = createEnv({
 if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_SECRET_TOKEN) {
   throw new Error(
     "TELEGRAM_BOT_SECRET_TOKEN is required when TELEGRAM_BOT_TOKEN is set.",
+  );
+}
+
+if (
+  process.env.UNSUBSCRIBE_WORKER_URL &&
+  !process.env.UNSUBSCRIBE_WORKER_SECRET
+) {
+  throw new Error(
+    "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
   );
 }
 

@@ -3,7 +3,7 @@
   "info": {
     "title": "Inbox Zero API",
     "version": "1.0.0",
-    "description": "Programmatic access to Inbox Zero inbox stats and automation rules. Docs: https://docs.getinboxzero.com/api-reference/introduction Machine-readable schema: /openapi.json Authenticate with an account-scoped API key via the API-Key header. Errors return JSON with error.code, error.message, and error.hint."
+    "description": "Programmatic access to Inbox Zero inbox stats, automation rules, and sender unsubscribe. Docs: https://docs.getinboxzero.com/api-reference/introduction Machine-readable schema: /openapi.json Authenticate with an account-scoped API key via the API-Key header. Errors return JSON with error.code, error.message, and error.hint."
   },
   "servers": [
     {
@@ -22,11 +22,12 @@
         "type": "apiKey",
         "in": "header",
         "name": "API-Key",
-        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox.",
+        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox.\n- SENDERS_UNSUBSCRIBE: Unsubscribe from senders for this inbox.",
         "x-scopes": {
           "RULES_READ": "List and inspect automation rules for this inbox.",
           "RULES_WRITE": "Create, update, and delete automation rules for this inbox.",
-          "STATS_READ": "Read aggregated inbox statistics for this inbox."
+          "STATS_READ": "Read aggregated inbox statistics for this inbox.",
+          "SENDERS_UNSUBSCRIBE": "Unsubscribe from senders for this inbox."
         }
       }
     },
@@ -2186,6 +2187,180 @@
           },
           "404": {
             "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/senders/unsubscribe": {
+      "post": {
+        "operationId": "unsubscribeSender",
+        "description": "Unsubscribe from a sender for the scoped inbox. Looks up List-Unsubscribe from that sender's mail when a link is not provided. Check unsubscribe.success: when it is false the sender was left unchanged.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "SENDERS_UNSUBSCRIBE"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "SENDERS_UNSUBSCRIBE"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "senderEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "unsubscribeLink": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "listUnsubscribeHeader": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "senderEmail"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unsubscribe attempt completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "senderEmail": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "UNSUBSCRIBED",
+                        null
+                      ]
+                    },
+                    "unsubscribe": {
+                      "type": "object",
+                      "properties": {
+                        "attempted": {
+                          "type": "boolean"
+                        },
+                        "success": {
+                          "type": "boolean"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "get",
+                            "form",
+                            "browser"
+                          ]
+                        },
+                        "statusCode": {
+                          "type": "integer"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "no_unsubscribe_url",
+                            "unsafe_unsubscribe_url",
+                            "request_timeout",
+                            "request_failed",
+                            "needs_user",
+                            "request_rejected"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attempted",
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "senderEmail",
+                    "status",
+                    "unsubscribe"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
             "content": {
               "application/json": {
                 "schema": {
