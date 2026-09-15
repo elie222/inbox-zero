@@ -27,13 +27,11 @@ export function McpConsent({
   clientId,
   scopes,
   enabled,
-  restrictedSession,
 }: {
   clientName: string;
   clientId: string;
   scopes: string[];
   enabled: boolean;
-  restrictedSession: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -101,11 +99,6 @@ export function McpConsent({
             You can disconnect all MCP applications by turning off MCP in
             Settings → Developer.
           </p>
-          {restrictedSession && (
-            <p role="alert" className="text-sm text-destructive">
-              Sign in with your connected provider to authorize applications.
-            </p>
-          )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -114,15 +107,12 @@ export function McpConsent({
           <div className="flex gap-3">
             <Button
               variant="outline"
-              disabled={busy || restrictedSession}
+              disabled={busy}
               onClick={() => respond(false)}
             >
               Deny
             </Button>
-            <Button
-              disabled={busy || restrictedSession}
-              onClick={() => respond(true)}
-            >
+            <Button disabled={busy} onClick={() => respond(true)}>
               {enabled ? "Allow access" : "Enable MCP and allow"}
             </Button>
           </div>

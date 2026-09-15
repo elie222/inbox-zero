@@ -1,6 +1,14 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { auth, betterAuthConfig } from "@/utils/auth";
 import { getMcpServerAccess } from "@/utils/mcp/access";
 import { isMcpServerAvailable, MCP_SCOPES } from "@/utils/mcp/config";
@@ -28,6 +36,30 @@ export default async function McpConsentPage({
   const scopes = params.scope.split(" ").filter(Boolean);
   if (scopes.some((scope) => !MCP_SCOPES.some((allowed) => allowed === scope)))
     notFound();
+  // Email code sessions are rejected by every authorization endpoint, so this
+  // page cannot load the client or record a decision for them.
+  if (session.session.emailOtp === true)
+    return (
+      <main className="mx-auto flex min-h-screen max-w-lg items-center px-4 py-12">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Sign in with your provider</CardTitle>
+            <CardDescription>
+              Applications cannot be authorized from an email code sign-in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-sm">
+              Sign in with your connected provider, then start this connection
+              again.
+            </p>
+            <Link href="/settings" className="text-sm underline">
+              Back to settings
+            </Link>
+          </CardContent>
+        </Card>
+      </main>
+    );
   const requestHeaders = await headers();
   const [client, access] = await Promise.all([
     betterAuthConfig.api.getOAuthClientPublic({
@@ -42,7 +74,6 @@ export default async function McpConsentPage({
       clientId={params.client_id}
       scopes={scopes}
       enabled={access.enabled}
-      restrictedSession={session.session.emailOtp === true}
     />
   );
 }

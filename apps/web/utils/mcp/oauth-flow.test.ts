@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { betterAuth } from "better-auth";
+import { makeSignature } from "better-auth/crypto";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import prisma from "@/utils/__mocks__/prisma";
+import { emailOtpBeforeHook, emailOtpPlugin } from "@/utils/auth/email-otp";
 import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
 import { verifyMcpToken } from "@/utils/mcp/verify-token";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("next/server", () => ({ after: () => {} }));
+vi.mock("@inboxzero/transactional-email/src/delivery", () => ({
+  deliverTransactionalEmail: vi.fn(),
+}));
 vi.mock("@/env", () => ({
   env: {
     MCP_SERVER_ENABLED: true,
@@ -144,6 +150,48 @@ describe("MCP OAuth flow", () => {
     expect(await verifyMcpToken(tokens.access_token, jwks)).toBeNull();
   });
 
+  it("refuses to authorize or record consent for an email code session", async () => {
+    const flow = await createFlow();
+    const context = await flow.auth.$context;
+    const session = await context.internalAdapter.createSession(
+      flow.userId,
+      false,
+      { emailOtp: true },
+      true,
+    );
+    assert(session);
+    prisma.session.findFirst.mockResolvedValue({ id: session.id } as never);
+    const otpCookie = `better-auth.session_token=${encodeURIComponent(
+      `${session.token}.${await makeSignature(session.token, context.secret)}`,
+    )}`;
+
+    const authorize = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      otpCookie,
+    );
+    expect(authorize.status).toBe(403);
+
+    // Reuse a valid signed decision from a provider session so the rejection
+    // can only come from the session check.
+    const provider = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const consentLocation = provider.headers.get("location");
+    assert(consentLocation);
+    const signed = new URL(consentLocation, origin).searchParams.toString();
+
+    const accepted = await flow.request(
+      "/oauth2/consent",
+      { accept: true, oauth_query: signed },
+      otpCookie,
+    );
+    expect(accepted.status).toBe(403);
+    expect(flow.consents()).toHaveLength(0);
+  });
+
   it("returns access_denied without issuing a code when consent is denied", async () => {
     const flow = await createFlow();
     const response = await flow.request(
@@ -185,7 +233,14 @@ async function createFlow() {
     secret: "test-mcp-oauth-secret-at-least-32-characters",
     database: memoryAdapter(db),
     emailAndPassword: { enabled: true },
-    plugins: mcpOAuthPlugins(),
+    plugins: [emailOtpPlugin, ...mcpOAuthPlugins()],
+    session: {
+      additionalFields: {
+        emailOtp: { type: "boolean", defaultValue: false, input: false },
+        emailOtpVersion: { type: "number", defaultValue: 0, input: false },
+      },
+    },
+    hooks: { before: emailOtpBeforeHook },
   });
   const request = (
     path: string,
@@ -217,6 +272,7 @@ async function createFlow() {
     password: "secure-test-password-123",
   });
   expect(signup.status).toBe(200);
+  const userId = (await signup.json()).user.id as string;
   const cookie = signup.headers
     .getSetCookie()
     .map((value) => value.split(";")[0])
@@ -255,6 +311,8 @@ async function createFlow() {
     auth,
     request,
     cookie,
+    userId,
+    consents: () => db.oauthConsent,
     query,
     verifier,
     token,
