@@ -103,22 +103,8 @@ const actions = z
   .array(organizationRuleActionSchema)
   .min(1, "You must have at least one action");
 
-function hasAtLeastOneCondition(data: {
-  instructions?: string | null;
-  from?: string | null;
-  to?: string | null;
-  subject?: string | null;
-  body?: string | null;
-}) {
-  return [data.instructions, data.from, data.to, data.subject, data.body].some(
-    (value) => Boolean(value?.trim()),
-  );
-}
-
-const conditionRefinement = {
-  message: "You must have at least one condition",
-  path: ["instructions"],
-};
+// A rule with no conditions is allowed: it then fires only for trained
+// senders (learned patterns), which is how a "manual only" folder works.
 
 export const createOrganizationRuleBody = z
   .object({
@@ -128,7 +114,6 @@ export const createOrganizationRuleBody = z
     actions,
     ...conditionFields,
   })
-  .refine(hasAtLeastOneCondition, conditionRefinement)
   .superRefine((data, ctx) => {
     data.actions.forEach((action, index) => {
       if (action.id && !isOrganizationRuleActionTypeAvailable(action.type)) {
@@ -144,15 +129,13 @@ export type CreateOrganizationRuleBody = z.infer<
   typeof createOrganizationRuleBody
 >;
 
-export const updateOrganizationRuleBody = z
-  .object({
-    organizationId: z.string(),
-    organizationRuleId: z.string(),
-    name: z.string().trim().min(1, "Please enter a name"),
-    actions,
-    ...conditionFields,
-  })
-  .refine(hasAtLeastOneCondition, conditionRefinement);
+export const updateOrganizationRuleBody = z.object({
+  organizationId: z.string(),
+  organizationRuleId: z.string(),
+  name: z.string().trim().min(1, "Please enter a name"),
+  actions,
+  ...conditionFields,
+});
 export type UpdateOrganizationRuleBody = z.infer<
   typeof updateOrganizationRuleBody
 >;

@@ -11,6 +11,10 @@ import {
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
+import {
+  isLearnFromLabelsEnabled,
+  keepSenderInInbox,
+} from "@/utils/rule/learn-from-label";
 
 const logger = createTestLogger();
 
@@ -84,6 +88,11 @@ vi.mock("@/utils/rule/consts", async (importOriginal) => {
   };
 });
 
+vi.mock("@/utils/rule/learn-from-label", () => ({
+  isLearnFromLabelsEnabled: vi.fn().mockResolvedValue(false),
+  keepSenderInInbox: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("process-label-removed-event", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,6 +132,101 @@ describe("process-label-removed-event", () => {
     emailAccount: mockEmailAccount,
     provider: mockProvider,
   };
+
+  describe("learn from labels undo", () => {
+    const removeLabel = (currentLabels = ["INBOX"]) =>
+      handleLabelRemovedEvent(
+        {
+          message: {
+            id: "123",
+            threadId: "thread-123",
+            labelIds: currentLabels,
+          },
+          labelIds: ["label-2"],
+        } as gmail_v1.Schema$HistoryLabelRemoved,
+        defaultOptions,
+        logger,
+      );
+
+    beforeEach(() => {
+      vi.mocked(isLearnFromLabelsEnabled).mockResolvedValue(true);
+    });
+
+    it("unlearns the sender for a custom rule when the label is removed", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel();
+
+      expect(keepSenderInInbox).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "email-account-id",
+          sender: "sender@example.com",
+          messageId: "123",
+          threadId: "thread-123",
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      );
+    });
+
+    it("leaves learnable system rules to the existing removal learning", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-cold",
+        systemType: SystemType.COLD_EMAIL,
+      });
+
+      await removeLabel();
+
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-cold", exclude: true }),
+      );
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when the setting is off", async () => {
+      vi.mocked(isLearnFromLabelsEnabled).mockResolvedValue(false);
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel();
+
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when no rule uses the label", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue(null);
+
+      await removeLabel();
+
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
+    });
+
+    it("does not unlearn when the label came off because the mail was trashed", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel(["TRASH"]);
+
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
+    });
+
+    it("does not unlearn when the mail stayed archived", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel([]);
+
+      expect(keepSenderInInbox).not.toHaveBeenCalled();
+    });
+  });
 
   describe("handleLabelRemovedEvent", () => {
     it("should process Cold Email label removal and call saveLearnedPattern with exclude: true", async () => {

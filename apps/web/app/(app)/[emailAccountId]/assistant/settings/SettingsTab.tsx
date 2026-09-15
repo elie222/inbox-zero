@@ -8,6 +8,7 @@ import { FollowUpRemindersSetting } from "@/app/(app)/[emailAccountId]/assistant
 import { HiddenAiDraftLinksSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting";
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
+import { LearnFromLabelsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnFromLabelsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 import { SentWithSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
@@ -54,6 +55,7 @@ export function SettingsTab() {
         <SectionHeader>Advanced</SectionHeader>
         <SyncToExtensionSetting />
         <MultiRuleSetting />
+        <LearnFromLabelsSetting />
         <ReferralSignatureSetting />
         <HiddenAiDraftLinksSetting />
         {!env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED && (

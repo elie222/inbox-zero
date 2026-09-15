@@ -58,6 +58,20 @@ export async function saveLearnedPattern({
     messageId,
     source,
   });
+
+  // A sender belongs to one rule: the latest training wins and drops the
+  // sender from any other rule it was trained into. Exclusions are untouched.
+  if (exclude !== true) {
+    await prisma.groupItem.deleteMany({
+      where: {
+        type: GroupItemType.FROM,
+        value: from,
+        exclude: false,
+        groupId: { not: groupId },
+        group: { emailAccountId },
+      },
+    });
+  }
 }
 
 /**
@@ -140,7 +154,7 @@ export async function saveLearnedPatterns({
   return { success: true };
 }
 
-async function getOrCreateGroupForRule({
+export async function getOrCreateGroupForRule({
   emailAccountId,
   ruleId,
   ruleName,

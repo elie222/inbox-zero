@@ -338,6 +338,11 @@ export type EnableMultiRuleSelectionBody = z.infer<
   typeof enableMultiRuleSelectionBody
 >;
 
+export const enableLearnFromLabelsBody = z.object({ enable: z.boolean() });
+export type EnableLearnFromLabelsBody = z.infer<
+  typeof enableLearnFromLabelsBody
+>;
+
 export const updateDraftReplyConfidenceBody = z.object({
   confidence: z.nativeEnum(DraftReplyConfidence),
 });
