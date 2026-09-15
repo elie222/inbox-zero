@@ -6,7 +6,8 @@ export async function getStripeTrialConversion(event: Stripe.Event) {
   // Unlike invoice.paid, this event is not emitted for out-of-band payments.
   if (event.type !== "invoice.payment_succeeded") return null;
 
-  const invoice = event.data.object as Stripe.Invoice;
+  const stripe = getStripe();
+  const invoice = await stripe.invoices.retrieve(event.data.object.id);
   const paidAt = invoice.status_transitions?.paid_at;
   const subscriptionReference =
     invoice.parent?.subscription_details?.subscription;
@@ -21,7 +22,6 @@ export async function getStripeTrialConversion(event: Stripe.Event) {
   )
     return null;
 
-  const stripe = getStripe();
   const subscription = await stripe.subscriptions.retrieve(
     typeof subscriptionReference === "string"
       ? subscriptionReference

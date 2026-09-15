@@ -4,11 +4,15 @@ import { getStripeTrialConversion } from "./trial-conversion";
 
 vi.mock("@/utils/prisma");
 
-const mocks = vi.hoisted(() => ({ retrieve: vi.fn(), list: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  retrieve: vi.fn(),
+  retrieveInvoice: vi.fn(),
+  list: vi.fn(),
+}));
 vi.mock("@/ee/billing/stripe", () => ({
   getStripe: () => ({
     subscriptions: { retrieve: mocks.retrieve },
-    invoices: { list: mocks.list },
+    invoices: { retrieve: mocks.retrieveInvoice, list: mocks.list },
   }),
 }));
 
@@ -18,13 +22,40 @@ describe("getStripeTrialConversion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.retrieve.mockResolvedValue({ id: "sub_test", trial_end: trialEnd });
+    mocks.retrieveInvoice.mockResolvedValue(paymentEvent().data.object);
     mocks.list.mockReturnValue([]);
+  });
+
+  it("uses the fetched invoice when the webhook payload is stale", async () => {
+    const invoice = paymentEvent({ amount_paid: 1500 }).data.object;
+    mocks.retrieveInvoice.mockResolvedValue(invoice);
+    expect(
+      await getStripeTrialConversion(paymentEvent({ amount_paid: 0 })),
+    ).toMatchObject({ invoice });
+    expect(mocks.retrieveInvoice).toHaveBeenCalledWith("in_test");
+  });
+
+  it("does not count a payment when the fetched invoice is unpaid", async () => {
+    mocks.retrieveInvoice.mockResolvedValue(
+      paymentEvent({ status: "open", amount_paid: 0 }).data.object,
+    );
+    expect(await getStripeTrialConversion(paymentEvent())).toBeNull();
+  });
+
+  it("propagates invoice retrieval failures so delivery can retry", async () => {
+    mocks.retrieveInvoice.mockRejectedValueOnce(
+      new Error("Stripe unavailable"),
+    );
+    await expect(getStripeTrialConversion(paymentEvent())).rejects.toThrow(
+      "Stripe unavailable",
+    );
   });
 
   it("uses the successful payment time after a failed first attempt", async () => {
     const event = paymentEvent({
       status_transitions: { paid_at: trialEnd + 86_400 },
     });
+    mocks.retrieveInvoice.mockResolvedValue(event.data.object);
     expect(await getStripeTrialConversion(event)).toEqual({
       subscription: { id: "sub_test", trial_end: trialEnd },
       invoice: event.data.object,
@@ -38,20 +69,20 @@ describe("getStripeTrialConversion", () => {
       created: trialEnd + 2,
       status_transitions: { paid_at: trialEnd + 1 },
     });
+    mocks.retrieveInvoice.mockResolvedValue(event.data.object);
     expect(await getStripeTrialConversion(event)).toMatchObject({
       convertedAt: new Date((trialEnd + 1) * 1000),
     });
   });
 
   it("ignores a paid subscription update raised before the trial ends", async () => {
-    expect(
-      await getStripeTrialConversion(
-        paymentEvent({
-          billing_reason: "subscription_update",
-          created: trialEnd - 1,
-        }),
-      ),
-    ).toBeNull();
+    mocks.retrieveInvoice.mockResolvedValue(
+      paymentEvent({
+        billing_reason: "subscription_update",
+        created: trialEnd - 1,
+      }).data.object,
+    );
+    expect(await getStripeTrialConversion(paymentEvent())).toBeNull();
   });
 
   it.each([
@@ -63,6 +94,7 @@ describe("getStripeTrialConversion", () => {
     event.type = type;
     expect(await getStripeTrialConversion(event)).toBeNull();
     expect(mocks.retrieve).not.toHaveBeenCalled();
+    expect(mocks.retrieveInvoice).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -72,7 +104,10 @@ describe("getStripeTrialConversion", () => {
     { parent: null },
     { status_transitions: { paid_at: null } },
   ])("ignores invoices that do not establish paid conversion: %j", async (overrides) => {
-    expect(await getStripeTrialConversion(paymentEvent(overrides))).toBeNull();
+    mocks.retrieveInvoice.mockResolvedValue(
+      paymentEvent(overrides).data.object,
+    );
+    expect(await getStripeTrialConversion(paymentEvent())).toBeNull();
   });
 
   it("does not convert a subscription without a trial", async () => {
@@ -81,9 +116,10 @@ describe("getStripeTrialConversion", () => {
   });
 
   it("ignores charges raised during the trial", async () => {
-    expect(
-      await getStripeTrialConversion(paymentEvent({ created: trialEnd - 1 })),
-    ).toBeNull();
+    mocks.retrieveInvoice.mockResolvedValue(
+      paymentEvent({ created: trialEnd - 1 }).data.object,
+    );
+    expect(await getStripeTrialConversion(paymentEvent())).toBeNull();
   });
 
   it("does not report a renewal as conversion when earlier paid history exists", async () => {
