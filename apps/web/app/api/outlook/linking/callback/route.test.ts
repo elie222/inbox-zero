@@ -110,9 +110,20 @@ vi.mock("@/utils/outlook/scopes", () => ({
 import { generateSignedOAuthState } from "@/utils/oauth/state";
 import { GET } from "./route";
 
+function createIdToken(claims: Record<string, string>) {
+  const encode = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "RS256" })}.${encode(claims)}.signature`;
+}
+
 describe("outlook linking callback route", () => {
   const createSignedState = (userId = "user-123") =>
     generateSignedOAuthState({ userId });
+
+  const findUniqueAccountKeys = () =>
+    prisma.account.findUnique.mock.calls.map(
+      ([args]) => args.where.provider_providerAccountId?.providerAccountId,
+    );
 
   const createRequest = (url: string, state = createSignedState()) =>
     new NextRequest(url, {
@@ -159,6 +170,10 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
             scope: "Mail.ReadWrite MailboxSettings.ReadWrite",
           }),
         })
@@ -206,6 +221,10 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
             scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
             token_type: "Bearer",
             expires_in: 3600,
@@ -240,7 +259,7 @@ describe("outlook linking callback route", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           provider: "microsoft",
-          providerAccountId: "better-auth-subject",
+          providerAccountId: "entra-object-id",
         }),
       }),
     );
@@ -317,6 +336,10 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
           }),
         })
         .mockResolvedValueOnce({
@@ -346,7 +369,7 @@ describe("outlook linking callback route", () => {
     });
   });
 
-  it("falls back to a legacy Graph ID account and migrates it to the OIDC subject", async () => {
+  it("re-keys an account still stored under the legacy OIDC subject", async () => {
     prisma.account.findUnique
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
@@ -369,6 +392,111 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "graph-user-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
+        }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).toContain(
+      "success=tokens_updated",
+    );
+    expect(findUniqueAccountKeys()).toEqual([
+      "entra-object-id",
+      "better-auth-subject",
+    ]);
+    expect(prisma.account.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "account-123" },
+        data: expect.objectContaining({
+          providerAccountId: "entra-object-id",
+        }),
+      }),
+    );
+  });
+
+  it("fails the callback when Microsoft returns no object id", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            id_token: createIdToken({ sub: "better-auth-subject" }),
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "graph-user-id",
+            userPrincipalName: "user@example.com",
+          }),
+        }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).not.toContain("success=");
+    expect(prisma.account.create).not.toHaveBeenCalled();
+    expect(prisma.account.update).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a legacy Graph ID account and migrates it to the object id", async () => {
+    prisma.account.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "account-123",
+        userId: "user-123",
+        refresh_token: "stored-refresh-token",
+        user: { name: "Test User", email: "user@example.com" },
+        emailAccount: { id: "email-account-123" },
+      } as Awaited<ReturnType<typeof prisma.account.findUnique>>);
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "update_tokens",
+      existingAccountId: "account-123",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
             scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
             token_type: "Bearer",
             expires_in: 3600,
@@ -396,33 +524,16 @@ describe("outlook linking callback route", () => {
     expect(response.headers.get("location")).toContain(
       "success=tokens_updated",
     );
-    expect(prisma.account.findUnique).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: {
-          provider_providerAccountId: {
-            provider: "microsoft",
-            providerAccountId: "better-auth-subject",
-          },
-        },
-      }),
-    );
-    expect(prisma.account.findUnique).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: {
-          provider_providerAccountId: {
-            provider: "microsoft",
-            providerAccountId: "legacy-provider-account-id",
-          },
-        },
-      }),
-    );
+    expect(findUniqueAccountKeys()).toEqual([
+      "entra-object-id",
+      "better-auth-subject",
+      "legacy-provider-account-id",
+    ]);
     expect(prisma.account.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "account-123" },
         data: expect.objectContaining({
-          providerAccountId: "better-auth-subject",
+          providerAccountId: "entra-object-id",
           access_token: "access-token",
           refresh_token: "refresh-token",
         }),
@@ -471,6 +582,10 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
             scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
             token_type: "Bearer",
             expires_in: 3600,
@@ -556,6 +671,10 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             access_token: "access-token",
             refresh_token: "refresh-token",
+            id_token: createIdToken({
+              oid: "entra-object-id",
+              sub: "better-auth-subject",
+            }),
             scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
             token_type: "Bearer",
             expires_in: 3600,

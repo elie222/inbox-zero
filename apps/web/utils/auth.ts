@@ -49,6 +49,7 @@ import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
+import { reconcileMicrosoftAccountSubject } from "@/utils/auth/microsoft-account-subject";
 import { getScimOptions, assertScimUserActive } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 import {
@@ -86,6 +87,11 @@ type AppleProfile = {
   sub: string;
 };
 
+type MicrosoftProfile = {
+  oid?: unknown;
+  sub?: unknown;
+};
+
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
@@ -115,6 +121,15 @@ const microsoftSocialProvider =
         scope: [...OUTLOOK_SCOPES],
         tenantId: env.MICROSOFT_TENANT_ID,
         disableIdTokenSignIn: true,
+        // The only hook that sees the decoded id_token before better-auth looks
+        // the account up, so the only place both account keys are known.
+        mapProfileToUser: async (profile: MicrosoftProfile) => {
+          await reconcileMicrosoftAccountSubject({
+            oid: typeof profile.oid === "string" ? profile.oid : null,
+            sub: typeof profile.sub === "string" ? profile.sub : null,
+          });
+          return {};
+        },
         ...(env.OAUTH_PROXY_URL && {
           redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
         }),

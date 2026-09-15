@@ -1,3 +1,7 @@
+// Re-keys Microsoft accounts from the legacy pairwise OIDC subject to the Entra
+// object id that sign-in now looks accounts up by. Sign-in re-keys an account
+// on its own next attempt; this sweeps the accounts that do not sign in again.
+//
 // Run with: `pnpm --filter inbox-zero-ai exec tsx scripts/migrate-microsoft-provider-account-ids.ts`
 // Apply changes with: `pnpm --filter inbox-zero-ai exec tsx scripts/migrate-microsoft-provider-account-ids.ts --apply`
 
@@ -5,7 +9,7 @@ import "dotenv/config";
 import { env } from "@/env";
 import { decryptToken } from "@/utils/encryption";
 import {
-  fetchMicrosoftOidcUserInfo,
+  decodeMicrosoftIdTokenClaims,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
@@ -16,6 +20,7 @@ const UUID_REGEX =
 
 type MicrosoftTokenResponse = {
   access_token?: string;
+  id_token?: string;
   error_description?: string;
 };
 
@@ -36,8 +41,9 @@ async function main() {
     orderBy: { createdAt: "asc" },
   });
 
+  // Object ids are UUIDs; anything else is still keyed on the OIDC subject.
   const candidates = microsoftAccounts
-    .filter((account) => UUID_REGEX.test(account.providerAccountId))
+    .filter((account) => !UUID_REGEX.test(account.providerAccountId))
     .slice(0, options.limit);
 
   const stats = {
@@ -58,9 +64,9 @@ async function main() {
       continue;
     }
 
-    const subject = await getMicrosoftSubject(refreshToken).catch((error) => {
+    const subject = await getMicrosoftObjectId(refreshToken).catch((error) => {
       stats.skippedTokenError += 1;
-      console.warn("Failed to resolve Microsoft subject for account", {
+      console.warn("Failed to resolve Microsoft object id for account", {
         accountId: account.id,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -140,7 +146,7 @@ function parseOptions(args: string[]) {
   return { apply, limit };
 }
 
-async function getMicrosoftSubject(refreshToken: string) {
+async function getMicrosoftObjectId(refreshToken: string) {
   const tokenResponse = await requestMicrosoftToken({
     client_id: env.MICROSOFT_CLIENT_ID!,
     client_secret: env.MICROSOFT_CLIENT_SECRET!,
@@ -155,8 +161,10 @@ async function getMicrosoftSubject(refreshToken: string) {
     throw new Error(tokens.error_description || "Failed to refresh token");
   }
 
-  const oidcUserInfo = await fetchMicrosoftOidcUserInfo(tokens.access_token);
-  return oidcUserInfo.sub;
+  const { oid } = decodeMicrosoftIdTokenClaims(tokens.id_token);
+  if (!oid) throw new Error("Refreshed id_token has no oid claim");
+
+  return oid;
 }
 
 function getRefreshToken(value: string | null) {
