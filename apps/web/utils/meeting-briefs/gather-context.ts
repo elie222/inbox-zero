@@ -1,3 +1,5 @@
+import { mapWithConcurrency } from "@/utils/async";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { subMonths } from "date-fns/subMonths";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
@@ -9,6 +11,7 @@ import type {
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 
+const PARTICIPANT_CONCURRENCY = 3;
 const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
 const MAX_MEETINGS = 10;
@@ -50,7 +53,13 @@ export async function gatherContextForEvent({
   provider: string;
   logger: Logger;
 }): Promise<MeetingBriefingData> {
-  const participantEmails = externalAttendees.map((a) => a.email);
+  const participantEmails = [
+    ...new Set(
+      [...externalAttendees, ...internalAttendees].map((a) =>
+        a.email.trim().toLowerCase(),
+      ),
+    ),
+  ];
 
   logger.info("Gathering context for meeting attendees", {
     guestCount: externalAttendees.length,
@@ -82,7 +91,9 @@ export async function gatherContextForEvent({
   // Limit messages per thread to avoid overwhelming the AI
   const cappedThreads = emailThreads.map((thread) => ({
     ...thread,
-    messages: thread.messages.slice(-MAX_MESSAGES_PER_THREAD),
+    messages: [...thread.messages]
+      .sort((a, b) => getMessageTimestamp(a) - getMessageTimestamp(b))
+      .slice(-MAX_MESSAGES_PER_THREAD),
   }));
 
   logger.info("Gathered context for meeting", {
@@ -122,35 +133,23 @@ async function fetchEmailThreadsWithParticipants({
     return [];
   }
 
-  const fetchedThreadIds = new Set<string>();
-  const allThreads: EmailThread[] = [];
-
-  for (const email of participantEmails) {
-    if (allThreads.length >= maxThreads) break;
-
-    try {
-      const threads = await emailProvider.getThreadsWithParticipant({
-        participantEmail: email,
-        maxThreads: threadsPerParticipant,
-      });
-
-      // Add only new threads (dedupe by thread ID)
-      for (const thread of threads) {
-        if (allThreads.length >= maxThreads) break;
-        if (!fetchedThreadIds.has(thread.id)) {
-          fetchedThreadIds.add(thread.id);
-          allThreads.push(thread);
-        }
+  const threadsByParticipant = await mapWithConcurrency(
+    participantEmails,
+    PARTICIPANT_CONCURRENCY,
+    async (email) => {
+      try {
+        return await emailProvider.getThreadsWithParticipant({
+          participantEmail: email,
+          maxThreads: threadsPerParticipant,
+        });
+      } catch (error) {
+        logger.error("Failed to fetch threads for participant", { error });
+        return [];
       }
-    } catch (error) {
-      logger.error("Failed to fetch threads for participant", {
-        participantEmail: email,
-        error,
-      });
-    }
-  }
+    },
+  );
 
-  return allThreads;
+  return selectParticipantContext(threadsByParticipant, maxThreads);
 }
 
 async function fetchPastMeetingsWithParticipants({
@@ -170,42 +169,50 @@ async function fetchPastMeetingsWithParticipants({
 
   const sixMonthsAgo = subMonths(new Date(), 6);
 
-  const fetchedEventIds = new Set<string>();
-  const allMeetings: CalendarEvent[] = [];
-
-  for (const email of participantEmails) {
-    if (allMeetings.length >= maxMeetings) break;
-
-    for (const provider of calendarProviders) {
-      if (allMeetings.length >= maxMeetings) break;
-
-      try {
-        const events = await provider.fetchEventsWithAttendee({
-          attendeeEmail: email,
-          timeMin: sixMonthsAgo,
-          timeMax: new Date(),
-          maxResults: MEETINGS_PER_PARTICIPANT,
-        });
-
-        // Add only new events (dedupe by event ID)
-        for (const event of events) {
-          if (allMeetings.length >= maxMeetings) break;
-          if (!fetchedEventIds.has(event.id)) {
-            fetchedEventIds.add(event.id);
-            allMeetings.push(event);
+  const meetingsByParticipant = await mapWithConcurrency(
+    participantEmails,
+    PARTICIPANT_CONCURRENCY,
+    async (email) => {
+      const meetings = new Map<string, CalendarEvent>();
+      for (const provider of calendarProviders) {
+        try {
+          const events = await provider.fetchEventsWithAttendee({
+            attendeeEmail: email,
+            timeMin: sixMonthsAgo,
+            timeMax: new Date(),
+            maxResults: MEETINGS_PER_PARTICIPANT,
+          });
+          for (const event of events) {
+            if (!meetings.has(event.id)) meetings.set(event.id, event);
           }
+        } catch (error) {
+          logger.error("Failed to fetch events for participant", { error });
         }
-      } catch (error) {
-        logger.error("Failed to fetch events for participant", {
-          participantEmail: email,
-          error,
-        });
       }
-    }
-  }
+      return [...meetings.values()].sort(
+        (a, b) => b.startTime.getTime() - a.startTime.getTime(),
+      );
+    },
+  );
 
-  // Sort by start time descending (most recent first)
-  return allMeetings.sort(
+  return selectParticipantContext(meetingsByParticipant, maxMeetings).sort(
     (a, b) => b.startTime.getTime() - a.startTime.getTime(),
   );
+}
+
+// Take one result per participant at a time so early attendees cannot exhaust the budget.
+function selectParticipantContext<T extends { id: string }>(
+  groups: T[][],
+  limit: number,
+): T[] {
+  const selected = new Map<string, T>();
+  const depth = Math.max(0, ...groups.map((group) => group.length));
+  for (let index = 0; index < depth; index++) {
+    for (const group of groups) {
+      const item = group[index];
+      if (item && !selected.has(item.id)) selected.set(item.id, item);
+      if (selected.size >= limit) return [...selected.values()];
+    }
+  }
+  return [...selected.values()];
 }

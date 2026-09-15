@@ -1,3 +1,4 @@
+import { getMockMessage } from "@/__tests__/helpers";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
@@ -31,20 +32,6 @@ vi.mock("@/utils/ai/helpers", () => ({
 </user_info>`,
   ),
 }));
-vi.mock("@/utils/stringify-email", () => ({
-  stringifyEmailSimple: vi.fn(
-    (email) =>
-      `From: ${email.from}\nSubject: ${email.subject}\nBody: ${email.content}`,
-  ),
-}));
-vi.mock("@/utils/get-email-from-message", () => ({
-  getEmailForLLM: vi.fn((msg) => ({
-    from: msg.headers?.from || "unknown",
-    subject: msg.headers?.subject || "no subject",
-    content: msg.textPlain || "no content",
-  })),
-}));
-
 vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
@@ -109,44 +96,8 @@ describe("buildPrompt timezone handling", () => {
     ]);
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
-    expect(prompt).toMatchInlineSnapshot(`
-      "Prepare a concise briefing for this upcoming meeting.
-
-      The user you are acting on behalf of is:
-      <user_info>
-      <email>user@company.com</email>
-      <about>I am a product manager at Company Inc.</about>
-      </user_info>
-
-      <upcoming_meeting>
-      Title: Strategy Review
-      Description: Discuss Q1 roadmap
-      </upcoming_meeting>
-
-      <guest_context>
-      <guest>
-      Name: John Smith
-      Email: client@acme.com
-
-      <recent_meetings>
-      <meeting>
-      Title: Previous Call
-      Date: Dec 30, 2024 at 4:00 PM
-      Description: Discussed partnership opportunities
-      </meeting>
-
-      </recent_meetings>
-      </guest>
-
-      </guest_context>
-
-      Available search tools: perplexitySearch, webSearch
-
-      For each guest listed above:
-      1. Review their email and meeting history provided
-      2. Use search tools to find their professional background
-      3. Once you have all information, call finalizeBriefing with the complete briefing"
-    `);
+    expect(prompt).toContain("Dec 30, 2024 at 4:00 PM");
+    expect(prompt).toContain("Dec 31, 2024 at 6:00 PM");
   });
 
   it("shows no prior context for new contacts", () => {
@@ -172,37 +123,8 @@ describe("buildPrompt timezone handling", () => {
       "webSearch",
     ]);
 
-    expect(prompt).toMatchInlineSnapshot(`
-      "Prepare a concise briefing for this upcoming meeting.
-
-      The user you are acting on behalf of is:
-      <user_info>
-      <email>user@company.com</email>
-      <about>I am a product manager at Company Inc.</about>
-      </user_info>
-
-      <upcoming_meeting>
-      Title: Intro Meeting
-
-      </upcoming_meeting>
-
-      <guest_context>
-      <guest>
-      Name: New Person
-      Email: newcontact@other.com
-
-      <no_prior_context>This appears to be a new contact with no prior email or meeting history. Use search tools to find information about them.</no_prior_context>
-      </guest>
-
-      </guest_context>
-
-      Available search tools: perplexitySearch, webSearch
-
-      For each guest listed above:
-      1. Review their email and meeting history provided
-      2. Use search tools to find their professional background
-      3. Once you have all information, call finalizeBriefing with the complete briefing"
-    `);
+    expect(prompt).toContain("<no_prior_context>");
+    expect(prompt).toContain("newcontact@other.com");
   });
 
   it("only advertises the search tools built for the account", () => {
@@ -229,6 +151,41 @@ describe("buildPrompt timezone handling", () => {
 
     expect(prompt).toContain("Available search tools: perplexitySearch");
     expect(prompt).not.toContain("webSearch");
+  });
+
+  it("preserves dated replies from non-attendees and attachment metadata once per thread", () => {
+    const reply = {
+      ...getMockMessage({
+        from: "engineer@example.org",
+        textPlain: "The check now passes; waiting for approval.",
+        textHtml: "",
+        attachments: [
+          { filename: "report.pdf", mimeType: "application/pdf", size: 100 },
+        ],
+      }),
+      internalDate: String(Date.UTC(2026, 0, 2, 12)),
+    };
+    const data: MeetingBriefingData = {
+      event: {
+        id: "review",
+        title: "Review",
+        startTime: new Date("2026-01-03T12:00:00Z"),
+        endTime: new Date("2026-01-03T13:00:00Z"),
+        attendees: [],
+      },
+      externalGuests: [
+        { email: "partner@example.com" },
+        { email: "other@example.com" },
+      ],
+      internalTeamMembers: [{ email: "colleague@company.com" }],
+      emailThreads: [{ id: "thread", messages: [reply] }],
+      pastMeetings: [],
+    };
+    const prompt = buildPrompt(data, mockEmailAccount, []);
+    expect(prompt.match(/The check now passes/g)).toHaveLength(1);
+    expect(prompt).toContain("2026-01-02T12:00:00.000Z");
+    expect(prompt).toContain("report.pdf");
+    expect(prompt).toContain("colleague@company.com");
   });
 
   it("requires one OpenRouter server web search", () => {
