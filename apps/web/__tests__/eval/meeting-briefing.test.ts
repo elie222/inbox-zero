@@ -46,6 +46,18 @@ const scenarios = [
       "Meeting priorities identify the rollout timing decision and the unconfirmed maintenance window, with the account owner responsible for confirmation. They treat the compatibility check as passed, not as a current blocker. Do not claim a release date or window has been agreed.",
   },
   {
+    name: "keeps separate decisions clear in a concise briefing",
+    messages: [
+      {
+        from: "partner@example.com",
+        day: 3,
+        text: "Two decisions for the review: our facilitator cannot attend Thursday's training, so the training lead needs to choose a replacement or reschedule. Separately, Saturday support has no assigned engineer; the support manager needs to select coverage before Friday. Neither decision has been made.",
+      },
+    ],
+    criterion:
+      "The briefing preserves both distinct decisions: the training lead must choose a replacement facilitator or reschedule Thursday's training, and the support manager must arrange Saturday engineering coverage before Friday. It keeps their owners and constraints clear and does not present either decision as completed.",
+  },
+  {
     name: "does not invent priorities or identities from an empty history",
     messages: [],
     criterion:
@@ -118,7 +130,10 @@ describe.runIf(shouldRunEvalTests())("meeting briefing", () => {
             messages: scenario.messages,
           }),
           output: JSON.stringify(result),
-          criterion: { name: scenario.name, description: scenario.criterion },
+          criterion: {
+            name: scenario.name,
+            description: `${scenario.criterion} The briefing must also be easy to scan: priorities state actionable conclusions with essential supporting facts, without avoidable narration or generic advice. Related points should not repeat the same status or blocker, and attendee bullets, when present, must add information beyond the priorities. Empty attendee bullet arrays are valid. Brevity must not remove the decision, prerequisite, or approval constraint described above.`,
+          },
         });
         reporter.record({
           testName: scenario.name,
