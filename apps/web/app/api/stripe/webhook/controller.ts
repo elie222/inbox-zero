@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { after } from "next/server";
 import {
   getStripeCustomerIdForRefund,
   isStripeRefundEventType,
@@ -109,12 +110,14 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     );
   }
 
-  const results = await Promise.allSettled(tasks);
+  const settledTasks = Promise.allSettled(tasks);
   if (event.type === "invoice.payment_succeeded") {
+    after(() => settledTasks);
     if (stripeSync.status === "rejected") throw stripeSync.reason;
     await paidTrialConversion;
+    return;
   }
-  return results;
+  return await settledTasks;
 }
 
 async function handlePaidTrialConversion(

@@ -21,6 +21,7 @@ const {
   mockCompleteReferralAndGrantReward,
   mockCaptureException,
   mockGetStripeTrialConversion,
+  mockAfter,
 } = vi.hoisted(() => ({
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
@@ -40,12 +41,15 @@ const {
   mockCompleteReferralAndGrantReward: vi.fn(),
   mockCaptureException: vi.fn(),
   mockGetStripeTrialConversion: vi.fn(),
+  mockAfter: vi.fn(),
 }));
 
 vi.mock("./trial-conversion", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./trial-conversion")>()),
   getStripeTrialConversion: mockGetStripeTrialConversion,
 }));
+
+vi.mock("next/server", () => ({ after: mockAfter }));
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(),
@@ -256,6 +260,24 @@ describe("processEvent", () => {
     expect(mockCompleteReferralAndGrantReward).not.toHaveBeenCalled();
     expect(mockTrackServerConversionEvent).not.toHaveBeenCalled();
     expect(mockSendFacebookConversionEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not delay successful invoice acknowledgement for non-critical tracking", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    let finishTracking: () => void = () => {};
+    mockTrackStripeEvent.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishTracking = resolve;
+        }),
+    );
+    await processEvent(
+      invoiceEvent({ type: "invoice.payment_succeeded" }),
+      logger,
+    );
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    finishTracking();
+    await mockAfter.mock.calls[0][0]();
   });
 
   it("propagates identity lookup failure before acknowledging a successful invoice", async () => {
