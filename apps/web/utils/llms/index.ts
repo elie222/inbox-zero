@@ -2,7 +2,6 @@ import {
   APICallError,
   type ModelMessage,
   type Tool,
-  type ToolExecutionOptions,
   type ToolSet,
   ToolLoopAgent,
   type JSONValue,
@@ -1074,7 +1073,10 @@ function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({
 
     protectedTools[toolName] = {
       ...toolDefinition,
-      execute(input: unknown, options: ToolExecutionOptions) {
+      execute(
+        input: Parameters<NonNullable<typeof execute>>[0],
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) {
         const output = execute.call(toolDefinition, input, options);
 
         if (isAsyncIterable(output)) {
