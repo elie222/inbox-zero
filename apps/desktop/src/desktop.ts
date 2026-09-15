@@ -219,6 +219,9 @@ export const DESKTOP_MAC_TITLEBAR_HEIGHT = 52;
 export const DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH = 78;
 /** Web chrome marked with this is hidden by the Mac desktop stylesheet. */
 export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
+export const DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE =
+  "data-desktop-mac-titlebar-spacer";
+export const DESKTOP_MAC_END_ATTRIBUTE = "data-desktop-mac-end";
 
 export function getDesktopWindowChrome(platform = process.platform): {
   autoHideMenuBar?: boolean;
@@ -278,6 +281,15 @@ html::after {
 
 [${DESKTOP_MAC_HIDE_ATTRIBUTE}] {
   display: none !important;
+}
+
+[${DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE}] {
+  padding-top: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
+}
+
+[${DESKTOP_MAC_END_ATTRIBUTE}] {
+  flex: none;
+  margin-left: auto;
 }
 `.trim();
 
