@@ -61,6 +61,7 @@ export async function syncStripeDataToDb({
         stripeProductId: null,
         stripeSubscriptionStatus: null,
         stripeCancelAtPeriodEnd: null,
+        stripeCancelAt: null,
         stripeRenewsAt: null,
         stripeTrialEnd: null,
       };
@@ -137,6 +138,9 @@ export async function syncStripeDataToDb({
         ? new Date(subscriptionItem.current_period_end * 1000)
         : null,
       stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
+      stripeCancelAt: subscription.cancel_at
+        ? new Date(subscription.cancel_at * 1000)
+        : null,
       stripeTrialEnd: newTrialEnd,
       stripeCanceledAt: subscription.canceled_at
         ? new Date(subscription.canceled_at * 1000)

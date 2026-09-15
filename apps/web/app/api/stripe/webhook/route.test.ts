@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
 import { processEvent } from "./controller";
-import { getStripeTrialConvertedAt } from "./trial-conversion";
 
 const {
   mockSyncStripeDataToDb,
@@ -21,6 +20,8 @@ const {
   mockUpdateMany,
   mockCompleteReferralAndGrantReward,
   mockCaptureException,
+  mockGetStripeTrialConversion,
+  mockAfter,
 } = vi.hoisted(() => ({
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
@@ -39,7 +40,16 @@ const {
   mockUpdateMany: vi.fn(),
   mockCompleteReferralAndGrantReward: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockGetStripeTrialConversion: vi.fn(),
+  mockAfter: vi.fn(),
 }));
+
+vi.mock("./trial-conversion", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./trial-conversion")>()),
+  getStripeTrialConversion: mockGetStripeTrialConversion,
+}));
+
+vi.mock("next/server", () => ({ after: mockAfter }));
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(),
@@ -132,6 +142,7 @@ const logger = createTestLogger();
 describe("processEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetStripeTrialConversion.mockResolvedValue(null);
     mockFindUnique.mockResolvedValue(null);
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
@@ -222,7 +233,7 @@ describe("processEvent", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("tracks a paid subscription conversion when a trial converts", async () => {
+  it("does not convert a trial until payment succeeds", async () => {
     mockSyncStripeDataToDb.mockResolvedValue(undefined);
     mockFindUnique.mockResolvedValue({
       id: "premium_test",
@@ -231,7 +242,6 @@ describe("processEvent", () => {
 
     await processEvent(
       subscriptionEvent({
-        id: "evt_trial_converted",
         created: 1_700_000_000,
         data: {
           object: {
@@ -239,65 +249,164 @@ describe("processEvent", () => {
             customer: "cus_test",
             status: "active",
             trial_end: 1_699_999_000,
-            metadata: {
-              conversionAttributionId: "attr_test",
-              conversionClickIds: JSON.stringify({
-                fbc: "fb.1.click",
-                fbp: "fb.1.browser",
-              }),
-            },
-            items: {
-              data: [
-                {
-                  quantity: 2,
-                  price: {
-                    id: "price_test",
-                    unit_amount: 1000,
-                    currency: "usd",
-                  },
-                },
-              ],
-            },
           },
-          previous_attributes: {
-            status: "trialing",
-          },
+          previous_attributes: { status: "trialing" },
         } as Stripe.Event.Data,
       }),
       logger,
     );
 
-    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith({
-      name: "subscription_created",
-      id: "evt_trial_converted",
-      timestamp: new Date("2023-11-14T22:13:20.000Z"),
-      attributionId: "attr_test",
-      properties: {
-        planId: "price_test",
-        amount: 2000,
-        currency: "USD",
-      },
-      clickIds: {
-        fbc: "fb.1.click",
-        fbp: "fb.1.browser",
-      },
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockCompleteReferralAndGrantReward).not.toHaveBeenCalled();
+    expect(mockTrackServerConversionEvent).not.toHaveBeenCalled();
+    expect(mockSendFacebookConversionEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not delay successful invoice acknowledgement for non-critical tracking", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    let finishTracking: () => void = () => {};
+    mockTrackStripeEvent.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishTracking = resolve;
+        }),
+    );
+    await processEvent(
+      invoiceEvent({ type: "invoice.payment_succeeded" }),
       logger,
+    );
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    finishTracking();
+    await mockAfter.mock.calls[0][0]();
+  });
+
+  it("propagates identity lookup failure before acknowledging a successful invoice", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockRejectedValueOnce(new Error("lookup failed"));
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("lookup failed");
+  });
+
+  it("propagates customer sync failure for successful invoice delivery retries", async () => {
+    mockSyncStripeDataToDb.mockRejectedValue(new Error("sync failed"));
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("sync failed");
+  });
+
+  it("propagates conversion failure so successful invoice delivery can retry", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      stripeSubscriptionId: "sub_test",
+      users: [],
     });
-    expect(mockSendFacebookConversionEvent).toHaveBeenCalledWith({
-      eventName: "Subscribe",
-      eventTime: new Date("2023-11-14T22:13:20.000Z"),
-      eventId: "evt_trial_converted",
-      eventSourceUrl: "https://example.com",
-      userId: "user_test",
-      email: "user@example.com",
-      fbc: "fb.1.click",
-      fbp: "fb.1.browser",
-      customData: {
-        currency: "USD",
-        value: 20,
-        content_name: "price_test",
+    mockGetStripeTrialConversion.mockRejectedValueOnce(
+      new Error("Stripe unavailable"),
+    );
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("Stripe unavailable");
+  });
+
+  it("ignores a payment that loses the atomic conversion claim", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      stripeSubscriptionId: "sub_test",
+      stripeTrialConvertedAt: null,
+      users: [{ id: "user_test", email: "user@example.com" }],
+    });
+    mockGetStripeTrialConversion.mockResolvedValue({
+      subscription: {
+        id: "sub_test",
+        metadata: {},
+        items: {
+          data: [
+            {
+              quantity: 1,
+              price: { id: "price_test", unit_amount: 2000, currency: "usd" },
+            },
+          ],
+        },
       },
+      invoice: { id: "in_test", amount_paid: 1500, currency: "usd" },
+      convertedAt: new Date("2023-11-14T22:13:20Z"),
     });
+    mockUpdateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValue({ count: 0 });
+    const event = invoiceEvent({ type: "invoice.payment_succeeded" });
+    await processEvent(event, logger);
+    await processEvent({ ...event, id: "evt_duplicate" }, logger);
+
+    expect(mockCompleteReferralAndGrantReward).toHaveBeenCalledTimes(1);
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "subscription_created",
+        id: "in_test:trial_converted",
+        timestamp: new Date("2023-11-14T22:13:20Z"),
+        properties: { planId: "price_test", amount: 1500, currency: "USD" },
+      }),
+    );
+    expect(mockSendFacebookConversionEvent).toHaveBeenCalledTimes(1);
+    expect(mockSendFacebookConversionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "in_test:trial_converted",
+        customData: { currency: "USD", value: 15, content_name: "price_test" },
+      }),
+    );
+  });
+
+  it("retries conversion side effects for the same recorded invoice with a stable identity", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      stripeSubscriptionId: "sub_test",
+      stripeTrialConvertedAt: new Date("2023-11-14T22:13:20Z"),
+      stripeTrialConversionInvoiceId: "in_test",
+      users: [{ id: "user_test", email: "user@example.com" }],
+    });
+    mockGetStripeTrialConversion.mockResolvedValue({
+      subscription: { id: "sub_test", metadata: {}, items: { data: [] } },
+      invoice: { id: "in_test", amount_paid: 1500, currency: "usd" },
+      convertedAt: new Date("2023-11-14T22:13:20Z"),
+    });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockSendFacebookConversionEvent.mockRejectedValueOnce(
+      new Error("delivery unavailable"),
+    );
+    await expect(
+      processEvent(invoiceEvent({ type: "invoice.payment_succeeded" }), logger),
+    ).rejects.toThrow("delivery unavailable");
+    await processEvent(
+      invoiceEvent({ type: "invoice.payment_succeeded" }),
+      logger,
+    );
+    expect(mockCompleteReferralAndGrantReward).toHaveBeenCalledTimes(2);
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "in_test:trial_converted" }),
+    );
+  });
+
+  it("does not mark a replacement subscription from an older subscription payment", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      stripeSubscriptionId: "sub_replacement",
+      users: [],
+    });
+    mockGetStripeTrialConversion.mockResolvedValue({
+      subscription: { id: "sub_old" },
+    });
+    await processEvent(
+      invoiceEvent({ type: "invoice.payment_succeeded" }),
+      logger,
+    );
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockTrackServerConversionEvent).not.toHaveBeenCalled();
   });
 
   it("tracks a trial-start conversion from a new trialing subscription", async () => {
@@ -395,73 +504,6 @@ describe("processEvent", () => {
     );
 
     expect(mockTrackServerConversionEvent).not.toHaveBeenCalled();
-  });
-});
-
-describe("getStripeTrialConvertedAt", () => {
-  it("returns the event timestamp when a trial converts to active", () => {
-    const event = subscriptionEvent({
-      created: 1_700_000_000,
-      data: {
-        object: {
-          status: "active",
-          trial_end: 1_699_999_000,
-        },
-        previous_attributes: {
-          status: "trialing",
-        },
-      },
-    });
-
-    expect(getStripeTrialConvertedAt(event)).toEqual(
-      new Date("2023-11-14T22:13:20.000Z"),
-    );
-  });
-
-  it("returns null when the subscription did not transition from trialing", () => {
-    const event = subscriptionEvent({
-      data: {
-        object: {
-          status: "active",
-          trial_end: 1_699_999_000,
-        },
-        previous_attributes: {
-          status: "incomplete",
-        },
-      },
-    });
-
-    expect(getStripeTrialConvertedAt(event)).toBeNull();
-  });
-
-  it("returns null when previous_attributes is undefined", () => {
-    const event = subscriptionEvent({
-      data: {
-        object: {
-          status: "active",
-          trial_end: 1_699_999_000,
-        },
-      } as Stripe.Event.Data,
-    });
-
-    expect(getStripeTrialConvertedAt(event)).toBeNull();
-  });
-
-  it("returns null when the trial has not ended yet", () => {
-    const event = subscriptionEvent({
-      created: 1_700_000_000,
-      data: {
-        object: {
-          status: "active",
-          trial_end: 1_700_000_100,
-        },
-        previous_attributes: {
-          status: "trialing",
-        },
-      },
-    });
-
-    expect(getStripeTrialConvertedAt(event)).toBeNull();
   });
 });
 
