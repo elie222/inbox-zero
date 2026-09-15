@@ -7,6 +7,7 @@ import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
@@ -95,7 +96,8 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code, stateNonce } = validation;
+  const { targetUserId, code, stateNonce, reconnectEmailAccountId } =
+    validation;
   logger = logOAuthLinkingCallbackValidation({
     actorUserId,
     logger,
@@ -210,6 +212,23 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       if (existingAccount) break;
       existingAccount = await findMicrosoftAccountByProviderAccountId(legacyId);
       shouldMigrateProviderAccountId = !!existingAccount;
+    }
+
+    if (
+      isReconnectTargetMismatch({
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id,
+      })
+    ) {
+      logger.warn("Reconnect authorized a different provider account", {
+        targetUserId,
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id ?? null,
+      });
+      return createAccountLinkingRedirect({
+        query: { error: "reconnect_account_mismatch" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     assertMicrosoftLinkingConsent({

@@ -965,7 +965,9 @@ function ComposeEmailFormContent({
       const oauthProvider = isMicrosoftProvider(accountProvider)
         ? "microsoft"
         : "google";
-      const url = await getAccountLinkingUrl(oauthProvider);
+      const url = await getAccountLinkingUrl(oauthProvider, {
+        reconnectEmailAccountId: selectedEmailAccountId,
+      });
       redirectToSafeUrl(url, { allowExternal: true });
     } catch {
       toastError({
