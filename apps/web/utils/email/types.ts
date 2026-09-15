@@ -296,6 +296,19 @@ export interface EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
+  /**
+   * Ids only, for bulk operations over a label. Optional: providers without
+   * label-scoped listing leave it out and label cleanup skips them.
+   */
+  listMessageIds?(options: {
+    labelIds: string[];
+    query?: string;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: { id: string; threadId: string }[];
+    nextPageToken?: string;
+  }>;
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
   markMessagesStarredState(
     messageIds: string[],
