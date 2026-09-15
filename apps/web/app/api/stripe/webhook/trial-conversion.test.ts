@@ -32,6 +32,28 @@ describe("getStripeTrialConversion", () => {
     });
   });
 
+  it("converts the first successful payment when a subscription update ends the trial early", async () => {
+    const event = paymentEvent({
+      billing_reason: "subscription_update",
+      created: trialEnd + 2,
+      status_transitions: { paid_at: trialEnd + 1 },
+    });
+    expect(await getStripeTrialConversion(event)).toMatchObject({
+      convertedAt: new Date((trialEnd + 1) * 1000),
+    });
+  });
+
+  it("ignores a paid subscription update raised before the trial ends", async () => {
+    expect(
+      await getStripeTrialConversion(
+        paymentEvent({
+          billing_reason: "subscription_update",
+          created: trialEnd - 1,
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it.each([
     "customer.subscription.updated",
     "invoice.paid",
@@ -46,7 +68,6 @@ describe("getStripeTrialConversion", () => {
   it.each([
     { amount_paid: 0 },
     { status: "open" },
-    { billing_reason: "subscription_update" },
     { billing_reason: "manual" },
     { parent: null },
     { status_transitions: { paid_at: null } },

@@ -13,7 +13,8 @@ export async function getStripeTrialConversion(event: Stripe.Event) {
   if (
     invoice.status !== "paid" ||
     invoice.amount_paid <= 0 ||
-    invoice.billing_reason !== "subscription_cycle" ||
+    (invoice.billing_reason !== "subscription_cycle" &&
+      invoice.billing_reason !== "subscription_update") ||
     !paidAt ||
     !subscriptionReference ||
     !invoice.customer
