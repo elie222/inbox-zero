@@ -56,7 +56,12 @@ for (const view of ["mail", "settings"]) {
     const search = page.getByPlaceholder("Type a command or search...");
     await expect(search).toBeVisible();
     await search.fill("settings");
-    await page.getByRole("option", { name: "Settings", exact: true }).click();
+    // Palette rows render label, description and shortcut, so the accessible
+    // name is not just the label. Match the label element instead.
+    await page
+      .getByRole("option")
+      .filter({ has: page.getByText("Settings", { exact: true }) })
+      .click();
 
     const dialog = page.getByRole("dialog");
     await expect(
