@@ -22,7 +22,7 @@ import {
   TypeValidationError,
 } from "ai";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
-import { withTracing } from "@posthog/ai/vercel";
+import { captureAiGeneration } from "@posthog/ai";
 import { jsonrepair } from "jsonrepair";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
@@ -353,9 +353,7 @@ export function createGenerateText({
           ...protectedRequestOptions,
           ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
-          providerOptions,
-          model: withPosthogTracing({
-            model: bridged.model,
+          telemetry: buildLlmTelemetry({
             userEmail: emailAccount.email,
             userId: emailAccount.userId,
             emailAccountId: emailAccount.id,
@@ -363,6 +361,8 @@ export function createGenerateText({
             provider: candidate.provider,
             modelName: candidate.modelName,
           }),
+          providerOptions,
+          model: bridged.model,
         },
         ...restArgs,
       );
@@ -550,9 +550,7 @@ export function createGenerateObject({
         },
         ...protectedOptions,
         ...commonOptions,
-        providerOptions,
-        model: withPosthogTracing({
-          model: candidate.model,
+        telemetry: buildLlmTelemetry({
           userEmail: emailAccount.email,
           userId: emailAccount.userId,
           emailAccountId: emailAccount.id,
@@ -560,6 +558,8 @@ export function createGenerateObject({
           provider: candidate.provider,
           modelName: candidate.modelName,
         }),
+        providerOptions,
+        model: candidate.model,
       } as unknown as Parameters<
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
@@ -779,23 +779,21 @@ export async function chatCompletionStream(
       model: candidate.model,
       tools: protectedChatTools,
     });
-    const model = withPosthogTracing({
-      model: bridgedChat.model,
-      userEmail,
-      userId,
-      emailAccountId,
-      label,
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-    });
-
     try {
       return streamText({
-        model,
+        model: bridgedChat.model,
         messages: protectedMessages as ModelMessage[],
         tools: bridgedChat.tools,
         stopWhen: maxSteps ? isStepCount(maxSteps) : undefined,
         ...commonOptions,
+        telemetry: buildLlmTelemetry({
+          userEmail,
+          userId,
+          emailAccountId,
+          label,
+          provider: candidate.provider,
+          modelName: candidate.modelName,
+        }),
         providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepEnd,
@@ -937,15 +935,6 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       tools: candidateTools,
       activeTools,
     });
-    const model = withPosthogTracing({
-      model: bridgedAgent.model,
-      userEmail,
-      userId,
-      emailAccountId,
-      label,
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-    });
     onModelResolved?.({
       provider: candidate.provider,
       modelName: candidate.modelName,
@@ -953,7 +942,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     });
 
     const agent = new ToolLoopAgent({
-      model,
+      model: bridgedAgent.model,
       tools: bridgedAgent.tools,
       activeTools: bridgedAgent.bridged
         ? undefined
@@ -962,6 +951,14 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       stopWhen: stopWhen ?? (maxSteps ? isStepCount(maxSteps) : undefined),
       temperature,
       ...commonOptions,
+      telemetry: buildLlmTelemetry({
+        userEmail,
+        userId,
+        emailAccountId,
+        label,
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      }),
       providerOptions,
       onEnd: async (result) => {
         const usagePromise = saveUsageWithMetadata({
@@ -1969,8 +1966,7 @@ function isJsonObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function withPosthogTracing({
-  model,
+function buildLlmTelemetry({
   userEmail,
   userId,
   emailAccountId,
@@ -1978,7 +1974,6 @@ function withPosthogTracing({
   provider,
   modelName,
 }: {
-  model: LanguageModelV4;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
@@ -1987,20 +1982,95 @@ function withPosthogTracing({
   modelName: string;
 }) {
   const posthogClient = getPosthogLlmClient();
-  if (!posthogClient) return model;
-  const llmEvalsEnabled = isPosthogLlmEvalApproved(userEmail);
+  if (!posthogClient) return commonOptions.telemetry;
 
-  return withTracing(model, posthogClient, {
-    posthogDistinctId: userEmail,
-    posthogPrivacyMode: !llmEvalsEnabled,
-    posthogProperties: {
-      label,
-      $ai_span_name: label,
-      provider,
-      model: modelName,
-      emailAccountId,
-      llmEvalsEnabled,
-      ...(userId ? { userId } : {}),
+  const llmEvalsEnabled = isPosthogLlmEvalApproved(userEmail);
+  let capturedInput: unknown;
+
+  return {
+    ...commonOptions.telemetry,
+    functionId: label,
+    recordInputs: llmEvalsEnabled,
+    recordOutputs: llmEvalsEnabled,
+    integrations: {
+      onStart(event: unknown) {
+        capturedInput = getTelemetryPrompt(event);
+      },
+      onEnd(event: unknown) {
+        return captureAiGeneration(posthogClient, {
+          distinctId: userEmail,
+          provider,
+          model: modelName,
+          input: capturedInput ?? null,
+          output: getTelemetryOutput(event),
+          usage: toPosthogTokenUsage(event),
+          privacyMode: !llmEvalsEnabled,
+          stopReason: getTelemetryFinishReason(event),
+          properties: {
+            label,
+            $ai_span_name: label,
+            provider,
+            model: modelName,
+            emailAccountId,
+            llmEvalsEnabled,
+            ...(userId ? { userId } : {}),
+          },
+          onError: (error) => {
+            logger.error("Failed to capture PostHog AI generation", {
+              error,
+              label,
+            });
+          },
+        });
+      },
     },
-  });
+  };
+}
+
+function getTelemetryPrompt(event: unknown) {
+  const prompt = getProperty(event, "prompt");
+  if (typeof prompt === "string" && prompt) return prompt;
+
+  const messages = getProperty(event, "messages");
+  if (Array.isArray(messages) && messages.length > 0) return messages;
+
+  const instructions =
+    getProperty(event, "instructions") ?? getProperty(event, "system");
+  if (typeof instructions === "string" && instructions) return instructions;
+
+  return null;
+}
+
+function getTelemetryOutput(event: unknown) {
+  const text = getProperty(event, "text");
+  if (typeof text === "string") return text;
+
+  return getProperty(event, "object") ?? null;
+}
+
+function getTelemetryFinishReason(event: unknown) {
+  const finishReason = getProperty(event, "finishReason");
+  return typeof finishReason === "string" ? finishReason : undefined;
+}
+
+function toPosthogTokenUsage(event: unknown) {
+  const usage = getObjectProperty(event, "usage");
+  if (!usage) return;
+
+  return {
+    inputTokens: getFiniteNumber(getProperty(usage, "inputTokens")),
+    outputTokens: getFiniteNumber(getProperty(usage, "outputTokens")),
+    reasoningTokens: getFiniteNumber(
+      getProperty(
+        getObjectProperty(usage, "outputTokenDetails"),
+        "reasoningTokens",
+      ),
+    ),
+    cacheReadInputTokens: getFiniteNumber(
+      getProperty(
+        getObjectProperty(usage, "inputTokenDetails"),
+        "cacheReadTokens",
+      ),
+    ),
+  };
 }

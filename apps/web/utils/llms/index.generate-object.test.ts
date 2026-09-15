@@ -32,8 +32,8 @@ vi.mock("ai", () => ({
   isStepCount: vi.fn(),
 }));
 
-vi.mock("@posthog/ai/vercel", () => ({
-  withTracing: vi.fn((model) => model),
+vi.mock("@posthog/ai", () => ({
+  captureAiGeneration: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
