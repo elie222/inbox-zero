@@ -78,7 +78,9 @@ test("opens the snippet picker from slash in the composer", async ({
   await expect(
     page.getByRole("dialog", { name: "Save snippet" }),
   ).toBeVisible();
-  await expect(dialog).toBeVisible();
+  // Save snippet is a modal, so the composer is aria-hidden and no longer
+  // matches getByRole("dialog", { name: "New Message" }).
+  await expect(page.locator("[data-compose-expanded]")).toBeVisible();
 });
 
 test("focuses the message field from the empty composer body", async ({
