@@ -23,6 +23,7 @@ import {
   parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
 import {
+  decodeMicrosoftIdTokenClaims,
   fetchMicrosoftGraph,
   fetchMicrosoftOidcUserInfo,
   fetchMicrosoftUserProfile,
@@ -164,18 +165,29 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     >["profile"];
     let providerEmail: string;
     let providerAccountId: string;
-    let legacyProviderAccountId: string | null = null;
+    // Account keys this app wrote before it settled on the Entra object id:
+    // the pairwise OIDC subject, and before that the Graph user id.
+    let legacyProviderAccountIds: string[] = [];
 
     try {
       const result = await fetchMicrosoftUserProfile(tokens.access_token);
       profile = result.profile;
       providerEmail = result.email;
-      legacyProviderAccountId = profile.id || null;
+
+      const { oid } = decodeMicrosoftIdTokenClaims(tokens.id_token);
+      if (!oid) {
+        throw new MicrosoftUserProfileError(
+          "Microsoft did not return an account identifier",
+        );
+      }
+      providerAccountId = oid;
 
       const oidcUserInfo = await fetchMicrosoftOidcUserInfo(
         tokens.access_token,
       );
-      providerAccountId = oidcUserInfo.sub;
+      legacyProviderAccountIds = [oidcUserInfo.sub, profile.id].filter(
+        (id): id is string => !!id && id !== providerAccountId,
+      );
     } catch (error) {
       if (error instanceof MicrosoftUserProfileError) {
         if (error.status) {
@@ -194,10 +206,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       await findMicrosoftAccountByProviderAccountId(providerAccountId);
     let shouldMigrateProviderAccountId = false;
 
-    if (!existingAccount && legacyProviderAccountId) {
-      existingAccount = await findMicrosoftAccountByProviderAccountId(
-        legacyProviderAccountId,
-      );
+    for (const legacyId of legacyProviderAccountIds) {
+      if (existingAccount) break;
+      existingAccount = await findMicrosoftAccountByProviderAccountId(legacyId);
+      // Matched on an old key, so the row needs rewriting to the current one.
       shouldMigrateProviderAccountId = !!existingAccount;
     }
 

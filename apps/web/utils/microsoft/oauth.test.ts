@@ -225,6 +225,46 @@ describe("microsoft oauth helpers", () => {
   });
 });
 
+describe("decodeMicrosoftIdTokenClaims", () => {
+  it("reads the object id and subject from an id_token", async () => {
+    const { decodeMicrosoftIdTokenClaims } = await importMicrosoftOauthModule();
+
+    expect(
+      decodeMicrosoftIdTokenClaims(
+        createIdToken({ oid: "object-id", sub: "subject" }),
+      ),
+    ).toEqual({ oid: "object-id", sub: "subject" });
+  });
+
+  it.each([
+    undefined,
+    null,
+    "",
+    "not-a-jwt",
+  ])("returns empty claims for %o", async (idToken) => {
+    const { decodeMicrosoftIdTokenClaims } = await importMicrosoftOauthModule();
+
+    expect(decodeMicrosoftIdTokenClaims(idToken)).toEqual({
+      oid: null,
+      sub: null,
+    });
+  });
+
+  it("ignores claims that are not strings", async () => {
+    const { decodeMicrosoftIdTokenClaims } = await importMicrosoftOauthModule();
+
+    expect(
+      decodeMicrosoftIdTokenClaims(createIdToken({ oid: 1, sub: "subject" })),
+    ).toEqual({ oid: null, sub: "subject" });
+  });
+});
+
+function createIdToken(claims: Record<string, unknown>) {
+  const encode = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "RS256" })}.${encode(claims)}.signature`;
+}
+
 async function importMicrosoftOauthModule(
   envOverrides?: Partial<{
     MICROSOFT_BASE_URL: string | undefined;
