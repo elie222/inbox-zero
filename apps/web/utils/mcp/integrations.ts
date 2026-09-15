@@ -73,7 +73,9 @@ export const MCP_INTEGRATIONS: Record<
     url: "attio.com",
     serverUrl: "https://mcp.attio.com/mcp",
     authType: "oauth",
-    scopes: [],
+    // offline_access is required for a refresh token; without it the
+    // connection dies when the access token expires
+    scopes: ["openid", "offline_access", "mcp"],
     allowedTools: [
       "search-records",
       "list-records",

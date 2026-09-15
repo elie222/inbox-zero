@@ -65,6 +65,21 @@ describe("GET /api/threads/[id]", () => {
     });
   });
 
+  it("returns a known 404 when the provider cannot find the thread yet", async () => {
+    mockGetThread.mockRejectedValue(
+      new Error("Requested entity was not found."),
+    );
+
+    const response = await getThread();
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error:
+        "This conversation isn't available yet. It may still be syncing with your mailbox, or it was deleted.",
+      isKnownError: true,
+    });
+  });
+
   it.each([
     new Error("Provider failed"),
     Object.assign(new Error("Permission denied"), {

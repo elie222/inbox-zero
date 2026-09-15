@@ -64,7 +64,7 @@ import {
 import { searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
-  getGmailDraftAttachments,
+  getGmailMessageAttachments,
 } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -993,7 +993,7 @@ export class GmailProvider implements EmailProvider {
 
     const subject = params.subject ?? currentDraft.subject ?? "";
     const content = params.messageHtml ?? currentDraft.textHtml ?? "";
-    const attachments = await getGmailDraftAttachments(
+    const attachments = await getGmailMessageAttachments(
       this.client,
       currentDraft.id,
       currentDraft.payload,

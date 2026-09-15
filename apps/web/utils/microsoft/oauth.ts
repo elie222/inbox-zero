@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import { env } from "@/env";
 import { Agent, type Dispatcher } from "undici";
 
@@ -40,6 +41,15 @@ type MicrosoftOidcUserInfo = {
   preferred_username?: string | null;
   name?: string | null;
   email_verified?: boolean | null;
+};
+
+/**
+ * `oid` is the Entra object id, assigned per directory object and the claim
+ * better-auth keys Microsoft accounts on. `sub` is pairwise per application.
+ */
+export type MicrosoftIdTokenClaims = {
+  oid: string | null;
+  sub: string | null;
 };
 
 export class MicrosoftUserProfileError extends Error {
@@ -139,6 +149,26 @@ export async function fetchMicrosoftOidcUserInfo(accessToken: string) {
   }
 
   return { ...profile, sub: profile.sub };
+}
+
+/**
+ * The token endpoint is reached directly over TLS, so its id_token is trusted
+ * without re-verifying the signature, the same way better-auth reads it.
+ */
+export function decodeMicrosoftIdTokenClaims(
+  idToken: string | null | undefined,
+): MicrosoftIdTokenClaims {
+  if (!idToken) return { oid: null, sub: null };
+
+  try {
+    const claims = decodeJwt(idToken);
+    return {
+      oid: typeof claims.oid === "string" ? claims.oid : null,
+      sub: typeof claims.sub === "string" ? claims.sub : null,
+    };
+  } catch {
+    return { oid: null, sub: null };
+  }
 }
 
 export async function fetchMicrosoftUserProfile(accessToken: string) {

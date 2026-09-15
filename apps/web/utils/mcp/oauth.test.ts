@@ -97,6 +97,30 @@ describe("OAuth registration recovery", () => {
     expect(registerClient).toHaveBeenCalledTimes(1);
     expect(discoverAuthorizationServerMetadata).toHaveBeenCalledTimes(1);
   });
+
+  // Servers such as Attio reject `scope: ""` with invalid_scope rather than
+  // applying their default scopes
+  it("omits scope during registration when the integration declares none", async () => {
+    await generateOAuthUrl({
+      integration: "stripe",
+      redirectUri: "https://example.com/oauth/callback",
+      state: "oauth-state",
+    });
+
+    const [, { clientMetadata }] = vi.mocked(registerClient).mock.calls[0];
+    expect(clientMetadata).not.toHaveProperty("scope");
+  });
+
+  it("registers with the integration's scopes when declared", async () => {
+    await generateOAuthUrl({
+      integration: "attio",
+      redirectUri: "https://example.com/oauth/callback",
+      state: "oauth-state",
+    });
+
+    const [, { clientMetadata }] = vi.mocked(registerClient).mock.calls[0];
+    expect(clientMetadata.scope).toBe("openid offline_access mcp");
+  });
 });
 
 function startOAuth() {

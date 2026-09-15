@@ -23,7 +23,8 @@ import {
 } from "@/utils/email-cache/telemetry";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
-import { isThreadUnread } from "./read-state";
+import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
+import { isThreadInInbox, isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
   useRetainedMailMutationOverlay,
@@ -135,6 +136,10 @@ export function useCombinedMailThreads({
         revalidateOnFocus: false,
       },
     );
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeToVisibleRevalidation(() => mutate());
+  }, [enabled, mutate]);
   const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
@@ -292,10 +297,20 @@ export function useCombinedMailThreads({
       mutations: mailMutations,
       threads: baseThreads,
     });
-    return isUnread
-      ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
-      : overlaidThreads;
-  }, [baseThreads, isUnread, mailMutations, mutationOverlayReady]);
+    const requiresInbox = !labelIdentity && !searchQuery;
+    return overlaidThreads.filter(
+      (thread) =>
+        (!requiresInbox || isThreadInInbox(thread.messages)) &&
+        (!isUnread || isThreadUnread(thread.messages)),
+    );
+  }, [
+    baseThreads,
+    isUnread,
+    labelIdentity,
+    mailMutations,
+    mutationOverlayReady,
+    searchQuery,
+  ]);
   const hasMore = Boolean(
     remoteHasMore ||
       syncedView?.truncated ||

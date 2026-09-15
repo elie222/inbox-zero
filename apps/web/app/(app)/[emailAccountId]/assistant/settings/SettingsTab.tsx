@@ -14,6 +14,7 @@ import { SnippetsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { SyncToExtensionSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
+import { VoiceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/VoiceSetting";
 import { SectionHeader } from "@/components/Typography";
 import { env } from "@/env";
 
@@ -34,6 +35,13 @@ export function SettingsTab() {
         <FollowUpRemindersSetting />
         {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
       </div>
+
+      {env.NEXT_PUBLIC_VOICE_ENABLED !== false && (
+        <div className="space-y-2">
+          <SectionHeader>Speech</SectionHeader>
+          <VoiceSetting />
+        </div>
+      )}
 
       <div className="space-y-2">
         <SectionHeader>Your voice</SectionHeader>

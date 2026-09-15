@@ -92,6 +92,14 @@ env:
   NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
   NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
   NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
+  # Stripe emulator price ids. The emulator accepts any id; these only have to
+  # match what the build was frozen with so the tier lookup resolves.
+  NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID: price_playwright_starter_monthly
+  NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID: price_playwright_starter_annually
+  NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: price_playwright_plus_monthly
+  NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: price_playwright_plus_annually
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID: price_playwright_professional_monthly
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID: price_playwright_professional_annually
 
 jobs:
   select:

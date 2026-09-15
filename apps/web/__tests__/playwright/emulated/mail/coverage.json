@@ -67,6 +67,8 @@
   ],
   "search.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx",
+    "app/(app)/[emailAccountId]/mail/mail-search-history.ts",
     "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],

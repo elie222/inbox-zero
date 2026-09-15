@@ -17,7 +17,7 @@ test.afterEach(async () => {
 
 test("completes account setup and persists onboarding choices", async ({
   page,
-}) => {
+}, testInfo) => {
   await openControlOnboarding(page);
 
   await page.getByRole("button", { name: "Founder", exact: true }).click();
@@ -71,6 +71,23 @@ test("completes account setup and persists onboarding choices", async ({
   await expect(
     page.getByRole("heading", { name: "Start your 7-day FREE trial" }),
   ).toBeVisible();
+
+  // A fresh upgrade-page load must resolve the signed-in user without app providers.
+  const userResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/user/me" && response.ok(),
+  );
+  await page.reload();
+  expect((await (await userResponse).json()).id).toBeTruthy();
+  await expect(
+    page
+      .getByRole("button", { name: "Try free for 7 days", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("welcome-upgrade.png"),
+    fullPage: true,
+  });
 
   await expect
     .poll(getPersistedOnboardingState, { timeout: 30_000 })

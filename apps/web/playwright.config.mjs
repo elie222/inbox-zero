@@ -25,6 +25,26 @@ const emailBaseUrl =
   `http://127.0.0.1:${await getAvailablePort()}`;
 const emailPort = getUrlPort(emailBaseUrl);
 process.env.PLAYWRIGHT_EMAIL_BASE_URL = emailBaseUrl;
+const stripeBaseUrl =
+  process.env.PLAYWRIGHT_STRIPE_BASE_URL ??
+  `http://127.0.0.1:${await getAvailablePort()}`;
+const stripePort = getUrlPort(stripeBaseUrl);
+const stripeSecretKey = "playwright-stripe-key";
+// The emulator accepts any price id; these only have to match what the app was
+// built with so the tier lookup resolves.
+const stripeEmulatorPriceIds = {
+  NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID:
+    "price_playwright_starter_monthly",
+  NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID:
+    "price_playwright_starter_annually",
+  NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: "price_playwright_plus_monthly",
+  NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: "price_playwright_plus_annually",
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID:
+    "price_playwright_professional_monthly",
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
+    "price_playwright_professional_annually",
+};
+const stripeWebhookSecret = "whsec_playwright";
 const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
 const todoistBaseUrl = todoistEnabled
   ? `http://localhost:${await getAvailablePort()}`
@@ -62,6 +82,13 @@ process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
+process.env.PLAYWRIGHT_STRIPE_BASE_URL = stripeBaseUrl;
+// Only a default. Production runs freeze NEXT_PUBLIC_* into the build, which
+// happens in a separate job before this config loads, so those runs must set
+// these in the workflow and have their values win here.
+for (const [key, priceId] of Object.entries(stripeEmulatorPriceIds)) {
+  process.env[key] ??= priceId;
+}
 if (todoistBaseUrl) {
   process.env.PLAYWRIGHT_TODOIST_BASE_URL = todoistBaseUrl;
 }
@@ -143,6 +170,21 @@ export default defineConfig({
         ]
       : []),
     {
+      name: "Stripe emulator",
+      stdout: "pipe",
+      command: `pnpm exec tsx scripts/run-stripe-emulator.ts ${stripePort}`,
+      cwd: process.cwd(),
+      url: `${stripeBaseUrl}/health`,
+      timeout: 60_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        STRIPE_EMULATOR_WEBHOOK_URL: `${baseURL}/api/stripe/webhook`,
+        STRIPE_SECRET_KEY: stripeSecretKey,
+        STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
+      },
+    },
+    {
       name: "Next.js",
       stdout: "pipe",
       command: `${
@@ -209,6 +251,10 @@ export default defineConfig({
           process.env.NEXT_PUBLIC_CONTACTS_ENABLED ?? "true",
         NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
+        NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
+        STRIPE_API_BASE_URL: stripeBaseUrl,
+        STRIPE_SECRET_KEY: stripeSecretKey,
+        STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
     },

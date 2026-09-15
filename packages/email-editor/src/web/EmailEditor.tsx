@@ -53,6 +53,7 @@ export type EmailEditorHandle = {
   getSelectedText: () => string;
   getValue: () => EmailEditorValue;
   insertHtml: (html: string, range?: { from: number; to: number }) => boolean;
+  insertText: (text: string) => boolean;
   insertInlineImage: (image: {
     alt: string;
     contentId: string;
@@ -391,6 +392,17 @@ const RichEmailEditor = forwardRef<
         if (html) chain.insertContent(html);
         return chain.run();
       },
+      insertText: (text: string) => {
+        if (!editor || !text) return false;
+        return editor
+          .chain()
+          .focus()
+          .command(({ dispatch, tr }) => {
+            if (dispatch) tr.insertText(text);
+            return true;
+          })
+          .run();
+      },
       insertInlineImage: ({ alt, contentId, previewUrl }) => {
         if (!editor) return false;
         return editor
@@ -655,9 +667,20 @@ const FallbackEmailEditor = forwardRef<
       },
       getValue,
       insertHtml: (html, _range) => {
-        if (!html) return false;
-        editorRef.current?.focus();
-        return document.execCommand("insertHTML", false, html);
+        const editorElement = editorRef.current;
+        if (!editorElement || !html) return false;
+        editorElement.focus();
+        const inserted = document.execCommand("insertHTML", false, html);
+        currentHtmlRef.current = editorElement.innerHTML;
+        return inserted;
+      },
+      insertText: (text: string) => {
+        const editorElement = editorRef.current;
+        if (!editorElement || !text) return false;
+        editorElement.focus();
+        const inserted = document.execCommand("insertText", false, text);
+        currentHtmlRef.current = editorElement.innerHTML;
+        return inserted;
       },
       insertInlineImage: () => false,
       removeInlineImage: () => false,

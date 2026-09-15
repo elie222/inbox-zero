@@ -683,6 +683,13 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
+  forwardedMessageId: message.id || undefined,
+  forwardedAttachments: message.attachments?.map((attachment) => ({
+    id: attachment.attachmentId,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+  })),
   cc: "",
   references: "",
   draftHtml: forwardEmailHtml({ content: "", message }),

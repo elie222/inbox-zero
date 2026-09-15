@@ -1,3 +1,7 @@
+// Re-keys Microsoft accounts from the legacy pairwise OIDC subject to the Entra
+// object id that sign-in now looks accounts up by. Sign-in re-keys an account
+// on its own next attempt; this sweeps the accounts that do not sign in again.
+//
 // Run with: `pnpm --filter inbox-zero-ai exec tsx scripts/migrate-microsoft-provider-account-ids.ts`
 // Apply changes with: `pnpm --filter inbox-zero-ai exec tsx scripts/migrate-microsoft-provider-account-ids.ts --apply`
 
@@ -5,7 +9,7 @@ import "dotenv/config";
 import { env } from "@/env";
 import { decryptToken } from "@/utils/encryption";
 import {
-  fetchMicrosoftOidcUserInfo,
+  decodeMicrosoftIdTokenClaims,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
@@ -16,28 +20,30 @@ const UUID_REGEX =
 
 type MicrosoftTokenResponse = {
   access_token?: string;
+  id_token?: string;
   error_description?: string;
 };
 
 async function main() {
   const options = parseOptions(process.argv.slice(2));
-
-  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
-    throw new Error("Microsoft OAuth credentials are required");
-  }
+  const microsoftCredentials = options.idTokenOnly
+    ? null
+    : requireMicrosoftCredentials();
 
   const microsoftAccounts = await prisma.account.findMany({
     where: { provider: "microsoft" },
     select: {
       id: true,
       providerAccountId: true,
+      id_token: true,
       refresh_token: true,
     },
     orderBy: { createdAt: "asc" },
   });
 
+  // Object ids are UUIDs; anything else is still keyed on the OIDC subject.
   const candidates = microsoftAccounts
-    .filter((account) => UUID_REGEX.test(account.providerAccountId))
+    .filter((account) => !UUID_REGEX.test(account.providerAccountId))
     .slice(0, options.limit);
 
   const stats = {
@@ -48,24 +54,25 @@ async function main() {
     skippedTokenError: 0,
     skippedConflict: 0,
     skippedSameSubject: 0,
+    resolvedFromIdToken: 0,
+    resolvedFromRefresh: 0,
+    skippedNoIdToken: 0,
   };
 
   for (const account of candidates) {
-    const refreshToken = getRefreshToken(account.refresh_token);
+    // The id_token stored at sign-in already carries the object id. Reading it
+    // costs no Microsoft call and works for accounts whose refresh token is
+    // gone, which are the ones that cannot re-key themselves by signing in.
+    const storedObjectId = decodeMicrosoftIdTokenClaims(account.id_token).oid;
+    if (storedObjectId) stats.resolvedFromIdToken += 1;
 
-    if (!refreshToken) {
-      stats.skippedNoRefreshToken += 1;
-      continue;
-    }
+    const subject =
+      storedObjectId ??
+      (microsoftCredentials
+        ? await resolveViaRefresh(account, stats, microsoftCredentials)
+        : null);
 
-    const subject = await getMicrosoftSubject(refreshToken).catch((error) => {
-      stats.skippedTokenError += 1;
-      console.warn("Failed to resolve Microsoft subject for account", {
-        accountId: account.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
+    if (!subject && !microsoftCredentials) stats.skippedNoIdToken += 1;
 
     if (!subject) continue;
 
@@ -107,8 +114,55 @@ async function main() {
   console.log(JSON.stringify({ apply: options.apply, ...stats }, null, 2));
 }
 
+function requireMicrosoftCredentials() {
+  // The refresh fallback cannot work without these, and a per-account catch
+  // would otherwise turn that into 900 skipped accounts and a clean exit.
+  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+    throw new Error(
+      "Microsoft OAuth credentials are required unless --id-token-only is set",
+    );
+  }
+
+  return {
+    clientId: env.MICROSOFT_CLIENT_ID,
+    clientSecret: env.MICROSOFT_CLIENT_SECRET,
+  };
+}
+
+async function resolveViaRefresh(
+  account: { id: string; refresh_token: string | null },
+  stats: {
+    skippedNoRefreshToken: number;
+    skippedTokenError: number;
+    resolvedFromRefresh: number;
+  },
+  credentials: { clientId: string; clientSecret: string },
+) {
+  const refreshToken = getRefreshToken(account.refresh_token);
+
+  if (!refreshToken) {
+    stats.skippedNoRefreshToken += 1;
+    return null;
+  }
+
+  const objectId = await getMicrosoftObjectId(refreshToken, credentials).catch(
+    (error) => {
+      stats.skippedTokenError += 1;
+      console.warn("Failed to resolve Microsoft object id for account", {
+        accountId: account.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    },
+  );
+
+  if (objectId) stats.resolvedFromRefresh += 1;
+  return objectId;
+}
+
 function parseOptions(args: string[]) {
   let apply = false;
+  let idTokenOnly = false;
   let limit = Number.POSITIVE_INFINITY;
 
   for (let i = 0; i < args.length; i += 1) {
@@ -116,6 +170,12 @@ function parseOptions(args: string[]) {
 
     if (arg === "--apply") {
       apply = true;
+      continue;
+    }
+
+    // Resolve only from stored id_tokens, so the run makes no provider calls.
+    if (arg === "--id-token-only") {
+      idTokenOnly = true;
       continue;
     }
 
@@ -137,13 +197,16 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { apply, limit };
+  return { apply, idTokenOnly, limit };
 }
 
-async function getMicrosoftSubject(refreshToken: string) {
+async function getMicrosoftObjectId(
+  refreshToken: string,
+  credentials: { clientId: string; clientSecret: string },
+) {
   const tokenResponse = await requestMicrosoftToken({
-    client_id: env.MICROSOFT_CLIENT_ID!,
-    client_secret: env.MICROSOFT_CLIENT_SECRET!,
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
     grant_type: "refresh_token",
     refresh_token: refreshToken,
     scope: OUTLOOK_SCOPES.join(" "),
@@ -155,8 +218,10 @@ async function getMicrosoftSubject(refreshToken: string) {
     throw new Error(tokens.error_description || "Failed to refresh token");
   }
 
-  const oidcUserInfo = await fetchMicrosoftOidcUserInfo(tokens.access_token);
-  return oidcUserInfo.sub;
+  const { oid } = decodeMicrosoftIdTokenClaims(tokens.id_token);
+  if (!oid) throw new Error("Refreshed id_token has no oid claim");
+
+  return oid;
 }
 
 function getRefreshToken(value: string | null) {
@@ -171,7 +236,7 @@ function getRefreshToken(value: string | null) {
 
 function printHelpAndExit(): never {
   process.stdout.write(
-    "Usage: tsx scripts/migrate-microsoft-provider-account-ids.ts [--apply] [--limit N]\n",
+    "Usage: tsx scripts/migrate-microsoft-provider-account-ids.ts [--apply] [--id-token-only] [--limit N]\n",
   );
   process.exit(0);
 }

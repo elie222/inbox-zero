@@ -817,7 +817,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
-test("opens a sent forward in its provider thread", async ({
+test("keeps a sent forward in the thread it came from", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
@@ -826,6 +826,8 @@ test("opens a sent forward in its provider thread", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  const sentByMe = page.getByText("Me", { exact: true });
+  const initialSentByMeCount = await sentByMe.count();
 
   await sourceMessage
     .getByRole("button", { name: "Forward", exact: true })
@@ -842,23 +844,53 @@ test("opens a sent forward in its provider thread", async ({
     .getByRole("button", { name: "Send", exact: true })
     .click();
 
-  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/, {
-    timeout: 20_000,
-  });
-  await expect(
-    page.getByRole("heading", { name: "Fwd: Reply Workflow Message" }),
-  ).toBeVisible({ timeout: 20_000 });
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText(forwardBody),
-  ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(sourceMessage).toBeVisible();
+  await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await expect(
     page
       .getByRole("region", { name: "Reply delivery status" })
       .getByText("Reply sent", { exact: true }),
   ).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "forward-sent-in-thread");
+});
+
+test("shows the files a forward carries", async ({ page }, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const sourceMessage = page
+    .locator("[data-thread-message-id]")
+    .filter({ hasText: "reader-preview.png" })
+    .last();
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+
+  // The provider holds the bytes until the send, so the composer lists them
+  // without ever downloading them.
+  await expect(
+    page
+      .getByRole("list", { name: "Attachments" })
+      .getByText("reader-preview.png"),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-attachments");
 });
 
 test("keeps reply and forward drafts in separate composer sessions", async ({

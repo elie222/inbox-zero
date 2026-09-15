@@ -148,6 +148,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ReplyNudge]: "chat",
       [LlmUseCase.Summarise]: "default",
       [LlmUseCase.TranslateEmail]: "economy",
+      [LlmUseCase.UnsubscribePageState]: "economy",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });
   });

@@ -6,6 +6,7 @@ import { expandPlaywrightTargets } from "./emulated-suite-targets.mjs";
 export const fullSuites = [
   "attachments",
   "automation",
+  "billing",
   "calendars",
   "channels",
   "chat",
@@ -22,6 +23,10 @@ export const fullSuites = [
 const suiteEntryFiles = new Map([
   ["attachments", ["app/(app)/[emailAccountId]/drive/page.tsx"]],
   ["automation", ["app/(app)/[emailAccountId]/automation/page.tsx"]],
+  [
+    "billing",
+    ["app/(app)/premium/page.tsx", "app/(landing)/welcome-upgrade/page.tsx"],
+  ],
   ["calendars", ["app/(app)/[emailAccountId]/calendars/page.tsx"]],
   ["channels", ["app/(app)/[emailAccountId]/channels/page.tsx"]],
   ["chat", ["app/(app)/[emailAccountId]/assistant/page.tsx"]],
@@ -82,6 +87,10 @@ const sharedFeatureMappings = [
 ];
 
 const directSuiteMappings = [
+  ["app/(app)/premium/", ["billing"]],
+  ["app/(landing)/welcome-upgrade/", ["billing"]],
+  ["app/api/stripe/", ["billing"]],
+  ["ee/billing/", ["billing"]],
   ["app/(redirects)/assistant/", ["chat"]],
   ["app/(redirects)/automation/", ["automation"]],
   ["app/(redirects)/bulk-archive/", ["cleanup/bulk-archive.spec.ts"]],
@@ -455,6 +464,7 @@ function isBrowserSourceFile(appPath) {
     "styles/",
     "utils/",
     "lib/",
+    "ee/billing/",
   ].some((prefix) => appPath.startsWith(prefix));
 }
 

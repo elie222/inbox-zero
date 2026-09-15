@@ -136,6 +136,26 @@ describe("useMailThreads", () => {
     expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual(["INBOX"]);
   });
 
+  it("hides a persisted thread once INBOX has been removed", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: false,
+      threads: [createThread("archived-locally", ["UNREAD"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-archived-local",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("removes a pending-read thread from an unread-only view", async () => {
     mutationStore.read.mockResolvedValue([
       createMutation({
@@ -486,6 +506,56 @@ describe("useMailThreads", () => {
     expect(analytics.trackListReady).toHaveBeenCalledWith(
       expect.objectContaining({ source: "persistent", threadCount: 1 }),
     );
+  });
+
+  it("drops a Gmail-archived thread after returning to the tab", async () => {
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+    let includeArchived = true;
+    const fetcher = vi.fn(async () => ({
+      threads: includeArchived ? [createThread("stale-archived")] : [],
+    }));
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useMailThreads({
+            emailAccountId: "account-gmail-archive",
+            query: { type: "inbox" },
+          }),
+        { wrapper: createWrapper(fetcher) },
+      );
+
+      await waitFor(() =>
+        expect(result.current.threads.map(({ id }) => id)).toEqual([
+          "stale-archived",
+        ]),
+      );
+
+      visibility = "hidden";
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      includeArchived = false;
+      visibility = "visible";
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+      await waitFor(() => expect(result.current.threads).toEqual([]));
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          document,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      }
+    }
   });
 
   it("keeps loading when an empty cached page is awaiting server rows", async () => {
@@ -1078,7 +1148,11 @@ describe("useMailThreads", () => {
   });
 });
 
-function createThread(id: string, labelIds: string[] = [], internalDate = "0") {
+function createThread(
+  id: string,
+  labelIds: string[] = ["INBOX"],
+  internalDate = "0",
+) {
   return {
     id,
     messages: [

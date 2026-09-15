@@ -19,6 +19,13 @@ Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
 
+`billing/` drives the signup-to-paying-customer path against the in-repo Stripe
+emulator in `__tests__/emulators/stripe.ts`. The emulator serves the Stripe API,
+the hosted checkout page the browser is redirected to, and signed webhooks back
+into the app, so a spec can follow a real checkout through to the `Premium`
+row. Specs drive Stripe-side events through its control endpoints; run it
+outside Playwright with `pnpm emulate:stripe`.
+
 The package-level emulated command runs each spec with a fresh Next process,
 emulator, and authenticated mailbox, then merges the reports. Tests inside a
 spec remain serial. This avoids state leaking between specs and bounds the

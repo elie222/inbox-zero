@@ -241,6 +241,8 @@ describe("local reply drafts", () => {
         to: "person@example.com",
         subject: "Fwd: Reply",
         messageHtml: "<p>Forward this text</p>",
+        // A forward threads on the thread id alone, with no message to reply to.
+        replyToEmail: { threadId: identity.threadId },
       },
     });
 
