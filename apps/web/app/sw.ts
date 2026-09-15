@@ -2,6 +2,7 @@ import { Serwist, type PrecacheEntry, type SerwistGlobalConfig } from "serwist";
 import {
   CLEAR_OFFLINE_MAIL,
   SAVE_OFFLINE_MAIL,
+  SKIP_WAITING,
   OFFLINE_MAIL_CACHE_PREFIX,
   createOfflineMailCache,
   matchesOfflineMailRequest,
@@ -49,6 +50,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
+  if (event.data?.type === SKIP_WAITING) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
   if (
     event.data?.type !== CLEAR_OFFLINE_MAIL &&
     event.data?.type !== SAVE_OFFLINE_MAIL
@@ -73,7 +78,9 @@ self.addEventListener("message", (event) => {
 
 const serwist = new Serwist({
   precacheEntries: manifest,
-  skipWaiting: true,
+  // Queue the latest worker instead of taking over the open document. Rapid
+  // deploys replace the waiting worker, so one reload activates the newest.
+  skipWaiting: false,
   clientsClaim: true,
   navigationPreload: false,
   runtimeCaching: [

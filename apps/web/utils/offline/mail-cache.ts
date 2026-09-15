@@ -3,6 +3,7 @@ const ACCOUNT_PATH = "/api/user/email-accounts";
 export const OFFLINE_MAIL_CACHE_PREFIX = "inbox-zero:offline-mail:";
 export const CLEAR_OFFLINE_MAIL = "inbox-zero:clear-offline-mail";
 export const SAVE_OFFLINE_MAIL = "inbox-zero:save-offline-mail";
+export const SKIP_WAITING = "SKIP_WAITING";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
