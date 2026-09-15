@@ -5,6 +5,8 @@ import {
   ArchiveIcon,
   ChevronDownIcon,
   ColumnsIcon,
+  MailIcon,
+  MailOpenIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
@@ -56,6 +58,9 @@ export type ListToolbarProps = {
   onSelectAll: () => void;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
+  isUnreadSelected: boolean;
+  onMarkReadSelected: () => void;
+  onMarkUnreadSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
@@ -77,6 +82,9 @@ export function ListToolbar({
   onSelectAll,
   onArchiveSelected,
   onDeleteSelected,
+  isUnreadSelected,
+  onMarkReadSelected,
+  onMarkUnreadSelected,
   onLabelSelected,
   onClearSelection,
 }: ListToolbarProps) {
@@ -130,6 +138,29 @@ export function ListToolbar({
               className={cn(toolbarButton, "w-8 justify-center px-0")}
             >
               <ArchiveIcon className="size-3.5" />
+            </button>
+          </Tooltip>
+
+          <Tooltip
+            content={
+              isUnreadSelected
+                ? "Mark as read"
+                : `Mark as unread (${getShortcutHint("markUnread")})`
+            }
+          >
+            <button
+              type="button"
+              onClick={
+                isUnreadSelected ? onMarkReadSelected : onMarkUnreadSelected
+              }
+              aria-label={isUnreadSelected ? "Mark as read" : "Mark as unread"}
+              className={cn(toolbarButton, "w-8 justify-center px-0")}
+            >
+              {isUnreadSelected ? (
+                <MailOpenIcon className="size-3.5" />
+              ) : (
+                <MailIcon className="size-3.5" />
+              )}
             </button>
           </Tooltip>
 

@@ -1525,6 +1525,11 @@ export function MailShell() {
               onSelectAll={selection.selectAll}
               onArchiveSelected={archiveTargets}
               onDeleteSelected={trashTargets}
+              isUnreadSelected={actionTargets.some((target) =>
+                isThreadUnread(target.messages),
+              )}
+              onMarkReadSelected={markReadTargets}
+              onMarkUnreadSelected={markUnreadTargets}
               onLabelSelected={canLabel ? openLabelPicker : undefined}
               onClearSelection={selection.clear}
             />
@@ -1634,6 +1639,12 @@ export function MailShell() {
                   onRemoveLabel={onRemoveLabel}
                   onBackToInbox={closeReader}
                   onArchive={archiveTargets}
+                  isUnread={isOpenThreadUnread}
+                  onMarkRead={() => {
+                    if (!openThreadKey) return;
+                    setReadState([openThreadKey], true);
+                  }}
+                  onMarkUnread={markUnreadTargets}
                   refetch={refetchOpenThread}
                   onSendSuccess={(_messageId, sentThreadId) => {
                     if (
@@ -1664,18 +1675,12 @@ export function MailShell() {
                   menu={
                     <ThreadActionsMenu
                       message={openMessages.at(-1) ?? null}
-                      isUnread={isOpenThreadUnread}
                       isStarred={allStarred}
                       onToggleStar={starTargets}
                       onMarkSpam={markSpamTargets}
                       onDelete={trashTargets}
                       onLabel={canLabel ? openLabelPicker : undefined}
                       onMove={canLabel ? openMovePicker : undefined}
-                      onMarkRead={() => {
-                        if (!openThreadKey) return;
-                        setReadState([openThreadKey], true);
-                      }}
-                      onMarkUnread={markUnreadTargets}
                       open={isMenuOpen}
                       onOpenChange={setIsMenuOpen}
                     />

@@ -228,9 +228,13 @@ async function restoreUnreadState(page: Page, cleanupFixture: CleanupFixture) {
   );
   await expect(conversation).toBeVisible();
   await conversation.click();
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
-  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
+  const threadActions = page.getByRole("group", { name: "Thread actions" });
+  const markUnread = threadActions.getByRole("button", {
+    name: /Mark as unread/,
+  });
+  const markRead = threadActions.getByRole("button", {
+    name: /Mark as read/,
+  });
   await expect(markUnread.or(markRead)).toBeVisible();
   if (await markUnread.isVisible()) {
     await markUnread.click();
@@ -243,8 +247,6 @@ async function restoreUnreadState(page: Page, cleanupFixture: CleanupFixture) {
         ),
       )
       .toContain("UNREAD");
-  } else {
-    await page.keyboard.press("Escape");
   }
 }
 

@@ -53,6 +53,9 @@ function renderReader({
       loading={false}
       messages={[]}
       onArchive={vi.fn()}
+      isUnread={false}
+      onMarkRead={vi.fn()}
+      onMarkUnread={vi.fn()}
       onBackToInbox={vi.fn()}
       refetch={refetch}
       thread={null}

@@ -6,8 +6,6 @@ import {
   ExternalLinkIcon,
   FolderInputIcon,
   MailXIcon,
-  MailIcon,
-  MailOpenIcon,
   MoreHorizontalIcon,
   ShieldAlertIcon,
   StarIcon,
@@ -32,13 +30,10 @@ import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadActionsMenuProps = {
   message: ParsedMessage | null;
-  isUnread: boolean;
   isStarred: boolean;
   onToggleStar: () => void;
   onMarkSpam: () => void;
   onDelete: () => void;
-  onMarkRead: () => void;
-  onMarkUnread: () => void;
   onLabel?: () => void;
   onMove?: () => void;
   open?: boolean;
@@ -50,13 +45,10 @@ export type ThreadActionsMenuProps = {
  */
 export function ThreadActionsMenu({
   message,
-  isUnread,
   isStarred,
   onToggleStar,
   onMarkSpam,
   onDelete,
-  onMarkRead,
-  onMarkUnread,
   onLabel,
   onMove,
   open,
@@ -134,21 +126,6 @@ export function ThreadActionsMenu({
             {isStarred ? "Unstar" : "Star"}
             <DropdownMenuShortcut>
               {getShortcutHint("star")}
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          {isUnread ? (
-            <DropdownMenuItem onSelect={onMarkRead}>
-              <MailOpenIcon className="mr-2 size-4" />
-              Mark as read
-            </DropdownMenuItem>
-          ) : null}
-
-          <DropdownMenuItem onSelect={onMarkUnread}>
-            <MailIcon className="mr-2 size-4" />
-            Mark as unread
-            <DropdownMenuShortcut>
-              {getShortcutHint("markUnread")}
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
