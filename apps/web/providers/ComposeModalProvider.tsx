@@ -65,12 +65,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
           hideOverlay
           onEscapeKeyDown={(event) => {
             const target = event.target;
-            const fromLinkDialog =
-              target instanceof Element &&
-              Boolean(target.closest("[data-email-editor-link-dialog]"));
             if (
-              fromLinkDialog ||
-              document.querySelector("[data-snippet-picker]")
+              target instanceof Element &&
+              target.closest("[data-email-editor-link-dialog]")
             ) {
               event.preventDefault();
             }

@@ -3,7 +3,7 @@
 import { Extension, type Range } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
-import Suggestion from "@tiptap/suggestion";
+import Suggestion, { exitSuggestion } from "@tiptap/suggestion";
 import { forwardRef } from "react";
 import {
   SnippetPicker,
@@ -28,6 +28,8 @@ export function createSnippetSlashExtension({
   insertSnippet: (snippet: SnippetMatchItem, range: Range) => void;
   onCreate: (input: { shortcut: string }) => void;
 }) {
+  const pluginKey = new PluginKey("snippetSlash");
+
   return Extension.create({
     name: "snippetSlash",
 
@@ -36,7 +38,7 @@ export function createSnippetSlashExtension({
         Suggestion<SnippetSlashItem>({
           editor: this.editor,
           char: "/",
-          pluginKey: new PluginKey("snippetSlash"),
+          pluginKey,
           allowedPrefixes: [" "],
           items: ({ query }) => {
             const snippets = filterSnippets(getSnippets(), query);
@@ -62,8 +64,13 @@ export function createSnippetSlashExtension({
           render: () => {
             let component: ReactRenderer<SnippetPickerRef> | undefined;
             let unmount: (() => void) | undefined;
+            let onWindowKeyDown: ((event: KeyboardEvent) => void) | undefined;
 
             const cleanup = () => {
+              if (onWindowKeyDown) {
+                window.removeEventListener("keydown", onWindowKeyDown, true);
+                onWindowKeyDown = undefined;
+              }
               unmount?.();
               unmount = undefined;
               component?.destroy();
@@ -78,19 +85,19 @@ export function createSnippetSlashExtension({
                 });
                 component.element.style.zIndex = "100";
                 unmount = props.mount(component.element);
+                // Window capture runs before Radix's document listener, so
+                // preventDefault keeps compose open and still dismisses the picker.
+                onWindowKeyDown = (event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  exitSuggestion(props.editor.view, pluginKey);
+                };
+                window.addEventListener("keydown", onWindowKeyDown, true);
               },
               onUpdate: (props) => {
                 component?.updateProps(props);
               },
-              onKeyDown: (props) => {
-                if (props.event.key === "Escape") {
-                  // Keep the compose dialog open; Radix listens on bubble.
-                  props.event.preventDefault();
-                  cleanup();
-                  return true;
-                }
-                return component?.ref?.onKeyDown(props) ?? false;
-              },
+              onKeyDown: (props) => component?.ref?.onKeyDown(props) ?? false,
               onExit: cleanup,
             };
           },
