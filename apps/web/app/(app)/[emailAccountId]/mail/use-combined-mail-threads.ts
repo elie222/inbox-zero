@@ -566,6 +566,8 @@ function mergeCombinedThreads({
     }
     threadsByKey.set(getListThreadKey(thread), {
       ...thread,
+      participantMessages:
+        thread.participantMessages ?? remoteThread?.participantMessages,
       plan: remoteThread?.plan ?? thread.plan,
       plans: remoteThread?.plans ?? thread.plans,
     });

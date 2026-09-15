@@ -563,6 +563,8 @@ function mergeSyncedThreads({
     if (requestedAt >= syncedAt) continue;
     threadsById.set(thread.id, {
       ...thread,
+      participantMessages:
+        thread.participantMessages ?? remoteThread?.participantMessages,
       plan: remoteThread?.plan ?? thread.plan,
       plans: remoteThread?.plans ?? thread.plans,
     });
