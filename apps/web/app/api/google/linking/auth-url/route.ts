@@ -4,7 +4,10 @@ import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { SCOPES } from "@/utils/gmail/scopes";
-import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
+import {
+  getMailboxLinkingBlockedResponse,
+  hasActiveAccountLinkingUser,
+} from "@/utils/oauth/account-linking";
 import { findReconnectTarget } from "@/utils/oauth/reconnect-target";
 import { createOAuthLinkingAuditLogger } from "@/utils/oauth/linking-audit";
 import {
@@ -45,6 +48,10 @@ const getAuthUrl = ({
 
 export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
+
+  const blockedResponse = getMailboxLinkingBlockedResponse(request);
+  if (blockedResponse) return blockedResponse;
+
   const hasActiveUser = await hasActiveAccountLinkingUser({
     targetUserId: userId,
     logger: request.logger,

@@ -32,6 +32,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -318,130 +319,132 @@ function MailSearchInput({
         setFiltersOpen(open);
       }}
     >
-      <div
-        className={cn(
-          "group relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
-          filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
-        )}
-      >
-        <form
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            commitSearch(draft);
-          }}
-          className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5"
+      <PopoverAnchor asChild>
+        <div
+          className={cn(
+            "group relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
+            filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
+          )}
         >
-          <SearchIcon className="size-3.5 shrink-0" />
-          <input
-            ref={inputRef}
-            value={draft}
-            placeholder="Search mail"
-            enterKeyHint="search"
-            role="combobox"
-            aria-label="Search mail"
-            aria-autocomplete="list"
-            aria-expanded={suggestionsOpen}
-            aria-controls={suggestionsOpen ? suggestionListId : undefined}
-            aria-activedescendant={
-              highlightedIndex >= 0
-                ? suggestionOptionId(suggestionListId, highlightedIndex)
-                : undefined
-            }
-            // The forms plugin sizes untyped inputs at 1rem, so the size has
-            // to be stated for the field to match the rest of the toolbar.
-            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
-            onChange={(event) => {
-              setDraft(event.target.value);
-              setActiveIndex(-1);
-              setSuggestionsDismissed(false);
+          <form
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              commitSearch(draft);
             }}
-            onFocus={() => {
-              setRecentSearches(readRecentSearches(emailAccountId));
-              setFocused(true);
-            }}
-            onBlur={() => {
-              setFocused(false);
-              setActiveIndex(-1);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown" && suggestionsOpen) {
-                event.preventDefault();
-                setActiveIndex(
-                  Math.min(highlightedIndex + 1, suggestions.length - 1),
-                );
-                return;
+            className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5"
+          >
+            <SearchIcon className="size-3.5 shrink-0" />
+            <input
+              ref={inputRef}
+              value={draft}
+              placeholder="Search mail"
+              enterKeyHint="search"
+              role="combobox"
+              aria-label="Search mail"
+              aria-autocomplete="list"
+              aria-expanded={suggestionsOpen}
+              aria-controls={suggestionsOpen ? suggestionListId : undefined}
+              aria-activedescendant={
+                highlightedIndex >= 0
+                  ? suggestionOptionId(suggestionListId, highlightedIndex)
+                  : undefined
               }
-              if (event.key === "ArrowUp" && suggestionsOpen) {
-                event.preventDefault();
-                setActiveIndex(Math.max(highlightedIndex - 1, -1));
-                return;
-              }
-              if (event.key === "Enter" && highlightedIndex >= 0) {
-                event.preventDefault();
-                commitSearch(suggestions[highlightedIndex].query);
-                return;
-              }
-              if (event.key !== "Escape") return;
-              if (suggestionsOpen) {
-                setSuggestionsDismissed(true);
+              // The forms plugin sizes untyped inputs at 1rem, so the size has
+              // to be stated for the field to match the rest of the toolbar.
+              className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
+              onChange={(event) => {
+                setDraft(event.target.value);
                 setActiveIndex(-1);
-                return;
-              }
-              if (filtersOpen) {
-                setFiltersOpen(false);
-                return;
-              }
-              if (draft || searchQuery) {
-                setDraft("");
-                onSearch("");
-              } else {
-                inputRef.current?.blur();
-              }
-            }}
-          />
-          {searchQuery ? (
+                setSuggestionsDismissed(false);
+              }}
+              onFocus={() => {
+                setRecentSearches(readRecentSearches(emailAccountId));
+                setFocused(true);
+              }}
+              onBlur={() => {
+                setFocused(false);
+                setActiveIndex(-1);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && suggestionsOpen) {
+                  event.preventDefault();
+                  setActiveIndex(
+                    Math.min(highlightedIndex + 1, suggestions.length - 1),
+                  );
+                  return;
+                }
+                if (event.key === "ArrowUp" && suggestionsOpen) {
+                  event.preventDefault();
+                  setActiveIndex(Math.max(highlightedIndex - 1, -1));
+                  return;
+                }
+                if (event.key === "Enter" && highlightedIndex >= 0) {
+                  event.preventDefault();
+                  commitSearch(suggestions[highlightedIndex].query);
+                  return;
+                }
+                if (event.key !== "Escape") return;
+                if (suggestionsOpen) {
+                  setSuggestionsDismissed(true);
+                  setActiveIndex(-1);
+                  return;
+                }
+                if (filtersOpen) {
+                  setFiltersOpen(false);
+                  return;
+                }
+                if (draft || searchQuery) {
+                  setDraft("");
+                  onSearch("");
+                } else {
+                  inputRef.current?.blur();
+                }
+              }}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => onSearch("")}
+                className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            ) : !filtersOpen ? (
+              <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
+                {getShortcutHint("search")}
+              </Kbd>
+            ) : null}
+          </form>
+          <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Clear search"
-              onClick={() => onSearch("")}
-              className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <XIcon className="size-3.5" />
-            </button>
-          ) : !filtersOpen ? (
-            <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
-              {getShortcutHint("search")}
-            </Kbd>
-          ) : null}
-        </form>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label="Show search options"
-            aria-expanded={filtersOpen}
-            className={cn(
-              "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              filtersOpen && "text-foreground",
-            )}
-          >
-            <ChevronDownIcon
+              aria-label="Show search options"
+              aria-expanded={filtersOpen}
               className={cn(
-                "size-3.5 transition-transform",
-                filtersOpen && "rotate-180",
+                "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                filtersOpen && "text-foreground",
               )}
+            >
+              <ChevronDownIcon
+                className={cn(
+                  "size-3.5 transition-transform",
+                  filtersOpen && "rotate-180",
+                )}
+              />
+            </button>
+          </PopoverTrigger>
+          {suggestionsOpen ? (
+            <MailSearchSuggestionList
+              activeIndex={highlightedIndex}
+              id={suggestionListId}
+              onSelect={(suggestion) => commitSearch(suggestion.query)}
+              suggestions={suggestions}
             />
-          </button>
-        </PopoverTrigger>
-        {suggestionsOpen ? (
-          <MailSearchSuggestionList
-            activeIndex={highlightedIndex}
-            id={suggestionListId}
-            onSelect={(suggestion) => commitSearch(suggestion.query)}
-            suggestions={suggestions}
-          />
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      </PopoverAnchor>
       <PopoverContent
         align="start"
         sideOffset={6}
