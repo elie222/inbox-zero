@@ -38,6 +38,7 @@ export function useVoiceDictation() {
   const timeoutRef = useRef<number>(0);
   const blobWaiterRef = useRef<Promise<Blob> | null>(null);
   const stopInFlightRef = useRef<Promise<VoiceDictationResult> | null>(null);
+  const generationRef = useRef(0);
   const activeRef = useRef(true);
 
   const cleanup = useCallback(() => {
@@ -63,6 +64,8 @@ export function useVoiceDictation() {
   }, [cleanup]);
 
   const start = useCallback(async () => {
+    generationRef.current += 1;
+    stopInFlightRef.current = null;
     setError(null);
     setStatus("requesting");
     try {
@@ -112,12 +115,15 @@ export function useVoiceDictation() {
 
   const finishRecording =
     useCallback(async (): Promise<VoiceDictationResult> => {
+      const generation = generationRef.current;
+      const isCurrentSession = () => generationRef.current === generation;
       setStatus("transcribing");
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         recorder.stop();
       }
       const blob = (await blobWaiterRef.current) ?? new Blob();
+      if (!isCurrentSession()) return { text: "", error: null };
       blobWaiterRef.current = null;
       cleanup();
 
@@ -139,10 +145,12 @@ export function useVoiceDictation() {
             }),
           },
         });
+        if (!isCurrentSession()) return { text: "", error: null };
         const body = (await response.json()) as {
           text?: string;
           error?: string;
         };
+        if (!isCurrentSession()) return { text: "", error: null };
         if (!response.ok) {
           const message = clientVoiceApiError(
             body,
@@ -155,6 +163,7 @@ export function useVoiceDictation() {
         setStatus("idle");
         return { text: (body.text ?? "").trim(), error: null };
       } catch (err) {
+        if (!isCurrentSession()) return { text: "", error: null };
         const message = clientVoiceError(
           err,
           "Could not transcribe that recording.",
@@ -176,6 +185,8 @@ export function useVoiceDictation() {
   }, [finishRecording]);
 
   const cancel = useCallback(() => {
+    generationRef.current += 1;
+    stopInFlightRef.current = null;
     cleanup();
     blobWaiterRef.current = null;
     setStatus("idle");
