@@ -1,5 +1,5 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
-import type { GoogleProviderOptions } from "@ai-sdk/google";
+import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -46,7 +46,7 @@ export type SelectModel = ResolvedModel & {
 };
 
 type AiGatewayProviderOptions = {
-  google?: GoogleProviderOptions;
+  google?: GoogleLanguageModelOptions;
   openai?: {
     reasoningEffort: "low" | "medium";
     reasoningSummary: "concise";
@@ -707,7 +707,7 @@ function getOpenRouterProviderOptions(
 function getGoogleProviderOptions(
   modelName: string,
   modelType: ModelType,
-): GoogleProviderOptions | undefined {
+): GoogleLanguageModelOptions | undefined {
   const thinkingConfig = getGoogleThinkingConfig(modelName, modelType);
   if (!thinkingConfig) return;
 
@@ -717,7 +717,7 @@ function getGoogleProviderOptions(
 function getGoogleThinkingConfig(
   modelName: string,
   modelType: ModelType,
-): GoogleProviderOptions["thinkingConfig"] | undefined {
+): GoogleLanguageModelOptions["thinkingConfig"] | undefined {
   if (isGemini3Model(modelName)) {
     return { thinkingLevel: REASONING_EFFORT_BY_MODEL_TYPE[modelType] };
   }
