@@ -70,6 +70,7 @@ export const SnippetPicker = forwardRef<SnippetPickerRef, SnippetPickerProps>(
           return true;
         }
         if (event.key === "Enter") {
+          event.preventDefault();
           selectItem(selectedIndex);
           return true;
         }

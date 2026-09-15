@@ -1,9 +1,10 @@
 "use client";
 
-import { Extension } from "@tiptap/core";
-import { PluginKey, type Range } from "@tiptap/pm/state";
+import { Extension, type Range } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { forwardRef } from "react";
 import {
   SnippetPicker,
   type SnippetPickerRef,
@@ -83,6 +84,8 @@ export function createSnippetSlashExtension({
               },
               onKeyDown: (props) => {
                 if (props.event.key === "Escape") {
+                  // Keep the compose dialog open; Radix listens on bubble.
+                  props.event.preventDefault();
                   cleanup();
                   return true;
                 }
@@ -97,15 +100,14 @@ export function createSnippetSlashExtension({
   });
 }
 
-function SnippetSlashPicker({
-  command,
-  items,
-  query,
-}: {
-  command: (item: SnippetSlashItem) => void;
-  items: SnippetSlashItem[];
-  query: string;
-}) {
+const SnippetSlashPicker = forwardRef<
+  SnippetPickerRef,
+  {
+    command: (item: SnippetSlashItem) => void;
+    items: SnippetSlashItem[];
+    query: string;
+  }
+>(function SnippetSlashPicker({ command, items, query }, ref) {
   const snippets = items
     .filter(
       (item): item is Extract<SnippetSlashItem, { kind: "snippet" }> =>
@@ -126,7 +128,8 @@ function SnippetSlashPicker({
         command({ kind: "snippet", snippet });
       }}
       query={query}
+      ref={ref}
       snippets={snippets}
     />
   );
-}
+});

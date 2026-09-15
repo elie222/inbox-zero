@@ -68,6 +68,7 @@ test("opens the snippet picker from slash in the composer", async ({
 
   await page.keyboard.press("Escape");
   await expect(picker).toBeHidden();
+  await expect(dialog).toBeVisible();
   await expect(editor).toContainText("/");
 });
 
@@ -201,6 +202,9 @@ test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
   const dialog = page.getByRole("dialog", { name: "New Message" });
   const editor = dialog.getByRole("textbox", { name: "Email message" });
   await editor.pressSequentially("Visit example.com/docs");
+  await expect(dialog.getByRole("listbox", { name: "Snippets" })).toHaveCount(
+    0,
+  );
   await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
     "example.com/docs",
   );
