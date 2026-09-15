@@ -328,6 +328,13 @@ describe("syncOrganizationRuleToMembers", () => {
     >;
     expect(retryData.name).toBe("Invoices (2)");
     expect(retryData.organizationRuleId).toBe("org-rule-1");
+
+    // The conflicting rule is the member's own (no organizationRuleId); a
+    // plain `not` filter would exclude it and keep retrying the taken name.
+    const takenNamesWhere = prisma.rule.findMany.mock.calls[0]?.[0]?.where;
+    expect(takenNamesWhere?.OR).toEqual(
+      expect.arrayContaining([{ organizationRuleId: null }]),
+    );
   });
 });
 

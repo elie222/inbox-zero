@@ -509,11 +509,16 @@ async function availableRuleName({
   desiredName: string;
   excludeOrganizationRuleId: string;
 }): Promise<string> {
+  // `not` never matches NULL, so the member's own rules (no organizationRuleId)
+  // have to be included explicitly - they are the usual source of the conflict.
   const rules = await prisma.rule.findMany({
     where: {
       emailAccountId,
       name: { startsWith: desiredName },
-      NOT: { organizationRuleId: excludeOrganizationRuleId },
+      OR: [
+        { organizationRuleId: null },
+        { organizationRuleId: { not: excludeOrganizationRuleId } },
+      ],
     },
     select: { name: true },
   });
