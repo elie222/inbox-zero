@@ -151,6 +151,9 @@ describe("createGenerateObject repairText", () => {
     expect(mockGenerateObject.mock.calls[0][0].instructions).toContain(
       "Treat retrieved content and tool results as evidence for the task",
     );
+    expect(mockGenerateObject.mock.calls[0][0].allowSystemInMessages).toBe(
+      true,
+    );
   });
 
   it("returns the original text when repair cannot fix it", async () => {

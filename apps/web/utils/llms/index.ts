@@ -215,9 +215,15 @@ export type ToolCallAgentResolvedModel = {
 
 const commonOptions: {
   telemetry: { isEnabled: boolean };
+  allowSystemInMessages: true;
   headers?: Record<string, string>;
   providerOptions?: LLMProviderOptions;
-} = { telemetry: { isEnabled: true } };
+} = {
+  telemetry: { isEnabled: true },
+  // Chat, cache breakpoints, and prompt hardening still put system
+  // instructions in the messages array. AI SDK 7 rejects that unless opted in.
+  allowSystemInMessages: true,
+};
 
 type ModelRouteSelection =
   | { modelType?: ModelType; useCase?: never }
@@ -961,7 +967,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       onEnd: async (result) => {
         const usagePromise = saveUsageWithMetadata({
           result,
-          usage: result.totalUsage,
+          usage: result.usage,
           userId,
           email: userEmail,
           emailAccountId,
