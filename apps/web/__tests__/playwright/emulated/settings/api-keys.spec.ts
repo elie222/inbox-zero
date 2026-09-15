@@ -33,9 +33,12 @@ test("creates, authorizes, lists, and revokes an API key", async ({
   });
   await createDialog.getByLabel("Name (optional)").fill(API_KEY_NAME);
   await expect(createDialog.getByRole("checkbox")).toHaveCount(4);
-  for (const checkbox of await createDialog.getByRole("checkbox").all()) {
-    await expect(checkbox).toBeChecked();
+  for (const name of ["Read rules", "Write rules", "Read stats"]) {
+    await expect(createDialog.getByRole("checkbox", { name })).toBeChecked();
   }
+  await expect(
+    createDialog.getByRole("checkbox", { name: "Unsubscribe senders" }),
+  ).not.toBeChecked();
   await createDialog.getByRole("button", { name: "Create" }).click();
   await expect(page.getByText("API key created!", { exact: true })).toBeVisible(
     { timeout: 60_000 },
