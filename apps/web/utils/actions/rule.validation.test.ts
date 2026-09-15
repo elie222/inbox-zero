@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   delayInMinutesSchema,
+  delayInMinutesLlmSchema,
   createRuleBody,
   type CreateRuleBody,
   updateRuleBody,
@@ -83,6 +84,20 @@ describe("delayInMinutesSchema", () => {
         expect(result.error.issues[0].message).toContain("Maximum");
       }
     });
+  });
+});
+
+describe("delayInMinutesLlmSchema", () => {
+  it("coerces an AI-generated zero-minute delay to no delay", () => {
+    expect(delayInMinutesLlmSchema.parse(0)).toBeUndefined();
+  });
+
+  it("coerces null to no delay", () => {
+    expect(delayInMinutesLlmSchema.parse(null)).toBeUndefined();
+  });
+
+  it("keeps a positive delay", () => {
+    expect(delayInMinutesLlmSchema.parse(60)).toBe(60);
   });
 });
 
