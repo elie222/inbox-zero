@@ -318,14 +318,15 @@
   }
 }
 
-/* Mac desktop shell: leave the traffic-light row empty. Set by a
-   before-hydration script when window.inboxZeroDesktop is present. */
+/* Mac desktop shell: leave the traffic-light row empty. Height is set on
+   :root by the Electron shell (and by html[data-mac-desktop] before paint).
+   Do not require the html flag here — hydration can remove it. */
 html[data-mac-desktop] {
   --desktop-traffic-lights-height: 52px;
 }
 
-html[data-mac-desktop] [data-desktop-mac-titlebar-spacer] {
-  padding-top: var(--desktop-traffic-lights-height);
+[data-desktop-mac-titlebar-spacer] {
+  padding-top: var(--desktop-traffic-lights-height, 0px);
 }
 
 html[data-mac-desktop] [data-hide-on-desktop-mac] {
