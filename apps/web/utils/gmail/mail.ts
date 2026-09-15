@@ -524,22 +524,26 @@ async function getForwardedAttachments(
 ): Promise<Attachment[]> {
   if (!forwardedMessageId) return [];
 
-  try {
-    const message = await getMessage(forwardedMessageId, gmail);
-    return await getGmailMessageAttachments(
-      gmail,
-      forwardedMessageId,
-      message.payload,
-    );
-  } catch (error) {
-    if (extractErrorInfo(error).status !== 404) throw error;
-    // The body already quotes the message, so a source that has since been
-    // deleted costs the forward its files rather than the whole send.
-    sendLogger.warn("Forwarded message is gone, sending without its files", {
-      forwardedMessageId,
-    });
-    return [];
-  }
+  const message = await getMessage(forwardedMessageId, gmail).catch(
+    (error: unknown) => {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      // The body already quotes the message, so a source that has since been
+      // deleted costs the forward its files rather than the whole send.
+      sendLogger.warn("Forwarded message is gone, sending without its files", {
+        forwardedMessageId,
+      });
+      return null;
+    },
+  );
+  if (!message) return [];
+
+  // A part that fails to download fails the send: silently dropping one file
+  // from a forward is worse than asking the user to try again.
+  return await getGmailMessageAttachments(
+    gmail,
+    forwardedMessageId,
+    message.payload,
+  );
 }
 
 function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {

@@ -180,10 +180,50 @@ describe("sending a Gmail draft from the reader", () => {
         messageId: "forwarded-message",
       }),
     );
-    const raw = messages.send.mock.calls.at(0)?.[0].requestBody.raw;
-    const mime = Buffer.from(raw, "base64url").toString();
+    const call = messages.send.mock.calls.at(0);
+    assert.isDefined(call);
+    const mime = Buffer.from(call[0].requestBody.raw, "base64url").toString();
     expect(mime).toContain("report.pdf");
     expect(mime).toContain(Buffer.from("report bytes").toString("base64"));
+  });
+
+  it("does not send a forward that lost one of its attachments", async () => {
+    const { gmail, messages } = createGmail();
+    messages.get.mockResolvedValue({
+      data: {
+        id: "forwarded-message",
+        payload: {
+          mimeType: "application/pdf",
+          filename: "report.pdf",
+          headers: [
+            {
+              name: "Content-Disposition",
+              value: 'attachment; filename="report.pdf"',
+            },
+          ],
+          body: { attachmentId: "attachment-1", size: 12 },
+        },
+      },
+    });
+    messages.attachments.get.mockRejectedValue(
+      Object.assign(new Error("Requested entity was not found."), {
+        status: 404,
+      }),
+    );
+
+    await expect(
+      sendEmailWithHtml(gmail, {
+        to: "recipient@example.com",
+        subject: "Fwd: Question",
+        messageHtml: "<p>Passing this on</p>",
+        replyToEmail: {
+          threadId: "thread-1",
+          forwardedMessageId: "forwarded-message",
+        },
+      }),
+    ).rejects.toThrow("Requested entity was not found.");
+
+    expect(messages.send).not.toHaveBeenCalled();
   });
 
   it("still sends the forward when the message it quotes is gone", async () => {
