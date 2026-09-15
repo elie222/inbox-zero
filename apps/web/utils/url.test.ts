@@ -181,7 +181,8 @@ describe("getEmailDraftUrl", () => {
       "user@example.com",
       "microsoft",
     );
-    const actual = new URL(result!);
+    if (!result) throw new Error("Expected a trusted Outlook draft URL");
+    const actual = new URL(result);
     const original = new URL(externalUrl);
 
     expect(actual.searchParams.getAll("ispopout")).toEqual(["0"]);
