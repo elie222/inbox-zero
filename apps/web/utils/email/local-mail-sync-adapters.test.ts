@@ -122,6 +122,7 @@ describe("local mail provider adapters", () => {
   });
   it("uses server-resolved excluded folders and exact body ranges", async () => {
     vi.mocked(getOutlookMailBackfillPage).mockResolvedValue({
+      resetRequired: false,
       messages: [],
       nextCursor: undefined,
     });
