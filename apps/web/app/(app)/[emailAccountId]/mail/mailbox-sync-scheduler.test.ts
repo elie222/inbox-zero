@@ -2,12 +2,37 @@
 
 import "fake-indexeddb/auto";
 import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMailboxSyncScheduler } from "./mailbox-sync-scheduler";
 
 const SYNC_RESULT = { hasMore: false, pagesSynced: 1 };
 
 describe("mailbox sync scheduler", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    "getItem",
+    "setItem",
+  ] as const)("does not start queued work when shared generation storage denies %s", async (method) => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "account-1" });
+    const fresh = scheduler.runAfterCurrent({ emailAccountId: "account-1" });
+    if (method === "setItem")
+      localStorage.removeItem("inbox-zero:email-cache-generation:global");
+    vi.spyOn(Storage.prototype, method).mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
   it.each([
     "global",
     "account:account-1",

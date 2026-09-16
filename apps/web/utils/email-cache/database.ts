@@ -491,11 +491,17 @@ function readCacheGeneration(
 
 function invalidateCacheGeneration(emailAccountId?: string) {
   if (typeof window === "undefined") return;
+  const scope =
+    emailAccountId === undefined ? "global" : `account:${emailAccountId}`;
+  const key = GENERATION_PREFIX + scope;
   try {
-    const scope =
-      emailAccountId === undefined ? "global" : `account:${emailAccountId}`;
-    window.localStorage.setItem(GENERATION_PREFIX + scope, randomUuid());
+    window.localStorage.setItem(key, randomUuid());
   } catch {
-    // Local epochs still invalidate this tab when browser storage is unavailable.
+    // A denied write must not leave a readable old token authorizing queued work.
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Storage access denial also makes generation reads fail closed.
+    }
   }
 }
