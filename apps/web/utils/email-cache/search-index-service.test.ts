@@ -85,6 +85,30 @@ describe("bounded index maintenance", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(state.drain).toHaveBeenCalledTimes(2);
   });
+  it.each([
+    "warm",
+    "drain",
+  ])("retries an unavailable worker during %s after a bounded delay", async (phase) => {
+    state.work.mockResolvedValue({ work: [{}] });
+    state.drain.mockImplementation(async () => {
+      state.work.mockResolvedValue({ work: [] });
+      return { status: "ready", hasMore: false };
+    });
+    if (phase === "warm")
+      state.request.mockResolvedValueOnce({ error: "unavailable" });
+    else state.drain.mockResolvedValueOnce({ status: "unavailable" });
+    dispose = retainSearchIndex("account");
+    await vi.advanceTimersByTimeAsync(200);
+    const initialRequests = state.request.mock.calls.length;
+    const initialDrains = state.drain.mock.calls.length;
+    for (const listener of state.listeners)
+      listener({ emailAccountId: "account" });
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(state.request).toHaveBeenCalledTimes(initialRequests);
+    expect(state.drain).toHaveBeenCalledTimes(initialDrains);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.drain).toHaveBeenCalledTimes(initialDrains + 1);
+  });
   it("keeps observing source changes until the final subscriber leaves", async () => {
     const first = retainSearchIndex("account");
     dispose = retainSearchIndex("account");
