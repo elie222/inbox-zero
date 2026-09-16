@@ -10,7 +10,8 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
  * Pass `reconnectEmailAccountId` when refreshing an existing mailbox so the
  * provider is asked for that identity and the callback rejects a different one.
  * Omit it when adding a new account.
- * @throws Error if the request fails for a non-recoverable reason
+ * @throws Error if the request fails for a non-recoverable reason. The
+ * message is safe to show to the user.
  */
 export async function getAccountLinkingUrl(
   provider: "google" | "microsoft",
@@ -28,11 +29,17 @@ export async function getAccountLinkingUrl(
 
   if (!response.ok) {
     const errorBody = (await response.json().catch(() => null)) as {
+      error?: string;
+      isKnownError?: boolean;
       redirectTo?: string;
     } | null;
 
     if (response.status === 401 && errorBody?.redirectTo) {
       return errorBody.redirectTo;
+    }
+
+    if (errorBody?.isKnownError && errorBody.error) {
+      throw new Error(errorBody.error);
     }
 
     throw new Error(
