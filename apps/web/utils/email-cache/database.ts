@@ -1,9 +1,10 @@
+import { notifyEmailCacheChange } from "./cache-events";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 9;
+const DATABASE_VERSION = 10;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -147,12 +148,16 @@ interface EmailCacheSchema extends DBSchema {
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
     value: CachedThreadDetail;
-    indexes: { byAccount: string; byLastAccessed: number };
+    indexes: {
+      byAccount: string;
+      byLastAccessed: number;
+      byAccountLastAccessed: [string, number];
+    };
   };
   threadRows: {
     key: [emailAccountId: string, threadId: string];
     value: CachedThreadRow;
-    indexes: { byAccount: string };
+    indexes: { byAccount: string; byAccountLastAccessed: [string, number] };
   };
   threadViews: {
     key: [emailAccountId: string, viewKey: string];
@@ -237,6 +242,16 @@ export function getEmailCacheDatabase() {
         mutations.createIndex("byBatch", "batchId");
         mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
         mutations.createIndex("byUpdatedAt", "updatedAt");
+      }
+      if (oldVersion < 10) {
+        for (const store of ["threadRows", "threadDetails"] as const) {
+          transaction
+            .objectStore(store)
+            .createIndex("byAccountLastAccessed", [
+              "emailAccountId",
+              "lastAccessedAt",
+            ]);
+        }
       }
       if (oldVersion < 9) {
         // Older clients could retain details after their sync cursor had advanced.
@@ -326,6 +341,7 @@ export async function clearEmailCache() {
     // Browser storage is a performance enhancement; clearing it must not block logout.
   } finally {
     cacheInvalidationCount -= 1;
+    notifyEmailCacheChange();
   }
 }
 
@@ -395,6 +411,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     } else {
       accountInvalidationCounts.delete(emailAccountId);
     }
+    notifyEmailCacheChange(emailAccountId);
   }
 }
 

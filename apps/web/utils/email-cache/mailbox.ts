@@ -1,3 +1,4 @@
+import { notifyEmailCacheChange } from "./cache-events";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
@@ -60,7 +61,7 @@ export async function applyMailboxSyncPage({
     return false;
 
   const transaction = database.transaction(
-    ["mailboxMessages", "mailboxSyncStates", "threadDetails"],
+    ["mailboxMessages", "mailboxSyncStates", "threadDetails", "threadRows"],
     "readwrite",
   );
   const messages = transaction.objectStore("mailboxMessages");
@@ -126,6 +127,28 @@ export async function applyMailboxSyncPage({
     )
   ).flat();
   await Promise.all(discoveredKeys.map((key) => details.delete(key)));
+
+  // A deleted message must not remain searchable through an older list snapshot.
+  if (page.deletedMessageIds.length) {
+    const rows = transaction.objectStore("threadRows");
+    const deletedThreadIds = new Set(
+      deletedMessages.flatMap((message) => (message ? [message.threadId] : [])),
+    );
+    await Promise.all(
+      [...deletedThreadIds].map((threadId) =>
+        rows.delete([emailAccountId, threadId]),
+      ),
+    );
+    if (deletedIds.size) {
+      let rowCursor = await rows.index("byAccount").openCursor(emailAccountId);
+      while (rowCursor) {
+        const thread = getCachedThread(rowCursor.value.data);
+        if (thread?.messages.some((message) => deletedIds.has(message.id)))
+          await rowCursor.delete();
+        rowCursor = await rowCursor.continue();
+      }
+    }
+  }
 
   if (page.reset) {
     const messageKeys = await messages
@@ -512,6 +535,7 @@ export function subscribeToMailboxStore(
 }
 
 export function notifyMailboxStoreChange(emailAccountId: string) {
+  notifyEmailCacheChange(emailAccountId);
   for (const listener of mailboxListeners) listener(emailAccountId);
 }
 

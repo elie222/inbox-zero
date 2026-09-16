@@ -1,3 +1,4 @@
+import { notifyEmailCacheChange } from "./cache-events";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type {
   Attachment,
@@ -64,6 +65,7 @@ export async function writeCachedThreadDetail({
       byteSize,
     });
     await transaction.done;
+    notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
   } catch {
     scheduleEmailCacheCleanup({ force: true });

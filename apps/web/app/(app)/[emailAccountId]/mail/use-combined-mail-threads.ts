@@ -15,6 +15,7 @@ import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
   writeCachedThreadList,
+  writeCachedThreadRows,
 } from "@/utils/email-cache/thread-lists";
 import {
   EMAIL_CACHE_MEASURES,
@@ -321,6 +322,24 @@ export function useCombinedMailThreads({
   );
   const canLoadMoreLocally = Boolean(syncedView?.truncated);
   const isLoadingMore = size > 1 && !data?.[size - 1];
+  useEffect(() => {
+    for (const page of data ?? []) {
+      const rowsByAccount = new Map<string, CombinedThread[]>();
+      for (const thread of page.threads) {
+        const rows = rowsByAccount.get(thread.account.id) ?? [];
+        rows.push(thread);
+        rowsByAccount.set(thread.account.id, rows);
+      }
+      for (const [accountId, rows] of rowsByAccount) {
+        writeCachedThreadRows({
+          emailAccountId: accountId,
+          threads: rows,
+          fetchedAt: page.requestedAt,
+        }).catch(() => {});
+      }
+    }
+  }, [data]);
+
   const labelsByAccount = useMemo(() => {
     const merged: Record<string, EmailLabels> = {};
     for (const page of data ?? []) {
@@ -446,6 +465,8 @@ export function useCombinedMailThreads({
 
   return {
     threads,
+    hasRemoteResponse: Boolean(data?.[0]),
+    searchError: error,
     isLoading:
       enabled &&
       (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),

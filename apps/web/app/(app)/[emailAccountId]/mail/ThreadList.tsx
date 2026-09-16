@@ -25,6 +25,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 
 export type ThreadListProps = {
   threads: ListThread[];
+  emptyMessage?: string;
   layout: MailLayoutMode;
   expandedPreview: boolean;
   userEmail: string;
@@ -48,6 +49,7 @@ export type ThreadListProps = {
 
 export function ThreadList({
   threads,
+  emptyMessage = "No emails in this view",
   layout,
   expandedPreview,
   userEmail,
@@ -151,7 +153,7 @@ export function ThreadList({
       >
         {threads.length === 0 && !showLoadMore ? (
           <div className="px-6 py-12 text-center text-muted-foreground text-sm">
-            No emails in this view
+            {emptyMessage}
           </div>
         ) : (
           <>

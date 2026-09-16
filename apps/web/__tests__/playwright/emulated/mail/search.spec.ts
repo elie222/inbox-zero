@@ -102,12 +102,16 @@ test("advanced search panel stays aligned with the search field", async ({
   await expect(
     page.getByRole("form", { name: "Search options" }),
   ).toBeVisible();
-  const panel = await page.getByRole("dialog").boundingBox();
-  if (!(searchField && panel)) throw new Error("missing bounding boxes");
-
-  // The popover anchors to the whole field, not the chevron at its right end,
-  // so it opens under the search box instead of against the viewport edge.
-  expect(Math.abs(panel.x - searchField.x)).toBeLessThan(8);
+  if (!searchField) throw new Error("missing search field bounding box");
+  // The popover animates into place; measure the settled alignment.
+  await expect
+    .poll(async () => {
+      const panel = await page.getByRole("dialog").boundingBox();
+      return panel
+        ? Math.abs(panel.x - searchField.x)
+        : Number.POSITIVE_INFINITY;
+    })
+    .toBeLessThan(8);
 });
 
 test("advanced search still filters the mailbox by Has the words", async ({

@@ -487,6 +487,8 @@ export function useMailThreads({
 
   return {
     threads,
+    hasRemoteResponse: Boolean(data?.[0]),
+    searchError: error,
     isLoading:
       enabled &&
       (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),

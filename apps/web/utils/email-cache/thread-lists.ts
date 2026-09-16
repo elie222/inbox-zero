@@ -1,3 +1,4 @@
+import { notifyEmailCacheChange } from "./cache-events";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import {
   captureEmailCacheEpoch,
@@ -11,10 +12,12 @@ type ThreadRow = { id: string };
 export async function writeCachedThreadRows<T extends ThreadRow>({
   emailAccountId,
   threads,
+  fetchedAt,
   now = Date.now(),
 }: {
   emailAccountId: string;
   threads: T[];
+  fetchedAt?: number;
   now?: number;
 }) {
   if (!threads.length) return;
@@ -28,15 +31,18 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
 
     for (const thread of threads) {
       const current = await store.get([emailAccountId, thread.id]);
+      if (fetchedAt !== undefined && current && current.fetchedAt > fetchedAt)
+        continue;
       await store.put({
         emailAccountId,
         threadId: thread.id,
         data: thread,
-        fetchedAt: current?.fetchedAt ?? now,
+        fetchedAt: fetchedAt ?? current?.fetchedAt ?? now,
         lastAccessedAt: now,
       });
     }
     await transaction.done;
+    notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
   } catch {
     scheduleEmailCacheCleanup({ force: true });
@@ -87,6 +93,7 @@ export async function writeCachedThreadList<T extends ThreadRow>({
       }),
     ]);
     await transaction.done;
+    notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
   } catch {
     scheduleEmailCacheCleanup({ force: true });

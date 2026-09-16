@@ -10,6 +10,7 @@ import { useCombinedMailThreads } from "./use-combined-mail-threads";
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
   write: vi.fn(),
+  writeRows: vi.fn(),
 }));
 const mailbox = vi.hoisted(() => ({
   listeners: new Set<(emailAccountId: string) => void>(),
@@ -25,6 +26,7 @@ const mutationStore = vi.hoisted(() => ({
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
   writeCachedThreadList: cache.write,
+  writeCachedThreadRows: cache.writeRows,
 }));
 vi.mock("@/utils/email-cache/mailbox", () => ({
   readCombinedSyncedMailboxThreads: mailbox.read,
@@ -40,6 +42,7 @@ describe("useCombinedMailThreads", () => {
     vi.clearAllMocks();
     cache.read.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
+    cache.writeRows.mockResolvedValue(undefined);
     mailbox.listeners.clear();
     mailbox.read.mockResolvedValue(undefined);
     mailbox.subscribe.mockImplementation(
