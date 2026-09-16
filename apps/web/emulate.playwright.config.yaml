@@ -133,6 +133,38 @@ google:
       label_ids:
         - DRAFT
       internal_date: "1735210800000"
+    - id: msg_draft_indicator_parent
+      thread_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: sender@example.com
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Draft deletion example
+      body_text: Please review this proposal.
+      message_id: "<draft-indicator-parent@example.com>"
+      label_ids: [INBOX]
+      internal_date: "1735210800000"
+    - id: msg_draft_indicator_first
+      thread_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: sender@example.com
+      subject: Draft deletion example
+      body_text: First draft reply.
+      message_id: "<draft-indicator-first@example.com>"
+      in_reply_to: "<draft-indicator-parent@example.com>"
+      label_ids: [DRAFT]
+      internal_date: "1735210700000"
+    - id: msg_draft_indicator_second
+      thread_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: sender@example.com
+      subject: Draft deletion example
+      body_text: Second draft reply.
+      message_id: "<draft-indicator-second@example.com>"
+      in_reply_to: "<draft-indicator-parent@example.com>"
+      label_ids: [DRAFT]
+      internal_date: "1735211000000"
     - id: msg_playwright_sent
       thread_id: thr_playwright_sent
       user_email: __PLAYWRIGHT_TEST_EMAIL__

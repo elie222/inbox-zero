@@ -393,8 +393,15 @@ export function MailShell() {
     searchQuery: searchQuery ?? undefined,
   });
   const { labelsByAccount } = combinedThreadState;
-  const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
-    isAllAccounts ? combinedThreadState : accountThreadState;
+  const {
+    threads,
+    isLoading,
+    error,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    refetch: refetchThreadList,
+  } = isAllAccounts ? combinedThreadState : accountThreadState;
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
@@ -1433,6 +1440,10 @@ export function MailShell() {
     [openThreadSelection, refetchOpenThread],
   );
 
+  const refetchReader = useCallback(() => {
+    Promise.allSettled([refetchOpenThread(), refetchThreadList()]);
+  }, [refetchOpenThread, refetchThreadList]);
+
   const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerUserLabels = isAllAccounts
@@ -1644,7 +1655,7 @@ export function MailShell() {
                     setReadState([openThreadKey], true);
                   }}
                   onMarkUnread={markUnreadTargets}
-                  refetch={refetchOpenThread}
+                  refetch={refetchReader}
                   onSendSuccess={(_messageId, sentThreadId) => {
                     if (
                       !openThreadSelection ||
