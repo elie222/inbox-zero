@@ -185,6 +185,7 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
 });
 
 test("ignores delayed responses after the search changes", async ({ page }) => {
+  await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
   const { emailAccountId, conversations } = await openMail(page);
   const cachedThread = await seedSearchCache(page, emailAccountId);
   let release!: () => void;

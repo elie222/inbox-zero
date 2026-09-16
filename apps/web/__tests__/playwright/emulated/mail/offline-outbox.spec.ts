@@ -218,14 +218,14 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
 test("keeps a unified-mailbox mutation isolated to its owning account", async ({
   page,
 }) => {
+  await page.route("**/api/mobile/mailbox-sync", (route) =>
+    route.abort("connectionfailed"),
+  );
   const { emailAccountId } = await openMail(page);
   const secondAccount = await createSecondEmailAccount(emailAccountId);
 
   try {
     await page.route("**/api/threads/all?**", (route) =>
-      route.abort("connectionfailed"),
-    );
-    await page.route("**/api/mobile/mailbox-sync", (route) =>
       route.abort("connectionfailed"),
     );
     await seedAccountIsolationMailbox(page, emailAccountId, secondAccount.id);
