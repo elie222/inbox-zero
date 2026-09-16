@@ -165,19 +165,27 @@ export async function withLocalMailSyncBudget<T>(
     input.provider === "google"
       ? Math.max(1, Math.ceil(input.cost / gmailMailSyncCosts.message))
       : 1;
-  const timeout = setTimeout(() => controller.abort(), requestCount * 30_000);
+  let pauseError: LocalMailSyncPausedError | undefined;
+  const pause = () => {
+    pauseError ??= new LocalMailSyncPausedError();
+    controller.abort();
+  };
+  const timeout = setTimeout(pause, requestCount * 30_000);
   const activeKeys = keys.slice(4, 6);
   const renewal = setInterval(() => {
     redis
       .eval<string[], number>(renewScript, activeKeys, [owner])
       .then((renewed) => {
-        if (renewed !== 1) controller.abort();
+        if (renewed !== 1) pause();
       })
-      .catch(() => controller.abort());
+      .catch(pause);
   }, 20_000);
   try {
-    return await operation(controller.signal);
+    const result = await operation(controller.signal);
+    if (pauseError) throw pauseError;
+    return result;
   } catch (error) {
+    if (pauseError) throw pauseError;
     const delay = getProviderRateLimitDelayMs({
       error: normalizeThrottleHeaders(error),
       provider: input.provider,

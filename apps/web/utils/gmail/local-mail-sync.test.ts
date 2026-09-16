@@ -56,6 +56,26 @@ describe("Gmail enumeration checkpoints", () => {
       expect.anything(),
     );
   });
+  it("rejects a repeated backfill continuation before checkpointing it", async () => {
+    gmail.users.messages.list.mockResolvedValue({
+      data: { messages: [], nextPageToken: "same" },
+    });
+    const first = await getGmailMailBackfillPage(input());
+    await expect(
+      getGmailMailBackfillPage({ ...input(), cursor: first.nextCursor }),
+    ).rejects.toThrow("did not advance");
+  });
+  it("rejects a repeated history continuation before checkpointing it", async () => {
+    const cursor = await captureGmailMailHistoryCursor(input());
+    gmail.users.history.list.mockResolvedValue({
+      data: { historyId: "200", nextPageToken: "same" },
+    });
+    const first = await getGmailMailChangesPage({ ...input(), cursor });
+    if (first.resetRequired) throw new Error("Unexpected reset");
+    await expect(
+      getGmailMailChangesPage({ ...input(), cursor: first.cursor }),
+    ).rejects.toThrow("did not advance");
+  });
   it("omits the provider lower-bound query for the explicit all-time window", async () => {
     await getGmailMailBackfillPage({
       ...input(),

@@ -110,6 +110,8 @@ export async function getGmailMailBackfillPage(
     return message.id;
   });
   const nextPageToken = response.data.nextPageToken;
+  if (nextPageToken && nextPageToken === checkpoint.pageToken)
+    throw new Error("Gmail backfill continuation did not advance");
   return {
     messageIds: [...new Set(messageIds)],
     nextCursor: nextPageToken
@@ -172,6 +174,8 @@ export async function getGmailMailChangesPage(
     if (extractErrorInfo(error).status !== 404) throw error;
     return { resetRequired: true as const };
   }
+  if (response.nextPageToken && response.nextPageToken === checkpoint.pageToken)
+    throw new Error("Gmail history continuation did not advance");
   const { upsertIds, deletedIds } = getGmailMailboxChangeIds(
     response.history ?? [],
   );
