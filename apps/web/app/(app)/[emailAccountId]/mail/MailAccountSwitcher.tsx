@@ -91,7 +91,7 @@ export function MailAccountSwitcher({
               type="button"
               aria-label={collapsed ? activeLabel : undefined}
               className={cn(
-                "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex w-full items-center rounded-xl text-left transition-[color,background-color,transform] duration-150 ease-out hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] motion-reduce:active:scale-100",
                 collapsed ? "justify-center" : "gap-3 px-2",
                 variant === "compact" ? "h-11" : "h-10",
               )}
@@ -118,7 +118,7 @@ export function MailAccountSwitcher({
         <DropdownMenuContent
           align="start"
           className={cn(
-            "rounded-2xl p-2 shadow-xl",
+            "rounded-[20px] p-2 shadow-xl",
             variant === "compact"
               ? "w-[calc(100vw-1.5rem)]"
               : "w-[--radix-dropdown-menu-trigger-width] min-w-72",

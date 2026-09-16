@@ -160,7 +160,7 @@ export const ThreadRow = memo(function ThreadRow({
         <SentMessageOpenStatus compact open={sentMessageOpen} />
       ) : null}
       <EmailDate
-        className="font-normal text-xs"
+        className="font-normal text-xs tabular-nums"
         date={internalDateToDate(message.internalDate)}
       />
     </div>
@@ -170,7 +170,7 @@ export const ThreadRow = memo(function ThreadRow({
   ) : null;
   const messageCountMarker =
     messageCount > 1 ? (
-      <span className="shrink-0 font-normal text-muted-foreground text-xs">
+      <span className="shrink-0 font-normal text-muted-foreground text-xs tabular-nums">
         {messageCount}
       </span>
     ) : null;
@@ -324,7 +324,7 @@ function AccountAvatar({
   return (
     <Avatar
       aria-label={`Inbox: ${label}`}
-      className="size-5"
+      className="size-5 outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
       title={account.email}
     >
       <AvatarImage alt="" src={account.image || undefined} />
@@ -345,5 +345,5 @@ function rowBackground({
 }) {
   if (isSelected) return "bg-primary/10";
   if (isFocused) return "bg-primary/5";
-  return "bg-background hover:bg-muted/50";
+  return "bg-background [@media(hover:hover)_and_(pointer:fine)]:hover:bg-muted/50";
 }

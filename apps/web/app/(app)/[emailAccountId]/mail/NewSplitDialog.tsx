@@ -394,7 +394,7 @@ export function NewSplitDialog({
                   className={cn(
                     "rounded-lg px-2 py-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     option === category
-                      ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]"
+                      ? "bg-card font-medium text-foreground shadow-[var(--shadow-border)]"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >

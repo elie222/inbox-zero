@@ -38,7 +38,8 @@ const CommandDialog = ({
 }: CommandDialogProps) => (
   <Dialog {...props}>
     <DialogContent
-      className="overflow-hidden p-0 shadow-lg"
+      className="overflow-hidden p-0 shadow-lg duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none"
+      overlayClassName="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none"
       onEscapeKeyDown={onEscapeKeyDown}
     >
       <Command

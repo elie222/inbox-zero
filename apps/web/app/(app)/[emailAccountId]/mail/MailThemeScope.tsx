@@ -10,18 +10,37 @@ import { useEffect } from "react";
  * leave every popover painted in the app's default palette on top of this screen.
  *
  * next-themes drives dark mode through a class, so an attribute doesn't collide.
+ * Color transitions are suppressed for the swap so the palette doesn't smear in.
  */
 export function MailThemeScope() {
   useEffect(() => {
     const { documentElement } = document;
     const previous = documentElement.dataset.theme;
-    documentElement.dataset.theme = "mail";
+    withThemeTransitionsDisabled(() => {
+      documentElement.dataset.theme = "mail";
+    });
 
     return () => {
-      if (previous === undefined) delete documentElement.dataset.theme;
-      else documentElement.dataset.theme = previous;
+      withThemeTransitionsDisabled(() => {
+        if (previous === undefined) delete documentElement.dataset.theme;
+        else documentElement.dataset.theme = previous;
+      });
     };
   }, []);
 
   return null;
+}
+
+function withThemeTransitionsDisabled(applyTheme: () => void) {
+  const style = document.createElement("style");
+  style.append(
+    document.createTextNode("*,*::before,*::after{transition:none !important}"),
+  );
+  document.head.append(style);
+  applyTheme();
+  // Force a style flush so the new palette commits while transitions are off.
+  document.body.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => style.remove());
+  });
 }

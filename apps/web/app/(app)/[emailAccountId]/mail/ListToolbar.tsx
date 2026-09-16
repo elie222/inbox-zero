@@ -128,7 +128,7 @@ export function ListToolbar({
         <>
           <span
             aria-live="polite"
-            className="min-w-0 flex-1 truncate font-medium text-sm"
+            className="min-w-0 flex-1 truncate font-medium text-sm tabular-nums"
           >{`${selectedCount} selected`}</span>
 
           <Tooltip content={`Archive (${getShortcutHint("archive")})`}>
@@ -473,4 +473,4 @@ function MailSearchInput({
 }
 
 const toolbarButton =
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-out hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] motion-reduce:active:scale-100";

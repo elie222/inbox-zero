@@ -3,6 +3,7 @@
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { MailAccountSwitcher } from "./MailAccountSwitcher";
 
 (globalThis as { React?: typeof React }).React = React;
@@ -160,13 +161,15 @@ function renderSwitcher({
   onSelectAccount: (accountId: string) => void;
 }) {
   return render(
-    <MailAccountSwitcher
-      isAllAccounts={false}
-      isDesktopApp
-      onSelectAccount={onSelectAccount}
-      onSelectAll={vi.fn()}
-      variant="compact"
-    />,
+    <TooltipProvider>
+      <MailAccountSwitcher
+        isAllAccounts={false}
+        isDesktopApp
+        onSelectAccount={onSelectAccount}
+        onSelectAll={vi.fn()}
+        variant="compact"
+      />
+    </TooltipProvider>,
   );
 }
 

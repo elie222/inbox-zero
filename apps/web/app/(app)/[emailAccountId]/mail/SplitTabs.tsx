@@ -119,7 +119,7 @@ export function SplitTabs({
           type="button"
           aria-label="New split"
           onClick={onNewSplit}
-          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-transform duration-150 ease-out hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] motion-reduce:active:scale-100"
         >
           <PlusIcon className="size-3.5" />
         </button>
