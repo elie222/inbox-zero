@@ -297,6 +297,48 @@ describe("useCombinedMailThreads", () => {
     expect(result.current.threads).toEqual([]);
   });
 
+  it("keeps an archive overlay until a combined label refetch drops the thread", async () => {
+    mutationStore.read
+      .mockResolvedValueOnce([
+        createMutation({
+          emailAccountId: "account-1",
+          kind: "archive",
+          messageIds: ["stale-archive-message"],
+          threadId: "stale-archive",
+        }),
+      ])
+      .mockResolvedValue([]);
+    const fetcher = vi.fn(async () => ({
+      failedAccountIds: [],
+      labelsByAccount: {},
+      nextPageToken: null,
+      threads: [createThread("account-1", "stale-archive")],
+    }));
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+          labelNames: ["Receipts"],
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("removes only the pending-read owner from an unread-only view", async () => {
     const network = Promise.withResolvers<unknown>();
     mailbox.read.mockResolvedValue({

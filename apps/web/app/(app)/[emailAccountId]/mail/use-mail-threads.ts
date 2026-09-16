@@ -2,7 +2,14 @@
 
 import { threadListQueryRequiresInbox } from "@/utils/mail/split-query";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -150,7 +157,9 @@ export function useMailThreads({
   const remoteIdentity = useRef<string | undefined>(undefined);
   const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const queryRef = useRef(query);
-  queryRef.current = query;
+  useLayoutEffect(() => {
+    queryRef.current = query;
+  });
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
   const loadMoreLock = useRef(false);

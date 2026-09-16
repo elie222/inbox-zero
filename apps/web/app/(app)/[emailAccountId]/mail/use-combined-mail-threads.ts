@@ -142,11 +142,14 @@ export function useCombinedMailThreads({
     if (!enabled) return;
     return subscribeToVisibleRevalidation(() => mutate());
   }, [enabled, mutate]);
+  // Label splits still show labeled mail that isn't in INBOX (for example Sent).
   const requiresInbox = !labelIdentity && !searchQuery;
+  // Combined label fetches still pin INBOX, so keep archive overlay until the row is gone.
+  const waitForArchiveOverlay = !searchQuery;
   const reconcileMailMutations = useCallback(
     async (mutations: MailMutation[]) => {
       const pages = await mutate();
-      if (!requiresInbox) return;
+      if (!waitForArchiveOverlay) return;
       const threads = pages?.flatMap((page) => page.threads) ?? [];
       if (
         mailMutationOverlayHidesAnyThread({
@@ -158,7 +161,7 @@ export function useCombinedMailThreads({
         return false;
       }
     },
-    [mutate, requiresInbox],
+    [mutate, waitForArchiveOverlay],
   );
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
