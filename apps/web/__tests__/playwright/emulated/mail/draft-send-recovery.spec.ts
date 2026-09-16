@@ -66,6 +66,9 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
     page.locator(`[data-thread-message-id="${sent[0].id}"]`),
   ).toBeVisible();
   await expect(
+    page.getByRole("textbox", { name: "Email message" }),
+  ).toBeVisible();
+  await expect(
     page.getByText("Reply could not be sent", { exact: true }),
   ).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "autosaved-reply-sent");

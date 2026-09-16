@@ -819,7 +819,7 @@ function ComposeEmailFormContent({
           ? await getReplyDraft(localDraftIdentity)
           : undefined;
         const draftId =
-          providerDraftId.current ?? local?.content?.providerDraftId;
+          local?.content?.providerDraftId ?? providerDraftId.current;
         if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
           throw new Error(
             "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
