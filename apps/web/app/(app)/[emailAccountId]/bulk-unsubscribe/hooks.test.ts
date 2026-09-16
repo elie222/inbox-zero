@@ -473,6 +473,10 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(toastErrorMock).toHaveBeenCalledWith(
         EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        // The sender was not unsubscribed, so their own page is still offered.
+        expect.objectContaining({
+          action: expect.objectContaining({ label: "Open page" }),
+        }),
       );
       expect(captureExceptionMock).not.toHaveBeenCalled();
       expect(queueArchiveSendersMock).not.toHaveBeenCalled();

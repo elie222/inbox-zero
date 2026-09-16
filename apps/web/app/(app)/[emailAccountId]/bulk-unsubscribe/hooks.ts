@@ -315,6 +315,20 @@ export function useUnsubscribe<T extends Row>({
 
     setUnsubscribeLoading(true);
 
+    // However the attempt fails, the sender's own page stays available, so the
+    // reader is never left without a way to finish.
+    const openPageAction = userFacingUnsubscribeLink
+      ? {
+          label: "Open page",
+          onClick: () =>
+            window.open(
+              userFacingUnsubscribeLink,
+              "_blank",
+              "noopener,noreferrer",
+            ),
+        }
+      : undefined;
+
     try {
       posthog.capture("Clicked Unsubscribe");
       analytics.captureAction("unsubscribe_sender_started", {
@@ -363,17 +377,7 @@ export function useUnsubscribe<T extends Row>({
             reason: "automatic_unsubscribe_failed",
           });
           toast.error(`Could not unsubscribe from ${item.name}`, {
-            action: userFacingUnsubscribeLink
-              ? {
-                  label: "Open page",
-                  onClick: () =>
-                    window.open(
-                      userFacingUnsubscribeLink,
-                      "_blank",
-                      "noopener,noreferrer",
-                    ),
-                }
-              : undefined,
+            action: openPageAction,
           });
         } else {
           analytics.captureAction("unsubscribe_sender_completed", {
@@ -383,10 +387,12 @@ export function useUnsubscribe<T extends Row>({
       }
     } catch (error) {
       if (error instanceof EmailProviderRateLimitError) {
-        toast.error(error.message);
+        toast.error(error.message, { action: openPageAction });
       } else {
         captureException(error);
-        toast.error(`Could not unsubscribe from ${item.name}`);
+        toast.error(`Could not unsubscribe from ${item.name}`, {
+          action: openPageAction,
+        });
       }
     } finally {
       setUnsubscribeLoading(false);
