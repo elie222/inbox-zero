@@ -14,6 +14,7 @@ const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
     EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
   },
   outlookMailMock: {
+    addAttachmentsToDraft: vi.fn().mockResolvedValue(undefined),
     draftEmail: vi.fn().mockResolvedValue({ id: "draft-1" }),
     forwardEmail: vi.fn(),
     replyToEmail: vi.fn(),
@@ -241,6 +242,40 @@ describe("OutlookProvider.updateDraft", () => {
       provider.updateDraft("message-1", { messageHtml: "<p>Edit</p>" }),
     ).rejects.toThrow("Could not find this draft to update.");
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("replaces the attachment set for a composed draft, including removals", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const patch = vi.fn().mockResolvedValue({});
+    const get = vi.fn().mockResolvedValue({ value: [{ id: "old-file" }] });
+    const api = vi.fn();
+    const request = {
+      header: () => request,
+      select: () => request,
+      get,
+      patch,
+      delete: remove,
+    };
+    api.mockReturnValue(request);
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getDraftReferenceForMessage").mockResolvedValue({
+      id: "draft-1",
+      version: "v1",
+    });
+    await provider.updateDraft("draft-1", {
+      messageHtml: "<p>Changed</p>",
+      attachments: [],
+    });
+    expect(api).toHaveBeenCalledWith(
+      "/me/messages/draft-1/attachments/old-file",
+    );
+    expect(remove).toHaveBeenCalledOnce();
+    expect(outlookMailMock.addAttachmentsToDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ draftId: "draft-1", attachments: [] }),
+    );
   });
 
   it("clears draft fields and updates recipients", async () => {

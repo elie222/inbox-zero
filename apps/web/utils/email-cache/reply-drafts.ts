@@ -305,6 +305,7 @@ export async function restoreReplyFromOutbox(
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
+    requestId: email.composeSessionId,
     composeMode,
     values,
     draft,

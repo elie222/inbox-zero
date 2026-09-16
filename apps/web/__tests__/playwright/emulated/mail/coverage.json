@@ -31,6 +31,11 @@
     "components/email-list/EmailThread.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
   ],
+  "compose-drafts.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "hooks/useProviderDraftAutosave.ts",
+    "utils/email/compose-draft.ts"
+  ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"

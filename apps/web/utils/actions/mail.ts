@@ -15,6 +15,8 @@ import {
   untrashThreadBody,
   updateMailboxItemBody,
   updateDraftBody,
+  saveComposeDraftBody,
+  discardComposeDraftBody,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
@@ -23,6 +25,11 @@ import {
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
+
+import {
+  saveComposeDraft,
+  discardComposeDraft,
+} from "@/utils/email/compose-draft";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -502,3 +509,43 @@ function assertMailboxItemMutationSupported({
     );
   }
 }
+
+export const saveComposeDraftAction = actionClient
+  .metadata({ name: "saveComposeDraft" })
+  .inputSchema(saveComposeDraftBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput,
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      const draftId = await saveComposeDraft({
+        emailAccountId,
+        provider,
+        ...parsedInput,
+      });
+      return { draftId };
+    },
+  );
+
+export const discardComposeDraftAction = actionClient
+  .metadata({ name: "discardComposeDraft" })
+  .inputSchema(discardComposeDraftBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput,
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      await discardComposeDraft({ emailAccountId, provider, ...parsedInput });
+      return { success: true };
+    },
+  );

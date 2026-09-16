@@ -32,6 +32,7 @@ import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   draftEmail,
+  addAttachmentsToDraft,
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
@@ -703,6 +704,7 @@ export class OutlookProvider implements EmailProvider {
       to?: string;
       cc?: string;
       bcc?: string;
+      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void> {
     this.logger.info("Updating draft", { draftId });
@@ -735,6 +737,33 @@ export class OutlookProvider implements EmailProvider {
       this.logger,
     );
 
+    if (params.attachments !== undefined) {
+      const existing = await withMicrosoftGraphRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/messages/${draftId}/attachments`)
+            .select("id")
+            .get(),
+        this.logger,
+      );
+      for (const attachment of existing.value ?? []) {
+        await withMicrosoftGraphWriteRetry(
+          () =>
+            this.client
+              .getClient()
+              .api(`/me/messages/${draftId}/attachments/${attachment.id}`)
+              .delete(),
+          this.logger,
+        );
+      }
+      await addAttachmentsToDraft({
+        client: this.client,
+        draftId,
+        attachments: toMailerAttachments(params.attachments) ?? [],
+        logger: this.logger,
+      });
+    }
     this.logger.info("Draft updated", { draftId });
   }
 

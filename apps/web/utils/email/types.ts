@@ -385,6 +385,7 @@ export interface EmailProvider {
       to?: string;
       cc?: string;
       bcc?: string;
+      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void>;
   updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;

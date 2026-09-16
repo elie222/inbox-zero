@@ -71,7 +71,11 @@ import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
-import { updateDraftAction } from "@/utils/actions/mail";
+import {
+  updateDraftAction,
+  saveComposeDraftAction,
+  discardComposeDraftAction,
+} from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractEmailAddress,
@@ -282,6 +286,7 @@ function ComposeEmailFormContent({
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
+  const isNewCompose = !replyingToEmail && !providerDraftMessageId;
   const { mutate } = useSWRConfig();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
   const [remindAt, setRemindAt] = useState(
@@ -471,7 +476,10 @@ function ComposeEmailFormContent({
     getContent: getDraftContent,
   });
   const providerAutosave = useProviderDraftAutosave({
-    enabled: Boolean(providerDraftMessageId),
+    enabled: Boolean(providerDraftMessageId) || isNewCompose,
+    sessionKey: isNewCompose
+      ? `${selectedEmailAccountId}:${requestId}`
+      : undefined,
     getContent: () => {
       const content = getDraftContent();
       if (!content) return;
@@ -481,7 +489,7 @@ function ComposeEmailFormContent({
         to: content.values.to ?? "",
         cc: content.values.cc ?? "",
         bcc: content.values.bcc ?? "",
-        hasNewAttachments: content.attachments.length > 0,
+        attachments: serializeComposeAttachments(content.attachments),
         messageHtml: combineEmailHtml({
           editableHtml:
             content.draft.mode === "fallback"
@@ -497,9 +505,18 @@ function ComposeEmailFormContent({
         }),
       };
     },
-    save: async ({ hasNewAttachments, ...content }) => {
+    save: async ({ attachments: draftAttachments, ...content }) => {
+      if (isNewCompose) {
+        const result = await saveComposeDraftAction(selectedEmailAccountId, {
+          sessionId: requestId,
+          content: { ...content, attachments: draftAttachments },
+        });
+        if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+        providerDraftId.current = result.data.draftId;
+        return;
+      }
       if (!providerDraftMessageId) return;
-      if (hasNewAttachments)
+      if (draftAttachments.length)
         throw new Error(
           "Drafts with newly added attachments are saved on this device until sent.",
         );
@@ -732,6 +749,7 @@ function ComposeEmailFormContent({
             });
       const enrichedData: SendEmailBody = {
         ...data,
+        ...(isNewCompose ? { composeSessionId: requestId } : {}),
         ...recipients,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml: combineEmailHtml({
@@ -743,15 +761,7 @@ function ComposeEmailFormContent({
             ? initialDraft.quotedHtml
             : "",
         }),
-        attachments: outgoingAttachments.map((attachment) => ({
-          id: attachment.id,
-          filename: attachment.filename,
-          content: attachment.contentBase64,
-          contentType: attachment.mimeType,
-          size: attachment.size,
-          disposition: attachment.disposition,
-          contentId: attachment.contentId,
-        })),
+        attachments: serializeComposeAttachments(outgoingAttachments),
       };
       const payloadValidation = validateSendEmailPayloadSize(enrichedData);
       if (!payloadValidation.valid) {
@@ -958,6 +968,7 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
+      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,
@@ -1065,6 +1076,12 @@ function ComposeEmailFormContent({
     if (!onDiscard || isSubmitting) return;
     try {
       await stopProviderAutosave();
+      if (isNewCompose) {
+        const result = await discardComposeDraftAction(selectedEmailAccountId, {
+          sessionId: requestId,
+        });
+        if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      }
       if ((await onDiscard(providerDraftId.current)) === false) {
         resumeProviderAutosave();
         return;
@@ -1082,6 +1099,9 @@ function ComposeEmailFormContent({
   }, [
     clearLocalDraft,
     isSubmitting,
+    isNewCompose,
+    selectedEmailAccountId,
+    requestId,
     onDiscard,
     stopProviderAutosave,
     resumeProviderAutosave,
@@ -1794,4 +1814,16 @@ function isShortcutForForm(
       .closest("[data-compose-shortcut-owner]")
       ?.getAttribute("data-compose-shortcut-owner") === shortcutOwnerId
   );
+}
+
+function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {
+  return attachments.map((attachment) => ({
+    id: attachment.id,
+    filename: attachment.filename,
+    content: attachment.contentBase64,
+    contentType: attachment.mimeType,
+    size: attachment.size,
+    disposition: attachment.disposition,
+    contentId: attachment.contentId,
+  }));
 }

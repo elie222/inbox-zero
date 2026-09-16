@@ -1,3 +1,4 @@
+import { sendEmailBody } from "@/utils/types/mail";
 import { z } from "zod";
 
 const mailboxItemKind = z.enum(["label", "folder"]);
@@ -71,4 +72,12 @@ export const updateDraftBody = z.object({
   to: z.string(),
   cc: z.string(),
   bcc: z.string(),
+});
+
+export const saveComposeDraftBody = z.object({
+  sessionId: z.string().uuid(),
+  content: sendEmailBody,
+});
+export const discardComposeDraftBody = z.object({
+  sessionId: z.string().uuid(),
 });

@@ -643,6 +643,39 @@ describe("GmailProvider.updateDraft", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("writes new attachments and removes old files when the composer supplies the complete set", async () => {
+    const update = vi.fn().mockResolvedValue({ data: {} });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValue({
+      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [{ filename: "old.txt", body: { attachmentId: "old-file" } }],
+      },
+    });
+    await provider.updateDraft("draft-1", {
+      messageHtml: "<p>Example</p>",
+      attachments: [
+        {
+          filename: "example.txt",
+          content: Buffer.from("Example attachment").toString("base64"),
+          contentType: "text/plain",
+        },
+      ],
+    });
+    const mime = decodeBase64Url(
+      update.mock.calls[0][0].requestBody.message.raw,
+    );
+    expect(mime).toContain("filename=example.txt");
+    expect(mime).not.toContain("old.txt");
+    await provider.updateDraft("draft-1", { attachments: [] });
+    expect(
+      decodeBase64Url(update.mock.calls[1][0].requestBody.message.raw),
+    ).not.toContain("filename=");
+  });
+
   it.each([
     true,
     false,
