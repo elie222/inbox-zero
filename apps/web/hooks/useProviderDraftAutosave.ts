@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const sessions = new Map<
-  string,
-  { cancel: () => void; active?: Promise<void> }
->();
+type DraftAutosaveSession = {
+  cancel: () => void;
+  active?: Promise<void>;
+};
+
+const sessions = new Map<string, DraftAutosaveSession>();
 
 export function useProviderDraftAutosave<T>({
   enabled,
@@ -21,34 +23,39 @@ export function useProviderDraftAutosave<T>({
   const [error, setError] = useState("");
   const latest = useRef({ enabled, getContent, save });
   latest.current = { enabled, getContent, save };
-  const pending = useRef<T | undefined>(undefined);
-  const saved = useRef<string | undefined>(undefined);
-  const active = useRef<Promise<void> | undefined>(undefined);
+  const pendingContent = useRef<T | undefined>(undefined);
+  const savedSnapshot = useRef<string | undefined>(undefined);
+  const activeSave = useRef<Promise<void> | undefined>(undefined);
   const paused = useRef(false);
   const mounted = useRef(true);
   const cleanup = useRef<() => void>(() => {});
 
   const capture = useCallback(() => {
     if (latest.current.enabled && !paused.current)
-      pending.current = latest.current.getContent();
+      pendingContent.current = latest.current.getContent();
   }, []);
 
+  const isPendingContentSaved = useCallback(
+    () =>
+      pendingContent.current === undefined ||
+      JSON.stringify(pendingContent.current) === savedSnapshot.current,
+    [],
+  );
+
   const flush = useCallback(() => {
-    if (active.current) return active.current;
+    if (activeSave.current) return activeSave.current;
     if (!navigator.onLine) return Promise.resolve();
-    const content = pending.current;
+    const content = pendingContent.current;
     if (!latest.current.enabled || paused.current || content === undefined)
       return Promise.resolve();
     const snapshot = JSON.stringify(content);
-    if (snapshot === saved.current) return Promise.resolve();
+    if (snapshot === savedSnapshot.current) return Promise.resolve();
     const session = sessionKey ? sessions.get(sessionKey) : undefined;
     const request = Promise.resolve(session?.active)
-      .then(() => {
+      .then(async () => {
         if (paused.current) return;
-        return latest.current.save(content);
-      })
-      .then(() => {
-        saved.current = snapshot;
+        await latest.current.save(content);
+        savedSnapshot.current = snapshot;
         if (mounted.current) setError("");
       })
       .catch((error: unknown) => {
@@ -60,22 +67,19 @@ export function useProviderDraftAutosave<T>({
           );
       })
       .finally(() => {
-        active.current = undefined;
+        activeSave.current = undefined;
         if (session?.active === request) session.active = undefined;
-        if (
-          !mounted.current &&
-          (paused.current || JSON.stringify(pending.current) === saved.current)
-        )
+        if (!mounted.current && (paused.current || isPendingContentSaved()))
           cleanup.current();
       });
-    active.current = request;
+    activeSave.current = request;
     if (session) session.active = request;
     return request;
-  }, [sessionKey]);
+  }, [isPendingContentSaved, sessionKey]);
 
   const stop = useCallback(async () => {
     paused.current = true;
-    await active.current;
+    await activeSave.current;
     if (sessionKey) await sessions.get(sessionKey)?.active;
   }, [sessionKey]);
   const resume = useCallback(() => {
@@ -98,7 +102,7 @@ export function useProviderDraftAutosave<T>({
     if (sessionKey) sessions.set(sessionKey, session);
     const timer = setInterval(flush, 3000);
     const flushLatest = () =>
-      active.current ? active.current.then(flush) : flush();
+      activeSave.current ? activeSave.current.then(flush) : flush();
     const onHidden = () => {
       if (document.visibilityState === "hidden") flushLatest();
     };
@@ -113,16 +117,11 @@ export function useProviderDraftAutosave<T>({
     };
     return () => {
       mounted.current = false;
-      if (
-        !sessionKey ||
-        paused.current ||
-        pending.current === undefined ||
-        JSON.stringify(pending.current) === saved.current
-      )
+      if (!sessionKey || paused.current || isPendingContentSaved())
         cleanup.current();
       flushLatest();
     };
-  }, [flush, sessionKey]);
+  }, [flush, isPendingContentSaved, sessionKey]);
 
   return { capture, stop, resume, error };
 }

@@ -33,14 +33,16 @@ export async function saveComposeDraft({
   });
   const savingAt = await claimSave(row.id);
   try {
-    const attachmentsHash = createHash("sha256")
-      .update(JSON.stringify(content.attachments ?? []))
-      .digest("hex");
-    const { attachments, ...fields } = content;
+    const draftAttachments = content.attachments ?? [];
+    const attachmentsHash = getAttachmentsHash(draftAttachments);
     await provider.updateDraft(row.draftId, {
-      ...fields,
+      to: content.to,
+      cc: content.cc,
+      bcc: content.bcc,
+      subject: content.subject,
+      messageHtml: content.messageHtml,
       ...(attachmentsHash !== row.attachmentsHash
-        ? { attachments: attachments ?? [] }
+        ? { attachments: draftAttachments }
         : {}),
     });
     await completeSave(row.id, savingAt, { attachmentsHash });
@@ -212,4 +214,10 @@ async function claimSave(id: string) {
   });
   if (!claimed.count) throw new SafeError("Draft is still syncing. Retrying…");
   return savingAt;
+}
+
+function getAttachmentsHash(
+  attachments: NonNullable<SendEmailBody["attachments"]>,
+) {
+  return createHash("sha256").update(JSON.stringify(attachments)).digest("hex");
 }

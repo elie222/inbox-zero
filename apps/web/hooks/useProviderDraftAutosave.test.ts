@@ -70,6 +70,24 @@ it("serializes writes and waits for an active save before stopping", async () =>
   unmount();
 });
 
+it("saves skipped queued content after resuming", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent: () => "edit", save }),
+  );
+  act(() => result.current.capture());
+  await act(async () => {
+    vi.advanceTimersByTime(3000);
+    await result.current.stop();
+  });
+  expect(save).not.toHaveBeenCalled();
+  act(() => result.current.resume());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledExactlyOnceWith("edit");
+  unmount();
+});
+
 it("retries failed saves without requiring another edit", async () => {
   vi.useFakeTimers();
   const save = vi
