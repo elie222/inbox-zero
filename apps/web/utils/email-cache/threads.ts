@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type {
@@ -45,9 +46,14 @@ export async function writeCachedThreadDetail({
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction("threadDetails", "readwrite");
+    const transaction = database.transaction(
+      ["threadDetails", "searchIndexAccounts", "searchIndexWork"],
+      "readwrite",
+    );
     // Wait behind pending sync deletions before checking this response’s version.
-    await transaction.store.getKey([emailAccountId, threadId, variant]);
+    await transaction
+      .objectStore("threadDetails")
+      .getKey([emailAccountId, threadId, variant]);
     if (
       !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
       version !== getThreadCacheVersion(emailAccountId, threadId)
@@ -55,7 +61,7 @@ export async function writeCachedThreadDetail({
       await transaction.done;
       return;
     }
-    await transaction.store.put({
+    await transaction.objectStore("threadDetails").put({
       emailAccountId,
       threadId,
       variant,
@@ -64,6 +70,7 @@ export async function writeCachedThreadDetail({
       lastAccessedAt: now,
       byteSize,
     });
+    await markSearchThreadsDirty(transaction, emailAccountId, [threadId]);
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();

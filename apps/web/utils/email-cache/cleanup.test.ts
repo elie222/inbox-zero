@@ -49,6 +49,10 @@ describe("email cache cleanup", () => {
     expect(database).toBeDefined();
     const now = Date.now();
     const variant = "drafts:0|replies:0";
+    await database?.put("searchIndexAccounts", {
+      emailAccountId: "account-1",
+      generation: "generation-1",
+    });
 
     await database?.put("threadDetails", {
       emailAccountId: "account-1",
@@ -112,6 +116,9 @@ describe("email cache cleanup", () => {
     await expect(
       database?.get("mailboxMessages", ["account-1", "refresh-margin-message"]),
     ).resolves.toBeDefined();
+    expect(
+      (await database?.getAll("searchIndexWork"))?.map((item) => item.threadId),
+    ).toEqual(["expired-thread", "older"]);
   });
 
   it("removes old terminal mutations but never active durable work", async () => {
