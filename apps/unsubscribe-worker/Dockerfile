@@ -9,9 +9,11 @@ COPY apps/unsubscribe-worker/package.json apps/unsubscribe-worker/package.json
 RUN pnpm install --filter @inboxzero/unsubscribe-worker --frozen-lockfile --ignore-scripts --config.enable-global-virtual-store=false
 # Not `pnpm exec`: its dependency check treats the filtered --ignore-scripts
 # install above as stale and aborts trying to purge node_modules without a TTY.
-RUN apps/unsubscribe-worker/node_modules/.bin/playwright install --with-deps chromium
+# Install straight to the final path. Moving the browsers afterwards leaves a
+# second copy behind in the layer they were downloaded into.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
-RUN mv /root/.cache/ms-playwright /opt/browsers && chmod -R a+rX /opt/browsers
+RUN apps/unsubscribe-worker/node_modules/.bin/playwright install --with-deps chromium \
+  && chmod -R a+rX /opt/browsers
 COPY apps/unsubscribe-worker/src /workspace/apps/unsubscribe-worker/src
 RUN ln -s /workspace/apps/unsubscribe-worker /app
 USER 1000:1000
