@@ -18,16 +18,7 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
   await page.route("**/api/mobile/mailbox-sync", async (route) => {
     const accountId = await route.request().headerValue("X-Email-Account-ID");
     if (accountId) syncAccountIds.add(accountId);
-    await route.fulfill({
-      json: {
-        accountId,
-        cursor: `${accountId}-cursor`,
-        deletedMessageIds: [],
-        hasMore: false,
-        reset: false,
-        upsertedMessages: [],
-      },
-    });
+    await route.continue();
   });
 
   try {
