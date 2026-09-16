@@ -1,3 +1,4 @@
+import { getThreadDetailKeyRange } from "./keys";
 import {
   deleteLocalMailMessages,
   storeLocalMailMessages,
@@ -84,12 +85,7 @@ export async function writeCachedThreadDetail({
       let cursor = await transaction
         .objectStore("localMailMessages")
         .index("byAccountThreadMessage")
-        .openCursor(
-          IDBKeyRange.bound(
-            [emailAccountId, threadId, ""],
-            [emailAccountId, threadId, []],
-          ),
-        );
+        .openCursor(getThreadDetailKeyRange(emailAccountId, threadId));
       while (cursor) {
         const record = cursor.value;
         if (

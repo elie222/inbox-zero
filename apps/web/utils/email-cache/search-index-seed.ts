@@ -17,6 +17,13 @@ export async function initializeSearchIndexAccount(emailAccountId: string) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+  const current = await database.get("searchIndexAccounts", emailAccountId);
+  if (
+    !isMailSyncActivated(emailAccountId) ||
+    !isEmailCacheEpochCurrent(emailAccountId, epoch)
+  )
+    return;
+  if (current?.sourceVersion === 2) return current;
   const transaction = database.transaction(
     [
       "searchIndexAccounts",
