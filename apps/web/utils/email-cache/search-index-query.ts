@@ -4,7 +4,12 @@ import {
   isEmailCacheEpochCurrent,
 } from "./database";
 import type { createSearchIndexClient } from "./search-index-client";
-import type { LocalSearchRequest, LocalSearchResult } from "./search";
+import {
+  getSearchMessageTimestamp,
+  type LocalSearchRequest,
+  type LocalSearchResult,
+} from "./search";
+import { getThreadDetailKeyRange } from "./keys";
 import {
   parseLocalSearch,
   matchesLocalSearch,
@@ -109,12 +114,7 @@ export async function querySearchIndex(
       }
       let cursor = await messages
         .index("byAccountThreadMessage")
-        .openCursor(
-          IDBKeyRange.bound(
-            [account.id, threadId, ""],
-            [account.id, threadId, []],
-          ),
-        );
+        .openCursor(getThreadDetailKeyRange(account.id, threadId));
       while (cursor && examined < 100 && bytes <= 8_388_608) {
         examined++;
         bytes += cursor.value.byteSize;
@@ -125,14 +125,7 @@ export async function querySearchIndex(
     }
     const byThread = new Map<string, SearchMessage[]>();
     for (const candidate of candidates.values()) {
-      let message = candidate;
-      for (const mutation of mutations) {
-        if (
-          mutation.threadId === message.threadId &&
-          mutation.messageIds.includes(message.id)
-        )
-          message = applyMailMutationToMessage(message, mutation);
-      }
+      const message = applyOrderedMutations(candidate, mutations);
       if (!matchesLocalSearch(message, parsed[position]!)) continue;
       const threadMessages = byThread.get(message.threadId) ?? [];
       threadMessages.push(message);
@@ -142,22 +135,10 @@ export async function querySearchIndex(
       const hydrated: SearchMessage[] = [];
       let cursor = await messages
         .index("byAccountThreadMessage")
-        .openCursor(
-          IDBKeyRange.bound(
-            [account.id, threadId, ""],
-            [account.id, threadId, []],
-          ),
-        );
+        .openCursor(getThreadDetailKeyRange(account.id, threadId));
       while (cursor && hydrated.length < 500 && bytes <= 16_777_216) {
         bytes += cursor.value.byteSize;
-        let message: SearchMessage = cursor.value.data;
-        for (const mutation of mutations) {
-          if (
-            mutation.threadId === threadId &&
-            mutation.messageIds.includes(message.id)
-          )
-            message = applyMailMutationToMessage(message, mutation);
-        }
+        const message = applyOrderedMutations(cursor.value.data, mutations);
         // Results retain metadata, not another copy of cached message bodies.
         hydrated.push({ ...message, textPlain: undefined });
         cursor = await cursor.continue();
@@ -173,7 +154,9 @@ export async function querySearchIndex(
     )
       return;
     for (const [id, matched] of byThread) {
-      matched.sort((a, b) => timestamp(a) - timestamp(b));
+      matched.sort(
+        (a, b) => getSearchMessageTimestamp(a) - getSearchMessageTimestamp(b),
+      );
       const listMessages = matched.map((message) => ({
         id: message.id,
         threadId: message.threadId,
@@ -201,8 +184,8 @@ export async function querySearchIndex(
   }
   results.sort(
     (a, b) =>
-      timestamp(b.thread.messages.at(-1)) -
-        timestamp(a.thread.messages.at(-1)) ||
+      getSearchMessageTimestamp(b.thread.messages.at(-1)) -
+        getSearchMessageTimestamp(a.thread.messages.at(-1)) ||
       a.emailAccountId.localeCompare(b.emailAccountId) ||
       a.thread.id.localeCompare(b.thread.id),
   );
@@ -214,9 +197,17 @@ export async function querySearchIndex(
   };
 }
 
-function timestamp(
-  message: Pick<SearchMessage, "internalDate" | "date"> | undefined,
+function applyOrderedMutations(
+  original: SearchMessage,
+  mutations: LocalSearchRequest["mutations"],
 ) {
-  const value = message?.internalDate || message?.date || "";
-  return (/^\d+$/u.test(value) ? Number(value) : Date.parse(value)) || 0;
+  let message = original;
+  for (const mutation of mutations) {
+    if (
+      mutation.threadId === message.threadId &&
+      mutation.messageIds.includes(message.id)
+    )
+      message = applyMailMutationToMessage(message, mutation);
+  }
+  return message;
 }

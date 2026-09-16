@@ -1,5 +1,9 @@
 import type { BindingSpec, Database } from "@sqlite.org/sqlite-wasm";
-import { parseLocalSearch, type SearchMessage } from "./search-query";
+import {
+  getNormalizedSearchText,
+  parseLocalSearch,
+  type SearchMessage,
+} from "./search-query";
 
 export type SearchIndexBatch = {
   emailAccountId: string;
@@ -123,16 +127,22 @@ export function createSearchIndex(database: Database) {
 
   function removeAccountContent(emailAccountId: string) {
     // Clearing a large account never materializes all its message identities.
-    let row = database.selectValue(
-      "SELECT row_id FROM search_documents WHERE account=? LIMIT 1",
-      [emailAccountId],
-    );
-    while (row !== undefined) {
-      removeDocument(readRowId(row));
-      row = database.selectValue(
-        "SELECT row_id FROM search_documents WHERE account=? LIMIT 1",
-        [emailAccountId],
-      );
+    while (true) {
+      const rows = database.exec({
+        sql: "SELECT row_id FROM search_documents WHERE account=? LIMIT 100",
+        bind: [emailAccountId],
+        rowMode: "array",
+        returnValue: "resultRows",
+      }) as unknown[][];
+      if (!rows.length) break;
+      const rowIds = rows.map(([id]) => readRowId(id));
+      const placeholders = rowIds.map(() => "?").join(",");
+      for (const table of ["search_long", "search_short", "search_documents"]) {
+        database.exec({
+          sql: `DELETE FROM ${table} WHERE rowid IN (${placeholders})`,
+          bind: rowIds,
+        });
+      }
     }
     database.exec({
       sql: "DELETE FROM search_replacements WHERE account=?",
@@ -548,22 +558,10 @@ function compileQuery(
 
 function getSearchFields(message: SearchMessage) {
   return {
-    all_text: normalize(
-      [
-        message.subject,
-        message.snippet,
-        message.headers.from,
-        message.headers.to,
-        message.headers.cc,
-        message.headers.bcc,
-        message.textPlain,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    ),
-    from_text: normalize(message.headers.from ?? ""),
-    to_text: normalize(message.headers.to ?? ""),
-    subject_text: normalize(message.subject ?? ""),
+    all_text: getNormalizedSearchText(message, "text"),
+    from_text: getNormalizedSearchText(message, "from"),
+    to_text: getNormalizedSearchText(message, "to"),
+    subject_text: getNormalizedSearchText(message, "subject"),
   };
 }
 
@@ -627,10 +625,6 @@ function encodeLongIdentity(prefix: string, value: string) {
 
 function quoteMatch(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
-}
-
-function normalize(value: string) {
-  return value.normalize("NFKC").toLowerCase();
 }
 
 function validateRevision(revision: number) {

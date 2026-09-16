@@ -2,7 +2,6 @@ import { createSearchMessageAccumulator } from "./search-message-merge";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { ThreadListItem } from "@/utils/threads/load";
 import type { EmailLabel } from "@/providers/email-label-types";
-import type { ParsedMessage } from "@/utils/types";
 import { getEmailCacheDatabase } from "./database";
 import {
   matchesLocalSearch,
@@ -169,7 +168,9 @@ export async function searchCachedMail({
         labelIds: message.labelIds,
         parentFolderId: message.parentFolderId,
       }));
-      listMessages.sort((a, b) => timestamp(a) - timestamp(b));
+      listMessages.sort(
+        (a, b) => getSearchMessageTimestamp(a) - getSearchMessageTimestamp(b),
+      );
       results.push({
         emailAccountId: account.id,
         thread: {
@@ -186,16 +187,16 @@ export async function searchCachedMail({
   }
   results.sort(
     (a, b) =>
-      timestamp(b.thread.messages.at(-1)) -
-        timestamp(a.thread.messages.at(-1)) ||
+      getSearchMessageTimestamp(b.thread.messages.at(-1)) -
+        getSearchMessageTimestamp(a.thread.messages.at(-1)) ||
       a.emailAccountId.localeCompare(b.emailAccountId) ||
       a.thread.id.localeCompare(b.thread.id),
   );
   return { status: "ready", threads: results.slice(0, MAX_RESULTS) };
 }
 
-function timestamp(
-  message: Pick<ParsedMessage, "internalDate" | "date"> | undefined,
+export function getSearchMessageTimestamp(
+  message: Pick<SearchMessage, "internalDate" | "date"> | undefined,
 ) {
   const value = message?.internalDate || message?.date || "";
   return (/^\d+$/u.test(value) ? Number(value) : Date.parse(value)) || 0;

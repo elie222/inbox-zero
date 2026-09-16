@@ -124,11 +124,11 @@ export async function drainSearchIndexWork(
       if (finished.result !== true) return { status: "stale" as const };
       if (!(await acknowledgeSearchIndexWork({ ...scope, work: [item] })))
         return { status: "stale" as const };
+      const remaining = await readSearchIndexWork(emailAccountId);
       return {
         status: "ready" as const,
-        hasMore: !!(await readSearchIndexWork(emailAccountId))?.work.length,
-        blockedCount:
-          (await readSearchIndexWork(emailAccountId))?.blockedCount ?? 0,
+        hasMore: !!remaining?.work.length,
+        blockedCount: remaining?.blockedCount ?? 0,
       };
     }
     if (

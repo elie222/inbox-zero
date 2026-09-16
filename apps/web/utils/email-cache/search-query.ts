@@ -100,22 +100,29 @@ export function matchesLocalSearch(
         ? timestamp > term.value
         : timestamp < term.value;
     }
-    const text =
-      term.field === "text"
-        ? [
-            message.subject,
-            message.snippet,
-            message.headers.from,
-            message.headers.to,
-            message.headers.cc,
-            message.headers.bcc,
-            message.textPlain,
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : term.field === "subject"
-          ? message.subject
-          : message.headers[term.field];
-    return (text ?? "").normalize("NFKC").toLowerCase().includes(term.value);
+    return getNormalizedSearchText(message, term.field).includes(term.value);
   });
+}
+
+export function getNormalizedSearchText(
+  message: SearchMessage,
+  field: "text" | "from" | "to" | "subject",
+) {
+  const text =
+    field === "text"
+      ? [
+          message.subject,
+          message.snippet,
+          message.headers.from,
+          message.headers.to,
+          message.headers.cc,
+          message.headers.bcc,
+          message.textPlain,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : field === "subject"
+        ? message.subject
+        : message.headers[field];
+  return (text ?? "").normalize("NFKC").toLowerCase();
 }
