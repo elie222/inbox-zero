@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { requestLocalMailSync } from "@/utils/email-cache/local-mail-sync-events";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { isMailSyncActivated } from "@/utils/email-cache/mail-activation";
 import { MailboxSyncDeferredError } from "@/utils/email-cache/mailbox-sync-job";
@@ -176,6 +177,7 @@ export function useMailboxSync({
 }
 
 export function requestMailboxSync(emailAccountId: string) {
+  requestLocalMailSync(emailAccountId);
   for (const listener of syncRequestListeners) listener(emailAccountId);
 }
 

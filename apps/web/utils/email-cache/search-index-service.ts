@@ -28,6 +28,10 @@ const retained = new Map<
   }
 >();
 
+export function isSearchIndexStoragePaused(emailAccountId: string) {
+  return (retained.get(emailAccountId)?.nextAttemptAt ?? 0) > Date.now();
+}
+
 export function retainSearchIndex(emailAccountId: string) {
   if (!isMailSyncActivated(emailAccountId)) return () => {};
   let state = retained.get(emailAccountId);
