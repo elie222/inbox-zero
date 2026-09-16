@@ -1,3 +1,11 @@
+import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
+import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
+import {
+  captureGmailMailHistoryCursor,
+  getGmailMailBackfillPage,
+  getGmailMailChangesPage,
+  hydrateGmailMailMessages,
+} from "@/utils/gmail/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
@@ -117,6 +125,7 @@ const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
+  readonly localMailSyncStrategy = "account-history";
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
   private readonly emailAccountId?: string;
@@ -1519,6 +1528,89 @@ export class GmailProvider implements EmailProvider {
       accessToken: getAccessTokenFromClient(this.client),
       logger: this.logger,
     });
+  }
+
+  async syncLocalMail(
+    request: LocalMailSyncRequest,
+    context: { emailAccountId: string },
+  ): Promise<LocalMailSyncResponse> {
+    if (
+      !context.emailAccountId ||
+      (this.emailAccountId && this.emailAccountId !== context.emailAccountId)
+    )
+      throw new Error("Local mail account context mismatch");
+    const base = {
+      emailAccountId: context.emailAccountId,
+      gmail: this.client,
+      logger: this.logger,
+    };
+    switch (request.phase) {
+      case "capabilities":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: {
+            strategy: this.localMailSyncStrategy,
+            excludedFolderIds: [],
+            maxHydrationMessages: 25,
+          },
+        };
+      case "history-baseline":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: {
+            cursor: await captureGmailMailHistoryCursor({
+              ...base,
+              after: new Date(request.after),
+              before:
+                request.before === undefined
+                  ? undefined
+                  : new Date(request.before),
+            }),
+          },
+        };
+      case "history-backfill":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: await getGmailMailBackfillPage({
+            ...base,
+            ...request,
+            after: new Date(request.after),
+            before: new Date(request.before),
+          }),
+        };
+      case "history-changes": {
+        const result = await getGmailMailChangesPage({
+          ...base,
+          ...request,
+          after: new Date(request.after),
+          before:
+            request.before === undefined ? undefined : new Date(request.before),
+        });
+        return result.resetRequired
+          ? { status: "reset-required", phase: request.phase }
+          : { status: "ok", phase: request.phase, result };
+      }
+      case "history-hydrate":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: await hydrateGmailMailMessages({
+            ...base,
+            ...request,
+            after: new Date(request.after),
+            before:
+              request.before === undefined
+                ? undefined
+                : new Date(request.before),
+            priority: request.stream === "changes" ? "current" : "backfill",
+          }),
+        };
+      default:
+        return { status: "unsupported", strategy: this.localMailSyncStrategy };
+    }
   }
 
   async getMailboxSyncPage(options: {

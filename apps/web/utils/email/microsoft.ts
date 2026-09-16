@@ -1,3 +1,12 @@
+import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
+import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
+import {
+  getOutlookMailFoldersPage,
+  getOutlookMailFolderChangesPage,
+  getOutlookMailBackfillPage,
+  getOutlookLocalMailMessage,
+  resolveOutlookLocalMailFolderIds,
+} from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
@@ -122,6 +131,7 @@ import { mapWithConcurrency } from "@/utils/async";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
+  readonly localMailSyncStrategy = "folder-delta";
   private readonly client: OutlookClient;
   private readonly logger: Logger;
 
@@ -1548,6 +1558,87 @@ export class OutlookProvider implements EmailProvider {
       this.getMessage(messageId),
     );
     return Promise.all(messagePromises);
+  }
+
+  async syncLocalMail(
+    request: LocalMailSyncRequest,
+    context: { emailAccountId: string },
+  ): Promise<LocalMailSyncResponse> {
+    if (!context.emailAccountId)
+      throw new Error("Local mail account context is required");
+    const base = {
+      emailAccountId: context.emailAccountId,
+      client: this.client,
+      logger: this.logger,
+    };
+    if (request.phase === "folders")
+      return {
+        status: "ok",
+        phase: request.phase,
+        result: await getOutlookMailFoldersPage({ ...base, ...request }),
+      };
+    if (
+      ![
+        "capabilities",
+        "folder-changes",
+        "folder-backfill",
+        "message-lookup",
+      ].includes(request.phase)
+    )
+      return { status: "unsupported", strategy: this.localMailSyncStrategy };
+    const folderIds = await resolveOutlookLocalMailFolderIds(base);
+    switch (request.phase) {
+      case "capabilities":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: {
+            strategy: this.localMailSyncStrategy,
+            excludedFolderIds: [
+              folderIds.drafts!,
+              folderIds.deleteditems!,
+              folderIds.junkemail!,
+            ],
+            maxHydrationMessages: 1,
+          },
+        };
+      case "folder-changes": {
+        const result = await getOutlookMailFolderChangesPage({
+          ...base,
+          ...request,
+          folderIds,
+          priority: request.stream === "backfill" ? "backfill" : "current",
+        });
+        return result.resetRequired
+          ? { status: "reset-required", phase: request.phase }
+          : { status: "ok", phase: request.phase, result };
+      }
+      case "folder-backfill": {
+        const result = await getOutlookMailBackfillPage({
+          ...base,
+          ...request,
+          folderIds,
+          after: new Date(request.after),
+          before: new Date(request.before),
+        });
+        return result.resetRequired
+          ? { status: "reset-required", phase: request.phase }
+          : { status: "ok", phase: request.phase, result };
+      }
+      case "message-lookup":
+        return {
+          status: "ok",
+          phase: request.phase,
+          result: await getOutlookLocalMailMessage({
+            ...base,
+            ...request,
+            folderIds,
+            priority: request.stream === "backfill" ? "backfill" : "current",
+          }),
+        };
+      default:
+        return { status: "unsupported", strategy: this.localMailSyncStrategy };
+    }
   }
 
   async getMailboxSyncPage(options: {
