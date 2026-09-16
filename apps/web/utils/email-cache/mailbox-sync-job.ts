@@ -78,7 +78,11 @@ export async function finishMailboxSyncJob(
   if (!database) return;
   const transaction = database.transaction("mailboxSyncJobs", "readwrite");
   const job = await transaction.store.get(emailAccountId);
-  if (!job || job.leaseToken !== leaseToken) {
+  if (
+    !job ||
+    job.leaseToken !== leaseToken ||
+    job.leaseExpiresAt <= Date.now()
+  ) {
     await transaction.done;
     return;
   }
