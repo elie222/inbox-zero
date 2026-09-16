@@ -50,7 +50,8 @@ export function useBookingLinksEnabled() {
 }
 
 export function useTeamsEnabled() {
-  return useFeatureFlagEnabled("microsoft-teams");
+  const posthogEnabled = useFeatureFlagEnabled("microsoft-teams");
+  return env.NEXT_PUBLIC_TEAMS_ENABLED || posthogEnabled;
 }
 
 export type PricingFrequencyDefault = "control" | "monthly" | "annually";
