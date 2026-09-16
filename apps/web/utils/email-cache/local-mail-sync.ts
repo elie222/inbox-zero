@@ -43,6 +43,10 @@ type Options = {
     response: LocalMailSyncResponse,
   ) => Promise<{ allowed: boolean; maxCanonicalBytes: number }>;
   withStorageLock: <T>(commit: () => Promise<T>) => Promise<T>;
+  withSyncLock?: <T>(
+    emailAccountId: string,
+    run: () => Promise<T>,
+  ) => Promise<T | undefined>;
   now?: number;
   call?: (
     emailAccountId: string,
@@ -52,6 +56,24 @@ type Options = {
 
 /** Performs one durable unit of work; the caller owns scheduling and visibility. */
 export async function runLocalMailSyncTick(options: Options) {
+  if (
+    !options.withSyncLock &&
+    (typeof navigator === "undefined" || !navigator.locks?.request)
+  )
+    return { status: "unavailable" as const };
+  const result = await (options.withSyncLock ?? withLocalMailSyncLock)(
+    options.emailAccountId,
+    () => runOwnedLocalMailSyncTick(options),
+  );
+  return (
+    result ?? {
+      status: "waiting" as const,
+      retryAt: (options.now ?? Date.now()) + 1000,
+    }
+  );
+}
+
+async function runOwnedLocalMailSyncTick(options: Options) {
   const { emailAccountId } = options;
   const now = options.now ?? Date.now();
   if (
@@ -108,15 +130,13 @@ export async function runLocalMailSyncTick(options: Options) {
       attempts: 0,
     });
   }
-  if (
-    state.unsupported ||
-    state.nextAttemptAt > now ||
-    (state.leaseOwner && (state.leaseExpiresAt ?? 0) > now)
-  ) {
+  // The browser lock fences live owners; a surviving durable lease belongs to
+  // a destroyed document. Provider cooldowns still survive ownership changes.
+  if (state.unsupported || state.nextAttemptAt > now) {
     await claim.done;
     return {
       status: "waiting" as const,
-      retryAt: Math.max(state.nextAttemptAt, state.leaseExpiresAt ?? 0),
+      retryAt: state.nextAttemptAt,
     };
   }
   const jobs = await claim
@@ -417,6 +437,17 @@ export async function readLocalMailSyncState(emailAccountId: string) {
   return (await getEmailCacheDatabase())?.get(
     "localMailSyncStates",
     emailAccountId,
+  );
+}
+
+async function withLocalMailSyncLock<T>(
+  emailAccountId: string,
+  run: () => Promise<T>,
+) {
+  return navigator.locks.request(
+    `inbox-zero:local-mail-sync:${emailAccountId}`,
+    { ifAvailable: true },
+    (lock) => (lock ? run() : undefined),
   );
 }
 
