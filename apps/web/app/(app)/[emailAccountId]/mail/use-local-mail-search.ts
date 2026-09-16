@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { searchPersistentMail } from "@/utils/email-cache/search-index-service";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
 import {
@@ -67,6 +68,8 @@ export function useLocalMailSearch({
     request: LocalSearchRequest;
     result: LocalSearchResult;
   }>();
+  const [loadingMoreFor, setLoadingMoreFor] = useState<LocalSearchRequest>();
+  const moreRequest = useRef<LocalSearchRequest | undefined>(undefined);
   const workerRef = useRef<Worker | undefined>(undefined);
   const requestId = useRef(0);
 
@@ -116,14 +119,15 @@ export function useLocalMailSearch({
     const epochs = accountIds.map((id) => captureEmailCacheEpoch(id));
     const unavailable = () =>
       setSnapshot({ request, result: { status: "unavailable", threads: [] } });
-    if (!worker || !isReadable) {
+    if (!isReadable) {
       unavailable();
       return;
     }
+    let active = true;
     const onMessage = (
       event: MessageEvent<{ id: number; result: LocalSearchResult }>,
     ) => {
-      if (event.data.id !== id) return;
+      if (!active || event.data.id !== id) return;
       clearTimeout(timeout);
       if (
         !accountIds.every((accountId, index) =>
@@ -136,18 +140,88 @@ export function useLocalMailSearch({
       setSnapshot({ request, result: event.data.result });
     };
     const timeout = setTimeout(unavailable, 5000);
-    worker.addEventListener("message", onMessage);
-    worker.addEventListener("error", unavailable);
-    worker.postMessage({ id, request });
+    worker?.addEventListener("message", onMessage);
+    worker?.addEventListener("error", unavailable);
+    const fallback = () => {
+      if (!active) return;
+      if (worker) worker.postMessage({ id, request });
+      else unavailable();
+    };
+    searchPersistentMail(request)
+      .then((result) => {
+        if (!active) return;
+        if (result)
+          onMessage({ data: { id, result } } as MessageEvent<{
+            id: number;
+            result: LocalSearchResult;
+          }>);
+        else fallback();
+      })
+      .catch(fallback);
     return () => {
+      active = false;
+      if (moreRequest.current === request) moreRequest.current = undefined;
       clearTimeout(timeout);
-      worker.removeEventListener("message", onMessage);
-      worker.removeEventListener("error", unavailable);
+      worker?.removeEventListener("message", onMessage);
+      worker?.removeEventListener("error", unavailable);
     };
   }, [enabled, request, isReady, isReadable, accountIds]);
 
   const result =
     enabled && snapshot?.request === request ? snapshot.result : undefined;
+  const loadMore = useCallback(async () => {
+    if (!result?.cursors || moreRequest.current === request) return;
+    moreRequest.current = request;
+    setLoadingMoreFor(request);
+    const epochs = accountIds.map((id) => captureEmailCacheEpoch(id));
+    try {
+      const page = await searchPersistentMail({
+        ...request,
+        cursors: result.cursors,
+      });
+      if (
+        moreRequest.current !== request ||
+        !page ||
+        !accountIds.every((id, index) =>
+          isEmailCacheEpochCurrent(id, epochs[index]),
+        )
+      )
+        return;
+      setSnapshot((current) => {
+        if (current?.request !== request) return current;
+        const merged = new Map(
+          current.result.threads.map((item) => [
+            JSON.stringify([item.emailAccountId, item.thread.id]),
+            item,
+          ]),
+        );
+        for (const item of page.threads)
+          merged.set(
+            JSON.stringify([item.emailAccountId, item.thread.id]),
+            item,
+          );
+        return {
+          request,
+          result: {
+            ...page,
+            threads: [...merged.values()].sort(
+              (a, b) =>
+                lastMessageTime(b.thread) - lastMessageTime(a.thread) ||
+                a.emailAccountId.localeCompare(b.emailAccountId) ||
+                a.thread.id.localeCompare(b.thread.id),
+            ),
+          },
+        };
+      });
+    } catch {
+      // Keep the current page and cursor available for retry.
+    } finally {
+      if (moreRequest.current === request) moreRequest.current = undefined;
+      setLoadingMoreFor((current) =>
+        current === request ? undefined : current,
+      );
+    }
+  }, [result, request, accountIds]);
   const threads = useMemo<ListThread[]>(
     () =>
       (result?.threads ?? []).flatMap(({ emailAccountId, thread }) => {
@@ -159,5 +233,22 @@ export function useLocalMailSearch({
       }),
     [accounts, combined, result],
   );
-  return { threads, status: result?.status, online };
+  return {
+    threads,
+    status: result?.status,
+    coverage: result?.coverage,
+    cursors: result?.cursors,
+    hasMore: !!result?.cursors,
+    loadMore,
+    isLoadingMore: loadingMoreFor === request,
+    online,
+  };
+}
+
+function lastMessageTime(
+  thread: LocalSearchResult["threads"][number]["thread"],
+) {
+  const message = thread.messages.at(-1);
+  const value = message?.internalDate || message?.date || "";
+  return (/^\d+$/u.test(value) ? Number(value) : Date.parse(value)) || 0;
 }

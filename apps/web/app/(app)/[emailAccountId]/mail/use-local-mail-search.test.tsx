@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook, cleanup } from "@testing-library/react";
+import { act, renderHook, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLocalMailSearch } from "./use-local-mail-search";
 import type { LocalSearchResult } from "@/utils/email-cache/search";
@@ -8,6 +8,10 @@ const mutations = vi.hoisted(() => ({
   mutations: [],
   isReady: true,
   isReadable: true,
+}));
+const persistent = vi.hoisted(() => vi.fn());
+vi.mock("@/utils/email-cache/search-index-service", () => ({
+  searchPersistentMail: persistent,
 }));
 const epochs = vi.hoisted(() => ({ valid: true }));
 vi.mock("@/hooks/useMailMutationOverlay", () => ({
@@ -52,6 +56,7 @@ const props = {
   enabled: true,
 };
 beforeEach(() => {
+  persistent.mockReset().mockResolvedValue(undefined);
   epochs.valid = true;
   mutations.isReady = true;
   mutations.isReadable = true;
@@ -64,55 +69,79 @@ afterEach(() => {
 });
 
 describe("local search orchestration", () => {
-  it("warms one worker and ignores results belonging to an older query", () => {
+  it("uses disk search without scanning the legacy cache and consumes continuation cursors", async () => {
+    persistent
+      .mockResolvedValueOnce({
+        status: "ready",
+        threads: [],
+        cursors: { "account-a": "100" },
+      })
+      .mockResolvedValueOnce({ status: "ready", threads: [] });
+    const { result } = renderHook(() => useLocalMailSearch(props));
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(FakeWorker.instance.requests).toHaveLength(0);
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(persistent.mock.calls[1][0].cursors).toEqual({ "account-a": "100" });
+    expect(result.current.hasMore).toBe(false);
+  });
+  it("warms one worker and ignores results belonging to an older query", async () => {
     const { result, rerender } = renderHook(
       (value) => useLocalMailSearch(value),
       { initialProps: props },
     );
+    await act(async () => {});
     const worker = FakeWorker.instance;
     rerender({ ...props, query: "second" });
     act(() => worker.reply(0));
     expect(result.current.status).toBeUndefined();
+    await act(async () => {});
     act(() => worker.reply(1));
     expect(result.current.status).toBe("ready");
     expect(FakeWorker.instance).toBe(worker);
   });
-  it("clears results immediately when switching accounts", () => {
+  it("clears results immediately when switching accounts", async () => {
     const { result, rerender } = renderHook(
       (value) => useLocalMailSearch(value),
       { initialProps: props },
     );
+    await act(async () => {});
     act(() => FakeWorker.instance.reply(0));
     expect(result.current.status).toBe("ready");
     rerender({ ...props, accounts: [{ ...accounts[0], id: "account-b" }] });
     expect(result.current.status).toBeUndefined();
     expect(result.current.threads).toEqual([]);
+    await act(async () => {});
     act(() => FakeWorker.instance.reply(0));
     expect(result.current.status).toBeUndefined();
   });
-  it("rejects a response produced before cache deletion", () => {
+  it("rejects a response produced before cache deletion", async () => {
     const { result } = renderHook(() => useLocalMailSearch(props));
     epochs.valid = false;
+    await act(async () => {});
     act(() => FakeWorker.instance.reply(0));
-    expect(result.current.status).toBe("unavailable");
+    await waitFor(() => expect(result.current.status).toBe("unavailable"));
   });
-  it("falls back when workers are unavailable or mutation state is unreadable", () => {
+  it("falls back when workers are unavailable or mutation state is unreadable", async () => {
     vi.stubGlobal("Worker", undefined);
     const { result } = renderHook(() => useLocalMailSearch(props));
-    expect(result.current.status).toBe("unavailable");
+    await waitFor(() => expect(result.current.status).toBe("unavailable"));
   });
-  it("does not search before pending actions are loaded", () => {
+  it("does not search before pending actions are loaded", async () => {
     mutations.isReady = false;
     const { rerender } = renderHook(() => useLocalMailSearch(props));
     expect(FakeWorker.instance.requests).toHaveLength(0);
     mutations.isReady = true;
     rerender();
+    await act(async () => {});
     expect(FakeWorker.instance.requests).toHaveLength(1);
   });
-  it("does not scan when provider results have arrived", () => {
+  it("does not scan when provider results have arrived", async () => {
     const { rerender } = renderHook((value) => useLocalMailSearch(value), {
       initialProps: props,
     });
+    await act(async () => {});
     const worker = FakeWorker.instance;
     rerender({ ...props, enabled: false });
     act(() => worker.reply(0));
@@ -124,9 +153,10 @@ describe("local search orchestration", () => {
     expect(result.current.status).toBe("unavailable");
     expect(FakeWorker.instance.requests).toHaveLength(0);
   });
-  it("times out a worker and terminates it on unmount", () => {
+  it("times out a worker and terminates it on unmount", async () => {
     vi.useFakeTimers();
     const { result, unmount } = renderHook(() => useLocalMailSearch(props));
+    await act(async () => {});
     act(() => vi.advanceTimersByTime(5000));
     expect(result.current.status).toBe("unavailable");
     unmount();
