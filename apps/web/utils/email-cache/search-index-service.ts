@@ -121,7 +121,13 @@ function schedule(emailAccountId: string, delay = 200) {
             { emailAccountId, generation: account.generation },
             { command: "state", emailAccountId },
           );
-          if ("error" in warmed) return;
+          if ("error" in warmed) {
+            if (warmed.error === "unavailable") {
+              state.nextAttemptAt = Date.now() + 60_000;
+              again = true;
+            }
+            return;
+          }
           state.warmed = account.generation;
         }
         const work = await readSearchIndexWork(emailAccountId);
@@ -132,7 +138,10 @@ function schedule(emailAccountId: string, delay = 200) {
             drained.status === "ready"
               ? drained.hasMore
               : drained.status === "stale" || drained.status === "busy";
-          if (drained.status === "storage-full") {
+          if (
+            drained.status === "storage-full" ||
+            drained.status === "unavailable"
+          ) {
             state.nextAttemptAt = Date.now() + 60_000;
             again = true;
           } else if (drained.status === "ready") {

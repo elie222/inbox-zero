@@ -7,6 +7,10 @@ import { createRequire } from "node:module";
 import { build } from "esbuild";
 import { chromium } from "@playwright/test";
 
+const count = Number(process.argv[2] ?? 10_000);
+if (!Number.isSafeInteger(count) || count < 1 || count > 250_000)
+  throw new Error("Choose a document count from 1 to 250000");
+
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = path.resolve(directory, "../../..");
 const require = createRequire(import.meta.url);
@@ -90,9 +94,6 @@ try {
   const reopen = await send("reopen");
   const stagedReplacement = await send("resume");
   const storageLimit = await send("storage-limit");
-  const count = Number(process.argv[2] ?? 10_000);
-  if (!Number.isSafeInteger(count) || count < 1 || count > 250_000)
-    throw new Error("Choose a document count from 1 to 250000");
   const benchmark = await send("benchmark", count);
   const cleanup = await page.evaluate(async () => {
     window.indexWorker.terminate();
