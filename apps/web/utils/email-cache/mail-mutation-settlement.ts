@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailCacheDatabase } from "./database";
 import { notifyMailboxStoreChange } from "./mailbox";
@@ -19,7 +20,13 @@ export async function settleMailMutationBatchInCache(
   const database = await getEmailCacheDatabase();
   if (!database) return;
   const transaction = database.transaction(
-    ["mailboxMessages", "threadRows", "threadDetails"],
+    [
+      "mailboxMessages",
+      "threadRows",
+      "threadDetails",
+      "searchIndexAccounts",
+      "searchIndexWork",
+    ],
     "readwrite",
   );
   const mailboxMessages = transaction.objectStore("mailboxMessages");
@@ -84,12 +91,21 @@ export async function settleMailMutationBatchInCache(
       cursor = await cursor.continue();
     }
   }
-  await transaction.done;
-  for (const emailAccountId of new Set(
-    applicable.map((mutation) => mutation.emailAccountId),
-  )) {
-    notifyMailboxStoreChange(emailAccountId);
+  const dirtyThreads = new Map<string, Set<string>>();
+  for (const mutation of applicable) {
+    const threads =
+      dirtyThreads.get(mutation.emailAccountId) ?? new Set<string>();
+    threads.add(mutation.threadId);
+    dirtyThreads.set(mutation.emailAccountId, threads);
   }
+  await Promise.all(
+    [...dirtyThreads].map(([emailAccountId, threadIds]) =>
+      markSearchThreadsDirty(transaction, emailAccountId, threadIds),
+    ),
+  );
+  await transaction.done;
+  for (const emailAccountId of dirtyThreads.keys())
+    notifyMailboxStoreChange(emailAccountId);
 }
 
 function appendMutation(

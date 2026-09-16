@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import { getEmailCacheDatabase } from "./database";
 import {
   EMAIL_CACHE_CLEANUP_INTERVAL_MS,
@@ -54,6 +55,8 @@ async function cleanupEmailCache() {
         "threadDetails",
         "mailboxMessages",
         "mailMutations",
+        "searchIndexAccounts",
+        "searchIndexWork",
       ],
       "readwrite",
     );
@@ -62,6 +65,12 @@ async function cleanupEmailCache() {
     const rowsStore = transaction.objectStore("threadRows");
     const mailboxMessagesStore = transaction.objectStore("mailboxMessages");
     const mailMutationsStore = transaction.objectStore("mailMutations");
+    const dirtyThreads = new Map<string, Set<string>>();
+    const recordDirtyThread = (emailAccountId: string, threadId: string) => {
+      const threads = dirtyThreads.get(emailAccountId) ?? new Set<string>();
+      threads.add(threadId);
+      dirtyThreads.set(emailAccountId, threads);
+    };
     let retainedBytes = 0;
     let detailCursor = await detailsStore
       .index("byLastAccessed")
@@ -72,6 +81,7 @@ async function cleanupEmailCache() {
         now - detail.fetchedAt > EMAIL_CACHE_MAX_AGE_MS ||
         retainedBytes + detail.byteSize > detailBudget
       ) {
+        recordDirtyThread(detail.emailAccountId, detail.threadId);
         await detailCursor.delete();
       } else {
         retainedBytes += detail.byteSize;
@@ -108,6 +118,7 @@ async function cleanupEmailCache() {
         !referencedRows.has(`${row.emailAccountId}:${row.threadId}`) &&
         now - row.lastAccessedAt > EMAIL_CACHE_MAX_AGE_MS
       ) {
+        recordDirtyThread(row.emailAccountId, row.threadId);
         await rowCursor.delete();
       }
       rowCursor = await rowCursor.continue();
@@ -119,6 +130,8 @@ async function cleanupEmailCache() {
         IDBKeyRange.upperBound(now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS, true),
       );
     while (mailboxMessageCursor) {
+      const message = mailboxMessageCursor.value;
+      recordDirtyThread(message.emailAccountId, message.threadId);
       await mailboxMessageCursor.delete();
       mailboxMessageCursor = await mailboxMessageCursor.continue();
     }
@@ -139,6 +152,11 @@ async function cleanupEmailCache() {
       mutationCursor = await mutationCursor.continue();
     }
 
+    await Promise.all(
+      [...dirtyThreads].map(([emailAccountId, threadIds]) =>
+        markSearchThreadsDirty(transaction, emailAccountId, threadIds),
+      ),
+    );
     await transaction.done;
   } catch {
     // Cleanup is opportunistic and should not interfere with foreground work.

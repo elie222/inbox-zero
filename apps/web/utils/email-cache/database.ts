@@ -6,7 +6,7 @@ import { clearMailActivation } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 11;
+const DATABASE_VERSION = 12;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -117,7 +117,7 @@ export type StoredReplyDraft = {
   updatedAt: number;
 };
 
-interface EmailCacheSchema extends DBSchema {
+export interface EmailCacheSchema extends DBSchema {
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
     value: CachedMailboxMessage;
@@ -159,6 +159,22 @@ interface EmailCacheSchema extends DBSchema {
     key: [emailAccountId: string, threadId: string, messageId: string];
     value: StoredReplyDraft;
     indexes: { byAccount: string; byAccountThread: [string, string] };
+  };
+  searchIndexAccounts: {
+    key: string;
+    value: {
+      emailAccountId: string;
+      generation: string;
+      seed?: {
+        store: "mailboxMessages" | "threadRows" | "threadDetails";
+        after?: [string, string] | [string, string, string];
+      };
+    };
+  };
+  searchIndexWork: {
+    key: [emailAccountId: string, threadId: string];
+    value: { emailAccountId: string; threadId: string; token: string };
+    indexes: { byAccount: string };
   };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
@@ -203,6 +219,15 @@ export function getEmailCacheDatabase() {
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
     upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 12) {
+        database.createObjectStore("searchIndexAccounts", {
+          keyPath: "emailAccountId",
+        });
+        const work = database.createObjectStore("searchIndexWork", {
+          keyPath: ["emailAccountId", "threadId"],
+        });
+        work.createIndex("byAccount", "emailAccountId");
+      }
       if (oldVersion < 11) {
         database.createObjectStore("mailboxSyncJobs", {
           keyPath: "emailAccountId",
@@ -361,6 +386,8 @@ export async function clearEmailCache() {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailboxSyncJobs",
+        "searchIndexAccounts",
+        "searchIndexWork",
         "mailMutations",
         "replyDrafts",
       ],
@@ -373,6 +400,8 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
       transaction.objectStore("mailboxSyncJobs").clear(),
+      transaction.objectStore("searchIndexAccounts").clear(),
+      transaction.objectStore("searchIndexWork").clear(),
       transaction.objectStore("mailMutations").clear(),
       transaction.objectStore("replyDrafts").clear(),
       transaction.done,
@@ -408,6 +437,8 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailboxSyncJobs",
+        "searchIndexAccounts",
+        "searchIndexWork",
         "mailMutations",
         "replyDrafts",
       ],
@@ -419,6 +450,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     const messages = transaction.objectStore("mailboxMessages");
     const mutations = transaction.objectStore("mailMutations");
     const drafts = transaction.objectStore("replyDrafts");
+    const indexWork = transaction.objectStore("searchIndexWork");
     const [
       rowKeys,
       viewKeys,
@@ -441,6 +473,10 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       ...messageKeys.map((key) => messages.delete(key)),
       ...mutationKeys.map((key) => mutations.delete(key)),
       ...draftKeys.map((key) => drafts.delete(key)),
+      indexWork.delete(
+        IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []]),
+      ),
+      transaction.objectStore("searchIndexAccounts").delete(emailAccountId),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
       transaction.objectStore("mailboxSyncJobs").delete(emailAccountId),
     ]);

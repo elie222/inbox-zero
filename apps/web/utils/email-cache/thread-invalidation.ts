@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import { unstable_serialize, type Cache, type ScopedMutator } from "swr";
 
 import {
@@ -138,8 +139,11 @@ async function invalidatePersistedThreadCaches(change: ThreadInvalidation) {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(change.emailAccountId, epoch))
       return;
-    const transaction = database.transaction("threadDetails", "readwrite");
-    const store = transaction.store;
+    const transaction = database.transaction(
+      ["threadDetails", "searchIndexAccounts", "searchIndexWork"],
+      "readwrite",
+    );
+    const store = transaction.objectStore("threadDetails");
     const keys = change.reset
       ? await store.index("byAccount").getAllKeys(change.emailAccountId)
       : (
@@ -151,6 +155,11 @@ async function invalidatePersistedThreadCaches(change: ThreadInvalidation) {
             ),
           )
         ).flat();
+    await markSearchThreadsDirty(
+      transaction,
+      change.emailAccountId,
+      keys.map((key) => key[1]),
+    );
     await Promise.all(keys.map((key) => store.delete(key)));
     await transaction.done;
     allowPersistedThreadReads(change);
