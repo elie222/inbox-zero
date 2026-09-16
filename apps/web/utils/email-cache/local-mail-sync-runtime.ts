@@ -151,7 +151,9 @@ async function tick(emailAccountId: string, entry: Entry) {
         messages: result.newMail,
       });
     entry.nextAt =
-      "retryAt" in result && Number.isFinite(result.retryAt)
+      "retryAt" in result &&
+      typeof result.retryAt === "number" &&
+      Number.isFinite(result.retryAt)
         ? Math.max(Date.now() + 250, result.retryAt)
         : Date.now() + (result.status === "progress" ? 250 : 5000);
     if (
