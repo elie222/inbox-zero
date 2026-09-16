@@ -11,11 +11,10 @@ test("sidebar navigation clears an uncommitted live search", async ({
   const input = page.getByPlaceholder("Search mail");
   await input.fill("uncommitted search");
   await page.getByRole("link", { name: /^Sent/ }).click();
+  await expect(page).toHaveURL(/type=sent/);
   await expect(input).toHaveValue("");
-  await page
-    .getByRole("link", { name: /^Inbox/ })
-    .first()
-    .click();
+  await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+  await expect(page).toHaveURL(/type=inbox/);
   await expect(input).toHaveValue("");
 });
 
