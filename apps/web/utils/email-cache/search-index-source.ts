@@ -40,6 +40,8 @@ export async function readSearchIndexThreadPage({
   const messages: SearchMessage[] = [];
   let bytes = 0;
   while (cursor && messages.length < 100) {
+    // This is a page target: return one large record so the consumer can
+    // process or reject it explicitly without stalling the source cursor.
     if (messages.length && bytes + cursor.value.byteSize > 1_048_576) break;
     const message = cursor.value.data;
     messages.push({

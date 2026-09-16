@@ -35,6 +35,70 @@ describe("cached thread lists", () => {
     ).toBeUndefined();
   });
 
+  it("keeps a newer view when an older first-page response finishes later", async () => {
+    const now = Date.now();
+    await writeCachedThreadList({
+      emailAccountId: "account-1",
+      viewKey: "all",
+      threads: [{ id: "fresh-thread", subject: "Fresh" }],
+      hasMore: false,
+      now,
+    });
+    await writeCachedThreadList({
+      emailAccountId: "account-1",
+      viewKey: "all",
+      threads: [{ id: "stale-thread", subject: "Stale" }],
+      hasMore: true,
+      now: now - 1,
+    });
+    expect(
+      await readCachedThreadList({
+        emailAccountId: "account-1",
+        viewKey: "all",
+      }),
+    ).toMatchObject({
+      cachedAt: now,
+      hasMore: false,
+      threads: [{ id: "fresh-thread", subject: "Fresh" }],
+    });
+    const database = await getEmailCacheDatabase();
+    expect(
+      await database?.get("threadRows", ["account-1", "stale-thread"]),
+    ).toBeUndefined();
+  });
+
+  it("preserves newer shared rows while accepting another view and its new rows", async () => {
+    const now = Date.now();
+    await writeCachedThreadRows({
+      emailAccountId: "account-1",
+      threads: [{ id: "shared-thread", subject: "Fresh" }],
+      fetchedAt: now,
+    });
+    await writeCachedThreadList({
+      emailAccountId: "account-1",
+      viewKey: "all",
+      hasMore: true,
+      now: now - 1,
+      threads: [
+        { id: "shared-thread", subject: "Stale" },
+        { id: "new-thread", subject: "New" },
+      ],
+    });
+    expect(
+      await readCachedThreadList({
+        emailAccountId: "account-1",
+        viewKey: "all",
+      }),
+    ).toMatchObject({
+      cachedAt: now - 1,
+      hasMore: true,
+      threads: [
+        { id: "shared-thread", subject: "Fresh" },
+        { id: "new-thread", subject: "New" },
+      ],
+    });
+  });
+
   it("normalizes rows shared by several views", async () => {
     const now = Date.now();
     await writeCachedThreadList({

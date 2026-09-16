@@ -67,6 +67,25 @@ describe("paged local mail source", () => {
     ).toEqual(messages.map((message) => message.id));
   });
 
+  it("returns one oversized record and continues without skipping the next message", async () => {
+    const textPlain = "x".repeat(1_100_000);
+    await store(
+      [{ ...getMessage("first"), textPlain }, getMessage("second")],
+      500,
+    );
+    const current = await request();
+    const first = await readSearchIndexThreadPage(current);
+    expect(first?.messages.map((message) => message.id)).toEqual(["first"]);
+    expect(first?.messages[0].textPlain).toBe(textPlain);
+    expect(first?.nextMessageId).toBe("first");
+    const second = await readSearchIndexThreadPage({
+      ...current,
+      afterMessageId: first?.nextMessageId,
+    });
+    expect(second?.messages.map((message) => message.id)).toEqual(["second"]);
+    expect(second?.nextMessageId).toBeUndefined();
+  });
+
   it("bounds page bytes and rejects continuation after a concurrent edit", async () => {
     await store(
       [getMessage("first"), getMessage("second")].map((message) => ({
