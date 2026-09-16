@@ -40,9 +40,9 @@ type AccountState = { generation: string; revision: number };
 type StoredDocument = { row_id: bigint; received: number | null };
 type SearchField = "all_text" | "from_text" | "to_text" | "subject_text";
 type ParsedQuery = NonNullable<ReturnType<typeof parseLocalSearch>>;
-const ROW_ID_SCALE = 1_048_576n;
-const MAX_ROW_ID = (1n << 63n) - 1n;
-const MIN_ROW_ID = -(1n << 63n);
+const ROW_ID_SCALE = BigInt("1048576");
+const MAX_ROW_ID = (BigInt("1") << BigInt("63")) - BigInt("1");
+const MIN_ROW_ID = -(BigInt("1") << BigInt("63"));
 const MAX_BATCH_SIZE = 100;
 const MAX_PAGE_SIZE = 100;
 const MAX_MESSAGE_CHARACTERS = 2_000_000;
@@ -334,10 +334,12 @@ export function createSearchIndex(database: Database) {
             const base = getRowIdBase(received ?? 0);
             const last = database.selectValue(
               "SELECT MAX(row_id) FROM search_documents WHERE row_id>=? AND row_id<=?",
-              [base, base + ROW_ID_SCALE - 1n],
+              [base, base + ROW_ID_SCALE - BigInt("1")],
             );
             rowId =
-              last === null || last === undefined ? base : readRowId(last) + 1n;
+              last === null || last === undefined
+                ? base
+                : readRowId(last) + BigInt("1");
             if (rowId >= base + ROW_ID_SCALE)
               throw new SearchIndexCapacityError("timestamp-slots-exhausted");
           }
@@ -577,7 +579,7 @@ function getRowIdBase(received: number) {
   if (!Number.isSafeInteger(received))
     throw new SearchIndexCapacityError("timestamp-out-of-range");
   const base = BigInt(received) * ROW_ID_SCALE;
-  if (base < MIN_ROW_ID || base + ROW_ID_SCALE - 1n > MAX_ROW_ID)
+  if (base < MIN_ROW_ID || base + ROW_ID_SCALE - BigInt("1") > MAX_ROW_ID)
     throw new SearchIndexCapacityError("timestamp-out-of-range");
   return base;
 }
@@ -609,16 +611,16 @@ function encodeLongIdentity(prefix: string, value: string) {
   // A fixed three-codepoint marker is one posting, rather than a costly FTS
   // phrase. Hash collisions only add candidates: account/labels are checked
   // against their exact stored values before returning any result.
-  let hash = 0xcbf29ce484222325n;
+  let hash = BigInt("0xcbf29ce484222325");
   for (const character of value)
     hash =
-      ((hash ^ BigInt(character.codePointAt(0)!)) * 0x100000001b3n) &
-      0xffffffffffn;
+      ((hash ^ BigInt(character.codePointAt(0)!)) * BigInt("0x100000001b3")) &
+      BigInt("0xffffffffff");
   return (
     prefix +
     String.fromCodePoint(
-      0x1_00_00 + Number(hash & 0xfffffn),
-      0x1_00_00 + Number(hash >> 20n),
+      0x1_00_00 + Number(hash & BigInt("0xfffff")),
+      0x1_00_00 + Number(hash >> BigInt("20")),
     )
   );
 }
