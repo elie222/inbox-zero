@@ -47,14 +47,14 @@ export function getHttpUnsubscribeLink(options: {
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
 }) {
-  return getMatchingUnsubscribeLink(options, ["http:", "https:"]);
+  return getMatchingUnsubscribeLink(options, ["https:", "http:"]);
 }
 
 export function getUserFacingUnsubscribeLink(options: {
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
 }) {
-  return getMatchingUnsubscribeLink(options, ["http:", "https:", "mailto:"]);
+  return getMatchingUnsubscribeLink(options, ["https:", "http:", "mailto:"]);
 }
 
 function getMatchingUnsubscribeLink(
@@ -69,12 +69,14 @@ function getMatchingUnsubscribeLink(
 
   const allLinks = [...headerLinks, ...fallbackLinks];
 
-  for (const link of allLinks) {
-    const normalizedLink = normalizeAllowedUnsubscribeLink(
-      link,
-      allowedProtocols,
-    );
-    if (normalizedLink) return normalizedLink;
+  // Protocol order is a preference, not only a filter. Senders often list a
+  // mailto first, and handing the reader a draft email to send is worse than
+  // opening a page, so exhaust every web link before falling back to one.
+  for (const protocol of allowedProtocols) {
+    for (const link of allLinks) {
+      const normalizedLink = normalizeAllowedUnsubscribeLink(link, [protocol]);
+      if (normalizedLink) return normalizedLink;
+    }
   }
 
   return;
