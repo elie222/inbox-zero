@@ -51,6 +51,11 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
       page.getByRole("combobox", { name: "Search mail" }),
     ).toBeVisible();
     await expect.poll(() => [...syncAccountIds]).toEqual([emailAccountId]);
+    await expect(
+      page
+        .getByRole("listbox", { name: "Conversations" })
+        .or(page.getByText("No emails in this view", { exact: true })),
+    ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "mail-activated");
 
     syncAccountIds.clear();
@@ -97,6 +102,11 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
     );
     await page.reload();
     await expect.poll(() => syncAccountIds.has(secondAccount.id)).toBe(true);
+    await expect(
+      page
+        .getByRole("listbox", { name: "Conversations" })
+        .or(page.getByText("No emails in this view", { exact: true })),
+    ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "unified-mail-activated");
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
