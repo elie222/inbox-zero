@@ -4,6 +4,10 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 for (const draftOnly of [false, true]) {
   test(`preserves multiple server drafts ${draftOnly ? "without a sent parent" : "without reply headers"}`, async ({
     page,
