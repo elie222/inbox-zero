@@ -14,7 +14,7 @@ const request = {
 describe("search index source snapshots", () => {
   beforeEach(async () => {
     await clearEmailCache();
-    const database = (await getEmailCacheDatabase())!;
+    const database = await getTestDatabase();
     await database.put("searchIndexAccounts", {
       emailAccountId: request.emailAccountId,
       generation: request.generation,
@@ -27,7 +27,7 @@ describe("search index source snapshots", () => {
   });
 
   it("combines current metadata with available bodies without a hidden body truncation", async () => {
-    const database = (await getEmailCacheDatabase())!;
+    const database = await getTestDatabase();
     const textPlain = `${"body ".repeat(25_000)} searchable ending`;
     const message = getMessage();
     await database.put("threadDetails", {
@@ -66,7 +66,7 @@ describe("search index source snapshots", () => {
 
   it("returns an empty replacement for deleted or evicted threads", async () => {
     expect(await readSearchIndexThread(request)).toEqual([]);
-    const database = (await getEmailCacheDatabase())!;
+    const database = await getTestDatabase();
     await database.put("threadRows", {
       emailAccountId: request.emailAccountId,
       threadId: request.threadId,
@@ -78,7 +78,7 @@ describe("search index source snapshots", () => {
   });
 
   it("does not mistake a unified wrapper row for account-owned message data", async () => {
-    const database = (await getEmailCacheDatabase())!;
+    const database = await getTestDatabase();
     await database.put("threadRows", {
       emailAccountId: request.emailAccountId,
       threadId: request.threadId,
@@ -107,4 +107,10 @@ function getMessage(): ParsedMessage {
     subject: "Example",
     snippet: "Example",
   };
+}
+
+async function getTestDatabase() {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Email cache database unavailable in test");
+  return database;
 }
