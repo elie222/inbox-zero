@@ -5,7 +5,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { clearMailActivation } from "./mail-activation";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 10;
+const DATABASE_VERSION = 11;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -50,6 +50,15 @@ export type CachedMailboxSyncState = {
   hasMore: boolean;
   lastSyncedAt: number;
   completedAt?: number;
+};
+
+type MailboxSyncJob = {
+  emailAccountId: string;
+  leaseToken?: string;
+  leaseExpiresAt: number;
+  retryAt: number;
+  nextPollAt: number;
+  failures: number;
 };
 
 export type MailMutationClientSource = {
@@ -118,6 +127,10 @@ interface EmailCacheSchema extends DBSchema {
       byReceivedAt: number;
     };
   };
+  mailboxSyncJobs: {
+    key: string;
+    value: MailboxSyncJob;
+  };
   mailboxSyncStates: {
     key: string;
     value: CachedMailboxSyncState;
@@ -183,6 +196,11 @@ export function getEmailCacheDatabase() {
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
     upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 11) {
+        database.createObjectStore("mailboxSyncJobs", {
+          keyPath: "emailAccountId",
+        });
+      }
       if (oldVersion < 1) {
         const rows = database.createObjectStore("threadRows", {
           keyPath: ["emailAccountId", "threadId"],
@@ -324,6 +342,7 @@ export async function clearEmailCache() {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailboxSyncJobs",
         "mailMutations",
         "replyDrafts",
       ],
@@ -335,6 +354,7 @@ export async function clearEmailCache() {
       transaction.objectStore("threadDetails").clear(),
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
+      transaction.objectStore("mailboxSyncJobs").clear(),
       transaction.objectStore("mailMutations").clear(),
       transaction.objectStore("replyDrafts").clear(),
       transaction.done,
@@ -368,6 +388,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailboxSyncJobs",
         "mailMutations",
         "replyDrafts",
       ],
@@ -402,6 +423,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       ...mutationKeys.map((key) => mutations.delete(key)),
       ...draftKeys.map((key) => drafts.delete(key)),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
+      transaction.objectStore("mailboxSyncJobs").delete(emailAccountId),
     ]);
     await transaction.done;
   } catch {

@@ -48,11 +48,13 @@ export async function applyMailboxSyncPage({
   emailAccountId,
   page,
   after,
+  leaseToken,
   now = Date.now(),
 }: {
   emailAccountId: string;
   page: MailboxSyncPage;
   after?: Date;
+  leaseToken?: string;
   now?: number;
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
@@ -61,9 +63,24 @@ export async function applyMailboxSyncPage({
     return false;
 
   const transaction = database.transaction(
-    ["mailboxMessages", "mailboxSyncStates", "threadDetails", "threadRows"],
+    [
+      "mailboxMessages",
+      "mailboxSyncStates",
+      "threadDetails",
+      "threadRows",
+      "mailboxSyncJobs",
+    ],
     "readwrite",
   );
+  if (leaseToken) {
+    const job = await transaction
+      .objectStore("mailboxSyncJobs")
+      .get(emailAccountId);
+    if (job?.leaseToken !== leaseToken || job.leaseExpiresAt <= Date.now()) {
+      await transaction.done;
+      return false;
+    }
+  }
   const messages = transaction.objectStore("mailboxMessages");
   const states = transaction.objectStore("mailboxSyncStates");
   const currentState = await states.get(emailAccountId);

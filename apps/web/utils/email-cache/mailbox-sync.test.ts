@@ -171,6 +171,7 @@ describe("mailbox sync coordinator", () => {
       syncMailboxPages({
         emailAccountId: "account-1",
         fetchPage: resumedFetch,
+        force: true,
         maxPages: 1,
         now: new Date("2026-08-23T12:00:00.000Z"),
       }),
@@ -206,6 +207,7 @@ describe("mailbox sync coordinator", () => {
     await syncMailboxPages({
       emailAccountId: "account-1",
       fetchPage: refreshFetch,
+      force: true,
       now: new Date("2026-08-23T12:00:00.000Z"),
     });
 
@@ -364,6 +366,7 @@ describe("mailbox sync coordinator", () => {
       fetchMailboxSyncPage("account-1", { cursor: "before", limit: 100 }),
     ).resolves.toEqual(page);
     expect(fetchMock).toHaveBeenCalledWith("/api/mobile/mailbox-sync", {
+      signal: expect.any(AbortSignal),
       body: JSON.stringify({ cursor: "before", limit: 100 }),
       headers: {
         "Content-Type": "application/json",
