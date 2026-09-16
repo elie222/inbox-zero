@@ -23,10 +23,12 @@ test("updates the draft indicator after deletion and retains remaining drafts", 
   );
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();
   await row.click();
-  const discard = page.getByRole("button", {
+  const discardButtons = page.getByRole("button", {
     name: "Discard draft",
     exact: true,
   });
+  await expect(discardButtons).toHaveCount(2);
+  const discard = discardButtons.first();
   await expect(discard).toBeVisible({ timeout: 60_000 });
   await page.route("**/mail**", async (route) => {
     if (route.request().method() === "POST") await route.abort();
@@ -47,13 +49,11 @@ test("updates the draft indicator after deletion and retains remaining drafts", 
   });
   await discard.click();
   await refreshedThread;
-  await expect(
-    page.getByRole("textbox", { name: "Email message" }),
-  ).toBeHidden();
+  await expect(discardButtons).toHaveCount(1);
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Reply", exact: true }).click();
   await expect(discard).toBeVisible();
   await discard.click();
+  await expect(discardButtons).toHaveCount(0);
   await expect(row.getByText("Draft", { exact: true })).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "deleted-draft-indicator");
 });
