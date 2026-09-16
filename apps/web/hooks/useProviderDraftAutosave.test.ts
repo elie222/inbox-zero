@@ -70,6 +70,24 @@ it("serializes writes and waits for an active save before stopping", async () =>
   unmount();
 });
 
+it("saves skipped queued content after resuming", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent: () => "edit", save }),
+  );
+  act(() => result.current.capture());
+  await act(async () => {
+    vi.advanceTimersByTime(3000);
+    await result.current.stop();
+  });
+  expect(save).not.toHaveBeenCalled();
+  act(() => result.current.resume());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledExactlyOnceWith("edit");
+  unmount();
+});
+
 it("retries failed saves without requiring another edit", async () => {
   vi.useFakeTimers();
   const save = vi
@@ -172,4 +190,106 @@ it("does not write an opened draft until an edit or local recovery is captured",
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledWith("draft");
   unmount();
+});
+
+it("syncs a closed composer when the connection returns", async () => {
+  vi.useFakeTimers();
+  const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  const save = vi.fn().mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "offline-compose",
+      getContent: () => "offline edit",
+      save,
+    }),
+  );
+  act(() => result.current.capture());
+  unmount();
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).not.toHaveBeenCalled();
+  online.mockReturnValue(true);
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(save).toHaveBeenCalledExactlyOnceWith("offline edit");
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).toHaveBeenCalledOnce();
+});
+
+it("a reopened composer takes over retries and waits for the previous save before sending", async () => {
+  vi.useFakeTimers();
+  let finish!: () => void;
+  const save = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValue(undefined);
+  const first = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "reopened-compose",
+      getContent: () => "first",
+      save,
+    }),
+  );
+  act(() => first.result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  first.unmount();
+  const second = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "reopened-compose",
+      getContent: () => "second",
+      save,
+    }),
+  );
+  act(() => second.result.current.capture());
+  let stopped = false;
+  const stop = second.result.current.stop().then(() => {
+    stopped = true;
+  });
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(stopped).toBe(false);
+  await act(async () => {
+    finish();
+    await stop;
+  });
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).toHaveBeenCalledOnce();
+  second.unmount();
+});
+
+it("stops retrying a closed composer after repeated failures and retries on reopen", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockRejectedValue(new Error("Unavailable"));
+  const options = {
+    enabled: true,
+    sessionKey: "failed-closed-compose",
+    getContent: () => "local draft",
+    save,
+  };
+  const first = renderHook(() => useProviderDraftAutosave(options));
+  act(() => first.result.current.capture());
+  first.unmount();
+  await act(() => vi.advanceTimersByTimeAsync(30_000));
+  const attempts = save.mock.calls.length;
+  expect(attempts).toBeGreaterThan(1);
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(30_000);
+  });
+  expect(save).toHaveBeenCalledTimes(attempts);
+
+  save.mockResolvedValue(undefined);
+  const reopened = renderHook(() => useProviderDraftAutosave(options));
+  act(() => reopened.result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledTimes(attempts + 1);
+  expect(save).toHaveBeenLastCalledWith("local draft");
+  reopened.unmount();
 });

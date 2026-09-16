@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
+import { sendComposeDraft } from "@/utils/email/compose-draft";
 import { env } from "@/env";
 import { toAbsoluteUrl } from "@/utils/branding";
 import { secureCompareBuffers } from "@/utils/crypto-compare";
@@ -166,7 +167,15 @@ export async function sendHtmlEmailWithOpenTracking({
     email,
     logger,
   });
-  const result = await emailProvider.sendEmailWithHtml(prepared.email);
+  const result = email.composeSessionId
+    ? await sendComposeDraft({
+        emailAccountId,
+        sessionId: email.composeSessionId,
+        provider: emailProvider,
+        email: prepared.email,
+        logger,
+      })
+    : await emailProvider.sendEmailWithHtml(prepared.email);
   await associateSentMessageOpen({
     token: prepared.token,
     messageId: result.messageId,

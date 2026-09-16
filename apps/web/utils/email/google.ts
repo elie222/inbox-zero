@@ -982,6 +982,7 @@ export class GmailProvider implements EmailProvider {
       to?: string;
       cc?: string;
       bcc?: string;
+      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
@@ -993,11 +994,14 @@ export class GmailProvider implements EmailProvider {
 
     const subject = params.subject ?? currentDraft.subject ?? "";
     const content = params.messageHtml ?? currentDraft.textHtml ?? "";
-    const attachments = await getGmailMessageAttachments(
-      this.client,
-      currentDraft.id,
-      currentDraft.payload,
-    );
+    const attachments =
+      params.attachments !== undefined
+        ? toMailerAttachments(params.attachments)
+        : await getGmailMessageAttachments(
+            this.client,
+            currentDraft.id,
+            currentDraft.payload,
+          );
 
     const encodedMessage = await createMail({
       from: currentDraft.headers?.from,

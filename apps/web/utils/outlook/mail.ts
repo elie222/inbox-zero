@@ -649,7 +649,7 @@ function buildGraphFromField(
   };
 }
 
-async function addAttachmentsToDraft({
+export async function addAttachmentsToDraft({
   client,
   draftId,
   attachments,

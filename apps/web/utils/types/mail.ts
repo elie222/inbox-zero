@@ -24,6 +24,7 @@ export type Attachment = z.infer<typeof zodAttachment>;
 
 export const sendEmailBody = z
   .object({
+    composeSessionId: z.string().uuid().optional(),
     replyToEmail: z
       .object({
         threadId: z.string(),
