@@ -156,6 +156,26 @@ describe("useMailThreads", () => {
     expect(result.current.threads).toEqual([]);
   });
 
+  it("hides archived mail from an inbox-scoped label split", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: false,
+      threads: [createThread("archived-receipt", ["UNREAD", "Label_receipt"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-archived-split",
+          query: { labelIds: ["INBOX", "Label_receipt"] },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("removes a pending-read thread from an unread-only view", async () => {
     mutationStore.read.mockResolvedValue([
       createMutation({
@@ -233,26 +253,62 @@ describe("useMailThreads", () => {
     ]);
   });
 
-  it("refreshes overlays when the durable mutation store changes", async () => {
+  it("keeps an archive overlay until the inbox refetch drops the thread", async () => {
     mutationStore.read
       .mockResolvedValueOnce([
         createMutation({
-          emailAccountId: "account-refresh",
-          kind: "trash",
-          messageIds: ["refresh-message"],
-          threadId: "refresh",
+          emailAccountId: "account-stale-archive",
+          kind: "archive",
+          messageIds: ["stale-archive-message"],
+          threadId: "stale-archive",
+        }),
+      ])
+      .mockResolvedValue([]);
+    const fetcher = vi.fn(async () => ({
+      threads: [createThread("stale-archive")],
+    }));
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-stale-archive",
+          query: { labelIds: ["INBOX", "Label_receipt"] },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.threads).toEqual([]);
+  });
+
+  it("drops a completed overlay on search so archived hits can remain", async () => {
+    mutationStore.read
+      .mockResolvedValueOnce([
+        createMutation({
+          emailAccountId: "account-search-overlay",
+          kind: "archive",
+          messageIds: ["search-hit-message"],
+          threadId: "search-hit",
         }),
       ])
       .mockResolvedValue([]);
     const { result } = renderHook(
       () =>
         useMailThreads({
-          emailAccountId: "account-refresh",
-          query: { type: "inbox" },
+          emailAccountId: "account-search-overlay",
+          query: { q: "invoice" },
         }),
       {
         wrapper: createWrapper(() =>
-          Promise.resolve({ threads: [createThread("refresh")] }),
+          Promise.resolve({ threads: [createThread("search-hit")] }),
         ),
       },
     );
@@ -264,7 +320,9 @@ describe("useMailThreads", () => {
     });
 
     await waitFor(() =>
-      expect(result.current.threads.map(({ id }) => id)).toEqual(["refresh"]),
+      expect(result.current.threads.map(({ id }) => id)).toEqual([
+        "search-hit",
+      ]),
     );
   });
 

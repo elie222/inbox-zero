@@ -3,6 +3,7 @@ import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import {
   getPortableLabelSplits,
   mailSplitToThreadsQuery,
+  threadListQueryRequiresInbox,
   type MailSplit,
 } from "@/utils/mail/split-query";
 
@@ -44,6 +45,19 @@ describe("mailSplitToThreadsQuery", () => {
         NOW,
       ),
     ).toEqual({ labelIds: ["INBOX", "Label_42"] });
+  });
+
+  it("treats inbox-scoped splits as inbox even without type=inbox", () => {
+    expect(threadListQueryRequiresInbox({ type: "inbox" })).toBe(true);
+    expect(threadListQueryRequiresInbox({ type: "unread" })).toBe(true);
+    expect(
+      threadListQueryRequiresInbox({ labelIds: ["INBOX", "Label_42"] }),
+    ).toBe(true);
+    expect(
+      threadListQueryRequiresInbox({ labelIds: ["INBOX"], anyOf: [] }),
+    ).toBe(true);
+    expect(threadListQueryRequiresInbox({ type: "important" })).toBe(false);
+    expect(threadListQueryRequiresInbox({ q: "invoice" })).toBe(false);
   });
 
   it("queries Outlook's focused section inside the inbox", () => {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ParsedMessage } from "@/utils/types";
-import { applyMailMutationOverlayToThreads } from "./useMailMutationOverlay";
+import {
+  applyMailMutationOverlayToThreads,
+  mailMutationOverlayHidesAnyThread,
+} from "./useMailMutationOverlay";
 
 describe("applyMailMutationOverlayToThreads", () => {
   it("uses account and thread identity when provider ids collide", () => {
@@ -61,6 +64,26 @@ describe("applyMailMutationOverlayToThreads", () => {
         threads: [cachedThread],
       }),
     ).toEqual([cachedThread]);
+  });
+
+  it("reports when archive still hides a thread from a refetch", () => {
+    const threads = [
+      thread("account-1", "thread-1", [message("old-message", true)]),
+    ];
+    expect(
+      mailMutationOverlayHidesAnyThread({
+        getEmailAccountId: (item) => item.accountId,
+        mutations: [mutation({ kind: "archive", messageIds: ["old-message"] })],
+        threads,
+      }),
+    ).toBe(true);
+    expect(
+      mailMutationOverlayHidesAnyThread({
+        getEmailAccountId: (item) => item.accountId,
+        mutations: [mutation({ kind: "archive", messageIds: ["old-message"] })],
+        threads: [],
+      }),
+    ).toBe(false);
   });
 });
 

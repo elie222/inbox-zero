@@ -22,7 +22,7 @@ type OverlayMessage = Pick<ParsedMessage, "id" | "labelIds">;
 type ReconciliationState = {
   identity: string;
   isRunning: boolean;
-  pendingIds: Set<string>;
+  pending: Map<string, MailMutation>;
   retryAttempts: number;
   retryTimer: ReturnType<typeof setTimeout> | undefined;
   stopped: boolean;
@@ -118,7 +118,8 @@ export function useRetainedMailMutationOverlay({
   | { emailAccountId?: never; emailAccountIds: string[] }
 ) & {
   enabled?: boolean;
-  onReconcile: () => unknown;
+  /** Return `false` to keep the overlay and retry — the refetch was still stale. */
+  onReconcile: (mutations: MailMutation[]) => unknown;
 }) {
   const accountIds = useMemo(
     () => emailAccountIds ?? (emailAccountId ? [emailAccountId] : []),
@@ -167,7 +168,7 @@ export function useRetainedMailMutationOverlay({
     if (enabled) return;
     previous.current = undefined;
     const state = reconciliationState.current;
-    state.pendingIds.clear();
+    state.pending.clear();
     state.retryAttempts = 0;
     if (state.retryTimer) clearTimeout(state.retryTimer);
     state.retryTimer = undefined;
@@ -180,18 +181,23 @@ export function useRetainedMailMutationOverlay({
       state.stopped ||
       state.isRunning ||
       state.retryTimer ||
-      !state.pendingIds.size
+      !state.pending.size
     ) {
       return;
     }
 
     state.isRunning = true;
-    const completedIds = new Set(state.pendingIds);
+    const completed = [...state.pending.values()];
+    const completedIds = new Set(completed.map((mutation) => mutation.id));
     Promise.resolve()
-      .then(() => onReconcileRef.current())
-      .then(() => {
+      .then(() => onReconcileRef.current(completed))
+      .then((result) => {
         if (state.stopped || reconciliationState.current !== state) return;
-        for (const id of completedIds) state.pendingIds.delete(id);
+        if (result === false) {
+          scheduleReconciliationRetry(state, runReconciliationRef);
+          return;
+        }
+        for (const id of completedIds) state.pending.delete(id);
         state.retryAttempts = 0;
         setRetained((snapshot) => {
           if (snapshot?.identity !== state.identity) return snapshot;
@@ -205,16 +211,7 @@ export function useRetainedMailMutationOverlay({
       })
       .catch(() => {
         if (state.stopped || reconciliationState.current !== state) return;
-        const delay = Math.min(
-          RECONCILIATION_RETRY_MS * 2 ** state.retryAttempts,
-          MAX_RECONCILIATION_RETRY_MS,
-        );
-        state.retryAttempts += 1;
-        state.retryTimer = setTimeout(() => {
-          state.retryTimer = undefined;
-          if (state.stopped || reconciliationState.current !== state) return;
-          runReconciliationRef.current();
-        }, delay);
+        scheduleReconciliationRetry(state, runReconciliationRef);
       })
       .finally(() => {
         state.isRunning = false;
@@ -222,7 +219,7 @@ export function useRetainedMailMutationOverlay({
           !state.stopped &&
           reconciliationState.current === state &&
           !state.retryTimer &&
-          state.pendingIds.size
+          state.pending.size
         ) {
           queueMicrotask(() => runReconciliationRef.current());
         }
@@ -234,10 +231,13 @@ export function useRetainedMailMutationOverlay({
   }, [runReconciliation]);
 
   const reconcileCompleted = useCallback(
-    (ids: string[]) => {
+    (mutations: MailMutation[]) => {
       const state = reconciliationState.current;
-      if (state.identity !== identity || state.stopped) return;
-      for (const id of ids) state.pendingIds.add(id);
+      if (state.identity !== identity || state.stopped || !mutations.length) {
+        return;
+      }
+      for (const mutation of mutations)
+        state.pending.set(mutation.id, mutation);
       runReconciliation();
     },
     [identity, runReconciliation],
@@ -271,7 +271,9 @@ export function useRetainedMailMutationOverlay({
               .filter((mutation) => isActiveMailMutationStatus(mutation.status))
               .map((mutation) => mutation.id),
           );
-          reconcileCompleted(ids.filter((id) => !activeIds.has(id)));
+          reconcileCompleted(
+            mutations.filter((mutation) => !activeIds.has(mutation.id)),
+          );
         })
         .catch(() => {});
     },
@@ -287,11 +289,7 @@ export function useRetainedMailMutationOverlay({
     const prior =
       previous.current?.identity === identity ? previous.current.mutations : [];
     const activeIds = new Set(active.mutations.map((mutation) => mutation.id));
-    const completedIds = new Set(
-      prior
-        .filter((mutation) => !activeIds.has(mutation.id))
-        .map((mutation) => mutation.id),
-    );
+    const completed = prior.filter((mutation) => !activeIds.has(mutation.id));
 
     setRetained((snapshot) => ({
       identity,
@@ -305,7 +303,7 @@ export function useRetainedMailMutationOverlay({
       mutations: active.mutations,
     };
 
-    reconcileCompleted([...completedIds]);
+    reconcileCompleted(completed);
   }, [
     active.isReadable,
     active.isReady,
@@ -368,11 +366,37 @@ export function applyMailMutationOverlayToThreads<
   return overlaidThreads;
 }
 
+export function mailMutationOverlayHidesAnyThread<
+  Thread extends { id: string; messages?: OverlayMessage[] },
+>(args: {
+  getEmailAccountId: (thread: Thread) => string;
+  mutations: MailMutation[];
+  threads: Thread[];
+}) {
+  return applyMailMutationOverlayToThreads(args).length !== args.threads.length;
+}
+
+function scheduleReconciliationRetry(
+  state: ReconciliationState,
+  runReconciliation: { current: () => void },
+) {
+  const delay = Math.min(
+    RECONCILIATION_RETRY_MS * 2 ** state.retryAttempts,
+    MAX_RECONCILIATION_RETRY_MS,
+  );
+  state.retryAttempts += 1;
+  state.retryTimer = setTimeout(() => {
+    state.retryTimer = undefined;
+    if (state.stopped) return;
+    runReconciliation.current();
+  }, delay);
+}
+
 function createReconciliationState(identity: string): ReconciliationState {
   return {
     identity,
     isRunning: false,
-    pendingIds: new Set<string>(),
+    pending: new Map(),
     retryAttempts: 0,
     retryTimer: undefined,
     stopped: false,
