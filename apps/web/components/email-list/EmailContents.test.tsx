@@ -355,9 +355,9 @@ describe("HtmlEmail", () => {
     expect(onForwardMessage).toHaveBeenCalledOnce();
   });
 
-  it("keeps the current layout until quoted content is ready to replace it", async () => {
+  it("keeps the reply frame mounted while quoted content opens and closes", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
-    const { getByRole, getByTitle } = render(
+    const { getByRole, getByTitle, getAllByTitle } = render(
       <HtmlEmail
         html={
           '<div>Current reply</div><div class="gmail_quote"><div>Earlier message</div></div>'
@@ -369,25 +369,17 @@ describe("HtmlEmail", () => {
     measureEmailFrame(initial, 40);
     await waitFor(() => expect(initial.style.height).toBe("40px"));
     fireEvent.click(getByRole("button", { name: "Show quoted content" }));
-    const expanded = getByTitle(
-      "Preparing email content preview",
-    ) as HTMLIFrameElement;
+    const expanded = getAllByTitle(
+      "Email content preview",
+    )[1] as HTMLIFrameElement;
     expect(initial.style.height).toBe("40px");
-    expect(expanded.getAttribute("height")).toBe("1");
+    expect(expanded.srcdoc).toContain("Earlier message");
+    expect(expanded.srcdoc).not.toContain("Current reply");
     measureEmailFrame(expanded, 640);
-    await waitFor(() =>
-      expect(getByTitle("Email content preview")).toBe(expanded),
-    );
+    await waitFor(() => expect(expanded.style.height).toBe("640px"));
     fireEvent.click(getByRole("button", { name: "Hide quoted content" }));
-    const collapsed = getByTitle(
-      "Preparing email content preview",
-    ) as HTMLIFrameElement;
-    expect(expanded.style.height).toBe("640px");
-    measureEmailFrame(collapsed, 40);
-    await waitFor(() =>
-      expect(getByTitle("Email content preview")).toBe(collapsed),
-    );
-    expect(collapsed.style.height).toBe("40px");
+    expect(getByTitle("Email content preview")).toBe(initial);
+    expect(initial.style.height).toBe("40px");
   });
 
   it("keeps watching until the email document replaces the placeholder", async () => {

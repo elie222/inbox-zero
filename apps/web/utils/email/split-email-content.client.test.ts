@@ -4,6 +4,41 @@ import { describe, expect, it } from "vitest";
 import { splitEmailContent } from "./split-email-content.client";
 
 describe("splitEmailContent", () => {
+  it("preserves styled quote ancestors and following content without repeating the reply", () => {
+    const result = splitEmailContent(
+      '<!doctype html><html><head><style>.wrapper { color: red; }</style></head><body style="background: #222"><div class="wrapper"><p>Current reply</p><div class="gmail_quote">History</div><p>Following history</p></div><p>Older history</p></body></html>',
+    );
+    const quoted = new DOMParser().parseFromString(
+      result.quotedContent,
+      "text/html",
+    );
+    expect(quoted.body.style.backgroundColor).toBe("rgb(34, 34, 34)");
+    expect(quoted.body.textContent).toBe(
+      "HistoryFollowing historyOlder history",
+    );
+    expect(quoted.querySelector(".wrapper .gmail_quote")?.textContent).toBe(
+      "History",
+    );
+    expect(quoted.head.querySelector("style")?.textContent).toContain(
+      ".wrapper",
+    );
+    expect(result.mainContent).not.toContain("History");
+  });
+
+  it("preserves styles in HTML fragments without document tags", () => {
+    const result = splitEmailContent(
+      '<style>.gmail_quote { color: red; }</style><p>Reply</p><div class="gmail_quote">History</div>',
+    );
+    const quoted = new DOMParser().parseFromString(
+      result.quotedContent,
+      "text/html",
+    );
+    expect(quoted.head.querySelector("style")?.textContent).toBe(
+      ".gmail_quote { color: red; }",
+    );
+    expect(quoted.body.textContent).toBe("History");
+  });
+
   it("removes blank quote spacing without removing reply content", () => {
     const result = splitEmailContent(
       '<p>Reply</p><br><div dir="ltr"></div><br><div class="gmail_quote">History</div>',
@@ -23,7 +58,7 @@ describe("splitEmailContent", () => {
       '<div>Current reply</div><div class="gmail_quote_container"><div>Earlier message</div></div>',
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -71,7 +106,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -90,7 +125,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent:
         '<div class="WordSection1"><p class="MsoNormal">Current reply</p></div>',
       hasQuotedContent: true,
@@ -126,8 +161,9 @@ describe("splitEmailContent", () => {
       "</div>",
     ].join("");
 
-    expect(splitEmailContent(html)).toEqual({
+    expect(splitEmailContent(html)).toMatchObject({
       mainContent: html,
+      quotedContent: "",
       hasQuotedContent: false,
     });
   });
@@ -141,7 +177,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -152,7 +188,7 @@ describe("splitEmailContent", () => {
       '<div>Current reply</div><blockquote type="cite">Earlier message</blockquote>',
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -162,8 +198,9 @@ describe("splitEmailContent", () => {
     const html =
       "<div>A regular message</div><blockquote>A cited passage</blockquote>";
 
-    expect(splitEmailContent(html)).toEqual({
+    expect(splitEmailContent(html)).toMatchObject({
       mainContent: html,
+      quotedContent: "",
       hasQuotedContent: false,
     });
   });

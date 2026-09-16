@@ -1,3 +1,4 @@
+import PostalMime from "postal-mime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmail, createTestLogger } from "@/__tests__/helpers";
 import { parseMessage } from "@/utils/gmail/message";
@@ -145,6 +146,35 @@ describe("responding to calendar invitations", () => {
 });
 
 describe("loading calendar invitations", () => {
+  it("responds when MIME normalization changes attachment line endings", async () => {
+    const mime = await PostalMime.parse(
+      `MIME-Version: 1.0\r\nContent-Type: text/calendar; method=REQUEST\r\n\r\n${content}`,
+      { attachmentEncoding: "utf8" },
+    );
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      isMeetingInvitation: true,
+      calendarContent: String(mime.attachments[0].content),
+      attachments: [
+        {
+          attachmentId: "calendar",
+          filename: "invite.ics",
+          mimeType: "text/calendar",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(content).toString("base64"),
+      size: content.length,
+    });
+    expect((await getCalendarInvitation(params)).invitation).not.toBeNull();
+    await expect(respondToCalendarInvitation(params)).resolves.toMatchObject({
+      response: "accepted",
+    });
+    expect(sendEmail).toHaveBeenCalledOnce();
+  });
+
   it.each([
     false,
     true,

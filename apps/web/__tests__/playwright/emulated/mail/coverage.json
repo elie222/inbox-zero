@@ -3,6 +3,11 @@
     "components/email-list/EmailThread.tsx",
     "components/email-list/EmailMessage.tsx"
   ],
+  "draft-deletion.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
   "account-selection.spec.ts": [

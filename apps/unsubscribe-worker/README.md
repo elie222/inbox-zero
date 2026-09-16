@@ -19,7 +19,13 @@ There are no schema changes. Existing structured logs record the successful meth
 
 ## Configure the coordinator
 
-Use Node 24 and run `pnpm install` from the repository root. Copy this app's `.env.example` to a protected environment file, filling required fields.
+Use Node 24 and install from the repository root with:
+
+```sh
+pnpm install --filter @inboxzero/unsubscribe-worker --config.enable-global-virtual-store=false
+```
+
+A plain `pnpm install` links dependencies through the store under `$HOME`, which a service unit that protects the home directory cannot follow. Copy this app's `.env.example` to a protected environment file, filling required fields.
 
 Set `UNSUBSCRIBE_BROKER_URL` to the dedicated TLS hostname, and `UNSUBSCRIBE_BROKER_IP` to its fixed IPv4 address reachable from sandboxes. The broker address must expose **only the broker port** to sandbox traffic. Keep management services on another address/interface. Set the TLS certificate/key file paths and the corresponding listening port. Use a publicly trusted certificate for the runner; do not disable TLS verification.
 

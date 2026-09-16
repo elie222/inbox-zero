@@ -85,8 +85,12 @@ export const ThreadRow = memo(function ThreadRow({
   const account = "account" in thread ? thread.account : null;
   const accountEmail = account?.email ?? userEmail;
   const participantSummary = useMemo(
-    () => getThreadParticipantNames(thread.messages, accountEmail).join(", "),
-    [thread.messages, accountEmail],
+    () =>
+      getThreadParticipantNames(
+        [...(thread.participantMessages ?? []), ...thread.messages],
+        accountEmail,
+      ).join(", "),
+    [thread.messages, thread.participantMessages, accountEmail],
   );
 
   if (!message) return null;
@@ -94,7 +98,9 @@ export const ThreadRow = memo(function ThreadRow({
   const isUnread = isThreadUnread(thread.messages);
   const isStarred = isThreadStarred(thread.messages);
   // Both providers normalise to this id, so this is not a provider branch.
-  const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
+  const isDraft = thread.messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.DRAFT),
+  );
   const isWide = layout === "list" && !compact;
 
   const messageCount = thread.messages.length;

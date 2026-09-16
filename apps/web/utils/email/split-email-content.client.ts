@@ -12,31 +12,44 @@ const DOCUMENT_STRUCTURE_PATTERN = /<(?:html|body)(?:\s|>)/i;
 
 export function splitEmailContent(html: string): {
   mainContent: string;
+  quotedContent: string;
   hasQuotedContent: boolean;
 } {
-  const hasDocumentStructure = DOCUMENT_STRUCTURE_PATTERN.test(html);
   const doc = new DOMParser().parseFromString(html, "text/html");
+  const hasDocumentStructure =
+    DOCUMENT_STRUCTURE_PATTERN.test(html) || doc.head.childNodes.length > 0;
   const quoteBoundary = findQuoteBoundary(doc);
 
   if (!quoteBoundary) {
-    return { mainContent: html, hasQuotedContent: false };
+    return { mainContent: html, quotedContent: "", hasQuotedContent: false };
   }
+
+  const quotedDoc = doc.cloneNode(true) as Document;
+  const quotedBoundary = findQuoteBoundary(quotedDoc)!;
+  let current: Node = quotedBoundary;
+  while (current !== quotedDoc.body) {
+    while (current.previousSibling) current.previousSibling.remove();
+    if (!current.parentNode) break;
+    current = current.parentNode;
+  }
+  const quotedContent = serializeEmailContent(quotedDoc, hasDocumentStructure);
 
   removeBoundaryAndFollowingContent(quoteBoundary, doc.body);
   trimQuoteSpacing(doc.body);
 
-  let mainContent = doc.body.innerHTML;
-  if (hasDocumentStructure) {
-    const documentType = doc.doctype
-      ? new XMLSerializer().serializeToString(doc.doctype)
-      : "";
-    mainContent = `${documentType}${doc.documentElement.outerHTML}`;
-  }
-
   return {
-    mainContent,
+    mainContent: serializeEmailContent(doc, hasDocumentStructure),
+    quotedContent,
     hasQuotedContent: true,
   };
+}
+
+function serializeEmailContent(doc: Document, hasDocumentStructure: boolean) {
+  if (!hasDocumentStructure) return doc.body.innerHTML;
+  const documentType = doc.doctype
+    ? new XMLSerializer().serializeToString(doc.doctype)
+    : "";
+  return `${documentType}${doc.documentElement.outerHTML}`;
 }
 
 function findQuoteBoundary(doc: Document) {
