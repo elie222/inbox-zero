@@ -6,7 +6,7 @@ import { clearMailActivation } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 12;
+const DATABASE_VERSION = 13;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -118,6 +118,29 @@ export type StoredReplyDraft = {
 };
 
 export interface EmailCacheSchema extends DBSchema {
+  localMailMessages: {
+    key: [emailAccountId: string, messageId: string];
+    value: {
+      emailAccountId: string;
+      messageId: string;
+      threadId: string;
+      data: ParsedMessage;
+      fetchedAt: number;
+      bodyFetchedAt?: number;
+      receivedAt: number;
+      lastAccessedAt: number;
+      byteSize: number;
+    };
+    indexes: {
+      byAccount: string;
+      byAccountThreadMessage: [string, string, string];
+      byAccountReceivedAt: [string, number];
+    };
+  };
+  localMailTombstones: {
+    key: [emailAccountId: string, messageId: string];
+    value: { emailAccountId: string; messageId: string; deletedAt: number };
+  };
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
     value: CachedMailboxMessage;
@@ -165,16 +188,26 @@ export interface EmailCacheSchema extends DBSchema {
     value: {
       emailAccountId: string;
       generation: string;
+      sourceVersion?: number;
+      messageBytes?: number;
       seed?: {
         store: "mailboxMessages" | "threadRows" | "threadDetails";
         after?: [string, string] | [string, string, string];
+        messageOffset?: number;
       };
     };
   };
   searchIndexWork: {
     key: [emailAccountId: string, threadId: string];
-    value: { emailAccountId: string; threadId: string; token: string };
-    indexes: { byAccount: string };
+    value: {
+      emailAccountId: string;
+      threadId: string;
+      token: string;
+      status: "pending" | "blocked";
+      errorCode?: string;
+      afterMessageId?: string;
+    };
+    indexes: { byAccount: string; byAccountStatus: [string, string] };
   };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
@@ -219,6 +252,24 @@ export function getEmailCacheDatabase() {
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
     upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 13) {
+        database.createObjectStore("localMailTombstones", {
+          keyPath: ["emailAccountId", "messageId"],
+        });
+        const messages = database.createObjectStore("localMailMessages", {
+          keyPath: ["emailAccountId", "messageId"],
+        });
+        messages.createIndex("byAccount", "emailAccountId");
+        messages.createIndex("byAccountThreadMessage", [
+          "emailAccountId",
+          "threadId",
+          "messageId",
+        ]);
+        messages.createIndex("byAccountReceivedAt", [
+          "emailAccountId",
+          "receivedAt",
+        ]);
+      }
       if (oldVersion < 12) {
         database.createObjectStore("searchIndexAccounts", {
           keyPath: "emailAccountId",
@@ -227,6 +278,11 @@ export function getEmailCacheDatabase() {
           keyPath: ["emailAccountId", "threadId"],
         });
         work.createIndex("byAccount", "emailAccountId");
+      }
+      if (oldVersion < 13) {
+        transaction
+          .objectStore("searchIndexWork")
+          .createIndex("byAccountStatus", ["emailAccountId", "status"]);
       }
       if (oldVersion < 11) {
         database.createObjectStore("mailboxSyncJobs", {
@@ -388,6 +444,8 @@ export async function clearEmailCache() {
         "mailboxSyncJobs",
         "searchIndexAccounts",
         "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
         "mailMutations",
         "replyDrafts",
       ],
@@ -402,6 +460,8 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxSyncJobs").clear(),
       transaction.objectStore("searchIndexAccounts").clear(),
       transaction.objectStore("searchIndexWork").clear(),
+      transaction.objectStore("localMailMessages").clear(),
+      transaction.objectStore("localMailTombstones").clear(),
       transaction.objectStore("mailMutations").clear(),
       transaction.objectStore("replyDrafts").clear(),
       transaction.done,
@@ -439,6 +499,8 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "mailboxSyncJobs",
         "searchIndexAccounts",
         "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
         "mailMutations",
         "replyDrafts",
       ],
@@ -477,6 +539,12 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []]),
       ),
       transaction.objectStore("searchIndexAccounts").delete(emailAccountId),
+      transaction
+        .objectStore("localMailTombstones")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailMessages")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
       transaction.objectStore("mailboxSyncJobs").delete(emailAccountId),
     ]);

@@ -1,11 +1,11 @@
+import {
+  deleteLocalMailMessages,
+  storeLocalMailMessages,
+} from "./local-mail-messages";
 import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import type {
-  Attachment,
-  ParsedMessage,
-  ParsedMessageHeaders,
-} from "@/utils/types";
+import { sanitizeCachedMailMessage } from "./message-content";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import {
   captureEmailCacheEpoch,
@@ -47,7 +47,13 @@ export async function writeCachedThreadDetail({
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
-      ["threadDetails", "searchIndexAccounts", "searchIndexWork"],
+      [
+        "threadDetails",
+        "searchIndexAccounts",
+        "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
+      ],
       "readwrite",
     );
     // Wait behind pending sync deletions before checking this response’s version.
@@ -70,6 +76,44 @@ export async function writeCachedThreadDetail({
       lastAccessedAt: now,
       byteSize,
     });
+    const options = /^drafts:([01])\|replies:([01])$/u.exec(variant);
+    if (options) {
+      const included = new Set(
+        sanitized.thread.messages.map((message) => message.id),
+      );
+      let cursor = await transaction
+        .objectStore("localMailMessages")
+        .index("byAccountThreadMessage")
+        .openCursor(
+          IDBKeyRange.bound(
+            [emailAccountId, threadId, ""],
+            [emailAccountId, threadId, []],
+          ),
+        );
+      while (cursor) {
+        const record = cursor.value;
+        if (
+          !included.has(record.messageId) &&
+          (options[1] === "1" || !record.data.labelIds?.includes("DRAFT")) &&
+          record.fetchedAt <= now
+        ) {
+          await deleteLocalMailMessages(
+            transaction,
+            emailAccountId,
+            [record.messageId],
+            now,
+          );
+        }
+        cursor = await cursor.continue();
+      }
+    }
+    await storeLocalMailMessages(
+      transaction,
+      emailAccountId,
+      sanitized.thread.messages,
+      now,
+      { metadataOnly: options?.[2] !== "0" },
+    );
     await markSearchThreadsDirty(transaction, emailAccountId, [threadId]);
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
@@ -140,84 +184,9 @@ function sanitizeThreadResponse(data: ThreadResponse): ThreadResponse {
     thread: {
       historyId: data.thread.historyId,
       id: data.thread.id,
-      messages: data.thread.messages.map(sanitizeMessage),
+      messages: data.thread.messages.map(sanitizeCachedMailMessage),
       snippet: data.thread.snippet,
     },
-  };
-}
-
-function sanitizeMessage(message: ParsedMessage): ParsedMessage {
-  return {
-    attachments: message.attachments?.map(sanitizeAttachment),
-    bodyContentType: message.bodyContentType,
-    conversationIndex: message.conversationIndex,
-    date: message.date,
-    externalUrl: message.externalUrl,
-    headers: sanitizeHeaders(message.headers),
-    historyId: message.historyId,
-    id: message.id,
-    inline: message.inline.map(sanitizeInlineAttachment),
-    internalDate: message.internalDate,
-    labelIds: message.labelIds ? [...message.labelIds] : undefined,
-    parentFolderId: message.parentFolderId,
-    rawRecipients: message.rawRecipients,
-    snippet: message.snippet,
-    subject: message.subject,
-    textHtml: message.textHtml,
-    textPlain: message.textPlain,
-    threadId: message.threadId,
-  };
-}
-
-function sanitizeAttachment(attachment: Attachment): Attachment {
-  return {
-    attachmentId: attachment.attachmentId,
-    filename: attachment.filename,
-    headers: {
-      "content-description": attachment.headers["content-description"],
-      "content-disposition": attachment.headers["content-disposition"],
-      "content-id": attachment.headers["content-id"],
-      "content-transfer-encoding":
-        attachment.headers["content-transfer-encoding"],
-      "content-type": attachment.headers["content-type"],
-    },
-    mimeType: attachment.mimeType,
-    size: attachment.size,
-  };
-}
-
-function sanitizeInlineAttachment(
-  attachment: ParsedMessage["inline"][number],
-): ParsedMessage["inline"][number] {
-  return {
-    attachmentId: attachment.attachmentId,
-    filename: attachment.filename,
-    headers: {
-      "content-description": attachment.headers["content-description"],
-      "content-id": attachment.headers["content-id"],
-      "content-transfer-encoding":
-        attachment.headers["content-transfer-encoding"],
-      "content-type": attachment.headers["content-type"],
-    },
-    mimeType: attachment.mimeType,
-    size: attachment.size,
-  };
-}
-
-function sanitizeHeaders(headers: ParsedMessageHeaders): ParsedMessageHeaders {
-  return {
-    bcc: headers.bcc,
-    cc: headers.cc,
-    date: headers.date,
-    from: headers.from,
-    "in-reply-to": headers["in-reply-to"],
-    "list-unsubscribe": headers["list-unsubscribe"],
-    "list-unsubscribe-post": headers["list-unsubscribe-post"],
-    "message-id": headers["message-id"],
-    references: headers.references,
-    "reply-to": headers["reply-to"],
-    subject: headers.subject,
-    to: headers.to,
   };
 }
 

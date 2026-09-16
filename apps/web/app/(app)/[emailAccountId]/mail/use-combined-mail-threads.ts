@@ -124,6 +124,19 @@ export function useCombinedMailThreads({
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
       const requestedAt = Date.now();
       const page = (await fetcher(key)) as GetAllThreadsResponse;
+      const rowsByAccount = new Map<string, CombinedThread[]>();
+      for (const thread of page.threads) {
+        const rows = rowsByAccount.get(thread.account.id) ?? [];
+        rows.push(thread);
+        rowsByAccount.set(thread.account.id, rows);
+      }
+      for (const [accountId, rows] of rowsByAccount) {
+        writeCachedThreadRows({
+          emailAccountId: accountId,
+          threads: rows,
+          fetchedAt: requestedAt,
+        }).catch(() => {});
+      }
       // Preserve request freshness when revisiting an SWR-cached split.
       return { ...page, requestedAt };
     },
@@ -342,23 +355,6 @@ export function useCombinedMailThreads({
   );
   const canLoadMoreLocally = Boolean(syncedView?.truncated);
   const isLoadingMore = size > 1 && !data?.[size - 1];
-  useEffect(() => {
-    for (const page of data ?? []) {
-      const rowsByAccount = new Map<string, CombinedThread[]>();
-      for (const thread of page.threads) {
-        const rows = rowsByAccount.get(thread.account.id) ?? [];
-        rows.push(thread);
-        rowsByAccount.set(thread.account.id, rows);
-      }
-      for (const [accountId, rows] of rowsByAccount) {
-        writeCachedThreadRows({
-          emailAccountId: accountId,
-          threads: rows,
-          fetchedAt: page.requestedAt,
-        }).catch(() => {});
-      }
-    }
-  }, [data]);
 
   const labelsByAccount = useMemo(() => {
     const merged: Record<string, EmailLabels> = {};

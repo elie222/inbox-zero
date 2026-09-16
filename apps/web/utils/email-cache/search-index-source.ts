@@ -1,36 +1,23 @@
-import { createSearchMessageAccumulator } from "./search-message-merge";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import type { ThreadListItem } from "@/utils/threads/load";
 import { getEmailCacheDatabase } from "./database";
-import { getThreadDetailKeyRange } from "./keys";
-import {
-  EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
-  EMAIL_CACHE_MAX_AGE_MS,
-} from "./policy";
+import type { SearchMessage } from "./search-query";
 
-export async function readSearchIndexThread({
+export async function readSearchIndexThreadPage({
   emailAccountId,
   generation,
   threadId,
   token,
-  now = Date.now(),
+  afterMessageId,
 }: {
   emailAccountId: string;
   generation: string;
   threadId: string;
   token: string;
-  now?: number;
+  afterMessageId?: string;
 }) {
   const database = await getEmailCacheDatabase();
   if (!database) return;
   const transaction = database.transaction(
-    [
-      "searchIndexAccounts",
-      "searchIndexWork",
-      "mailboxMessages",
-      "threadRows",
-      "threadDetails",
-    ],
+    ["searchIndexAccounts", "searchIndexWork", "localMailMessages"],
     "readonly",
   );
   const [account, work] = await Promise.all([
@@ -41,34 +28,35 @@ export async function readSearchIndexThread({
     await transaction.done;
     return;
   }
-  const [mailbox, row, details] = await Promise.all([
-    transaction
-      .objectStore("mailboxMessages")
-      .index("byAccountThread")
-      .getAll([emailAccountId, threadId]),
-    transaction.objectStore("threadRows").get([emailAccountId, threadId]),
-    transaction
-      .objectStore("threadDetails")
-      .getAll(getThreadDetailKeyRange(emailAccountId, threadId)),
-  ]);
+  const range = IDBKeyRange.bound(
+    [emailAccountId, threadId, afterMessageId ?? ""],
+    [emailAccountId, threadId, []],
+    afterMessageId !== undefined,
+  );
+  let cursor = await transaction
+    .objectStore("localMailMessages")
+    .index("byAccountThreadMessage")
+    .openCursor(range);
+  const messages: SearchMessage[] = [];
+  let bytes = 0;
+  while (cursor && messages.length < 100) {
+    if (messages.length && bytes + cursor.value.byteSize > 1_048_576) break;
+    const message = cursor.value.data;
+    messages.push({
+      id: message.id,
+      threadId: message.threadId,
+      headers: message.headers,
+      subject: message.subject,
+      snippet: message.snippet,
+      internalDate: message.internalDate,
+      labelIds: message.labelIds,
+      textPlain: message.textPlain,
+      date: message.date,
+      parentFolderId: message.parentFolderId,
+    });
+    bytes += cursor.value.byteSize;
+    cursor = await cursor.continue();
+  }
   await transaction.done;
-  const messages = createSearchMessageAccumulator();
-  for (const detail of details) {
-    if (now - detail.fetchedAt > EMAIL_CACHE_MAX_AGE_MS) continue;
-    for (const message of (detail.data as ThreadResponse).thread.messages)
-      if (message.threadId === threadId)
-        messages.add(message, detail.fetchedAt);
-  }
-  if (row && now - row.fetchedAt <= EMAIL_CACHE_MAX_AGE_MS) {
-    const thread = row.data as Partial<ThreadListItem>;
-    if (Array.isArray(thread.messages)) {
-      for (const message of thread.messages)
-        if (message.threadId === threadId) messages.add(message, row.fetchedAt);
-    }
-  }
-  for (const record of mailbox) {
-    if (now - record.lastAccessedAt > EMAIL_CACHE_MAILBOX_MAX_AGE_MS) continue;
-    messages.add(record.data, record.lastAccessedAt);
-  }
-  return messages.messages().sort((a, b) => a.id.localeCompare(b.id));
+  return { messages, nextMessageId: cursor ? messages.at(-1)?.id : undefined };
 }

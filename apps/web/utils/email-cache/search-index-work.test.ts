@@ -171,19 +171,30 @@ describe("durable search index work", () => {
     ).toEqual(["new-thread", "old-thread"]);
   });
 
-  it("queues optimistic row updates without another provider download", async () => {
+  it("keeps optimistic projection changes out of canonical index content", async () => {
     await activate("account-1");
+    const message = getMessage("message-1", "thread-1");
+    await writeCachedThreadRows({
+      emailAccountId: "account-1",
+      fetchedAt: Date.now() - 1000,
+      threads: [{ id: "thread-1", messages: [message] }],
+    });
+    await acknowledgeCurrentWork();
     await writeCachedThreadRows({
       emailAccountId: "account-1",
       threads: [
-        { id: "thread-1", messages: [getMessage("message-1", "thread-1")] },
+        { id: "thread-1", messages: [{ ...message, labelIds: ["TRASH"] }] },
       ],
     });
+    expect((await readSearchIndexWork("account-1"))?.work).toEqual([]);
     expect(
-      (await readSearchIndexWork("account-1"))?.work.map(
-        (item) => item.threadId,
-      ),
-    ).toEqual(["thread-1"]);
+      (
+        await (await getEmailCacheDatabase())!.get("localMailMessages", [
+          "account-1",
+          "message-1",
+        ])
+      )?.data.labelIds,
+    ).toEqual(["INBOX"]);
   });
 
   it("bounds replay batches while retaining all queued threads", async () => {

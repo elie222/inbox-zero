@@ -59,7 +59,21 @@ export async function prefetchThreadDetail({
     request,
     async (requestVersion) => {
       version = requestVersion;
-      return (await fetcher(request.key)) as ThreadResponse | undefined;
+      const requestedAt = Date.now();
+      const response = (await fetcher(request.key)) as
+        | ThreadResponse
+        | undefined;
+      if (response && !isCancelled?.()) {
+        await writeCachedThreadDetail({
+          emailAccountId,
+          threadId,
+          variant: request.variant,
+          version: requestVersion,
+          data: response,
+          now: requestedAt,
+        });
+      }
+      return response;
     },
   );
   if (
@@ -73,16 +87,7 @@ export async function prefetchThreadDetail({
     revalidate: false,
   });
   if (isCancelled?.()) return;
-  await Promise.all([
-    writeCachedThreadDetail({
-      emailAccountId,
-      threadId,
-      variant: request.variant,
-      version,
-      data,
-    }),
-    prepareVisibleMessageHtml(data),
-  ]);
+  await prepareVisibleMessageHtml(data);
 }
 
 export function shouldPrefetchThreads() {

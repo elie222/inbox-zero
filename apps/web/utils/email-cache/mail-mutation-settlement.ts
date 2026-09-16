@@ -1,3 +1,4 @@
+import { storeLocalMailMessages } from "./local-mail-messages";
 import { markSearchThreadsDirty } from "./search-index-work";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailCacheDatabase } from "./database";
@@ -26,6 +27,8 @@ export async function settleMailMutationBatchInCache(
       "threadDetails",
       "searchIndexAccounts",
       "searchIndexWork",
+      "localMailMessages",
+      "localMailTombstones",
     ],
     "readwrite",
   );
@@ -35,6 +38,15 @@ export async function settleMailMutationBatchInCache(
   for (const mutation of applicable) {
     for (const messageId of new Set(mutation.messageIds)) {
       const key = [mutation.emailAccountId, messageId] as [string, string];
+      const local = await transaction.objectStore("localMailMessages").get(key);
+      if (local)
+        await storeLocalMailMessages(
+          transaction,
+          mutation.emailAccountId,
+          [applyMailMutationToMessage(local.data, mutation)],
+          settledAt,
+          { metadataOnly: true },
+        );
       const record = await mailboxMessages.get(key);
       if (!record) continue;
       await mailboxMessages.put({

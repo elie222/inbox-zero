@@ -76,6 +76,7 @@ export function useThread(
               if (cached) return cached.data;
             }
 
+            const requestedAt = Date.now();
             const data = (await fetcher(request.key)) as ThreadResponse;
             writeCachedThreadDetail({
               emailAccountId,
@@ -83,6 +84,7 @@ export function useThread(
               variant: request.variant,
               version,
               data,
+              now: requestedAt,
             });
             return data;
           })
