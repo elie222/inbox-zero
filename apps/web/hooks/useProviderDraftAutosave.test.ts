@@ -263,3 +263,33 @@ it("a reopened composer takes over retries and waits for the previous save befor
   expect(save).toHaveBeenCalledOnce();
   second.unmount();
 });
+
+it("stops retrying a closed composer after repeated failures and retries on reopen", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockRejectedValue(new Error("Unavailable"));
+  const options = {
+    enabled: true,
+    sessionKey: "failed-closed-compose",
+    getContent: () => "local draft",
+    save,
+  };
+  const first = renderHook(() => useProviderDraftAutosave(options));
+  act(() => first.result.current.capture());
+  first.unmount();
+  await act(() => vi.advanceTimersByTimeAsync(30_000));
+  const attempts = save.mock.calls.length;
+  expect(attempts).toBeGreaterThan(1);
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(30_000);
+  });
+  expect(save).toHaveBeenCalledTimes(attempts);
+
+  save.mockResolvedValue(undefined);
+  const reopened = renderHook(() => useProviderDraftAutosave(options));
+  act(() => reopened.result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledTimes(attempts + 1);
+  expect(save).toHaveBeenLastCalledWith("local draft");
+  reopened.unmount();
+});

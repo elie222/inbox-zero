@@ -5,6 +5,7 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
+import type { Logger } from "@/utils/logger";
 
 const SAVE_LEASE_MS = 5 * 60 * 1000;
 
@@ -37,8 +38,8 @@ export async function saveComposeDraft({
     const attachmentsHash = getAttachmentsHash(draftAttachments);
     await provider.updateDraft(row.draftId, {
       to: content.to,
-      cc: content.cc,
-      bcc: content.bcc,
+      cc: content.cc ?? "",
+      bcc: content.bcc ?? "",
       subject: content.subject,
       messageHtml: content.messageHtml,
       ...(attachmentsHash !== row.attachmentsHash
@@ -103,7 +104,8 @@ export async function sendComposeDraft({
   sessionId,
   provider,
   email,
-}: ComposeDraftScope & { email: SendEmailBody }) {
+  logger,
+}: ComposeDraftScope & { email: SendEmailBody; logger: Logger }) {
   ensureEmailSendingEnabled();
   const row = await getOrCreateComposeDraft({
     emailAccountId,
@@ -122,7 +124,16 @@ export async function sendComposeDraft({
       attachments: email.attachments ?? [],
     });
     const result = await provider.sendDraft(row.draftId);
-    await completeSave(row.id, savingAt, { closed: true });
+    try {
+      await completeSave(row.id, savingAt, { closed: true });
+    } catch (error) {
+      // Delivery already succeeded; bookkeeping must not prevent tracking or
+      // turn the successful send into a retryable error for the caller.
+      logger.error("Failed to close compose session after sending", {
+        error,
+        composeDraftId: row.id,
+      });
+    }
     return result;
   } catch (error) {
     await releaseSave(row.id, savingAt);

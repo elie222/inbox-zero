@@ -8,6 +8,7 @@ type DraftAutosaveSession = {
 };
 
 const sessions = new Map<string, DraftAutosaveSession>();
+const MAX_CLOSED_SAVE_FAILURES = 5;
 
 export function useProviderDraftAutosave<T>({
   enabled,
@@ -28,6 +29,7 @@ export function useProviderDraftAutosave<T>({
   const activeSave = useRef<Promise<void> | undefined>(undefined);
   const paused = useRef(false);
   const mounted = useRef(true);
+  const closedSaveFailures = useRef(0);
   const cleanup = useRef<() => void>(() => {});
 
   const capture = useCallback(() => {
@@ -56,9 +58,15 @@ export function useProviderDraftAutosave<T>({
         if (paused.current) return;
         await latest.current.save(content);
         savedSnapshot.current = snapshot;
+        closedSaveFailures.current = 0;
         if (mounted.current) setError("");
       })
       .catch((error: unknown) => {
+        if (!mounted.current) {
+          closedSaveFailures.current += 1;
+          if (closedSaveFailures.current >= MAX_CLOSED_SAVE_FAILURES)
+            paused.current = true;
+        }
         if (mounted.current)
           setError(
             error instanceof Error

@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import type { EmailProvider } from "@/utils/email/types";
+import { createScopedLogger } from "@/utils/logger";
 import {
   saveComposeDraft,
   discardComposeDraft,
@@ -18,6 +19,7 @@ const provider = {
   sendEmailWithHtml: vi.fn(),
 } as unknown as EmailProvider;
 const input = {
+  logger: createScopedLogger("compose-draft-test"),
   emailAccountId: "account-1",
   sessionId: "session-1",
   provider,
@@ -141,4 +143,43 @@ it("does not send another copy when a saved compose draft was already sent", asy
   ).rejects.toThrow();
   expect(provider.sendDraft).not.toHaveBeenCalled();
   expect(provider.sendEmailWithHtml).not.toHaveBeenCalled();
+});
+
+it("clears previous optional recipients when the latest content omits them", async () => {
+  prisma.composeDraft.findUnique.mockResolvedValue(row);
+  await saveComposeDraft({
+    ...input,
+    content: { ...input.content, cc: undefined, bcc: undefined },
+  });
+  expect(provider.updateDraft).toHaveBeenCalledWith("draft-1", {
+    ...input.content,
+    cc: "",
+    bcc: "",
+  });
+});
+
+it.each([
+  "lease conflict",
+  "database failure",
+])("returns the successful delivery after a post-send %s", async (failure) => {
+  prisma.composeDraft.findUnique.mockResolvedValue(row);
+  prisma.composeDraft.updateMany.mockResolvedValueOnce({ count: 1 });
+  if (failure === "lease conflict") {
+    prisma.composeDraft.updateMany.mockResolvedValueOnce({ count: 0 });
+  } else {
+    prisma.composeDraft.updateMany.mockRejectedValueOnce(
+      new Error("Unavailable"),
+    );
+  }
+  const sent = { messageId: "sent-1", threadId: "thread-1" };
+  vi.mocked(provider.sendDraft).mockResolvedValue(sent);
+  await expect(
+    sendComposeDraft({ ...input, email: input.content }),
+  ).resolves.toEqual(sent);
+  expect(provider.sendDraft).toHaveBeenCalledOnce();
+  expect(prisma.composeDraft.updateMany).toHaveBeenCalledTimes(2);
+  expect(prisma.composeDraft.updateMany).toHaveBeenLastCalledWith({
+    where: { id: row.id, savingAt: expect.any(Date) },
+    data: { closed: true, savingAt: null },
+  });
 });

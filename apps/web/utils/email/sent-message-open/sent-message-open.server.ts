@@ -173,6 +173,7 @@ export async function sendHtmlEmailWithOpenTracking({
         sessionId: email.composeSessionId,
         provider: emailProvider,
         email: prepared.email,
+        logger,
       })
     : await emailProvider.sendEmailWithHtml(prepared.email);
   await associateSentMessageOpen({
