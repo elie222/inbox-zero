@@ -119,6 +119,19 @@ describe("durable mailbox sync ownership", () => {
     ).toBeTruthy();
   });
 
+  it.each([
+    { hasMore: false },
+    { retryAfterMs: 500_000 },
+  ])("ignores completion from an expired owner before takeover: %o", async (outcome) => {
+    const token = (await claimMailboxSyncJob("account-1"))!;
+    const database = (await getEmailCacheDatabase())!;
+    const before = await database.get("mailboxSyncJobs", "account-1");
+    vi.mocked(Date.now).mockReturnValue(1_120_000);
+    await finishMailboxSyncJob("account-1", token, outcome);
+    expect(await database.get("mailboxSyncJobs", "account-1")).toEqual(before);
+    expect(await claimMailboxSyncJob("account-1")).toBeTruthy();
+  });
+
   it("fences an expired owner after takeover, including late writes and failures", async () => {
     const previous = (await claimMailboxSyncJob("account-1"))!;
     vi.mocked(Date.now).mockReturnValue(1_120_001);
