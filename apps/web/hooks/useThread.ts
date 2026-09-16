@@ -113,7 +113,7 @@ export function useThread(
   const { mutations } = useRetainedMailMutationOverlay({
     emailAccountId,
     enabled: Boolean(request),
-    onReconcile: swr.mutate,
+    onReconcile: () => swr.mutate(),
   });
   const overlaidData = useMemo(() => {
     if (!data) return data;
