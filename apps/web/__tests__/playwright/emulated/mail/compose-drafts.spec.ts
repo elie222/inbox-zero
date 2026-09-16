@@ -1,5 +1,5 @@
-import { expect } from "@playwright/test";
-import { Client } from "pg";
+import { expect, type Page } from "@playwright/test";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { test } from "../playwright-test";
@@ -32,13 +32,18 @@ test("saves a closed new message with attachments in Drafts and discards it from
   await dialog.getByRole("button", { name: "Close compose" }).click();
   await expect(dialog).toBeHidden();
   await expect
-    .poll(() => readComposeDraft(emailAccountId))
-    .toMatchObject({
-      closed: false,
-      savingAt: null,
-      draftId: expect.any(String),
-      attachmentsHash: expect.any(String),
-    });
+    .poll(async () => {
+      const drafts = await readMailboxDrafts(
+        page,
+        emailAccountId,
+        "Mailbox draft example",
+      );
+      return (
+        drafts.length === 1 &&
+        drafts[0].attachments?.some((file) => file.filename === "example.txt")
+      );
+    })
+    .toBe(true);
   await page.getByRole("link", { name: /^Drafts/ }).click();
   const draft = conversationWithSubject(
     page,
@@ -71,6 +76,7 @@ test("saves a closed new message with attachments in Drafts and discards it from
     ),
   ).toBe(true);
   await page.getByRole("button", { name: "Back to inbox" }).click();
+  await page.reload();
   await page.getByRole("button", { name: /^Compose/ }).click();
   await expect(
     dialog.getByRole("textbox", { name: "Email message" }),
@@ -81,8 +87,10 @@ test("saves a closed new message with attachments in Drafts and discards it from
   await dialog.getByRole("button", { name: "Discard draft" }).click();
   await expect(dialog).toBeHidden();
   await expect
-    .poll(() => readComposeDraft(emailAccountId))
-    .toMatchObject({ closed: true });
+    .poll(() =>
+      readMailboxDrafts(page, emailAccountId, "Mailbox draft example"),
+    )
+    .toHaveLength(0);
   await page.reload();
   await expect(conversations).toBeVisible();
   await expect(
@@ -105,30 +113,31 @@ test("removes the mailbox draft after sending a new message", async ({
     .getByRole("textbox", { name: "Email message" })
     .fill("An example to send.");
   await expect
-    .poll(() => readComposeDraft(emailAccountId), { timeout: 15_000 })
-    .toMatchObject({
-      closed: false,
-      savingAt: null,
-      draftId: expect.any(String),
-      attachmentsHash: expect.any(String),
-    });
+    .poll(() => readMailboxDrafts(page, emailAccountId, "Send saved example"), {
+      timeout: 15_000,
+    })
+    .toHaveLength(1);
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await waitForComposeOutboxSend(page, emailAccountId);
   await expect
-    .poll(() => readComposeDraft(emailAccountId))
-    .toMatchObject({ closed: true });
+    .poll(() => readMailboxDrafts(page, emailAccountId, "Send saved example"))
+    .toHaveLength(0);
 });
 
-async function readComposeDraft(emailAccountId: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const result = await client.query(
-      'SELECT "draftId", closed, "savingAt", "attachmentsHash" FROM "ComposeDraft" WHERE "emailAccountId" = $1 ORDER BY "createdAt" DESC LIMIT 1',
-      [emailAccountId],
-    );
-    return result.rows[0];
-  } finally {
-    await client.end();
-  }
+async function readMailboxDrafts(
+  page: Page,
+  emailAccountId: string,
+  subject: string,
+) {
+  const response = await page.request.get(
+    new URL("/api/threads?type=draft", page.url()).toString(),
+    {
+      headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
+    },
+  );
+  expect(response.ok()).toBe(true);
+  const body: ThreadsResponse = await response.json();
+  return body.threads
+    .flatMap((thread) => thread.messages)
+    .filter((message) => message.headers.subject === subject);
 }

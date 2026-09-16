@@ -17,6 +17,7 @@ import {
 
 export type ReplyDraftContent = {
   providerDraftId?: string;
+  providerDraftCreationUnconfirmed?: boolean;
   composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";
@@ -179,6 +180,47 @@ export function getReplyDraftMode(draft: StoredReplyDraft) {
   return getComposeMode(draft.content.values.replyToEmail);
 }
 
+export async function updateReplyDraftProviderState(
+  identity: ReplyDraftIdentity,
+  requestId: string,
+  draftId?: string,
+) {
+  const epoch = captureEmailCacheEpoch(identity.emailAccountId);
+  await pendingWrites.get(getReplyDraftIdentityKey(identity))?.catch(() => {});
+  const database = await getEmailCacheDatabase();
+  if (!database || !isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+    throw new Error("Draft storage is unavailable on this device.");
+  const transaction = database.transaction("replyDrafts", "readwrite");
+  const key: [string, string, string] = [
+    identity.emailAccountId,
+    identity.threadId,
+    identity.messageId,
+  ];
+  const current = await transaction.store.get(key);
+  if (!current?.content || current.content.requestId !== requestId)
+    throw new Error("This draft changed. Reopen the composer.");
+  if (current.content.providerDraftId) {
+    await transaction.done;
+    return current.content.providerDraftId;
+  }
+  if (!draftId && current.content.providerDraftCreationUnconfirmed)
+    throw new Error(
+      "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
+    );
+  // Provider metadata is separate from editable content. Updating it must not
+  // invalidate a writer opened while the provider request was in flight.
+  await transaction.store.put({
+    ...current,
+    content: {
+      ...current.content,
+      providerDraftId: draftId,
+      providerDraftCreationUnconfirmed: !draftId,
+    },
+  });
+  await transaction.done;
+  return draftId;
+}
+
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
@@ -226,9 +268,27 @@ export function createReplyDraftWriter(
             "This draft changed in another tab. Reopen the composer to load that version.",
           );
         }
+        let nextContent = content;
+        if (
+          content &&
+          previous?.content &&
+          previous.content.requestId === content.requestId
+        ) {
+          nextContent = {
+            ...content,
+            ...(previous.content.providerDraftId && {
+              providerDraftId: previous.content.providerDraftId,
+            }),
+            ...(previous.content.providerDraftCreationUnconfirmed !==
+              undefined && {
+              providerDraftCreationUnconfirmed:
+                previous.content.providerDraftCreationUnconfirmed,
+            }),
+          };
+        }
         await transaction.store.put({
           ...identity,
-          content,
+          content: nextContent,
           revision: revision + 1,
           updatedAt: Date.now(),
         });
@@ -305,7 +365,7 @@ export async function restoreReplyFromOutbox(
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
-    requestId: email.composeSessionId,
+    providerDraftId: email.providerDraftId,
     composeMode,
     values,
     draft,

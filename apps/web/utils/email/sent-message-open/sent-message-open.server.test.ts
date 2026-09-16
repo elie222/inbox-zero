@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { sendHtmlEmailWithOpenTracking } from "./sent-message-open.server";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -274,5 +275,36 @@ describe("sendHtmlEmailWithOpenTracking", () => {
       where: { token: expect.stringMatching(/^[A-Za-z0-9_-]{32}$/) },
       data: { messageId: "msg-1", threadId: "thread-1" },
     });
+  });
+  it("sends an existing provider draft and associates its sent message", async () => {
+    const updateDraft = vi.fn().mockResolvedValue(undefined);
+    const sendDraft = vi
+      .fn()
+      .mockResolvedValue({ messageId: "sent-1", threadId: "thread-1" });
+    const sendEmailWithHtml = vi.fn();
+    await sendHtmlEmailWithOpenTracking({
+      emailAccountId: "account-1",
+      email: {
+        to: "recipient@example.com",
+        subject: "Example",
+        messageHtml: "<p>Example</p>",
+        providerDraftId: "draft-1",
+      },
+      emailProvider: { updateDraft, sendDraft, sendEmailWithHtml } as never,
+      logger: createTestLogger(),
+    });
+    expect(updateDraft).toHaveBeenCalledWith(
+      "draft-1",
+      expect.objectContaining({
+        messageHtml: expect.stringContaining("https://app.example.com/t/"),
+      }),
+    );
+    expect(sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(sendEmailWithHtml).not.toHaveBeenCalled();
+    expect(prisma.sentMessageOpen.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { messageId: "sent-1", threadId: "thread-1" },
+      }),
+    );
   });
 });

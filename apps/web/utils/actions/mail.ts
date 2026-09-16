@@ -524,7 +524,6 @@ export const saveComposeDraftAction = actionClient
         logger,
       });
       const draftId = await saveComposeDraft({
-        emailAccountId,
         provider,
         ...parsedInput,
       });
@@ -545,7 +544,7 @@ export const discardComposeDraftAction = actionClient
         provider: providerName,
         logger,
       });
-      await discardComposeDraft({ emailAccountId, provider, ...parsedInput });
+      await discardComposeDraft({ provider, ...parsedInput });
       return { success: true };
     },
   );

@@ -235,7 +235,6 @@ model EmailAccount {
   emailSendOperations EmailSendOperation[]
   sentMessageOpens    SentMessageOpen[]
   scheduledEmails     ScheduledEmail[]
-  composeDrafts       ComposeDraft[]
   responseTimes       ResponseTime[]
   actions             Action[]
 
@@ -2726,19 +2725,4 @@ model ScimIdentityLink {
 
   @@unique([connectionId, externalId])
   @@index([userId])
-}
-
-model ComposeDraft {
-  id             String   @id @default(cuid())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  sessionId      String
-  draftId        String?
-  closed         Boolean  @default(false)
-  savingAt       DateTime?
-  attachmentsHash String?
-
-  @@unique([emailAccountId, sessionId])
 }

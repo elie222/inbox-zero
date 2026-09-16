@@ -15,6 +15,7 @@ import {
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
+  updateReplyDraftProviderState,
   type ReplyDraftContent,
 } from "./reply-drafts";
 
@@ -57,6 +58,50 @@ const content: ReplyDraftContent = {
 
 describe("local reply drafts", () => {
   beforeEach(clearEmailCache);
+  it("keeps the provider reference when a reopened writer saves newer content", async () => {
+    const original = { ...content, requestId: "compose-1" };
+    await createReplyDraftWriter(identity).save(original);
+    const reopened = createReplyDraftWriter(identity, 1);
+    expect(
+      await updateReplyDraftProviderState(identity, "compose-1"),
+    ).toBeUndefined();
+    await updateReplyDraftProviderState(identity, "compose-1", "provider-1");
+    await reopened.save({
+      ...original,
+      values: { ...original.values, subject: "New edit" },
+    });
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+      providerDraftCreationUnconfirmed: false,
+      values: { subject: "New edit" },
+    });
+  });
+  it("does not repeat an uncertain creation or revive a discarded compose", async () => {
+    const writer = createReplyDraftWriter(identity);
+    await writer.save({ ...content, requestId: "compose-1" });
+    await updateReplyDraftProviderState(identity, "compose-1");
+    await expect(
+      updateReplyDraftProviderState(identity, "compose-1"),
+    ).rejects.toThrow("Check Drafts");
+    await writer.clear();
+    await expect(
+      updateReplyDraftProviderState(identity, "compose-1", "provider-1"),
+    ).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+  it("allows only one tab to start creating a mailbox draft", async () => {
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      requestId: "compose-1",
+    });
+    const attempts = await Promise.allSettled([
+      updateReplyDraftProviderState(identity, "compose-1"),
+      updateReplyDraftProviderState(identity, "compose-1"),
+    ]);
+    expect(
+      attempts.filter((attempt) => attempt.status === "fulfilled"),
+    ).toHaveLength(1);
+  });
   it("restores body, recipients, quote and attachments after the writer is replaced", async () => {
     await createReplyDraftWriter(identity).save(content);
     const saved = await getReplyDraft(identity);
@@ -278,6 +323,7 @@ describe("local reply drafts", () => {
         to: "person@example.com",
         subject: "Hello",
         messageHtml: "<p>New message</p>",
+        providerDraftId: "provider-draft-1",
       },
     });
 
@@ -294,6 +340,9 @@ describe("local reply drafts", () => {
     expect(
       (await getReplyDraft(composeIdentity))?.content?.draft.editableHtml,
     ).toContain("New message");
+    expect(
+      (await getReplyDraft(composeIdentity))?.content?.providerDraftId,
+    ).toBe("provider-draft-1");
   });
   it("overwrites an existing draft when restoring with an identity override", async () => {
     const composeIdentity = {

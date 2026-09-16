@@ -167,13 +167,11 @@ export async function sendHtmlEmailWithOpenTracking({
     email,
     logger,
   });
-  const result = email.composeSessionId
+  const result = email.providerDraftId
     ? await sendComposeDraft({
-        emailAccountId,
-        sessionId: email.composeSessionId,
+        draftId: email.providerDraftId,
         provider: emailProvider,
         email: prepared.email,
-        logger,
       })
     : await emailProvider.sendEmailWithHtml(prepared.email);
   await associateSentMessageOpen({
