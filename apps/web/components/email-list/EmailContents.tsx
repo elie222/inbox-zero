@@ -106,27 +106,48 @@ export function HtmlEmail({
     };
   }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
 
-  const { mainContent, hasQuotedContent } = useMemo(
+  const { mainContent, quotedContent, hasQuotedContent } = useMemo(
     () => splitEmailContent(renderHtml),
     [renderHtml],
   );
 
-  const displayedHtml = showReplies ? renderHtml : mainContent;
   const documentKey = useMemo(
-    () => getIframeDocumentKey(displayedHtml, isDarkMode),
-    [displayedHtml, isDarkMode],
+    () => getIframeDocumentKey(mainContent, isDarkMode),
+    [mainContent, isDarkMode],
   );
   const srcDoc = useMemo(
     () =>
       getIframeHtml(
-        displayedHtml,
+        mainContent,
         isDarkMode,
         IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
         documentKey,
       ),
-    [displayedHtml, isDarkMode, documentKey],
+    [mainContent, isDarkMode, documentKey],
   );
+
+  const quotedDocumentKey = useMemo(
+    () => getIframeDocumentKey(quotedContent, isDarkMode),
+    [quotedContent, isDarkMode],
+  );
+  const quotedSrcDoc = useMemo(
+    () =>
+      getIframeHtml(
+        quotedContent,
+        isDarkMode,
+        IMAGE_PROXY_BASE_URL,
+        IMAGE_PROXY_ORIGIN,
+        quotedDocumentKey,
+      ),
+    [quotedContent, isDarkMode, quotedDocumentKey],
+  );
+  const callbacks = {
+    onForwardMessage,
+    onNavigateMessage,
+    onReplyMessage,
+    onFocusMessage,
+  };
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -134,12 +155,7 @@ export function HtmlEmail({
         srcDoc={srcDoc}
         documentKey={documentKey}
         isDarkMode={isDarkMode}
-        callbacks={{
-          onForwardMessage,
-          onNavigateMessage,
-          onReplyMessage,
-          onFocusMessage,
-        }}
+        callbacks={callbacks}
       />
       {hasQuotedContent && (
         <button
@@ -153,6 +169,14 @@ export function HtmlEmail({
         >
           <EllipsisIcon className="size-4" />
         </button>
+      )}
+      {hasQuotedContent && showReplies && (
+        <BufferedEmailIframe
+          srcDoc={quotedSrcDoc}
+          documentKey={quotedDocumentKey}
+          isDarkMode={isDarkMode}
+          callbacks={callbacks}
+        />
       )}
     </div>
   );
