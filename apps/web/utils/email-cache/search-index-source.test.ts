@@ -18,7 +18,7 @@ const identity = {
 describe("paged local mail source", () => {
   beforeEach(async () => {
     await clearEmailCache();
-    await (await getEmailCacheDatabase())!.put("searchIndexAccounts", {
+    await (await getTestDatabase()).put("searchIndexAccounts", {
       emailAccountId: identity.emailAccountId,
       generation: identity.generation,
     });
@@ -33,10 +33,10 @@ describe("paged local mail source", () => {
       labelIds: ["STARRED"],
       textPlain,
     });
-    const record = await (await getEmailCacheDatabase())!.get(
-      "localMailMessages",
-      [identity.emailAccountId, "message-1"],
-    );
+    const record = await (await getTestDatabase()).get("localMailMessages", [
+      identity.emailAccountId,
+      "message-1",
+    ]);
     expect(record?.data.textHtml).toBe("<p>Body</p>");
     expect(result?.messages[0]).not.toHaveProperty("textHtml");
     expect(record?.byteSize).toBe(
@@ -105,19 +105,16 @@ describe("paged local mail source", () => {
     ).toBeUndefined();
     await clearEmailCacheForAccount(identity.emailAccountId);
     expect(await readSearchIndexThreadPage(current)).toBeUndefined();
-    expect(
-      await (await getEmailCacheDatabase())!.count("localMailMessages"),
-    ).toBe(0);
+    expect(await (await getTestDatabase()).count("localMailMessages")).toBe(0);
   });
 
   it("retains signed epoch timestamps for imported historical mail", async () => {
     await store([{ ...getMessage(), internalDate: "-1000" }], 500);
     expect(
       (
-        await (await getEmailCacheDatabase())!.get("localMailMessages", [
-          identity.emailAccountId,
-          "message-1",
-        ])
+        await (
+          await getTestDatabase()
+        ).get("localMailMessages", [identity.emailAccountId, "message-1"])
       )?.receivedAt,
     ).toBe(-1000);
   });
@@ -139,7 +136,7 @@ describe("paged local mail source", () => {
   });
 });
 async function store(messages: ParsedMessage[], fetchedAt: number) {
-  const transaction = (await getEmailCacheDatabase())!.transaction(
+  const transaction = (await getTestDatabase()).transaction(
     [
       "searchIndexAccounts",
       "searchIndexWork",
@@ -178,4 +175,10 @@ function getMessage(id = "message-1"): ParsedMessage {
     subject: "Example",
     snippet: "Example",
   };
+}
+
+async function getTestDatabase() {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Email cache database unavailable in test");
+  return database;
 }
