@@ -4,6 +4,7 @@ import type { EmailCacheSchema } from "./database";
 import { sanitizeCachedMailMessage } from "./message-content";
 import type { SearchMessage } from "./search-query";
 import { markSearchThreadsDirty } from "./search-index-work";
+import { toCachedMailboxMessage } from "./mailbox-projection";
 
 type WriteTransaction = IDBPTransaction<
   EmailCacheSchema,
@@ -23,15 +24,32 @@ export async function storeLocalMailMessages(
     .get(emailAccountId);
   if (!account) return;
   const store = transaction.objectStore("localMailMessages");
+  const projection = transaction.objectStoreNames.contains("mailboxMessages")
+    ? transaction.objectStore("mailboxMessages")
+    : undefined;
   let messageBytes = account.messageBytes ?? 0;
   const changedThreads = new Set<string>();
   for (const message of messages) {
     const key: [string, string] = [emailAccountId, message.id];
-    const tombstone = await transaction
-      .objectStore("localMailTombstones")
-      .get(key);
-    if (tombstone && fetchedAt <= tombstone.deletedAt) continue;
-    const previous = await store.get(key);
+    const [tombstone, previous] = await Promise.all([
+      transaction.objectStore("localMailTombstones").get(key),
+      store.get(key),
+    ]);
+    if (tombstone && fetchedAt <= tombstone.deletedAt) {
+      if (projection) {
+        if (previous)
+          await projection.put(
+            toCachedMailboxMessage(
+              emailAccountId,
+              previous.data,
+              previous.fetchedAt,
+              previous.receivedAt,
+            ),
+          );
+        else await projection.delete(key);
+      }
+      continue;
+    }
     const incoming = sanitizeCachedMailMessage({
       ...message,
       date: message.date ?? message.headers.date ?? "",
@@ -73,6 +91,15 @@ export async function storeLocalMailMessages(
       lastAccessedAt: Date.now(),
       byteSize,
     });
+    if (projection)
+      await projection.put(
+        toCachedMailboxMessage(
+          emailAccountId,
+          data,
+          Math.max(fetchedAt, previous?.fetchedAt ?? fetchedAt),
+          Number.isFinite(receivedAt) ? receivedAt : 0,
+        ),
+      );
     if (previous) changedThreads.add(previous.threadId);
     changedThreads.add(data.threadId);
   }
@@ -96,6 +123,9 @@ export async function deleteLocalMailMessages(
   let messageBytes = account.messageBytes ?? 0;
   const messages = transaction.objectStore("localMailMessages");
   const tombstones = transaction.objectStore("localMailTombstones");
+  const projection = transaction.objectStoreNames.contains("mailboxMessages")
+    ? transaction.objectStore("mailboxMessages")
+    : undefined;
   const changedThreads = new Set<string>();
   for (const messageId of messageIds) {
     const key: [string, string] = [emailAccountId, messageId];
@@ -110,6 +140,18 @@ export async function deleteLocalMailMessages(
       await messages.delete(key);
       messageBytes -= previous.byteSize;
       changedThreads.add(previous.threadId);
+    }
+    if (projection) {
+      if (previous && previous.fetchedAt > deletedAt)
+        await projection.put(
+          toCachedMailboxMessage(
+            emailAccountId,
+            previous.data,
+            previous.fetchedAt,
+            previous.receivedAt,
+          ),
+        );
+      else await projection.delete(key);
     }
   }
   await transaction.objectStore("searchIndexAccounts").put({

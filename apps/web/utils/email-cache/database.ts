@@ -1,4 +1,9 @@
 import { cleanupSearchIndex } from "./search-index-service";
+import type {
+  LocalMailSyncState,
+  LocalMailSyncJob,
+  LocalMailSyncSeen,
+} from "./local-mail-sync-state";
 import { notifyEmailCacheChange } from "./cache-events";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ReplyDraftContent } from "./reply-drafts";
@@ -7,7 +12,7 @@ import { clearMailActivation } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 13;
+const DATABASE_VERSION = 14;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -138,9 +143,23 @@ export interface EmailCacheSchema extends DBSchema {
       byAccountReceivedAt: [string, number];
     };
   };
+  localMailSyncJobs: {
+    key: [string, string];
+    value: LocalMailSyncJob;
+    indexes: { byAccount: string; byAccountPriority: [string, number, number] };
+  };
+  localMailSyncSeen: {
+    key: [string, string, string];
+    value: LocalMailSyncSeen;
+  };
+  localMailSyncStates: { key: string; value: LocalMailSyncState };
   localMailTombstones: {
     key: [emailAccountId: string, messageId: string];
-    value: { emailAccountId: string; messageId: string; deletedAt: number };
+    value: {
+      emailAccountId: string;
+      messageId: string;
+      deletedAt: number;
+    };
   };
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
@@ -253,6 +272,23 @@ export function getEmailCacheDatabase() {
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
     upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 14) {
+        database.createObjectStore("localMailSyncStates", {
+          keyPath: "emailAccountId",
+        });
+        const jobs = database.createObjectStore("localMailSyncJobs", {
+          keyPath: ["emailAccountId", "id"],
+        });
+        jobs.createIndex("byAccount", "emailAccountId");
+        jobs.createIndex("byAccountPriority", [
+          "emailAccountId",
+          "priority",
+          "nextAttemptAt",
+        ]);
+        database.createObjectStore("localMailSyncSeen", {
+          keyPath: ["emailAccountId", "generation", "messageId"],
+        });
+      }
       if (oldVersion < 13) {
         database.createObjectStore("localMailTombstones", {
           keyPath: ["emailAccountId", "messageId"],
@@ -445,6 +481,9 @@ export async function clearEmailCache() {
         "mailboxSyncJobs",
         "searchIndexAccounts",
         "searchIndexWork",
+        "localMailSyncStates",
+        "localMailSyncJobs",
+        "localMailSyncSeen",
         "localMailMessages",
         "localMailTombstones",
         "mailMutations",
@@ -461,6 +500,9 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxSyncJobs").clear(),
       transaction.objectStore("searchIndexAccounts").clear(),
       transaction.objectStore("searchIndexWork").clear(),
+      transaction.objectStore("localMailSyncStates").clear(),
+      transaction.objectStore("localMailSyncJobs").clear(),
+      transaction.objectStore("localMailSyncSeen").clear(),
       transaction.objectStore("localMailMessages").clear(),
       transaction.objectStore("localMailTombstones").clear(),
       transaction.objectStore("mailMutations").clear(),
@@ -502,6 +544,9 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "mailboxSyncJobs",
         "searchIndexAccounts",
         "searchIndexWork",
+        "localMailSyncStates",
+        "localMailSyncJobs",
+        "localMailSyncSeen",
         "localMailMessages",
         "localMailTombstones",
         "mailMutations",
@@ -550,6 +595,13 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
       transaction
         .objectStore("localMailMessages")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction.objectStore("localMailSyncStates").delete(emailAccountId),
+      transaction
+        .objectStore("localMailSyncJobs")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailSyncSeen")
         .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
       transaction.objectStore("mailboxSyncJobs").delete(emailAccountId),

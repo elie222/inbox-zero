@@ -124,16 +124,36 @@ async function cleanupEmailCache() {
       rowCursor = await rowCursor.continue();
     }
 
-    let mailboxMessageCursor = await mailboxMessagesStore
-      .index("byReceivedAt")
-      .openCursor(
-        IDBKeyRange.upperBound(now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS, true),
-      );
-    while (mailboxMessageCursor) {
-      const message = mailboxMessageCursor.value;
-      recordDirtyThread(message.emailAccountId, message.threadId);
-      await mailboxMessageCursor.delete();
-      mailboxMessageCursor = await mailboxMessageCursor.continue();
+    const retainedAccounts = new Set(
+      (await transaction.objectStore("searchIndexAccounts").getAll())
+        .filter((account) => (account.sourceVersion ?? 0) >= 2)
+        .map((account) => account.emailAccountId),
+    );
+    let mailboxAccount = await mailboxMessagesStore
+      .index("byAccount")
+      .openKeyCursor(null, "nextunique");
+    while (mailboxAccount) {
+      // Canonical retention owns both full messages and their compact projection.
+      // Skip whole retained accounts rather than scanning years of metadata hourly.
+      if (!retainedAccounts.has(mailboxAccount.key)) {
+        let messageCursor = await mailboxMessagesStore
+          .index("byAccountReceivedAt")
+          .openCursor(
+            IDBKeyRange.bound(
+              [mailboxAccount.key, -Number.MAX_VALUE],
+              [mailboxAccount.key, now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS],
+              false,
+              true,
+            ),
+          );
+        while (messageCursor) {
+          const message = messageCursor.value;
+          recordDirtyThread(message.emailAccountId, message.threadId);
+          await messageCursor.delete();
+          messageCursor = await messageCursor.continue();
+        }
+      }
+      mailboxAccount = await mailboxAccount.continue();
     }
 
     let mutationCursor = await mailMutationsStore

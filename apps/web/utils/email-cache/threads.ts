@@ -52,6 +52,7 @@ export async function writeCachedThreadDetail({
         "threadDetails",
         "searchIndexAccounts",
         "searchIndexWork",
+        "mailboxMessages",
         "localMailMessages",
         "localMailTombstones",
       ],

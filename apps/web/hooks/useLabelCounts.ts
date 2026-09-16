@@ -29,8 +29,12 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
 
   useEffect(
     () =>
-      subscribeToMailboxStore((changedAccountId) => {
-        if (changedAccountId === emailAccountId) mutate();
+      subscribeToMailboxStore((changedAccountId, options) => {
+        if (
+          changedAccountId === emailAccountId &&
+          options?.refreshCounts !== false
+        )
+          mutate();
       }),
     [emailAccountId, mutate],
   );

@@ -1,3 +1,5 @@
+import { toCachedMailboxMessage } from "./mailbox-projection";
+import { EMAIL_CACHE_MAILBOX_MAX_AGE_MS } from "./policy";
 import {
   storeLocalMailMessages,
   deleteLocalMailMessages,
@@ -26,7 +28,11 @@ import {
 import { getThreadDetailKeyRange } from "./keys";
 import { invalidateThreadCaches } from "./thread-invalidation";
 
-const mailboxListeners = new Set<(emailAccountId: string) => void>();
+type MailboxStoreListener = (
+  emailAccountId: string,
+  options?: { refreshCounts?: boolean },
+) => void;
+const mailboxListeners = new Set<MailboxStoreListener>();
 const INDEXED_DB_BATCH_SIZE = 50;
 const MAX_LOCAL_QUERY_SCAN_MESSAGES = 500;
 
@@ -205,7 +211,14 @@ export async function applyMailboxSyncPage({
       messages.delete([emailAccountId, messageId]),
     ),
     ...page.upsertedMessages.map((message) =>
-      messages.put(toCachedMailboxMessage(emailAccountId, message, now)),
+      messages.put(
+        toCachedMailboxMessage(
+          emailAccountId,
+          message,
+          now,
+          getMessageTimestamp(message, now),
+        ),
+      ),
     ),
     states.put({
       emailAccountId,
@@ -272,12 +285,48 @@ export async function readSyncedMailboxThreads({
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
-      ["mailboxMessages", "mailboxSyncStates", "threadRows"],
+      [
+        "mailboxMessages",
+        "mailboxSyncStates",
+        "threadRows",
+        "localMailSyncStates",
+        "searchIndexAccounts",
+      ],
       "readonly",
     );
-    const state = await transaction
+    const legacyState = await transaction
       .objectStore("mailboxSyncStates")
       .get(emailAccountId);
+    const localState = await transaction
+      .objectStore("localMailSyncStates")
+      .get(emailAccountId);
+    const source = await transaction
+      .objectStore("searchIndexAccounts")
+      .get(emailAccountId);
+    const useLocalState =
+      localState?.strategy &&
+      !localState.unsupported &&
+      localState.generation === source?.generation;
+    const complete =
+      !!localState?.coverage &&
+      !localState.recovering &&
+      !Object.values(localState.folders).some((folder) => folder.recovering) &&
+      localState.coverage.after <=
+        Date.now() - EMAIL_CACHE_MAILBOX_MAX_AGE_MS &&
+      localState.coverage.before >= localState.snapshotBefore;
+    const state = useLocalState
+      ? {
+          after: new Date(
+            Math.max(
+              localState.retainedAfter,
+              Date.now() - EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
+            ),
+          ).toISOString(),
+          hasMore: !complete,
+          completedAt: complete ? localState.lastSyncedAt : undefined,
+          lastSyncedAt: localState.lastSyncedAt ?? 0,
+        }
+      : legacyState;
     if (!state) {
       await transaction.done;
       return;
@@ -655,33 +704,22 @@ export async function removeSyncedMailboxThreads({
   notifyMailboxStoreChange(emailAccountId);
 }
 
-export function subscribeToMailboxStore(
-  listener: (emailAccountId: string) => void,
-) {
+export function subscribeToMailboxStore(listener: MailboxStoreListener) {
   mailboxListeners.add(listener);
   return () => {
     mailboxListeners.delete(listener);
   };
 }
 
-export function notifyMailboxStoreChange(emailAccountId: string) {
-  notifyEmailCacheChange(emailAccountId);
-  for (const listener of mailboxListeners) listener(emailAccountId);
-}
-
-function toCachedMailboxMessage(
+export function notifyMailboxStoreChange(
   emailAccountId: string,
-  message: ParsedMessage,
-  now: number,
-): CachedMailboxMessage {
-  return {
-    emailAccountId,
-    messageId: message.id,
-    threadId: message.threadId,
-    data: message,
-    receivedAt: getMessageTimestamp(message, now),
-    lastAccessedAt: now,
-  };
+  options?: { refreshCounts?: boolean },
+) {
+  notifyEmailCacheChange(emailAccountId);
+  for (const listener of mailboxListeners) {
+    if (options) listener(emailAccountId, options);
+    else listener(emailAccountId);
+  }
 }
 
 function groupMessagesByThread(messages: ParsedMessage[]) {

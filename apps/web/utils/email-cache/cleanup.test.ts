@@ -121,6 +121,42 @@ describe("email cache cleanup", () => {
     ).toEqual(["expired-thread", "older"]);
   });
 
+  it("leaves retained canonical metadata to coverage-aware retention", async () => {
+    const database = await getEmailCacheDatabase();
+    const now = Date.now();
+    await database?.put("searchIndexAccounts", {
+      emailAccountId: "retained-account",
+      generation: "generation-1",
+      sourceVersion: 2,
+      messageBytes: 0,
+    });
+    for (const emailAccountId of ["retained-account", "legacy-account"]) {
+      await database?.put("mailboxMessages", {
+        emailAccountId,
+        messageId: "old-message",
+        threadId: "old-thread",
+        data: getMessage("old-message", "old-thread"),
+        receivedAt: now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS - 1,
+        lastAccessedAt: now,
+      });
+    }
+    scheduleEmailCacheCleanup({ force: true });
+    await waitFor(async () => {
+      expect(
+        await database?.get("mailboxMessages", [
+          "legacy-account",
+          "old-message",
+        ]),
+      ).toBeUndefined();
+    });
+    expect(
+      await database?.get("mailboxMessages", [
+        "retained-account",
+        "old-message",
+      ]),
+    ).toBeDefined();
+  });
+
   it("removes old terminal mutations but never active durable work", async () => {
     const database = await getEmailCacheDatabase();
     expect(database).toBeDefined();
