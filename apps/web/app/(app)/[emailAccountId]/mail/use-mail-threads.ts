@@ -1,5 +1,6 @@
 "use client";
 
+import { threadListQueryRequiresInbox } from "@/utils/mail/split-query";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
@@ -8,6 +9,7 @@ import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
 import { trackMailboxListReady } from "@/utils/email-cache/analytics";
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import {
   readCachedThreadList,
   writeCachedThreadList,
@@ -31,6 +33,7 @@ import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidat
 import { isThreadInInbox, isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
+  mailMutationOverlayHidesAnyThread,
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
@@ -111,7 +114,24 @@ export function useMailThreads({
     if (!enabled) return;
     return subscribeToVisibleRevalidation(() => mutate());
   }, [enabled, mutate]);
-  const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
+  const requiresInbox = threadListQueryRequiresInbox(query);
+  const reconcileMailMutations = useCallback(
+    async (mutations: MailMutation[]) => {
+      const pages = await mutate();
+      if (!requiresInbox) return;
+      const threads = pages?.flatMap((page) => page.threads) ?? [];
+      if (
+        mailMutationOverlayHidesAnyThread({
+          getEmailAccountId: () => emailAccountId,
+          mutations,
+          threads,
+        })
+      ) {
+        return false;
+      }
+    },
+    [emailAccountId, mutate, requiresInbox],
+  );
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
       emailAccountId,
@@ -130,6 +150,7 @@ export function useMailThreads({
   const remoteIdentity = useRef<string | undefined>(undefined);
   const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const queryRef = useRef(query);
+  queryRef.current = query;
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
   const loadMoreLock = useRef(false);
@@ -148,7 +169,6 @@ export function useMailThreads({
   }
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
-  queryRef.current = query;
 
   useEffect(() => {
     let cancelled = false;
@@ -259,7 +279,6 @@ export function useMailThreads({
       threads: sourceThreads ?? [],
     });
     const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
-    const requiresInbox = query.type === "inbox" || query.type === "unread";
     return overlaidThreads.filter(
       (thread) =>
         (!requiresInbox || isThreadInInbox(thread.messages)) &&
@@ -271,8 +290,8 @@ export function useMailThreads({
     mailMutations,
     mutationOverlayReady,
     query.isUnread,
-    query.type,
     query.excludeSplits,
+    requiresInbox,
     sourceThreads,
   ]);
 

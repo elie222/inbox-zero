@@ -72,6 +72,14 @@ export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
   return { type };
 }
 
+/** True when archive should drop the row, not just rewrite labels. Search is whole-mailbox. */
+export function threadListQueryRequiresInbox(query: ThreadsQuery): boolean {
+  if (query.q) return false;
+  if (query.type === "inbox" || query.type === "unread") return true;
+  if (query.labelId === "INBOX") return true;
+  return Boolean(query.labelIds?.includes("INBOX"));
+}
+
 export function getPortableLabelSplits(
   splits: MailSplit[],
   labelsById: Record<string, { name: string }>,

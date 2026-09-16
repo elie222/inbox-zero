@@ -23,10 +23,12 @@ import {
 } from "@/utils/email-cache/telemetry";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import { subscribeToVisibleRevalidation } from "./subscribe-to-visible-revalidation";
 import { isThreadInInbox, isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
+  mailMutationOverlayHidesAnyThread,
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
@@ -140,7 +142,24 @@ export function useCombinedMailThreads({
     if (!enabled) return;
     return subscribeToVisibleRevalidation(() => mutate());
   }, [enabled, mutate]);
-  const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
+  const requiresInbox = !labelIdentity && !searchQuery;
+  const reconcileMailMutations = useCallback(
+    async (mutations: MailMutation[]) => {
+      const pages = await mutate();
+      if (!requiresInbox) return;
+      const threads = pages?.flatMap((page) => page.threads) ?? [];
+      if (
+        mailMutationOverlayHidesAnyThread({
+          getEmailAccountId: (thread) => thread.account.id,
+          mutations,
+          threads,
+        })
+      ) {
+        return false;
+      }
+    },
+    [mutate, requiresInbox],
+  );
   const { isReady: mutationOverlayReady, mutations: mailMutations } =
     useRetainedMailMutationOverlay({
       emailAccountIds: mutationAccountIds,
@@ -297,7 +316,6 @@ export function useCombinedMailThreads({
       mutations: mailMutations,
       threads: baseThreads,
     });
-    const requiresInbox = !labelIdentity && !searchQuery;
     return overlaidThreads.filter(
       (thread) =>
         (!requiresInbox || isThreadInInbox(thread.messages)) &&
@@ -306,10 +324,9 @@ export function useCombinedMailThreads({
   }, [
     baseThreads,
     isUnread,
-    labelIdentity,
     mailMutations,
     mutationOverlayReady,
-    searchQuery,
+    requiresInbox,
   ]);
   const hasMore = Boolean(
     remoteHasMore ||

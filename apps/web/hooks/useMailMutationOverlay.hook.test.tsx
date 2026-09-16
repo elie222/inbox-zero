@@ -119,6 +119,40 @@ describe("useRetainedMailMutationOverlay", () => {
     expect(result.current.mutations).toEqual([]);
   });
 
+  it("retains the overlay when revalidation still shows mutated mail", async () => {
+    const mutation = archiveMutation("account-1");
+    const onReconcile = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(undefined);
+    outbox.active = [mutation];
+    const { result } = renderHook(() =>
+      useRetainedMailMutationOverlay({
+        emailAccountId: "account-1",
+        onReconcile,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.mutations).toEqual([mutation]));
+    vi.useFakeTimers();
+    outbox.active = [];
+    act(() => outbox.listener?.());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(onReconcile).toHaveBeenCalledOnce();
+    expect(result.current.mutations).toEqual([mutation]);
+
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(onReconcile).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.mutations).toEqual([]);
+  });
+
   it("never carries a retained mutation into another account", async () => {
     outbox.active = [archiveMutation("account-1")];
     const { result, rerender } = renderHook(
