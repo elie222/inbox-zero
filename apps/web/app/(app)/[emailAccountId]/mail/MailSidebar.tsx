@@ -184,11 +184,18 @@ export function MailSidebar({
     !activeFolderId &&
     categories.some((category) => category.type === activeType);
   const [showCategories, setShowCategories] = useState(isCategoryActive);
+  const [showLabels, setShowLabels] = useState(true);
   const showCategoryRows = !collapsibleCategories || showCategories;
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
   }, [isCategoryActive]);
+
+  // Expand when the open view changes to a label so a collapsed list can
+  // still reveal the selected row. A same-label collapse stays put.
+  useEffect(() => {
+    if (activeLabelId) setShowLabels(true);
+  }, [activeLabelId]);
 
   const submitNewLabel = (event: FormEvent) => {
     event.preventDefault();
@@ -364,14 +371,19 @@ export function MailSidebar({
           </>
         )}
 
-        {!unified && (!collapsed || labelTree.length > 0) ? (
+        {!unified && (!collapsed || (showLabels && labelTree.length > 0)) ? (
           <>
             <GroupHeading
               collapsed={collapsed}
+              expanded={showLabels}
+              onToggle={() => setShowLabels((open) => !open)}
               action={
                 <button
                   type="button"
-                  onClick={() => setIsAddingLabel((open) => !open)}
+                  onClick={() => {
+                    setShowLabels(true);
+                    setIsAddingLabel((open) => !open);
+                  }}
                   aria-expanded={isAddingLabel}
                   aria-label={`Create ${labelSingular}`}
                   className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -382,26 +394,28 @@ export function MailSidebar({
             >
               {labelsHeading}
             </GroupHeading>
-            <nav className="flex flex-col gap-px">
-              {labelTree.map((node) => (
-                <LabelBranch
-                  key={node.label.id}
-                  node={node}
-                  hasNestedLabels={hasNestedLabels}
-                  collapsed={collapsed}
-                  activeLabelId={activeLabelId}
-                  hrefFor={hrefFor}
-                  countsById={countsById}
-                  labelSingular={labelSingular}
-                  labelEditMode={labelEditMode}
-                  labelColorOptions={labelColorOptions}
-                  onEditMailboxItem={onEditMailboxItem}
-                  onDeleteMailboxItem={onDeleteMailboxItem}
-                />
-              ))}
-            </nav>
+            {showLabels && (
+              <nav className="flex flex-col gap-px">
+                {labelTree.map((node) => (
+                  <LabelBranch
+                    key={node.label.id}
+                    node={node}
+                    hasNestedLabels={hasNestedLabels}
+                    collapsed={collapsed}
+                    activeLabelId={activeLabelId}
+                    hrefFor={hrefFor}
+                    countsById={countsById}
+                    labelSingular={labelSingular}
+                    labelEditMode={labelEditMode}
+                    labelColorOptions={labelColorOptions}
+                    onEditMailboxItem={onEditMailboxItem}
+                    onDeleteMailboxItem={onDeleteMailboxItem}
+                  />
+                ))}
+              </nav>
+            )}
 
-            {isAddingLabel && !collapsed ? (
+            {showLabels && isAddingLabel && !collapsed ? (
               <form
                 onSubmit={submitNewLabel}
                 className="flex gap-1.5 px-2.5 py-2"
@@ -564,33 +578,38 @@ function GroupHeading({
   // A heading can't fit in the rail, so groups are separated by a rule instead.
   if (collapsed) return <div className="mx-auto my-2 h-px w-6 bg-border" />;
 
-  if (onToggle) {
-    return (
-      <div className="flex items-center gap-1.5 px-2.5 pt-4 pb-1.5">
+  return (
+    <div className="flex items-center gap-1 px-2.5 pt-4 pb-1.5">
+      {onToggle ? (
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          className="flex flex-1 cursor-pointer items-center gap-1 font-medium text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 cursor-pointer items-center font-medium text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span>{children}</span>
+          <span className="truncate">{children}</span>
+        </button>
+      ) : (
+        <span className="flex-1 font-medium text-muted-foreground text-xs">
+          {children}
+        </span>
+      )}
+      {action}
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="cursor-pointer rounded-md p-0.5 text-muted-foreground hover:text-foreground"
+        >
           {expanded ? (
             <ChevronDownIcon className="size-3 shrink-0" />
           ) : (
             <ChevronRightIcon className="size-3 shrink-0" />
           )}
         </button>
-        {action}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1.5 px-2.5 pt-4 pb-1.5">
-      <span className="flex-1 font-medium text-muted-foreground text-xs">
-        {children}
-      </span>
-      {action}
+      ) : null}
     </div>
   );
 }
