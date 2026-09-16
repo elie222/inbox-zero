@@ -111,6 +111,12 @@ test("job and decision credentials cannot be interchanged, and private CONNECT t
     assert.match(challenge.headers["proxy-authenticate"] ?? "", /^basic /i);
     assert.equal(challenge.headers.connection, "close");
 
+    // Another scheme carries no token we can use, so it is challenged too.
+    const otherScheme = await connectWithout(url, `Bearer ${token}`);
+    assert.equal(otherScheme.statusCode, 407);
+    assert.match(otherScheme.headers["proxy-authenticate"] ?? "", /^basic /i);
+    assert.equal(otherScheme.headers.connection, "close");
+
     // The scheme name is case-insensitive, so this must not be challenged.
     assert.equal(
       (
