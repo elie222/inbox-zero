@@ -85,10 +85,12 @@ import {
 } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import { getMailMutation } from "@/utils/email-cache/mail-mutations";
-import type {
-  ReplyDraftContent,
-  ReplyDraftIdentity,
-  ReplyDraftMode,
+import {
+  getReplyDraft,
+  updateReplyDraftProviderState,
+  type ReplyDraftContent,
+  type ReplyDraftIdentity,
+  type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -302,6 +304,7 @@ function ComposeEmailFormContent({
   });
   const editorInitialized = useRef(false);
   const providerDraftId = useRef(storedDraft?.content?.providerDraftId);
+  const savedAttachments = useRef<string | undefined>(undefined);
 
   const [restoredAttachments] = useState<ComposeAttachment[]>(() =>
     (storedDraft?.content?.attachments ?? []).map((attachment) => ({
@@ -507,12 +510,47 @@ function ComposeEmailFormContent({
     },
     save: async ({ attachments: draftAttachments, ...content }) => {
       if (isNewCompose) {
+        if (!localDraftIdentity)
+          throw new Error(
+            "Local draft storage is required to sync this message.",
+          );
+        await flushDraft();
+        let draftId = providerDraftId.current;
+        if (!draftId) {
+          draftId = await updateReplyDraftProviderState(
+            localDraftIdentity,
+            requestId,
+          );
+          if (!draftId) {
+            const created = await saveComposeDraftAction(
+              selectedEmailAccountId,
+              { content },
+            );
+            if (!created?.data)
+              throw new Error(
+                "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
+              );
+            draftId = created.data.draftId;
+          }
+        }
+        providerDraftId.current = draftId;
+        await updateReplyDraftProviderState(
+          localDraftIdentity,
+          requestId,
+          draftId,
+        );
+        const attachmentSnapshot = JSON.stringify(draftAttachments);
         const result = await saveComposeDraftAction(selectedEmailAccountId, {
-          sessionId: requestId,
-          content: { ...content, attachments: draftAttachments },
+          draftId,
+          content: {
+            ...content,
+            ...(attachmentSnapshot !== savedAttachments.current
+              ? { attachments: draftAttachments }
+              : {}),
+          },
         });
         if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
-        providerDraftId.current = result.data.draftId;
+        savedAttachments.current = attachmentSnapshot;
         return;
       }
       if (!providerDraftMessageId) return;
@@ -749,7 +787,6 @@ function ComposeEmailFormContent({
             });
       const enrichedData: SendEmailBody = {
         ...data,
-        ...(isNewCompose ? { composeSessionId: requestId } : {}),
         ...recipients,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml: combineEmailHtml({
@@ -778,6 +815,18 @@ function ComposeEmailFormContent({
       await stopProviderAutosave();
       let deliveryAccepted = false;
       try {
+        if (isNewCompose) {
+          const local = localDraftIdentity
+            ? await getReplyDraft(localDraftIdentity)
+            : undefined;
+          const draftId =
+            local?.content?.providerDraftId ?? providerDraftId.current;
+          if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
+            throw new Error(
+              "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
+            );
+          enrichedData.providerDraftId = draftId;
+        }
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
@@ -1077,10 +1126,29 @@ function ComposeEmailFormContent({
     try {
       await stopProviderAutosave();
       if (isNewCompose) {
-        const result = await discardComposeDraftAction(selectedEmailAccountId, {
-          sessionId: requestId,
-        });
-        if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+        const local = localDraftIdentity
+          ? await getReplyDraft(localDraftIdentity)
+          : undefined;
+        providerDraftId.current =
+          local?.content?.providerDraftId ?? providerDraftId.current;
+        if (providerDraftId.current) {
+          const result = await discardComposeDraftAction(
+            selectedEmailAccountId,
+            {
+              draftId: providerDraftId.current,
+            },
+          );
+          if (!result?.data)
+            throw new Error(getActionErrorMessage(result ?? {}));
+        }
+        if (
+          !providerDraftId.current &&
+          local?.content?.providerDraftCreationUnconfirmed
+        )
+          toastError({
+            description:
+              "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook.",
+          });
       }
       if ((await onDiscard(providerDraftId.current)) === false) {
         resumeProviderAutosave();
@@ -1101,7 +1169,7 @@ function ComposeEmailFormContent({
     isSubmitting,
     isNewCompose,
     selectedEmailAccountId,
-    requestId,
+    localDraftIdentity,
     onDiscard,
     stopProviderAutosave,
     resumeProviderAutosave,

@@ -75,9 +75,9 @@ export const updateDraftBody = z.object({
 });
 
 export const saveComposeDraftBody = z.object({
-  sessionId: z.string().uuid(),
+  draftId: z.string().min(1).optional(),
   content: sendEmailBody,
 });
 export const discardComposeDraftBody = z.object({
-  sessionId: z.string().uuid(),
+  draftId: z.string().min(1),
 });
