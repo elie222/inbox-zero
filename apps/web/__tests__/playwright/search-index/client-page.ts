@@ -12,11 +12,11 @@ Object.assign(window, {
     client,
     async activate() {
       activateMailSync(scope.emailAccountId);
-      await (await getEmailCacheDatabase())!.put("searchIndexAccounts", scope);
+      await (await requireDatabase()).put("searchIndexAccounts", scope);
     },
     async removeSource() {
       clearMailActivation(scope.emailAccountId);
-      await (await getEmailCacheDatabase())!.delete(
+      await (await requireDatabase()).delete(
         "searchIndexAccounts",
         scope.emailAccountId,
       );
@@ -67,3 +67,9 @@ Object.assign(window, {
     },
   },
 });
+
+async function requireDatabase() {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Local source database unavailable");
+  return database;
+}

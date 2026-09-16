@@ -33,6 +33,8 @@ export async function querySearchIndex(
   let indexing = false;
   const cursors: Record<string, string | null> = {};
   for (const [position, account] of request.accounts.entries()) {
+    const query = parsed[position];
+    if (!query) return { status: "unsupported", threads: [] };
     if (request.cursors?.[account.id] === null) {
       cursors[account.id] = null;
       continue;
@@ -126,7 +128,7 @@ export async function querySearchIndex(
     const byThread = new Map<string, SearchMessage[]>();
     for (const candidate of candidates.values()) {
       const message = applyOrderedMutations(candidate, mutations);
-      if (!matchesLocalSearch(message, parsed[position]!)) continue;
+      if (!matchesLocalSearch(message, query)) continue;
       const threadMessages = byThread.get(message.threadId) ?? [];
       threadMessages.push(message);
       byThread.set(message.threadId, threadMessages);
