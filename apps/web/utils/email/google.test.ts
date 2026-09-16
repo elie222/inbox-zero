@@ -3,6 +3,7 @@ import { auth, gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
+import { SafeError } from "@/utils/error";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import * as gmailThreadModule from "@/utils/gmail/thread";
 import { GmailProvider } from "./google";
@@ -639,7 +640,7 @@ describe("GmailProvider.updateDraft", () => {
     gmailDraftMock.getDraft.mockResolvedValueOnce(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toThrow("Could not find this draft to update.");
+    ).rejects.toBeInstanceOf(SafeError);
     expect(update).not.toHaveBeenCalled();
   });
 

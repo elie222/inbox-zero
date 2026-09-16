@@ -815,18 +815,17 @@ function ComposeEmailFormContent({
       await stopProviderAutosave();
       let deliveryAccepted = false;
       try {
-        if (isNewCompose) {
-          const local = localDraftIdentity
-            ? await getReplyDraft(localDraftIdentity)
-            : undefined;
-          const draftId =
-            local?.content?.providerDraftId ?? providerDraftId.current;
-          if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
-            throw new Error(
-              "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
-            );
-          enrichedData.providerDraftId = draftId;
-        }
+        const local = localDraftIdentity
+          ? await getReplyDraft(localDraftIdentity)
+          : undefined;
+        const draftId =
+          providerDraftId.current ?? local?.content?.providerDraftId;
+        if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
+          throw new Error(
+            "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
+          );
+        // Autosave can replace a draft's message ID; its provider draft ID survives.
+        enrichedData.providerDraftId = draftId;
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
@@ -1017,7 +1016,6 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
-      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,

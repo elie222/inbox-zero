@@ -125,5 +125,9 @@
     "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
     "components/email-list/EmailMessage.tsx",
     "utils/threads/load.ts"
+  ],
+  "draft-send-recovery.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
   ]
 }
