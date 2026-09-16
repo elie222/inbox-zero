@@ -103,26 +103,24 @@ export async function writeCachedThreadList<T extends ThreadRow>({
       "readwrite",
     );
 
-    await Promise.all([
-      ...threads.map((thread) =>
-        transaction.objectStore("threadRows").put({
-          emailAccountId,
-          threadId: thread.id,
-          data: thread,
-          fetchedAt: now,
-          lastAccessedAt: now,
-        }),
-      ),
-      transaction.objectStore("threadViews").put({
+    const views = transaction.objectStore("threadViews");
+    const currentView = await views.get([emailAccountId, viewKey]);
+    if (currentView && currentView.fetchedAt > now) {
+      await transaction.done;
+      return;
+    }
+    const rows = transaction.objectStore("threadRows");
+    const changedThreadIds: string[] = [];
+    for (const thread of threads) {
+      const current = await rows.get([emailAccountId, thread.id]);
+      if (current && current.fetchedAt > now) continue;
+      await rows.put({
         emailAccountId,
-        viewKey,
-        threadIds: threads.map((thread) => thread.id),
-        hasMore,
+        threadId: thread.id,
+        data: thread,
         fetchedAt: now,
         lastAccessedAt: now,
-      }),
-    ]);
-    for (const thread of threads) {
+      });
       if (Array.isArray(thread.messages))
         await storeLocalMailMessages(
           transaction,
@@ -130,12 +128,17 @@ export async function writeCachedThreadList<T extends ThreadRow>({
           thread.messages,
           now,
         );
+      changedThreadIds.push(thread.id);
     }
-    await markSearchThreadsDirty(
-      transaction,
+    await views.put({
       emailAccountId,
-      threads.map((thread) => thread.id),
-    );
+      viewKey,
+      threadIds: threads.map((thread) => thread.id),
+      hasMore,
+      fetchedAt: now,
+      lastAccessedAt: now,
+    });
+    await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
