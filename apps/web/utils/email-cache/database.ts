@@ -1,3 +1,4 @@
+import { cleanupSearchIndex } from "./search-index-service";
 import { notifyEmailCacheChange } from "./cache-events";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ReplyDraftContent } from "./reply-drafts";
@@ -471,10 +472,12 @@ export async function clearEmailCache() {
   } finally {
     cacheInvalidationCount -= 1;
     notifyEmailCacheChange();
+    cleanupSearchIndex().catch(() => {});
   }
 }
 
 export async function clearEmailCacheForAccount(emailAccountId: string) {
+  let indexGeneration: string | undefined;
   invalidateCacheGeneration(emailAccountId);
   clearMailActivation(emailAccountId);
   accountInvalidationCounts.set(
@@ -506,6 +509,9 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       ],
       "readwrite",
     );
+    indexGeneration = (
+      await transaction.objectStore("searchIndexAccounts").get(emailAccountId)
+    )?.generation;
     const rows = transaction.objectStore("threadRows");
     const views = transaction.objectStore("threadViews");
     const details = transaction.objectStore("threadDetails");
@@ -560,6 +566,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       accountInvalidationCounts.delete(emailAccountId);
     }
     notifyEmailCacheChange(emailAccountId);
+    cleanupSearchIndex(emailAccountId, indexGeneration).catch(() => {});
   }
 }
 

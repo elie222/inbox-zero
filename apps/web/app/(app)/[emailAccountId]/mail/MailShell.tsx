@@ -1766,10 +1766,24 @@ export function MailShell() {
                   onToggleSelect={selection.toggle}
                   onSelectRangeTo={selection.selectRangeTo}
                   showLoadMore={
-                    hasMore && (!showLocalSearch || hasProviderResponse)
+                    showLocalSearch
+                      ? localSearch.hasMore || (hasProviderResponse && hasMore)
+                      : hasMore
                   }
-                  isLoadingMore={isLoadingMore}
-                  onLoadMore={loadMore}
+                  isLoadingMore={
+                    showLocalSearch
+                      ? localSearch.isLoadingMore ||
+                        (hasProviderResponse && isLoadingMore)
+                      : isLoadingMore
+                  }
+                  onLoadMore={
+                    showLocalSearch
+                      ? () => {
+                          if (localSearch.hasMore) localSearch.loadMore();
+                          if (hasProviderResponse && hasMore) loadMore();
+                        }
+                      : loadMore
+                  }
                   showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
                   listKey={
                     isAllAccounts

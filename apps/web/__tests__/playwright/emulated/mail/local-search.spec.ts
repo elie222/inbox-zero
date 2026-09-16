@@ -1,7 +1,14 @@
+import { build } from "esbuild";
+import { rm } from "node:fs/promises";
+import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";
 import { expect, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
@@ -250,7 +257,13 @@ async function seedSearchCache(
         request.onsuccess = () => {
           const database = request.result;
           const tx = database.transaction(
-            ["threadDetails", "mailboxMessages"],
+            [
+              "threadDetails",
+              "mailboxMessages",
+              "searchIndexAccounts",
+              "localMailMessages",
+              "searchIndexWork",
+            ],
             "readwrite",
           );
           const now = Date.now();
@@ -271,6 +284,32 @@ async function seedSearchCache(
             labelIds: ["INBOX"],
             historyId: "1",
             inline: [],
+          };
+          const account = tx.objectStore("searchIndexAccounts").get(accountId);
+          account.onsuccess = () => {
+            if (!account.result)
+              tx.objectStore("searchIndexAccounts").put({
+                emailAccountId: accountId,
+                generation: crypto.randomUUID(),
+                sourceVersion: 1,
+              });
+            tx.objectStore("localMailMessages").put({
+              emailAccountId: accountId,
+              messageId: message.id,
+              threadId: message.threadId,
+              data: message,
+              fetchedAt: now,
+              bodyFetchedAt: now,
+              lastAccessedAt: now,
+              receivedAt: now,
+              byteSize: new Blob([JSON.stringify(message)]).size,
+            });
+            tx.objectStore("searchIndexWork").put({
+              emailAccountId: accountId,
+              threadId: message.threadId,
+              token: crypto.randomUUID(),
+              status: "pending",
+            });
           };
           tx.objectStore("threadDetails").put({
             emailAccountId: accountId,
@@ -302,6 +341,11 @@ async function seedSearchCache(
           }
           tx.oncomplete = () => {
             database.close();
+            const channel = new BroadcastChannel(
+              "inbox-zero-email-cache-changes",
+            );
+            channel.postMessage({ emailAccountId: accountId });
+            channel.close();
             resolve({
               id: message.threadId,
               messages: [message],
@@ -318,3 +362,260 @@ async function seedSearchCache(
     { accountId: emailAccountId, messageCount },
   );
 }
+
+test("uses the persistent index offline after reopening and pages beyond the first disk result batch", async ({
+  page,
+  context,
+}, testInfo) => {
+  const assets = new Set<string>();
+  const workerName = `sw-search-test-${process.pid}.js`;
+  const workerFile = path.resolve("public", workerName);
+  context.on("response", (response) => {
+    if (new URL(response.url()).pathname.startsWith("/_next/static/"))
+      assets.add(response.url());
+  });
+  try {
+    await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
+    const { emailAccountId } = await openMail(page);
+    await page.evaluate(async (emailAccountId) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("inbox-zero-email-cache");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction(
+        ["searchIndexAccounts", "localMailMessages", "searchIndexWork"],
+        "readwrite",
+      );
+      const account = tx.objectStore("searchIndexAccounts").get(emailAccountId);
+      account.onsuccess = () => {
+        if (!account.result)
+          tx.objectStore("searchIndexAccounts").put({
+            emailAccountId,
+            generation: crypto.randomUUID(),
+            sourceVersion: 1,
+          });
+      };
+      const now = Date.now();
+      for (let index = 0; index < 105; index++) {
+        const id = `persistent-${index}`;
+        const data = {
+          id,
+          threadId: id,
+          subject: `Indexed message ${index}`,
+          snippet: "Stored preview",
+          textPlain: `archiveproof body ${index}`,
+          date: new Date(now - index).toISOString(),
+          internalDate: String(now - index),
+          headers: {
+            from: "sender@example.com",
+            to: "recipient@example.com",
+            subject: `Indexed message ${index}`,
+            date: "",
+          },
+          labelIds: ["INBOX"],
+          historyId: "1",
+          inline: [],
+        };
+        tx.objectStore("localMailMessages").put({
+          emailAccountId,
+          messageId: id,
+          threadId: id,
+          data,
+          fetchedAt: now,
+          bodyFetchedAt: now,
+          receivedAt: now - index,
+          lastAccessedAt: now,
+          byteSize: new Blob([JSON.stringify(data)]).size,
+        });
+        tx.objectStore("searchIndexWork").put({
+          emailAccountId,
+          threadId: id,
+          token: crypto.randomUUID(),
+          status: "pending",
+        });
+      }
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+      const channel = new BroadcastChannel("inbox-zero-email-cache-changes");
+      channel.postMessage({ emailAccountId });
+      channel.close();
+    }, emailAccountId);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const db = await new Promise<IDBDatabase>((resolve) => {
+              const request = indexedDB.open("inbox-zero-email-cache");
+              request.onsuccess = () => resolve(request.result);
+            });
+            const request = db
+              .transaction("searchIndexWork")
+              .objectStore("searchIndexWork")
+              .count();
+            const count = await new Promise<number>((resolve) => {
+              request.onsuccess = () => resolve(request.result);
+            });
+            db.close();
+            return count;
+          }),
+        { timeout: 90_000 },
+      )
+      .toBe(0);
+    expect([...assets].some((asset) => asset.includes(".wasm"))).toBe(true);
+    const production = process.env.PLAYWRIGHT_PRODUCTION === "1";
+    if (!production) {
+      await build({
+        entryPoints: ["app/sw.ts"],
+        bundle: true,
+        define: {
+          "process.env.NODE_ENV": JSON.stringify("production"),
+          "self.__SW_MANIFEST": JSON.stringify(
+            [...assets].map((url) => ({ url, revision: null })),
+          ),
+        },
+        outfile: workerFile,
+      });
+    }
+    await page.evaluate(
+      async (name) => {
+        await navigator.serviceWorker.register(`/${name}`, { scope: "/" });
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller)
+          await new Promise<void>((resolve) =>
+            navigator.serviceWorker.addEventListener(
+              "controllerchange",
+              () => resolve(),
+              { once: true },
+            ),
+          );
+        navigator.serviceWorker.controller?.postMessage({
+          type: "inbox-zero:save-offline-mail",
+        });
+      },
+      production ? "sw.js" : workerName,
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const name = (await caches.keys()).find((key) =>
+            key.startsWith("inbox-zero:offline-mail:"),
+          );
+          if (!name) return false;
+          const cache = await caches.open(name);
+          return (
+            !!(await cache.match(location.origin + location.pathname)) &&
+            !!(await cache.match(`${location.origin}/api/user/email-accounts`))
+          );
+        }),
+      )
+      .toBe(true);
+    await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve) => {
+        const request = indexedDB.open("inbox-zero-email-cache");
+        request.onsuccess = () => resolve(request.result);
+      });
+      const tx = db.transaction(
+        ["threadRows", "threadDetails", "mailboxMessages"],
+        "readwrite",
+      );
+      for (const name of ["threadRows", "threadDetails", "mailboxMessages"])
+        tx.objectStore(name).clear();
+      await new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+      });
+      db.close();
+    });
+    await context.setOffline(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByPlaceholder("Search mail")).toBeVisible();
+    await page.getByPlaceholder("Search mail").fill("archiveproof");
+    await expect(
+      page.getByText("Indexed message 0", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Load more", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Load more", exact: true }),
+    ).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "persistent-search-offline",
+    );
+  } finally {
+    await context.setOffline(false);
+    await rm(workerFile, { force: true });
+  }
+});
+
+test("keeps two accounts isolated while searching their persistent indexes offline", async ({
+  page,
+  context,
+}, testInfo) => {
+  await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
+  const { emailAccountId } = await openMail(page);
+  const secondary = await createSecondEmailAccount(emailAccountId);
+  try {
+    await page.goto(`/${secondary.id}/mail`);
+    await expect(page.getByPlaceholder("Search mail")).toBeVisible();
+    await seedSearchCache(page, secondary.id);
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    await expect(page.getByPlaceholder("Search mail")).toBeVisible();
+    await seedSearchCache(page, emailAccountId);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const db = await new Promise<IDBDatabase>((resolve) => {
+              const request = indexedDB.open("inbox-zero-email-cache");
+              request.onsuccess = () => resolve(request.result);
+            });
+            const request = db
+              .transaction("searchIndexWork")
+              .objectStore("searchIndexWork")
+              .count();
+            const count = await new Promise<number>((resolve) => {
+              request.onsuccess = () => resolve(request.result);
+            });
+            db.close();
+            return count;
+          }),
+        { timeout: 90_000 },
+      )
+      .toBe(0);
+    await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve) => {
+        const request = indexedDB.open("inbox-zero-email-cache");
+        request.onsuccess = () => resolve(request.result);
+      });
+      const tx = db.transaction(
+        ["threadRows", "threadDetails", "mailboxMessages"],
+        "readwrite",
+      );
+      for (const name of ["threadRows", "threadDetails", "mailboxMessages"])
+        tx.objectStore(name).clear();
+      await new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+      });
+      db.close();
+    });
+    await context.setOffline(true);
+    await page.getByPlaceholder("Search mail").fill("needle");
+    await expect(
+      page.getByRole("option").filter({
+        has: page.getByText("Cached body search result", { exact: true }),
+      }),
+    ).toHaveCount(2);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "persistent-search-two-accounts-offline",
+    );
+  } finally {
+    await context.setOffline(false);
+    await deleteSecondEmailAccount(secondary.accountId);
+  }
+});

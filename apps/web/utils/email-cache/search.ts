@@ -19,10 +19,13 @@ import { applyMailMutationToMessage } from "./mail-mutation-overlay";
 
 export type LocalSearchRequest = {
   query: string;
+  cursors?: Record<string, string | null>;
   accounts: { id: string; labels: Pick<EmailLabel, "id" | "name">[] }[];
   mutations: MailMutation[];
 };
 export type LocalSearchResult = {
+  coverage?: "partial" | "indexing";
+  cursors?: Record<string, string | null>;
   status: "ready" | "unsupported" | "unavailable";
   threads: { emailAccountId: string; thread: ThreadListItem }[];
 };

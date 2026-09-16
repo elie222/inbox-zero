@@ -49,7 +49,10 @@
   "local-search.spec.ts": [
     "app/(app)/[emailAccountId]/mail/use-local-mail-search.ts",
     "app/(app)/[emailAccountId]/mail/local-search-results.ts",
-    "utils/email-cache/search.worker.ts"
+    "utils/email-cache/search.worker.ts",
+    "utils/email-cache/search-index.worker.ts",
+    "utils/email-cache/search-index-service.ts",
+    "utils/email-cache/search-index-query.ts"
   ],
   "mail-activation.spec.ts": [
     "app/(app)/MailboxSyncManager.tsx",

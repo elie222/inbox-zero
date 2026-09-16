@@ -30,6 +30,7 @@ packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
 
 patchedDependencies:
   '@inbox-zero/emulate@0.11.1': 834ac437967e2eeaf03cd3c2be17d4ce0d876e82eef921080e56c851f3926c52
+  '@sqlite.org/sqlite-wasm@3.53.4-build1': 0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855
 
 importers:
 
@@ -381,6 +382,9 @@ importers:
       '@slack/web-api':
         specifier: 7.15.2
         version: 7.15.2(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+      '@sqlite.org/sqlite-wasm':
+        specifier: 3.53.4-build1
+        version: 3.53.4-build1(patch_hash=0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855)
       '@stripe/stripe-js':
         specifier: 9.16.0
         version: 9.16.0
@@ -6168,6 +6172,10 @@ packages:
 
   '@speed-highlight/core@1.2.15':
     resolution: {integrity: sha512-BMq1K3DsElxDWawkX6eLg9+CKJrTVGCBAWVuHXVUV2u0s2711qiChLSId6ikYPfxhdYocLNt3wWwSvDiTvFabw==}
+
+  '@sqlite.org/sqlite-wasm@3.53.4-build1':
+    resolution: {integrity: sha512-U8pvL0patYHMgieD8JxxYJTlh9m1LUX8+BDYb7MiKQzBI89f2qbdmdcG/PvnPaLm9wsBbv4VlVG453ixnxBOnA==}
+    engines: {node: '>=22'}
 
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
@@ -19004,6 +19012,8 @@ snapshots:
   '@socket.io/component-emitter@3.1.2': {}
 
   '@speed-highlight/core@1.2.15': {}
+
+  '@sqlite.org/sqlite-wasm@3.53.4-build1(patch_hash=0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855)': {}
 
   '@stablelib/base64@1.0.1': {}
 
