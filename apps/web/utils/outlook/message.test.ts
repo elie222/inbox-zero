@@ -758,6 +758,76 @@ describe("calendar MIME enrichment", () => {
     );
   });
 
+  it.each([
+    ["text/calendar", false],
+    ["application/ics", false],
+    ["text/calendar", true],
+    ["application/ics", true],
+  ])("checks duplicate MIME calendars (%s, conflicting: %s)", async (mimeType, conflicting) => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const second = conflicting ? content.replace("REQUEST", "CANCEL") : content;
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        [
+          "MIME-Version: 1.0",
+          'Content-Type: multipart/mixed; boundary="calendar-boundary"',
+          "",
+          "--calendar-boundary",
+          "Content-Type: text/calendar; method=REQUEST",
+          "",
+          content,
+          "--calendar-boundary",
+          `Content-Type: ${mimeType}`,
+          'Content-Disposition: attachment; filename="invite.ics"',
+          "Content-Transfer-Encoding: base64",
+          "",
+          Buffer.from(second).toString("base64"),
+          "--calendar-boundary--",
+        ].join("\r\n"),
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.isMeetingInvitation).toBe(!conflicting);
+    if (!conflicting) expect(message.calendarContent).toBeTruthy();
+  });
+
+  it.each([
+    3, 4,
+  ])("rejects %s MIME calendar copies even when identical", async (count) => {
+    const part = [
+      "--calendar-boundary",
+      "Content-Type: text/calendar",
+      "",
+      "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR",
+    ].join("\r\n");
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        [
+          "MIME-Version: 1.0",
+          'Content-Type: multipart/mixed; boundary="calendar-boundary"',
+          "",
+          ...Array.from({ length: count }, () => part),
+          "--calendar-boundary--",
+        ].join("\r\n"),
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      {
+        includeCalendarContent: true,
+      },
+    );
+    expect(message.isMeetingInvitation).toBe(false);
+    expect(message.calendarContent).toBeUndefined();
+  });
+
   it("does not fetch raw MIME for ordinary message reads", async () => {
     const rawGet = vi.fn();
     await getMessage(
