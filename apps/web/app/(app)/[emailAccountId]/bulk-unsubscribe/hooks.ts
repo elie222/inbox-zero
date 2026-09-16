@@ -362,7 +362,19 @@ export function useUnsubscribe<T extends Row>({
           analytics.captureAction("unsubscribe_sender_failed", {
             reason: "automatic_unsubscribe_failed",
           });
-          toast.error(`Could not automatically unsubscribe from ${item.name}`);
+          toast.error(`Could not unsubscribe from ${item.name}`, {
+            action: userFacingUnsubscribeLink
+              ? {
+                  label: "Open page",
+                  onClick: () =>
+                    window.open(
+                      userFacingUnsubscribeLink,
+                      "_blank",
+                      "noopener,noreferrer",
+                    ),
+                }
+              : undefined,
+          });
         } else {
           analytics.captureAction("unsubscribe_sender_completed", {
             outcome: "unsubscribed_and_archived",
@@ -397,6 +409,11 @@ export function useUnsubscribe<T extends Row>({
   return {
     unsubscribeLoading,
     onUnsubscribe,
+    // Only meaningful without an automatic link: the caller navigates to it
+    // instead of unsubscribing in place.
+    hasAutomaticUnsubscribe: Boolean(
+      hasUnsubscribeAccess && automaticUnsubscribeLink,
+    ),
     unsubscribeLink:
       hasUnsubscribeAccess && userFacingUnsubscribeLink
         ? userFacingUnsubscribeLink
