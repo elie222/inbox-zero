@@ -49,8 +49,12 @@ function requestDecision(
       new URL("/decision", input.brokerUrl),
       {
         method: "POST",
-        lookup: (_host, _options, callback) =>
-          callback(null, input.brokerIp, 4),
+        // Node asks for every address when selecting an address family, and
+        // rejects the single-address reply with ERR_INVALID_IP_ADDRESS.
+        lookup: (_host, options, callback) =>
+          typeof options === "object" && options?.all
+            ? callback(null, [{ address: input.brokerIp, family: 4 }])
+            : callback(null, input.brokerIp, 4),
         headers: {
           Authorization: `Bearer ${input.token}`,
           "Content-Type": "application/json",

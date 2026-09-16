@@ -6,6 +6,28 @@ import { once } from "node:events";
 import { attachServer } from "./server.ts";
 import { UnsubscribeService } from "./service.ts";
 
+function connectWithout(url: string, credentials: string | undefined) {
+  return new Promise<{
+    statusCode?: number;
+    headers: Record<string, string | undefined>;
+  }>((resolve, reject) => {
+    const req = request(url, {
+      method: "CONNECT",
+      path: "127.0.0.1:443",
+      headers: credentials ? { "Proxy-Authorization": credentials } : {},
+    });
+    req.on("connect", (response, socket) => {
+      socket.destroy();
+      resolve({
+        statusCode: response.statusCode,
+        headers: response.headers as Record<string, string | undefined>,
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 test("job and decision credentials cannot be interchanged, and private CONNECT targets are refused", async () => {
   let token = "";
   let release = () => {};
@@ -82,6 +104,29 @@ test("job and decision credentials cannot be interchanged, and private CONNECT t
       req.end();
     });
     assert.equal(status, 403);
+
+    // Without a challenge a client never sends its token, so the tunnel fails.
+    const challenge = await connectWithout(url, undefined);
+    assert.equal(challenge.statusCode, 407);
+    assert.match(challenge.headers["proxy-authenticate"] ?? "", /^basic /i);
+    assert.equal(challenge.headers.connection, "close");
+
+    // Another scheme carries no token we can use, so it is challenged too.
+    const otherScheme = await connectWithout(url, `Bearer ${token}`);
+    assert.equal(otherScheme.statusCode, 407);
+    assert.match(otherScheme.headers["proxy-authenticate"] ?? "", /^basic /i);
+    assert.equal(otherScheme.headers.connection, "close");
+
+    // The scheme name is case-insensitive, so this must not be challenged.
+    assert.equal(
+      (
+        await connectWithout(
+          url,
+          `basic ${Buffer.from(`job:${token}`).toString("base64")}`,
+        )
+      ).statusCode,
+      403,
+    );
   } finally {
     release();
     await active;

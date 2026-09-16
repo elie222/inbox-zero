@@ -59,8 +59,19 @@ export function attachServer(
     let upstream: Socket | undefined;
     try {
       const credentials = request.headers["proxy-authorization"];
-      if (typeof credentials !== "string" || !credentials.startsWith("Basic "))
-        throw new Error("Unauthorized");
+      // A client only sends proxy credentials once it has been challenged, so
+      // refusing an unauthenticated CONNECT outright means it never sends the
+      // token and the tunnel fails instead of retrying.
+      if (
+        typeof credentials !== "string" ||
+        // The scheme name is case-insensitive.
+        !credentials.slice(0, 6).toLowerCase().startsWith("basic ")
+      ) {
+        socket.end(
+          `HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="unsubscribe"\r\nConnection: close\r\n\r\n`,
+        );
+        return;
+      }
       const decoded = Buffer.from(credentials.slice(6), "base64").toString(
         "utf8",
       );
