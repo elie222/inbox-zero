@@ -149,7 +149,29 @@ describe("local mail sync admission", () => {
       await vi.advanceTimersByTimeAsync(20_000);
       expect(signal?.aborted).toBe(true);
       finish?.();
-      await operation;
+      await expect(operation).rejects.toBeInstanceOf(LocalMailSyncPausedError);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("returns a typed pause when a provider rejects after the request timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(redis.eval).mockResolvedValueOnce(0).mockResolvedValue(1);
+      const operation = withLocalMailSyncBudget(
+        { ...input, provider: "microsoft", cost: 1 },
+        (signal) =>
+          new Promise<void>((_, reject) =>
+            signal.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            ),
+          ),
+      );
+      const assertion = expect(operation).rejects.toBeInstanceOf(
+        LocalMailSyncPausedError,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await assertion;
     } finally {
       vi.useRealTimers();
     }
