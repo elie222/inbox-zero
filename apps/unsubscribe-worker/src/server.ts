@@ -64,7 +64,8 @@ export function attachServer(
       // token and the tunnel fails instead of retrying.
       if (
         typeof credentials !== "string" ||
-        !credentials.startsWith("Basic ")
+        // The scheme name is case-insensitive.
+        !credentials.slice(0, 6).toLowerCase().startsWith("basic ")
       ) {
         socket.end(
           `HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="unsubscribe"\r\nConnection: close\r\n\r\n`,
