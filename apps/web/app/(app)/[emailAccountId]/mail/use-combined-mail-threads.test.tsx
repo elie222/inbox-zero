@@ -651,7 +651,14 @@ describe("useCombinedMailThreads", () => {
       accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
       complete: true,
       missingAccountIds: [],
-      threads: [createThread("account-1", "canonical")],
+      threads: [
+        {
+          ...createThread("account-1", "canonical"),
+          participantMessages: [
+            { headers: { from: "new@example.com", to: "owner@example.com" } },
+          ],
+        },
+      ],
       truncated: false,
     });
 
@@ -673,6 +680,14 @@ describe("useCombinedMailThreads", () => {
               {
                 ...createThread("account-1", "canonical"),
                 snippet: "remote",
+                participantMessages: [
+                  {
+                    headers: {
+                      from: "old@example.com",
+                      to: "owner@example.com",
+                    },
+                  },
+                ],
               },
               createThread("account-2", "stale-recent"),
               createThread(
@@ -693,6 +708,9 @@ describe("useCombinedMailThreads", () => {
         "older-than-local-window",
       ]);
       expect(result.current.threads[0]?.snippet).toBe("canonical");
+      expect(result.current.threads[0]?.participantMessages).toEqual([
+        { headers: { from: "new@example.com", to: "owner@example.com" } },
+      ]);
     });
   });
 

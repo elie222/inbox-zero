@@ -430,11 +430,17 @@ describe("useMailThreads", () => {
       plan,
       plans: [plan],
       snippet: "remote",
+      participantMessages: [
+        { headers: { from: "old@example.com", to: "owner@example.com" } },
+      ],
     };
     remoteThread.messages[0]!.internalDate = "2026-08-22T00:00:00.000Z";
     const syncedThread = {
       ...createThread("shared"),
       snippet: "synced",
+      participantMessages: [
+        { headers: { from: "new@example.com", to: "owner@example.com" } },
+      ],
     };
     syncedThread.messages[0]!.internalDate = "2026-08-23T00:00:00.000Z";
     const remoteOlderThread = createThread("remote-older");
@@ -478,7 +484,11 @@ describe("useMailThreads", () => {
       "shared",
       "remote-older",
     ]);
-    expect(result.current.threads[0]).toMatchObject({ plan, plans: [plan] });
+    expect(result.current.threads[0]).toMatchObject({
+      plan,
+      plans: [plan],
+      participantMessages: syncedThread.participantMessages,
+    });
   });
 
   it("renders the cached first page while the server revalidates", async () => {
