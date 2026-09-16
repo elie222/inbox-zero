@@ -25,7 +25,6 @@ beforeEach(async () => {
       id: "message",
       threadId: "thread",
       labelIds: ["INBOX"],
-      internalDate: String(now - day),
     }),
   });
   await database.put("localMailSyncStates", {
