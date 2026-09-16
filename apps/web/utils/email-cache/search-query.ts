@@ -5,7 +5,8 @@ import type { ParsedMessage } from "@/utils/types";
 type SearchTerm =
   | { field: "text" | "from" | "to" | "subject"; value: string }
   | { field: "label"; value: string }
-  | { field: "after" | "before"; value: number };
+  | { field: "after"; value: number }
+  | { field: "before"; value: number };
 
 type LocalSearchQuery = { terms: SearchTerm[]; includeSpamTrash: boolean };
 export type SearchMessage = Pick<
