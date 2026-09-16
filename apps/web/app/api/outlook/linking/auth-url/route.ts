@@ -4,7 +4,10 @@ import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Url } from "@/utils/outlook/client";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
-import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
+import {
+  getMailboxLinkingBlockedResponse,
+  hasActiveAccountLinkingUser,
+} from "@/utils/oauth/account-linking";
 import { findReconnectTarget } from "@/utils/oauth/reconnect-target";
 import { createOAuthLinkingAuditLogger } from "@/utils/oauth/linking-audit";
 import {
@@ -36,6 +39,10 @@ const getAuthUrl = ({
 
 export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
+
+  const blockedResponse = getMailboxLinkingBlockedResponse(request);
+  if (blockedResponse) return blockedResponse;
+
   const hasActiveUser = await hasActiveAccountLinkingUser({
     targetUserId: userId,
     logger: request.logger,

@@ -90,6 +90,26 @@ test("advanced search composes Gmail operators and restores them", async ({
   await expect(restored.getByLabel("Has attachment")).toBeChecked();
 });
 
+test("advanced search panel stays aligned with the search field", async ({
+  page,
+}) => {
+  await openMail(page);
+
+  // The modal popover hides the toolbar from the accessibility tree, so the
+  // field has to be measured before it opens.
+  const searchField = await page.getByRole("search").boundingBox();
+  await page.getByRole("button", { name: "Show search options" }).click();
+  await expect(
+    page.getByRole("form", { name: "Search options" }),
+  ).toBeVisible();
+  const panel = await page.getByRole("dialog").boundingBox();
+  if (!(searchField && panel)) throw new Error("missing bounding boxes");
+
+  // The popover anchors to the whole field, not the chevron at its right end,
+  // so it opens under the search box instead of against the viewport edge.
+  expect(Math.abs(panel.x - searchField.x)).toBeLessThan(8);
+});
+
 test("advanced search still filters the mailbox by Has the words", async ({
   page,
 }) => {
