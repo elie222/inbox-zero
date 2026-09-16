@@ -110,7 +110,7 @@ export function EmailMessage({
   const visibleDrafts = serverDrafts.filter(
     (draft) => !dismissedDraftIds.has(draft.id),
   );
-  const showBlankComposer = Boolean(composeMode);
+  const hasOpenComposer = Boolean(composeMode) || visibleDrafts.length > 0;
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
@@ -189,7 +189,7 @@ export function EmailMessage({
     <li
       data-thread-message-id={message.id}
       data-selected={selected}
-      tabIndex={selected !== undefined || composeMode ? -1 : undefined}
+      tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
@@ -197,7 +197,7 @@ export function EmailMessage({
       onKeyDownCapture={(event) => {
         // Handle draft Escape before the rich-text editor consumes it.
         if (
-          composeMode &&
+          hasOpenComposer &&
           event.key === "Escape" &&
           !event.defaultPrevented &&
           isTypingTarget(event.target) &&
@@ -266,9 +266,7 @@ export function EmailMessage({
           {visibleDrafts.map((draft, index) => (
             <ReplyPanel
               key={draft.id}
-              autoScroll={
-                !showBlankComposer && index === visibleDrafts.length - 1
-              }
+              autoScroll={!composeMode && index === visibleDrafts.length - 1}
               draftMessage={draft}
               message={message}
               onCloseCompose={() => setDraftDismissed(draft.id, true)}
@@ -287,7 +285,7 @@ export function EmailMessage({
               composeMode="reply"
             />
           ))}
-          {showBlankComposer && composeMode && (
+          {composeMode && (
             <ReplyPanel
               key={composerKey}
               autoScroll

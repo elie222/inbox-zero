@@ -65,6 +65,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   }) => (
     <div
       data-testid="composer"
+      data-inline-reply="true"
       data-thread-id={replyingToEmail?.threadId}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
       data-forwarded-attachments={replyingToEmail?.forwardedAttachments
@@ -72,6 +73,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
         .join(",")}
     >
       <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
+      <textarea aria-label="Email message" />
       <button onClick={onDiscard} type="button">
         Discard draft
       </button>
@@ -84,6 +86,28 @@ describe("EmailMessage draft recovery", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("returns focus to the message when Escape is pressed in a provider draft", () => {
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "Email message" });
+    editor.focus();
+    expect(document.activeElement).toBe(editor);
+
+    fireEvent.keyDown(editor, { key: "Escape" });
+
+    expect(document.activeElement).toBe(screen.getByRole("listitem"));
+    expect(screen.getByTestId("composer")).toBeTruthy();
   });
 
   it("keeps a newer compose mode open when an earlier discard fails", async () => {
