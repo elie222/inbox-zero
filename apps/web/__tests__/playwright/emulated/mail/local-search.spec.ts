@@ -189,6 +189,7 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
 });
 
 test("ignores delayed responses after the search changes", async ({ page }) => {
+  await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
   const { emailAccountId, conversations } = await openMail(page);
   // This is the one cache-seeding test that leaves background sync enabled, so
   // it has to let the reset page land before seeding rather than race it.
