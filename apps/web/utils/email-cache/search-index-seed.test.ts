@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
 import type { ParsedMessage } from "@/utils/types";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearEmailCache,
   clearEmailCacheForAccount,
   getEmailCacheDatabase,
 } from "./database";
-import { activateMailSync } from "./mail-activation";
+import { activateMailSync, clearMailActivation } from "./mail-activation";
 import {
   initializeSearchIndexAccount,
   seedSearchIndexWork,
@@ -25,12 +25,62 @@ describe("resumable local index seeding", () => {
     await clearEmailCache();
   });
 
+  afterEach(() => vi.restoreAllMocks());
+
   it("does not create an index for assistant-only accounts", async () => {
     expect(await initializeSearchIndexAccount("account-1")).toBeUndefined();
     expect(await seedSearchIndexWork("account-1")).toBeUndefined();
     expect(
       await (await getEmailCacheDatabase())!.count("searchIndexAccounts"),
     ).toBe(0);
+  });
+
+  it("reads an initialized account without locking the source stores for writes", async () => {
+    activateMailSync("account-1");
+    const account = await initializeSearchIndexAccount("account-1");
+    const database = await getTestDatabase();
+    const transaction = vi.spyOn(database, "transaction");
+    expect(await initializeSearchIndexAccount("account-1")).toEqual(account);
+    expect(
+      transaction.mock.calls.every(([, mode]) => mode !== "readwrite"),
+    ).toBe(true);
+  });
+
+  it("atomically replaces an obsolete source version when initializers overlap", async () => {
+    activateMailSync("account-1");
+    const database = await getTestDatabase();
+    await database.put("searchIndexAccounts", {
+      emailAccountId: "account-1",
+      generation: "obsolete-generation",
+      sourceVersion: 1,
+    });
+    const accounts = await Promise.all([
+      initializeSearchIndexAccount("account-1"),
+      initializeSearchIndexAccount("account-1"),
+    ]);
+    expect(accounts[0]).toEqual(accounts[1]);
+    expect(accounts[0]?.sourceVersion).toBe(2);
+    expect(accounts[0]?.generation).not.toBe("obsolete-generation");
+  });
+
+  it.each([
+    "activation",
+    "cleanup",
+  ] as const)("rejects an account revoked during its read by %s", async (revocation) => {
+    activateMailSync("account-1");
+    await initializeSearchIndexAccount("account-1");
+    const database = await getTestDatabase();
+    const get = database.get.bind(database);
+    vi.spyOn(database, "get").mockImplementationOnce(async (...args) => {
+      const account = await get(...args);
+      if (revocation === "activation") clearMailActivation("account-1");
+      else {
+        await clearEmailCacheForAccount("account-1");
+        activateMailSync("account-1");
+      }
+      return account;
+    });
+    expect(await initializeSearchIndexAccount("account-1")).toBeUndefined();
   });
 
   it("resumes bounded seeding and catches new rows behind its cursor", async () => {
@@ -130,4 +180,10 @@ function getMessage(threadId: string): ParsedMessage {
     subject: "Example",
     snippet: "Example",
   };
+}
+
+async function getTestDatabase() {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Email cache unavailable in test");
+  return database;
 }

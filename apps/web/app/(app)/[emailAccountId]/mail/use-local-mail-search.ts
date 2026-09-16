@@ -9,9 +9,10 @@ import {
   isEmailCacheEpochCurrent,
 } from "@/utils/email-cache/database";
 import { subscribeToEmailCacheChanges } from "@/utils/email-cache/cache-events";
-import type {
-  LocalSearchRequest,
-  LocalSearchResult,
+import {
+  getSearchMessageTimestamp,
+  type LocalSearchRequest,
+  type LocalSearchResult,
 } from "@/utils/email-cache/search";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
 import type { ListThread } from "./types";
@@ -124,10 +125,8 @@ export function useLocalMailSearch({
       return;
     }
     let active = true;
-    const onMessage = (
-      event: MessageEvent<{ id: number; result: LocalSearchResult }>,
-    ) => {
-      if (!active || event.data.id !== id) return;
+    const acceptResult = (responseId: number, result: LocalSearchResult) => {
+      if (!active || responseId !== id) return;
       clearTimeout(timeout);
       if (
         !accountIds.every((accountId, index) =>
@@ -137,8 +136,11 @@ export function useLocalMailSearch({
         unavailable();
         return;
       }
-      setSnapshot({ request, result: event.data.result });
+      setSnapshot({ request, result });
     };
+    const onMessage = (
+      event: MessageEvent<{ id: number; result: LocalSearchResult }>,
+    ) => acceptResult(event.data.id, event.data.result);
     const timeout = setTimeout(unavailable, 5000);
     worker?.addEventListener("message", onMessage);
     worker?.addEventListener("error", unavailable);
@@ -150,11 +152,7 @@ export function useLocalMailSearch({
     searchPersistentMail(request)
       .then((result) => {
         if (!active) return;
-        if (result)
-          onMessage({ data: { id, result } } as MessageEvent<{
-            id: number;
-            result: LocalSearchResult;
-          }>);
+        if (result) acceptResult(id, result);
         else fallback();
       })
       .catch(fallback);
@@ -206,7 +204,8 @@ export function useLocalMailSearch({
             ...page,
             threads: [...merged.values()].sort(
               (a, b) =>
-                lastMessageTime(b.thread) - lastMessageTime(a.thread) ||
+                getSearchMessageTimestamp(b.thread.messages.at(-1)) -
+                  getSearchMessageTimestamp(a.thread.messages.at(-1)) ||
                 a.emailAccountId.localeCompare(b.emailAccountId) ||
                 a.thread.id.localeCompare(b.thread.id),
             ),
@@ -243,12 +242,4 @@ export function useLocalMailSearch({
     isLoadingMore: loadingMoreFor === request,
     online,
   };
-}
-
-function lastMessageTime(
-  thread: LocalSearchResult["threads"][number]["thread"],
-) {
-  const message = thread.messages.at(-1);
-  const value = message?.internalDate || message?.date || "";
-  return (/^\d+$/u.test(value) ? Number(value) : Date.parse(value)) || 0;
 }

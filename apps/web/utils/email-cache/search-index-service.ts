@@ -22,6 +22,7 @@ const retained = new Map<
     rerun: boolean;
     warmed?: string;
     nextAttemptAt?: number;
+    lastProgressAt?: number;
     dispose: () => void;
     timer?: ReturnType<typeof setTimeout>;
   }
@@ -111,7 +112,7 @@ function schedule(emailAccountId: string, delay = 200) {
       if (account.seed) {
         const seeded = await seedSearchIndexWork(emailAccountId);
         again = !!seeded && !seeded.complete;
-        notifyEmailCacheChange(emailAccountId);
+        notifyProgress(emailAccountId);
       }
       if (!again) {
         if (state.warmed !== account.generation) {
@@ -136,7 +137,7 @@ function schedule(emailAccountId: string, delay = 200) {
             again = true;
           } else if (drained.status === "ready") {
             state.nextAttemptAt = undefined;
-            notifyEmailCacheChange(emailAccountId);
+            notifyProgress(emailAccountId, !drained.hasMore);
           }
         }
       }
@@ -145,7 +146,21 @@ function schedule(emailAccountId: string, delay = 200) {
     } finally {
       state.running = false;
       if ((again || state.rerun) && retained.get(emailAccountId) === state)
-        schedule(emailAccountId, 200);
+        schedule(emailAccountId, 0);
     }
   }, waitMs);
+}
+
+function notifyProgress(emailAccountId: string, complete = false) {
+  const state = retained.get(emailAccountId);
+  if (!state) return;
+  const now = Date.now();
+  if (
+    !complete &&
+    state.lastProgressAt !== undefined &&
+    now - state.lastProgressAt < 250
+  )
+    return;
+  state.lastProgressAt = now;
+  notifyEmailCacheChange(emailAccountId);
 }
