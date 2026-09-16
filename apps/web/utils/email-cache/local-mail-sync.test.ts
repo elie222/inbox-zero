@@ -26,9 +26,11 @@ const emailAccountId = "account-1";
 const now = Date.UTC(2026, 8, 1);
 const day = 86_400_000;
 const retentionAfter = now - 60 * day;
+const syncLocks = new Map<string, symbol>();
 let clock: number;
 let call: ReturnType<typeof vi.fn>;
 beforeEach(async () => {
+  syncLocks.clear();
   await clearEmailCache();
   vi.mocked(isMailSyncActivated).mockReturnValue(true);
   clock = now;
@@ -424,6 +426,58 @@ describe("local mail ownership and storage", () => {
     expect((await run()).status).toBe("inactive");
     expect(call).not.toHaveBeenCalled();
   });
+  it("does not start without browser ownership coordination", async () => {
+    vi.stubGlobal("navigator", {});
+    try {
+      expect(await run({ withSyncLock: undefined })).toEqual({
+        status: "unavailable",
+      });
+      expect(call).not.toHaveBeenCalled();
+      expect(await readLocalMailSyncState(emailAccountId)).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("does not call the provider while another document owns the account lock", async () => {
+    syncLocks.set(emailAccountId, Symbol("sync-owner"));
+    expect((await run()).status).toBe("waiting");
+    expect(call).not.toHaveBeenCalled();
+    expect(await readLocalMailSyncState(emailAccountId)).toBeUndefined();
+  });
+  it.each([
+    "account",
+    "job",
+  ] as const)("preserves durable %s cooldowns when reclaiming an abandoned lease", async (cooldown) => {
+    await tick(capabilities());
+    const database = (await getEmailCacheDatabase())!;
+    const state = (await readLocalMailSyncState(emailAccountId))!;
+    await database.put("localMailSyncStates", {
+      ...state,
+      leaseOwner: "abandoned",
+      leaseExpiresAt: clock + 180_000,
+      nextAttemptAt: cooldown === "account" ? clock + 10_000 : clock,
+    });
+    if (cooldown === "job") {
+      for (const job of await database.getAll("localMailSyncJobs"))
+        await database.put("localMailSyncJobs", {
+          ...job,
+          nextAttemptAt: clock + 10_000,
+        });
+    }
+    call.mockClear();
+    expect(await run()).toMatchObject({
+      status: "waiting",
+      retryAt: clock + 10_000,
+    });
+    expect(call).not.toHaveBeenCalled();
+    clock += 10_001;
+    await tick({
+      status: "ok",
+      phase: "history-baseline",
+      result: { cursor: "baseline" },
+    });
+    expect(call).toHaveBeenCalledTimes(1);
+  });
   it("fences concurrent tabs and ignores the former owner's late response", async () => {
     let resolve: (response: LocalMailSyncResponse) => void = () => undefined;
     call.mockImplementationOnce(
@@ -435,7 +489,7 @@ describe("local mail ownership and storage", () => {
     const first = run();
     await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(1));
     expect((await run()).status).toBe("waiting");
-    clock += 180_001;
+    syncLocks.clear();
     await tick(capabilities());
     resolve(capabilities());
     expect((await first).status).toBe("stale");
@@ -525,6 +579,7 @@ describe("local mail ownership and storage", () => {
       call,
       admitBackfill: async () => true,
       admitResponse: async () => ({ allowed: true, maxCanonicalBytes: 2001 }),
+      withSyncLock,
       withStorageLock: async (commit) => commit(),
     });
     expect(result.status).toBe("storage-paused");
@@ -567,6 +622,7 @@ describe("local mail ownership and storage", () => {
       call,
       admitBackfill: async () => false,
       admitResponse: async () => ({ allowed: true, maxCanonicalBytes: 1 }),
+      withSyncLock,
       withStorageLock: async (commit) => commit(),
     });
     expect(await stored("deleted")).toBeUndefined();
@@ -606,6 +662,7 @@ describe("local mail ownership and storage", () => {
         expect(locked).toBe(true);
         return { allowed: true, maxCanonicalBytes: Number.MAX_SAFE_INTEGER };
       },
+      withSyncLock,
       withStorageLock: async (commit) => {
         locked = true;
         try {
@@ -631,6 +688,7 @@ describe("local mail ownership and storage", () => {
         allowed: true,
         maxCanonicalBytes: Number.MAX_SAFE_INTEGER,
       }),
+      withSyncLock,
       withStorageLock: async () => {
         throw new Error("busy");
       },
@@ -667,6 +725,7 @@ describe("local mail ownership and storage", () => {
       now: clock,
       call,
       admitBackfill: async () => true,
+      withSyncLock,
       withStorageLock: async (commit) => commit(),
       admitResponse: async () => ({ allowed: false, maxCanonicalBytes: 0 }),
     });
@@ -745,6 +804,7 @@ function run(
     now: clock,
     call,
     admitBackfill: async () => true,
+    withSyncLock,
     withStorageLock: async (commit) => commit(),
     admitResponse: async () => ({
       allowed: true,
@@ -782,4 +842,19 @@ async function seed(id: string, receivedAt: number, fetchedAt: number) {
     fetchedAt,
   );
   await transaction.done;
+}
+
+async function withSyncLock<T>(
+  emailAccountId: string,
+  run: () => Promise<T>,
+): Promise<T | undefined> {
+  if (syncLocks.has(emailAccountId)) return;
+  const token = Symbol("sync-owner");
+  syncLocks.set(emailAccountId, token);
+  try {
+    return await run();
+  } finally {
+    if (syncLocks.get(emailAccountId) === token)
+      syncLocks.delete(emailAccountId);
+  }
 }

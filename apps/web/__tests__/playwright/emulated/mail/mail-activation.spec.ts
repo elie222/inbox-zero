@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -148,6 +148,60 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
     await capturePlaywrightCheckpoint(page, testInfo, "unified-mail-activated");
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
+test("resumes a download interrupted by reload without waiting for its durable lease", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  let interrupted: Route | undefined;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (!interrupted && request.headers()["next-action"]) {
+      try {
+        const payload = request.postDataJSON();
+        if (
+          Array.isArray(payload) &&
+          payload[0] === emailAccountId &&
+          payload[1]?.phase === "capabilities"
+        ) {
+          interrupted = route;
+          return;
+        }
+      } catch {
+        // Unrelated actions can submit multipart bodies.
+      }
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(`/${emailAccountId}/mail`);
+    await expect(
+      page.getByRole("combobox", { name: "Search mail" }),
+    ).toBeVisible();
+    await expect.poll(() => !!interrupted).toBe(true);
+    const claimed = await readSyncCheckpoint(page, emailAccountId);
+    expect(claimed?.leased).toBe(true);
+    expect(claimed?.leaseRemainingMs).toBeGreaterThan(120_000);
+    await page.reload();
+    await expect(
+      page.getByRole("combobox", { name: "Search mail" }),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () => (await readSyncCheckpoint(page, emailAccountId))?.fence,
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(claimed?.fence ?? 0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "interrupted-download-resumed",
+    );
+  } finally {
+    await interrupted?.abort().catch(() => undefined);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   }
 });
 

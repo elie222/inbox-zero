@@ -478,6 +478,7 @@ async function tick(
     now: clock,
     call,
     admitBackfill: async () => true,
+    withSyncLock: async (_account, run) => run(),
     withStorageLock: async (commit) => commit(),
     admitResponse: async () => ({
       allowed: true,
