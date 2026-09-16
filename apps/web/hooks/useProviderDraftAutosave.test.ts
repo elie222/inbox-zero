@@ -173,3 +173,75 @@ it("does not write an opened draft until an edit or local recovery is captured",
   expect(save).toHaveBeenCalledWith("draft");
   unmount();
 });
+
+it("syncs a closed composer when the connection returns", async () => {
+  vi.useFakeTimers();
+  const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  const save = vi.fn().mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "offline-compose",
+      getContent: () => "offline edit",
+      save,
+    }),
+  );
+  act(() => result.current.capture());
+  unmount();
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).not.toHaveBeenCalled();
+  online.mockReturnValue(true);
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(save).toHaveBeenCalledExactlyOnceWith("offline edit");
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).toHaveBeenCalledOnce();
+});
+
+it("a reopened composer takes over retries and waits for the previous save before sending", async () => {
+  vi.useFakeTimers();
+  let finish!: () => void;
+  const save = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValue(undefined);
+  const first = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "reopened-compose",
+      getContent: () => "first",
+      save,
+    }),
+  );
+  act(() => first.result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  first.unmount();
+  const second = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      sessionKey: "reopened-compose",
+      getContent: () => "second",
+      save,
+    }),
+  );
+  act(() => second.result.current.capture());
+  let stopped = false;
+  const stop = second.result.current.stop().then(() => {
+    stopped = true;
+  });
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(stopped).toBe(false);
+  await act(async () => {
+    finish();
+    await stop;
+  });
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).toHaveBeenCalledOnce();
+  second.unmount();
+});

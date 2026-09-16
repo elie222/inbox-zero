@@ -1,3 +1,4 @@
+import { sendComposeDraft } from "@/utils/email/compose-draft";
 import "server-only";
 import { createHmac, randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
@@ -166,7 +167,14 @@ export async function sendHtmlEmailWithOpenTracking({
     email,
     logger,
   });
-  const result = await emailProvider.sendEmailWithHtml(prepared.email);
+  const result = email.composeSessionId
+    ? await sendComposeDraft({
+        emailAccountId,
+        sessionId: email.composeSessionId,
+        provider: emailProvider,
+        email: prepared.email,
+      })
+    : await emailProvider.sendEmailWithHtml(prepared.email);
   await associateSentMessageOpen({
     token: prepared.token,
     messageId: result.messageId,
