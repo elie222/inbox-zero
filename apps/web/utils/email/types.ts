@@ -1,3 +1,5 @@
+import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
+import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
@@ -305,6 +307,7 @@ export interface EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
+  readonly localMailSyncStrategy: "account-history" | "folder-delta";
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
   markMessagesStarredState(
     messageIds: string[],
@@ -367,6 +370,10 @@ export interface EmailProvider {
     threadId: string;
   }>;
   starMessage(messageId: string): Promise<void>;
+  syncLocalMail(
+    request: LocalMailSyncRequest,
+    context: { emailAccountId: string },
+  ): Promise<LocalMailSyncResponse>;
   toJSON(): { name: string; type: string };
   trashMessages(messageIds: string[]): Promise<void>;
   trashThread(
