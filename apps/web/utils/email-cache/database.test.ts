@@ -8,6 +8,7 @@ describe("email cache upgrade", () => {
     const previous = await openDB("inbox-zero-email-cache", 8, {
       upgrade(database) {
         database.createObjectStore("threadDetails");
+        database.createObjectStore("threadRows");
         database.createObjectStore("replyDrafts");
         database.createObjectStore("mailMutations");
       },
@@ -21,6 +22,11 @@ describe("email cache upgrade", () => {
     expect(await database?.count("threadDetails")).toBe(0);
     expect(await database?.count("replyDrafts")).toBe(1);
     expect(await database?.count("mailMutations")).toBe(1);
+    expect(
+      database
+        ?.transaction("threadDetails")
+        .store.indexNames.contains("byAccountLastAccessed"),
+    ).toBe(true);
     database?.close();
   });
 });

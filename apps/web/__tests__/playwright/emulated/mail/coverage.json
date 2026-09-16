@@ -46,6 +46,11 @@
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts",
     "utils/email-cache/threads.ts"
   ],
+  "local-search.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-local-mail-search.ts",
+    "app/(app)/[emailAccountId]/mail/local-search-results.ts",
+    "utils/email-cache/search.worker.ts"
+  ],
   "mail-queue.spec.ts": [
     "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
     "app/(app)/[emailAccountId]/debug/page.tsx"

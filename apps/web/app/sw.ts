@@ -78,6 +78,21 @@ self.addEventListener("message", (event) => {
 
 const serwist = new Serwist({
   precacheEntries: manifest,
+  precacheOptions: {
+    plugins: [
+      {
+        handlerWillRespond({ request, response }) {
+          if (request.destination !== "worker") return response;
+          // Cached response URLs omit the fragment carrying Turbopack's worker bootstrap config.
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+        },
+      },
+    ],
+  },
   // Queue the latest worker instead of taking over the open document. Rapid
   // deploys replace the waiting worker, so one reload activates the newest.
   skipWaiting: false,

@@ -61,6 +61,7 @@ const featureGroups = [
       "mail/navigation-and-views.spec.ts",
       "mail/split-tabs.spec.ts",
       "mail/search.spec.ts",
+      "mail/local-search.spec.ts",
     ],
   },
   {

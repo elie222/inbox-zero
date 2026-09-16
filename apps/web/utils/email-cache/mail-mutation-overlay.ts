@@ -1,4 +1,3 @@
-import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
 import type { MailMutation } from "./mail-mutations";
 
@@ -135,27 +134,27 @@ export function applyMailMutationToMessage<T extends LabeledMessage>(
     case "archive":
       return updateMessageLabels(message, {
         add: mutation.labelId ? [mutation.labelId] : [],
-        remove: [GmailLabel.INBOX],
+        remove: ["INBOX"],
       });
     case "snooze":
-      return updateMessageLabels(message, { remove: [GmailLabel.INBOX] });
+      return updateMessageLabels(message, { remove: ["INBOX"] });
     case "unarchive":
     case "cancel_snooze":
-      return updateMessageLabels(message, { add: [GmailLabel.INBOX] });
+      return updateMessageLabels(message, { add: ["INBOX"] });
     case "spam":
       return updateMessageLabels(message, {
-        add: [GmailLabel.SPAM],
-        remove: [GmailLabel.INBOX],
+        add: ["SPAM"],
+        remove: ["INBOX"],
       });
     case "trash":
       return updateMessageLabels(message, {
-        add: [GmailLabel.TRASH],
-        remove: [GmailLabel.INBOX],
+        add: ["TRASH"],
+        remove: ["INBOX"],
       });
     case "untrash":
       return updateMessageLabels(message, {
-        add: [GmailLabel.INBOX],
-        remove: [GmailLabel.TRASH],
+        add: ["INBOX"],
+        remove: ["TRASH"],
       });
     case "reply":
       return message;
@@ -168,7 +167,7 @@ export function updateMessageReadState<T extends LabeledMessage>(
 ) {
   return updateMessageLabels(
     message,
-    read ? { remove: [GmailLabel.UNREAD] } : { add: [GmailLabel.UNREAD] },
+    read ? { remove: ["UNREAD"] } : { add: ["UNREAD"] },
   );
 }
 
@@ -178,7 +177,7 @@ export function updateMessageStarredState<T extends LabeledMessage>(
 ) {
   return updateMessageLabels(
     message,
-    starred ? { add: [GmailLabel.STARRED] } : { remove: [GmailLabel.STARRED] },
+    starred ? { add: ["STARRED"] } : { remove: ["STARRED"] },
   );
 }
 

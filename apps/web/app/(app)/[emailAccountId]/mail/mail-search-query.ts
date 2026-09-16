@@ -1,3 +1,5 @@
+import { tokenizeSearchQuery } from "@/utils/mail/tokenize-search-query";
+
 export const DATE_WITHIN_OPTIONS = [
   { value: "1d", name: "1 day", days: 1 },
   { value: "3d", name: "3 days", days: 3 },
@@ -335,29 +337,6 @@ function parseSearchToken(token: string): {
     operator: raw.slice(0, colon).toLowerCase(),
     value: unquoteSearchValue(raw.slice(colon + 1)),
   };
-}
-
-function tokenizeSearchQuery(query: string): string[] {
-  const tokens: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (const char of query.trim()) {
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      current += char;
-      continue;
-    }
-    if (!inQuotes && /\s/.test(char)) {
-      if (current) tokens.push(current);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-
-  if (current) tokens.push(current);
-  return tokens;
 }
 
 function splitSearchTerms(value: string): string[] {

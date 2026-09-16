@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { clearEmailCache } from "./database";
+import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import {
   readCachedThreadList,
   writeCachedThreadList,
@@ -12,6 +12,27 @@ type TestThread = { id: string; subject: string };
 describe("cached thread lists", () => {
   beforeEach(async () => {
     await clearEmailCache();
+  });
+
+  it("persists fresh account rows without letting an older response overwrite them", async () => {
+    const now = Date.now();
+    await writeCachedThreadRows({
+      emailAccountId: "account-1",
+      threads: [{ id: "thread-1", subject: "Fresh" }],
+      fetchedAt: now,
+    });
+    await writeCachedThreadRows({
+      emailAccountId: "account-1",
+      threads: [{ id: "thread-1", subject: "Stale" }],
+      fetchedAt: now - 1,
+    });
+    const database = await getEmailCacheDatabase();
+    expect(
+      await database?.get("threadRows", ["account-1", "thread-1"]),
+    ).toMatchObject({ fetchedAt: now, data: { subject: "Fresh" } });
+    expect(
+      await database?.get("threadRows", ["account-2", "thread-1"]),
+    ).toBeUndefined();
   });
 
   it("normalizes rows shared by several views", async () => {

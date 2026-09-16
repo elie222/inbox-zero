@@ -1,5 +1,9 @@
 "use client";
 
+import { mergePartialSearchResults } from "./local-search-results";
+import { useLocalMailSearch } from "./use-local-mail-search";
+import type { ListThread } from "./types";
+
 import { MailPanelErrorBoundary } from "@/app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary";
 
 import { MessageActionsMenu } from "@/app/(app)/[emailAccountId]/mail/MessageActionsMenu";
@@ -315,9 +319,37 @@ export function MailShell() {
   }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = !isAllAccounts && scopeQuery !== null;
 
-  const searchQuery = searchParam?.trim() || null;
+  const searchEditIdentity = JSON.stringify([
+    emailAccountId,
+    isAllAccounts,
+    searchParam,
+    scopeType,
+    scopeLabelId,
+    scopeFolderId,
+  ]);
+  const [searchDraft, setSearchDraft] = useState<{
+    identity: string;
+    value: string;
+  }>();
+  if (searchDraft && searchDraft.identity !== searchEditIdentity)
+    setSearchDraft(undefined);
+  const searchValue =
+    (searchDraft?.identity === searchEditIdentity
+      ? searchDraft.value
+      : searchParam) ?? "";
+  const searchQuery = searchValue.trim() || null;
+  const [settledSearch, setSettledSearch] = useState(searchQuery);
+  useEffect(() => {
+    const timeout = setTimeout(() => setSettledSearch(searchQuery), 250);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+  const searchSettled = !searchQuery || searchQuery === settledSearch;
   const setSearch = useCallback(
-    (value: string) => setSearchParam(value.trim() || null),
+    (value: string) => {
+      setSearchDraft(undefined);
+      setSettledSearch(value.trim() || null);
+      return setSearchParam(value.trim() || null);
+    },
     [setSearchParam],
   );
 
@@ -377,12 +409,12 @@ export function MailShell() {
   const accountThreadState = useMailThreads({
     emailAccountId,
     query,
-    enabled: !isAllAccounts,
+    enabled: !isAllAccounts && searchSettled,
   });
   const combinedThreadState = useCombinedMailThreads({
     accounts: combinedAccounts,
     emailAccountId,
-    enabled: isAllAccounts,
+    enabled: isAllAccounts && searchSettled,
     isUnread:
       !searchQuery &&
       !!activeSplit?.filters.length &&
@@ -394,7 +426,7 @@ export function MailShell() {
   });
   const { labelsByAccount } = combinedThreadState;
   const {
-    threads,
+    threads: remoteThreads,
     isLoading,
     error,
     hasMore,
@@ -403,7 +435,113 @@ export function MailShell() {
     refetch: refetchThreadList,
   } = isAllAccounts ? combinedThreadState : accountThreadState;
 
+  const searchAccounts = useMemo(
+    () =>
+      isAllAccounts
+        ? combinedAccounts
+        : [
+            {
+              id: emailAccountId,
+              email: userEmail,
+              name: emailAccount?.name ?? null,
+              image: emailAccount?.image ?? null,
+            },
+          ],
+    [
+      isAllAccounts,
+      combinedAccounts,
+      emailAccountId,
+      userEmail,
+      emailAccount?.name,
+      emailAccount?.image,
+    ],
+  );
+  const searchLabelsByAccount = useMemo(
+    () => (isAllAccounts ? labelsByAccount : { [emailAccountId]: userLabels }),
+    [isAllAccounts, labelsByAccount, emailAccountId, userLabels],
+  );
+  const providerState = isAllAccounts
+    ? combinedThreadState
+    : accountThreadState;
+  const hasProviderResponse = searchSettled && providerState.hasRemoteResponse;
+  const hasPartialProviderResponse =
+    isAllAccounts && combinedThreadState.failedAccountIds.length > 0;
+  const localSearch = useLocalMailSearch({
+    query: searchQuery,
+    accounts: searchAccounts,
+    labelsByAccount: searchLabelsByAccount,
+    combined: isAllAccounts,
+    enabled:
+      !!searchQuery && (!hasProviderResponse || hasPartialProviderResponse),
+  });
+  const showLocalSearch =
+    !!searchQuery &&
+    (!hasProviderResponse || hasPartialProviderResponse) &&
+    localSearch.status === "ready";
+  const threads = useMemo(() => {
+    if (showLocalSearch) {
+      if (!hasProviderResponse) return localSearch.threads;
+      return mergePartialSearchResults(
+        remoteThreads,
+        localSearch.threads,
+        combinedThreadState.failedAccountIds,
+      );
+    }
+    return searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
+  }, [
+    showLocalSearch,
+    hasProviderResponse,
+    localSearch.threads,
+    remoteThreads,
+    combinedThreadState.failedAccountIds,
+    searchSettled,
+  ]);
+  const searchViewIdentity = JSON.stringify([
+    emailAccountId,
+    isAllAccounts,
+    searchQuery,
+  ]);
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
+  const previousSearchFocus = useRef<
+    { view: string; key?: string; index: number } | undefined
+  >(undefined);
+  useLayoutEffect(() => {
+    const previous = previousSearchFocus.current;
+    let nextIndex = focusedIndex;
+    if (
+      searchQuery &&
+      previous?.view === searchViewIdentity &&
+      previous.index === focusedIndex &&
+      previous.key
+    ) {
+      const retainedIndex = orderedIds.indexOf(previous.key);
+      if (retainedIndex >= 0) nextIndex = retainedIndex;
+    }
+    previousSearchFocus.current = {
+      view: searchViewIdentity,
+      key: orderedIds[nextIndex],
+      index: nextIndex,
+    };
+    if (nextIndex !== focusedIndex) setFocusedIndex(nextIndex);
+  }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
+  let emptySearchMessage: string | undefined;
+  if (showLocalSearch) {
+    emptySearchMessage =
+      "No matches in cached mail. Older mail and uncached bodies may still match.";
+  } else if (searchQuery && !localSearch.online && !hasProviderResponse) {
+    emptySearchMessage =
+      "Connect to search this query with your email provider.";
+  } else if (searchQuery && providerState.searchError && !hasProviderResponse) {
+    emptySearchMessage = "Search could not complete. Try again when connected.";
+  }
+  const searchStatus = getSearchStatus({
+    query: searchQuery,
+    hasProviderResponse,
+    online: localSearch.online,
+    error: providerState.searchError,
+    localStatus: localSearch.status,
+  });
+
   const selection = useThreadSelection(orderedIds);
 
   const clampIndex = useCallback(
@@ -991,6 +1129,7 @@ export function MailShell() {
   }, []);
 
   const selectAllAccounts = useCallback(() => {
+    setSearchDraft(undefined);
     selection.clear();
     setFocusedIndex(0);
     setOpenThread(null);
@@ -1521,8 +1660,12 @@ export function MailShell() {
           >
             <ListToolbar
               layout={layout}
-              searchQuery={searchQuery ?? ""}
+              searchQuery={searchParam ?? ""}
               onSearch={setSearch}
+              searchValue={searchValue}
+              onSearchChange={(value) =>
+                setSearchDraft({ identity: searchEditIdentity, value })
+              }
               searchInputRef={searchInputRef}
               searchLabels={isAllAccounts ? [] : visibleLabels}
               onToggleLayout={toggleLayout}
@@ -1573,6 +1716,14 @@ export function MailShell() {
                 their connections.
               </div>
             ) : null}
+            {searchStatus ? (
+              <div
+                role="status"
+                className="border-b border-border px-3 py-2 text-muted-foreground text-xs"
+              >
+                {searchStatus}
+              </div>
+            ) : null}
             <MailPanelErrorBoundary
               resetKey={JSON.stringify([
                 emailAccountId,
@@ -1584,11 +1735,18 @@ export function MailShell() {
               title="Unable to show your mail list"
             >
               <LoadingContent
-                loading={isLoading && !threads.length}
-                error={error}
+                loading={
+                  !showLocalSearch &&
+                  (isLoading || (!!searchQuery && !searchSettled)) &&
+                  !threads.length &&
+                  (!searchQuery ||
+                    (localSearch.online && !providerState.searchError))
+                }
+                error={searchQuery ? undefined : error}
               >
                 <ThreadList
                   threads={threads}
+                  emptyMessage={emptySearchMessage}
                   layout={layout}
                   expandedPreview={expandedPreview}
                   userEmail={userEmail}
@@ -1600,7 +1758,9 @@ export function MailShell() {
                   onOpenThread={openAt}
                   onToggleSelect={selection.toggle}
                   onSelectRangeTo={selection.selectRangeTo}
-                  showLoadMore={hasMore}
+                  showLoadMore={
+                    hasMore && (!showLocalSearch || hasProviderResponse)
+                  }
                   isLoadingMore={isLoadingMore}
                   onLoadMore={loadMore}
                   showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
@@ -1826,4 +1986,39 @@ function getMailNavPath(target: MailNavTarget): `/${string}` {
     case "type":
       return `/mail?type=${encodeURIComponent(target.type)}`;
   }
+}
+
+const EMPTY_SEARCH_THREADS: ListThread[] = [];
+
+function getSearchStatus({
+  query,
+  hasProviderResponse,
+  online,
+  error,
+  localStatus,
+}: {
+  query: string | null;
+  hasProviderResponse: boolean;
+  online: boolean;
+  error: unknown;
+  localStatus?: string;
+}) {
+  if (!query || hasProviderResponse) return;
+  if (!online) {
+    if (localStatus === "unsupported")
+      return "Offline — this search needs your email provider.";
+    if (localStatus === "unavailable")
+      return "Offline — local search is unavailable.";
+    return "Offline — searching cached mail only. Results may be incomplete.";
+  }
+  if (error) {
+    if (localStatus !== "ready")
+      return "Full mailbox search is unavailable. Try again when connected.";
+    return "Full mailbox search is unavailable. Showing cached results only.";
+  }
+  if (localStatus === "unsupported")
+    return "This search needs your email provider. Searching your mailbox…";
+  if (localStatus === "unavailable")
+    return "Local search is unavailable. Searching your mailbox…";
+  return "Searching your full mailbox… Cached results may be incomplete.";
 }

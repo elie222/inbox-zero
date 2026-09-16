@@ -47,6 +47,8 @@ export type ListToolbarProps = {
   /** Committed search query. */
   searchQuery: string;
   onSearch: (query: string) => void;
+  searchValue: string;
+  onSearchChange: (query: string) => void;
   /** Lets `/` focus the mail search field from the shortcut handler. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
   /** User labels offered in the Gmail-style Search dropdown. */
@@ -73,6 +75,8 @@ export function ListToolbar({
   expandedPreview,
   searchQuery = "",
   onSearch,
+  onSearchChange,
+  searchValue,
   searchInputRef,
   searchLabels,
   onToggleLayout,
@@ -207,12 +211,12 @@ export function ListToolbar({
         </>
       ) : (
         <MailSearchInput
-          // Remount when the committed query changes elsewhere (sidebar
-          // navigation, clearing) so the draft tracks it without mirroring
-          // the value into state.
+          // Reset the advanced-search form when the committed query changes.
           key={searchQuery}
           searchQuery={searchQuery}
           onSearch={onSearch}
+          onSearchChange={onSearchChange}
+          searchValue={searchValue}
           inputRef={searchInputRef}
           searchLabels={searchLabels}
         />
@@ -275,11 +279,15 @@ export function ListToolbar({
 function MailSearchInput({
   searchQuery,
   onSearch,
+  onSearchChange,
+  searchValue,
   inputRef: inputRefProp,
   searchLabels = [],
 }: {
   searchQuery: string;
   onSearch: (query: string) => void;
+  searchValue: string;
+  onSearchChange: (query: string) => void;
   inputRef?: RefObject<HTMLInputElement | null>;
   searchLabels?: { name: string }[];
 }) {
@@ -289,7 +297,7 @@ function MailSearchInput({
   const suggestionListId = useId();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterDraft, setFilterDraft] = useState(searchQuery);
-  const [draft, setDraft] = useState(searchQuery);
+  const draft = searchValue;
   const [focused, setFocused] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -354,7 +362,7 @@ function MailSearchInput({
               // to be stated for the field to match the rest of the toolbar.
               className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
               onChange={(event) => {
-                setDraft(event.target.value);
+                onSearchChange(event.target.value);
                 setActiveIndex(-1);
                 setSuggestionsDismissed(false);
               }}
@@ -395,14 +403,14 @@ function MailSearchInput({
                   return;
                 }
                 if (draft || searchQuery) {
-                  setDraft("");
+                  onSearchChange("");
                   onSearch("");
                 } else {
                   inputRef.current?.blur();
                 }
               }}
             />
-            {searchQuery ? (
+            {draft || searchQuery ? (
               <button
                 type="button"
                 aria-label="Clear search"

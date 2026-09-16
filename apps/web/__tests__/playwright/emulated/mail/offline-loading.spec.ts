@@ -1,10 +1,80 @@
 import { build } from "esbuild";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+
+test("preserves bootstrap fragments for precached workers online and offline", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    process.env.PLAYWRIGHT_PRODUCTION === "1",
+    "Production validates the bundled search worker in the offline mailbox reload test.",
+  );
+  const prefix = `worker-cache-test-${process.pid}`;
+  const files = [`${prefix}.html`, `${prefix}.js`, `${prefix}-sw.js`];
+  try {
+    await writeFile(
+      path.resolve("public", files[0]),
+      "<html><body>Worker cache test</body></html>",
+    );
+    await writeFile(
+      path.resolve("public", files[1]),
+      "self.postMessage(self.location.hash);",
+    );
+    await build({
+      entryPoints: ["app/sw.ts"],
+      bundle: true,
+      define: {
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        "self.__SW_MANIFEST": JSON.stringify([
+          { url: `/${files[1]}`, revision: null },
+        ]),
+      },
+      outfile: path.resolve("public", files[2]),
+    });
+    await page.goto(`/${files[0]}`);
+    await page.evaluate(async (worker) => {
+      await navigator.serviceWorker.register(`/${worker}`, { scope: "/" });
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller)
+        await new Promise<void>((resolve) =>
+          navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            () => resolve(),
+            { once: true },
+          ),
+        );
+    }, files[2]);
+    for (const offline of [false, true]) {
+      await context.setOffline(offline);
+      const fragment = await page.evaluate(
+        (worker) =>
+          new Promise<string>((resolve, reject) => {
+            const instance = new Worker(`/${worker}#params=bootstrap-config`);
+            instance.onmessage = (event) => {
+              instance.terminate();
+              resolve(event.data);
+            };
+            instance.onerror = () => {
+              instance.terminate();
+              reject(new Error("Cached worker failed"));
+            };
+          }),
+        files[1],
+      );
+      expect(fragment).toBe("#params=bootstrap-config");
+    }
+  } finally {
+    await context.setOffline(false);
+    await Promise.all(
+      files.map((file) => rm(path.resolve("public", file), { force: true })),
+    );
+  }
+});
 
 test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
@@ -123,6 +193,27 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       testInfo,
       "mail-after-real-offline-reload",
     );
+
+    if (production) {
+      const search = page.getByPlaceholder("Search mail");
+      await search.fill('subject:"Archive Action Message"');
+      await expect(
+        conversationWithSubject(page, conversations, "Archive Action Message"),
+      ).toBeVisible();
+      await expect(
+        conversationWithSubject(
+          page,
+          conversations,
+          "Keyboard Navigation Message",
+        ),
+      ).toHaveCount(0);
+      await capturePlaywrightCheckpoint(
+        page,
+        testInfo,
+        "local-search-after-offline-reload",
+      );
+      await page.getByRole("button", { name: "Clear search" }).click();
+    }
 
     await context.setOffline(false);
     // Confirm the browser can reach the server before testing a connected reload.
