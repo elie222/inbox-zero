@@ -410,7 +410,7 @@ function MailSearchInput({
                 }
               }}
             />
-            {searchQuery ? (
+            {draft || searchQuery ? (
               <button
                 type="button"
                 aria-label="Clear search"

@@ -4,11 +4,14 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
-test("sidebar navigation clears an uncommitted live search", async ({
+test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
 }) => {
   await openMail(page);
   const input = page.getByPlaceholder("Search mail");
+  await input.fill("uncommitted search");
+  await page.getByRole("button", { name: "Clear search" }).click();
+  await expect(input).toHaveValue("");
   await input.fill("uncommitted search");
   await page.getByRole("link", { name: /^Sent/ }).click();
   await expect(page).toHaveURL(/type=sent/);
