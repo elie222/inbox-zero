@@ -12,7 +12,7 @@ const config = await serwist({
 });
 
 // The default static-asset extensions omit the search worker's WASM binary.
-config.globPatterns = config.globPatterns.map((pattern) =>
+config.globPatterns = config.globPatterns?.map((pattern) =>
   pattern.replace(/\.\{([^}]+)\}$/u, ".{$1,wasm}"),
 );
 export default config;
