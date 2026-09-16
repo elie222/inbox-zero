@@ -376,10 +376,8 @@ for (const parentId of [undefined, "<missing-parent@example.com>"]) {
     await expect(message).toHaveCount(1);
     await expect(message.getByText("Draft", { exact: true })).toBeVisible();
     await expect(
-      message
-        .frameLocator('iframe[title="Email content preview"]')
-        .getByText("This unsent draft should remain visible."),
-    ).toBeVisible();
+      message.getByRole("textbox", { name: "Email message" }),
+    ).toContainText("This unsent draft should remain visible.");
     await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-draft-only");
   });
 }

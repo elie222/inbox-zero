@@ -57,7 +57,7 @@ export function EmailMessage({
   refetch,
   showReplyButton,
   defaultComposeMode,
-  draftMessage,
+  draftMessages,
   expanded,
   onToggle,
   onSendSuccess,
@@ -71,7 +71,7 @@ export function EmailMessage({
 }: {
   message: ThreadMessage;
   menu?: React.ReactNode;
-  draftMessage?: ThreadMessage;
+  draftMessages?: ThreadMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   defaultComposeMode?: ReplyDraftMode;
@@ -94,6 +94,23 @@ export function EmailMessage({
     ReplyDraftMode | "closed" | null
   >(null);
   const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
+  const serverDrafts = draftMessages ?? [];
+  const [dismissedDraftIds, setDismissedDraftIds] = useState(
+    () => new Set<string>(),
+  );
+  const setDraftDismissed = (draftId: string, dismissed: boolean) => {
+    setDismissedDraftIds((previous) => {
+      if (previous.has(draftId) === dismissed) return previous;
+      const next = new Set(previous);
+      if (dismissed) next.add(draftId);
+      else next.delete(draftId);
+      return next;
+    });
+  };
+  const visibleDrafts = serverDrafts.filter(
+    (draft) => !dismissedDraftIds.has(draft.id),
+  );
+  const hasOpenComposer = Boolean(composeMode) || visibleDrafts.length > 0;
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
@@ -172,7 +189,7 @@ export function EmailMessage({
     <li
       data-thread-message-id={message.id}
       data-selected={selected}
-      tabIndex={selected !== undefined || composeMode ? -1 : undefined}
+      tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
@@ -180,7 +197,7 @@ export function EmailMessage({
       onKeyDownCapture={(event) => {
         // Handle draft Escape before the rich-text editor consumes it.
         if (
-          composeMode &&
+          hasOpenComposer &&
           event.key === "Escape" &&
           !event.defaultPrevented &&
           isTypingTarget(event.target) &&
@@ -215,7 +232,7 @@ export function EmailMessage({
         showDetails={showDetails}
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
-        hasDraft={hasDraft || Boolean(draftMessage)}
+        hasDraft={hasDraft || visibleDrafts.length > 0}
         sentMessageOpen={sentMessageOpen}
       />
 
@@ -228,28 +245,50 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {message.textHtml ? (
-            <HtmlEmail
-              onForwardMessage={showReplyButton ? onForward : undefined}
-              onReplyMessage={showReplyButton ? onReply : undefined}
-              onNavigateMessage={onNavigateMessage}
-              onFocusMessage={onSelect}
-              emailAccountId={emailAccountId}
-              html={message.textHtml}
-              inlineAttachments={message.inline}
-              messageId={message.id}
-            />
-          ) : (
-            <PlainEmail text={message.textPlain || ""} />
-          )}
+          {!serverDrafts.some((draft) => draft.id === message.id) &&
+            (message.textHtml ? (
+              <HtmlEmail
+                onForwardMessage={showReplyButton ? onForward : undefined}
+                onReplyMessage={showReplyButton ? onReply : undefined}
+                onNavigateMessage={onNavigateMessage}
+                onFocusMessage={onSelect}
+                emailAccountId={emailAccountId}
+                html={message.textHtml}
+                inlineAttachments={message.inline}
+                messageId={message.id}
+              />
+            ) : (
+              <PlainEmail text={message.textPlain || ""} />
+            ))}
 
           {message.attachments && <EmailAttachments message={message} />}
 
+          {visibleDrafts.map((draft, index) => (
+            <ReplyPanel
+              key={draft.id}
+              autoScroll={!composeMode && index === visibleDrafts.length - 1}
+              draftMessage={draft}
+              message={message}
+              onCloseCompose={() => setDraftDismissed(draft.id, true)}
+              onRestoreCompose={() => setDraftDismissed(draft.id, false)}
+              onRestore={() => setDraftDismissed(draft.id, false)}
+              onSendSuccess={onSendSuccess}
+              onMarkDone={onMarkDone}
+              onStartDiscard={() => {
+                setDraftDismissed(draft.id, true);
+                return {
+                  id: composeSessionRef.current,
+                  mode: "reply" as const,
+                };
+              }}
+              refetch={refetch}
+              composeMode="reply"
+            />
+          ))}
           {composeMode && (
             <ReplyPanel
               key={composerKey}
-              defaultComposeMode={defaultComposeMode}
-              draftMessage={draftMessage}
+              autoScroll
               message={message}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
@@ -501,9 +540,9 @@ function ReplyPanel({
   onRestore,
   onRestoreCompose,
   onStartDiscard,
-  defaultComposeMode,
   composeMode,
   draftMessage,
+  autoScroll = false,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -513,9 +552,9 @@ function ReplyPanel({
   onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
-  defaultComposeMode?: ReplyDraftMode;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  autoScroll?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -523,7 +562,7 @@ function ReplyPanel({
 
   // scroll to the reply panel when it first opens
   useEffect(() => {
-    if (!defaultComposeMode || !replyRef.current) return;
+    if (!autoScroll || !replyRef.current) return;
 
     // Wait for the reply panel layout before scrolling.
     const scrollTimeout = setTimeout(() => {
@@ -531,7 +570,7 @@ function ReplyPanel({
     }, 500);
 
     return () => clearTimeout(scrollTimeout);
-  }, [defaultComposeMode]);
+  }, [autoScroll]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (composeMode === "reply") {
@@ -599,7 +638,10 @@ function ReplyPanel({
         }
         draftKeyMessageId={message.id}
         draftMode={composeMode}
-        draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
+        draftSessionId={getReplyDraftSessionId(
+          draftMessage?.id ?? message.id,
+          composeMode,
+        )}
         onClose={onCloseCompose}
         onRestore={onRestore}
         onDiscard={onDiscard}

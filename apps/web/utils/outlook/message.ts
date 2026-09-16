@@ -20,7 +20,7 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_LIST_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink";
 export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},body,internetMessageHeaders`;
 
 // contentId belongs to fileAttachment, so selecting it without this type cast
@@ -1028,6 +1028,10 @@ export function convertMessage(
     | undefined;
 
   const labelIds = getOutlookLabels(message, folderIds, categoryMap);
+  const date =
+    message.receivedDateTime ||
+    message.createdDateTime ||
+    new Date().toISOString();
 
   logger?.trace("Converting Outlook message", () => ({
     messageId: message.id,
@@ -1060,7 +1064,7 @@ export function convertMessage(
       to: formatRecipientsList(message.toRecipients) || "",
       cc: formatRecipientsList(message.ccRecipients),
       subject: message.subject || "",
-      date: message.receivedDateTime || new Date().toISOString(),
+      date,
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
       "message-id": message.internetMessageId || "",
       "in-reply-to": getInternetHeader(message, "in-reply-to") ?? undefined,
@@ -1070,10 +1074,10 @@ export function convertMessage(
         getInternetHeader(message, "list-unsubscribe-post") ?? undefined,
     },
     subject: message.subject || "",
-    date: message.receivedDateTime || new Date().toISOString(),
+    date,
     labelIds,
     parentFolderId: message.parentFolderId || undefined,
-    internalDate: message.receivedDateTime || new Date().toISOString(),
+    internalDate: date,
     historyId: "",
     inline: convertInlineAttachments(message.attachments),
     attachments: convertAttachments(message.attachments),

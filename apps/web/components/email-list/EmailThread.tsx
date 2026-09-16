@@ -15,6 +15,7 @@ import {
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 
@@ -56,7 +57,7 @@ export function EmailThread({
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
-    () => organizeMessages(messages),
+    () => organizeThreadMessages(messages),
     [messages],
   );
 
@@ -90,13 +91,13 @@ export function EmailThread({
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
   const hasLocalDraft = (id: string) =>
     Boolean(getLocalDraftMode(localDrafts, id));
-  const allExpanded = organizedMessages.every(({ message, draftMessage }) =>
+  const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
     expanded(
       message.id,
       autoOpenReplyForMessageId === message.id ||
         autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
-        Boolean(draftMessage) ||
+        draftMessages.length > 0 ||
         hasLocalDraft(message.id),
     ),
   );
@@ -204,7 +205,7 @@ export function EmailThread({
       )}
 
       <ul className="pt-1">
-        {organizedMessages.map(({ message, draftMessage }) => {
+        {organizedMessages.map(({ message, draftMessages }) => {
           const defaultComposeMode = getDefaultComposeMode({
             autoOpenMode:
               autoOpenForwardForMessageId === message.id
@@ -212,8 +213,9 @@ export function EmailThread({
                 : autoOpenReplyForMessageId === message.id
                   ? "reply"
                   : undefined,
-            draftMessage: Boolean(draftMessage),
-            localDraftMode: getLocalDraftMode(localDrafts, message.id),
+            localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
+              ? undefined
+              : getLocalDraftMode(localDrafts, message.id),
             recoveredReply:
               recoveredReply?.messageId === message.id
                 ? recoveredReply
@@ -235,13 +237,12 @@ export function EmailThread({
                   : undefined
               }
               defaultComposeMode={defaultComposeMode}
-              draftMessage={draftMessage}
-              expanded={expanded(message.id, Boolean(defaultComposeMode))}
-              hasDraft={
-                message.labelIds?.includes(GmailLabel.DRAFT) ||
-                Boolean(draftMessage) ||
-                hasLocalDraft(message.id)
-              }
+              draftMessages={draftMessages}
+              expanded={expanded(
+                message.id,
+                Boolean(defaultComposeMode) || draftMessages.length > 0,
+              )}
+              hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
               menu={renderMessageMenu?.(message)}
@@ -262,7 +263,11 @@ export function EmailThread({
                       setExpansionOverrides((prev) =>
                         new Map(prev).set(
                           message.id,
-                          !expanded(message.id, Boolean(defaultComposeMode)),
+                          !expanded(
+                            message.id,
+                            Boolean(defaultComposeMode) ||
+                              draftMessages.length > 0,
+                          ),
                         ),
                       );
                     }
@@ -316,49 +321,72 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
 
 function getDefaultComposeMode({
   autoOpenMode,
-  draftMessage,
   localDraftMode,
   recoveredReply,
 }: {
   autoOpenMode?: ReplyDraftMode;
-  draftMessage: boolean;
   localDraftMode?: ReplyDraftMode;
   recoveredReply?: { mode: ReplyDraftMode };
 }) {
   if (recoveredReply) return recoveredReply.mode;
   if (autoOpenMode) return autoOpenMode;
-  if (draftMessage) return "reply" as const;
   return localDraftMode;
 }
 
-function organizeMessages(messages: ThreadMessage[]) {
-  const drafts = new Map<string, ThreadMessage>();
+// Drafts without reply headers still belong to this conversation. Keep each
+// composer, falling back to the latest message when its parent is unavailable.
+export function organizeThreadMessages(messages: ThreadMessage[]) {
+  const drafts: ThreadMessage[] = [];
   const regularMessages: ThreadMessage[] = [];
-  const parentMessageIds = new Set(
-    messages
-      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
-      .map((message) => message.headers["message-id"])
-      .filter(Boolean),
-  );
 
-  messages?.forEach((message) => {
-    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
-      // Get the parent message ID from the references or in-reply-to header
-      const parentId =
-        message.headers.references?.split(" ").pop() ||
-        message.headers["in-reply-to"];
-      if (parentId && parentMessageIds.has(parentId)) {
-        drafts.set(parentId, message);
-      } else {
-        regularMessages.push(message);
-      }
-    } else {
-      regularMessages.push(message);
+  for (const message of messages) {
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) drafts.push(message);
+    else regularMessages.push(message);
+  }
+
+  if (regularMessages.length === 0) {
+    return sortDraftsOldestFirst(drafts).map((draft) => ({
+      message: draft,
+      draftMessages: [draft],
+    }));
+  }
+
+  const messagesByHeaderId = new Map<string, ThreadMessage>();
+  for (const message of regularMessages) {
+    const headerId = message.headers["message-id"];
+    if (headerId && !messagesByHeaderId.has(headerId)) {
+      messagesByHeaderId.set(headerId, message);
     }
-  });
+  }
+  const draftsByMessageId = new Map<string, ThreadMessage[]>();
+  for (const draft of drafts) {
+    const parentId =
+      draft.headers.references?.trim().split(/\s+/).at(-1) ||
+      draft.headers["in-reply-to"]?.trim();
+    const parent = parentId ? messagesByHeaderId.get(parentId) : undefined;
+    const target = parent ?? regularMessages.at(-1);
+    if (!target) continue;
+    const existing = draftsByMessageId.get(target.id);
+    if (existing) existing.push(draft);
+    else draftsByMessageId.set(target.id, [draft]);
+  }
 
   return regularMessages.map((message) => ({
     message,
-    draftMessage: drafts.get(message.headers["message-id"] || ""),
+    draftMessages: sortDraftsOldestFirst(
+      draftsByMessageId.get(message.id) ?? [],
+    ),
   }));
+}
+
+function sortDraftsOldestFirst(drafts: ThreadMessage[]) {
+  return [...drafts].sort(
+    (left, right) => draftRecency(left) - draftRecency(right),
+  );
+}
+
+function draftRecency(draft: ThreadMessage) {
+  const value = draft.internalDate ?? draft.headers.date;
+  const time = internalDateToDate(value, { fallbackToNow: false }).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }

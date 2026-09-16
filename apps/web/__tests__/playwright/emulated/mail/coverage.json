@@ -1,4 +1,8 @@
 {
+  "server-drafts.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx"
+  ],
   "draft-deletion.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
     "components/email-list/EmailMessage.tsx",

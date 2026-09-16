@@ -16,6 +16,18 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("preserves draft creation time when there is no received timestamp", () => {
+    const createdDateTime = "2026-01-02T10:00:00.000Z";
+    const result = convertMessage({
+      id: "draft",
+      isDraft: true,
+      createdDateTime,
+    });
+    expect(result.internalDate).toBe(createdDateTime);
+    expect(result.headers.date).toBe(createdDateTime);
+    expect(result.date).toBe(createdDateTime);
+  });
+
   it("preserves reply headers used by outbound processing", () => {
     const result = convertMessage(
       {

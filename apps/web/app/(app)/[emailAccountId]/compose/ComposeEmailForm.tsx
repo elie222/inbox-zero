@@ -212,7 +212,9 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 
   const localDraft = useLocalReplyDraft(
     localDraftIdentity,
-    props.draftKeyMessageId && props.replyingToEmail?.threadId
+    !props.providerDraftMessageId &&
+      props.draftKeyMessageId &&
+      props.replyingToEmail?.threadId
       ? {
           emailAccountId: selectedEmailAccountId,
           threadId: props.replyingToEmail.threadId,
