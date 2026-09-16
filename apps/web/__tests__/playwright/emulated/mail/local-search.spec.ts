@@ -144,7 +144,6 @@ for (const scope of ["single", "all"] as const) {
         { exact: true },
       ),
     ).toHaveCount(0);
-    await context.setOffline(false);
   });
 }
 
@@ -615,7 +614,6 @@ test("keeps two accounts isolated while searching their persistent indexes offli
       "persistent-search-two-accounts-offline",
     );
   } finally {
-    await context.setOffline(false);
     await deleteSecondEmailAccount(secondary.accountId);
   }
 });

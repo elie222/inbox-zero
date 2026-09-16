@@ -24,6 +24,31 @@ export function getActiveThreadIndex({
   return openThreadIndex;
 }
 
+export function getSearchFocus({
+  previous,
+  view,
+  focusedIndex,
+  orderedIds,
+}: {
+  previous?: { view: string | null; key?: string; index: number };
+  view: string | null;
+  focusedIndex: number;
+  orderedIds: string[];
+}) {
+  let nextIndex = focusedIndex;
+  if (
+    view &&
+    previous?.view === view &&
+    previous.index === focusedIndex &&
+    previous.key
+  ) {
+    if (!orderedIds.length) return previous;
+    const retainedIndex = orderedIds.indexOf(previous.key);
+    if (retainedIndex >= 0) nextIndex = retainedIndex;
+  }
+  return { view, key: orderedIds[nextIndex], index: nextIndex };
+}
+
 export function resolveThreadActionTargets<T extends { key: string }>({
   focusedKey,
   listTargets,
