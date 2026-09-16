@@ -161,6 +161,36 @@ describe("cached mail search", () => {
     expect((await search("needle")).threads).toHaveLength(1);
     expect((await search("needle is:unread")).threads).toHaveLength(0);
   });
+  it.each([
+    false,
+    true,
+  ])("merges detail bodies independently of metadata freshness (reverse access order: %s)", async (reverse) => {
+    const db = await getEmailCacheDatabase();
+    const tx = db!.transaction("threadDetails", "readwrite");
+    const now = Date.now();
+    const variants = [
+      { textPlain: "obsolete body", labelIds: ["INBOX", "UNREAD"] },
+      { textPlain: "needle body", labelIds: ["INBOX", "UNREAD"] },
+      { textPlain: undefined, labelIds: ["INBOX"] },
+    ];
+    for (const [index, fields] of variants.entries()) {
+      await tx.store.put({
+        emailAccountId: "account-a",
+        threadId: "thread",
+        variant: String(index),
+        data: {
+          thread: { id: "thread", messages: [message("first", fields)] },
+        },
+        fetchedAt: now - 3000 + index * 1000,
+        lastAccessedAt: now - (reverse ? index : 3 - index),
+        byteSize: 1,
+      });
+    }
+    await tx.done;
+    expect((await search("needle")).threads).toHaveLength(1);
+    expect((await search("obsolete")).threads).toHaveLength(0);
+    expect((await search("needle is:unread")).threads).toHaveLength(0);
+  });
   it("searches the most recently used bodies when the detail budget is exceeded", async () => {
     const db = await getEmailCacheDatabase();
     const tx = db!.transaction("threadDetails", "readwrite");

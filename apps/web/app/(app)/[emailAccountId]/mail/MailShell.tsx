@@ -2003,7 +2003,7 @@ function getSearchStatus({
   error: unknown;
   localStatus?: string;
 }) {
-  if (!query) return;
+  if (!query || hasProviderResponse) return;
   if (!online) {
     if (localStatus === "unsupported")
       return "Offline — this search needs your email provider.";
@@ -2011,7 +2011,6 @@ function getSearchStatus({
       return "Offline — local search is unavailable.";
     return "Offline — searching cached mail only. Results may be incomplete.";
   }
-  if (hasProviderResponse) return;
   if (error) {
     if (localStatus !== "ready")
       return "Full mailbox search is unavailable. Try again when connected.";

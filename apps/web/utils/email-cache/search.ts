@@ -104,24 +104,32 @@ export async function searchCachedMail({
     await transaction.done;
     const messages = new Map<
       string,
-      { message: SearchMessage; fetchedAt: number }
+      { message: SearchMessage; fetchedAt: number; bodyFetchedAt?: number }
     >();
     const now = Date.now();
     const add = (message: SearchMessage, fetchedAt: number) => {
       const previous = messages.get(message.id);
-      if (previous && previous.fetchedAt > fetchedAt) return;
-      messages.set(message.id, { message, fetchedAt });
+      const metadata =
+        previous && previous.fetchedAt > fetchedAt ? previous.message : message;
+      const useIncomingBody =
+        message.textPlain !== undefined &&
+        (previous?.bodyFetchedAt === undefined ||
+          fetchedAt >= previous.bodyFetchedAt);
+      messages.set(message.id, {
+        message: {
+          ...metadata,
+          textPlain: useIncomingBody
+            ? message.textPlain?.slice(0, MAX_BODY_CHARACTERS)
+            : previous?.message.textPlain,
+        },
+        fetchedAt: Math.max(fetchedAt, previous?.fetchedAt ?? fetchedAt),
+        bodyFetchedAt: useIncomingBody ? fetchedAt : previous?.bodyFetchedAt,
+      });
     };
     for (const detail of details) {
       if (now - detail.fetchedAt > EMAIL_CACHE_MAX_AGE_MS) continue;
       for (const message of (detail.data as ThreadResponse).thread.messages) {
-        add(
-          {
-            ...message,
-            textPlain: message.textPlain?.slice(0, MAX_BODY_CHARACTERS),
-          },
-          detail.fetchedAt,
-        );
+        add(message, detail.fetchedAt);
       }
     }
     for (const row of rows) {
@@ -130,21 +138,13 @@ export async function searchCachedMail({
       // Unified list snapshots wrap rows; each account's own cache supplies search data.
       if (!Array.isArray(thread.messages)) continue;
       for (const message of thread.messages) {
-        const previous = messages.get(message.id);
-        add(
-          { ...message, textPlain: previous?.message.textPlain },
-          row.fetchedAt,
-        );
+        add(message, row.fetchedAt);
       }
     }
     for (const record of mailbox) {
       if (now - record.lastAccessedAt > EMAIL_CACHE_MAILBOX_MAX_AGE_MS)
         continue;
-      const previous = messages.get(record.messageId);
-      add(
-        { ...record.data, textPlain: previous?.message.textPlain },
-        record.lastAccessedAt,
-      );
+      add(record.data, record.lastAccessedAt);
     }
     const accountMutations = mutations
       .filter((mutation) => mutation.emailAccountId === account.id)

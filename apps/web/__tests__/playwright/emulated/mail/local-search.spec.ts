@@ -24,6 +24,7 @@ test("clears an uncommitted live search with the button and sidebar navigation",
 for (const scope of ["single", "all"] as const) {
   test(`${scope}: shows local matches while typing before provider completion`, async ({
     page,
+    context,
   }, testInfo) => {
     await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
     const { emailAccountId, conversations } = await openMail(page);
@@ -121,6 +122,19 @@ for (const scope of ["single", "all"] as const) {
         { exact: true },
       ),
     ).toHaveCount(0);
+    await context.setOffline(true);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `provider-results-offline-${scope}`,
+    );
+    await expect(
+      page.getByText(
+        "Offline — searching cached mail only. Results may be incomplete.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
+    await context.setOffline(false);
   });
 }
 
@@ -172,19 +186,30 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
 
 test("ignores delayed responses after the search changes", async ({ page }) => {
   const { emailAccountId, conversations } = await openMail(page);
-  await seedSearchCache(page, emailAccountId);
+  const cachedThread = await seedSearchCache(page, emailAccountId);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
+  let releaseCurrent!: () => void;
+  const currentGate = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
   let firstRequested = false;
+  let firstResponded = false;
   await page.route("**/api/threads?**", async (route) => {
     const query = new URL(route.request().url()).searchParams.get("q");
     if (!query) return route.continue();
     if (query === "needle") {
       firstRequested = true;
       await gate;
+      await route.fulfill({
+        json: { threads: [cachedThread], nextPageToken: null },
+      });
+      firstResponded = true;
+      return;
     }
+    await currentGate;
     await route.fulfill({ json: { threads: [], nextPageToken: null } });
   });
   const input = page.getByPlaceholder("Search mail");
@@ -194,8 +219,16 @@ test("ignores delayed responses after the search changes", async ({ page }) => {
   ).toBeVisible();
   await expect.poll(() => firstRequested).toBe(true);
   await input.fill("no-such-cached-message");
-  await expect(page.getByText("No emails in this view")).toBeVisible();
+  const cachedEmpty = page.getByText(
+    "No matches in cached mail. Older mail and uncached bodies may still match.",
+    { exact: true },
+  );
+  await expect(cachedEmpty).toBeVisible();
   release();
+  await expect.poll(() => firstResponded).toBe(true);
+  await expect(cachedEmpty).toBeVisible();
+  releaseCurrent();
+  await expect(page.getByText("No emails in this view")).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(0);
   await expect(input).toHaveValue("no-such-cached-message");
 });
