@@ -116,16 +116,10 @@ describe("local mail retention", () => {
     );
   });
 
-  it("protects pinned, recently opened, newly imported and unsent threads without blocking scan", async () => {
-    await seed(["pinned", "opened", "draft", "failed", "eligible"], 1000);
+  it("protects recently opened, newly imported and unsent threads without blocking scan", async () => {
+    await seed(["opened", "draft", "failed", "eligible"], 1000);
     await seed(["imported"], 1000, now - 1);
     const db = (await getEmailCacheDatabase())!;
-    await db.put("localMailThreadProtection", {
-      emailAccountId,
-      threadId: "thread-pinned",
-      generation,
-      pinned: true,
-    });
     await db.put("localMailThreadProtection", {
       emailAccountId,
       threadId: "thread-opened",
@@ -170,7 +164,7 @@ describe("local mail retention", () => {
     expect(
       await db.get("localMailMessages", [emailAccountId, "eligible"]),
     ).toBeUndefined();
-    for (const id of ["pinned", "opened", "draft", "failed", "imported"])
+    for (const id of ["opened", "draft", "failed", "imported"])
       expect(
         await db.get("localMailMessages", [emailAccountId, id]),
       ).toBeDefined();
@@ -186,7 +180,7 @@ describe("local mail retention", () => {
         emailAccountId,
         generation,
         threadId: `thread-${id}`,
-        pinned: true,
+        reservation: { id: "hold", bytes: 1, expiresAt: now + 60_000 },
         now,
         withStorageLock: lock,
       });
@@ -198,7 +192,7 @@ describe("local mail retention", () => {
         emailAccountId,
         generation,
         threadId: `thread-${id}`,
-        pinned: false,
+        reservation: { id: "hold", bytes: 0, expiresAt: now },
         now,
         withStorageLock: lock,
       });
@@ -209,7 +203,7 @@ describe("local mail retention", () => {
       emailAccountId,
       generation,
       threadId: "thread-first",
-      pinned: true,
+      reservation: { id: "hold", bytes: 1, expiresAt: now + 60_000 },
       now,
       withStorageLock: lock,
     });
@@ -379,7 +373,6 @@ describe("local mail retention", () => {
     });
     await updateLocalMailThreadProtection({
       ...options,
-      pinned: true,
       reservation: { id: "pin", bytes: 20, expiresAt: now + 1000 },
     });
     await updateLocalMailThreadProtection({

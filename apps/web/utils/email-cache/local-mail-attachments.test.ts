@@ -392,19 +392,27 @@ describe("local attachment storage", () => {
     ).toBeUndefined();
   });
 
-  it("keeps pinned files and evicts unpinned least-recently-used files", async () => {
+  it("keeps files for a thread with unsent work and evicts least-recently-used files", async () => {
     const first = await seed(account, "first", 4);
     const second = await seed(account, "second", 4, "thread-2");
     const third = await seed(account, "third", 4, "thread-3");
     await cache(first);
     const database = await db();
-    const protection = (await database.get("localMailThreadProtection", [
-      account,
-      thread,
-    ]))!;
-    await database.put("localMailThreadProtection", {
-      ...protection,
-      pinned: true,
+    // An unsent action is the protection that costs no budget, so eviction has
+    // to skip this thread while the arithmetic below still admits the others.
+    await database.put("mailMutations", {
+      id: "mutation",
+      batchId: "batch",
+      emailAccountId: account,
+      threadId: thread,
+      messageIds: ["first"],
+      kind: "reply",
+      payload: {},
+      status: "pending",
+      attempts: 0,
+      nextAttemptAt: 0,
+      createdAt: 0,
+      updatedAt: 0,
     });
     await cache(second, 2000);
     await cache(third, 3000);

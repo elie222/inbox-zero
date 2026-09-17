@@ -556,7 +556,6 @@ async function makeRoom(
       .index("byAccountThread")
       .getAll(scope);
     if (
-      !protection?.pinned &&
       !reserved &&
       !drafts.some((draft) => draft.content !== null) &&
       !mutations.some((mutation) => mutation.status !== "succeeded")
