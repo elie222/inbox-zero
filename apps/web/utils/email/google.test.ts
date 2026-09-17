@@ -639,7 +639,10 @@ describe("GmailProvider.updateDraft", () => {
     gmailDraftMock.getDraft.mockResolvedValueOnce(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toThrow("Could not find this draft to update.");
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: expect.stringMatching(/Gmail.*Check Sent/),
+    });
     expect(update).not.toHaveBeenCalled();
   });
 

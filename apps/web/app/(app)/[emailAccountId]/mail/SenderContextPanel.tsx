@@ -128,11 +128,11 @@ export function SenderContextPanel({
         {identity}
         <Button
           aria-label="Close sender profile"
-          className="-mr-2 -mt-1 size-7 shrink-0 text-muted-foreground"
+          className="-mr-2 -mt-1"
           onClick={onClose}
-          size="icon"
+          size="iconXs"
           type="button"
-          variant="ghost"
+          variant="ghostMuted"
         >
           <XIcon className="size-4" />
         </Button>

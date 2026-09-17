@@ -186,12 +186,7 @@ export function ProactiveUpdatesSetting({
         </ItemContent>
         <ItemActions>
           <Tooltip content="Configure">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setOpen(true)}
-            >
+            <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
               <Settings2Icon className="h-4 w-4" />
             </Button>
           </Tooltip>

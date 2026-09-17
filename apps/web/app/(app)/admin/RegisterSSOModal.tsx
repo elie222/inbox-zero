@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import TextareaAutosize from "react-textarea-autosize";
+import { AutosizeTextarea } from "@/components/ui/textarea";
 import { registerSSOProviderAction } from "@/utils/actions/sso";
 import {
   type SsoRegistrationBody,
@@ -119,9 +119,8 @@ export function RegisterSSOModal() {
 
             <div className="space-y-2">
               <Label name="idpMetadata" label="IDP Metadata (XML)" />
-              <TextareaAutosize
+              <AutosizeTextarea
                 id="idpMetadata"
-                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                 minRows={3}
                 rows={3}
                 {...register("idpMetadata")}

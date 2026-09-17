@@ -1,5 +1,7 @@
 "use client";
 
+import { Empty, EmptyDescription } from "@/components/ui/empty";
+
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
 import { useState, useCallback, type RefCallback } from "react";
@@ -468,12 +470,11 @@ function EmptyState({
 
   return (
     <div className="content-container">
-      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-muted p-8 text-center animate-in fade-in-50">
+      <Empty className="min-h-[200px] gap-4 border bg-muted animate-in fade-in-50">
         {isAnalyzing ? (
           <>
-            <MutedText>Analyzing your emails...</MutedText>
+            <EmptyDescription>Analyzing your emails...</EmptyDescription>
             <Button
-              className="mt-4"
               variant="outline"
               Icon={RefreshCwIcon}
               loading={isRefreshing}
@@ -488,9 +489,9 @@ function EmptyState({
             </Button>
           </>
         ) : (
-          <MutedText>{message}</MutedText>
+          <EmptyDescription>{message}</EmptyDescription>
         )}
-      </div>
+      </Empty>
     </div>
   );
 }

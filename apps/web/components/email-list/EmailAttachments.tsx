@@ -74,13 +74,18 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                 {attachment.filename}
               </div>
               <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="text-muted-foreground">
+                <div
+                  className="min-w-0 truncate text-muted-foreground"
+                  title={mimeTypeToString(attachment.mimeType)}
+                >
                   {mimeTypeToString(attachment.mimeType)}
                 </div>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="iconSm"
                   type="button"
+                  aria-label={`Download ${attachment.filename}`}
+                  title="Download attachment"
                   disabled={!emailAccountId || isDownloading}
                   onClick={() =>
                     downloadAttachment({
@@ -89,8 +94,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                     })
                   }
                 >
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Download
+                  <DownloadIcon className="size-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>

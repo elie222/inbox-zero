@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useForm, useFieldArray, type UseFormReturn } from "react-hook-form";
-import { InboxIcon, ZapIcon, ChevronRightIcon } from "lucide-react";
+import { InboxIcon, ZapIcon } from "lucide-react";
 import { LogicalOperator } from "@/generated/prisma/enums";
 import {
   Dialog,
@@ -15,14 +15,13 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
+  CollapsibleHeading,
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Form } from "@/components/ui/form";
-import { cn } from "@/utils";
 import { useAction } from "next-safe-action/hooks";
 import {
   createOrganizationRuleAction,
@@ -213,20 +212,7 @@ export function OrgRuleDialog({
             </RuleSectionCard>
 
             <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 py-2 text-sm font-medium text-left text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronRightIcon
-                    className={cn(
-                      "size-4 transition-transform",
-                      isAdvancedOpen && "rotate-90",
-                    )}
-                  />
-                  Advanced options
-                </button>
-              </CollapsibleTrigger>
+              <CollapsibleHeading>Advanced options</CollapsibleHeading>
               <CollapsibleContent>
                 <div className="rounded-md border">
                   <div className="flex items-center justify-between gap-4 px-4 py-3">

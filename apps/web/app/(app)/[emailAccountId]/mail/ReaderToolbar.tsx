@@ -62,9 +62,8 @@ export function ReaderToolbar({
       <div className="flex items-center gap-1">
         <Button
           aria-label="Back to inbox"
-          className="h-7 w-7"
           onClick={onBackToInbox}
-          size="icon"
+          size="iconXs"
           title="Back to inbox"
           variant="ghost"
         >
@@ -118,8 +117,7 @@ export function ReaderToolbar({
                 ? "Collapse all messages"
                 : "Expand all messages"
             }
-            className="h-7 w-7"
-            size="icon"
+            size="iconXs"
             variant="ghost"
             onClick={messageExpansion.onToggleAll}
           >
@@ -162,9 +160,8 @@ function ReadStateButton({
   return (
     <Button
       aria-label={title}
-      className="h-7 w-7"
       onClick={isUnread ? onMarkRead : onMarkUnread}
-      size="icon"
+      size="iconXs"
       title={title}
       variant="outline"
     >

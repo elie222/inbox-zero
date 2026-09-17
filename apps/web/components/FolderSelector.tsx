@@ -222,8 +222,8 @@ export function FolderSelector({
               {value.id && !isLoading && (
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-muted"
+                  size="icon2xs"
+                  className="hover:bg-muted"
                   onClick={(e: MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
                     onChangeValue({ name: "", id: "" });

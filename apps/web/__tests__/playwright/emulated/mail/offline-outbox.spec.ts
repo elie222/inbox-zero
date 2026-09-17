@@ -218,6 +218,9 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
 test("keeps a unified-mailbox mutation isolated to its owning account", async ({
   page,
 }) => {
+  // Stubbed before the mail page loads rather than after: the first sync of an
+  // account applies a reset page that clears its cached mailbox, which would
+  // delete the rows seeded below.
   await page.route("**/api/mobile/mailbox-sync", (route) =>
     route.abort("connectionfailed"),
   );

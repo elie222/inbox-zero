@@ -121,10 +121,10 @@ export function useComposeSnippets({
           <PopoverTrigger asChild>
             <Button
               aria-label="Insert snippet"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="hover:bg-transparent"
               size="icon"
               type="button"
-              variant="ghost"
+              variant="ghostMuted"
             >
               <BracesIcon className="size-4" />
             </Button>

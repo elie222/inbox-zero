@@ -60,9 +60,9 @@ export function ManageSplitsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 rounded-full text-muted-foreground"
+          variant="ghostMuted"
+          size="icon2xs"
+          className="rounded-full"
           aria-label="Manage splits"
         >
           <Settings2Icon className="size-3.5" />
@@ -109,8 +109,7 @@ export function ManageSplitsDialog({
               </span>
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-8"
+                size="iconSm"
                 aria-label={`Move ${split.name} up`}
                 disabled={isSaving || index === 0}
                 onClick={() => move(split.id, splits[index - 1].id)}
@@ -119,8 +118,7 @@ export function ManageSplitsDialog({
               </Button>
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-8"
+                size="iconSm"
                 aria-label={`Move ${split.name} down`}
                 disabled={isSaving || index === splits.length - 1}
                 onClick={() => move(split.id, splits[index + 1].id)}
@@ -128,9 +126,8 @@ export function ManageSplitsDialog({
                 <ArrowDownIcon className="size-4" />
               </Button>
               <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground hover:text-destructive"
+                variant="destructiveGhost"
+                size="iconSm"
                 aria-label={`Remove the ${split.name} split`}
                 disabled={isSaving || !split.deletable}
                 onClick={() => remove(split.id)}

@@ -377,9 +377,8 @@ function ConnectedChannelRow({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+              variant="destructiveGhost"
+              size="iconXs"
               disabled={disconnectStatus === "executing"}
               onClick={() => executeDisconnect({ channelId: channel.id })}
             >

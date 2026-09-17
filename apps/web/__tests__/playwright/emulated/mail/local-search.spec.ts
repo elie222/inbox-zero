@@ -26,6 +26,9 @@ for (const scope of ["single", "all"] as const) {
     page,
     context,
   }, testInfo) => {
+    // Every cache-seeding test here stubs sync before loading the page: an
+    // account's first sync applies a reset that clears its cached mail, which
+    // would delete the rows seeded below.
     await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
     const { emailAccountId, conversations } = await openMail(page);
     if (scope === "all")

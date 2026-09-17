@@ -41,9 +41,9 @@ export function VoiceOverlay({
         {onDismiss ? (
           <Button
             aria-label="Cancel voice"
-            className="size-8 rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+            className="rounded-full text-white/70 hover:bg-white/10 hover:text-white"
             onClick={onDismiss}
-            size="icon"
+            size="iconSm"
             type="button"
             variant="ghost"
           >
