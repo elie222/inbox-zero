@@ -45,6 +45,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
                 rel={
                   item.target === "_blank" ? "noopener noreferrer" : undefined
                 }
+                prefetch={false}
                 className="text-sm leading-6 text-gray-500 hover:text-gray-900"
               >
                 {item.name}
@@ -55,6 +56,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
               <Link
                 key={item.name}
                 href={item.href}
+                prefetch={false}
                 className="text-sm leading-6 text-gray-500 hover:text-gray-900"
               >
                 {item.name}
