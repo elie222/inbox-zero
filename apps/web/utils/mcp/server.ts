@@ -45,6 +45,16 @@ const destructiveAnnotations = {
   destructiveHint: true,
   openWorldHint: false,
 };
+const mailboxReadAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: true,
+};
+const mailboxWriteAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: true,
+};
 
 export async function handleMcpServerRequest(
   request: Request,
@@ -79,8 +89,8 @@ export async function handleMcpServerRequest(
       handler: (args: Record<string, unknown>) => Promise<ToolResultData>,
     ) =>
     async (args: Record<string, unknown>) => {
-      assertMcpScope(session.scopes, required);
       try {
+        assertMcpScope(session.scopes, required);
         const data = await handler(args);
         toolLogger.info("MCP tool call", {
           tool: name,
@@ -115,7 +125,7 @@ export async function handleMcpServerRequest(
       description:
         "Search one inbox and return message metadata and snippets. Use read_thread for full bodies. Does not send or change mail.",
       inputSchema: searchInboxInputShape,
-      annotations: readOnlyAnnotations,
+      annotations: mailboxReadAnnotations,
     },
     runTool("search_inbox", "mcp:read", async (args) =>
       searchInboxForMcp({
@@ -143,7 +153,7 @@ export async function handleMcpServerRequest(
       description:
         "Read messages in a thread. Returns plain-text bodies truncated per message. Use search_inbox to find threadId.",
       inputSchema: readThreadInputShape,
-      annotations: readOnlyAnnotations,
+      annotations: mailboxReadAnnotations,
     },
     runTool("read_thread", "mcp:read", async (args) =>
       readThreadForMcp({
@@ -169,7 +179,7 @@ export async function handleMcpServerRequest(
       description:
         "Create a mailbox draft. This does not send. Prefer this over inventing a send action; sending is not available.",
       inputSchema: createDraftInputShape,
-      annotations: writeAnnotations,
+      annotations: mailboxWriteAnnotations,
     },
     runTool("create_draft", "mcp:write", async (args) =>
       createDraftForMcp({

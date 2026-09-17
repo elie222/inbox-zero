@@ -9,26 +9,27 @@ Sending mail is not available. Drafts stay in the mailbox until you send them yo
 
 ## Enable the server
 
-For a deployment you administer, apply the database migrations and set both flags:
+For a deployment you administer, apply the database migrations and set:
 
 ```bash
 NEXT_PUBLIC_EXTERNAL_API_ENABLED=true
 MCP_SERVER_ENABLED=true
+API_KEY_SALT=<random salt>
 ```
 
 The server is disabled by default. Configure `NEXT_PUBLIC_BASE_URL` to your deployment's canonical public HTTPS origin. Restart the application after changing server configuration; changing the public API flag also requires rebuilding its client assets.
 
-Hosted Inbox Zero enables these flags when the remote MCP server is generally available. Until then, self-hosted deployments can turn them on locally.
+Hosted Inbox Zero enables these flags when the remote MCP server is generally available. Until then, enable them on a testing or self-hosted deployment.
 
 ## Connect an assistant
 
-Add a remote Streamable HTTP MCP connection using:
+Add a remote Streamable HTTP MCP connection using the origin of a deployment that has both flags on:
 
 ```text
 https://your-inbox-zero-host/mcp
 ```
 
-On hosted Inbox Zero that URL is `https://www.getinboxzero.com/mcp`. `/api/mcp-server` still accepts MCP `POST` requests as an alias; the OAuth resource identifier is always `/mcp`.
+When hosted Inbox Zero is generally available that URL is `https://www.getinboxzero.com/mcp`. `/api/mcp-server` still accepts MCP `POST` requests as an alias; the OAuth resource identifier is always `/mcp`.
 
 The client must support OAuth authorization-code flow with S256 PKCE, dynamic client registration, and resource indicators. Use the MCP endpoint URL as the `resource` when authorizing, exchanging an authorization code, and refreshing a token. Opaque tokens and API keys are not accepted.
 
@@ -37,33 +38,27 @@ Sign in with your connected provider, inspect the application's identity and req
 Refresh tokens stay valid after you log out of Inbox Zero in the browser. Disconnect the app or turn off MCP in Settings to revoke them.
 
 <Accordion title="Cursor">
-    Add this to `~/.cursor/mcp.json` or `.cursor/mcp.json`:
+    Add this to `~/.cursor/mcp.json` or `.cursor/mcp.json`, replacing the origin with your deployment:
 
     ```json
     {
       "mcpServers": {
         "inbox-zero": {
-          "url": "https://www.getinboxzero.com/mcp"
+          "url": "https://your-inbox-zero-host/mcp"
         }
       }
     }
     ```
 
-    Or open this install link in Cursor:
-
-    ```text
-    cursor://anysphere.cursor-deeplink/mcp/install?name=inbox-zero&config=eyJ1cmwiOiJodHRwczovL3d3dy5nZXRpbmJveHplcm8uY29tL21jcCJ9
-    ```
-
-    Cursor then runs OAuth. For a self-hosted origin, replace the URL in `mcp.json`.
+    Cursor then runs OAuth.
   </Accordion>
 
   <Accordion title="Claude Code">
     ```bash
-    claude mcp add --transport http inbox-zero https://www.getinboxzero.com/mcp
+    claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
     ```
 
-    Claude Code then runs OAuth against that URL. For a self-hosted origin, pass your `/mcp` URL instead.
+    Claude Code then runs OAuth against that URL.
   </Accordion>
 
 See [Connect MCP](/essentials/mcp) for the in-app toggle and per-app disconnect UI.

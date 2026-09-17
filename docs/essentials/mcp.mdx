@@ -12,9 +12,11 @@ This is different from [Integrations](/essentials/context-integrations), which l
 
 The MCP toggle appears in Settings when that deployment has the MCP server enabled.
 
+Hosted Inbox Zero does not expose MCP until both flags are on. Enable them on a testing or self-hosted deployment first. Production hosted MCP is not generally available yet.
+
 ## Turn on MCP for your account
 
-1. Open [Settings](https://www.getinboxzero.com/settings) and scroll to **Developer → API Access**.
+1. Open Settings and scroll to **Developer → API Access**.
 2. Turn on **MCP**.
 3. Connect your assistant with the MCP URL below. The first connection asks you to allow access.
 
@@ -22,42 +24,36 @@ If MCP is still off when the assistant connects, the consent screen can turn it 
 
 ## Add the server
 
-Use this Streamable HTTP URL:
+Use this Streamable HTTP URL on the deployment where MCP is enabled:
 
 ```text
-https://www.getinboxzero.com/mcp
+https://your-inbox-zero-host/mcp
 ```
 
-Self-hosted deployments use `https://your-inbox-zero-host/mcp` after setting `MCP_SERVER_ENABLED=true` and `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`. See the [MCP API reference](/api-reference/mcp).
+Self-hosted and testing deployments must set `MCP_SERVER_ENABLED=true`, `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`, and `API_KEY_SALT` (required by the external API). See the [MCP API reference](/api-reference/mcp).
 
 ### Cursor
 
-Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`:
+Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`, replacing the origin with your deployment:
 
 ```json
 {
   "mcpServers": {
     "inbox-zero": {
-      "url": "https://www.getinboxzero.com/mcp"
+      "url": "https://your-inbox-zero-host/mcp"
     }
   }
 }
 ```
 
-Or open this install link in Cursor:
-
-```text
-cursor://anysphere.cursor-deeplink/mcp/install?name=inbox-zero&config=eyJ1cmwiOiJodHRwczovL3d3dy5nZXRpbmJveHplcm8uY29tL21jcCJ9
-```
-
 Cursor then signs you in with OAuth.
 
-A Cursor plugin that bundles this MCP URL plus a skill is planned for later marketplace listing. The live MCP server is the prerequisite; you can connect with `mcp.json` today.
+A Cursor plugin that bundles this MCP URL plus a skill is planned for later marketplace listing. The live MCP server is the prerequisite; connect with `mcp.json` against a deployment that has both flags on.
 
 ### Claude Code
 
 ```bash
-claude mcp add --transport http inbox-zero https://www.getinboxzero.com/mcp
+claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
 ```
 
 ## What the assistant can do

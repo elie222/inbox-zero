@@ -143,7 +143,9 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await expect(toggle).toBeChecked();
   await page.getByRole("button", { name: /^MCP apps/ }).click();
   const appsDialog = page.getByRole("dialog", { name: "MCP apps" });
-  await expect(appsDialog.getByText("Playwright MCP client")).toBeVisible();
+  await expect(
+    appsDialog.getByText("Playwright MCP client", { exact: true }),
+  ).toBeVisible();
   await appsDialog
     .getByRole("button", { name: "Disconnect Playwright MCP client" })
     .click();

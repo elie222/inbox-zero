@@ -133,12 +133,20 @@ describe("mcp-server", () => {
     expect(
       registerTool.mock.calls.find(([name]) => name === "search_inbox")?.[1],
     ).toMatchObject({
-      annotations: { readOnlyHint: true, destructiveHint: false },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
     });
     expect(
       registerTool.mock.calls.find(([name]) => name === "create_draft")?.[1],
     ).toMatchObject({
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
     });
     expect(
       registerTool.mock.calls.find(([name]) => name === "delete_rule")?.[1],

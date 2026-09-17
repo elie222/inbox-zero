@@ -1,11 +1,11 @@
 ---
 name: inbox-zero-mcp
-description: Search Inbox Zero mail, read threads, create mailbox drafts, and manage automation rules through the hosted MCP server. Use when the user wants an assistant to work with their Gmail or Outlook inbox from Cursor.
+description: Search Inbox Zero mail, read threads, create mailbox drafts, and manage automation rules through a remote MCP server. Use when the user wants an assistant to work with their Gmail or Outlook inbox from Cursor.
 ---
 
 # Inbox Zero MCP
 
-Connect to the Inbox Zero remote MCP server at `https://www.getinboxzero.com/mcp` (OAuth, Streamable HTTP). Self-hosted deployments use `https://<host>/mcp`.
+Connect to a remote Inbox Zero MCP server at `https://your-inbox-zero-host/mcp` (OAuth, Streamable HTTP) on a deployment that has `MCP_SERVER_ENABLED` and `NEXT_PUBLIC_EXTERNAL_API_ENABLED` turned on. Production hosted MCP is not generally available yet.
 
 ## Tools
 

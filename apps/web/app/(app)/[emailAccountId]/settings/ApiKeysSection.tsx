@@ -248,6 +248,7 @@ function McpConnectionsDialog({
               >
                 <span className="truncate text-sm">{connection.name}</span>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   disabled={isExecuting}
