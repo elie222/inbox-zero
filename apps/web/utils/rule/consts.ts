@@ -19,6 +19,9 @@ export const DEFAULT_MAIL_SPLIT_SYSTEM_TYPES = [
   SystemType.OTP,
 ] as const;
 
+/** Owned prompts we do not seed, placeholder, or leave as disabled Rules rows. */
+export const OPT_IN_SYSTEM_TYPES = [SystemType.OTP] as const;
+
 const ruleConfig: Record<
   SystemType,
   {
@@ -400,4 +403,13 @@ export function getSystemRuleActionTypes(
     systemType,
     draftReply: config.draftReply,
   });
+}
+
+export function isOptInSystemType(
+  systemType: string | null | undefined,
+): boolean {
+  return (
+    !!systemType &&
+    (OPT_IN_SYSTEM_TYPES as readonly string[]).includes(systemType)
+  );
 }

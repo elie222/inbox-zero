@@ -44,6 +44,7 @@ import {
   getSystemRuleActionTypes,
   getCategoryAction,
   getActionTypesForCategoryAction,
+  isOptInSystemType,
   STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -756,6 +757,13 @@ async function toggleRule({
         systemType,
         logger,
       });
+    } else if (isOptInSystemType(systemType)) {
+      await ensureDefaultMailSplitForRule({
+        emailAccountId,
+        systemType,
+        enabled: false,
+        logger,
+      });
     }
     return updatedRule;
   }
@@ -925,10 +933,12 @@ function handleRuleError(error: unknown, logger: Logger) {
 async function ensureDefaultMailSplitForRule({
   emailAccountId,
   systemType,
+  enabled = true,
   logger,
 }: {
   emailAccountId: string;
   systemType: SystemType;
+  enabled?: boolean;
   logger: Logger;
 }) {
   try {
@@ -943,7 +953,7 @@ async function ensureDefaultMailSplitForRule({
     await setDefaultMailSplits({
       emailAccountId,
       defaultSplits: getDefaultMailSplitDrafts([rule]),
-      enabled: true,
+      enabled,
     });
   } catch (error) {
     logger.error("Error creating default mail split", { error });

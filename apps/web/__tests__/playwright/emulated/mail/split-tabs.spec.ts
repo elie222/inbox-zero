@@ -227,6 +227,10 @@ test("turns a prepared split on from the library", async ({
     name: "Turn on the Starred split",
   });
   await expect(starredTile).toBeVisible();
+  // OTP is opt-in: offer it even when the account does not already have the label.
+  await expect(
+    page.getByRole("button", { name: "Turn on the OTP split" }),
+  ).toBeVisible();
   await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-split-library");
 

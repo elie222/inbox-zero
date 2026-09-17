@@ -1,4 +1,5 @@
 import { SystemType } from "@/generated/prisma/enums";
+import { isOptInSystemType } from "@/utils/rule/consts";
 
 export const SYSTEM_RULE_ORDER: SystemType[] = [
   SystemType.TO_REPLY,
@@ -20,6 +21,15 @@ type SortableRule = {
   name: string;
   instructions?: string | null;
 };
+
+/** Opt-in system rules stay off the Rules list until the user turns them on. */
+export function shouldShowSystemRule(
+  systemType: SystemType,
+  existing?: { enabled?: boolean | null } | null,
+) {
+  if (!isOptInSystemType(systemType)) return true;
+  return existing?.enabled === true;
+}
 
 export function sortRulesByCanonicalOrder<T extends SortableRule>(
   rules: T[],
