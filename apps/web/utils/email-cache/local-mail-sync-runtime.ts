@@ -20,6 +20,7 @@ import {
 } from "./search-index-service";
 import { readSearchIndexWork } from "./search-index-work";
 import { relieveLocalMailStoragePressure } from "./local-mail-storage-pressure";
+import { drainLocalMailOfflineDownloads } from "./local-mail-offline-runner";
 import {
   readLocalMailSettings,
   subscribeToLocalMailSettings,
@@ -242,6 +243,18 @@ async function tick(emailAccountId: string, entry: Entry) {
         entry.nextAt,
         entry.nextPressureAt ?? entry.nextAt,
       );
+    // Conversations the reader kept offline finish downloading here so the
+    // work resumes on its own after a reload, a reconnect or a new tab. A
+    // failed transfer must not disturb the synchronization cadence above.
+    try {
+      if (
+        (await drainLocalMailOfflineDownloads({ emailAccountId })) ===
+        "progress"
+      )
+        entry.nextAt = Math.min(entry.nextAt, Date.now() + 250);
+    } catch {
+      // The job's own attempts and backoff decide when this is tried again.
+    }
     if (
       "currentUpdate" in result &&
       result.currentUpdate &&

@@ -9,8 +9,12 @@ import {
 } from "./database";
 import { bootstrapLocalMailStorageLedgerBatch } from "./local-mail-storage-ledger-bootstrap";
 import { prepareLocalMailOfflineConversation } from "./local-mail-offline-plan";
-import { saveLocalMailOfflineConversation } from "./local-mail-offline-save";
+import {
+  keepLocalMailConversationOffline,
+  saveLocalMailOfflineConversation,
+} from "./local-mail-offline-save";
 import { readLocalMailOfflineSnapshot } from "./local-mail-attachments";
+import { invalidateThreadCaches } from "./thread-invalidation";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
 
@@ -103,4 +107,29 @@ it("rolls back the message and pin when logical capacity is unavailable", async 
   );
   expect(await db.count("localMailMessages")).toBe(0);
   expect(await db.count("localMailThreadProtection")).toBe(0);
+});
+
+it("saves the current conversation when it changes between the quote and the save", async () => {
+  const plan = await prepareLocalMailOfflineConversation({
+    emailAccountId: "account",
+    threadId: "thread",
+  });
+  // A background read of the same thread lands after the quote was taken.
+  invalidateThreadCaches({
+    emailAccountId: "account",
+    threadIds: ["thread"],
+    reset: false,
+  });
+  await expect(saveLocalMailOfflineConversation(plan)).rejects.toThrow(
+    "changed",
+  );
+
+  const snapshotId = await keepLocalMailConversationOffline(plan);
+  expect(snapshotId).toBeTruthy();
+  expect(
+    await readLocalMailOfflineSnapshot({
+      emailAccountId: "account",
+      threadId: "thread",
+    }),
+  ).toMatchObject({ snapshotId, messagesReady: true });
 });

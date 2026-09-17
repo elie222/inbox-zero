@@ -8,6 +8,13 @@ import { captureLocalMailCacheContext } from "./local-mail-cache-context";
 import { isEmailCacheEpochCurrent } from "./database";
 import { getThreadCacheVersion } from "./thread-invalidation";
 
+/**
+ * The conversation moved while it was being quoted or saved, which ordinary
+ * background synchronization can do at any moment. Callers recover by quoting
+ * it again rather than reporting a failure.
+ */
+export class LocalMailOfflineConversationChangedError extends Error {}
+
 export async function prepareLocalMailOfflineConversation({
   emailAccountId,
   threadId,
@@ -48,8 +55,8 @@ export async function prepareLocalMailOfflineConversation({
     !isEmailCacheEpochCurrent(emailAccountId, context.epoch) ||
     version !== getThreadCacheVersion(emailAccountId, threadId)
   )
-    throw new Error(
-      "The conversation changed. Prepare it again before saving offline.",
+    throw new LocalMailOfflineConversationChangedError(
+      "The conversation changed while it was being prepared.",
     );
   if (
     data.thread.id !== threadId ||

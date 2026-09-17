@@ -1,4 +1,7 @@
-import type { prepareLocalMailOfflineConversation } from "./local-mail-offline-plan";
+import {
+  LocalMailOfflineConversationChangedError,
+  prepareLocalMailOfflineConversation,
+} from "./local-mail-offline-plan";
 import { getEmailCacheDatabase, isEmailCacheEpochCurrent } from "./database";
 import { isLocalMailCacheContextCurrent } from "./local-mail-cache-context";
 import { getThreadCacheVersion } from "./thread-invalidation";
@@ -10,8 +13,43 @@ import {
 } from "./local-mail-attachments";
 import { notifyEmailCacheChange } from "./cache-events";
 
+const SAVE_ATTEMPTS = 3;
+
+type Plan = Awaited<ReturnType<typeof prepareLocalMailOfflineConversation>>;
+
+/**
+ * Saves a quoted conversation, re-quoting it if it moved in the meantime.
+ *
+ * Ordinary background synchronization re-reads a thread body at any moment,
+ * which invalidates a quote that is only milliseconds old. A reader who asked
+ * to keep the conversation wants the current version of it, so this saves that
+ * instead of reporting a conflict it could resolve itself.
+ */
+export async function keepLocalMailConversationOffline(
+  plan: Plan,
+  signal?: AbortSignal,
+) {
+  let current = plan;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await saveLocalMailOfflineConversation(current, signal);
+    } catch (caught) {
+      if (
+        attempt >= SAVE_ATTEMPTS - 1 ||
+        !(caught instanceof LocalMailOfflineConversationChangedError)
+      )
+        throw caught;
+      current = await prepareLocalMailOfflineConversation({
+        emailAccountId: plan.emailAccountId,
+        threadId: plan.threadId,
+        signal,
+      });
+    }
+  }
+}
+
 export async function saveLocalMailOfflineConversation(
-  plan: Awaited<ReturnType<typeof prepareLocalMailOfflineConversation>>,
+  plan: Plan,
   signal?: AbortSignal,
 ) {
   const { emailAccountId, threadId, context, version, fetchedAt, data } = plan;
@@ -42,8 +80,8 @@ export async function saveLocalMailOfflineConversation(
         )) ||
         version !== getThreadCacheVersion(emailAccountId, threadId)
       )
-        throw new Error(
-          "The conversation changed. Prepare it again before saving offline.",
+        throw new LocalMailOfflineConversationChangedError(
+          "The conversation changed while it was being saved.",
         );
       await storeLocalMailMessages(
         transaction,
@@ -62,8 +100,8 @@ export async function saveLocalMailOfflineConversation(
           .objectStore("localMailMessages")
           .get([emailAccountId, message.id]);
         if (row?.bodyFetchedAt !== fetchedAt || row.threadId !== threadId)
-          throw new Error(
-            "The conversation changed. Prepare it again before saving offline.",
+          throw new LocalMailOfflineConversationChangedError(
+            "The conversation changed while it was being saved.",
           );
       }
       signal?.throwIfAborted();
@@ -89,16 +127,16 @@ export async function saveLocalMailOfflineConversation(
         attachmentId: attachment.attachmentId,
       });
       if (!reference)
-        throw new Error(
-          "The conversation changed. Prepare it again before saving offline.",
+        throw new LocalMailOfflineConversationChangedError(
+          "The conversation changed while it was being saved.",
         );
       references.push(reference);
     }
   }
   signal?.throwIfAborted();
   if (!isEmailCacheEpochCurrent(emailAccountId, context.epoch))
-    throw new Error(
-      "The conversation changed. Prepare it again before saving offline.",
+    throw new LocalMailOfflineConversationChangedError(
+      "The conversation changed while it was being saved.",
     );
   const snapshotId = await createLocalMailOfflineSnapshot({
     emailAccountId,

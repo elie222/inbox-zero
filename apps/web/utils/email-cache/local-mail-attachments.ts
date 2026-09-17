@@ -424,6 +424,9 @@ export async function readLocalMailOfflineSnapshot(scope: Scope) {
   if (!isEmailCacheEpochCurrent(scope.emailAccountId, epoch)) return;
   return {
     snapshotId: protection.pinSnapshotId,
+    // Both readiness flags are false while a snapshot is invalidated, so the
+    // reader needs this to tell "still downloading" from "prepare it again".
+    invalidated: !!protection.pinSnapshotInvalidated,
     attachmentsReady,
     messagesReady: messagesReady && remainingMessages.size === 0,
     cachedBytes,
