@@ -1,9 +1,9 @@
 ---
 title: "MCP server"
-description: "Connect Cursor, Claude Code, or another assistant to Inbox Zero mail, drafts, rules, and statistics with OAuth."
+description: "Connect ChatGPT, Claude, Cursor, or another assistant to Inbox Zero mail, drafts, rules, and statistics with OAuth."
 ---
 
-The optional MCP server lets external assistants search and read your inbox, create mailbox drafts, manage automation rules, and read email statistics. It uses OAuth instead of API keys. It is separate from the integrations that let Inbox Zero call other services.
+The optional MCP server lets ChatGPT, Claude, Cursor, or another assistant search and read your inbox, create mailbox drafts, manage automation rules, and read email statistics. It uses OAuth instead of API keys. It is separate from the integrations that let Inbox Zero call other services.
 
 Sending mail is not available. Drafts stay in the mailbox until you send them yourself.
 
@@ -37,7 +37,21 @@ Sign in with your connected provider, then choose **Allow**. Email-code sessions
 
 Refresh tokens stay valid after you log out of Inbox Zero in the browser. Disconnect the app or turn off MCP in Settings to revoke them.
 
-<Accordion title="Cursor">
+<Accordion title="ChatGPT">
+    In ChatGPT, open **Settings → Apps**, turn on **Developer mode**, and create a new app or connector. Paste the MCP URL, scan tools, then sign in to Inbox Zero and choose **Allow**. Enable the app from the tools menu in a new chat.
+  </Accordion>
+
+  <Accordion title="Claude">
+    In Claude, open **Customize → Connectors**, choose **Add custom connector**, and paste the MCP URL. Leave OAuth client ID and secret empty unless you registered a client yourself. Connect, choose **Allow**, then enable Inbox Zero from **+ → Connectors** in a chat.
+
+    ```bash
+    claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
+    ```
+
+    Claude Code then runs OAuth against that URL.
+  </Accordion>
+
+  <Accordion title="Cursor">
     Add this to `~/.cursor/mcp.json` or `.cursor/mcp.json`, replacing the origin with your deployment:
 
     ```json
@@ -53,15 +67,7 @@ Refresh tokens stay valid after you log out of Inbox Zero in the browser. Discon
     Cursor then runs OAuth.
   </Accordion>
 
-  <Accordion title="Claude Code">
-    ```bash
-    claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
-    ```
-
-    Claude Code then runs OAuth against that URL.
-  </Accordion>
-
-See [Connect MCP](/essentials/mcp) for the in-app toggle and per-app disconnect UI.
+See [Connect MCP](/essentials/mcp) for ChatGPT, Claude, and Cursor steps plus the in-app toggle and per-app disconnect UI.
 
 Permissions apply to all inboxes linked to your user, including inboxes linked later:
 
@@ -85,7 +91,7 @@ Search returns metadata and snippets. Use `read_thread` for truncated plain-text
 
 ## Disconnect applications
 
-Open **Settings → Developer → MCP** and choose **MCP apps** to disconnect one client. That revokes that app's tokens and consent. Other apps stay connected.
+Open **Settings → Account → MCP** and choose **MCP apps** to disconnect one client. That revokes that app's tokens and consent. Other apps stay connected.
 
 Turn off **MCP** to revoke every MCP consent and refresh grant and invalidate existing access tokens. Turning MCP back on does not restore those tokens; reconnect each application to grant access again.
 

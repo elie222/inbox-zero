@@ -1,10 +1,10 @@
 ---
 title: "Connect MCP"
-description: "Let Cursor, Claude Code, or another assistant search your inbox, create drafts, and manage rules."
+description: "Let ChatGPT, Claude, or Cursor search your inbox, create drafts, and manage rules."
 icon: "plug"
 ---
 
-Inbox Zero can expose a remote MCP server so an assistant in Cursor, Claude Code, or another MCP client can work with your linked Gmail and Outlook accounts.
+Inbox Zero can expose a remote MCP server so ChatGPT, Claude, Cursor, or another MCP client can work with your linked Gmail and Outlook accounts.
 
 The assistant can search and read mail, create mailbox drafts, manage automation rules, and read email statistics. It cannot send email. Drafts stay in your mailbox until you send them.
 
@@ -16,13 +16,9 @@ Hosted Inbox Zero does not expose MCP until both flags are on. Enable them on a 
 
 ## Turn on MCP for your account
 
-1. Open Settings and scroll to **Developer → MCP**.
+1. Open Settings and scroll to **Account → MCP**.
 2. Turn on **MCP**.
-3. Copy the MCP URL from the connect dialog and add it to your assistant. The first connection asks you to allow access.
-
-If MCP is still off when the assistant connects, the consent screen can turn it on for you after you sign in with Google or Microsoft. Email-code sign-in cannot authorize MCP clients.
-
-## Add the server
+3. Copy the MCP URL from the connect dialog.
 
 Use this Streamable HTTP URL on the deployment where MCP is enabled:
 
@@ -32,7 +28,39 @@ https://your-inbox-zero-host/mcp
 
 Self-hosted and testing deployments must set `MCP_SERVER_ENABLED=true`, `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`, and `API_KEY_SALT` (required by the external API). See the [MCP API reference](/api-reference/mcp).
 
-### Cursor
+If MCP is still off when the assistant connects, the consent screen can turn it on for you after you sign in with Google or Microsoft. Email-code sign-in cannot authorize MCP clients.
+
+## ChatGPT
+
+ChatGPT needs a public HTTPS MCP URL and Developer mode. Availability depends on your ChatGPT plan.
+
+1. Open ChatGPT on the web and go to **Settings → Apps**.
+2. Turn on **Developer mode**.
+3. Create a new app or connector and paste the Inbox Zero MCP URL.
+4. Scan tools, then sign in to Inbox Zero and choose **Allow**.
+5. Start a new chat and enable the Inbox Zero app from the tools menu before asking it to search mail or draft a reply.
+
+If ChatGPT asks how to authenticate, choose OAuth. Do not paste an Inbox Zero API key.
+
+## Claude
+
+1. Open Claude and go to **Customize → Connectors**.
+2. Choose **Add custom connector**.
+3. Paste the Inbox Zero MCP URL. Leave OAuth client ID and secret empty unless you registered a client yourself.
+4. Add the connector, then choose **Connect** and **Allow** on the Inbox Zero consent screen.
+5. In a chat, open **+ → Connectors** and enable Inbox Zero before asking it to search mail or draft a reply.
+
+On Team and Enterprise, an owner adds the connector under **Organization settings → Connectors** first. Members then connect it from **Customize → Connectors**.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
+```
+
+Claude Code then signs you in with OAuth.
+
+## Cursor
 
 Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`, replacing the origin with your deployment:
 
@@ -46,15 +74,9 @@ Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`, replacing th
 }
 ```
 
-Cursor then signs you in with OAuth.
+Cursor then signs you in with OAuth. You can also add the same URL from **Cursor Settings → MCP**.
 
 A Cursor plugin that bundles this MCP URL plus a skill is planned for later marketplace listing. The live MCP server is the prerequisite; connect with `mcp.json` against a deployment that has both flags on.
-
-### Claude Code
-
-```bash
-claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
-```
 
 ## What the assistant can do
 
@@ -67,7 +89,7 @@ Ask it to search recent mail, summarize a thread, draft a reply, or update an au
 
 ## Disconnect an app
 
-1. Open **Settings → Developer → MCP**.
+1. Open **Settings → Account → MCP**.
 2. Choose **MCP apps**.
 3. Disconnect the application you no longer trust.
 

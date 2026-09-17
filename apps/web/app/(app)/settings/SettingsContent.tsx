@@ -17,6 +17,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { McpSection } from "@/app/(app)/[emailAccountId]/settings/McpSection";
 import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
@@ -162,25 +163,9 @@ export function SettingsContent() {
         </SettingsGroup>
       )}
 
-      {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
-        env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
-        <SettingsGroup
-          icon={<WebhookIcon className="size-5" />}
-          title="Developer"
-        >
-          <ItemCard>
-            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false && (
-              <WebhookSection />
-            )}
-            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false &&
-              env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ItemSeparator />}
-            {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ApiKeysSection />}
-          </ItemCard>
-        </SettingsGroup>
-      )}
-
       <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
         <ItemCard>
+          {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <McpSection />}
           <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
           <ItemSeparator />
           <AppearanceSection />
@@ -200,6 +185,23 @@ export function SettingsContent() {
           <DeleteSection />
         </ItemCard>
       </SettingsGroup>
+
+      {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
+        env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
+        <SettingsGroup
+          icon={<WebhookIcon className="size-5" />}
+          title="Developer"
+        >
+          <ItemCard>
+            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false && (
+              <WebhookSection />
+            )}
+            {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false &&
+              env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ItemSeparator />}
+            {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ApiKeysSection />}
+          </ItemCard>
+        </SettingsGroup>
+      )}
     </div>
   );
 }
