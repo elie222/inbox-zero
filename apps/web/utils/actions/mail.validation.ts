@@ -1,4 +1,5 @@
 import { sendEmailBody } from "@/utils/types/mail";
+import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import { z } from "zod";
 
 const mailboxItemKind = z.enum(["label", "folder"]);
@@ -35,8 +36,19 @@ export const updateMailboxItemBody = z
         }),
       })
       .optional(),
+    labelListVisibility: z.enum(labelVisibility).optional(),
+    messageListVisibility: z.enum(messageVisibility).optional(),
   })
-  .superRefine(({ kind, name, color }, context) => {
+  .superRefine(({ kind, name, color, ...visibility }, context) => {
+    const hasVisibility = Boolean(
+      visibility.labelListVisibility || visibility.messageListVisibility,
+    );
+    if (kind === "folder" && hasVisibility) {
+      context.addIssue({
+        code: "custom",
+        message: "Folders do not support visibility settings",
+      });
+    }
     if (kind === "folder" && !name) {
       context.addIssue({
         code: "custom",
@@ -51,10 +63,10 @@ export const updateMailboxItemBody = z
         message: "Folders do not support colors",
       });
     }
-    if (kind === "label" && !name && !color) {
+    if (kind === "label" && !name && !color && !hasVisibility) {
       context.addIssue({
         code: "custom",
-        message: "A label name or color is required",
+        message: "A label name, color, or visibility setting is required",
       });
     }
   });

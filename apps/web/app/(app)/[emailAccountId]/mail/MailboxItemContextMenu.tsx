@@ -18,6 +18,10 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -29,6 +33,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { EmailLabelColor } from "@/utils/email/types";
+import {
+  labelVisibility,
+  messageVisibility,
+  type LabelVisibility,
+  type MessageVisibility,
+} from "@/utils/gmail/constants";
 import { cn } from "@/utils";
 
 export type MailboxItem = {
@@ -44,7 +54,26 @@ export type MailboxItemEdit =
       kind: "label";
       color?: EmailLabelColor;
       name?: string;
+      labelListVisibility?: LabelVisibility;
+      messageListVisibility?: MessageVisibility;
     };
+
+/** Gmail's per-label visibility, as the label currently has it set. */
+export type MailboxItemVisibility = {
+  labelList?: string;
+  messageList?: string;
+};
+
+const LABEL_LIST_OPTIONS = [
+  { value: labelVisibility.labelShow, name: "Show" },
+  { value: labelVisibility.labelShowIfUnread, name: "Show if unread" },
+  { value: labelVisibility.labelHide, name: "Hide" },
+] as const;
+
+const MESSAGE_LIST_OPTIONS = [
+  { value: messageVisibility.show, name: "Show" },
+  { value: messageVisibility.hide, name: "Hide" },
+] as const;
 
 export type MailboxItemColorOption = EmailLabelColor & { name: string };
 
@@ -55,6 +84,7 @@ export function MailboxItemContextMenu({
   editMode,
   currentColor,
   colorOptions = [],
+  visibility,
   onEdit,
   onDelete,
 }: {
@@ -67,6 +97,8 @@ export function MailboxItemContextMenu({
     textColor?: string | null;
   };
   colorOptions?: readonly MailboxItemColorOption[];
+  /** Omitted for providers without visibility settings, which hides the menu section. */
+  visibility?: MailboxItemVisibility;
   onEdit: (edit: MailboxItemEdit) => Promise<boolean>;
   onDelete: (item: MailboxItem) => Promise<boolean>;
 }) {
@@ -132,6 +164,19 @@ export function MailboxItemContextMenu({
     }
   };
 
+  const updateVisibility = async (
+    update: Pick<
+      Extract<MailboxItemEdit, { kind: "label" }>,
+      "labelListVisibility" | "messageListVisibility"
+    >,
+  ) => {
+    try {
+      await onEdit({ kind: "label", id: item.id, ...update });
+    } catch {
+      toast.error(`Failed to update ${typeName}. Please try again.`);
+    }
+  };
+
   const deleteItem = async () => {
     setIsDeleting(true);
     try {
@@ -150,7 +195,7 @@ export function MailboxItemContextMenu({
         <ContextMenuTrigger asChild>
           <div>{children}</div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-40">
+        <ContextMenuContent className="w-48">
           <ContextMenuItem className="gap-2" onSelect={openEditor}>
             <PencilIcon className="size-4" />
             Edit
@@ -162,6 +207,46 @@ export function MailboxItemContextMenu({
             <Trash2Icon className="size-4" />
             Delete
           </ContextMenuItem>
+          {visibility && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuLabel className="text-muted-foreground text-xs">
+                In {typeName} list
+              </ContextMenuLabel>
+              <ContextMenuRadioGroup
+                value={visibility.labelList ?? labelVisibility.labelShow}
+                onValueChange={(value) =>
+                  updateVisibility({
+                    labelListVisibility: value as LabelVisibility,
+                  })
+                }
+              >
+                {LABEL_LIST_OPTIONS.map((option) => (
+                  <ContextMenuRadioItem key={option.value} value={option.value}>
+                    {option.name}
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
+              <ContextMenuSeparator />
+              <ContextMenuLabel className="text-muted-foreground text-xs">
+                In message list
+              </ContextMenuLabel>
+              <ContextMenuRadioGroup
+                value={visibility.messageList ?? messageVisibility.show}
+                onValueChange={(value) =>
+                  updateVisibility({
+                    messageListVisibility: value as MessageVisibility,
+                  })
+                }
+              >
+                {MESSAGE_LIST_OPTIONS.map((option) => (
+                  <ContextMenuRadioItem key={option.value} value={option.value}>
+                    {option.name}
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
 

@@ -8,6 +8,10 @@ import type {
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/types/mail";
 import type { EmailContact } from "@/utils/email/contact";
+import type {
+  LabelVisibility,
+  MessageVisibility,
+} from "@/utils/gmail/constants";
 
 export interface EmailThread {
   historyId?: string;
@@ -51,6 +55,8 @@ export type EmailLabelColor = {
 export type EmailLabelUpdate = {
   color?: EmailLabelColor;
   name?: string;
+  labelListVisibility?: LabelVisibility;
+  messageListVisibility?: MessageVisibility;
 };
 
 export type EmailFolderCount = {

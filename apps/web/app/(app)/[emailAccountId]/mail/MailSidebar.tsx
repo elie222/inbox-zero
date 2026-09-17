@@ -43,6 +43,7 @@ import { cn } from "@/utils";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
 import { getLabelTree, type SidebarLabel } from "./label-tree";
+import { splitLabelsByListVisibility } from "./label-visibility";
 import { getMailSidebarFolders } from "./outlook-folder-list";
 import {
   MailboxItemContextMenu,
@@ -81,6 +82,8 @@ export type MailSidebarProps = {
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   labelEditMode: "color" | "name-and-color";
   labelColorOptions: readonly MailboxItemColorOption[];
+  /** Gmail lets a label be hidden from the label and message lists. */
+  supportsLabelVisibility?: boolean;
   /** Hide the categories group behind a toggle, collapsed by default. */
   collapsibleCategories?: boolean;
   /** Icon-only rail: rows shrink to their icon and names move into tooltips. */
@@ -175,6 +178,7 @@ export function MailSidebar({
   onDeleteMailboxItem,
   labelEditMode,
   labelColorOptions,
+  supportsLabelVisibility = false,
   collapsibleCategories = false,
   collapsed = false,
   footer,
@@ -184,8 +188,20 @@ export function MailSidebar({
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const sidebarFolders = getMailSidebarFolders(folders);
-  const labelTree = getLabelTree(labels, labelEditMode === "name-and-color");
+  const { visibleLabels, hiddenLabels } = splitLabelsByListVisibility({
+    labels,
+    countsById,
+  });
+  const labelTree = getLabelTree(
+    visibleLabels,
+    labelEditMode === "name-and-color",
+  );
   const hasNestedLabels = labelTree.some((root) => root.children.length > 0);
+  // Hidden labels stay flat: they are an escape hatch, not a place to browse.
+  const hiddenLabelNodes = getLabelTree(hiddenLabels, false);
+  const hasHiddenActiveLabel = hiddenLabels.some(
+    (label) => label.id === activeLabelId,
+  );
 
   const isCategoryActive =
     !activeLabelId &&
@@ -193,6 +209,7 @@ export function MailSidebar({
     categories.some((category) => category.type === activeType);
   const [showCategories, setShowCategories] = useState(isCategoryActive);
   const [showLabels, setShowLabels] = useState(true);
+  const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   // Nothing in the rail can toggle a group, so there a group follows the open
   // view rather than a stored choice, which would otherwise be a one-way door.
   // The expanded sidebar keeps whatever the user chose.
@@ -219,6 +236,12 @@ export function MailSidebar({
   useEffect(() => {
     if (activeLabelId) setShowLabels(true);
   }, [activeLabelId]);
+
+  // Opening a hidden label from elsewhere (search, a thread's chips) must not
+  // leave the sidebar without a row for the view the user is looking at.
+  useEffect(() => {
+    if (hasHiddenActiveLabel) setShowHiddenLabels(true);
+  }, [hasHiddenActiveLabel]);
 
   const submitNewLabel = (event: FormEvent) => {
     event.preventDefault();
@@ -455,11 +478,51 @@ export function MailSidebar({
                     labelSingular={labelSingular}
                     labelEditMode={labelEditMode}
                     labelColorOptions={labelColorOptions}
+                    supportsLabelVisibility={supportsLabelVisibility}
                     onEditMailboxItem={onEditMailboxItem}
                     onDeleteMailboxItem={onDeleteMailboxItem}
                   />
                 ))}
               </nav>
+            )}
+
+            {showLabels && hiddenLabelNodes.length > 0 && !collapsed && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowHiddenLabels((open) => !open)}
+                  aria-expanded={showHiddenLabels}
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showHiddenLabels ? (
+                    <ChevronDownIcon className="size-3" />
+                  ) : (
+                    <ChevronRightIcon className="size-3" />
+                  )}
+                  More
+                </button>
+                {showHiddenLabels && (
+                  <nav className="flex flex-col gap-px">
+                    {hiddenLabelNodes.map((node) => (
+                      <LabelBranch
+                        key={node.label.id}
+                        node={node}
+                        hasNestedLabels={false}
+                        collapsed={collapsed}
+                        activeLabelId={activeLabelId}
+                        hrefFor={hrefFor}
+                        countsById={countsById}
+                        labelSingular={labelSingular}
+                        labelEditMode={labelEditMode}
+                        labelColorOptions={labelColorOptions}
+                        supportsLabelVisibility={supportsLabelVisibility}
+                        onEditMailboxItem={onEditMailboxItem}
+                        onDeleteMailboxItem={onDeleteMailboxItem}
+                      />
+                    ))}
+                  </nav>
+                )}
+              </>
             )}
 
             {showLabels && isAddingLabel && !collapsed ? (
@@ -509,6 +572,7 @@ function LabelBranch({
   | "labelSingular"
   | "labelEditMode"
   | "labelColorOptions"
+  | "supportsLabelVisibility"
   | "onEditMailboxItem"
   | "onDeleteMailboxItem"
 > & { node: SidebarLabel; hasNestedLabels: boolean; collapsed: boolean }) {
@@ -542,6 +606,14 @@ function LabelBranch({
         editMode={props.labelEditMode}
         currentColor={label.color}
         colorOptions={props.labelColorOptions}
+        visibility={
+          props.supportsLabelVisibility
+            ? {
+                labelList: label.labelListVisibility,
+                messageList: label.messageListVisibility,
+              }
+            : undefined
+        }
         onEdit={props.onEditMailboxItem}
         onDelete={props.onDeleteMailboxItem}
       >

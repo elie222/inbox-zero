@@ -289,12 +289,27 @@ export const updateMailboxItemAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { kind, id, name, color },
+      parsedInput: {
+        kind,
+        id,
+        name,
+        color,
+        labelListVisibility,
+        messageListVisibility,
+      },
     }) => {
       assertMailboxItemMutationSupported({ kind, provider });
       if (kind === "label" && isMicrosoftProvider(provider) && name) {
         throw new SafeError(
           "Outlook category names cannot be changed. Edit its color instead.",
+        );
+      }
+      if (
+        (labelListVisibility || messageListVisibility) &&
+        !isGoogleProvider(provider)
+      ) {
+        throw new SafeError(
+          "Visibility settings are only available for Gmail.",
         );
       }
       if (color && isGoogleProvider(provider) && !isGmailLabelColor(color)) {
@@ -315,7 +330,13 @@ export const updateMailboxItemAction = actionClient
 
       try {
         if (kind === "folder") await emailProvider.renameFolder(id, name!);
-        else await emailProvider.updateLabel(id, { name, color });
+        else
+          await emailProvider.updateLabel(id, {
+            name,
+            color,
+            labelListVisibility,
+            messageListVisibility,
+          });
       } catch (error) {
         logger.error("Failed to update mailbox item", { error, kind });
         throw new SafeError(`Failed to update ${kind}. Please try again.`);
