@@ -8,6 +8,7 @@ import {
   BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  Clock3Icon,
   FileIcon,
   FolderIcon,
   InboxIcon,
@@ -17,8 +18,11 @@ import {
   PenLineIcon,
   PlusIcon,
   SendIcon,
+  ShieldAlertIcon,
   SparklesIcon,
+  StarIcon,
   TagIcon,
+  Trash2Icon,
   UserIcon,
   Users2Icon,
 } from "lucide-react";
@@ -108,6 +112,20 @@ const SYSTEM_ITEMS: SystemItem[] = [
   { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
 ];
 
+export const MAIL_SCHEDULED_TYPE = "scheduled";
+
+const MORE_ITEMS: SystemItem[] = [
+  { name: "Starred", type: "starred", countId: null, Icon: StarIcon },
+  {
+    name: "Scheduled",
+    type: MAIL_SCHEDULED_TYPE,
+    countId: null,
+    Icon: Clock3Icon,
+  },
+  { name: "Spam", type: "spam", countId: null, Icon: ShieldAlertIcon },
+  { name: "Trash", type: "trash", countId: null, Icon: Trash2Icon },
+];
+
 export type MailCategory = {
   name: string;
   type: string;
@@ -187,9 +205,19 @@ export function MailSidebar({
   const [showLabels, setShowLabels] = useState(true);
   const showCategoryRows = !collapsibleCategories || showCategories;
 
+  const isMoreActive =
+    !activeLabelId &&
+    !activeFolderId &&
+    MORE_ITEMS.some((item) => item.type === activeType);
+  const [showMore, setShowMore] = useState(isMoreActive);
+
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
   }, [isCategoryActive]);
+
+  useEffect(() => {
+    if (isMoreActive) setShowMore(true);
+  }, [isMoreActive]);
 
   // Expand when the open view changes to a label so a collapsed list can
   // still reveal the selected row. A same-label collapse stays put.
@@ -293,6 +321,35 @@ export function MailSidebar({
             ),
           )}
         </nav>
+
+        {!unified && (!collapsed || showMore) && (
+          <>
+            <GroupHeading
+              collapsed={collapsed}
+              expanded={showMore}
+              onToggle={() => setShowMore((open) => !open)}
+            >
+              More
+            </GroupHeading>
+            {showMore && (
+              <nav className="flex flex-col gap-px">
+                {MORE_ITEMS.map(({ name, type, Icon }) => (
+                  <NavRow
+                    key={type}
+                    href={hrefFor({ kind: "type", type })}
+                    active={
+                      !activeLabelId && !activeFolderId && activeType === type
+                    }
+                    icon={<Icon className="size-4 shrink-0" />}
+                    name={name}
+                    count={null}
+                    collapsed={collapsed}
+                  />
+                ))}
+              </nav>
+            )}
+          </>
+        )}
 
         {/* The rail replaces headings with a rule, so an empty group would
             leave a stray line behind. */}

@@ -322,9 +322,13 @@ export async function readSyncedMailboxThreads({
           }
         }
       }
-      // Sparse filters should fall back to the server instead of blocking a
-      // render while IndexedDB walks and deserializes the whole mailbox.
-      if (cursor && selectedRecords.length < limit + 1) {
+      // A dense filter that comes up short means the scan stopped early, so
+      // the server holds a better answer than a half-walked mailbox.
+      if (
+        cursor &&
+        selectedRecords.length < limit + 1 &&
+        !isSparseMailboxQuery(query)
+      ) {
         await transaction.done;
         return;
       }
@@ -577,10 +581,21 @@ function isSupportedMailboxQuery(query: ThreadsQuery) {
   ) {
     return false;
   }
-  if (!query.type || query.type === "inbox" || query.type === "unread") {
+  if (
+    !query.type ||
+    query.type === "inbox" ||
+    query.type === "unread" ||
+    query.type === "starred"
+  ) {
     return true;
   }
   return query.type.startsWith("CATEGORY_");
+}
+
+/** Matches so little of the mailbox that a scan runs out before filling a page,
+ * having still found the newest matches. A short local page is worth painting. */
+function isSparseMailboxQuery(query: ThreadsQuery) {
+  return query.type === "starred";
 }
 
 function isCompleteMailboxQuery(query: ThreadsQuery) {
@@ -606,6 +621,7 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
     ...(query.labelIds ?? []),
     ...(query.labelId ? [query.labelId] : []),
     ...(query.type === "inbox" || query.type === "unread" ? ["INBOX"] : []),
+    ...(query.type === "starred" ? ["STARRED"] : []),
     ...(query.type?.startsWith("CATEGORY_") ? [query.type] : []),
   ];
   if (

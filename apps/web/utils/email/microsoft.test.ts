@@ -819,6 +819,20 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     );
   });
 
+  it("finds starred threads by message flag across every folder", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({ query: { type: "starred" } });
+
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/messages",
+        filter: "flag/flagStatus eq 'flagged'",
+      }),
+    );
+  });
+
   it("includes participants from messages outside the selected folder", async () => {
     const inboxMessage = {
       ...createMessage({
