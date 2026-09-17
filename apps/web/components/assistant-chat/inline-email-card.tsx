@@ -1,5 +1,6 @@
 "use client";
 
+import { OpenedConversationAttachments } from "@/components/email-list/OpenedConversationAttachments";
 import {
   Children,
   createContext,
@@ -652,7 +653,11 @@ function EmailPreview({
   const lastMessage = data.thread.messages[data.thread.messages.length - 1];
 
   const body = (
-    <>
+    <OpenedConversationAttachments
+      emailAccountId={emailAccountId}
+      threadId={threadId}
+      allowUncached
+    >
       {lastMessage.textHtml ? (
         <HtmlEmail
           emailAccountId={emailAccountId}
@@ -673,7 +678,7 @@ function EmailPreview({
       {lastMessage.attachments?.length ? (
         <EmailAttachments message={lastMessage} />
       ) : null}
-    </>
+    </OpenedConversationAttachments>
   );
 
   if (compact) {

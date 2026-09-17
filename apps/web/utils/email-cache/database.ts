@@ -1,3 +1,17 @@
+import { EMAIL_CACHE_DATABASE_NAME } from "./database-name";
+import { createAccountedMailTransaction } from "./optional-cache-write";
+import type { LocalMailStorageLedger } from "./local-mail-storage-ledger-types";
+import type {
+  LocalMailAttachmentFile,
+  LocalMailAttachmentJob,
+  LocalMailAttachmentKey,
+} from "./local-mail-attachments-types";
+import type {
+  LocalMailRetentionPolicy,
+  LocalMailEvictionJob,
+  LocalMailEvictedMessage,
+  LocalMailThreadProtection,
+} from "./local-mail-retention-types";
 import { cleanupSearchIndex } from "./search-index-service";
 import type {
   LocalMailSyncState,
@@ -11,8 +25,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { clearMailActivation } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
 
-const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 14;
+const DATABASE_VERSION = 19;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -124,6 +137,32 @@ export type StoredReplyDraft = {
 };
 
 export interface EmailCacheSchema extends DBSchema {
+  localMailAttachmentFiles: {
+    key: LocalMailAttachmentKey;
+    value: LocalMailAttachmentFile;
+    indexes: {
+      byAccount: string;
+      byAccountMessage: [string, string];
+      byAccountThread: [string, string];
+      byLastAccessed: number;
+    };
+  };
+  localMailAttachmentJobs: {
+    key: LocalMailAttachmentKey;
+    value: LocalMailAttachmentJob;
+    indexes: {
+      byAccount: string;
+      byAccountMessage: [string, string];
+      byAccountThread: [string, string];
+    };
+  };
+  localMailEvictedMessages: {
+    key: [string, string];
+    value: LocalMailEvictedMessage;
+    indexes: { byAccountThread: [string, string] };
+  };
+  localMailEvictionJobs: { key: string; value: LocalMailEvictionJob };
+
   localMailMessages: {
     key: [emailAccountId: string, messageId: string];
     value: {
@@ -140,9 +179,12 @@ export interface EmailCacheSchema extends DBSchema {
     indexes: {
       byAccount: string;
       byAccountThreadMessage: [string, string, string];
+      byAccountThreadReceivedAt: [string, string, number, string];
       byAccountReceivedAt: [string, number];
     };
   };
+  localMailRetentionPolicies: { key: string; value: LocalMailRetentionPolicy };
+  localMailStorageLedger: { key: "origin"; value: LocalMailStorageLedger };
   localMailSyncJobs: {
     key: [string, string];
     value: LocalMailSyncJob;
@@ -153,13 +195,19 @@ export interface EmailCacheSchema extends DBSchema {
     value: LocalMailSyncSeen;
   };
   localMailSyncStates: { key: string; value: LocalMailSyncState };
+  localMailThreadProtection: {
+    key: [string, string];
+    value: LocalMailThreadProtection;
+  };
   localMailTombstones: {
     key: [emailAccountId: string, messageId: string];
     value: {
       emailAccountId: string;
       messageId: string;
       deletedAt: number;
+      threadId?: string;
     };
+    indexes: { byAccountThread: [string, string] };
   };
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
@@ -210,8 +258,15 @@ export interface EmailCacheSchema extends DBSchema {
       generation: string;
       sourceVersion?: number;
       messageBytes?: number;
+      attachmentBytes?: number;
+      retentionRevision?: number;
+      evictionMarkerBytes?: number;
       seed?: {
-        store: "mailboxMessages" | "threadRows" | "threadDetails";
+        store:
+          | "localMailMessages"
+          | "mailboxMessages"
+          | "threadRows"
+          | "threadDetails";
         after?: [string, string] | [string, string, string];
         messageOffset?: number;
       };
@@ -270,162 +325,242 @@ export function getEmailCacheDatabase() {
   if (typeof indexedDB === "undefined") return Promise.resolve(undefined);
   if (databasePromise) return databasePromise;
 
-  databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
-    upgrade(database, oldVersion, _newVersion, transaction) {
-      if (oldVersion < 14) {
-        database.createObjectStore("localMailSyncStates", {
-          keyPath: "emailAccountId",
-        });
-        const jobs = database.createObjectStore("localMailSyncJobs", {
-          keyPath: ["emailAccountId", "id"],
-        });
-        jobs.createIndex("byAccount", "emailAccountId");
-        jobs.createIndex("byAccountPriority", [
-          "emailAccountId",
-          "priority",
-          "nextAttemptAt",
-        ]);
-        database.createObjectStore("localMailSyncSeen", {
-          keyPath: ["emailAccountId", "generation", "messageId"],
-        });
-      }
-      if (oldVersion < 13) {
-        database.createObjectStore("localMailTombstones", {
-          keyPath: ["emailAccountId", "messageId"],
-        });
-        const messages = database.createObjectStore("localMailMessages", {
-          keyPath: ["emailAccountId", "messageId"],
-        });
-        messages.createIndex("byAccount", "emailAccountId");
-        messages.createIndex("byAccountThreadMessage", [
-          "emailAccountId",
-          "threadId",
-          "messageId",
-        ]);
-        messages.createIndex("byAccountReceivedAt", [
-          "emailAccountId",
-          "receivedAt",
-        ]);
-      }
-      if (oldVersion < 12) {
-        database.createObjectStore("searchIndexAccounts", {
-          keyPath: "emailAccountId",
-        });
-        const work = database.createObjectStore("searchIndexWork", {
-          keyPath: ["emailAccountId", "threadId"],
-        });
-        work.createIndex("byAccount", "emailAccountId");
-      }
-      if (oldVersion < 13) {
-        transaction
-          .objectStore("searchIndexWork")
-          .createIndex("byAccountStatus", ["emailAccountId", "status"]);
-      }
-      if (oldVersion < 11) {
-        database.createObjectStore("mailboxSyncJobs", {
-          keyPath: "emailAccountId",
-        });
-      }
-      if (oldVersion < 1) {
-        const rows = database.createObjectStore("threadRows", {
-          keyPath: ["emailAccountId", "threadId"],
-        });
-        rows.createIndex("byAccount", "emailAccountId");
-
-        const views = database.createObjectStore("threadViews", {
-          keyPath: ["emailAccountId", "viewKey"],
-        });
-        views.createIndex("byAccount", "emailAccountId");
-        views.createIndex("byLastAccessed", "lastAccessedAt");
-
-        const details = database.createObjectStore("threadDetails", {
-          keyPath: ["emailAccountId", "threadId", "variant"],
-        });
-        details.createIndex("byAccount", "emailAccountId");
-        details.createIndex("byLastAccessed", "lastAccessedAt");
-      }
-
-      if (oldVersion < 2) {
-        const messages = database.createObjectStore("mailboxMessages", {
-          keyPath: ["emailAccountId", "messageId"],
-        });
-        messages.createIndex("byAccount", "emailAccountId");
-        messages.createIndex("byAccountReceivedAt", [
-          "emailAccountId",
-          "receivedAt",
-        ]);
-        messages.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
-        messages.createIndex("byReceivedAt", "receivedAt");
-
-        database.createObjectStore("mailboxSyncStates", {
-          keyPath: "emailAccountId",
-        });
-      } else if (oldVersion < 3) {
-        transaction
-          .objectStore("mailboxMessages")
-          .createIndex("byAccountReceivedAt", ["emailAccountId", "receivedAt"]);
-      }
-
-      if (oldVersion < 5) {
-        const drafts = database.createObjectStore("replyDrafts", {
-          keyPath: ["emailAccountId", "threadId", "messageId"],
-        });
-        drafts.createIndex("byAccount", "emailAccountId");
-        drafts.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
-      }
-
-      if (oldVersion < 4) {
-        const mutations = database.createObjectStore("mailMutations", {
-          keyPath: "id",
-        });
-        mutations.createIndex("byAccount", "emailAccountId");
-        mutations.createIndex("byAccountThread", [
-          "emailAccountId",
-          "threadId",
-        ]);
-        mutations.createIndex("byBatch", "batchId");
-        mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
-        mutations.createIndex("byUpdatedAt", "updatedAt");
-      }
-      if (oldVersion < 10) {
-        for (const store of ["threadRows", "threadDetails"] as const) {
-          transaction
-            .objectStore(store)
-            .createIndex("byAccountLastAccessed", [
+  databasePromise = openDB<EmailCacheSchema>(
+    EMAIL_CACHE_DATABASE_NAME,
+    DATABASE_VERSION,
+    {
+      upgrade(database, oldVersion, _newVersion, transaction) {
+        if (oldVersion < 19) {
+          database.createObjectStore("localMailStorageLedger", {
+            keyPath: "id",
+          });
+        }
+        if (oldVersion < 18) {
+          const files = database.createObjectStore("localMailAttachmentFiles", {
+            keyPath: [
               "emailAccountId",
-              "lastAccessedAt",
+              "messageId",
+              "attachmentId",
+              "revision",
+            ],
+          });
+          files.createIndex("byAccount", "emailAccountId");
+          files.createIndex("byAccountMessage", [
+            "emailAccountId",
+            "messageId",
+          ]);
+          files.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+          files.createIndex("byLastAccessed", "lastAccessedAt");
+          const jobs = database.createObjectStore("localMailAttachmentJobs", {
+            keyPath: [
+              "emailAccountId",
+              "messageId",
+              "attachmentId",
+              "revision",
+            ],
+          });
+          jobs.createIndex("byAccount", "emailAccountId");
+          jobs.createIndex("byAccountMessage", ["emailAccountId", "messageId"]);
+          jobs.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+        }
+        if (oldVersion < 17) {
+          database.createObjectStore("localMailRetentionPolicies", {
+            keyPath: "emailAccountId",
+          });
+          database.createObjectStore("localMailEvictionJobs", {
+            keyPath: "emailAccountId",
+          });
+          const markers = database.createObjectStore(
+            "localMailEvictedMessages",
+            {
+              keyPath: ["emailAccountId", "messageId"],
+            },
+          );
+          markers.createIndex("byAccountThread", [
+            "emailAccountId",
+            "threadId",
+          ]);
+          database.createObjectStore("localMailThreadProtection", {
+            keyPath: ["emailAccountId", "threadId"],
+          });
+        }
+
+        if (oldVersion < 14) {
+          database.createObjectStore("localMailSyncStates", {
+            keyPath: "emailAccountId",
+          });
+          const jobs = database.createObjectStore("localMailSyncJobs", {
+            keyPath: ["emailAccountId", "id"],
+          });
+          jobs.createIndex("byAccount", "emailAccountId");
+          jobs.createIndex("byAccountPriority", [
+            "emailAccountId",
+            "priority",
+            "nextAttemptAt",
+          ]);
+          database.createObjectStore("localMailSyncSeen", {
+            keyPath: ["emailAccountId", "generation", "messageId"],
+          });
+        }
+        if (oldVersion < 13) {
+          database.createObjectStore("localMailTombstones", {
+            keyPath: ["emailAccountId", "messageId"],
+          });
+          const messages = database.createObjectStore("localMailMessages", {
+            keyPath: ["emailAccountId", "messageId"],
+          });
+          messages.createIndex("byAccount", "emailAccountId");
+          messages.createIndex("byAccountThreadMessage", [
+            "emailAccountId",
+            "threadId",
+            "messageId",
+          ]);
+          messages.createIndex("byAccountReceivedAt", [
+            "emailAccountId",
+            "receivedAt",
+          ]);
+        }
+        if (oldVersion < 16) {
+          transaction
+            .objectStore("localMailTombstones")
+            .createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+        }
+        if (oldVersion < 15) {
+          transaction
+            .objectStore("localMailMessages")
+            .createIndex("byAccountThreadReceivedAt", [
+              "emailAccountId",
+              "threadId",
+              "receivedAt",
+              "messageId",
             ]);
         }
-      }
-      if (oldVersion < 9) {
-        // Older clients could retain details after their sync cursor had advanced.
-        transaction.objectStore("threadDetails").clear();
-      }
-      if (oldVersion < 8) {
-        if (oldVersion >= 6)
+        if (oldVersion < 12) {
+          database.createObjectStore("searchIndexAccounts", {
+            keyPath: "emailAccountId",
+          });
+          const work = database.createObjectStore("searchIndexWork", {
+            keyPath: ["emailAccountId", "threadId"],
+          });
+          work.createIndex("byAccount", "emailAccountId");
+        }
+        if (oldVersion < 13) {
+          transaction
+            .objectStore("searchIndexWork")
+            .createIndex("byAccountStatus", ["emailAccountId", "status"]);
+        }
+        if (oldVersion < 11) {
+          database.createObjectStore("mailboxSyncJobs", {
+            keyPath: "emailAccountId",
+          });
+        }
+        if (oldVersion < 1) {
+          const rows = database.createObjectStore("threadRows", {
+            keyPath: ["emailAccountId", "threadId"],
+          });
+          rows.createIndex("byAccount", "emailAccountId");
+
+          const views = database.createObjectStore("threadViews", {
+            keyPath: ["emailAccountId", "viewKey"],
+          });
+          views.createIndex("byAccount", "emailAccountId");
+          views.createIndex("byLastAccessed", "lastAccessedAt");
+
+          const details = database.createObjectStore("threadDetails", {
+            keyPath: ["emailAccountId", "threadId", "variant"],
+          });
+          details.createIndex("byAccount", "emailAccountId");
+          details.createIndex("byLastAccessed", "lastAccessedAt");
+        }
+
+        if (oldVersion < 2) {
+          const messages = database.createObjectStore("mailboxMessages", {
+            keyPath: ["emailAccountId", "messageId"],
+          });
+          messages.createIndex("byAccount", "emailAccountId");
+          messages.createIndex("byAccountReceivedAt", [
+            "emailAccountId",
+            "receivedAt",
+          ]);
+          messages.createIndex("byAccountThread", [
+            "emailAccountId",
+            "threadId",
+          ]);
+          messages.createIndex("byReceivedAt", "receivedAt");
+
+          database.createObjectStore("mailboxSyncStates", {
+            keyPath: "emailAccountId",
+          });
+        } else if (oldVersion < 3) {
+          transaction
+            .objectStore("mailboxMessages")
+            .createIndex("byAccountReceivedAt", [
+              "emailAccountId",
+              "receivedAt",
+            ]);
+        }
+
+        if (oldVersion < 5) {
+          const drafts = database.createObjectStore("replyDrafts", {
+            keyPath: ["emailAccountId", "threadId", "messageId"],
+          });
+          drafts.createIndex("byAccount", "emailAccountId");
+          drafts.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+        }
+
+        if (oldVersion < 4) {
+          const mutations = database.createObjectStore("mailMutations", {
+            keyPath: "id",
+          });
+          mutations.createIndex("byAccount", "emailAccountId");
+          mutations.createIndex("byAccountThread", [
+            "emailAccountId",
+            "threadId",
+          ]);
+          mutations.createIndex("byBatch", "batchId");
+          mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
+          mutations.createIndex("byUpdatedAt", "updatedAt");
+        }
+        if (oldVersion < 10) {
+          for (const store of ["threadRows", "threadDetails"] as const) {
+            transaction
+              .objectStore(store)
+              .createIndex("byAccountLastAccessed", [
+                "emailAccountId",
+                "lastAccessedAt",
+              ]);
+          }
+        }
+        if (oldVersion < 9) {
+          // Older clients could retain details after their sync cursor had advanced.
+          transaction.objectStore("threadDetails").clear();
+        }
+        if (oldVersion < 8) {
+          if (oldVersion >= 6)
+            transaction
+              .objectStore("mailMutations")
+              .deleteIndex("byAccountDiagnostics");
           transaction
             .objectStore("mailMutations")
-            .deleteIndex("byAccountDiagnostics");
-        transaction
-          .objectStore("mailMutations")
-          .createIndex("byAccountDiagnostics", [
-            "emailAccountId",
-            "id",
-            "createdAt",
-            "status",
-            "batchId",
-            "messageIds",
-          ]);
-      }
+            .createIndex("byAccountDiagnostics", [
+              "emailAccountId",
+              "id",
+              "createdAt",
+              "status",
+              "batchId",
+              "messageIds",
+            ]);
+        }
+      },
+      blocking() {
+        databasePromise?.then((database) => database?.close());
+        databasePromise = null;
+      },
+      terminated() {
+        databasePromise = null;
+      },
     },
-    blocking() {
-      databasePromise?.then((database) => database?.close());
-      databasePromise = null;
-    },
-    terminated() {
-      databasePromise = null;
-    },
-  }).catch<undefined>(() => {
+  ).catch<undefined>(() => {
     databasePromise = null;
   });
 
@@ -480,7 +615,14 @@ export async function clearEmailCache() {
         "mailboxSyncStates",
         "mailboxSyncJobs",
         "searchIndexAccounts",
+        "localMailStorageLedger",
         "searchIndexWork",
+        "localMailRetentionPolicies",
+        "localMailEvictionJobs",
+        "localMailEvictedMessages",
+        "localMailThreadProtection",
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
         "localMailSyncStates",
         "localMailSyncJobs",
         "localMailSyncSeen",
@@ -499,7 +641,14 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxSyncStates").clear(),
       transaction.objectStore("mailboxSyncJobs").clear(),
       transaction.objectStore("searchIndexAccounts").clear(),
+      transaction.objectStore("localMailStorageLedger").clear(),
       transaction.objectStore("searchIndexWork").clear(),
+      transaction.objectStore("localMailRetentionPolicies").clear(),
+      transaction.objectStore("localMailEvictionJobs").clear(),
+      transaction.objectStore("localMailEvictedMessages").clear(),
+      transaction.objectStore("localMailThreadProtection").clear(),
+      transaction.objectStore("localMailAttachmentFiles").clear(),
+      transaction.objectStore("localMailAttachmentJobs").clear(),
       transaction.objectStore("localMailSyncStates").clear(),
       transaction.objectStore("localMailSyncJobs").clear(),
       transaction.objectStore("localMailSyncSeen").clear(),
@@ -518,6 +667,14 @@ export async function clearEmailCache() {
   }
 }
 
+export function invalidateEmailCacheAccountEpoch(emailAccountId: string) {
+  invalidateCacheGeneration(emailAccountId);
+  accountEpochs.set(
+    emailAccountId,
+    (accountEpochs.get(emailAccountId) ?? 0) + 1,
+  );
+}
+
 export async function clearEmailCacheForAccount(emailAccountId: string) {
   let indexGeneration: string | undefined;
   invalidateCacheGeneration(emailAccountId);
@@ -534,26 +691,29 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
   try {
     const database = await getEmailCacheDatabase();
     if (!database) return;
-    const transaction = database.transaction(
-      [
-        "threadRows",
-        "threadViews",
-        "threadDetails",
-        "mailboxMessages",
-        "mailboxSyncStates",
-        "mailboxSyncJobs",
-        "searchIndexAccounts",
-        "searchIndexWork",
-        "localMailSyncStates",
-        "localMailSyncJobs",
-        "localMailSyncSeen",
-        "localMailMessages",
-        "localMailTombstones",
-        "mailMutations",
-        "replyDrafts",
-      ],
-      "readwrite",
-    );
+    const transaction = await createAccountedMailTransaction(database, [
+      "threadRows",
+      "threadViews",
+      "threadDetails",
+      "mailboxMessages",
+      "mailboxSyncStates",
+      "mailboxSyncJobs",
+      "searchIndexAccounts",
+      "searchIndexWork",
+      "localMailRetentionPolicies",
+      "localMailEvictionJobs",
+      "localMailEvictedMessages",
+      "localMailThreadProtection",
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailSyncStates",
+      "localMailSyncJobs",
+      "localMailSyncSeen",
+      "localMailMessages",
+      "localMailTombstones",
+      "mailMutations",
+      "replyDrafts",
+    ]);
     indexGeneration = (
       await transaction.objectStore("searchIndexAccounts").get(emailAccountId)
     )?.generation;
@@ -595,6 +755,22 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
       transaction
         .objectStore("localMailMessages")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailRetentionPolicies")
+        .delete(emailAccountId),
+      transaction.objectStore("localMailEvictionJobs").delete(emailAccountId),
+      transaction
+        .objectStore("localMailEvictedMessages")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailThreadProtection")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailAttachmentFiles")
+        .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
+      transaction
+        .objectStore("localMailAttachmentJobs")
         .delete(IDBKeyRange.bound([emailAccountId, ""], [emailAccountId, []])),
       transaction.objectStore("localMailSyncStates").delete(emailAccountId),
       transaction

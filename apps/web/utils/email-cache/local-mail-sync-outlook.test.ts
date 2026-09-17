@@ -33,6 +33,79 @@ beforeEach(async () => {
   });
 });
 describe("durable Outlook local mail synchronization", () => {
+  it("clips historical body pagination at a new floor without reusing the old continuation", async () => {
+    await initialize();
+    await tick(body([message("already-read")], "old-body-continuation"));
+    const old = await job(`window:${folderId}`);
+    await setOutlookRetentionPolicy();
+    await tick(body([message("already-read")]));
+    expect(call.mock.calls.at(-1)?.[1]).toEqual({
+      phase: "folder-backfill",
+      folderId,
+      after: now - 10 * day,
+      before: now,
+      limit: 100,
+    });
+    expect((await job(`window:${folderId}`))?.window?.generation).not.toBe(
+      old?.window?.generation,
+    );
+    expect(
+      (await readLocalMailSyncState(emailAccountId))?.coverage,
+    ).toBeUndefined();
+    await tick(delta());
+    await tick();
+    expect((await readLocalMailSyncState(emailAccountId))?.coverage).toEqual({
+      after: now - 10 * day,
+      before: now,
+    });
+  });
+
+  it("removes evicted lookup dependencies so body coverage can finish without redownloading intentional absence", async () => {
+    await initialize();
+    clock += 60_000;
+    await tick(
+      delta([{ id: "evicted", internalDate: String(now - 365 * day) }]),
+    );
+    expect(await job("lookup:evicted")).toBeDefined();
+    await setOutlookRetentionPolicy();
+    const db = (await getEmailCacheDatabase())!;
+    await db.put("localMailEvictedMessages", {
+      emailAccountId,
+      messageId: "evicted",
+      threadId: "thread-evicted",
+      receivedAt: now - 365 * day,
+      evictedAt: clock,
+      revision: 1,
+      byteSize: 100,
+    });
+    call.mockClear();
+    await tick(body([]));
+    expect(await job("lookup:evicted")).toBeUndefined();
+    await tick(
+      delta(
+        [{ id: "evicted", internalDate: String(now - 365 * day) }],
+        ["evicted"],
+      ),
+    );
+    expect(await job("lookup:evicted")).toBeUndefined();
+    await tick();
+    expect((await readLocalMailSyncState(emailAccountId))?.coverage).toEqual({
+      after: now - 10 * day,
+      before: now,
+    });
+    expect(
+      await db.get("localMailEvictedMessages", [emailAccountId, "evicted"]),
+    ).toBeDefined();
+    expect(
+      await db.get("localMailTombstones", [emailAccountId, "evicted"]),
+    ).toBeUndefined();
+    expect(
+      call.mock.calls.every(
+        ([, request]) => request.phase !== "message-lookup",
+      ),
+    ).toBe(true);
+  });
+
   it("keeps initial paginated metadata historical and hydrates recent mail through body windows", async () => {
     await capabilities();
     await folders();
@@ -482,7 +555,8 @@ async function tick(
     withStorageLock: async (commit) => commit(),
     admitResponse: async () => ({
       allowed: true,
-      maxCanonicalBytes: Number.MAX_SAFE_INTEGER,
+      logicalLimitBytes: Number.POSITIVE_INFINITY,
+      maxGrowthBytes: Number.MAX_SAFE_INTEGER,
     }),
     ...overrides,
   });
@@ -506,9 +580,35 @@ async function seed(entry: ReturnType<typeof message>, fetchedAt: number) {
       "localMailTombstones",
       "searchIndexAccounts",
       "searchIndexWork",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );
   await storeLocalMailMessages(transaction, emailAccountId, [entry], fetchedAt);
   await transaction.done;
+}
+
+async function setOutlookRetentionPolicy() {
+  const db = (await getEmailCacheDatabase())!;
+  const tx = db.transaction(
+    ["searchIndexAccounts", "localMailRetentionPolicies"],
+    "readwrite",
+  );
+  const account = (await tx
+    .objectStore("searchIndexAccounts")
+    .get(emailAccountId))!;
+  await tx
+    .objectStore("searchIndexAccounts")
+    .put({ ...account, retentionRevision: 1 });
+  await tx.objectStore("localMailRetentionPolicies").put({
+    emailAccountId,
+    generation: account.generation,
+    revision: 1,
+    requestedAfter: retentionAfter,
+    automaticAfter: now - 10 * day,
+  });
+  await tx.done;
 }

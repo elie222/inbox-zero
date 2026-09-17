@@ -1,5 +1,7 @@
 "use client";
 
+import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
+
 import { threadListQueryRequiresInbox } from "@/utils/mail/split-query";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import {
@@ -104,6 +106,7 @@ export function useMailThreads({
   const fetchPage = useCallback(
     async (key: [string, string]) => {
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
+      const cacheContext = await captureLocalMailCacheContext(key[1]);
       const requestedAt = Date.now();
       const page = (await fetcher(key)) as ThreadsListResponse;
       const params = new URL(key[0], "https://local.invalid").searchParams;
@@ -112,6 +115,7 @@ export function useMailThreads({
           emailAccountId: key[1],
           threads: page.threads,
           fetchedAt: requestedAt,
+          cacheContext,
         }).catch(() => {});
       } else {
         writeCachedThreadList({
@@ -120,6 +124,7 @@ export function useMailThreads({
           threads: page.threads,
           hasMore: Boolean(page.nextPageToken),
           now: requestedAt,
+          cacheContext,
         }).catch(() => {});
       }
       // Cache freshness belongs to the request, not the time a split is opened.

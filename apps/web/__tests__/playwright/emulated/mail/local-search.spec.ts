@@ -1,4 +1,5 @@
 import { build } from "esbuild";
+import { localMailSyncBody } from "@/utils/actions/local-mail-sync.validation";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";
@@ -287,7 +288,7 @@ async function seedSearchCache(
               tx.objectStore("searchIndexAccounts").put({
                 emailAccountId: accountId,
                 generation: crypto.randomUUID(),
-                sourceVersion: 1,
+                sourceVersion: 2,
               });
             tx.objectStore("localMailMessages").put({
               emailAccountId: accountId,
@@ -372,7 +373,42 @@ test("uses the persistent index offline after reopening and pages beyond the fir
   });
   try {
     await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
+    await page.route("**/*/mail", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      try {
+        const args = route.request().postDataJSON();
+        if (Array.isArray(args) && localMailSyncBody.safeParse(args[1]).success)
+          return route.abort();
+      } catch {
+        return route.continue();
+      }
+      return route.continue();
+    });
     const { emailAccountId } = await openMail(page);
+    await expect
+      .poll(() =>
+        page.evaluate(async (emailAccountId) => {
+          const database = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open("inbox-zero-email-cache");
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          const account = await new Promise<
+            { sourceVersion?: number; seed?: unknown } | undefined
+          >((resolve, reject) => {
+            const request = database
+              .transaction("searchIndexAccounts")
+              .objectStore("searchIndexAccounts")
+              .get(emailAccountId);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          database.close();
+          return account?.sourceVersion === 2 && !account.seed;
+        }, emailAccountId),
+      )
+      .toBe(true);
+
     await page.evaluate(async (emailAccountId) => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open("inbox-zero-email-cache");
@@ -399,15 +435,15 @@ test("uses the persistent index offline after reopening and pages beyond the fir
           id,
           threadId: id,
           subject: `Indexed message ${index}`,
-          snippet: "Stored preview",
-          textPlain: `archiveproof body ${index}`,
+          snippet: index === 1 ? "archiveproof preview" : "Stored preview",
+          textPlain: index === 1 ? undefined : `archiveproof body ${index}`,
           date: new Date(now - index).toISOString(),
           internalDate: String(now - index),
           headers: {
             from: "sender@example.com",
             to: "recipient@example.com",
             subject: `Indexed message ${index}`,
-            date: "",
+            date: new Date(now - index).toISOString(),
           },
           labelIds: ["INBOX"],
           historyId: "1",
@@ -419,7 +455,7 @@ test("uses the persistent index offline after reopening and pages beyond the fir
           threadId: id,
           data,
           fetchedAt: now,
-          bodyFetchedAt: now,
+          bodyFetchedAt: index === 1 ? undefined : now,
           receivedAt: now - index,
           lastAccessedAt: now,
           byteSize: new Blob([JSON.stringify(data)]).size,
@@ -532,7 +568,12 @@ test("uses the persistent index offline after reopening and pages beyond the fir
     await expect(
       page.getByText("Indexed message 0", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Load more", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Load more", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      page.getByText("Indexed message 104", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Load more", exact: true }),
     ).toHaveCount(0);
@@ -541,8 +582,58 @@ test("uses the persistent index offline after reopening and pages beyond the fir
       testInfo,
       "persistent-search-offline",
     );
+    await page
+      .getByRole("option")
+      .filter({ has: page.getByText("Indexed message 0", { exact: true }) })
+      .click();
+    const reader = page.getByTestId("thread-reader").filter({ visible: true });
+    await expect(
+      reader.getByText("archiveproof body 0", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      reader.getByText(
+        "Showing downloaded messages. This conversation may be incomplete.",
+      ),
+    ).toBeVisible();
+    const deliveryStatus = reader.getByRole("region", {
+      name: "Reply delivery status",
+    });
+    await expect(
+      deliveryStatus.getByRole("status").filter({
+        hasText: /scheduled reply status is unavailable/i,
+      }),
+    ).toBeVisible();
+    await expect(deliveryStatus.getByRole("alert")).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "persistent-reader-offline",
+    );
+    await reader
+      .getByRole("button", { name: "Back to inbox", exact: true })
+      .click();
+    await page
+      .getByRole("option")
+      .filter({ has: page.getByText("Indexed message 1", { exact: true }) })
+      .click();
+    await expect(
+      reader.getByText(
+        "This message hasn’t been downloaded yet. Connect to the internet to load it.",
+      ),
+    ).toBeVisible();
+    await reader.getByRole("button", { name: "Forward", exact: true }).click();
+    await expect(
+      reader.getByRole("button", {
+        name: "Load message to forward",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "persistent-reader-missing-body",
+    );
   } finally {
-    await context.setOffline(false);
     await rm(workerFile, { force: true });
   }
 });

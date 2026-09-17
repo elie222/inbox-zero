@@ -1,5 +1,7 @@
 "use client";
 
+import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
@@ -122,6 +124,17 @@ export function useCombinedMailThreads({
   const fetchCombinedPage = useCallback(
     async (key: string) => {
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
+      const cacheContexts = new Map(
+        await Promise.all(
+          accounts.map(
+            async (account) =>
+              [
+                account.id,
+                await captureLocalMailCacheContext(account.id),
+              ] as const,
+          ),
+        ),
+      );
       const requestedAt = Date.now();
       const page = (await fetcher(key)) as GetAllThreadsResponse;
       const rowsByAccount = new Map<string, CombinedThread[]>();
@@ -135,12 +148,13 @@ export function useCombinedMailThreads({
           emailAccountId: accountId,
           threads: rows,
           fetchedAt: requestedAt,
+          cacheContext: cacheContexts.get(accountId),
         }).catch(() => {});
       }
       // Preserve request freshness when revisiting an SWR-cached split.
       return { ...page, requestedAt };
     },
-    [fetcher],
+    [fetcher, accounts],
   );
   const { data, error, isLoading, size, setSize, mutate } =
     useSWRInfinite<FetchedCombinedPage>(

@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { markSearchThreadsDirty } from "./search-index-work";
 import { unstable_serialize, type Cache, type ScopedMutator } from "swr";
 
@@ -139,10 +140,11 @@ async function invalidatePersistedThreadCaches(change: ThreadInvalidation) {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(change.emailAccountId, epoch))
       return;
-    const transaction = database.transaction(
-      ["threadDetails", "searchIndexAccounts", "searchIndexWork"],
-      "readwrite",
-    );
+    const transaction = await createAccountedMailTransaction(database, [
+      "threadDetails",
+      "searchIndexAccounts",
+      "searchIndexWork",
+    ]);
     const store = transaction.objectStore("threadDetails");
     const keys = change.reset
       ? await store.index("byAccount").getAllKeys(change.emailAccountId)

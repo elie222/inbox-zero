@@ -1,3 +1,4 @@
+import { installMailCacheStorageTestEnvironment } from "./optional-cache-write.test-helpers";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -16,6 +17,8 @@ import {
 } from "./mailbox";
 import { writeCachedThreadList } from "./thread-lists";
 import type { ParsedMessage } from "@/utils/types";
+
+installMailCacheStorageTestEnvironment();
 
 describe("synced mailbox cache", () => {
   beforeEach(async () => {

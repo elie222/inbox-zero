@@ -12,6 +12,8 @@ import {
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
+import { publishLocalMailHint } from "@/utils/redis/local-mail-hints";
+
 export const maxDuration = 300;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
@@ -66,6 +68,7 @@ export const POST = withError("google/webhook", async (request) => {
   });
 
   if (emailAccount) {
+    after(() => publishLocalMailHint(emailAccount.id, logger));
     const activeRateLimit = await getEmailProviderRateLimitState({
       emailAccountId: emailAccount.id,
       logger,

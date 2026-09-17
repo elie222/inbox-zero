@@ -213,6 +213,7 @@
     "server-only": "0.0.1",
     "shiki": "4.4.3",
     "sonner": "2.0.8",
+    "stream-json": "3.6.0",
     "streamdown": "2.6.0",
     "string-similarity": "4.0.4",
     "stripe": "22.6.2",

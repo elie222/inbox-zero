@@ -1,4 +1,4 @@
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { readLocalMailSettings } from "./local-mail-settings";
 import { getEmailCacheDatabase } from "./database";
 import { isMailSyncActivated } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
@@ -162,8 +162,7 @@ export function createSearchIndexClient() {
         worker!.postMessage({
           ...command,
           id,
-          storageBudgetBytes:
-            (getInboxZeroDesktopApp() ? 2048 : 500) * 1024 * 1024,
+          storageBudgetBytes: readLocalMailSettings().budgetBytes,
         });
       } catch {
         stopWorker();

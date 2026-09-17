@@ -1,3 +1,9 @@
+import * as storage from "./local-mail-storage";
+import { localMailLedgerBytes } from "./local-mail-storage-ledger";
+import {
+  installMailCacheStorageTestEnvironment,
+  prepareMailCacheLedgerForTest,
+} from "./optional-cache-write.test-helpers";
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
 import type { ParsedMessage } from "@/utils/types";
@@ -20,12 +26,77 @@ import { writeCachedThreadRows } from "./thread-lists";
 
 vi.mock("./cleanup", () => ({ scheduleEmailCacheCleanup: vi.fn() }));
 
+installMailCacheStorageTestEnvironment();
+
 describe("resumable local index seeding", () => {
   beforeEach(async () => {
     await clearEmailCache();
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  it("pauses migration under reserved logical capacity without advancing its cursor, then resumes", async () => {
+    activateMailSync("account-1");
+    const database = await getTestDatabase();
+    await database.put("searchIndexAccounts", {
+      emailAccountId: "account-1",
+      generation: "migration",
+      sourceVersion: 2,
+      seed: { store: "threadRows" },
+    });
+    await database.put("threadRows", {
+      emailAccountId: "account-1",
+      threadId: "thread",
+      fetchedAt: Date.now(),
+      lastAccessedAt: Date.now(),
+      data: { messages: [getMessage("thread")] },
+    });
+    await prepareMailCacheLedgerForTest();
+    const ledger = (await database.get("localMailStorageLedger", "origin"))!;
+    const initialBytes = localMailLedgerBytes(ledger);
+    ledger.index.pending = { token: "index-write", reservedGrowthBytes: 1000 };
+    await database.put("localMailStorageLedger", ledger);
+    const admission = vi
+      .spyOn(storage, "readLocalMailStorageAdmission")
+      .mockResolvedValue({
+        allowed: true,
+        reason: "available",
+        budgetBytes: initialBytes + 1000,
+        backfillLimitBytes: initialBytes + 1000,
+        limitBytes: initialBytes + 1000,
+        remainingBytes: 1_000_000,
+      });
+    const before = await database.get("searchIndexAccounts", "account-1");
+    expect(await seedSearchIndexWork("account-1")).toMatchObject({
+      complete: false,
+      retryAfterMs: 60_000,
+    });
+    expect(await database.get("searchIndexAccounts", "account-1")).toEqual(
+      before,
+    );
+    expect(await database.count("localMailMessages")).toBe(0);
+    expect(await database.count("mailboxMessages")).toBe(0);
+    expect(await database.count("searchIndexWork")).toBe(0);
+    expect(await database.get("localMailStorageLedger", "origin")).toEqual(
+      ledger,
+    );
+    admission.mockResolvedValue({
+      allowed: true,
+      reason: "available",
+      budgetBytes: 1_000_000,
+      backfillLimitBytes: 1_000_000,
+      limitBytes: 1_000_000,
+      remainingBytes: 1_000_000,
+    });
+    expect(await seedSearchIndexWork("account-1")).toMatchObject({
+      complete: false,
+    });
+    expect(await database.count("localMailMessages")).toBe(1);
+    expect(
+      (await database.get("searchIndexAccounts", "account-1"))?.seed?.store,
+    ).toBe("threadDetails");
+    expect((await seedSearchIndexWork("account-1"))?.complete).toBe(true);
+  });
 
   it("does not create an index for assistant-only accounts", async () => {
     expect(await initializeSearchIndexAccount("account-1")).toBeUndefined();

@@ -52,7 +52,10 @@
     "utils/email-cache/search.worker.ts",
     "utils/email-cache/search-index.worker.ts",
     "utils/email-cache/search-index-service.ts",
-    "utils/email-cache/search-index-query.ts"
+    "utils/email-cache/search-index-query.ts",
+    "hooks/useLocalMailThread.ts",
+    "hooks/useThread.ts",
+    "utils/email-cache/local-mail-reader.ts"
   ],
   "mail-activation.spec.ts": [
     "app/(app)/MailboxSyncManager.tsx",

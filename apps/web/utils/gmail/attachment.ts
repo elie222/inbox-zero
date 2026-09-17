@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { decodeGmailAttachmentStream } from "./attachment-stream";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { withGmailRetry } from "@/utils/gmail/retry";
@@ -16,6 +18,26 @@ export async function getGmailAttachment(
   );
   const attachmentData = attachment.data;
   return attachmentData;
+}
+
+export async function getGmailAttachmentStream(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+  attachmentId: string,
+  signal?: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  const response = await withGmailRetry(() => {
+    signal?.throwIfAborted();
+    return gmail.users.messages.attachments.get(
+      { userId: "me", id: attachmentId, messageId },
+      { responseType: "stream", signal },
+    );
+  });
+  if (signal?.aborted) {
+    response.data.destroy();
+    signal.throwIfAborted();
+  }
+  return decodeGmailAttachmentStream(Readable.toWeb(response.data), signal);
 }
 
 export async function getGmailMessageAttachments(

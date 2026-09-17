@@ -27,6 +27,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
 import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import { LocalMailSettingsDialog } from "@/app/(app)/[emailAccountId]/mail/LocalMailSettingsDialog";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -256,6 +257,8 @@ export function ListToolbar({
           </button>
         </Tooltip>
       ) : null}
+
+      {selectedCount === 0 && <LocalMailSettingsDialog />}
 
       {selectedCount === 0 ? (
         <Tooltip content="Assistant">

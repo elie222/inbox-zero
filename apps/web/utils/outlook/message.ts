@@ -31,8 +31,9 @@ export const MESSAGE_EXPAND_ATTACHMENTS =
 export async function getFolderIds(
   client: OutlookClient,
   logger: Logger,
-  options: { includeDrafts?: boolean } = {},
+  options: { includeDrafts?: boolean; signal?: AbortSignal } = {},
 ) {
+  options.signal?.throwIfAborted();
   const includeDrafts = options.includeDrafts ?? true;
   const cachedFolderIds = client.getFolderIdCache();
   if (cachedFolderIds && (!includeDrafts || cachedFolderIds.drafts)) {
@@ -55,14 +56,21 @@ export async function getFolderIds(
   const wellKnownFolders = await Promise.all(
     entriesToFetch.map(async ([key, folderName]) => {
       const response: { id?: string | null } = await withMicrosoftGraphRetry(
-        () =>
-          client
+        () => {
+          options.signal?.throwIfAborted();
+          const request = client
             .getClient()
             .api(`/me/mailFolders/${folderName}`)
-            .select("id")
-            .get(),
+            .select("id");
+          return (
+            options.signal
+              ? request.options({ signal: options.signal })
+              : request
+          ).get();
+        },
         logger,
       ).catch((error) => {
+        options.signal?.throwIfAborted();
         logWellKnownFolderFetchError(logger, folderName, error);
         return { id: null };
       });
@@ -88,16 +96,19 @@ export async function getFolderIds(
 export async function getCategoryMap(
   client: OutlookClient,
   logger: Logger,
+  signal?: AbortSignal,
 ): Promise<Map<string, string>> {
+  signal?.throwIfAborted();
   const cachedMap = client.getCategoryMapCache();
   if (cachedMap) return cachedMap;
 
   try {
     const response: { value: Array<{ id?: string; displayName?: string }> } =
-      await withMicrosoftGraphRetry(
-        () => client.getClient().api("/me/outlook/masterCategories").get(),
-        logger,
-      );
+      await withMicrosoftGraphRetry(() => {
+        signal?.throwIfAborted();
+        const request = client.getClient().api("/me/outlook/masterCategories");
+        return (signal ? request.options({ signal }) : request).get();
+      }, logger);
 
     const categoryMap = new Map<string, string>();
     for (const category of response.value) {
@@ -109,6 +120,7 @@ export async function getCategoryMap(
     client.setCategoryMapCache(categoryMap);
     return categoryMap;
   } catch (error) {
+    signal?.throwIfAborted();
     logger.warn("Failed to fetch category map", { error });
     return new Map();
   }

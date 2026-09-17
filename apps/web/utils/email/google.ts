@@ -1,3 +1,4 @@
+import { getCompleteGmailThread } from "@/utils/gmail/thread";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import {
@@ -72,6 +73,7 @@ import {
 import { searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
+  getGmailAttachmentStream,
   getGmailMessageAttachments,
 } from "@/utils/gmail/attachment";
 import {
@@ -167,12 +169,16 @@ export class GmailProvider implements EmailProvider {
     options?: GetThreadOptions,
   ): Promise<EmailThread> {
     return this.withRateLimitTracking("get-thread", async () => {
-      const response = await this.client.users.threads.get({
-        userId: "me",
-        id: threadId,
-      });
+      const data = options?.complete
+        ? await getCompleteGmailThread(threadId, this.client, options.signal)
+        : (
+            await this.client.users.threads.get(
+              { userId: "me", id: threadId },
+              { signal: options?.signal },
+            )
+          ).data;
 
-      const messages = (response.data.messages || [])
+      const messages = (data.messages || [])
         .map((message) => parseMessage(message as MessageWithPayload))
         .filter(
           (message) =>
@@ -183,8 +189,8 @@ export class GmailProvider implements EmailProvider {
       return {
         id: threadId,
         messages,
-        snippet: response.data.snippet || "",
-        historyId: response.data.historyId || undefined,
+        snippet: data.snippet || "",
+        historyId: data.historyId || undefined,
       };
     });
   }
@@ -1697,6 +1703,19 @@ export class GmailProvider implements EmailProvider {
       log.error("Error counting received messages", { error });
       return 0; // Default to 0 on error
     }
+  }
+
+  getAttachmentStream(
+    messageId: string,
+    attachmentId: string,
+    signal?: AbortSignal,
+  ) {
+    return getGmailAttachmentStream(
+      this.client,
+      messageId,
+      attachmentId,
+      signal,
+    );
   }
 
   async getAttachment(

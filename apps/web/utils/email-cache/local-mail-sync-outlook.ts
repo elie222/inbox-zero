@@ -9,6 +9,7 @@ import {
 import type { LocalMailSyncTransaction } from "./local-mail-sync";
 import {
   getLocalMailWindowAfter,
+  getLocalMailSyncRetention,
   LOCAL_MAIL_HISTORY_AFTER,
   type LocalMailSyncJob,
   type LocalMailSyncState,
@@ -230,7 +231,10 @@ export async function applyOutlookSyncResponse(
           state.emailAccountId,
           [mergeMetadata(existing.data, patch)],
           fetchedAt,
-          { metadataOnly: true },
+          {
+            metadataOnly: true,
+            retention: getLocalMailSyncRetention(state, job),
+          },
         );
         if (
           (folder.cursor ||
@@ -357,6 +361,7 @@ export async function applyOutlookSyncResponse(
           historyId: entry.changeKey ?? entry.message.historyId,
         })),
         fetchedAt,
+        { retention: getLocalMailSyncRetention(state, job) },
       );
       // A pre-anchor preview cannot establish coverage. The ordinary window
       // re-enumerates this bounded overlap after the metadata baseline completes.
@@ -385,6 +390,7 @@ export async function applyOutlookSyncResponse(
       state.emailAccountId,
       messages,
       fetchedAt,
+      { retention: getLocalMailSyncRetention(state, job) },
     );
     await markLocalMailSeen(
       transaction,
@@ -451,6 +457,7 @@ export async function applyOutlookSyncResponse(
           state.emailAccountId,
           [message],
           fetchedAt,
+          { retention: getLocalMailSyncRetention(state, job) },
         );
         if (
           message.parentFolderId &&
@@ -508,6 +515,15 @@ export async function queueOutlookLookup(
 ) {
   const jobs = transaction.objectStore("localMailSyncJobs");
   const id = `lookup:${messageId}`;
+  if (
+    state.retentionRevision !== undefined &&
+    (await transaction
+      .objectStore("localMailEvictedMessages")
+      .getKey([state.emailAccountId, messageId]))
+  ) {
+    await jobs.delete([state.emailAccountId, id]);
+    return;
+  }
   const previous = await jobs.get([state.emailAccountId, id]);
   const background =
     historical &&

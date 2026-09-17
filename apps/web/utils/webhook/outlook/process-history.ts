@@ -21,19 +21,23 @@ import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 
 export async function processHistoryForUser({
+  preloadedEmailAccount,
   subscriptionId,
   emailAddress,
   resourceData,
   logger,
 }: {
+  preloadedEmailAccount?: Awaited<
+    ReturnType<typeof getWebhookEmailAccount>
+  > | null;
   subscriptionId?: string;
   emailAddress?: string;
   resourceData: OutlookResourceData;
   logger: Logger;
 }) {
-  let emailAccount = null;
+  let emailAccount = preloadedEmailAccount ?? null;
 
-  if (subscriptionId) {
+  if (preloadedEmailAccount === undefined && subscriptionId) {
     emailAccount = await getWebhookEmailAccount(
       {
         watchEmailsSubscriptionId: subscriptionId,

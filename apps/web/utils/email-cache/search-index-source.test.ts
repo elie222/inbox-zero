@@ -161,6 +161,10 @@ async function store(messages: ParsedMessage[], fetchedAt: number) {
       "searchIndexWork",
       "localMailMessages",
       "localMailTombstones",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );

@@ -1,4 +1,9 @@
 import "fake-indexeddb/auto";
+import { bootstrapLocalMailStorageLedgerBatch } from "./local-mail-storage-ledger-bootstrap";
+import {
+  localMailLedgerBytes,
+  LOCAL_MAIL_ACCOUNTED_STORES,
+} from "./local-mail-storage-ledger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockMessage } from "@/__tests__/helpers";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
@@ -26,12 +31,12 @@ const emailAccountId = "account-1";
 const now = Date.UTC(2026, 8, 1);
 const day = 86_400_000;
 const retentionAfter = now - 60 * day;
-const syncLocks = new Map<string, symbol>();
 let clock: number;
 let call: ReturnType<typeof vi.fn>;
+const syncLocks = new Map<string, symbol>();
 beforeEach(async () => {
-  syncLocks.clear();
   await clearEmailCache();
+  syncLocks.clear();
   vi.mocked(isMailSyncActivated).mockReturnValue(true);
   clock = now;
   call = vi.fn();
@@ -42,6 +47,242 @@ beforeEach(async () => {
 });
 
 describe("durable Gmail local mail synchronization", () => {
+  it("accounts source, index work and checkpoints atomically through hydration and retry", async () => {
+    await initializeGmail();
+    for (let batch = 0; batch < 100; batch++) {
+      if ((await bootstrapLocalMailStorageLedgerBatch()) !== "progress") break;
+    }
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: { messageIds: ["downloaded"], historyCursor: "anchor" },
+    });
+    await tick(hydrated(["downloaded"]));
+    expect(await stored("downloaded")).toBeDefined();
+    call.mockRejectedValueOnce(new Error("connection interrupted"));
+    await tick();
+    const database = (await getEmailCacheDatabase())!;
+    const ledger = (await database.get("localMailStorageLedger", "origin"))!;
+    for (const store of LOCAL_MAIL_ACCOUNTED_STORES) {
+      const rows = await database.getAll(store);
+      expect(ledger.stores[store]?.complete, store).toBe(true);
+      expect(ledger.stores[store]?.bytes, store).toBe(
+        rows.reduce(
+          (sum, row) => sum + new Blob([JSON.stringify(row)]).size,
+          0,
+        ),
+      );
+    }
+  });
+
+  it("restarts a pending historical range at a raised retention floor without reusing its cursor", async () => {
+    await initializeGmail();
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: {
+        messageIds: ["old-page"],
+        nextCursor: "old-continuation",
+        historyCursor: "old-anchor",
+      },
+    });
+    const old = await getJob("window:account");
+    const db = (await getEmailCacheDatabase())!;
+    await db.put("localMailSyncSeen", {
+      emailAccountId,
+      generation: old!.window!.generation,
+      messageId: "old-page",
+    });
+    await setRetentionPolicy(now - 10 * day);
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: { messageIds: [], historyCursor: "fresh-anchor" },
+    });
+    expect(call.mock.calls.at(-1)?.[1]).toEqual({
+      phase: "history-backfill",
+      after: now - 10 * day,
+      before: now,
+      limit: 100,
+    });
+    expect((await getJob("window:account"))?.window?.generation).not.toBe(
+      old?.window?.generation,
+    );
+    expect(await db.count("localMailSyncSeen")).toBe(0);
+    expect((await readLocalMailSyncState(emailAccountId))?.retentionAfter).toBe(
+      now - 10 * day,
+    );
+  });
+
+  it("reconciles newly exceptional retained records before finishing recovery after a floor change", async () => {
+    await initializeGmail();
+    await seed("protected-old", now - 20 * day, now - 1);
+    clock += 60_000;
+    await tick({ status: "reset-required", phase: "history-changes" });
+    await tick({
+      status: "ok",
+      phase: "history-baseline",
+      result: { cursor: "replacement" },
+    });
+    expect(await getJob("retained-reconciliation")).toBeUndefined();
+    await setRetentionPolicy(now - 10 * day);
+    await tick({
+      status: "ok",
+      phase: "history-hydrate",
+      result: {
+        messages: [message("protected-old", now - 20 * day)],
+        removedMessageIds: [],
+        confirmedDeletedMessageIds: [],
+      },
+    });
+    expect(call.mock.calls.at(-1)?.[1]).toMatchObject({
+      phase: "history-hydrate",
+      messageIds: ["protected-old"],
+      after: LOCAL_MAIL_HISTORY_AFTER,
+    });
+    expect((await getJob("current"))?.nextAttemptAt).toBe(
+      Number.MAX_SAFE_INTEGER,
+    );
+    expect(await stored("protected-old")).toBeDefined();
+    expect((await getJob("recovery"))?.window?.after).toBe(now - 10 * day);
+  });
+
+  it("cancels wholly evicted historical work and never lowers the floor on reload", async () => {
+    await initializeGmail();
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: { messageIds: [], historyCursor: "anchor" },
+    });
+    await tick(changes("completed"));
+    await tick();
+    const old = await getJob("window:account");
+    expect(old?.window?.before).toBe(now - 30 * day);
+    await setRetentionPolicy(now - 10 * day);
+    call.mockClear();
+    expect((await run()).status).toBe("waiting");
+    expect(await getJob("window:account")).toBeUndefined();
+    expect(
+      (await readLocalMailSyncState(emailAccountId))?.coverage?.after,
+    ).toBe(now - 10 * day);
+    await run({ retentionAfter: LOCAL_MAIL_HISTORY_AFTER });
+    expect((await readLocalMailSyncState(emailAccountId))?.retentionAfter).toBe(
+      now - 10 * day,
+    );
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("drops newly evicted pending hydration IDs without losing the final provider checkpoint", async () => {
+    await initializeGmail();
+    await setRetentionPolicy(now - 10 * day);
+    clock += 60_000;
+    await tick(changes("after-page", ["pending-eviction"]));
+    const db = (await getEmailCacheDatabase())!;
+    await db.put("localMailEvictedMessages", {
+      emailAccountId,
+      messageId: "pending-eviction",
+      threadId: "thread-pending",
+      receivedAt: now - 365 * day,
+      evictedAt: clock,
+      revision: 1,
+      byteSize: 100,
+    });
+    call.mockClear();
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: { messageIds: [], historyCursor: "window-anchor" },
+    });
+    expect(
+      call.mock.calls.every(
+        ([, request]) => request.phase !== "history-hydrate",
+      ),
+    ).toBe(true);
+    expect((await getJob("current"))?.request).toMatchObject({
+      phase: "history-changes",
+      cursor: "after-page",
+    });
+    expect(
+      await db.get("localMailTombstones", [emailAccountId, "pending-eviction"]),
+    ).toBeUndefined();
+  });
+
+  it("rejects a provider response captured before the retention revision changed", async () => {
+    await initializeGmail();
+    await tick({
+      status: "ok",
+      phase: "history-backfill",
+      result: { messageIds: ["late"], historyCursor: "anchor" },
+    });
+    let finish: (response: LocalMailSyncResponse) => void = () => undefined;
+    call.mockImplementationOnce(
+      () =>
+        new Promise<LocalMailSyncResponse>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = run();
+    await vi.waitFor(() =>
+      expect(call.mock.calls.at(-1)?.[1].phase).toBe("history-hydrate"),
+    );
+    await setRetentionPolicy(now - 10 * day, false);
+    finish(hydrated(["late"]));
+    expect((await pending).status).toBe("stale");
+    expect(await stored("late")).toBeUndefined();
+  });
+
+  it("skips evicted current IDs while preserving confirmed deletions and unseen old imports", async () => {
+    await initializeGmail();
+    await setRetentionPolicy(now - 10 * day);
+    const db = (await getEmailCacheDatabase())!;
+    for (const id of ["evicted", "deleted-marker"])
+      await db.put("localMailEvictedMessages", {
+        emailAccountId,
+        messageId: id,
+        threadId: `thread-${id}`,
+        receivedAt: now - 365 * day,
+        evictedAt: now - 1,
+        revision: 1,
+        byteSize: 100,
+      });
+    clock += 60_000;
+    await tick({
+      status: "ok",
+      phase: "history-changes",
+      result: {
+        resetRequired: false,
+        cursor: "current-next",
+        messageIds: ["evicted", "new-import"],
+        confirmedDeletedMessageIds: ["deleted-marker"],
+        hasMore: false,
+      },
+    });
+    await tick({
+      status: "ok",
+      phase: "history-hydrate",
+      result: {
+        messages: [message("new-import", now - 365 * day)],
+        removedMessageIds: [],
+        confirmedDeletedMessageIds: [],
+      },
+    });
+    expect(call.mock.calls.at(-1)?.[1]).toMatchObject({
+      phase: "history-hydrate",
+      messageIds: ["new-import"],
+    });
+    expect(await stored("new-import")).toBeDefined();
+    expect(await stored("evicted")).toBeUndefined();
+    expect(
+      await db.get("localMailEvictedMessages", [
+        emailAccountId,
+        "deleted-marker",
+      ]),
+    ).toBeUndefined();
+    expect((await getJob("current"))?.request).toMatchObject({
+      cursor: "current-next",
+    });
+  });
+
   it("reconciles retained imports outside ordinary coverage after expired history without widening backfill", async () => {
     await initializeGmail();
     for (let index = 0; index < 7; index++)
@@ -121,7 +362,11 @@ describe("durable Gmail local mail synchronization", () => {
       },
     });
     await run({
-      admitResponse: async () => ({ allowed: false, maxCanonicalBytes: 0 }),
+      admitResponse: async () => ({
+        allowed: false,
+        logicalLimitBytes: Number.POSITIVE_INFINITY,
+        maxGrowthBytes: 0,
+      }),
     });
     await tick({
       status: "ok",
@@ -489,6 +734,7 @@ describe("local mail ownership and storage", () => {
     const first = run();
     await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(1));
     expect((await run()).status).toBe("waiting");
+    // Losing the document releases its browser lock before the durable lease expires.
     syncLocks.clear();
     await tick(capabilities());
     resolve(capabilities());
@@ -526,6 +772,10 @@ describe("local mail ownership and storage", () => {
         "localMailTombstones",
         "searchIndexAccounts",
         "searchIndexWork",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
       "readwrite",
     );
@@ -571,6 +821,11 @@ describe("local mail ownership and storage", () => {
       result: { messageIds: ["large"], historyCursor: "anchor" },
     });
     const original = await getJob("window:account");
+    while ((await bootstrapLocalMailStorageLedgerBatch()) === "progress") {}
+    const ledger = (await database.get("localMailStorageLedger", "origin"))!;
+    ledger.index = { status: "ready", bytes: 4096 };
+    await database.put("localMailStorageLedger", ledger);
+    const logicalLimitBytes = localMailLedgerBytes(ledger);
     call.mockResolvedValueOnce(hydrated(["large"]));
     const result = await runLocalMailSyncTick({
       emailAccountId,
@@ -578,7 +833,11 @@ describe("local mail ownership and storage", () => {
       now: clock,
       call,
       admitBackfill: async () => true,
-      admitResponse: async () => ({ allowed: true, maxCanonicalBytes: 2001 }),
+      admitResponse: async () => ({
+        allowed: true,
+        logicalLimitBytes,
+        maxGrowthBytes: Number.MAX_SAFE_INTEGER,
+      }),
       withSyncLock,
       withStorageLock: async (commit) => commit(),
     });
@@ -621,7 +880,11 @@ describe("local mail ownership and storage", () => {
       now: clock,
       call,
       admitBackfill: async () => false,
-      admitResponse: async () => ({ allowed: true, maxCanonicalBytes: 1 }),
+      admitResponse: async () => ({
+        allowed: true,
+        logicalLimitBytes: Number.POSITIVE_INFINITY,
+        maxGrowthBytes: 1,
+      }),
       withSyncLock,
       withStorageLock: async (commit) => commit(),
     });
@@ -660,7 +923,11 @@ describe("local mail ownership and storage", () => {
       admitBackfill: async () => true,
       admitResponse: async () => {
         expect(locked).toBe(true);
-        return { allowed: true, maxCanonicalBytes: Number.MAX_SAFE_INTEGER };
+        return {
+          allowed: true,
+          logicalLimitBytes: Number.POSITIVE_INFINITY,
+          maxGrowthBytes: Number.MAX_SAFE_INTEGER,
+        };
       },
       withSyncLock,
       withStorageLock: async (commit) => {
@@ -686,7 +953,8 @@ describe("local mail ownership and storage", () => {
       admitBackfill: async () => true,
       admitResponse: async () => ({
         allowed: true,
-        maxCanonicalBytes: Number.MAX_SAFE_INTEGER,
+        logicalLimitBytes: Number.POSITIVE_INFINITY,
+        maxGrowthBytes: Number.MAX_SAFE_INTEGER,
       }),
       withSyncLock,
       withStorageLock: async () => {
@@ -710,6 +978,45 @@ describe("local mail ownership and storage", () => {
     expect((await getJob("window:account"))?.pending?.offset).toBe(0);
     expect(await stored("first")).toBeUndefined();
   });
+  it("hydrates current mail from incoming reserve while historical intake is paused", async () => {
+    await initializeGmail();
+    clock += 60_000;
+    await tick(changes("incoming-page", ["incoming"]));
+    call.mockResolvedValueOnce(hydrated(["incoming"]));
+    const admitResponse = vi.fn(async () => ({
+      allowed: true,
+      logicalLimitBytes: Number.POSITIVE_INFINITY,
+      maxGrowthBytes: Number.MAX_SAFE_INTEGER,
+    }));
+    await run({ admitBackfill: async () => false, admitResponse });
+    expect(await stored("incoming")).toBeDefined();
+    expect(admitResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "history-hydrate" }),
+      "current",
+    );
+  });
+
+  it("keeps a current hydration job durable when incoming capacity is exhausted", async () => {
+    await initializeGmail();
+    clock += 60_000;
+    await tick(changes("incoming-page", ["incoming"]));
+    const job = await getJob("current");
+    call.mockResolvedValueOnce(hydrated(["incoming"]));
+    await run({
+      admitBackfill: async () => false,
+      admitResponse: async () => ({
+        allowed: false,
+        logicalLimitBytes: Number.POSITIVE_INFINITY,
+        maxGrowthBytes: 0,
+      }),
+    });
+    expect((await getJob("current"))?.pending).toEqual(job?.pending);
+    expect(await stored("incoming")).toBeUndefined();
+    expect((await readLocalMailSyncState(emailAccountId))?.storagePaused).toBe(
+      true,
+    );
+  });
+
   it("preserves the exact job when actual downloaded bytes exceed storage admission", async () => {
     await initializeGmail();
     await tick({
@@ -727,7 +1034,11 @@ describe("local mail ownership and storage", () => {
       admitBackfill: async () => true,
       withSyncLock,
       withStorageLock: async (commit) => commit(),
-      admitResponse: async () => ({ allowed: false, maxCanonicalBytes: 0 }),
+      admitResponse: async () => ({
+        allowed: false,
+        logicalLimitBytes: Number.POSITIVE_INFINITY,
+        maxGrowthBytes: 0,
+      }),
     });
     expect((await getJob("window:account"))?.pending).toEqual(job?.pending);
     expect(await stored("large")).toBeUndefined();
@@ -808,7 +1119,8 @@ function run(
     withStorageLock: async (commit) => commit(),
     admitResponse: async () => ({
       allowed: true,
-      maxCanonicalBytes: Number.MAX_SAFE_INTEGER,
+      logicalLimitBytes: Number.POSITIVE_INFINITY,
+      maxGrowthBytes: Number.MAX_SAFE_INTEGER,
     }),
     ...overrides,
   });
@@ -832,6 +1144,10 @@ async function seed(id: string, receivedAt: number, fetchedAt: number) {
       "localMailTombstones",
       "searchIndexAccounts",
       "searchIndexWork",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );
@@ -842,6 +1158,43 @@ async function seed(id: string, receivedAt: number, fetchedAt: number) {
     fetchedAt,
   );
   await transaction.done;
+}
+
+async function setRetentionPolicy(after: number, release = true) {
+  const db = (await getEmailCacheDatabase())!;
+  const tx = db.transaction(
+    [
+      "searchIndexAccounts",
+      "localMailRetentionPolicies",
+      "localMailSyncStates",
+    ],
+    "readwrite",
+  );
+  const account = (await tx
+    .objectStore("searchIndexAccounts")
+    .get(emailAccountId))!;
+  await tx
+    .objectStore("searchIndexAccounts")
+    .put({ ...account, retentionRevision: 1, evictionMarkerBytes: 200 });
+  await tx.objectStore("localMailRetentionPolicies").put({
+    emailAccountId,
+    generation: account.generation,
+    revision: 1,
+    requestedAfter: retentionAfter,
+    automaticAfter: after,
+  });
+  if (release) {
+    const state = (await tx
+      .objectStore("localMailSyncStates")
+      .get(emailAccountId))!;
+    await tx.objectStore("localMailSyncStates").put({
+      ...state,
+      fence: state.fence + 1,
+      leaseOwner: undefined,
+      leaseExpiresAt: undefined,
+    });
+  }
+  await tx.done;
 }
 
 async function withSyncLock<T>(

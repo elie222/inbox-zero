@@ -1,3 +1,11 @@
+import {
+  withOptionalMailCacheWrite,
+  createAccountedMailTransaction,
+} from "./optional-cache-write";
+import {
+  isLocalMailCacheContextCurrent,
+  type LocalMailCacheContext,
+} from "./local-mail-cache-context";
 import { toCachedMailboxMessage } from "./mailbox-projection";
 import { EMAIL_CACHE_MAILBOX_MAX_AGE_MS } from "./policy";
 import {
@@ -60,12 +68,14 @@ export async function applyMailboxSyncPage({
   page,
   after,
   leaseToken,
+  cacheContext,
   now = Date.now(),
 }: {
   emailAccountId: string;
   page: MailboxSyncPage;
   after?: Date;
   leaseToken?: string;
+  cacheContext?: LocalMailCacheContext;
   now?: number;
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
@@ -73,192 +83,240 @@ export async function applyMailboxSyncPage({
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch))
     return false;
 
-  const transaction = database.transaction(
-    [
-      "mailboxMessages",
-      "mailboxSyncStates",
-      "threadDetails",
-      "threadRows",
-      "mailboxSyncJobs",
-      "searchIndexAccounts",
-      "searchIndexWork",
-      "localMailMessages",
-      "localMailTombstones",
-    ],
-    "readwrite",
-  );
-  if (leaseToken) {
-    const job = await transaction
-      .objectStore("mailboxSyncJobs")
-      .get(emailAccountId);
-    if (job?.leaseToken !== leaseToken || job.leaseExpiresAt <= Date.now()) {
-      await transaction.done;
-      return false;
-    }
-  }
-  const messages = transaction.objectStore("mailboxMessages");
-  const states = transaction.objectStore("mailboxSyncStates");
-  const localMessages = transaction.objectStore("localMailMessages");
-  const currentState = await states.get(emailAccountId);
-  const syncAfter = after?.toISOString() ?? currentState?.after;
-  if (!syncAfter) {
-    transaction.abort();
-    await transaction.done.catch(() => {});
-    throw new Error("Mailbox sync reset requires an after date");
-  }
+  return (
+    (await withOptionalMailCacheWrite(
+      database,
+      [
+        "mailboxMessages",
+        "mailboxSyncStates",
+        "threadDetails",
+        "threadRows",
+        "mailboxSyncJobs",
+        "searchIndexAccounts",
+        "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
+        "localMailRetentionPolicies",
+        "localMailEvictedMessages",
 
-  const changedThreadIds = new Set([
-    ...(page.changedThreadIds ?? []),
-    ...page.upsertedMessages.map((message) => message.threadId),
-  ]);
-  const deletedIds = new Set(page.deletedMessageIds);
-  const deletedLocalMessages = await Promise.all(
-    page.deletedMessageIds.map((id) => localMessages.get([emailAccountId, id])),
-  );
-  for (const record of deletedLocalMessages)
-    if (record) changedThreadIds.add(record.threadId);
-  const deletedMessages = await Promise.all(
-    page.deletedMessageIds.map((id) => messages.get([emailAccountId, id])),
-  );
-  for (const message of deletedMessages) {
-    if (message) {
-      changedThreadIds.add(message.threadId);
-      deletedIds.delete(message.messageId);
-    }
-  }
-  const details = transaction.objectStore("threadDetails");
-  const detailKeys = page.reset
-    ? await details.index("byAccount").getAllKeys(emailAccountId)
-    : (
-        await Promise.all(
-          [...changedThreadIds].map((threadId) =>
-            details.getAllKeys(
-              getThreadDetailKeyRange(emailAccountId, threadId),
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
+      ],
+      async (transaction) => {
+        if (
+          !(await isLocalMailCacheContextCurrent(
+            transaction,
+            emailAccountId,
+            cacheContext,
+          ))
+        ) {
+          await transaction.done;
+          return false;
+        }
+        if (leaseToken) {
+          const job = await transaction
+            .objectStore("mailboxSyncJobs")
+            .get(emailAccountId);
+          if (
+            job?.leaseToken !== leaseToken ||
+            job.leaseExpiresAt <= Date.now()
+          ) {
+            await transaction.done;
+            return false;
+          }
+        }
+        const messages = transaction.objectStore("mailboxMessages");
+        const states = transaction.objectStore("mailboxSyncStates");
+        const localMessages = transaction.objectStore("localMailMessages");
+        const currentState = await states.get(emailAccountId);
+        const syncAfter = after?.toISOString() ?? currentState?.after;
+        if (!syncAfter) {
+          transaction.abort();
+          await transaction.done.catch(() => {});
+          throw new Error("Mailbox sync reset requires an after date");
+        }
+
+        const changedThreadIds = new Set([
+          ...(page.changedThreadIds ?? []),
+          ...page.upsertedMessages.map((message) => message.threadId),
+        ]);
+        const deletedIds = new Set(page.deletedMessageIds);
+        const deletedLocalMessages = await Promise.all(
+          page.deletedMessageIds.map((id) =>
+            localMessages.get([emailAccountId, id]),
+          ),
+        );
+        for (const record of deletedLocalMessages)
+          if (record) changedThreadIds.add(record.threadId);
+        const deletedMessages = await Promise.all(
+          page.deletedMessageIds.map((id) =>
+            messages.get([emailAccountId, id]),
+          ),
+        );
+        for (const message of deletedMessages) {
+          if (message) {
+            changedThreadIds.add(message.threadId);
+            deletedIds.delete(message.messageId);
+          }
+        }
+        const details = transaction.objectStore("threadDetails");
+        const detailKeys = page.reset
+          ? await details.index("byAccount").getAllKeys(emailAccountId)
+          : (
+              await Promise.all(
+                [...changedThreadIds].map((threadId) =>
+                  details.getAllKeys(
+                    getThreadDetailKeyRange(emailAccountId, threadId),
+                  ),
+                ),
+              )
+            ).flat();
+        for (const key of detailKeys) changedThreadIds.add(key[1]);
+        await Promise.all(detailKeys.map((key) => details.delete(key)));
+        let detailCursor =
+          !page.reset && deletedIds.size
+            ? await details.index("byAccount").openCursor(emailAccountId)
+            : null;
+        const discoveredThreadIds = new Set<string>();
+        while (detailCursor) {
+          const { threadId, data } = detailCursor.value;
+          if (
+            (data as ThreadResponse).thread.messages.some((message) =>
+              deletedIds.has(message.id),
+            )
+          ) {
+            changedThreadIds.add(threadId);
+            discoveredThreadIds.add(threadId);
+          }
+          detailCursor = await detailCursor.continue();
+        }
+
+        const discoveredKeys = (
+          await Promise.all(
+            [...discoveredThreadIds].map((threadId) =>
+              details.getAllKeys(
+                getThreadDetailKeyRange(emailAccountId, threadId),
+              ),
+            ),
+          )
+        ).flat();
+        await Promise.all(discoveredKeys.map((key) => details.delete(key)));
+
+        // A deleted message must not remain searchable through an older list snapshot.
+        if (page.deletedMessageIds.length) {
+          const rows = transaction.objectStore("threadRows");
+          const deletedThreadIds = new Set(
+            deletedMessages.flatMap((message) =>
+              message ? [message.threadId] : [],
+            ),
+          );
+          await Promise.all(
+            [...deletedThreadIds].map((threadId) =>
+              rows.delete([emailAccountId, threadId]),
+            ),
+          );
+          if (deletedIds.size) {
+            let rowCursor = await rows
+              .index("byAccount")
+              .openCursor(emailAccountId);
+            while (rowCursor) {
+              const thread = getCachedThread(rowCursor.value.data);
+              if (
+                thread?.messages.some((message) => deletedIds.has(message.id))
+              ) {
+                changedThreadIds.add(rowCursor.value.threadId);
+                await rowCursor.delete();
+              }
+              rowCursor = await rowCursor.continue();
+            }
+          }
+        }
+
+        if (page.reset) {
+          const incomingIds = new Set(
+            page.upsertedMessages.map((message) => message.id),
+          );
+          let resetCursor = await messages
+            .index("byAccount")
+            .openCursor(emailAccountId);
+          while (resetCursor) {
+            changedThreadIds.add(resetCursor.value.threadId);
+            if (!incomingIds.has(resetCursor.value.messageId))
+              await deleteLocalMailMessages(
+                transaction,
+                emailAccountId,
+                [resetCursor.value.messageId],
+                now,
+              );
+            await resetCursor.delete();
+            resetCursor = await resetCursor.continue();
+          }
+        }
+
+        await Promise.all([
+          ...page.deletedMessageIds.map((messageId) =>
+            messages.delete([emailAccountId, messageId]),
+          ),
+          ...page.upsertedMessages.map((message) =>
+            messages.put(
+              toCachedMailboxMessage(
+                emailAccountId,
+                message,
+                now,
+                getMessageTimestamp(message, now),
+              ),
             ),
           ),
-        )
-      ).flat();
-  for (const key of detailKeys) changedThreadIds.add(key[1]);
-  await Promise.all(detailKeys.map((key) => details.delete(key)));
-  let detailCursor =
-    !page.reset && deletedIds.size
-      ? await details.index("byAccount").openCursor(emailAccountId)
-      : null;
-  const discoveredThreadIds = new Set<string>();
-  while (detailCursor) {
-    const { threadId, data } = detailCursor.value;
-    if (
-      (data as ThreadResponse).thread.messages.some((message) =>
-        deletedIds.has(message.id),
-      )
-    ) {
-      changedThreadIds.add(threadId);
-      discoveredThreadIds.add(threadId);
-    }
-    detailCursor = await detailCursor.continue();
-  }
-
-  const discoveredKeys = (
-    await Promise.all(
-      [...discoveredThreadIds].map((threadId) =>
-        details.getAllKeys(getThreadDetailKeyRange(emailAccountId, threadId)),
-      ),
-    )
-  ).flat();
-  await Promise.all(discoveredKeys.map((key) => details.delete(key)));
-
-  // A deleted message must not remain searchable through an older list snapshot.
-  if (page.deletedMessageIds.length) {
-    const rows = transaction.objectStore("threadRows");
-    const deletedThreadIds = new Set(
-      deletedMessages.flatMap((message) => (message ? [message.threadId] : [])),
-    );
-    await Promise.all(
-      [...deletedThreadIds].map((threadId) =>
-        rows.delete([emailAccountId, threadId]),
-      ),
-    );
-    if (deletedIds.size) {
-      let rowCursor = await rows.index("byAccount").openCursor(emailAccountId);
-      while (rowCursor) {
-        const thread = getCachedThread(rowCursor.value.data);
-        if (thread?.messages.some((message) => deletedIds.has(message.id))) {
-          changedThreadIds.add(rowCursor.value.threadId);
-          await rowCursor.delete();
-        }
-        rowCursor = await rowCursor.continue();
-      }
-    }
-  }
-
-  if (page.reset) {
-    const incomingIds = new Set(
-      page.upsertedMessages.map((message) => message.id),
-    );
-    let resetCursor = await messages
-      .index("byAccount")
-      .openCursor(emailAccountId);
-    while (resetCursor) {
-      changedThreadIds.add(resetCursor.value.threadId);
-      if (!incomingIds.has(resetCursor.value.messageId))
+          states.put({
+            emailAccountId,
+            cursor: page.cursor,
+            after: syncAfter,
+            hasMore: page.hasMore,
+            lastSyncedAt: now,
+            completedAt: page.hasMore ? currentState?.completedAt : now,
+          }),
+        ]);
         await deleteLocalMailMessages(
           transaction,
           emailAccountId,
-          [resetCursor.value.messageId],
+          page.deletedMessageIds,
           now,
         );
-      await resetCursor.delete();
-      resetCursor = await resetCursor.continue();
-    }
-  }
-
-  await Promise.all([
-    ...page.deletedMessageIds.map((messageId) =>
-      messages.delete([emailAccountId, messageId]),
-    ),
-    ...page.upsertedMessages.map((message) =>
-      messages.put(
-        toCachedMailboxMessage(
+        await storeLocalMailMessages(
+          transaction,
           emailAccountId,
-          message,
+          page.upsertedMessages,
           now,
-          getMessageTimestamp(message, now),
-        ),
-      ),
-    ),
-    states.put({
-      emailAccountId,
-      cursor: page.cursor,
-      after: syncAfter,
-      hasMore: page.hasMore,
-      lastSyncedAt: now,
-      completedAt: page.hasMore ? currentState?.completedAt : now,
-    }),
-  ]);
-  await deleteLocalMailMessages(
-    transaction,
-    emailAccountId,
-    page.deletedMessageIds,
-    now,
-  );
-  await storeLocalMailMessages(
-    transaction,
-    emailAccountId,
-    page.upsertedMessages,
-    now,
-  );
-  await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
-  await transaction.done;
+          {
+            retention:
+              cacheContext?.revision === undefined
+                ? undefined
+                : {
+                    revision: cacheContext.revision,
+                    purpose: page.reset ? "backfill" : "current",
+                  },
+          },
+        );
+        await markSearchThreadsDirty(
+          transaction,
+          emailAccountId,
+          changedThreadIds,
+        );
+        await transaction.done;
 
-  if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return false;
-  invalidateThreadCaches({
-    emailAccountId,
-    threadIds: [...changedThreadIds],
-    reset: page.reset,
-  });
-  scheduleEmailCacheCleanup();
-  notifyMailboxStoreChange(emailAccountId);
-  return true;
+        if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return false;
+        invalidateThreadCaches({
+          emailAccountId,
+          threadIds: [...changedThreadIds],
+          reset: page.reset,
+        });
+        scheduleEmailCacheCleanup();
+        notifyMailboxStoreChange(emailAccountId);
+        return true;
+      },
+    )) ?? false
+  );
 }
 
 export async function readMailboxSyncState(emailAccountId: string) {
@@ -562,19 +620,25 @@ export async function markSyncedMailboxThreadsRead({
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  const transaction = database.transaction(
-    [
-      "mailboxMessages",
-      "searchIndexAccounts",
-      "searchIndexWork",
-      "localMailMessages",
-      "localMailTombstones",
-    ],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "mailboxMessages",
+    "searchIndexAccounts",
+    "searchIndexWork",
+    "localMailMessages",
+    "localMailTombstones",
+    "localMailRetentionPolicies",
+    "localMailEvictedMessages",
+
+    "localMailAttachmentFiles",
+    "localMailAttachmentJobs",
+    "localMailThreadProtection",
+  ]);
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 
+  const account = await transaction
+    .objectStore("searchIndexAccounts")
+    .get(emailAccountId);
   const lastAccessedAt = Date.now();
   const uniqueThreadIds = [...new Set(threadIds)];
   for (
@@ -629,7 +693,13 @@ export async function markSyncedMailboxThreadsRead({
           },
         ],
         lastAccessedAt,
-        { metadataOnly: true },
+        {
+          metadataOnly: true,
+          retention:
+            account?.retentionRevision === undefined
+              ? undefined
+              : { revision: account.retentionRevision, purpose: "current" },
+        },
       );
       cursor = await cursor.continue();
     }
@@ -651,16 +721,19 @@ export async function removeSyncedMailboxThreads({
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  const transaction = database.transaction(
-    [
-      "mailboxMessages",
-      "searchIndexAccounts",
-      "searchIndexWork",
-      "localMailMessages",
-      "localMailTombstones",
-    ],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "mailboxMessages",
+    "searchIndexAccounts",
+    "searchIndexWork",
+    "localMailMessages",
+    "localMailTombstones",
+    "localMailRetentionPolicies",
+    "localMailEvictedMessages",
+
+    "localMailAttachmentFiles",
+    "localMailAttachmentJobs",
+    "localMailThreadProtection",
+  ]);
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 

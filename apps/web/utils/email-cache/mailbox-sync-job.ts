@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { randomUuid } from "@/utils/uuid";
 import {
   captureEmailCacheEpoch,
@@ -26,8 +27,13 @@ export async function claimMailboxSyncJob(
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  const transaction = database.transaction("mailboxSyncJobs", "readwrite");
-  const previous = await transaction.store.get(emailAccountId);
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailboxSyncJobs",
+  );
+  const previous = await transaction
+    .objectStore("mailboxSyncJobs")
+    .get(emailAccountId);
   const now = Date.now();
   const waitUntil = Math.max(
     previous?.leaseExpiresAt ?? 0,
@@ -39,7 +45,7 @@ export async function claimMailboxSyncJob(
     throw new MailboxSyncDeferredError(waitUntil - now);
   }
   const leaseToken = randomUuid();
-  await transaction.store.put({
+  await transaction.objectStore("mailboxSyncJobs").put({
     emailAccountId,
     leaseToken,
     leaseExpiresAt: now + LEASE_MS,
@@ -57,14 +63,21 @@ export async function renewMailboxSyncJob(
 ) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction("mailboxSyncJobs", "readwrite");
-  const job = await transaction.store.get(emailAccountId);
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailboxSyncJobs",
+  );
+  const job = await transaction
+    .objectStore("mailboxSyncJobs")
+    .get(emailAccountId);
   const now = Date.now();
   if (!job || job.leaseToken !== leaseToken || job.leaseExpiresAt <= now) {
     await transaction.done;
     return false;
   }
-  await transaction.store.put({ ...job, leaseExpiresAt: now + LEASE_MS });
+  await transaction
+    .objectStore("mailboxSyncJobs")
+    .put({ ...job, leaseExpiresAt: now + LEASE_MS });
   await transaction.done;
   return true;
 }
@@ -76,8 +89,13 @@ export async function finishMailboxSyncJob(
 ) {
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction("mailboxSyncJobs", "readwrite");
-  const job = await transaction.store.get(emailAccountId);
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailboxSyncJobs",
+  );
+  const job = await transaction
+    .objectStore("mailboxSyncJobs")
+    .get(emailAccountId);
   if (
     !job ||
     job.leaseToken !== leaseToken ||
@@ -96,7 +114,7 @@ export async function finishMailboxSyncJob(
   const providerDelay = Number.isFinite(failure?.retryAfterMs)
     ? Math.max(0, Math.min(failure?.retryAfterMs ?? 0, MAX_TIMEOUT_MS))
     : 0;
-  await transaction.store.put({
+  await transaction.objectStore("mailboxSyncJobs").put({
     emailAccountId,
     leaseExpiresAt: 0,
     failures,

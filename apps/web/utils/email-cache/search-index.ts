@@ -70,6 +70,11 @@ export function createSearchIndex(database: Database) {
   if (version !== 0 && version !== SCHEMA_VERSION) {
     throw new Error("Unsupported local search index version");
   }
+  if (
+    version === 0 &&
+    !Number(database.selectValue("SELECT count(*) FROM sqlite_schema"))
+  )
+    database.exec("PRAGMA auto_vacuum=INCREMENTAL");
   indexTransaction(database, () => {
     database.exec(`
       CREATE TABLE IF NOT EXISTS search_accounts (
@@ -151,17 +156,38 @@ export function createSearchIndex(database: Database) {
   }
 
   return {
-    setStorageLimit(bytes: number) {
-      if (!Number.isSafeInteger(bytes) || bytes < 0)
-        throw new Error("Invalid search index storage limit");
+    reclaimStorage() {
       const pageSize = Number(database.selectValue("PRAGMA page_size"));
-      const pages = Math.max(1, Math.floor(bytes / pageSize));
-      // SQLite enforces this during allocation, including FTS writes inside a
-      // transaction; a failed batch cannot advance the account revision.
-      return (
-        Number(database.selectValue(`PRAGMA max_page_count=${pages}`)) *
-        pageSize
-      );
+      const beforeBytes =
+        Number(database.selectValue("PRAGMA page_count")) * pageSize;
+      const incrementalVacuum =
+        Number(database.selectValue("PRAGMA auto_vacuum")) === 2;
+      // Never rebuild an existing layout at quota: full VACUUM needs temporary space.
+      if (incrementalVacuum) {
+        const beforePages = beforeBytes / pageSize;
+        // Each statement can also remove a pointer-map page. Leave room for it.
+        for (let step = 0; step < 256; step++) {
+          const remaining = Number(
+            database.selectValue("PRAGMA freelist_count"),
+          );
+          const removed =
+            beforePages - Number(database.selectValue("PRAGMA page_count"));
+          if (!remaining || removed >= 254) break;
+          // One-page statements avoid depending on how exec steps vacuum result rows.
+          database.exec("PRAGMA incremental_vacuum(1)");
+        }
+      }
+      return {
+        incrementalVacuum,
+        beforeBytes,
+        afterBytes:
+          Number(database.selectValue("PRAGMA page_count")) * pageSize,
+        reusableBytes:
+          Number(database.selectValue("PRAGMA freelist_count")) * pageSize,
+      };
+    },
+    setStorageLimit(bytes: number) {
+      return setSearchIndexStorageLimit(database, bytes);
     },
 
     getAccountState(emailAccountId: string) {
@@ -454,12 +480,29 @@ export function createSearchIndex(database: Database) {
     },
 
     getStorageBytes() {
-      return (
-        Number(database.selectValue("PRAGMA page_count")) *
-        Number(database.selectValue("PRAGMA page_size"))
-      );
+      return getSearchIndexStorageBytes(database);
     },
   };
+}
+
+export function getSearchIndexStorageBytes(database: Database) {
+  return (
+    Number(database.selectValue("PRAGMA page_count")) *
+    Number(database.selectValue("PRAGMA page_size"))
+  );
+}
+
+export function setSearchIndexStorageLimit(database: Database, bytes: number) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0)
+    throw new Error("Invalid search index storage limit");
+  const pageSize = Number(database.selectValue("PRAGMA page_size"));
+  if (bytes < pageSize && getSearchIndexStorageBytes(database) === 0)
+    throw new SearchIndexCapacityError("storage-full");
+  const pages = Math.max(1, Math.floor(bytes / pageSize));
+  // Apply before schema creation as well as later FTS allocations.
+  return (
+    Number(database.selectValue(`PRAGMA max_page_count=${pages}`)) * pageSize
+  );
 }
 
 function compileQuery(

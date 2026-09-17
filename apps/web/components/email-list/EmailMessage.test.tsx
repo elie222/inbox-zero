@@ -154,6 +154,72 @@ describe("EmailMessage draft recovery", () => {
 describe("EmailMessage forward", () => {
   afterEach(cleanup);
 
+  it.each([
+    "button",
+    "default",
+  ] as const)("waits for the body before forwarding through %s", (entry) => {
+    const refetch = vi.fn();
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch,
+      showReplyButton: true,
+      defaultComposeMode:
+        entry === "default" ? ("forward" as const) : undefined,
+    };
+    const { rerender } = render(
+      <EmailMessage {...props} bodyAvailable={false} />,
+    );
+    if (entry === "button")
+      fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(screen.queryByTestId("composer")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load message to forward" }),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+    rerender(<EmailMessage {...props} bodyAvailable />);
+    expect(screen.getByTestId("composer").dataset.forwardedMessageId).toBe(
+      "message-1",
+    );
+    expect(screen.getByTestId("composer").dataset.forwardedAttachments).toBe(
+      "report.pdf",
+    );
+  });
+
+  it("preserves an open unsent forward when the reader falls back to metadata", () => {
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch: vi.fn(),
+      showReplyButton: true,
+      defaultComposeMode: "forward" as const,
+    };
+    const { rerender } = render(<EmailMessage {...props} />);
+    const editor = screen.getByRole("textbox", {
+      name: "Email message",
+    }) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: "Unsent draft content" } });
+    rerender(
+      <EmailMessage
+        {...props}
+        bodyAvailable={false}
+        message={{
+          ...props.message,
+          attachments: undefined,
+          textHtml: undefined,
+          textPlain: undefined,
+        }}
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBe(editor);
+    expect(editor.value).toBe("Unsent draft content");
+    expect(screen.getByTestId("composer").dataset.forwardedAttachments).toBe(
+      "report.pdf",
+    );
+  });
+
   it("composes the forward against the thread it came from", () => {
     render(
       <EmailMessage

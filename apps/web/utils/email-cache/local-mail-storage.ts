@@ -1,4 +1,5 @@
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { readLocalMailSettings } from "./local-mail-settings";
 
 const MIB = 1024 * 1024;
 const DEFAULT_BATCH_HEADROOM_BYTES = 16 * MIB;
@@ -9,6 +10,7 @@ export type LocalMailStorageAdmission = {
   usageBytes?: number;
   budgetBytes: number;
   backfillLimitBytes: number;
+  limitBytes: number;
   remainingBytes: number;
 };
 
@@ -19,16 +21,21 @@ export class LocalMailStorageBusyError extends Error {
   }
 }
 
-export function withLocalMailStorageLock<T>(commit: () => Promise<T>) {
+export function withLocalMailStorageLock<T>(
+  commit: () => Promise<T>,
+  options?: { wait?: boolean; signal?: AbortSignal },
+) {
+  options?.signal?.throwIfAborted();
   if (typeof navigator === "undefined" || !navigator.locks?.request)
     return Promise.reject(
       new Error("Local mail storage coordination unavailable"),
     );
   return navigator.locks.request(
     "inbox-zero:local-mail-storage",
-    { ifAvailable: true },
+    options?.wait ? { signal: options.signal } : { ifAvailable: true },
     (lock) => {
       if (!lock) throw new LocalMailStorageBusyError();
+      options?.signal?.throwIfAborted();
       return commit();
     },
   );
@@ -37,6 +44,7 @@ export function withLocalMailStorageLock<T>(commit: () => Promise<T>) {
 export async function readLocalMailStorageAdmission(options?: {
   budgetBytes?: number;
   expectedGrowthBytes?: number;
+  purpose?: "current" | "backfill";
 }): Promise<LocalMailStorageAdmission> {
   const desktop = !!getInboxZeroDesktopApp();
   let estimate: StorageEstimate | undefined;
@@ -45,7 +53,12 @@ export async function readLocalMailStorageAdmission(options?: {
   } catch {
     // Unknown headroom must not start speculative historical downloads.
   }
-  return evaluateLocalMailStorageAdmission({ ...options, desktop, estimate });
+  return evaluateLocalMailStorageAdmission({
+    ...options,
+    budgetBytes: options?.budgetBytes ?? readLocalMailSettings().budgetBytes,
+    desktop,
+    estimate,
+  });
 }
 
 export function evaluateLocalMailStorageAdmission({
@@ -53,11 +66,13 @@ export function evaluateLocalMailStorageAdmission({
   estimate,
   budgetBytes = (desktop ? 2048 : 500) * MIB,
   expectedGrowthBytes = DEFAULT_BATCH_HEADROOM_BYTES,
+  purpose = "backfill",
 }: {
   desktop: boolean;
   estimate?: StorageEstimate;
   budgetBytes?: number;
   expectedGrowthBytes?: number;
+  purpose?: "current" | "backfill";
 }): LocalMailStorageAdmission {
   if (!Number.isSafeInteger(budgetBytes) || budgetBytes <= 0)
     throw new Error("Invalid local mail storage budget");
@@ -79,6 +94,7 @@ export function evaluateLocalMailStorageAdmission({
       reason: "storage-unavailable",
       budgetBytes,
       backfillLimitBytes: 0,
+      limitBytes: 0,
       remainingBytes: 0,
     };
   }
@@ -88,15 +104,22 @@ export function evaluateLocalMailStorageAdmission({
   const effectiveBudget = Math.floor(Math.min(budgetBytes, quota * 0.8));
   const reserve = Math.max(32 * MIB, effectiveBudget * 0.1);
   const backfillLimitBytes = Math.max(0, Math.floor(effectiveBudget - reserve));
-  const remainingBytes = Math.max(0, backfillLimitBytes - usage);
-  const allowed =
-    usage < backfillLimitBytes && expectedGrowthBytes <= remainingBytes;
+  // Current mail can use half the reserve; the remainder protects unsent work
+  // and maintenance even after historical downloads have stopped.
+  const protectedReserve = Math.max(16 * MIB, effectiveBudget * 0.05);
+  const limitBytes =
+    purpose === "current"
+      ? Math.max(0, Math.floor(effectiveBudget - protectedReserve))
+      : backfillLimitBytes;
+  const remainingBytes = Math.max(0, limitBytes - usage);
+  const allowed = usage < limitBytes && expectedGrowthBytes <= remainingBytes;
   return {
     allowed,
     reason: allowed ? "available" : "storage-full",
     usageBytes: usage,
     budgetBytes: effectiveBudget,
     backfillLimitBytes,
+    limitBytes,
     remainingBytes,
   };
 }

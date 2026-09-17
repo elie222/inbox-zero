@@ -82,13 +82,15 @@ export function ThreadDeliveryStatus({
       }),
     [refreshOutbox],
   );
-  const { data, error, mutate } = useSWR<ScheduledEmailsResponse>(
+  const { data, error, isValidating, mutate } = useSWR<ScheduledEmailsResponse>(
     [
       `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
       emailAccountId,
     ],
     {
+      isPaused: () => !navigator.onLine,
       refreshInterval: (current) => {
+        if (!online) return 0;
         const rows = current?.scheduledEmails ?? [];
         if (
           rows.some(
@@ -302,7 +304,7 @@ export function ThreadDeliveryStatus({
               {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <Button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !online}
                   size="sm"
                   variant="ghost"
                   className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
@@ -318,7 +320,7 @@ export function ThreadDeliveryStatus({
               {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <Button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !online}
                   size="sm"
                   variant="ghost"
                   className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
@@ -334,7 +336,7 @@ export function ThreadDeliveryStatus({
               {row.reminderStatus === "PENDING" && (
                 <Button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !online}
                   size="sm"
                   variant="ghost"
                   className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
@@ -358,9 +360,33 @@ export function ThreadDeliveryStatus({
             </div>
           </div>
         ))}
-      {(actionError || error) && (
+      {!online && (
+        <p role="status" className="text-muted-foreground text-xs">
+          {data
+            ? "Offline — showing the last known scheduled reply status."
+            : "Offline — scheduled reply status is unavailable."}
+        </p>
+      )}
+      {online && error && (
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <p role="status">
+            {data
+              ? "Could not refresh scheduled replies. Showing the last known status."
+              : "Scheduled reply status is unavailable."}
+          </p>
+          <Button
+            disabled={isValidating}
+            onClick={() => mutate().catch(() => undefined)}
+            size="sm"
+            variant="ghost"
+          >
+            Retry scheduled status
+          </Button>
+        </div>
+      )}
+      {actionError && (
         <p role="alert" className="text-destructive text-xs">
-          {actionError || "Could not load scheduled replies."}
+          {actionError}
         </p>
       )}
     </section>

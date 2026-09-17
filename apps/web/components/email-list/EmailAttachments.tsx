@@ -1,46 +1,89 @@
 "use client";
 
+import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
+import { downloadLocalMailAttachment } from "@/utils/email-cache/local-mail-attachment-download";
+import { getLocalMailAttachmentReference } from "@/utils/email-cache/local-mail-attachments";
+import {
+  captureEmailCacheEpoch,
+  isEmailCacheEpochCurrent,
+} from "@/utils/email-cache/database";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { DownloadIcon, ImageIcon } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import {
-  fetchAttachment,
-  getAttachmentUrl,
-} from "@/utils/attachments/download";
+import { getAttachmentUrl } from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
   const [isDownloading, setIsDownloading] = useState(false);
+  const controller = useRef(new AbortController());
+  useEffect(() => {
+    if (!emailAccountId || !message.id) return;
+    const current = new AbortController();
+    controller.current = current;
+    return () => current.abort();
+  }, [emailAccountId, message.id]);
 
   const downloadAttachment = async ({
     filename,
     url,
+    attachmentId,
+    size,
   }: {
     filename: string;
     url: string;
+    attachmentId: string;
+    size: number;
   }) => {
+    const signal = controller.current.signal;
+    const epoch = captureEmailCacheEpoch(emailAccountId);
     setIsDownloading(true);
 
     try {
-      const blob = await fetchAttachment({ url, emailAccountId });
-      const objectUrl = URL.createObjectURL(blob);
+      const reference = await getLocalMailAttachmentReference({
+        emailAccountId,
+        messageId: message.id,
+        attachmentId,
+      });
+      const result = reference
+        ? await downloadLocalMailAttachment({
+            emailAccountId,
+            messageId: message.id,
+            attachmentId,
+            priority: "requested",
+            signal,
+            maxBytes: size || undefined,
+          })
+        : { status: "external-download-required" as const };
+      signal.throwIfAborted();
+      if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
       const link = document.createElement("a");
-      link.href = objectUrl;
+      let objectUrl: string | undefined;
+      if (result.status === "external-download-required") {
+        const downloadUrl = new URL(url, window.location.origin);
+        downloadUrl.searchParams.set("emailAccountId", emailAccountId);
+        link.href = downloadUrl.toString();
+      } else if (result.status === "ready") {
+        objectUrl = URL.createObjectURL(result.blob);
+        link.href = objectUrl;
+      } else {
+        throw new Error("Attachment unavailable");
+      }
       link.download = filename;
       document.body.appendChild(link);
       try {
         link.click();
       } finally {
         link.remove();
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
       }
     } catch {
-      toastError({ description: "Failed to download attachment" });
+      if (!signal.aborted)
+        toastError({ description: "Failed to download attachment" });
     } finally {
       setIsDownloading(false);
     }
@@ -66,7 +109,9 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                 key={`${emailAccountId}:${url}`}
                 emailAccountId={emailAccountId}
                 filename={attachment.filename}
-                url={url}
+                messageId={message.id}
+                attachmentId={attachment.attachmentId}
+                attachment={attachment}
               />
             ) : null}
             <div className="p-4">
@@ -86,6 +131,8 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                     downloadAttachment({
                       filename: attachment.filename,
                       url,
+                      attachmentId: attachment.attachmentId,
+                      size: attachment.size,
                     })
                   }
                 >
@@ -104,22 +151,36 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
 function AttachmentImagePreview({
   emailAccountId,
   filename,
-  url,
+  messageId,
+  attachmentId,
+  attachment,
 }: {
   emailAccountId: string;
   filename: string;
-  url: string;
+  messageId: string;
+  attachmentId: string;
+  attachment: NonNullable<ThreadMessage["attachments"]>[number];
 }) {
+  const session = useOpenedConversationAttachments();
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     let objectUrl: string | undefined;
 
-    fetchAttachment({ url, emailAccountId }).then(
+    (
+      (emailAccountId
+        ? session?.load(messageId, attachmentId, controller.signal, attachment)
+        : undefined) ?? Promise.resolve(undefined)
+    ).then(
       (blob) => {
         if (cancelled) return;
+        if (!blob) {
+          setFailed(true);
+          return;
+        }
         objectUrl = URL.createObjectURL(blob);
         setPreviewUrl(objectUrl);
       },
@@ -130,9 +191,10 @@ function AttachmentImagePreview({
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [emailAccountId, url]);
+  }, [emailAccountId, session, messageId, attachmentId, attachment]);
 
   return (
     <div className="relative flex aspect-video items-center justify-center overflow-hidden border-border/60 border-b bg-muted/40">

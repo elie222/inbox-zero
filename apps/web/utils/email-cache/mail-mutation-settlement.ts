@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { storeLocalMailMessages } from "./local-mail-messages";
 import { markSearchThreadsDirty } from "./search-index-work";
 import type { ParsedMessage } from "@/utils/types";
@@ -20,22 +21,28 @@ export async function settleMailMutationBatchInCache(
   if (!applicable.length) return;
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction(
-    [
-      "mailboxMessages",
-      "threadRows",
-      "threadDetails",
-      "searchIndexAccounts",
-      "searchIndexWork",
-      "localMailMessages",
-      "localMailTombstones",
-    ],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "mailboxMessages",
+    "threadRows",
+    "threadDetails",
+    "searchIndexAccounts",
+    "searchIndexWork",
+    "localMailMessages",
+    "localMailTombstones",
+    "localMailRetentionPolicies",
+    "localMailEvictedMessages",
+
+    "localMailAttachmentFiles",
+    "localMailAttachmentJobs",
+    "localMailThreadProtection",
+  ]);
   const mailboxMessages = transaction.objectStore("mailboxMessages");
   const settledAt = Date.now();
 
   for (const mutation of applicable) {
+    const account = await transaction
+      .objectStore("searchIndexAccounts")
+      .get(mutation.emailAccountId);
     for (const messageId of new Set(mutation.messageIds)) {
       const key = [mutation.emailAccountId, messageId] as [string, string];
       const local = await transaction.objectStore("localMailMessages").get(key);
@@ -45,7 +52,13 @@ export async function settleMailMutationBatchInCache(
           mutation.emailAccountId,
           [applyMailMutationToMessage(local.data, mutation)],
           settledAt,
-          { metadataOnly: true },
+          {
+            metadataOnly: true,
+            retention:
+              account?.retentionRevision === undefined
+                ? undefined
+                : { revision: account.retentionRevision, purpose: "current" },
+          },
         );
       const record = await mailboxMessages.get(key);
       if (!record) continue;

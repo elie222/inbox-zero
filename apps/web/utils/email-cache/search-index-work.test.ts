@@ -1,3 +1,4 @@
+import { installMailCacheStorageTestEnvironment } from "./optional-cache-write.test-helpers";
 import "fake-indexeddb/auto";
 import type { ParsedMessage } from "@/utils/types";
 import { applyMailboxSyncPage } from "./mailbox";
@@ -14,6 +15,8 @@ import {
   markSearchThreadsDirty,
   readSearchIndexWork,
 } from "./search-index-work";
+
+installMailCacheStorageTestEnvironment();
 
 describe("durable search index work", () => {
   beforeEach(async () => {

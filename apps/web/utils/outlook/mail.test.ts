@@ -533,7 +533,7 @@ describe("sendEmailWithHtml", () => {
     });
   });
 
-  it("sends the forward outside its conversation when the source is gone", async () => {
+  it("does not send a forward without its original provider attachments", async () => {
     const createForwardPost = vi.fn(async () => {
       throw Object.assign(new Error("Item not found"), {
         code: "ErrorItemNotFound",
@@ -553,28 +553,24 @@ describe("sendEmailWithHtml", () => {
       throw new Error(`Unexpected API path: ${path}`);
     });
 
-    const result = await sendEmailWithHtml(
-      client,
-      {
-        to: "recipient@example.com",
-        subject: "Fwd: Subject",
-        messageHtml: "<p>Passing this on</p>",
-        replyToEmail: {
-          threadId: "conversation-1",
-          forwardedMessageId: "message-1",
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "recipient@example.com",
+          subject: "Fwd: Subject",
+          messageHtml: "<p>Passing this on</p>",
+          replyToEmail: {
+            threadId: "conversation-1",
+            forwardedMessageId: "message-1",
+          },
         },
-      },
-      createTestLogger(),
-    );
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Reload the original message before forwarding");
 
-    expect(draftPost).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: "Fwd: Subject",
-        body: { contentType: "html", content: "<p>Passing this on</p>" },
-      }),
-    );
-    expect(sendPost).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ id: "draft-1", conversationId: "conversation-2" });
+    expect(draftPost).not.toHaveBeenCalled();
+    expect(sendPost).not.toHaveBeenCalled();
   });
 
   it("sends a forward as a new message when its source is unknown", async () => {

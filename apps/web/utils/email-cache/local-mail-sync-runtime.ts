@@ -1,5 +1,8 @@
+import { bootstrapLocalMailStorageLedgerBatch } from "./local-mail-storage-ledger-bootstrap";
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import { subscribeToLocalMailSyncRequests } from "./local-mail-sync-events";
+import { startLocalMailHints } from "./local-mail-hints";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { getEmailCacheDatabase } from "./database";
 import { isMailSyncActivated } from "./mail-activation";
@@ -11,8 +14,16 @@ import {
   withLocalMailStorageLock,
 } from "./local-mail-storage";
 import { initializeSearchIndexAccount } from "./search-index-seed";
-import { isSearchIndexStoragePaused } from "./search-index-service";
+import {
+  warmSearchIndexStorage,
+  isSearchIndexStoragePaused,
+} from "./search-index-service";
 import { readSearchIndexWork } from "./search-index-work";
+import { relieveLocalMailStoragePressure } from "./local-mail-storage-pressure";
+import {
+  readLocalMailSettings,
+  subscribeToLocalMailSettings,
+} from "./local-mail-settings";
 
 type Entry = {
   references: number;
@@ -25,14 +36,23 @@ type Entry = {
   refreshCounts: boolean;
   forceCounts: boolean;
   notificationTimer?: ReturnType<typeof setTimeout>;
+  stopHints?: () => void;
+  pendingCatchUp?: boolean;
+  nextPressureAt?: number;
+  pressureRequested?: boolean;
 };
 const entries = new Map<string, Entry>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 let running = 0;
+let accountingRunning = false;
+let accountingReady = false;
+let indexWarmed = false;
+let nextAccountingAt = 0;
 let sequence = 0;
 let lastActivityAt = 0;
 let lastCatchUpAt = 0;
 let unsubscribeRequests: (() => void) | undefined;
+let unsubscribeSettings: (() => void) | undefined;
 
 export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
   const entry = entries.get(emailAccountId) ?? {
@@ -49,10 +69,18 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
   entry.references += 1;
   entry.priority = priority;
   entries.set(emailAccountId, entry);
+  if (entry.references === 1)
+    entry.stopHints = startLocalMailHints(emailAccountId, () =>
+      requestLocalMailSync(emailAccountId, false),
+    );
   if (entries.size === 1 && entry.references === 1) {
     lastActivityAt = Date.now();
+    nextAccountingAt = 0;
+    accountingReady = false;
+    indexWarmed = false;
     unsubscribeRequests =
       subscribeToLocalMailSyncRequests(requestLocalMailSync);
+    unsubscribeSettings = subscribeToLocalMailSettings(settingsChanged);
     window.addEventListener("online", wake);
     window.addEventListener("focus", wake);
     document.addEventListener("visibilitychange", wake);
@@ -67,6 +95,7 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
   return () => {
     entry.references -= 1;
     if (!entry.references) {
+      entry.stopHints?.();
       clearTimeout(entry.notificationTimer);
       entries.delete(emailAccountId);
     }
@@ -74,6 +103,8 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
       clearTimeout(timer);
       unsubscribeRequests?.();
       unsubscribeRequests = undefined;
+      unsubscribeSettings?.();
+      unsubscribeSettings = undefined;
       window.removeEventListener("online", wake);
       window.removeEventListener("focus", wake);
       document.removeEventListener("visibilitychange", wake);
@@ -99,6 +130,10 @@ function requestLocalMailSync(emailAccountId: string, forceCounts = true) {
   if (!entry) return;
   entry.nextAt = 0;
   entry.forceCounts ||= forceCounts;
+  if (entry.running) {
+    entry.pendingCatchUp = true;
+    return;
+  }
   expediteCurrentJobs(emailAccountId).finally(() => schedule(0));
 }
 
@@ -106,10 +141,58 @@ async function tick(emailAccountId: string, entry: Entry) {
   try {
     await initializeSearchIndexAccount(emailAccountId);
     const backlog = await readSearchIndexWork(emailAccountId);
+    const database = await getEmailCacheDatabase();
+    const retainedState = await database?.get(
+      "localMailSyncStates",
+      emailAccountId,
+    );
+    const eviction = await database?.get(
+      "localMailEvictionJobs",
+      emailAccountId,
+    );
+    let pressure:
+      | Awaited<ReturnType<typeof relieveLocalMailStoragePressure>>
+      | undefined;
+    if (
+      (entry.pressureRequested ||
+        retainedState?.storagePaused ||
+        eviction?.stage) &&
+      Date.now() >= (entry.nextPressureAt ?? 0)
+    ) {
+      entry.pressureRequested = false;
+      try {
+        pressure = await relieveLocalMailStoragePressure({
+          emailAccountIds: [...entries.keys()],
+        });
+        entry.nextPressureAt =
+          Date.now() +
+          (pressure === "progress"
+            ? 250
+            : pressure === "waiting-index"
+              ? 1000
+              : 60_000);
+      } catch {
+        // Another tab may own storage maintenance; current mail still gets its tick.
+        entry.pressureRequested = true;
+        entry.nextPressureAt = Date.now() + 1000;
+      }
+    }
+    const policy = await database?.get(
+      "localMailRetentionPolicies",
+      emailAccountId,
+    );
+    const retentionAfter = Math.max(
+      policy?.requestedAfter ?? LOCAL_MAIL_HISTORY_AFTER,
+      policy?.automaticAfter ?? LOCAL_MAIL_HISTORY_AFTER,
+      retainedState?.retentionAfter ?? LOCAL_MAIL_HISTORY_AFTER,
+    );
     const options: Parameters<typeof runLocalMailSyncTick>[0] = {
       emailAccountId,
-      retentionAfter: LOCAL_MAIL_HISTORY_AFTER,
+      retentionAfter,
       allowHistoricalWork:
+        readLocalMailSettings().backfillEnabled &&
+        !eviction?.stage &&
+        pressure !== "progress" &&
         document.visibilityState !== "hidden" &&
         Date.now() - lastActivityAt < 5 * 60_000 &&
         !isSearchIndexStoragePaused(emailAccountId) &&
@@ -119,24 +202,22 @@ async function tick(emailAccountId: string, entry: Entry) {
       admitBackfill: async () =>
         (await readLocalMailStorageAdmission()).allowed,
       withStorageLock: withLocalMailStorageLock,
-      admitResponse: async (response) => {
+      admitResponse: async (response, purpose) => {
         const database = await getEmailCacheDatabase();
-        if (!database) return { allowed: false, maxCanonicalBytes: 0 };
-        const accounts = await database.getAll("searchIndexAccounts");
-        const currentBytes = accounts.reduce(
-          (sum, account) => sum + (account.messageBytes ?? 0),
-          0,
-        );
+        if (!database)
+          return { allowed: false, maxGrowthBytes: 0, logicalLimitBytes: 0 };
         const responseBytes = new Blob([JSON.stringify(response)]).size;
         const admission = await readLocalMailStorageAdmission({
           expectedGrowthBytes: responseBytes,
+          purpose,
         });
         return {
           allowed:
             admission.allowed ||
             (admission.reason === "storage-full" &&
               isDeletionOnlyResponse(response)),
-          maxCanonicalBytes: currentBytes + admission.remainingBytes,
+          maxGrowthBytes: admission.remainingBytes,
+          logicalLimitBytes: admission.limitBytes,
         };
       },
     };
@@ -156,6 +237,11 @@ async function tick(emailAccountId: string, entry: Entry) {
       Number.isFinite(result.retryAt)
         ? Math.max(Date.now() + 250, result.retryAt)
         : Date.now() + (result.status === "progress" ? 250 : 5000);
+    if (pressure === "progress" || pressure === "waiting-index")
+      entry.nextAt = Math.min(
+        entry.nextAt,
+        entry.nextPressureAt ?? entry.nextAt,
+      );
     if (
       "currentUpdate" in result &&
       result.currentUpdate &&
@@ -188,6 +274,10 @@ async function tick(emailAccountId: string, entry: Entry) {
   } finally {
     entry.running = false;
     running -= 1;
+    if (entry.pendingCatchUp && entries.get(emailAccountId) === entry) {
+      entry.pendingCatchUp = false;
+      requestLocalMailSync(emailAccountId, false);
+    }
     schedule(250);
   }
 }
@@ -203,10 +293,56 @@ function pump() {
     return;
   }
   const now = Date.now();
+  if (
+    !accountingRunning &&
+    now >= nextAccountingAt &&
+    [...entries.keys()].some(isMailSyncActivated)
+  ) {
+    accountingRunning = true;
+    bootstrapLocalMailStorageLedgerBatch()
+      .then(async (result) => {
+        accountingReady = result === "ready";
+        if (
+          result === "waiting-index" ||
+          (result === "ready" && !indexWarmed)
+        ) {
+          const id = [...entries.keys()].find(isMailSyncActivated);
+          if (id) {
+            const account = await initializeSearchIndexAccount(id);
+            accountingReady = false;
+            if (account) {
+              indexWarmed = await warmSearchIndexStorage({
+                emailAccountId: id,
+                generation: account.generation,
+              });
+              accountingReady = indexWarmed;
+            }
+          }
+        }
+        nextAccountingAt =
+          Date.now() +
+          (result === "progress" ? 0 : accountingReady ? 60_000 : 1000);
+      })
+      .catch(() => {
+        nextAccountingAt = Date.now() + 5000;
+      })
+      .finally(() => {
+        accountingRunning = false;
+        schedule(
+          accountingReady
+            ? 0
+            : Math.max(0, Math.min(250, nextAccountingAt - Date.now())),
+        );
+      });
+  }
+
   const candidates = [...entries]
     .filter(
       ([id, entry]) =>
-        !entry.running && entry.nextAt <= now && isMailSyncActivated(id),
+        accountingReady &&
+        !entry.running &&
+        entry.nextAt <= now &&
+        isMailSyncActivated(id),
     )
     .sort(
       ([, a], [, b]) =>
@@ -238,6 +374,14 @@ function activity() {
   if (wasInactive) wake();
 }
 
+function settingsChanged() {
+  for (const [id, entry] of entries) {
+    entry.pressureRequested = true;
+    entry.nextPressureAt = 0;
+    requestLocalMailSync(id, false);
+  }
+}
+
 function wake() {
   if (document.visibilityState !== "hidden") lastActivityAt = Date.now();
   const catchUp = Date.now() - lastCatchUpAt >= 10_000;
@@ -253,10 +397,10 @@ async function expediteCurrentJobs(emailAccountId: string) {
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isMailSyncActivated(emailAccountId)) return;
-    const transaction = database.transaction(
-      ["localMailSyncStates", "localMailSyncJobs"],
-      "readwrite",
-    );
+    const transaction = await createAccountedMailTransaction(database, [
+      "localMailSyncStates",
+      "localMailSyncJobs",
+    ]);
     const state = await transaction
       .objectStore("localMailSyncStates")
       .get(emailAccountId);

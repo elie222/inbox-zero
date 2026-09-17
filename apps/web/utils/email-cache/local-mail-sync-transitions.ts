@@ -1,3 +1,4 @@
+import type { LocalMailRetentionPolicy } from "./local-mail-retention-types";
 import {
   queueRetainedMailReconciliation,
   advanceRetainedMailReconciliation,
@@ -16,6 +17,7 @@ import {
 } from "./local-mail-sync-outlook";
 import {
   LOCAL_MAIL_HISTORY_AFTER,
+  getLocalMailSyncRetention,
   getLocalMailWindowAfter,
   LOCAL_MAIL_FIRST_WINDOW_MS,
   type LocalMailSyncJob,
@@ -169,7 +171,11 @@ export async function applyLocalMailSyncResponse(
     response.phase === "history-backfill" ||
     response.phase === "history-changes"
   ) {
-    const ids = response.result.messageIds;
+    const ids = await withoutEvictedMessages(
+      transaction,
+      state,
+      response.result.messageIds,
+    );
     if (job.window) {
       if (
         response.phase === "history-backfill" &&
@@ -224,6 +230,7 @@ export async function applyLocalMailSyncResponse(
       state.emailAccountId,
       response.result.messages,
       fetchedAt,
+      { retention: getLocalMailSyncRetention(state, job) },
     );
     await deleteLocalMailMessages(
       transaction,
@@ -559,4 +566,131 @@ function advanceGmailCheckpoint(job: LocalMailSyncJob, now: number) {
       } else job.nextAttemptAt = now + 60_000;
     }
   }
+}
+
+export async function synchronizeLocalMailRetention(
+  transaction: LocalMailSyncTransaction,
+  state: LocalMailSyncState,
+  policy: LocalMailRetentionPolicy,
+  now: number,
+) {
+  const floor = Math.max(
+    state.retentionAfter,
+    policy.requestedAfter,
+    policy.automaticAfter,
+  );
+  state.retentionRevision = policy.revision;
+  state.retentionAfter = floor;
+  state.retainedAfter = Math.max(state.retainedAfter, floor);
+  state.fence++;
+  state.leaseOwner = undefined;
+  state.leaseExpiresAt = undefined;
+  if (state.coverage)
+    state.coverage =
+      floor < state.coverage.before
+        ? { ...state.coverage, after: Math.max(state.coverage.after, floor) }
+        : undefined;
+  for (const folder of Object.values(state.folders))
+    folder.after = Math.min(folder.before, Math.max(folder.after, floor));
+  const store = transaction.objectStore("localMailSyncJobs");
+  const jobs = await store.index("byAccount").getAll(state.emailAccountId);
+  for (const job of jobs) {
+    if (job.kind === "bootstrap" && job.request.phase === "folder-backfill") {
+      if (job.request.before <= floor)
+        await store.delete([state.emailAccountId, job.id]);
+      else if (job.request.after < floor)
+        await store.put({
+          ...job,
+          request: { ...job.request, after: floor, cursor: undefined },
+        });
+      continue;
+    }
+    if (!job.window || job.window.membershipOnly || job.window.after >= floor)
+      continue;
+    await clearLocalMailSeen(
+      transaction,
+      state.emailAccountId,
+      job.window.generation,
+    );
+    await store.delete([state.emailAccountId, job.id]);
+    if (job.window.before > floor)
+      await createLocalMailWindow(
+        transaction,
+        state,
+        floor,
+        job.window.before,
+        now,
+        job.window.folderId,
+        job.window.recovery,
+      );
+  }
+  if (
+    state.recovering &&
+    jobs.some(
+      (job) =>
+        job.kind === "current" && job.request.phase !== "history-baseline",
+    )
+  )
+    await queueRetainedMailReconciliation(transaction, state, now);
+}
+
+export async function prepareLocalMailRetentionJobs(
+  transaction: LocalMailSyncTransaction,
+  state: LocalMailSyncState,
+  now: number,
+) {
+  const store = transaction.objectStore("localMailSyncJobs");
+  const jobs = await store.index("byAccount").getAll(state.emailAccountId);
+  for (const job of jobs) {
+    if (job.request.phase === "message-lookup") {
+      if (
+        await transaction
+          .objectStore("localMailEvictedMessages")
+          .get([state.emailAccountId, job.request.messageId])
+      )
+        // Local absence is intentional. It needs no body lookup or membership
+        // dependency; the marker remains until confirmed deletion or restoration.
+        await store.delete([state.emailAccountId, job.id]);
+    } else if (job.pending) {
+      const remaining = job.pending.ids.slice(job.pending.offset);
+      const ids = await withoutEvictedMessages(transaction, state, remaining);
+      if (ids.length === remaining.length) continue;
+      job.pending = { ...job.pending, ids, offset: 0 };
+      if (ids.length) setHydrationRequest(job);
+      else advanceGmailCheckpoint(job, now);
+      await store.put(job);
+    } else if (
+      job.kind === "retained" &&
+      job.request.phase === "history-hydrate"
+    ) {
+      const ids = await withoutEvictedMessages(
+        transaction,
+        state,
+        job.request.messageIds,
+      );
+      if (ids.length === job.request.messageIds.length) continue;
+      if (ids.length)
+        await store.put({
+          ...job,
+          request: { ...job.request, messageIds: ids },
+        });
+      else await advanceRetainedMailReconciliation(transaction, job, now);
+    }
+  }
+}
+
+async function withoutEvictedMessages(
+  transaction: LocalMailSyncTransaction,
+  state: LocalMailSyncState,
+  ids: string[],
+) {
+  if (state.retentionRevision === undefined) return ids;
+  const markers = await Promise.all(
+    ids.map((id) =>
+      transaction
+        .objectStore("localMailEvictedMessages")
+        .getKey([state.emailAccountId, id]),
+    ),
+  );
+  return ids.filter((_id, index) => !markers[index]);
 }
