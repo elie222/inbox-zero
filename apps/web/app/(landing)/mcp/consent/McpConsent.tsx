@@ -4,7 +4,6 @@ import { useState } from "react";
 import { createAuthClient } from "better-auth/react";
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { useAction } from "next-safe-action/hooks";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateMcpServerAccessAction } from "@/utils/actions/api-key";
@@ -42,7 +41,10 @@ export function McpConsent({
         throw new Error(
           result.error.message || "Could not save your decision.",
         );
-      redirectToSafeUrl(result.data.url, { allowExternal: true });
+      redirectToSafeUrl(result.data.url, {
+        allowExternal: true,
+        allowNativeOAuthRedirect: true,
+      });
     } catch (error) {
       setError(
         error instanceof Error
@@ -81,12 +83,6 @@ export function McpConsent({
               Allow
             </Button>
           </div>
-          <Link
-            href="/settings"
-            className="text-sm text-muted-foreground underline"
-          >
-            Settings
-          </Link>
         </CardContent>
       </Card>
     </main>

@@ -40,7 +40,7 @@ function isWebValidRedirectUri(redirectUri: string) {
   return !isLoopbackHost(url.hostname);
 }
 
-function isNativeAcceptableRedirectUri(redirectUri: string) {
+export function isNativeAcceptableRedirectUri(redirectUri: string) {
   const url = parseRedirectUri(redirectUri);
   if (!url || FORBIDDEN_SCHEMES.has(url.protocol)) return false;
   if (redirectUri.includes("#") || url.username || url.password) return false;
