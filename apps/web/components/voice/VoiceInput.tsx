@@ -101,7 +101,7 @@ export function VoiceInput({
               }}
               size="icon"
               type="button"
-              variant="mutedGhost"
+              variant="ghostMuted"
             >
               <MicIcon className="size-4" />
             </Button>
@@ -123,7 +123,7 @@ export function VoiceInput({
               }}
               size="icon"
               type="button"
-              variant="mutedGhost"
+              variant="ghostMuted"
             >
               <AudioLinesIcon className="size-4" />
             </Button>

@@ -132,7 +132,7 @@ export function SenderContextPanel({
           onClick={onClose}
           size="iconXs"
           type="button"
-          variant="mutedGhost"
+          variant="ghostMuted"
         >
           <XIcon className="size-4" />
         </Button>

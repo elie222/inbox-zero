@@ -173,7 +173,7 @@ export function CalendarConnectionCard({
                   type="button"
                   aria-label="Calendar options"
                   disabled={isDisconnecting}
-                  variant="mutedGhost"
+                  variant="ghostMuted"
                   size="iconSm"
                 >
                   <MoreHorizontalIcon className="size-4" />

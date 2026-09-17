@@ -516,7 +516,7 @@ function SenderRow({
           />
         </div>
         <Button
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="iconSm"
           onClick={(e) => {
             e.stopPropagation();

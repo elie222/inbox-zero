@@ -11,7 +11,7 @@ export function WelcomeUpgradeNav() {
           onClick={() => {
             logOut("/");
           }}
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="sm"
         >
           Log out

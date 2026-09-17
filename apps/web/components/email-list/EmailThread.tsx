@@ -191,7 +191,7 @@ export function EmailThread({
               }
               onClick={toggleAll}
               size="iconXs"
-              variant="mutedGhost"
+              variant="ghostMuted"
             >
               {allExpanded ? (
                 <ChevronsDownUpIcon className="size-3.5" />

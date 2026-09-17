@@ -989,7 +989,9 @@ export class GmailProvider implements EmailProvider {
 
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
-      throw new SafeError("Could not find this draft to update.");
+      throw new SafeError(
+        "This draft is no longer available in Gmail. Check Sent before trying again.",
+      );
     }
 
     const subject = params.subject ?? currentDraft.subject ?? "";

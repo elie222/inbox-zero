@@ -464,7 +464,7 @@ function MessageHeader({
             aria-label={showDetails ? "Hide details" : "Show details"}
             onClick={toggleDetails}
             size="iconXs"
-            variant="mutedGhost"
+            variant="ghostMuted"
           >
             {showDetails ? (
               <ChevronsDownUpIcon className="size-3.5" />
@@ -493,7 +493,7 @@ function MessageHeader({
                   <Button
                     onClick={compose(onReply)}
                     size="iconXs"
-                    variant="mutedGhost"
+                    variant="ghostMuted"
                   >
                     <ReplyIcon className="size-3.5" />
                     <span className="sr-only">Reply</span>
@@ -503,7 +503,7 @@ function MessageHeader({
                   <Button
                     onClick={compose(onForward)}
                     size="iconXs"
-                    variant="mutedGhost"
+                    variant="ghostMuted"
                   >
                     <ForwardIcon className="size-3.5" />
                     <span className="sr-only">Forward</span>

@@ -23,7 +23,7 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
-        mutedGhost:
+        ghostMuted:
           "text-muted-foreground hover:bg-accent hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         green:
@@ -39,12 +39,12 @@ const buttonVariants = cva(
         xs: "h-6 rounded-sm px-1.5 text-xs",
         "xs-2": "h-7 rounded-md px-2 text-xs",
         sm: "h-9 rounded-md px-3",
+        inline: "h-auto px-1 py-1 text-xs",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10 flex-shrink-0",
         iconSm: "h-8 w-8 flex-shrink-0",
         iconXs: "h-7 w-7 flex-shrink-0",
         icon2xs: "h-6 w-6 flex-shrink-0",
-        compact: "h-auto px-1 py-1 text-xs",
       },
       loading: {
         true: "opacity-50 cursor-not-allowed",

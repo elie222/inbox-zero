@@ -372,7 +372,7 @@ export function NewSplitDialog({
             type="button"
             aria-label="Close"
             onClick={close}
-            variant="mutedGhost"
+            variant="ghostMuted"
             size="icon2xs"
           >
             <XIcon className="size-3.5" />
@@ -492,7 +492,7 @@ export function NewSplitDialog({
                           {split.name}
                         </button>
                         <Button
-                          variant="mutedGhost"
+                          variant="ghostMuted"
                           size="iconXs"
                           aria-label={`Move ${split.name} up`}
                           disabled={
@@ -508,7 +508,7 @@ export function NewSplitDialog({
                           <ArrowUpIcon className="size-3.5" />
                         </Button>
                         <Button
-                          variant="mutedGhost"
+                          variant="ghostMuted"
                           size="iconXs"
                           aria-label={`Move ${split.name} down`}
                           disabled={
@@ -523,7 +523,7 @@ export function NewSplitDialog({
                           <ArrowDownIcon className="size-3.5" />
                         </Button>
                         <Button
-                          variant="mutedGhost"
+                          variant="ghostMuted"
                           size="iconXs"
                           disabled={isBusy || !split.filters.length}
                           aria-label={`Turn off the ${split.name} split`}

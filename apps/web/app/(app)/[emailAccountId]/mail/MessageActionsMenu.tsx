@@ -40,7 +40,7 @@ export function MessageActionsMenu({
         <Button
           aria-label="More message actions"
           size="iconXs"
-          variant="mutedGhost"
+          variant="ghostMuted"
           onClick={(event) => event.stopPropagation()}
         >
           <MoreHorizontalIcon className="size-3.5" />

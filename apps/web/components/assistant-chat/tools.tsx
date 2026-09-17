@@ -763,7 +763,7 @@ function EmailActionResult({
           <div className="flex items-center gap-1">
             {!isConfirmed && requiresConfirmation && (
               <Button
-                variant="mutedGhost"
+                variant="ghostMuted"
                 size="sm"
                 className="h-8 gap-1.5 text-xs"
                 onClick={() => setIsEditing(true)}
@@ -791,7 +791,7 @@ function EmailActionResult({
             </Button>
             {externalUrl && (
               <Button
-                variant="mutedGhost"
+                variant="ghostMuted"
                 size="sm"
                 className="h-8 gap-1.5 text-xs"
                 asChild
@@ -1404,7 +1404,7 @@ export function UpdatedLearnedPatterns({
 }) {
   const actions = preview ? (
     <Tooltip content="Edit rule">
-      <Button variant="mutedGhost" size="iconSm">
+      <Button variant="ghostMuted" size="iconSm">
         <PencilIcon className="size-4" />
       </Button>
     </Tooltip>
@@ -1654,7 +1654,7 @@ export function AddToKnowledgeBase({
       actions={
         <div className="self-center">
           <Button
-            variant="mutedGhost"
+            variant="ghostMuted"
             size="sm"
             className="h-8 px-2"
             onClick={() => setTab("rules")}
@@ -1688,7 +1688,7 @@ function RuleActions({
       <RuleEditToggleActions ruleId={ruleId} initialEnabled={initialEnabled} />
       <Tooltip content="Delete rule">
         <Button
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="iconSm"
           onClick={async () => {
             const yes = confirm("Are you sure you want to delete this rule?");
@@ -1735,7 +1735,7 @@ function RuleEditToggleActions({
     <>
       <Tooltip content="Edit rule">
         <Button
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="iconSm"
           onClick={() => ruleDialog.onOpen({ ruleId })}
         >
@@ -1778,7 +1778,7 @@ function RuleActionsPreview({ enabled = true }: { enabled?: boolean }) {
     <div className="flex items-center gap-1.5">
       <RuleEditToggleActionsPreview enabled={enabled} />
       <Tooltip content="Delete rule">
-        <Button variant="mutedGhost" size="iconSm">
+        <Button variant="ghostMuted" size="iconSm">
           <TrashIcon className="size-4" />
         </Button>
       </Tooltip>
@@ -1794,7 +1794,7 @@ function RuleEditToggleActionsPreview({
   return (
     <>
       <Tooltip content="Edit rule">
-        <Button variant="mutedGhost" size="iconSm">
+        <Button variant="ghostMuted" size="iconSm">
           <PencilIcon className="size-4" />
         </Button>
       </Tooltip>
@@ -1810,7 +1810,7 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
     <>
       <Tooltip content="Edit rule">
         <Button
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="iconSm"
           onClick={() => ruleDialog.onOpen({ ruleId })}
         >

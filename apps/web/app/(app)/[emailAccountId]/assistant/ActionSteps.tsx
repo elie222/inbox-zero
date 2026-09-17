@@ -606,7 +606,7 @@ function ActionCard({
               <div className="mt-2 flex">
                 <Button
                   size="xs"
-                  variant="mutedGhost"
+                  variant="ghostMuted"
                   className="flex items-center gap-1 text-xs"
                   onClick={() => setExpandedFields(!expandedFields)}
                 >

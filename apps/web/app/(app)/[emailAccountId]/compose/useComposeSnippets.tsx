@@ -124,7 +124,7 @@ export function useComposeSnippets({
               className="hover:bg-transparent"
               size="icon"
               type="button"
-              variant="mutedGhost"
+              variant="ghostMuted"
             >
               <BracesIcon className="size-4" />
             </Button>

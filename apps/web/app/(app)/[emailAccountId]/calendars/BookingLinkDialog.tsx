@@ -50,7 +50,7 @@ export function BookingLinkDialog({
             )}
           </div>
           <DialogClose asChild>
-            <Button variant="mutedGhost" size="icon2xs" aria-label="Close">
+            <Button variant="ghostMuted" size="icon2xs" aria-label="Close">
               <X className="size-4" />
             </Button>
           </DialogClose>

@@ -60,7 +60,7 @@ export function ManageSplitsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="mutedGhost"
+          variant="ghostMuted"
           size="icon2xs"
           className="rounded-full"
           aria-label="Manage splits"

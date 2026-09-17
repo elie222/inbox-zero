@@ -267,7 +267,7 @@ export function Chat({
         <Tooltip content="Attach images">
           <Button
             type="button"
-            variant="mutedGhost"
+            variant="ghostMuted"
             size="icon"
             aria-label="Attach images"
             className="size-9 rounded-full"

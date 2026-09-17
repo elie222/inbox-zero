@@ -93,6 +93,7 @@ import {
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
+import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
@@ -815,18 +816,11 @@ function ComposeEmailFormContent({
       await stopProviderAutosave();
       let deliveryAccepted = false;
       try {
-        if (isNewCompose) {
-          const local = localDraftIdentity
-            ? await getReplyDraft(localDraftIdentity)
-            : undefined;
-          const draftId =
-            local?.content?.providerDraftId ?? providerDraftId.current;
-          if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
-            throw new Error(
-              "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
-            );
-          enrichedData.providerDraftId = draftId;
-        }
+        // Autosave can replace a draft's message ID; its provider draft ID survives.
+        enrichedData.providerDraftId = await resolveSendDraftId(
+          providerDraftId.current,
+          localDraftIdentity,
+        );
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
@@ -1017,7 +1011,6 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
-      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,
@@ -1503,7 +1496,7 @@ function ComposeEmailFormContent({
               onClick={() => attachmentInputRef.current?.click()}
               size="icon"
               type="button"
-              variant="mutedGhost"
+              variant="ghostMuted"
             >
               <PaperclipIcon className="size-4" />
             </Button>
@@ -1523,7 +1516,7 @@ function ComposeEmailFormContent({
             onClick={() => inlineImageInputRef.current?.click()}
             size="icon"
             type="button"
-            variant="mutedGhost"
+            variant="ghostMuted"
           >
             <ImageIcon className="size-4" />
           </Button>
@@ -1540,7 +1533,7 @@ function ComposeEmailFormContent({
                 onClick={handleDiscard}
                 size="icon"
                 type="button"
-                variant="mutedGhost"
+                variant="ghostMuted"
               >
                 <TrashIcon className="size-4" />
               </Button>
