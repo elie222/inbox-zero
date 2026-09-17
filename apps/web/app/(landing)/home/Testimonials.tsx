@@ -2,9 +2,6 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import NextScript from "next/script";
-import type { ComponentType } from "react";
-import { useTestimonialsVariant } from "@/hooks/useFeatureFlags";
 import { BRAND_NAME } from "@/utils/branding";
 
 type Testimonial = {
@@ -25,11 +22,6 @@ const featuredTestimonial = {
     logoUrl: "/images/logos/resend.svg",
   },
 };
-
-const ExternalScript = NextScript as unknown as ComponentType<{
-  src: string;
-  strategy: "lazyOnload";
-}>;
 
 const stevenTestimonial: Testimonial = {
   body: "Love this new open-source app by @elie2222: getinboxzero.com",
@@ -155,8 +147,6 @@ const mobileTestimonials: Testimonial[] = [
 ];
 
 export function Testimonials() {
-  const variant = useTestimonialsVariant();
-
   return (
     <div className="relative isolate bg-white pb-20 pt-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -169,11 +159,7 @@ export function Testimonials() {
           </p>
         </div>
 
-        {variant === "senja-widget" ? (
-          <SenjaWidgetContent />
-        ) : (
-          <TestimonialsContent />
-        )}
+        <TestimonialsContent />
       </div>
     </div>
   );
@@ -298,23 +284,5 @@ function TestimonialsContent() {
         ))}
       </div>
     </>
-  );
-}
-
-function SenjaWidgetContent() {
-  return (
-    <div className="mt-16">
-      <ExternalScript
-        src="https://widget.senja.io/widget/321e14fc-aa08-41f8-8dfd-ed3cd75d1308/platform.js"
-        strategy="lazyOnload"
-      />
-      <div
-        className="senja-embed"
-        data-id="321e14fc-aa08-41f8-8dfd-ed3cd75d1308"
-        data-mode="shadow"
-        data-lazyload="false"
-        style={{ display: "block", width: "100%" }}
-      />
-    </div>
   );
 }
