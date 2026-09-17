@@ -10,6 +10,9 @@
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
 - Run single test: `pnpm test path/to/test-file.test.ts`
 - Run focused browser test: `pnpm -F inbox-zero-ai test:playwright:emulated <area-or-spec>`; for browser-facing UI changes, inspect the generated screenshots before finishing
+- Moving, renaming, or hiding a UI affordance breaks specs that select it by visible name. Grep `__tests__/playwright` for that name before pushing, and never pipe the grep through `head` — a truncated result read as complete misses call sites. Screenshots will not catch this; the UI still looks right.
+- Waiting on slow work (CI, a Playwright run, a build): background one command that exits when the work is actually done. The harness notifies you when it exits, so a polling loop on top of it only duplicates that signal.
+- Bound anything that can hang with `timeout <seconds>` so it always exits and reports rather than waiting forever. If you must match on log output, anchor the pattern to the real summary line (`^\s+[0-9]+ (passed|failed)`), not a bare `failed` that startup banners also contain.
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
@@ -83,4 +86,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
 - Cursor Cloud VM setup: see `.claude/skills/cloud-dev-environment/SKILL.md`.
-- Opening a PR: `.claude/skills/create-pr/SKILL.md`. Watching one to green (CI, review bots, comments): `.claude/skills/pr-watch/SKILL.md`. Do not hand-roll `gh api` polling; `pr-watch` ships a `pr-digest` helper.
+- Opening a PR: `.claude/skills/create-pr/SKILL.md`. Watching one to green (CI, review bots, comments): `.claude/skills/pr-watch/SKILL.md`. Do not hand-roll `gh api` polling; `pr-digest --watch` already blocks until checks settle and gives up at `PR_DIGEST_DEADLINE` (3600s) with a `WAIT_LIMIT` line rather than hanging.
