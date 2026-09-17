@@ -1,17 +1,11 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import chunk from "lodash/chunk";
 import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
 } from "@/utils/email/mailbox-sync";
 import type { MailboxSyncPage } from "@/utils/email/types";
-import {
-  getMessage,
-  getMessagesBatch,
-  parseMessage,
-} from "@/utils/gmail/message";
-import type { ParsedMessage } from "@/utils/types";
+import { getGmailSyncMessages } from "@/utils/gmail/sync-messages";
 import { getHistory } from "@/utils/gmail/history";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
@@ -79,12 +73,13 @@ export async function getGmailMailboxSyncPage({
     );
     const { upsertIds, deletedIds, changedThreadIds } =
       getGmailMailboxChangeIds(response.history ?? []);
-    const fetchedMessages = await fetchMessages({
+    const fetched = await getGmailSyncMessages({
       gmail,
       messageIds: upsertIds,
       accessToken,
       logger,
     });
+    const fetchedMessages = fetched.messages.map(compactMailboxSyncMessage);
     const afterTimestamp = new Date(decoded.after).getTime();
     const upsertedMessages = fetchedMessages.filter((message) => {
       const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
@@ -213,7 +208,7 @@ async function getGmailSnapshotPage({
     5,
     { logger },
   );
-  const upsertedMessages = await fetchMessages({
+  const fetched = await getGmailSyncMessages({
     gmail,
     messageIds: (response.data.messages ?? []).flatMap((message) =>
       message.id ? [message.id] : [],
@@ -235,45 +230,6 @@ async function getGmailSnapshotPage({
     deletedMessageIds: [],
     hasMore: true,
     reset,
-    upsertedMessages,
+    upsertedMessages: fetched.messages.map(compactMailboxSyncMessage),
   };
-}
-
-async function fetchMessages({
-  gmail,
-  messageIds,
-  accessToken,
-  logger,
-}: {
-  gmail: gmail_v1.Gmail;
-  messageIds: string[];
-  accessToken: string;
-  logger: Logger;
-}) {
-  const messages: ParsedMessage[] = [];
-  for (const ids of chunk(messageIds, 100)) {
-    const page = await getMessagesBatch({
-      messageIds: ids,
-      accessToken,
-      logger,
-    });
-    const fetchedIds = new Set(page.map((message) => message.id));
-
-    // Shared batch reads may omit failed items. Sync can advance only when
-    // each omission has been recovered or confirmed deleted by the provider.
-    for (const id of ids) {
-      if (fetchedIds.has(id)) continue;
-      try {
-        const message = await getMessage(id, gmail, "full");
-        if (message.id !== id) {
-          throw new Error("Gmail returned an unexpected message ID");
-        }
-        page.push(parseMessage(message));
-      } catch (error) {
-        if (extractErrorInfo(error).status !== 404) throw error;
-      }
-    }
-    messages.push(...page.map(compactMailboxSyncMessage));
-  }
-  return messages;
 }
