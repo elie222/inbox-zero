@@ -78,8 +78,11 @@ export function matchesLocalSearch(
   )
     return false;
   return query.terms.every((term) => {
-    if (term.field === "label")
-      return message.labelIds?.includes(term.value) ?? false;
+    if (term.field === "label") {
+      return term.value === "ARCHIVE"
+        ? isArchivedLocalMessage(message.labelIds)
+        : (message.labelIds?.includes(term.value) ?? false);
+    }
     if (term.field === "after" || term.field === "before") {
       const timestamp =
         message.internalDate && /^\d+$/u.test(message.internalDate)
@@ -116,8 +119,15 @@ export function getNormalizedSearchText(
   return (text ?? "").normalize("NFKC").toLowerCase();
 }
 
+function isArchivedLocalMessage(labelIds: string[] | undefined) {
+  if (labelIds?.includes("ARCHIVE")) return true;
+  if (!labelIds?.length) return false;
+  return !LIVE_MAILBOX_LABELS.some((label) => labelIds.includes(label));
+}
+
 const LOCATION_FIELDS = new Set(["in", "is", "label", "category"]);
 const NAMED_LABEL_FIELDS = new Set(["label", "category"]);
+const LIVE_MAILBOX_LABELS = ["INBOX", "SENT", "DRAFT", "SPAM", "TRASH"];
 const SYSTEM_SEARCH_LABELS: Record<string, string> = {
   inbox: "INBOX",
   sent: "SENT",

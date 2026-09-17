@@ -73,4 +73,30 @@ describe("local search queries", () => {
       matchesLocalSearch(trashed, parseLocalSearch("in:anywhere report", [])!),
     ).toBe(true);
   });
+
+  it("treats Gmail mail without a live mailbox location as archived", () => {
+    const archived = { ...message, labelIds: ["UNREAD"] };
+    expect(
+      matchesLocalSearch(archived, parseLocalSearch("in:archive", [])!),
+    ).toBe(true);
+    expect(matches("in:archive")).toBe(false);
+  });
+
+  it("still matches Outlook archive via the ARCHIVE label", () => {
+    const outlookArchive = { ...message, labelIds: ["ARCHIVE", "UNREAD"] };
+    expect(
+      matchesLocalSearch(outlookArchive, parseLocalSearch("in:archive", [])!),
+    ).toBe(true);
+  });
+
+  it("does not treat sent, draft, spam, or trash as archived", () => {
+    for (const label of ["SENT", "DRAFT", "SPAM", "TRASH"]) {
+      expect(
+        matchesLocalSearch(
+          { ...message, labelIds: [label] },
+          parseLocalSearch("in:archive", [])!,
+        ),
+      ).toBe(false);
+    }
+  });
 });

@@ -2074,7 +2074,6 @@ export class OutlookProvider implements EmailProvider {
       return { threads: [] };
     }
 
-    const nextLink = resolveMicrosoftGraphNextLink(options.pageToken);
     const apiPath = folderId
       ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
       : "/me/messages";
@@ -2082,16 +2081,6 @@ export class OutlookProvider implements EmailProvider {
       options.messageFormat === "metadata"
         ? MESSAGE_LIST_SELECT_FIELDS
         : MESSAGE_SELECT_FIELDS;
-
-    const response: { value: Message[]; "@odata.nextLink"?: string } = nextLink
-      ? await client.api(nextLink).get()
-      : await fetchOutlookSearchPage({
-          client,
-          apiPath,
-          selectFields,
-          compiled,
-          maxResults: options.maxResults,
-        });
 
     const requiredLabelIds: string[] = [];
     if (compiled.search) {
@@ -2103,14 +2092,51 @@ export class OutlookProvider implements EmailProvider {
       }
     }
 
+    const maxResults = options.maxResults || 25;
+    const needsLocalScopeFilter = requiredLabelIds.length > 0;
+    const collectedMessages: Message[] = [];
+    let nextPageTokenToFetch = options.pageToken;
+    let nextPageToken: string | undefined;
+
+    do {
+      const pageLink = resolveMicrosoftGraphNextLink(nextPageTokenToFetch);
+      const response: { value: Message[]; "@odata.nextLink"?: string } =
+        pageLink
+          ? await client.api(pageLink).get()
+          : await fetchOutlookSearchPage({
+              client,
+              apiPath,
+              selectFields,
+              compiled,
+              maxResults,
+            });
+
+      collectedMessages.push(...response.value);
+      nextPageToken = response["@odata.nextLink"];
+
+      if (!needsLocalScopeFilter || !nextPageToken) break;
+
+      const matchedThreads = buildOutlookThreadsFromMessages({
+        messages: collectedMessages,
+        folderIds,
+        categoryMap,
+        excludedLabelIds: new Set(),
+        requiredLabelIds,
+        logger: this.logger,
+      });
+      if (matchedThreads.length >= maxResults) break;
+
+      nextPageTokenToFetch = nextPageToken;
+    } while (nextPageTokenToFetch);
+
     let threads = buildOutlookThreadsFromMessages({
-      messages: response.value,
+      messages: collectedMessages,
       folderIds,
       categoryMap,
       excludedLabelIds: new Set(),
       requiredLabelIds: requiredLabelIds.length ? requiredLabelIds : undefined,
       logger: this.logger,
-    });
+    }).slice(0, maxResults);
 
     if (options.messageFormat === "metadata") {
       threads = await addOutlookThreadParticipantMessages({
@@ -2120,10 +2146,7 @@ export class OutlookProvider implements EmailProvider {
       });
     }
 
-    return {
-      threads,
-      nextPageToken: response["@odata.nextLink"],
-    };
+    return { threads, nextPageToken };
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {

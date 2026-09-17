@@ -18,6 +18,7 @@ import {
   buildMailSearchQuery,
   DATE_WITHIN_OPTIONS,
   SEARCH_IN_OPTIONS,
+  toCommonMailSearchFields,
   type MailSearchFields,
 } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
 
@@ -45,7 +46,9 @@ export function MailSearchFiltersForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSearch(buildMailSearchQuery(fields));
+    onSearch(
+      buildMailSearchQuery(isGmail ? fields : toCommonMailSearchFields(fields)),
+    );
   }
 
   return (

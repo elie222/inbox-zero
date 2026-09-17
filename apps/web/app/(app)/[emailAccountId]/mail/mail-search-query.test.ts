@@ -3,6 +3,7 @@ import {
   buildMailSearchQuery,
   EMPTY_MAIL_SEARCH_FIELDS,
   parseMailSearchQuery,
+  toCommonMailSearchFields,
   type MailSearchFields,
 } from "./mail-search-query";
 
@@ -160,6 +161,41 @@ describe("parseMailSearchQuery", () => {
     );
     expect(parseMailSearchQuery("larger:1000")).toEqual(
       fields({ hasWords: "larger:1000" }),
+    );
+  });
+});
+
+describe("toCommonMailSearchFields", () => {
+  it("keeps shared operators including Doesn't have and drops Gmail-only fields", () => {
+    const projected = toCommonMailSearchFields(
+      fields({
+        from: "alice@example.com",
+        to: "bob@example.com",
+        subject: "weekly report",
+        hasWords: "invoice",
+        doesntHave: "unsubscribe",
+        sizeComparison: "less",
+        sizeValue: "5",
+        sizeUnit: "KB",
+        dateWithin: "1w",
+        date: "2024-03-15",
+        searchIn: "inbox",
+        hasAttachment: true,
+        excludeChats: true,
+      }),
+    );
+
+    expect(projected).toEqual(
+      fields({
+        from: "alice@example.com",
+        to: "bob@example.com",
+        subject: "weekly report",
+        hasWords: "invoice",
+        doesntHave: "unsubscribe",
+      }),
+    );
+    expect(buildMailSearchQuery(projected)).toBe(
+      'from:alice@example.com to:bob@example.com subject:"weekly report" invoice -unsubscribe',
     );
   });
 });
