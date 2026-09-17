@@ -1,6 +1,6 @@
 ---
 name: inbox-zero-mcp
-description: Search Inbox Zero mail, read threads, create mailbox drafts, and manage automation rules through a remote MCP server. Use when the user wants an assistant to work with their Gmail or Outlook inbox from Cursor.
+description: Search Inbox Zero mail, read threads, create mailbox drafts, and manage automation rules through a remote MCP server. Use when the user wants ChatGPT, Claude, or Cursor to work with their Gmail or Outlook inbox.
 ---
 
 # Inbox Zero MCP
@@ -19,4 +19,4 @@ Connect to the Inbox Zero MCP server configured in `mcp.json` (OAuth, Streamable
 
 - Do not send email. Drafts stay in the mailbox until the user sends them.
 - Do not dump full thread bodies into follow-up tool arguments; summarize.
-- Disconnect and MCP access are controlled in Inbox Zero Settings → Developer, not by this skill.
+- Disconnect and MCP access are controlled in Inbox Zero Settings → Account → MCP, not by this skill.

@@ -2,6 +2,7 @@ import { env } from "@/env";
 
 export const MCP_SCOPES = ["mcp:read", "mcp:write", "offline_access"] as const;
 export const MCP_DOCS_URL = "https://docs.getinboxzero.com/api-reference/mcp";
+export const MCP_GUIDE_URL = "https://docs.getinboxzero.com/essentials/mcp";
 
 export function isMcpServerAvailable() {
   if (!env.MCP_SERVER_ENABLED || !env.NEXT_PUBLIC_EXTERNAL_API_ENABLED)

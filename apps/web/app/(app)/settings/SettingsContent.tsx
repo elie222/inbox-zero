@@ -17,6 +17,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { McpSection } from "@/app/(app)/[emailAccountId]/settings/McpSection";
 import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
@@ -41,7 +42,6 @@ import {
   Item,
   ItemCard,
   ItemContent,
-  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -163,6 +163,29 @@ export function SettingsContent() {
         </SettingsGroup>
       )}
 
+      <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+        <ItemCard>
+          {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <McpSection />}
+          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
+          <ItemSeparator />
+          <AppearanceSection />
+          <ItemSeparator />
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Beta Features</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/early-access">Open</Link>
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemCard>
+        <ItemCard>
+          <DeleteSection />
+        </ItemCard>
+      </SettingsGroup>
+
       {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
         env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
         <SettingsGroup
@@ -179,31 +202,6 @@ export function SettingsContent() {
           </ItemCard>
         </SettingsGroup>
       )}
-
-      <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
-        <ItemCard>
-          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
-          <ItemSeparator />
-          <AppearanceSection />
-          <ItemSeparator />
-          <Item size="sm">
-            <ItemContent>
-              <ItemTitle>Beta Features</ItemTitle>
-              <ItemDescription>
-                Try experimental features that are still in progress.
-              </ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/early-access">Open</Link>
-              </Button>
-            </ItemActions>
-          </Item>
-        </ItemCard>
-        <ItemCard>
-          <DeleteSection />
-        </ItemCard>
-      </SettingsGroup>
     </div>
   );
 }
