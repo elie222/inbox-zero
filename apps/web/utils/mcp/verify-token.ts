@@ -41,19 +41,10 @@ export async function verifyMcpToken(token: string, jwks: JSONWebKeySet) {
     select: { scopes: true },
   });
   if (!grant) return null;
-  const session = await prisma.session.findFirst({
-    where: {
-      id: payload.sid,
-      userId: payload.sub,
-      expires: { gt: new Date() },
-      emailOtp: false,
-    },
-    select: { id: true },
-  });
-  if (!session) return null;
 
   return {
     userId: payload.sub,
+    clientId: payload.azp,
     scopes: payload.scope
       .split(" ")
       .filter((scope) => grant.scopes.includes(scope)),

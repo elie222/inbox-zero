@@ -53,7 +53,8 @@
             "pages": [
               "essentials/channels",
               "essentials/slack-integration",
-              "essentials/telegram-integration"
+              "essentials/telegram-integration",
+              "essentials/mcp"
             ]
           },
           {

@@ -12,7 +12,7 @@ describe("agent markdown content", () => {
     supportEmail: "support@getinboxzero.com",
   };
 
-  it("includes when-to-use guidance and developer links in llms.txt", () => {
+  it("omits a live MCP connect URL while the server is disabled", () => {
     const body = getLlmsTxt(origin, branding);
 
     expect(body).toContain("## When to use this");
@@ -21,7 +21,19 @@ describe("agent markdown content", () => {
     expect(body).toContain(`${origin}/api/v1/openapi`);
     expect(body).toContain("https://github.com/elie222/inbox-zero");
     expect(body).toContain("support@getinboxzero.com");
-    expect(body).toContain("no public product MCP server");
+    expect(body).toContain("https://docs.getinboxzero.com/api-reference/mcp");
+    expect(body).not.toContain(
+      `connect the remote MCP server at ${origin}/mcp`,
+    );
+  });
+
+  it("points assistants at MCP when the server is enabled", () => {
+    const body = getLlmsTxt(origin, branding, true);
+
+    expect(body).toContain(`connect the remote MCP server at ${origin}/mcp`);
+    expect(body).toContain(
+      `- MCP server (OAuth, Streamable HTTP): ${origin}/mcp`,
+    );
   });
 
   it("maps homepage and pricing paths", () => {

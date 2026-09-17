@@ -30,7 +30,7 @@ beforeEach(() => vi.clearAllMocks());
 it("initializes a real MCP client and handles scoped tool calls over stateless HTTP", async () => {
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const transport = new StreamableHTTPClientTransport(
-    new URL("http://localhost/api/mcp-server"),
+    new URL("http://localhost/mcp"),
     {
       fetch: async (url, init) => {
         const request = new Request(url, init);

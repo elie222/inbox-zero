@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "inbox-zero": {
+      "url": "https://your-inbox-zero-host/mcp"
+    }
+  }
+}

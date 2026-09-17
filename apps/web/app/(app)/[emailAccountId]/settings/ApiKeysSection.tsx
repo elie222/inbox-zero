@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, type ComponentProps } from "react";
 import { useAction } from "next-safe-action/hooks";
 import {
   Table,
@@ -36,7 +36,11 @@ import { formatApiKeyScope } from "@/utils/api-key-scopes";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
-import { updateMcpServerAccessAction } from "@/utils/actions/api-key";
+import {
+  revokeMcpConnectionAction,
+  updateMcpServerAccessAction,
+} from "@/utils/actions/api-key";
+import type { ApiKeyResponse } from "@/app/api/user/api-keys/route";
 
 export function ApiKeysSection() {
   const { emailAccountId } = useAccount();
@@ -45,6 +49,7 @@ export function ApiKeysSection() {
   const keyCount = data?.apiKeys.length ?? 0;
   const mcpEnabled = data?.mcpServerEnabled ?? false;
   const mcpAvailable = data?.mcpServerAvailable ?? false;
+  const mcpConnections = data?.mcpConnections ?? [];
 
   const { execute: executeUpdateMcpServerAccess, isExecuting } = useAction(
     updateMcpServerAccessAction,
@@ -75,7 +80,14 @@ export function ApiKeysSection() {
     (checked: boolean) => {
       if (!data) return;
 
-      mutate({ ...data, mcpServerEnabled: checked }, false);
+      mutate(
+        {
+          ...data,
+          mcpServerEnabled: checked,
+          mcpConnections: checked ? data.mcpConnections : [],
+        },
+        false,
+      );
       executeUpdateMcpServerAccess({ enabled: checked });
     },
     [data, executeUpdateMcpServerAccess, mutate],
@@ -106,6 +118,14 @@ export function ApiKeysSection() {
               disabled={isLoading || isExecuting}
             />
           </div>
+        )}
+        {mcpConnections.length > 0 && (
+          <McpConnectionsDialog
+            connections={mcpConnections}
+            isLoading={isLoading}
+            error={error}
+            mutate={mutate}
+          />
         )}
         <Dialog>
           <DialogTrigger asChild>
@@ -175,5 +195,75 @@ export function ApiKeysSection() {
         <ApiKeysCreateButtonModal mutate={mutate} />
       </ItemActions>
     </Item>
+  );
+}
+
+function McpConnectionsDialog({
+  connections,
+  isLoading,
+  error,
+  mutate,
+}: {
+  connections: ApiKeyResponse["mcpConnections"];
+  isLoading: boolean;
+  error: ComponentProps<typeof LoadingContent>["error"];
+  mutate: () => void;
+}) {
+  const { execute: executeRevoke, isExecuting } = useAction(
+    revokeMcpConnectionAction,
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Disconnected" });
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to disconnect",
+          }),
+        });
+      },
+      onSettled: () => {
+        mutate();
+      },
+    },
+  );
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          MCP apps ({connections.length})
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>MCP apps</DialogTitle>
+        </DialogHeader>
+        <LoadingContent loading={isLoading} error={error}>
+          <ul className="space-y-3">
+            {connections.map((connection) => (
+              <li
+                key={connection.clientId}
+                className="flex items-center justify-between gap-3"
+              >
+                <span className="truncate text-sm">{connection.name}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isExecuting}
+                  aria-label={`Disconnect ${connection.name}`}
+                  onClick={() =>
+                    executeRevoke({ clientId: connection.clientId })
+                  }
+                >
+                  Disconnect
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </LoadingContent>
+      </DialogContent>
+    </Dialog>
   );
 }

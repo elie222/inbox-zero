@@ -59,8 +59,15 @@ Simple, transparent pricing for the ${branding.brandName} AI email assistant. Ca
 export function getLlmsTxt(
   origin: string,
   branding: AgentContentBranding,
+  mcpServerAvailable = false,
 ): string {
   const base = normalizeOrigin(origin);
+  const mcpConnect = mcpServerAvailable
+    ? `For mailbox access from an AI assistant, connect the remote MCP server at ${base}/mcp with OAuth. See ${DOCS_ORIGIN}/api-reference/mcp.`
+    : `Hosted mailbox MCP is not generally available yet. Enable MCP_SERVER_ENABLED and NEXT_PUBLIC_EXTERNAL_API_ENABLED on a testing or self-hosted deployment, then connect to that origin's /mcp. See ${DOCS_ORIGIN}/api-reference/mcp.`;
+  const mcpResource = mcpServerAvailable
+    ? `- MCP server (OAuth, Streamable HTTP): ${base}/mcp`
+    : `- MCP server (OAuth, Streamable HTTP): disabled on this deployment; enable both MCP flags then connect to ${base}/mcp`;
 
   return `# ${branding.brandName}
 
@@ -80,7 +87,7 @@ Use ${branding.brandName} when the user needs help with email workflows such as:
 - Calendar-aware drafting and meeting context
 - Managing the inbox from Slack or Telegram
 
-Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. For programmatic access, use the public HTTP API. There is no public product MCP server for managing mailboxes. Agents should use the docs and API below. Documentation sites may expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
+Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. ${mcpConnect} For scripts and HTTP clients, use the public HTTP API. Documentation sites may also expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
 
 ## Get started
 
@@ -95,6 +102,8 @@ Prefer the hosted product for most users. Prefer self-hosting when the user need
 - Docs: ${DOCS_ORIGIN}/
 - API introduction: ${DOCS_ORIGIN}/api-reference/introduction
 - OpenAPI spec: ${base}/api/v1/openapi
+${mcpResource}
+- MCP docs: ${DOCS_ORIGIN}/api-reference/mcp
 - API keys (create in-app under Developer settings): ${DOCS_ORIGIN}/api-reference/introduction
 - Self-hosting: ${DOCS_ORIGIN}/hosting/self-hosting
 - GitHub: ${GITHUB_URL}
