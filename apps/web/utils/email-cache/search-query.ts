@@ -232,17 +232,23 @@ function parseTermNode(
   return { type: "term", term: { field: "label", value: label } };
 }
 
-/** Relative ages count back from the present instant rather than a calendar
- *  boundary, so `newer_than:2d` means the last 48 hours. */
+/** A day is an exact duration, so `newer_than:2d` is the last 48 hours however
+ *  the clock shifts. Months and years step the calendar instead, keeping the
+ *  same local time of day. An age large enough to leave the representable date
+ *  range yields no bound, which defers the query to the provider. */
 function readRelativeDate(value: string) {
   const parts = /^(\d+)([dmy])$/u.exec(value);
   if (!parts) return;
   const amount = Number(parts[1]);
+  if (parts[2] === "d") return asTimestamp(Date.now() - amount * 86_400_000);
   const boundary = new Date();
-  if (parts[2] === "d") boundary.setDate(boundary.getDate() - amount);
-  else if (parts[2] === "m") boundary.setMonth(boundary.getMonth() - amount);
+  if (parts[2] === "m") boundary.setMonth(boundary.getMonth() - amount);
   else boundary.setFullYear(boundary.getFullYear() - amount);
-  return boundary.getTime();
+  return asTimestamp(boundary.getTime());
+}
+
+function asTimestamp(value: number) {
+  return Number.isSafeInteger(value) ? value : undefined;
 }
 
 /** Excluding spam or trash is not a request to search it, so a negated term

@@ -109,9 +109,33 @@ describe("local search queries", () => {
     expect(matches("older:2026/09/09")).toBe(false);
     expect(matches("older:2026/09/11")).toBe(true);
   });
+  it("measures a day as elapsed time across a clock change", () => {
+    // New York moves off daylight time on 1 November 2026, so the local day
+    // before this instant is 25 hours long. A calendar step would put the
+    // boundary an hour later than two days' worth of elapsed time.
+    const timezone = process.env.TZ;
+    process.env.TZ = "America/New_York";
+    try {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-01T17:00:00Z"));
+      const parsed = parseLocalSearch("newer_than:1d", [])!;
+      const at = (iso: string) => ({
+        ...message,
+        internalDate: String(Date.parse(iso)),
+      });
+      expect(matchesLocalSearch(at("2026-10-31T17:30:00Z"), parsed)).toBe(true);
+      expect(matchesLocalSearch(at("2026-10-31T16:30:00Z"), parsed)).toBe(
+        false,
+      );
+    } finally {
+      process.env.TZ = timezone;
+    }
+  });
   it.each([
     "{a b}",
     "has:attachment",
+    "newer_than:99999999999999999999d",
+    "newer_than:99999999999999999999y",
     "newer_than:7",
     "newer_than:d",
     "newer_than:7w",
