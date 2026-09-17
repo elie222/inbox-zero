@@ -149,64 +149,70 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
 
     // Source coverage and the asynchronous index must both be durable before going offline.
     await expect
-      .poll(() =>
-        page.evaluate(
-          (accountId) =>
-            new Promise<boolean>((resolve) => {
-              const request = indexedDB.open("inbox-zero-email-cache");
-              request.onerror = () => resolve(false);
-              request.onupgradeneeded = () => request.transaction?.abort();
-              request.onsuccess = () => {
-                const database = request.result;
-                if (
-                  !database.objectStoreNames.contains("localMailSyncStates")
-                ) {
-                  database.close();
-                  resolve(false);
-                  return;
-                }
-                const transaction = database.transaction([
-                  "localMailSyncStates",
-                  "searchIndexAccounts",
-                  "searchIndexWork",
-                  "localMailMessages",
-                ]);
-                const state = transaction
-                  .objectStore("localMailSyncStates")
-                  .get(accountId);
-                const account = transaction
-                  .objectStore("searchIndexAccounts")
-                  .get(accountId);
-                const work = transaction
-                  .objectStore("searchIndexWork")
-                  .index("byAccount")
-                  .count(accountId);
-                const messages = transaction
-                  .objectStore("localMailMessages")
-                  .getAll();
-                transaction.oncomplete = () => {
-                  database.close();
-                  resolve(
-                    messages.result.some(
-                      (message) =>
-                        message.emailAccountId === accountId &&
-                        message.data.headers.subject ===
-                          "Archive Action Message",
-                    ) &&
-                      Boolean(state.result?.coverage) &&
-                      account.result?.generation === state.result?.generation &&
-                      !account.result?.seed &&
-                      work.result === 0,
-                  );
+      .poll(
+        () =>
+          page.evaluate(
+            (accountId) =>
+              new Promise<boolean>((resolve) => {
+                const request = indexedDB.open("inbox-zero-email-cache");
+                request.onerror = () => resolve(false);
+                request.onupgradeneeded = () => request.transaction?.abort();
+                request.onsuccess = () => {
+                  const database = request.result;
+                  if (
+                    !database.objectStoreNames.contains("localMailSyncStates")
+                  ) {
+                    database.close();
+                    resolve(false);
+                    return;
+                  }
+                  const transaction = database.transaction([
+                    "localMailSyncStates",
+                    "searchIndexAccounts",
+                    "searchIndexWork",
+                    "localMailMessages",
+                  ]);
+                  const state = transaction
+                    .objectStore("localMailSyncStates")
+                    .get(accountId);
+                  const account = transaction
+                    .objectStore("searchIndexAccounts")
+                    .get(accountId);
+                  const work = transaction
+                    .objectStore("searchIndexWork")
+                    .index("byAccount")
+                    .count(accountId);
+                  const messages = transaction
+                    .objectStore("localMailMessages")
+                    .getAll();
+                  transaction.oncomplete = () => {
+                    database.close();
+                    resolve(
+                      messages.result.some(
+                        (message) =>
+                          message.emailAccountId === accountId &&
+                          message.data.headers.subject ===
+                            "Archive Action Message",
+                      ) &&
+                        Boolean(state.result?.coverage) &&
+                        account.result?.generation ===
+                          state.result?.generation &&
+                        !account.result?.seed &&
+                        work.result === 0,
+                    );
+                  };
+                  transaction.onerror = () => {
+                    database.close();
+                    resolve(false);
+                  };
                 };
-                transaction.onerror = () => {
-                  database.close();
-                  resolve(false);
-                };
-              };
-            }),
-          emailAccountId,
-        ),
+              }),
+            emailAccountId,
+          ),
+        // Draining the index takes the same order of time as the sibling
+        // searchIndexWork polls in local-search.spec.ts, now that sync covers
+        // the seeded mail rather than windowing past it.
+        { timeout: 90_000 },
       )
       .toBe(true);
 
