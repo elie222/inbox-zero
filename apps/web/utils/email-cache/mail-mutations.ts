@@ -793,6 +793,23 @@ export async function cancelPendingMailMutation(id: string) {
   return cancelled;
 }
 
+export async function dismissFailedReply(id: string, emailAccountId: string) {
+  const database = await getEmailCacheDatabase();
+  if (!database) return false;
+  const transaction = database.transaction("mailMutations", "readwrite");
+  const store = transaction.objectStore("mailMutations");
+  const mutation = await store.get(id);
+  const dismissed =
+    mutation?.emailAccountId === emailAccountId &&
+    mutation.kind === "reply" &&
+    mutation.status === "failed" &&
+    !mutation.leaseOwner;
+  if (dismissed) await store.delete(id);
+  await transaction.done;
+  if (dismissed) notifyMailMutationChange();
+  return dismissed;
+}
+
 export function subscribeToMailMutations(
   listener: (mutations?: MailMutation[]) => void,
 ) {

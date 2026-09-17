@@ -10,7 +10,11 @@ import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
 } from "./account-test-helpers";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  openMailboxFromSidebar,
+} from "./mail-test-helpers";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
@@ -21,7 +25,7 @@ test("clears an uncommitted live search with the button and sidebar navigation",
   await page.getByRole("button", { name: "Clear search" }).click();
   await expect(input).toHaveValue("");
   await input.fill("uncommitted search");
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await expect(page).toHaveURL(/type=sent/);
   await expect(input).toHaveValue("");
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
@@ -34,6 +38,9 @@ for (const scope of ["single", "all"] as const) {
     page,
     context,
   }, testInfo) => {
+    // Every cache-seeding test here stubs sync before loading the page: an
+    // account's first sync applies a reset that clears its cached mail, which
+    // would delete the rows seeded below.
     await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
     const { emailAccountId, conversations } = await openMail(page);
     if (scope === "all")
@@ -285,6 +292,8 @@ async function seedSearchCache(
           const account = tx.objectStore("searchIndexAccounts").get(accountId);
           account.onsuccess = () => {
             if (!account.result)
+              // Seeding an older source version would make the runtime migrate
+              // the account on its first tick, discarding the rows below.
               tx.objectStore("searchIndexAccounts").put({
                 emailAccountId: accountId,
                 generation: crypto.randomUUID(),

@@ -234,21 +234,16 @@ export async function applyMailboxSyncPage({
         }
 
         if (page.reset) {
-          const incomingIds = new Set(
-            page.upsertedMessages.map((message) => message.id),
-          );
+          // Only the list snapshot resets here. A reset page is one page bounded
+          // by the provider's date window and page size, so a message it omits is
+          // not evidence of deletion, and tombstoning it would also block it from
+          // being stored again. Canonical mail is removed only on reported
+          // deletions.
           let resetCursor = await messages
             .index("byAccount")
             .openCursor(emailAccountId);
           while (resetCursor) {
             changedThreadIds.add(resetCursor.value.threadId);
-            if (!incomingIds.has(resetCursor.value.messageId))
-              await deleteLocalMailMessages(
-                transaction,
-                emailAccountId,
-                [resetCursor.value.messageId],
-                now,
-              );
             await resetCursor.delete();
             resetCursor = await resetCursor.continue();
           }
@@ -491,9 +486,13 @@ export async function readSyncedMailboxThreads({
           }
         }
       }
-      // Sparse filters should fall back to the server instead of blocking a
-      // render while IndexedDB walks and deserializes the whole mailbox.
-      if (cursor && selectedRecords.length < limit + 1) {
+      // A dense filter that comes up short means the scan stopped early, so
+      // the server holds a better answer than a half-walked mailbox.
+      if (
+        cursor &&
+        selectedRecords.length < limit + 1 &&
+        !isSparseMailboxQuery(query)
+      ) {
         await transaction.done;
         return;
       }
@@ -820,10 +819,21 @@ function isSupportedMailboxQuery(query: ThreadsQuery) {
   ) {
     return false;
   }
-  if (!query.type || query.type === "inbox" || query.type === "unread") {
+  if (
+    !query.type ||
+    query.type === "inbox" ||
+    query.type === "unread" ||
+    query.type === "starred"
+  ) {
     return true;
   }
   return query.type.startsWith("CATEGORY_");
+}
+
+/** Matches so little of the mailbox that a scan runs out before filling a page,
+ * having still found the newest matches. A short local page is worth painting. */
+function isSparseMailboxQuery(query: ThreadsQuery) {
+  return query.type === "starred";
 }
 
 function isCompleteMailboxQuery(query: ThreadsQuery) {
@@ -849,6 +859,7 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
     ...(query.labelIds ?? []),
     ...(query.labelId ? [query.labelId] : []),
     ...(query.type === "inbox" || query.type === "unread" ? ["INBOX"] : []),
+    ...(query.type === "starred" ? ["STARRED"] : []),
     ...(query.type?.startsWith("CATEGORY_") ? [query.type] : []),
   ];
   if (

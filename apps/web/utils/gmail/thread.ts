@@ -97,6 +97,7 @@ export async function getThreadsWithNextPageToken({
   labelIds,
   maxResults = 100,
   pageToken,
+  includeSpamTrash,
   logger,
 }: {
   gmail: gmail_v1.Gmail;
@@ -104,6 +105,8 @@ export async function getThreadsWithNextPageToken({
   labelIds?: string[];
   maxResults?: number;
   pageToken?: string;
+  /** Gmail drops spam and trash from every listing unless this is set, even when they are the requested labels. */
+  includeSpamTrash?: boolean;
   logger?: Logger;
 }) {
   const threads = await withGmailRetry(
@@ -114,6 +117,7 @@ export async function getThreadsWithNextPageToken({
         labelIds,
         maxResults,
         pageToken,
+        includeSpamTrash,
       }),
     5,
     { logger },

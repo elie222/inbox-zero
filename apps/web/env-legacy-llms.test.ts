@@ -18,10 +18,10 @@ describe("buildLegacyLlmsEnv", () => {
   it("uses the same provider defaults as the legacy default resolver", () => {
     expect(
       buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "openai" }).DEFAULT_LLMS,
-    ).toBe("openai:gpt-5.4-mini");
+    ).toBe("openai:gpt-5.6-luna");
     expect(
       buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "openrouter" }).DEFAULT_LLMS,
-    ).toBe("openrouter:anthropic/claude-sonnet-4.6");
+    ).toBe("openrouter:anthropic/claude-sonnet-5");
     expect(
       buildLegacyLlmsEnv({
         DEFAULT_LLM_PROVIDER: "ollama",

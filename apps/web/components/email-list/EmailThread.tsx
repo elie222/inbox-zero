@@ -196,10 +196,9 @@ export function EmailThread({
                 aria-label={
                   allExpanded ? "Collapse all messages" : "Expand all messages"
                 }
-                className="size-7 text-muted-foreground"
                 onClick={toggleAll}
-                size="icon"
-                variant="ghost"
+                size="iconXs"
+                variant="ghostMuted"
               >
                 {allExpanded ? (
                   <ChevronsDownUpIcon className="size-3.5" />

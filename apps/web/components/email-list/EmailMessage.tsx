@@ -472,10 +472,9 @@ function MessageHeader({
           </span>
           <Button
             aria-label={showDetails ? "Hide details" : "Show details"}
-            className="size-7 shrink-0 p-0 text-muted-foreground"
             onClick={toggleDetails}
-            size="sm"
-            variant="ghost"
+            size="iconXs"
+            variant="ghostMuted"
           >
             {showDetails ? (
               <ChevronsDownUpIcon className="size-3.5" />
@@ -502,10 +501,9 @@ function MessageHeader({
               <>
                 <Tooltip content="Reply">
                   <Button
-                    className="size-7 text-muted-foreground"
                     onClick={compose(onReply)}
-                    size="icon"
-                    variant="ghost"
+                    size="iconXs"
+                    variant="ghostMuted"
                   >
                     <ReplyIcon className="size-3.5" />
                     <span className="sr-only">Reply</span>
@@ -513,10 +511,9 @@ function MessageHeader({
                 </Tooltip>
                 <Tooltip content="Forward">
                   <Button
-                    className="size-7 text-muted-foreground"
                     onClick={compose(onForward)}
-                    size="icon"
-                    variant="ghost"
+                    size="iconXs"
+                    variant="ghostMuted"
                   >
                     <ForwardIcon className="size-3.5" />
                     <span className="sr-only">Forward</span>

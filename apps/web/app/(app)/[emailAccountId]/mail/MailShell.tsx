@@ -27,9 +27,11 @@ import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   MAIL_CATEGORIES,
+  MAIL_SCHEDULED_TYPE,
   MailSidebar,
   OUTLOOK_INBOX_CATEGORIES,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type {
   MailCategory,
   MailNavTarget,
@@ -102,7 +104,7 @@ import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
-import { useSplitLabels } from "@/hooks/useLabels";
+import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -162,7 +164,7 @@ export function MailShell() {
   const categories = getMailCategories({ isGoogle, isOutlook });
   const terminology = getEmailTerminology(provider);
   const { userLabels } = useEmail();
-  const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
+  const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
   const {
     adjustInboxUnread,
@@ -345,6 +347,10 @@ export function MailShell() {
       ? searchDraft.value
       : searchParam) ?? "";
   const searchQuery = searchValue.trim() || null;
+  // Scheduled sends live in our own database, so this view has no thread
+  // list to fetch.
+  const isScheduledView =
+    !isAllAccounts && !searchQuery && scopeType === MAIL_SCHEDULED_TYPE;
   const [settledSearch, setSettledSearch] = useState(searchQuery);
   useEffect(() => {
     const timeout = setTimeout(() => setSettledSearch(searchQuery), 250);
@@ -416,7 +422,7 @@ export function MailShell() {
   const accountThreadState = useMailThreads({
     emailAccountId,
     query,
-    enabled: !isAllAccounts && searchSettled,
+    enabled: !isAllAccounts && searchSettled && !isScheduledView,
   });
   const combinedThreadState = useCombinedMailThreads({
     accounts: combinedAccounts,
@@ -1297,14 +1303,14 @@ export function MailShell() {
   const splitLabelChoices = useMemo(
     () =>
       [
-        ...visibleLabels,
+        ...allLabels,
         ...(isGoogle ? [{ id: GmailLabel.IMPORTANT, name: "Important" }] : []),
       ].map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         value: label.id,
       })),
-    [visibleLabels, isGoogle],
+    [allLabels, isGoogle],
   );
   const splitCategoryChoices = useMemo(
     () =>
@@ -1611,7 +1617,7 @@ export function MailShell() {
               activeLabelId={scopeLabelId}
               activeFolderId={scopeFolderId}
               hrefFor={hrefFor}
-              labels={isAllAccounts ? [] : visibleLabels}
+              labels={isAllAccounts ? [] : allLabels}
               folders={isAllAccounts || !isOutlook ? [] : folders}
               countsById={isAllAccounts ? NO_COUNTS : countsById}
               categories={isAllAccounts ? [] : categories}
@@ -1625,6 +1631,7 @@ export function MailShell() {
               onEditMailboxItem={onEditMailboxItem}
               onDeleteMailboxItem={onDeleteMailboxItem}
               labelEditMode={isOutlook ? "color" : "name-and-color"}
+              supportsLabelVisibility={isGoogle}
               labelColorOptions={
                 isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
               }
@@ -1666,7 +1673,7 @@ export function MailShell() {
                 setSearchDraft({ identity: searchEditIdentity, value })
               }
               searchInputRef={searchInputRef}
-              searchLabels={isAllAccounts ? [] : visibleLabels}
+              searchLabels={isAllAccounts ? [] : allLabels}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
@@ -1733,57 +1740,62 @@ export function MailShell() {
               ])}
               title="Unable to show your mail list"
             >
-              <LoadingContent
-                loading={
-                  !showLocalSearch &&
-                  (isLoading || (!!searchQuery && !searchSettled)) &&
-                  !threads.length &&
-                  (!searchQuery ||
-                    (localSearch.online && !providerState.searchError))
-                }
-                error={searchQuery ? undefined : error}
-              >
-                <ThreadList
-                  threads={threads}
-                  emptyMessage={emptySearchMessage}
-                  layout={layout}
-                  expandedPreview={expandedPreview}
-                  userEmail={userEmail}
-                  userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                  labelsByAccount={labelsByAccount}
-                  focusedIndex={clampedIndex}
-                  isSelected={selection.isSelected}
-                  selectedCount={selection.selectedCount}
-                  onOpenThread={openAt}
-                  onToggleSelect={selection.toggle}
-                  onSelectRangeTo={selection.selectRangeTo}
-                  showLoadMore={
-                    showLocalSearch
-                      ? localSearch.hasMore || (hasProviderResponse && hasMore)
-                      : hasMore
+              {isScheduledView ? (
+                <ScheduledEmailList />
+              ) : (
+                <LoadingContent
+                  loading={
+                    !showLocalSearch &&
+                    (isLoading || (!!searchQuery && !searchSettled)) &&
+                    !threads.length &&
+                    (!searchQuery ||
+                      (localSearch.online && !providerState.searchError))
                   }
-                  isLoadingMore={
-                    showLocalSearch
-                      ? localSearch.isLoadingMore ||
-                        (hasProviderResponse && isLoadingMore)
-                      : isLoadingMore
-                  }
-                  onLoadMore={
-                    showLocalSearch
-                      ? () => {
-                          if (localSearch.hasMore) localSearch.loadMore();
-                          if (hasProviderResponse && hasMore) loadMore();
-                        }
-                      : loadMore
-                  }
-                  showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
-                  listKey={
-                    isAllAccounts
-                      ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                      : JSON.stringify(query)
-                  }
-                />
-              </LoadingContent>
+                  error={searchQuery ? undefined : error}
+                >
+                  <ThreadList
+                    threads={threads}
+                    emptyMessage={emptySearchMessage}
+                    layout={layout}
+                    expandedPreview={expandedPreview}
+                    userEmail={userEmail}
+                    userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                    labelsByAccount={labelsByAccount}
+                    focusedIndex={clampedIndex}
+                    isSelected={selection.isSelected}
+                    selectedCount={selection.selectedCount}
+                    onOpenThread={openAt}
+                    onToggleSelect={selection.toggle}
+                    onSelectRangeTo={selection.selectRangeTo}
+                    showLoadMore={
+                      showLocalSearch
+                        ? localSearch.hasMore ||
+                          (hasProviderResponse && hasMore)
+                        : hasMore
+                    }
+                    isLoadingMore={
+                      showLocalSearch
+                        ? localSearch.isLoadingMore ||
+                          (hasProviderResponse && isLoadingMore)
+                        : isLoadingMore
+                    }
+                    onLoadMore={
+                      showLocalSearch
+                        ? () => {
+                            if (localSearch.hasMore) localSearch.loadMore();
+                            if (hasProviderResponse && hasMore) loadMore();
+                          }
+                        : loadMore
+                    }
+                    showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
+                    listKey={
+                      isAllAccounts
+                        ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                        : JSON.stringify(query)
+                    }
+                  />
+                </LoadingContent>
+              )}
             </MailPanelErrorBoundary>
           </section>
         )}

@@ -397,6 +397,16 @@ describe("getSearchFocus", () => {
     });
     expect(provider).toEqual({ view: "query", key: "cached", index: 1 });
   });
+  it("keeps focus inside a shorter result set when the retained row disappears", () => {
+    const focus = getSearchFocus({
+      previous: { view: "query", key: "gone", index: 3 },
+      view: "query",
+      focusedIndex: 3,
+      orderedIds: ["a", "b"],
+    });
+    expect(focus.index).toBeLessThan(2);
+    expect(focus.key).toBeDefined();
+  });
   it("does not restore a prior query's cursor after changing views", () => {
     const previous = { view: "old", key: "cached", index: 0 };
     const refreshing = getSearchFocus({

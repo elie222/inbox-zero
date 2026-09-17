@@ -220,4 +220,14 @@ describe("durable mailbox sync ownership", () => {
     await clearEmailCache();
     expect(await database.count("mailboxSyncJobs")).toBe(0);
   });
+
+  it("issues no lease when the account is cleared while a claim is in flight", async () => {
+    const [, claimed] = await Promise.all([
+      clearEmailCacheForAccount("account-1"),
+      claimMailboxSyncJob("account-1"),
+    ]);
+    expect(claimed).toBeUndefined();
+    const database = (await getEmailCacheDatabase())!;
+    expect(await database.get("mailboxSyncJobs", "account-1")).toBeUndefined();
+  });
 });

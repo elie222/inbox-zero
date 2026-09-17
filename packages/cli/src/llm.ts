@@ -40,21 +40,24 @@ const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/api";
 
 const DEFAULT_MODELS = {
   anthropic: {
-    default: "claude-sonnet-4-6",
-    economy: "claude-haiku-4-5-20251001",
+    default: "claude-sonnet-5",
+    economy: "claude-haiku-4-5",
   },
-  openai: { default: "gpt-5.4-mini", economy: "gpt-5.4-nano" },
-  google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
+  openai: { default: "gpt-5.6-luna", economy: "gpt-5.6-luna" },
+  google: {
+    default: "gemini-3.8-flash",
+    economy: "gemini-3.1-flash-lite",
+  },
   openrouter: {
-    default: "anthropic/claude-sonnet-4.6",
-    economy: "anthropic/claude-haiku-4.5",
+    default: "anthropic/claude-sonnet-5",
+    economy: "openai/gpt-5.6-luna",
   },
   aigateway: {
-    default: "anthropic/claude-sonnet-4.6",
-    economy: "anthropic/claude-haiku-4.5",
+    default: "anthropic/claude-sonnet-5",
+    economy: "openai/gpt-5.6-luna",
   },
   bedrock: {
-    default: "global.anthropic.claude-sonnet-4-6",
+    default: "global.anthropic.claude-sonnet-5",
     economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   },
   groq: {

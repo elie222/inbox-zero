@@ -1118,6 +1118,8 @@ export class OutlookProvider implements EmailProvider {
   async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
     if (update.name)
       throw new Error("Microsoft category names cannot be changed");
+    if (update.labelListVisibility || update.messageListVisibility)
+      throw new Error("Microsoft categories have no visibility settings");
     if (!update.color) throw new Error("Microsoft category color is required");
     const color = getOutlookCategoryPreset(update.color.backgroundColor);
     if (!color) throw new Error("Unsupported Microsoft category color");
@@ -1893,6 +1895,12 @@ export class OutlookProvider implements EmailProvider {
         filters.push("isRead eq false");
       }
 
+      // Outlook has no starred folder: a star is a flag on the message, so
+      // this view spans every folder rather than scoping to one.
+      if (type === "starred" && !hasExplicitLabelFilters) {
+        filters.push("flag/flagStatus eq 'flagged'");
+      }
+
       if (inboxSection && !folderId) {
         filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
@@ -2560,6 +2568,8 @@ function getRequiredOutlookThreadLabelIds({
       return ["SENT"];
     case "spam":
       return ["SPAM"];
+    case "starred":
+      return ["STARRED"];
     case "trash":
       return ["TRASH"];
     case "unread":

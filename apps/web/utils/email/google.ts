@@ -1004,7 +1004,9 @@ export class GmailProvider implements EmailProvider {
 
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
-      throw new SafeError("Could not find this draft to update.");
+      throw new SafeError(
+        "This draft is no longer available in Gmail. Check Sent before trying again.",
+      );
     }
 
     const subject = params.subject ?? currentDraft.subject ?? "";
@@ -1822,6 +1824,7 @@ export class GmailProvider implements EmailProvider {
         }
       }
 
+      const resolvedLabelIds = getLabelIds(type);
       const threads: EmailThread[] = [];
       const maxResults = options.maxResults || 50;
       const domainFilter = fromEmail?.trim().startsWith("@") ? fromEmail : null;
@@ -1830,9 +1833,13 @@ export class GmailProvider implements EmailProvider {
         const result = await getThreadsWithNextPageToken({
           gmail: this.client,
           q: getQuery(),
-          labelIds: getLabelIds(type) || [],
+          labelIds: resolvedLabelIds || [],
           maxResults: maxResults - threads.length,
           pageToken: nextPageToken,
+          includeSpamTrash: resolvedLabelIds?.some(
+            (labelId) =>
+              labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
+          ),
           logger: this.logger,
         });
         const hydrated = await this.hydrateThreads(
@@ -1847,7 +1854,7 @@ export class GmailProvider implements EmailProvider {
                 if (!matchesSenderFilter(message.headers.from, domainFilter))
                   return false;
                 const labels = message.labelIds ?? [];
-                if (getLabelIds(type)?.some((label) => !labels.includes(label)))
+                if (resolvedLabelIds?.some((label) => !labels.includes(label)))
                   return false;
                 if (isUnread && !labels.includes(GmailLabel.UNREAD))
                   return false;

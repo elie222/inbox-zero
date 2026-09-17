@@ -276,7 +276,7 @@ describe("sendHtmlEmailWithOpenTracking", () => {
       data: { messageId: "msg-1", threadId: "thread-1" },
     });
   });
-  it("sends an existing provider draft and associates its sent message", async () => {
+  it("sends a reply by its stable draft reference even when autosave replaced its message", async () => {
     const updateDraft = vi.fn().mockResolvedValue(undefined);
     const sendDraft = vi
       .fn()
@@ -289,6 +289,11 @@ describe("sendHtmlEmailWithOpenTracking", () => {
         subject: "Example",
         messageHtml: "<p>Example</p>",
         providerDraftId: "draft-1",
+        replyToEmail: {
+          threadId: "thread-1",
+          messageId: "replaced-draft-message",
+          headerMessageId: "<old-draft@example.com>",
+        },
       },
       emailProvider: { updateDraft, sendDraft, sendEmailWithHtml } as never,
       logger: createTestLogger(),

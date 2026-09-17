@@ -217,19 +217,22 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     getOnboardingStepPath,
   ]);
 
-  // Trigger persona analysis on mount (first step only)
   useEffect(() => {
-    if (clampedStep === 1 && !data?.personaAnalysis) {
-      // Run persona analysis in the background
-      analyzePersonaAction(emailAccountId)
-        .then(() => {
-          mutate();
-        })
-        .catch((error) => {
-          // Fail silently - persona analysis is optional enhancement
-          console.error("Failed to analyze persona:", error);
-        });
-    }
+    if (clampedStep !== 1 || data?.personaAnalysis) return;
+
+    let disposed = false;
+    analyzePersonaAction(emailAccountId)
+      .then(() => {
+        // Navigation can dispose the account's SWR cache before analysis finishes.
+        if (!disposed) return mutate();
+      })
+      .catch((error) => {
+        console.error("Failed to analyze persona:", error);
+      });
+
+    return () => {
+      disposed = true;
+    };
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
   const renderStep = steps[currentStepIndex] || steps[0];

@@ -628,6 +628,22 @@ describe("Outlook move resolution", () => {
       getOutlookLocalMailMessage({ ...input(), messageId: "moved" }),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
+
+  // Backfill drops these, so resolving one by ID must agree or excluded mail
+  // comes back through the move path.
+  it.each([
+    { parentFolderId: "draft-folder" },
+    { parentFolderId: "trash-folder" },
+    { parentFolderId: "spam-folder" },
+    { isDraft: true },
+  ])("reports a message outside the retained scope as missing (%o)", async (overrides) => {
+    request.get.mockResolvedValue(
+      message("moved", after, { parentFolderId: "inbox-folder", ...overrides }),
+    );
+    expect(
+      await getOutlookLocalMailMessage({ ...input(), messageId: "moved" }),
+    ).toEqual({ status: "notFound" });
+  });
 });
 
 function makeRequest() {

@@ -80,6 +80,8 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
   context,
 }, testInfo) => {
+  // Keep seeded messages inside the first current-first sync window.
+  await page.clock.install({ time: new Date("2025-01-02T12:00:00.000Z") });
   const { conversations, emailAccountId } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),

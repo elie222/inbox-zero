@@ -39,6 +39,7 @@ import {
 } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
+import type { ScopedMutator } from "swr";
 import type {
   ContactsErrorResponse,
   ContactsResponse,
@@ -93,6 +94,7 @@ import {
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
+import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
@@ -815,18 +817,11 @@ function ComposeEmailFormContent({
       await stopProviderAutosave();
       let deliveryAccepted = false;
       try {
-        if (isNewCompose) {
-          const local = localDraftIdentity
-            ? await getReplyDraft(localDraftIdentity)
-            : undefined;
-          const draftId =
-            local?.content?.providerDraftId ?? providerDraftId.current;
-          if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
-            throw new Error(
-              "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
-            );
-          enrichedData.providerDraftId = draftId;
-        }
+        // Autosave can replace a draft's message ID; its provider draft ID survives.
+        enrichedData.providerDraftId = await resolveSendDraftId(
+          providerDraftId.current,
+          localDraftIdentity,
+        );
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
@@ -871,12 +866,16 @@ function ComposeEmailFormContent({
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
-          if (scheduledThreadId) {
-            await mutate([
-              `/api/user/scheduled-emails?threadId=${encodeURIComponent(scheduledThreadId)}`,
-              selectedEmailAccountId,
-            ]);
-          } else {
+          // The Scheduled view stops polling once nothing is pending, so it
+          // needs the new send pushed to it rather than waiting for a refresh.
+          // The email is already scheduled by now, so a refresh that fails must
+          // not reach the catch below and report the send itself as failed.
+          await refreshScheduledEmails(
+            mutate,
+            selectedEmailAccountId,
+            scheduledThreadId,
+          );
+          if (!scheduledThreadId) {
             toastSuccess({ description: "Email scheduled." });
           }
           onClose?.();
@@ -1017,7 +1016,6 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
-      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,
@@ -1499,11 +1497,11 @@ function ComposeEmailFormContent({
           >
             <Button
               aria-label="Attach files"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="hover:bg-transparent"
               onClick={() => attachmentInputRef.current?.click()}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="ghostMuted"
             >
               <PaperclipIcon className="size-4" />
             </Button>
@@ -1519,11 +1517,11 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Insert inline images"
-            className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+            className="hover:bg-transparent"
             onClick={() => inlineImageInputRef.current?.click()}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="ghostMuted"
           >
             <ImageIcon className="size-4" />
           </Button>
@@ -1535,12 +1533,12 @@ function ComposeEmailFormContent({
             >
               <Button
                 aria-label="Discard draft"
-                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                className="hover:bg-transparent"
                 disabled={isSubmitting}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"
-                variant="ghost"
+                variant="ghostMuted"
               >
                 <TrashIcon className="size-4" />
               </Button>
@@ -1894,4 +1892,28 @@ function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {
     disposition: attachment.disposition,
     contentId: attachment.contentId,
   }));
+}
+
+/**
+ * SWR's `mutate` rejects when the revalidation request fails. These refreshes
+ * run after the send is already scheduled, so a failure is stale data, not a
+ * failed send, and must never surface as one.
+ */
+async function refreshScheduledEmails(
+  mutate: ScopedMutator,
+  emailAccountId: string,
+  threadId: string | null,
+) {
+  const keys = [
+    ["/api/user/scheduled-emails", emailAccountId],
+    ...(threadId
+      ? [
+          [
+            `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
+            emailAccountId,
+          ],
+        ]
+      : []),
+  ];
+  await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
 }

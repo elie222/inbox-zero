@@ -34,6 +34,13 @@ export async function claimMailboxSyncJob(
   const previous = await transaction
     .objectStore("mailboxSyncJobs")
     .get(emailAccountId);
+  // Another tab may have cleared the account between the check above and this
+  // read, deleting its job row. Without rechecking, the put below would recreate
+  // ownership for an account that no longer has any cached work.
+  if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
+    await transaction.done;
+    return;
+  }
   const now = Date.now();
   const waitUntil = Math.max(
     previous?.leaseExpiresAt ?? 0,

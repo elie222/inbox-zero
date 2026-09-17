@@ -389,9 +389,39 @@ describe("activated local mail runtime", () => {
     vi.mocked(isMailSyncActivated).mockReturnValue(true);
     await vi.advanceTimersByTimeAsync(500);
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(1);
-    disposers.pop()!();
+    const dispose = disposers.pop();
+    if (!dispose) throw new Error("Expected a retained sync disposer");
+    dispose();
     await vi.advanceTimersByTimeAsync(120_000);
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs a refresh requested while a tick is already in flight", async () => {
+    const releases: (() => void)[] = [];
+    vi.mocked(runLocalMailSyncTick).mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          releases.push(() =>
+            // A long retry deadline is what the request has to survive.
+            resolve({ status: "idle", retryAt: Date.now() + 60_000 }),
+          ),
+        ),
+    );
+    disposers.push(retainLocalMailSync("account", true));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(runLocalMailSyncTick).toHaveBeenCalledTimes(1);
+
+    requestLocalMailSync("account");
+    await vi.advanceTimersByTimeAsync(1);
+    const release = releases.shift();
+    if (!release) throw new Error("Expected a pending sync release");
+    release();
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(runLocalMailSyncTick).toHaveBeenCalledTimes(2);
+    // The second tick still holds a concurrency slot shared across tests.
+    for (const pending of releases.splice(0)) pending();
+    await vi.advanceTimersByTimeAsync(1);
   });
 
   it("serves every account while bounding provider concurrency to two", async () => {
@@ -409,9 +439,11 @@ describe("activated local mail runtime", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(2);
     expect(
-      vi.mocked(runLocalMailSyncTick).mock.calls[0][0].emailAccountId,
+      vi.mocked(runLocalMailSyncTick).mock.calls.at(0)?.[0].emailAccountId,
     ).toBe("account-3");
-    releases.shift()!();
+    const release = releases.shift();
+    if (!release) throw new Error("Expected a pending sync release");
+    release();
     await vi.advanceTimersByTimeAsync(250);
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(3);
     expect(
@@ -450,7 +482,8 @@ describe("activated local mail runtime", () => {
   it("uses fresh remaining origin bytes and the purpose-specific logical ceiling", async () => {
     disposers.push(retainLocalMailSync("account", true));
     await vi.advanceTimersByTimeAsync(1);
-    const options = vi.mocked(runLocalMailSyncTick).mock.calls[0][0];
+    const options = vi.mocked(runLocalMailSyncTick).mock.calls.at(0)?.[0];
+    if (!options) throw new Error("Expected a sync tick call");
     const response = {
       status: "ok",
       phase: "capabilities",

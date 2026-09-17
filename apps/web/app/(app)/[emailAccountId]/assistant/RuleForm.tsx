@@ -13,13 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
-import {
-  PencilIcon,
-  TrashIcon,
-  InboxIcon,
-  ZapIcon,
-  ChevronRightIcon,
-} from "lucide-react";
+import { PencilIcon, TrashIcon, InboxIcon, ZapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -46,10 +40,9 @@ import { getEmailTerminology } from "@/utils/terminology";
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
+  CollapsibleHeading,
 } from "@/components/ui/collapsible";
 import { Form } from "@/components/ui/form";
-import { cn } from "@/utils";
 import { ACTION_TYPE_LABELS, getActionIcon } from "@/utils/action-display";
 import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
@@ -511,20 +504,7 @@ export function RuleForm({
         </RuleSectionCard>
 
         <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 py-2 text-sm font-medium text-left text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronRightIcon
-                className={cn(
-                  "size-4 transition-transform",
-                  isAdvancedOpen && "rotate-90",
-                )}
-              />
-              Advanced options
-            </button>
-          </CollapsibleTrigger>
+          <CollapsibleHeading>Advanced options</CollapsibleHeading>
           <CollapsibleContent>
             {isAdvancedOpen ? (
               <div className="rounded-md border divide-y">

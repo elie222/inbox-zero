@@ -253,8 +253,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               >
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="size-7"
+                  size="iconXs"
                   loading={archiveAllState === "loading"}
                   disabled={archiveAllDone}
                   onClick={handleArchiveAll}
@@ -266,8 +265,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               >
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="size-7"
+                  size="iconXs"
                   loading={markReadState === "loading"}
                   disabled={markReadDone}
                   onClick={handleMarkAllRead}

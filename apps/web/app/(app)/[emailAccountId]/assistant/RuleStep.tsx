@@ -23,9 +23,9 @@ function DeleteButton({
 }) {
   return (
     <Button
-      size="icon"
+      size="iconSm"
       variant="ghost"
-      className="size-8 mt-1"
+      className="mt-1"
       aria-label={ariaLabel}
       onClick={onClick}
     >
@@ -72,9 +72,9 @@ function OptionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon"
+          size="iconSm"
           variant="ghost"
-          className="size-8 mt-1"
+          className="mt-1"
           aria-label="More options"
         >
           <MoreHorizontalIcon className="size-4 text-muted-foreground" />

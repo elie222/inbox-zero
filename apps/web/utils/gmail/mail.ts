@@ -141,7 +141,7 @@ export async function sendEmailWithHtml(
           messageId: replyToEmail.messageId,
         });
         throw new SafeError(
-          "The reply source changed or is no longer available. Reopen the thread before sending.",
+          "The email or draft you were replying to is no longer available in Gmail. Check Sent before trying again.",
         );
       }
       throw error;
@@ -149,13 +149,13 @@ export async function sendEmailWithHtml(
     if (message.labelIds?.includes(GmailLabel.DRAFT)) {
       if (message.labelIds.includes(GmailLabel.SENT)) {
         throw new SafeError(
-          "This draft is already marked as sent. Reopen the thread before sending.",
+          "This draft is already marked as sent in Gmail. Check Sent before sending another copy.",
         );
       }
       const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
       if (!draftId) {
         throw new SafeError(
-          "The draft changed or is no longer available. Reopen the thread before sending.",
+          "This draft is no longer available in Gmail. Check Sent before trying again.",
         );
       }
 

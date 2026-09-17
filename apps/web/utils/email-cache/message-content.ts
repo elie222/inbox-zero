@@ -18,6 +18,7 @@ export function sanitizeCachedMailMessage(
     id: message.id,
     inline: message.inline.map(sanitizeInlineAttachment),
     internalDate: message.internalDate,
+    isMeetingInvitation: message.isMeetingInvitation,
     labelIds: message.labelIds ? [...message.labelIds] : undefined,
     parentFolderId: message.parentFolderId,
     rawRecipients: message.rawRecipients,

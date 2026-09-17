@@ -8,6 +8,7 @@ import {
   BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  Clock3Icon,
   FileIcon,
   FolderIcon,
   InboxIcon,
@@ -17,8 +18,11 @@ import {
   PenLineIcon,
   PlusIcon,
   SendIcon,
+  ShieldAlertIcon,
   SparklesIcon,
+  StarIcon,
   TagIcon,
+  Trash2Icon,
   UserIcon,
   Users2Icon,
 } from "lucide-react";
@@ -39,6 +43,7 @@ import { cn } from "@/utils";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
 import { getLabelTree, type SidebarLabel } from "./label-tree";
+import { splitLabelsByListVisibility } from "./label-visibility";
 import { getMailSidebarFolders } from "./outlook-folder-list";
 import {
   MailboxItemContextMenu,
@@ -77,6 +82,8 @@ export type MailSidebarProps = {
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   labelEditMode: "color" | "name-and-color";
   labelColorOptions: readonly MailboxItemColorOption[];
+  /** Gmail lets a label be hidden from the label and message lists. */
+  supportsLabelVisibility?: boolean;
   /** Hide the categories group behind a toggle, collapsed by default. */
   collapsibleCategories?: boolean;
   /** Icon-only rail: rows shrink to their icon and names move into tooltips. */
@@ -92,20 +99,24 @@ type SystemItem = {
   /** null means the row never shows a count (a "sent unread" number is noise). */
   countId: string | null;
   Icon: LucideIcon;
-  emphasizeCount?: boolean;
 };
 
-const SYSTEM_ITEMS: SystemItem[] = [
-  {
-    name: "Inbox",
-    type: "inbox",
-    countId: "INBOX",
-    Icon: InboxIcon,
-    emphasizeCount: true,
-  },
+export const MAIL_SCHEDULED_TYPE = "scheduled";
+
+/** Everything the inbox isn't. Visited rarely enough to stay behind a toggle. */
+const MAILBOX_ITEMS: SystemItem[] = [
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
   { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
   { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
+  { name: "Starred", type: "starred", countId: null, Icon: StarIcon },
+  {
+    name: "Scheduled",
+    type: MAIL_SCHEDULED_TYPE,
+    countId: null,
+    Icon: Clock3Icon,
+  },
+  { name: "Spam", type: "spam", countId: null, Icon: ShieldAlertIcon },
+  { name: "Trash", type: "trash", countId: null, Icon: Trash2Icon },
 ];
 
 export type MailCategory = {
@@ -167,6 +178,7 @@ export function MailSidebar({
   onDeleteMailboxItem,
   labelEditMode,
   labelColorOptions,
+  supportsLabelVisibility = false,
   collapsibleCategories = false,
   collapsed = false,
   footer,
@@ -176,8 +188,20 @@ export function MailSidebar({
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const sidebarFolders = getMailSidebarFolders(folders);
-  const labelTree = getLabelTree(labels, labelEditMode === "name-and-color");
+  const { visibleLabels, hiddenLabels } = splitLabelsByListVisibility({
+    labels,
+    countsById,
+  });
+  const labelTree = getLabelTree(
+    visibleLabels,
+    labelEditMode === "name-and-color",
+  );
   const hasNestedLabels = labelTree.some((root) => root.children.length > 0);
+  // Hidden labels stay flat: they are an escape hatch, not a place to browse.
+  const hiddenLabelNodes = getLabelTree(hiddenLabels, false);
+  const hasHiddenActiveLabel = hiddenLabels.some(
+    (label) => label.id === activeLabelId,
+  );
 
   const isCategoryActive =
     !activeLabelId &&
@@ -185,17 +209,39 @@ export function MailSidebar({
     categories.some((category) => category.type === activeType);
   const [showCategories, setShowCategories] = useState(isCategoryActive);
   const [showLabels, setShowLabels] = useState(true);
-  const showCategoryRows = !collapsibleCategories || showCategories;
+  const [showHiddenLabels, setShowHiddenLabels] = useState(false);
+  // Nothing in the rail can toggle a group, so there a group follows the open
+  // view rather than a stored choice, which would otherwise be a one-way door.
+  // The expanded sidebar keeps whatever the user chose.
+  const showCategoryRows =
+    !collapsibleCategories || (collapsed ? isCategoryActive : showCategories);
+
+  const isMailboxActive =
+    !activeLabelId &&
+    !activeFolderId &&
+    MAILBOX_ITEMS.some((item) => item.type === activeType);
+  const [showMailboxes, setShowMailboxes] = useState(isMailboxActive);
+  const showMailboxRows = collapsed ? isMailboxActive : showMailboxes;
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
   }, [isCategoryActive]);
+
+  useEffect(() => {
+    if (isMailboxActive) setShowMailboxes(true);
+  }, [isMailboxActive]);
 
   // Expand when the open view changes to a label so a collapsed list can
   // still reveal the selected row. A same-label collapse stays put.
   useEffect(() => {
     if (activeLabelId) setShowLabels(true);
   }, [activeLabelId]);
+
+  // Opening a hidden label from elsewhere (search, a thread's chips) must not
+  // leave the sidebar without a row for the view the user is looking at.
+  useEffect(() => {
+    if (hasHiddenActiveLabel) setShowHiddenLabels(true);
+  }, [hasHiddenActiveLabel]);
 
   const submitNewLabel = (event: FormEvent) => {
     event.preventDefault();
@@ -271,28 +317,52 @@ export function MailSidebar({
           padding, so a platform-width bar can't crowd the unread counts. */}
       <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
-          {(unified ? SYSTEM_ITEMS.slice(0, 1) : SYSTEM_ITEMS).map(
-            ({ name, type, countId, Icon, emphasizeCount }) => (
-              <NavRow
-                key={type}
-                href={unified ? undefined : hrefFor({ kind: "type", type })}
-                active={
-                  unified ||
-                  (!activeLabelId && !activeFolderId && activeType === type)
-                }
-                icon={<Icon className="size-4 shrink-0" />}
-                name={unified ? "All inboxes" : name}
-                count={
-                  unified || !countId
-                    ? null
-                    : displayCount(countsById.get(countId))
-                }
-                emphasizeCount={emphasizeCount}
-                collapsed={collapsed}
-              />
-            ),
-          )}
+          <NavRow
+            href={
+              unified ? undefined : hrefFor({ kind: "type", type: "inbox" })
+            }
+            active={
+              unified ||
+              (!activeLabelId && !activeFolderId && activeType === "inbox")
+            }
+            icon={<InboxIcon className="size-4 shrink-0" />}
+            name={unified ? "All inboxes" : "Inbox"}
+            count={unified ? null : displayCount(countsById.get("INBOX"))}
+            emphasizeCount
+            collapsed={collapsed}
+          />
         </nav>
+
+        {!unified && (!collapsed || showMailboxRows) && (
+          <>
+            <GroupHeading
+              collapsed={collapsed}
+              expanded={showMailboxes}
+              onToggle={() => setShowMailboxes((open) => !open)}
+            >
+              Mail
+            </GroupHeading>
+            {showMailboxRows && (
+              <nav className="flex flex-col gap-px">
+                {MAILBOX_ITEMS.map(({ name, type, countId, Icon }) => (
+                  <NavRow
+                    key={type}
+                    href={hrefFor({ kind: "type", type })}
+                    active={
+                      !activeLabelId && !activeFolderId && activeType === type
+                    }
+                    icon={<Icon className="size-4 shrink-0" />}
+                    name={name}
+                    count={
+                      countId ? displayCount(countsById.get(countId)) : null
+                    }
+                    collapsed={collapsed}
+                  />
+                ))}
+              </nav>
+            )}
+          </>
+        )}
 
         {/* The rail replaces headings with a rule, so an empty group would
             leave a stray line behind. */}
@@ -408,11 +478,51 @@ export function MailSidebar({
                     labelSingular={labelSingular}
                     labelEditMode={labelEditMode}
                     labelColorOptions={labelColorOptions}
+                    supportsLabelVisibility={supportsLabelVisibility}
                     onEditMailboxItem={onEditMailboxItem}
                     onDeleteMailboxItem={onDeleteMailboxItem}
                   />
                 ))}
               </nav>
+            )}
+
+            {showLabels && hiddenLabelNodes.length > 0 && !collapsed && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowHiddenLabels((open) => !open)}
+                  aria-expanded={showHiddenLabels}
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showHiddenLabels ? (
+                    <ChevronDownIcon className="size-3" />
+                  ) : (
+                    <ChevronRightIcon className="size-3" />
+                  )}
+                  More
+                </button>
+                {showHiddenLabels && (
+                  <nav className="flex flex-col gap-px">
+                    {hiddenLabelNodes.map((node) => (
+                      <LabelBranch
+                        key={node.label.id}
+                        node={node}
+                        hasNestedLabels={false}
+                        collapsed={collapsed}
+                        activeLabelId={activeLabelId}
+                        hrefFor={hrefFor}
+                        countsById={countsById}
+                        labelSingular={labelSingular}
+                        labelEditMode={labelEditMode}
+                        labelColorOptions={labelColorOptions}
+                        supportsLabelVisibility={supportsLabelVisibility}
+                        onEditMailboxItem={onEditMailboxItem}
+                        onDeleteMailboxItem={onDeleteMailboxItem}
+                      />
+                    ))}
+                  </nav>
+                )}
+              </>
             )}
 
             {showLabels && isAddingLabel && !collapsed ? (
@@ -462,6 +572,7 @@ function LabelBranch({
   | "labelSingular"
   | "labelEditMode"
   | "labelColorOptions"
+  | "supportsLabelVisibility"
   | "onEditMailboxItem"
   | "onDeleteMailboxItem"
 > & { node: SidebarLabel; hasNestedLabels: boolean; collapsed: boolean }) {
@@ -495,6 +606,14 @@ function LabelBranch({
         editMode={props.labelEditMode}
         currentColor={label.color}
         colorOptions={props.labelColorOptions}
+        visibility={
+          props.supportsLabelVisibility
+            ? {
+                labelList: label.labelListVisibility,
+                messageList: label.messageListVisibility,
+              }
+            : undefined
+        }
         onEdit={props.onEditMailboxItem}
         onDelete={props.onDeleteMailboxItem}
       >
