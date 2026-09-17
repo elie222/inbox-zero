@@ -63,10 +63,6 @@
     "hooks/useThread.ts",
     "utils/email-cache/local-mail-reader.ts"
   ],
-  "local-storage-settings.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/LocalMailSettingsDialog.tsx",
-    "utils/email-cache/local-mail-settings.ts"
-  ],
   "mail-activation.spec.ts": [
     "app/(app)/MailboxSyncManager.tsx",
     "app/(app)/[emailAccountId]/mail/use-mail-sync-activation.ts",

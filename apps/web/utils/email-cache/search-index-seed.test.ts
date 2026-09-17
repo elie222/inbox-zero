@@ -65,8 +65,6 @@ describe("resumable local index seeding", () => {
     const budget = vi.spyOn(settings, "readLocalMailSettings").mockReturnValue({
       budgetBytes: initialBytes + 1000 + 32 * MIB,
       attachmentBudgetBytes: 0,
-      backfillEnabled: true,
-      pushEnabled: true,
     });
     const before = await database.get("searchIndexAccounts", "account-1");
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
@@ -85,8 +83,6 @@ describe("resumable local index seeding", () => {
     budget.mockReturnValue({
       budgetBytes: initialBytes + 1_000_000 + 32 * MIB,
       attachmentBudgetBytes: 0,
-      backfillEnabled: true,
-      pushEnabled: true,
     });
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
       complete: false,

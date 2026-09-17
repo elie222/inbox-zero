@@ -247,10 +247,9 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {!bodyAvailable && (
+          {!bodyAvailable && composeMode !== "forward" && (
             <p className="text-muted-foreground text-sm">
-              This message hasn’t been downloaded yet. Connect to the internet
-              to load it.
+              This message hasn’t loaded yet.
             </p>
           )}
           {bodyAvailable &&
@@ -646,19 +645,13 @@ function ReplyPanel({
 
   if (!replyingToEmail)
     return (
-      <div className="mt-5 space-y-2" role="status">
-        <p className="text-muted-foreground text-sm">
-          Load this message before forwarding so its content and attachments are
-          included. Connect to the internet to continue.
-        </p>
-        <div className="flex gap-2">
-          <Button onClick={refetch} size="sm" variant="outline">
-            Load message to forward
-          </Button>
-          <Button onClick={onCloseCompose} size="sm" variant="ghost">
-            Cancel
-          </Button>
-        </div>
+      <div className="mt-5 flex gap-2">
+        <Button onClick={refetch} size="sm" variant="outline">
+          Load message to forward
+        </Button>
+        <Button onClick={onCloseCompose} size="sm" variant="ghost">
+          Cancel
+        </Button>
       </div>
     );
 

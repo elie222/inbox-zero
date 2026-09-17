@@ -5,7 +5,7 @@ description: Search Inbox Zero mail, read threads, create mailbox drafts, and ma
 
 # Inbox Zero MCP
 
-Connect to a remote Inbox Zero MCP server at `https://your-inbox-zero-host/mcp` (OAuth, Streamable HTTP) on a deployment that has `MCP_SERVER_ENABLED` and `NEXT_PUBLIC_EXTERNAL_API_ENABLED` turned on. Production hosted MCP is not generally available yet.
+Connect to the Inbox Zero MCP server configured in `mcp.json` (OAuth, Streamable HTTP). Hosted URL: `https://www.getinboxzero.com/mcp`.
 
 ## Tools
 

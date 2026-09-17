@@ -311,8 +311,6 @@ describe("optional cache write budget", () => {
     vi.mocked(readLocalMailSettings).mockReturnValue({
       budgetBytes,
       attachmentBudgetBytes: 0,
-      backfillEnabled: true,
-      pushEnabled: true,
     });
     await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
       await tx.objectStore("threadRows").put(row);
@@ -349,8 +347,6 @@ async function admit(remainingBytes: number) {
   vi.mocked(readLocalMailSettings).mockReturnValue({
     budgetBytes: usedBytes + remainingBytes + 16 * MIB,
     attachmentBudgetBytes: 0,
-    backfillEnabled: true,
-    pushEnabled: true,
   });
 }
 function message(threadId: string, body: string) {

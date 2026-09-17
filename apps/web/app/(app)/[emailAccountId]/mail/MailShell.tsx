@@ -24,6 +24,7 @@ import {
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
+import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   MAIL_CATEGORIES,
@@ -81,7 +82,11 @@ import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-a
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
-import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailSplitFilterKind,
+  type SystemType,
+} from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -126,6 +131,7 @@ import {
   removeThreadLabelAction,
   updateMailboxItemAction,
 } from "@/utils/actions/mail";
+import { toggleRuleAction } from "@/utils/actions/rule";
 import {
   getPortableLabelSplits,
   OTHER_SPLIT_ID,
@@ -530,8 +536,7 @@ export function MailShell() {
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
   let emptySearchMessage: string | undefined;
   if (showLocalSearch) {
-    emptySearchMessage =
-      "No matches in cached mail. Older mail and uncached bodies may still match.";
+    emptySearchMessage = "No matches yet.";
   } else if (searchQuery && !localSearch.online && !hasProviderResponse) {
     emptySearchMessage =
       "Connect to search this query with your email provider.";
@@ -1454,6 +1459,22 @@ export function MailShell() {
     [emailAccountId, mutateSettings, setActiveSplitId],
   );
 
+  const onToggleSystemType = useCallback(
+    async (systemType: SystemType, enabled: boolean) => {
+      const result = await toggleRuleAction(emailAccountId, {
+        systemType,
+        enabled,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await Promise.all([mutateSettings(), mutateLabels()]);
+      return true;
+    },
+    [emailAccountId, mutateLabels, mutateSettings],
+  );
+
   const onCreateLabel = useCallback(
     async (name: string) => {
       const result = await createLabelAction(emailAccountId, { name });
@@ -1674,6 +1695,10 @@ export function MailShell() {
               }
               searchInputRef={searchInputRef}
               searchLabels={isAllAccounts ? [] : allLabels}
+              searchFolders={
+                isOutlook && !isAllAccounts ? getMailSearchFolders(folders) : []
+              }
+              searchVariant={getMailSearchVariant({ isAllAccounts, isOutlook })}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
@@ -1940,6 +1965,7 @@ export function MailShell() {
           onReorder={onReorderSplits}
           onEdit={setEditingSplitId}
           onDescribe={onDescribeSplit}
+          onToggleSystemType={onToggleSystemType}
         />
       )}
 
@@ -2018,6 +2044,18 @@ function getMailNavPath(target: MailNavTarget): `/${string}` {
   }
 }
 
+function getMailSearchVariant({
+  isAllAccounts,
+  isOutlook,
+}: {
+  isAllAccounts: boolean;
+  isOutlook: boolean;
+}): "gmail" | "outlook" | "common" {
+  if (isAllAccounts) return "common";
+  if (isOutlook) return "outlook";
+  return "gmail";
+}
+
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 
 function getSearchStatus({
@@ -2034,17 +2072,9 @@ function getSearchStatus({
   localStatus?: string;
 }) {
   if (!query || hasProviderResponse) return;
-  if (!online) {
-    if (localStatus === "unsupported")
-      return "Offline — this search needs your email provider.";
-    if (localStatus === "unavailable")
-      return "Offline — local search is unavailable.";
-    return "Offline — searching cached mail only. Results may be incomplete.";
-  }
-  if (error) {
-    if (localStatus !== "ready")
-      return "Full mailbox search is unavailable. Try again when connected.";
-    return "Full mailbox search is unavailable. Showing cached results only.";
-  }
-  // In-progress search has no banner: the list and spinner already show it.
+  // Without local results the empty list already explains an offline or
+  // failed search, and an in-progress one needs no banner at all.
+  if (localStatus !== "ready") return;
+  if (!online) return "Offline. Results may be incomplete.";
+  if (error) return "Search could not complete. Results may be incomplete.";
 }

@@ -129,6 +129,20 @@ export function buildMailSearchQuery(fields: MailSearchFields): string {
   return parts.join(" ");
 }
 
+/** Combined inboxes only emit operators both Gmail and Outlook understand. */
+export function toCommonMailSearchFields(
+  fields: MailSearchFields,
+): MailSearchFields {
+  return {
+    ...EMPTY_MAIL_SEARCH_FIELDS,
+    from: fields.from,
+    to: fields.to,
+    subject: fields.subject,
+    hasWords: fields.hasWords,
+    doesntHave: fields.doesntHave,
+  };
+}
+
 /** Fills the advanced-search form from a typed or previously composed query. */
 export function parseMailSearchQuery(query: string): MailSearchFields {
   const fields: MailSearchFields = { ...EMPTY_MAIL_SEARCH_FIELDS };

@@ -138,10 +138,7 @@ for (const scope of ["single", "all"] as const) {
       `provider-results-offline-${scope}`,
     );
     await expect(
-      page.getByText(
-        "Offline — searching cached mail only. Results may be incomplete.",
-        { exact: true },
-      ),
+      page.getByText("Offline. Results may be incomplete.", { exact: true }),
     ).toHaveCount(0);
   });
 }
@@ -170,18 +167,12 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
     conversationWithSubject(page, conversations, "Cached body search result"),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "Offline — searching cached mail only. Results may be incomplete.",
-      { exact: true },
-    ),
+    page.getByText("Offline. Results may be incomplete.", { exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "local-search-offline");
   await input.fill("no-such-cached-message");
   await expect(
-    page.getByText(
-      "No matches in cached mail. Older mail and uncached bodies may still match.",
-      { exact: true },
-    ),
+    page.getByText("No matches yet.", { exact: true }),
   ).toBeVisible();
   await input.fill("has:attachment");
   await expect(
@@ -228,10 +219,7 @@ test("ignores delayed responses after the search changes", async ({ page }) => {
   ).toBeVisible();
   await expect.poll(() => firstRequested).toBe(true);
   await input.fill("no-such-cached-message");
-  const cachedEmpty = page.getByText(
-    "No matches in cached mail. Older mail and uncached bodies may still match.",
-    { exact: true },
-  );
+  const cachedEmpty = page.getByText("No matches yet.", { exact: true });
   await expect(cachedEmpty).toBeVisible();
   release();
   await expect.poll(() => firstResponded).toBe(true);
@@ -594,18 +582,12 @@ test("uses the persistent index offline after reopening and pages beyond the fir
       reader.getByText("archiveproof body 0", { exact: true }),
     ).toBeVisible();
     await expect(
-      reader.getByText(
-        "Showing downloaded messages. This conversation may be incomplete.",
-      ),
+      reader.getByText("This conversation may be incomplete."),
     ).toBeVisible();
     const deliveryStatus = reader.getByRole("region", {
       name: "Reply delivery status",
     });
-    await expect(
-      deliveryStatus.getByRole("status").filter({
-        hasText: /scheduled reply status is unavailable/i,
-      }),
-    ).toBeVisible();
+    await expect(deliveryStatus.getByRole("status")).toHaveCount(0);
     await expect(deliveryStatus.getByRole("alert")).toHaveCount(0);
     await capturePlaywrightCheckpoint(
       page,
@@ -620,9 +602,7 @@ test("uses the persistent index offline after reopening and pages beyond the fir
       .filter({ has: page.getByText("Indexed message 1", { exact: true }) })
       .click();
     await expect(
-      reader.getByText(
-        "This message hasn’t been downloaded yet. Connect to the internet to load it.",
-      ),
+      reader.getByText("This message hasn’t loaded yet."),
     ).toBeVisible();
     await reader.getByRole("button", { name: "Forward", exact: true }).click();
     await expect(

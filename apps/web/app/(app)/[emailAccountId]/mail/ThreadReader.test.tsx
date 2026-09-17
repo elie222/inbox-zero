@@ -44,7 +44,7 @@ describe("ThreadReader", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("only warns that downloaded messages may be incomplete until the provider confirms the thread", () => {
+  it("only warns that the conversation may be incomplete until the provider confirms the thread", () => {
     const localAvailability = {
       missingBodyIds: new Set<string>(),
       hasMore: false,
@@ -52,8 +52,7 @@ describe("ThreadReader", () => {
       loadMore: vi.fn(),
       refreshing: false,
     };
-    const notice =
-      "Showing downloaded messages. This conversation may be incomplete.";
+    const notice = "This conversation may be incomplete.";
 
     renderReader({
       localAvailability: { ...localAvailability, providerConfirmed: false },

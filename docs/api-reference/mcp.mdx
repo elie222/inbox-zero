@@ -19,17 +19,15 @@ API_KEY_SALT=<random salt>
 
 The server is disabled by default. Configure `NEXT_PUBLIC_BASE_URL` to your deployment's canonical public HTTPS origin. Restart the application after changing server configuration; changing the public API flag also requires rebuilding its client assets.
 
-Hosted Inbox Zero enables these flags when the remote MCP server is generally available. Until then, enable them on a testing or self-hosted deployment.
-
 ## Connect an assistant
 
-Add a remote Streamable HTTP MCP connection using the origin of a deployment that has both flags on:
+Add a remote Streamable HTTP MCP connection:
 
 ```text
-https://your-inbox-zero-host/mcp
+https://www.getinboxzero.com/mcp
 ```
 
-When hosted Inbox Zero is generally available that URL is `https://www.getinboxzero.com/mcp`. `/api/mcp-server` still accepts MCP `POST` requests as an alias; the OAuth resource identifier is always `/mcp`.
+Self-hosted deployments use `https://your-inbox-zero-host/mcp`. `/api/mcp-server` still accepts MCP `POST` requests as an alias; the OAuth resource identifier is always `/mcp`.
 
 The client must support OAuth authorization-code flow with S256 PKCE, dynamic client registration, and resource indicators. Use the MCP endpoint URL as the `resource` when authorizing, exchanging an authorization code, and refreshing a token. Opaque tokens and API keys are not accepted.
 
@@ -45,26 +43,26 @@ Refresh tokens stay valid after you log out of Inbox Zero in the browser. Discon
     In Claude, open **Customize → Connectors**, choose **Add custom connector**, and paste the MCP URL. Leave OAuth client ID and secret empty unless you registered a client yourself. Connect, choose **Allow**, then enable Inbox Zero from **+ → Connectors** in a chat.
 
     ```bash
-    claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
+    claude mcp add --transport http inbox-zero https://www.getinboxzero.com/mcp
     ```
 
     Claude Code then runs OAuth against that URL.
   </Accordion>
 
   <Accordion title="Cursor">
-    Add this to `~/.cursor/mcp.json` or `.cursor/mcp.json`, replacing the origin with your deployment:
+    Add this to `~/.cursor/mcp.json` or `.cursor/mcp.json`:
 
     ```json
     {
       "mcpServers": {
         "inbox-zero": {
-          "url": "https://your-inbox-zero-host/mcp"
+          "url": "https://www.getinboxzero.com/mcp"
         }
       }
     }
     ```
 
-    Cursor then runs OAuth.
+    Cursor then runs OAuth. Self-hosted deployments use their own origin in place of `www.getinboxzero.com`.
   </Accordion>
 
 See [Connect MCP](/essentials/mcp) for ChatGPT, Claude, and Cursor steps plus the in-app toggle and per-app disconnect UI.

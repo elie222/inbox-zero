@@ -38,7 +38,9 @@ describe("local search queries", () => {
     expect(matches("subject:budget")).toBe(false);
     expect(matches("to:team@example.com is:unread in:inbox")).toBe(true);
     expect(matches("is:starred")).toBe(false);
+    expect(matches("is:flagged")).toBe(false);
     expect(matches('label:"Work Projects"')).toBe(true);
+    expect(matches('category:"Work Projects"')).toBe(true);
     expect(matches("after:2026/09/09 before:2026/09/11")).toBe(true);
     expect(matches("before:2026/09/10")).toBe(false);
   });
@@ -70,5 +72,31 @@ describe("local search queries", () => {
     expect(
       matchesLocalSearch(trashed, parseLocalSearch("in:anywhere report", [])!),
     ).toBe(true);
+  });
+
+  it("treats Gmail mail without a live mailbox location as archived", () => {
+    const archived = { ...message, labelIds: ["UNREAD"] };
+    expect(
+      matchesLocalSearch(archived, parseLocalSearch("in:archive", [])!),
+    ).toBe(true);
+    expect(matches("in:archive")).toBe(false);
+  });
+
+  it("still matches Outlook archive via the ARCHIVE label", () => {
+    const outlookArchive = { ...message, labelIds: ["ARCHIVE", "UNREAD"] };
+    expect(
+      matchesLocalSearch(outlookArchive, parseLocalSearch("in:archive", [])!),
+    ).toBe(true);
+  });
+
+  it("does not treat sent, draft, spam, or trash as archived", () => {
+    for (const label of ["SENT", "DRAFT", "SPAM", "TRASH"]) {
+      expect(
+        matchesLocalSearch(
+          { ...message, labelIds: [label] },
+          parseLocalSearch("in:archive", [])!,
+        ),
+      ).toBe(false);
+    }
   });
 });

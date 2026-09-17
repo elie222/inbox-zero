@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import { getMailSidebarFolders } from "./outlook-folder-list";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
+import {
+  getMailSearchFolders,
+  getMailSidebarFolders,
+} from "./outlook-folder-list";
 
 function folder(
   id: string,
@@ -62,5 +66,19 @@ describe("getMailSidebarFolders", () => {
         folder("sent-id", [], "SENT"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("getMailSearchFolders", () => {
+  it("lists custom folder paths and skips well-known folders", () => {
+    expect(
+      getMailSearchFolders([
+        folder("inbox-id", [folder("Projects")], "INBOX"),
+        folder("Clients"),
+      ]),
+    ).toEqual([
+      { name: `inbox-id${FOLDER_SEPARATOR}Projects` },
+      { name: "Clients" },
+    ]);
   });
 });

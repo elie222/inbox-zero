@@ -12,7 +12,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "lucide-react";
-import { MailSplitFilterKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind, type SystemType } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,8 +28,8 @@ import {
 } from "@/utils/mail/split-filters";
 import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
 import {
+  availableLibraryFilters,
   libraryDefinition,
-  resolveLibraryEntry,
   SPLIT_LIBRARY,
   SPLIT_LIBRARY_CATEGORIES,
   type SplitLibraryEntry,
@@ -86,6 +86,10 @@ export type NewSplitDialogProps = {
     name: string | null;
     matchAll: boolean;
   } | null>;
+  onToggleSystemType?: (
+    systemType: SystemType,
+    enabled: boolean,
+  ) => Promise<boolean>;
 };
 
 const EXAMPLES = [
@@ -109,6 +113,7 @@ export function NewSplitDialog({
   onReorder,
   onEdit,
   onDescribe,
+  onToggleSystemType,
 }: NewSplitDialogProps) {
   const [mode, setMode] = useState<"library" | "build" | "describe">("library");
   const [category, setCategory] = useState(YOUR_SPLITS);
@@ -237,17 +242,23 @@ export function NewSplitDialog({
         (supportsStarred ||
           !entry.conditions.some((condition) => condition.kind === "STARRED")),
     ).flatMap((entry) => {
-      const filters = resolveLibraryEntry(entry, {
+      const filters = availableLibraryFilters(entry, {
         labelsByName,
         categoriesByName,
       });
-      return filters ? [{ entry, filters }] : [];
+      return filters !== null ? [{ entry, filters }] : [];
     });
   }, [categories, category, labels, supportsStarred]);
 
   const findLibrarySplit = useCallback(
-    (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) =>
-      existingSplits.find(
+    (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) => {
+      if (entry.createsSystemType) {
+        return existingSplits.find(
+          (split) => split.name.toLowerCase() === entry.name.toLowerCase(),
+        );
+      }
+
+      return existingSplits.find(
         (split) =>
           split.name === entry.name &&
           split.matchAll === (entry.matchAll ?? true) &&
@@ -262,7 +273,8 @@ export function NewSplitDialog({
                 .map((filter) => [filter.kind, filter.value ?? null])
                 .sort(),
             ),
-      ),
+      );
+    },
     [existingSplits],
   );
 
@@ -294,6 +306,11 @@ export function NewSplitDialog({
     setIsBusy(true);
     try {
       const existing = findLibrarySplit(entry, filters);
+      if (entry.createsSystemType) {
+        if (!onToggleSystemType) return;
+        await onToggleSystemType(entry.createsSystemType, !existing);
+        return;
+      }
       if (existing) await onDelete(existing.id);
       else
         await onCreate({
@@ -945,7 +962,7 @@ function libraryFiltersFor(
   labels: SplitChoice[],
   categories: SplitChoice[],
 ) {
-  return resolveLibraryEntry(entry, {
+  return availableLibraryFilters(entry, {
     labelsByName: new Map(
       labels.map((label) => [label.name.toLowerCase(), label.value]),
     ),

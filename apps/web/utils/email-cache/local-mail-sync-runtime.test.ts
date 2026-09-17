@@ -16,10 +16,6 @@ import { readLocalMailStorageAdmission } from "./local-mail-storage";
 import { isMailSyncActivated } from "./mail-activation";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { relieveLocalMailStoragePressure } from "./local-mail-storage-pressure";
-import {
-  readLocalMailSettings,
-  writeLocalMailSettings,
-} from "./local-mail-settings";
 
 vi.mock("./local-mail-storage-ledger-bootstrap", () => ({
   bootstrapLocalMailStorageLedgerBatch: vi.fn(async () => "ready"),
@@ -135,69 +131,6 @@ describe("activated local mail runtime", () => {
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(5000);
     expect(runLocalMailSyncTick).toHaveBeenCalledTimes(1);
-  });
-
-  it("pauses historical intake while retaining current synchronization", async () => {
-    writeLocalMailSettings({
-      ...readLocalMailSettings(),
-      backfillEnabled: false,
-    });
-    disposers.push(retainLocalMailSync("account", true));
-    await vi.advanceTimersByTimeAsync(1);
-    expect(
-      vi.mocked(runLocalMailSyncTick).mock.calls[0][0].allowHistoricalWork,
-    ).toBe(false);
-    writeLocalMailSettings({
-      ...readLocalMailSettings(),
-      backfillEnabled: true,
-    });
-    await vi.advanceTimersByTimeAsync(1);
-    expect(
-      vi.mocked(runLocalMailSyncTick).mock.calls.at(-1)?.[0]
-        .allowHistoricalWork,
-    ).toBe(true);
-  });
-
-  it("checks storage after a budget change without waiting for a failed download", async () => {
-    vi.mocked(relieveLocalMailStoragePressure).mockResolvedValue("progress");
-    disposers.push(retainLocalMailSync("account", true));
-    await vi.advanceTimersByTimeAsync(1);
-    expect(relieveLocalMailStoragePressure).not.toHaveBeenCalled();
-    writeLocalMailSettings({
-      ...readLocalMailSettings(),
-      budgetBytes: 100 * 1024 * 1024,
-    });
-    await vi.advanceTimersByTimeAsync(1);
-    expect(relieveLocalMailStoragePressure).toHaveBeenCalledWith({
-      emailAccountIds: ["account"],
-    });
-    expect(
-      vi.mocked(runLocalMailSyncTick).mock.calls.at(-1)?.[0]
-        .allowHistoricalWork,
-    ).toBe(false);
-  });
-
-  it("retains a changed budget while a sync request is in flight", async () => {
-    let finish: (() => void) | undefined;
-    vi.mocked(runLocalMailSyncTick).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finish = () =>
-            resolve({ status: "waiting", retryAt: Date.now() + 60_000 });
-        }),
-    );
-    vi.mocked(relieveLocalMailStoragePressure).mockResolvedValue("available");
-    disposers.push(retainLocalMailSync("account", true));
-    await vi.advanceTimersByTimeAsync(1);
-    writeLocalMailSettings({
-      ...readLocalMailSettings(),
-      budgetBytes: 100 * 1024 * 1024,
-    });
-    expect(relieveLocalMailStoragePressure).not.toHaveBeenCalled();
-    finish?.();
-    await vi.advanceTimersByTimeAsync(300);
-    expect(relieveLocalMailStoragePressure).toHaveBeenCalledTimes(1);
-    expect(runLocalMailSyncTick).toHaveBeenCalledTimes(2);
   });
 
   it("runs bounded storage recovery without blocking current mail or restarting history", async () => {

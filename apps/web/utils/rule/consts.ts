@@ -13,6 +13,15 @@ export const STANDARD_CATEGORY_SYSTEM_TYPES = [
   SystemType.COLD_EMAIL,
 ] as const;
 
+/** Inbox tabs for enabled label-only rules. Includes opt-in types that onboarding does not create. */
+export const DEFAULT_MAIL_SPLIT_SYSTEM_TYPES = [
+  ...STANDARD_CATEGORY_SYSTEM_TYPES,
+  SystemType.OTP,
+] as const;
+
+/** Owned prompts we do not seed, placeholder, or leave as disabled Rules rows. */
+export const OPT_IN_SYSTEM_TYPES = [SystemType.OTP] as const;
+
 const ruleConfig: Record<
   SystemType,
   {
@@ -117,6 +126,16 @@ const ruleConfig: Record<
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
     tooltipText: "Alerts, status updates, and system messages",
+    shouldLearn: true,
+  },
+  [SystemType.OTP]: {
+    name: "OTP",
+    instructions:
+      "OTP: One-time passwords, 2FA/MFA codes, email verification codes, and magic sign-in or password-reset links.",
+    label: "OTP",
+    runOnThreads: false,
+    categoryAction: "label",
+    tooltipText: "One-time passwords, 2FA codes, and sign-in links",
     shouldLearn: true,
   },
   [SystemType.COLD_EMAIL]: {
@@ -384,4 +403,13 @@ export function getSystemRuleActionTypes(
     systemType,
     draftReply: config.draftReply,
   });
+}
+
+export function isOptInSystemType(
+  systemType: string | null | undefined,
+): boolean {
+  return (
+    !!systemType &&
+    (OPT_IN_SYSTEM_TYPES as readonly string[]).includes(systemType)
+  );
 }
