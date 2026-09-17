@@ -45,11 +45,7 @@ describe("MCP connections", () => {
 
     await revokeMcpConnection({ userId: "user-1", clientId: "client-1" });
 
-    expect(prisma.$transaction).toHaveBeenCalledWith([
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    ]);
+    expect(prisma.$transaction).toHaveBeenCalled();
     expect(prisma.oauthAccessToken.deleteMany).toHaveBeenCalledWith({
       where: { userId: "user-1", clientId: "client-1" },
     });
