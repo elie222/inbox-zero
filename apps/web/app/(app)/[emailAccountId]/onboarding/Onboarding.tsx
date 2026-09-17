@@ -25,8 +25,8 @@ import { usePremium } from "@/hooks/usePremium";
 // While flags resolve this renders the control flow, which shows nothing until
 // its own data loads — so a late flag flip is not visible to the user in
 // practice.
-// The optional `variant` and `paywallFirst` search params force an arm for
-// previewing/QA where PostHog is unavailable.
+// The optional `variant` search param forces a chat arm and `paywallFirst=true`
+// forces the paywall arm for previewing/QA where PostHog is unavailable.
 export function Onboarding({
   step,
   forcedVariant,
@@ -40,8 +40,10 @@ export function Onboarding({
   const { isPremium, isLoading: isPremiumLoading } = usePremium();
 
   const paywallFlagVariant = useOnboardingPaywallVariant();
-  const paywallVariant =
-    parseForcedPaywallVariant(forcedPaywallFirst) ?? paywallFlagVariant;
+  // Only forcing the arm on is honored, so users can't opt out of the paywall
+  // by editing the URL.
+  const paywallVariant: OnboardingPaywallVariant =
+    forcedPaywallFirst === "true" ? "paywall-first" : paywallFlagVariant;
 
   const flagVariant = useOnboardingChatVariant();
   const variant: OnboardingChatVariant =
