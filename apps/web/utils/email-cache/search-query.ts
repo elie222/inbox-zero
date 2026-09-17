@@ -50,27 +50,16 @@ export function parseLocalSearch(
         return;
       // Gmail interprets calendar dates at midnight PST, independent of the device timezone.
       terms.push({ field, value: Date.parse(`${date}T00:00:00-08:00`) });
-    } else if (field === "in" || field === "is" || field === "label") {
+    } else if (LOCATION_FIELDS.has(field)) {
       if (field === "in" && value === "anywhere") {
         includeSpamTrash = true;
         continue;
       }
-      const systemLabels: Record<string, string> = {
-        inbox: "INBOX",
-        sent: "SENT",
-        drafts: "DRAFT",
-        draft: "DRAFT",
-        spam: "SPAM",
-        trash: "TRASH",
-        unread: "UNREAD",
-        starred: "STARRED",
-      };
-      const label =
-        field === "label"
-          ? (labels.find(
-              (label) => label.name.normalize("NFKC").toLowerCase() === value,
-            )?.id ?? systemLabels[value])
-          : systemLabels[value];
+      const label = NAMED_LABEL_FIELDS.has(field)
+        ? (labels.find(
+            (label) => label.name.normalize("NFKC").toLowerCase() === value,
+          )?.id ?? SYSTEM_SEARCH_LABELS[value])
+        : SYSTEM_SEARCH_LABELS[value];
       if (!label) return;
       if (label === "SPAM" || label === "TRASH") includeSpamTrash = true;
       terms.push({ field: "label", value: label });
@@ -89,8 +78,11 @@ export function matchesLocalSearch(
   )
     return false;
   return query.terms.every((term) => {
-    if (term.field === "label")
-      return message.labelIds?.includes(term.value) ?? false;
+    if (term.field === "label") {
+      return term.value === "ARCHIVE"
+        ? isArchivedLocalMessage(message.labelIds)
+        : (message.labelIds?.includes(term.value) ?? false);
+    }
     if (term.field === "after" || term.field === "before") {
       const timestamp =
         message.internalDate && /^\d+$/u.test(message.internalDate)
@@ -126,3 +118,27 @@ export function getNormalizedSearchText(
         : message.headers[field];
   return (text ?? "").normalize("NFKC").toLowerCase();
 }
+
+function isArchivedLocalMessage(labelIds: string[] | undefined) {
+  if (labelIds?.includes("ARCHIVE")) return true;
+  if (!labelIds?.length) return false;
+  return !LIVE_MAILBOX_LABELS.some((label) => labelIds.includes(label));
+}
+
+const LOCATION_FIELDS = new Set(["in", "is", "label", "category"]);
+const NAMED_LABEL_FIELDS = new Set(["label", "category"]);
+const LIVE_MAILBOX_LABELS = ["INBOX", "SENT", "DRAFT", "SPAM", "TRASH"];
+const SYSTEM_SEARCH_LABELS: Record<string, string> = {
+  inbox: "INBOX",
+  sent: "SENT",
+  drafts: "DRAFT",
+  draft: "DRAFT",
+  spam: "SPAM",
+  junk: "SPAM",
+  trash: "TRASH",
+  deleted: "TRASH",
+  archive: "ARCHIVE",
+  unread: "UNREAD",
+  starred: "STARRED",
+  flagged: "STARRED",
+};

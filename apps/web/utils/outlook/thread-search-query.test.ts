@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildOutlookThreadSearchQuery } from "@/utils/outlook/thread-search-query";
+import {
+  compileOutlookThreadSearch,
+  isEmptyOutlookSearch,
+} from "@/utils/outlook/thread-search-query";
 
-describe("buildOutlookThreadSearchQuery", () => {
+describe("compileOutlookThreadSearch", () => {
   it.each([
-    ["has the words", "quarterly invoice", '"quarterly invoice"'],
+    ["keywords", "quarterly invoice", '"quarterly invoice"'],
     ["from", "from:billing@example.com", '"from:billing@example.com"'],
     ["to", "to:team@example.com", '"to:team@example.com"'],
     ["subject", "subject:test", '"subject:test"'],
@@ -12,57 +15,75 @@ describe("buildOutlookThreadSearchQuery", () => {
       'subject:"weekly report"',
       '"subject:\\"weekly report\\""',
     ],
-    ["doesn't have", "-newsletter", '"size>=0 NOT newsletter"'],
-    ["size greater than", "larger:5M", '"size>5242880"'],
-    ["size less than", "smaller:10K", '"size<10240"'],
-    ["attachments", "has:attachment", '"hasattachments:true"'],
+    ["doesn't have", "NOT newsletter", '"size>=0 NOT newsletter"'],
+    ["size greater than", "size>5MB", '"size>5242880"'],
+    ["size less than", "size<10KB", '"size<10240"'],
+    ["attachments", "hasattachments:true", '"hasattachments:true"'],
     [
-      "date window",
-      "after:2026/9/1 before:2026/9/3",
+      "received window",
+      "received>=2026-09-01 received<2026-09-03",
       '"received>=2026-09-01 received<2026-09-03"',
     ],
-  ])("translates a %s query into Graph KQL", (_name, query, expected) => {
-    expect(buildOutlookThreadSearchQuery(query)).toBe(expected);
+  ])("compiles a %s query into Graph KQL", (_name, query, expected) => {
+    expect(compileOutlookThreadSearch(query).search).toBe(expected);
   });
 
-  it("combines several advanced-search fields", () => {
+  it("combines several Outlook fields and keeps folder/flag out of KQL", () => {
     expect(
-      buildOutlookThreadSearchQuery(
-        'from:alice@example.com subject:"Q3 plan" budget -draft larger:1M',
+      compileOutlookThreadSearch(
+        'from:alice@example.com subject:"Q3 plan" budget NOT draft size>1MB in:inbox is:flagged',
       ),
-    ).toBe(
-      '"from:alice@example.com subject:\\"Q3 plan\\" budget size>1048576 NOT draft"',
-    );
+    ).toEqual({
+      search:
+        '"from:alice@example.com subject:\\"Q3 plan\\" budget size>1048576 NOT draft"',
+      folderKey: "inbox",
+      folderName: undefined,
+      flagged: true,
+      category: undefined,
+    });
   });
 
-  it("drops operators Graph search cannot scope by", () => {
-    expect(
-      buildOutlookThreadSearchQuery("invoice in:inbox is:starred -in:chats"),
-    ).toBe('"invoice"');
-  });
-
-  it("strips characters Graph search rejects", () => {
-    expect(buildOutlookThreadSearchQuery('what? "say \\ hi"')).toBe(
-      '"what \\"say \\\\ hi\\""',
-    );
+  it("scopes junk, deleted, and custom folders instead of dropping them", () => {
+    expect(compileOutlookThreadSearch("invoice in:junk")).toEqual({
+      search: '"invoice"',
+      folderKey: "junkemail",
+      folderName: undefined,
+      flagged: false,
+      category: undefined,
+    });
+    expect(compileOutlookThreadSearch('invoice folder:"Projects"')).toEqual({
+      search: '"invoice"',
+      folderKey: undefined,
+      folderName: "Projects",
+      flagged: false,
+      category: undefined,
+    });
   });
 
   it("keeps a quoted operator-like phrase as literal text", () => {
-    expect(buildOutlookThreadSearchQuery('"from:alice@example.com"')).toBe(
+    expect(compileOutlookThreadSearch('"from:alice@example.com"').search).toBe(
       '"\\"from:alice@example.com\\""',
     );
   });
 
   it.each([
-    ["an impossible day", "after:2026/02/30"],
-    ["an impossible month", "before:2026/13/01"],
-    ["an oversized number", `larger:${"9".repeat(400)}`],
+    ["an impossible day", "received>=2026-02-30"],
+    ["an impossible month", "received<2026-13-01"],
+    ["an oversized number", `size>${"9".repeat(400)}`],
   ])("drops a restriction with %s", (_name, query) => {
-    expect(buildOutlookThreadSearchQuery(`invoice ${query}`)).toBe('"invoice"');
+    expect(compileOutlookThreadSearch(`invoice ${query}`).search).toBe(
+      '"invoice"',
+    );
   });
 
-  it("returns an empty query when nothing searchable remains", () => {
-    expect(buildOutlookThreadSearchQuery("in:inbox")).toBe("");
-    expect(buildOutlookThreadSearchQuery("   ")).toBe("");
+  it("returns an empty compiled search when nothing searchable remains", () => {
+    expect(isEmptyOutlookSearch(compileOutlookThreadSearch("   "))).toBe(true);
+    expect(compileOutlookThreadSearch("in:inbox")).toEqual({
+      search: "",
+      folderKey: "inbox",
+      folderName: undefined,
+      flagged: false,
+      category: undefined,
+    });
   });
 });
