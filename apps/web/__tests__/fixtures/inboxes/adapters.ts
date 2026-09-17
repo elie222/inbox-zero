@@ -53,7 +53,6 @@ const DEFAULT_SYSTEM_TYPES = [
   SystemType.MARKETING,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
-  SystemType.OTP,
 ];
 
 export function flattenFixtureMessages(fixture: DemoInboxFixture) {

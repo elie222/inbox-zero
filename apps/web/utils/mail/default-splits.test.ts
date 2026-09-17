@@ -5,8 +5,17 @@ import {
   SystemType,
 } from "@/generated/prisma/enums";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
+import { STANDARD_CATEGORY_SYSTEM_TYPES } from "@/utils/rule/consts";
+import { categoryConfig } from "@/utils/category-config";
 
 describe("getDefaultMailSplitDrafts", () => {
+  it("keeps OTP out of onboarding categories", () => {
+    expect(STANDARD_CATEGORY_SYSTEM_TYPES).not.toContain(SystemType.OTP);
+    expect(
+      categoryConfig("google").map((category) => category.key),
+    ).not.toContain(SystemType.OTP);
+  });
+
   it("creates label splits for the standard category rules in their standard order", () => {
     const rules = [
       rule(SystemType.RECEIPT, "receipt-label"),

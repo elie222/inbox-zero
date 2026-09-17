@@ -292,11 +292,6 @@ function getAllSystemCategoriesMock(): GetOnboardingProcessedEmailsResponse {
       subject: "PR #482 has new comments",
     },
     {
-      systemType: SystemType.OTP,
-      sender: "Google",
-      subject: "G-482193 is your verification code",
-    },
-    {
       systemType: SystemType.RECEIPT,
       sender: "Stripe",
       subject: "Your receipt from Acme Inc.",

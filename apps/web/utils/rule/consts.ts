@@ -10,8 +10,13 @@ export const STANDARD_CATEGORY_SYSTEM_TYPES = [
   SystemType.CALENDAR,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
-  SystemType.OTP,
   SystemType.COLD_EMAIL,
+] as const;
+
+/** Inbox tabs for enabled label-only rules. Includes opt-in types that onboarding does not create. */
+export const DEFAULT_MAIL_SPLIT_SYSTEM_TYPES = [
+  ...STANDARD_CATEGORY_SYSTEM_TYPES,
+  SystemType.OTP,
 ] as const;
 
 const ruleConfig: Record<
@@ -112,8 +117,7 @@ const ruleConfig: Record<
   },
   [SystemType.NOTIFICATION]: {
     name: "Notification",
-    instructions:
-      "Notifications: Alerts, status updates, or system messages. Exclude one-time passwords, verification codes, and magic sign-in links.",
+    instructions: "Notifications: Alerts, status updates, or system messages",
     label: "Notification",
     runOnThreads: false,
     categoryAction: "label",
