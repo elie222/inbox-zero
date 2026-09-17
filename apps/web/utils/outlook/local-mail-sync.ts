@@ -404,6 +404,13 @@ export async function getOutlookLocalMailMessage(
   }
   if (message.id !== input.messageId)
     throw new Error("Outlook returned an unexpected message ID");
+  // Backfill retains neither drafts nor the excluded folders, so a message that
+  // moved into one is gone as far as local mail is concerned.
+  if (
+    message.isDraft ||
+    isExcludedFolder(message.parentFolderId, input.folderIds)
+  )
+    return { status: "notFound" as const };
   const categoryMap = await resolveLocalMailCategories(
     { ...input, priority: input.priority ?? "current" },
     [message],
