@@ -105,10 +105,11 @@ export function ListToolbar({
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       <Tooltip
-        content={
+        content={allSelected ? "Deselect all conversations" : undefined}
+        shortcuts={
           allSelected
-            ? "Deselect all conversations"
-            : "Select all conversations"
+            ? undefined
+            : [{ id: "selectAll", label: "Select all conversations" }]
         }
       >
         <Checkbox
