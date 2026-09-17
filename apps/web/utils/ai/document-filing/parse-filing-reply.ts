@@ -9,7 +9,7 @@ Determine which documents they mean and always provide a reply to send back.
 
 Actions:
 - "approve": User is happy with the filing. We will mark it as approved in the database.
-- "move": User wants the document in a different folder. We will move the file to the path they specify.
+- "move": User wants the document in a different folder. We will move the file to the path they specify. Use "/" between folder levels. A path that starts with a known folder's path is created inside that folder, so "Receipts/2026/Amazon" nests under the known "Receipts" folder even when 2026 or Amazon do not exist yet.
 - "undo": User wants to reverse the filing. We will move the file to a "To Delete" folder for them to review.
 
 Return at most one action per filing. Use only filing IDs from the provided list. If the user names documents, act only on those documents. If their reply clearly applies to every document, return an action for each one. If it is ambiguous which document they mean, return no actions and ask them to identify it.
@@ -26,7 +26,9 @@ const schema = z.object({
       folderPath: z
         .string()
         .nullable()
-        .describe("The destination path for move; null for other actions"),
+        .describe(
+          "The destination path for move, using '/' between folder levels (for example 'Receipts/2026/Amazon'); null for other actions",
+        ),
     }),
   ),
   reply: z.string(),
@@ -45,10 +47,12 @@ type Message = { role: "user" | "assistant"; content: string };
 export async function aiParseFilingReply({
   messages,
   filingContexts,
+  knownFolderPaths = [],
   emailAccount,
 }: {
   messages: Message[];
   filingContexts: FilingContext[];
+  knownFolderPaths?: string[];
   emailAccount: EmailAccountWithAI;
 }): Promise<ParseFilingReplyResult> {
   if (!messages.length) {
@@ -70,7 +74,7 @@ Current folder: ${JSON.stringify(filing.currentFolder)}
   .join("\n")}
 </filings>
 
-<conversation>
+${formatKnownFolders(knownFolderPaths)}<conversation>
 ${formattedMessages}
 </conversation>
 
@@ -98,4 +102,18 @@ Determine the action and write a reply.`;
   });
 
   return result.object;
+}
+
+function formatKnownFolders(knownFolderPaths: string[]) {
+  if (knownFolderPaths.length === 0) return "";
+
+  const folders = knownFolderPaths
+    .map((path) => `<folder path=${JSON.stringify(path)} />`)
+    .join("\n");
+
+  return `<known_folders>
+${folders}
+</known_folders>
+
+`;
 }

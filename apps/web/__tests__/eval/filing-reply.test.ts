@@ -51,6 +51,30 @@ describe.runIf(shouldRunEval)("filing reply eval", () => {
         ],
       },
       {
+        name: "resolves a named parent into its known full path",
+        reply: "Put invoice.pdf in a September subfolder under Invoices.",
+        knownFolderPaths: ["Business/Invoices"],
+        expected: [
+          {
+            filingId: "filing-1",
+            action: "move",
+            folderPath: "Business/Invoices/September",
+          },
+        ],
+      },
+      {
+        name: "uses the known path when moving to an existing folder",
+        reply: "Move invoice.pdf into the Invoices folder.",
+        knownFolderPaths: ["Business/Invoices"],
+        expected: [
+          {
+            filingId: "filing-1",
+            action: "move",
+            folderPath: "Business/Invoices",
+          },
+        ],
+      },
+      {
         name: "applies a clear batch-wide reply to every document",
         reply: "These all look good.",
         expected: filings.map((filing) => ({
@@ -68,6 +92,10 @@ describe.runIf(shouldRunEval)("filing reply eval", () => {
           const result = await aiParseFilingReply({
             messages: [{ role: "user", content: testCase.reply }],
             filingContexts: filings,
+            knownFolderPaths:
+              "knownFolderPaths" in testCase
+                ? [...testCase.knownFolderPaths]
+                : [],
             emailAccount,
           });
           const actual = sortActions(result.actions);
