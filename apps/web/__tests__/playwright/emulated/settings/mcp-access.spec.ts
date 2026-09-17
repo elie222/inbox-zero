@@ -71,17 +71,15 @@ test("requires client consent, enforces read-only access, and disconnects existi
     page.getByRole("heading", { name: "Connect Playwright MCP client?" }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "View your linked inboxes, search and read email, automation rules, and email statistics.",
-    ),
+    page.getByText("Can search and read mail. Can't send email."),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Create mailbox drafts and create, replace, or delete automation rules. This does not send email.",
+      "Can search mail, create drafts, and manage rules. Can't send email.",
     ),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mcp-consent");
-  await page.getByRole("button", { name: "Enable MCP and allow" }).click();
+  await page.getByRole("button", { name: "Allow" }).click();
   await page.waitForURL("https://client.example.com/callback**");
   const callback = new URL(page.url());
   expect(callback.searchParams.get("state")).toBe("playwright-state");
