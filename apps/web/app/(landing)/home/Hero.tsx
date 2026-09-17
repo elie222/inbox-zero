@@ -74,10 +74,10 @@ export function HeroVideoPlayer() {
       <div className="relative block overflow-hidden rounded-3xl border border-[#EFEFEF] md:rounded-[43px]">
         <HeroVideoDialog />
         <Image
-          src="/images/new-landing/video-thumbnail.png"
+          src="/images/new-landing/video-thumbnail.jpg"
           alt="an organized inbox"
-          width={4600}
-          height={2524}
+          width={2560}
+          height={1404}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
           preload
           className="h-auto w-full"
