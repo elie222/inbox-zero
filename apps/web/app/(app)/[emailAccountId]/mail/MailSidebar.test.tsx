@@ -50,18 +50,32 @@ function renderSidebar(overrides: Partial<MailSidebarProps> = {}) {
 }
 
 describe("MailSidebar", () => {
-  it("keeps the extra views behind the More group until it is opened", () => {
+  it("leaves the inbox out in the open and everything else behind Mail", () => {
     renderSidebar();
 
-    expect(screen.queryByText("Scheduled")).toBeNull();
+    expect(screen.getByText("Inbox").closest("a")?.getAttribute("href")).toBe(
+      "/mail?type=inbox",
+    );
+    expect(screen.queryByText("Sent")).toBeNull();
 
-    fireEvent.click(screen.getByText("More"));
+    fireEvent.click(screen.getByText("Mail"));
 
     expect(
-      ["Starred", "Scheduled", "Spam", "Trash"].map((name) =>
+      [
+        "Drafts",
+        "Sent",
+        "Archived",
+        "Starred",
+        "Scheduled",
+        "Spam",
+        "Trash",
+      ].map((name) =>
         screen.getByText(name).closest("a")?.getAttribute("href"),
       ),
     ).toEqual([
+      "/mail?type=draft",
+      "/mail?type=sent",
+      "/mail?type=archive",
       "/mail?type=starred",
       "/mail?type=scheduled",
       "/mail?type=spam",
@@ -69,7 +83,7 @@ describe("MailSidebar", () => {
     ]);
   });
 
-  it("opens the More group when one of its views is showing", () => {
+  it("opens the Mail group when one of its views is showing", () => {
     renderSidebar({ activeType: "trash" });
 
     expect(
@@ -85,7 +99,7 @@ describe("MailSidebar", () => {
     );
   });
 
-  it("leaves the extra views out of the icon rail for other views", () => {
+  it("leaves the Mail group out of the icon rail for other views", () => {
     // Nothing in the rail can toggle the group, so a row only earns its space
     // there while its own view is open.
     renderSidebar({ activeType: "inbox", collapsed: true });
@@ -96,6 +110,7 @@ describe("MailSidebar", () => {
   it("leaves the extra views out of the combined inbox", () => {
     renderSidebar({ unified: true });
 
-    expect(screen.queryByText("More")).toBeNull();
+    expect(screen.queryByText("Mail")).toBeNull();
+    expect(screen.getByText("All inboxes")).toBeDefined();
   });
 });

@@ -96,25 +96,15 @@ type SystemItem = {
   /** null means the row never shows a count (a "sent unread" number is noise). */
   countId: string | null;
   Icon: LucideIcon;
-  emphasizeCount?: boolean;
 };
-
-const SYSTEM_ITEMS: SystemItem[] = [
-  {
-    name: "Inbox",
-    type: "inbox",
-    countId: "INBOX",
-    Icon: InboxIcon,
-    emphasizeCount: true,
-  },
-  { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
-  { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
-  { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
-];
 
 export const MAIL_SCHEDULED_TYPE = "scheduled";
 
-const MORE_ITEMS: SystemItem[] = [
+/** Everything the inbox isn't. Visited rarely enough to stay behind a toggle. */
+const MAILBOX_ITEMS: SystemItem[] = [
+  { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
+  { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
+  { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
   { name: "Starred", type: "starred", countId: null, Icon: StarIcon },
   {
     name: "Scheduled",
@@ -205,19 +195,19 @@ export function MailSidebar({
   const [showLabels, setShowLabels] = useState(true);
   const showCategoryRows = !collapsibleCategories || showCategories;
 
-  const isMoreActive =
+  const isMailboxActive =
     !activeLabelId &&
     !activeFolderId &&
-    MORE_ITEMS.some((item) => item.type === activeType);
-  const [showMore, setShowMore] = useState(isMoreActive);
+    MAILBOX_ITEMS.some((item) => item.type === activeType);
+  const [showMailboxes, setShowMailboxes] = useState(isMailboxActive);
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
   }, [isCategoryActive]);
 
   useEffect(() => {
-    if (isMoreActive) setShowMore(true);
-  }, [isMoreActive]);
+    if (isMailboxActive) setShowMailboxes(true);
+  }, [isMailboxActive]);
 
   // Expand when the open view changes to a label so a collapsed list can
   // still reveal the selected row. A same-label collapse stays put.
@@ -299,41 +289,34 @@ export function MailSidebar({
           padding, so a platform-width bar can't crowd the unread counts. */}
       <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
-          {(unified ? SYSTEM_ITEMS.slice(0, 1) : SYSTEM_ITEMS).map(
-            ({ name, type, countId, Icon, emphasizeCount }) => (
-              <NavRow
-                key={type}
-                href={unified ? undefined : hrefFor({ kind: "type", type })}
-                active={
-                  unified ||
-                  (!activeLabelId && !activeFolderId && activeType === type)
-                }
-                icon={<Icon className="size-4 shrink-0" />}
-                name={unified ? "All inboxes" : name}
-                count={
-                  unified || !countId
-                    ? null
-                    : displayCount(countsById.get(countId))
-                }
-                emphasizeCount={emphasizeCount}
-                collapsed={collapsed}
-              />
-            ),
-          )}
+          <NavRow
+            href={
+              unified ? undefined : hrefFor({ kind: "type", type: "inbox" })
+            }
+            active={
+              unified ||
+              (!activeLabelId && !activeFolderId && activeType === "inbox")
+            }
+            icon={<InboxIcon className="size-4 shrink-0" />}
+            name={unified ? "All inboxes" : "Inbox"}
+            count={unified ? null : displayCount(countsById.get("INBOX"))}
+            emphasizeCount
+            collapsed={collapsed}
+          />
         </nav>
 
-        {!unified && (!collapsed || showMore) && (
+        {!unified && (!collapsed || showMailboxes) && (
           <>
             <GroupHeading
               collapsed={collapsed}
-              expanded={showMore}
-              onToggle={() => setShowMore((open) => !open)}
+              expanded={showMailboxes}
+              onToggle={() => setShowMailboxes((open) => !open)}
             >
-              More
+              Mail
             </GroupHeading>
-            {showMore && (
+            {showMailboxes && (
               <nav className="flex flex-col gap-px">
-                {MORE_ITEMS.map(({ name, type, Icon }) => (
+                {MAILBOX_ITEMS.map(({ name, type, countId, Icon }) => (
                   <NavRow
                     key={type}
                     href={hrefFor({ kind: "type", type })}
@@ -342,7 +325,9 @@ export function MailSidebar({
                     }
                     icon={<Icon className="size-4 shrink-0" />}
                     name={name}
-                    count={null}
+                    count={
+                      countId ? displayCount(countsById.get(countId)) : null
+                    }
                     collapsed={collapsed}
                   />
                 ))}
