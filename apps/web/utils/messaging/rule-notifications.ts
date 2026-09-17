@@ -2663,6 +2663,8 @@ function getNotificationTitleForSystemType(
       return "👀 FYI for you";
     case SystemType.NOTIFICATION:
       return "🔔 New notification for you";
+    case SystemType.OTP:
+      return "🔐 New sign-in code for you";
     default:
       return "📬 New email for you";
   }

@@ -2223,6 +2223,7 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
+  OTP
 }
 
 enum ReferralStatus {

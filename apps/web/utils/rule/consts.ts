@@ -10,6 +10,7 @@ export const STANDARD_CATEGORY_SYSTEM_TYPES = [
   SystemType.CALENDAR,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
+  SystemType.OTP,
   SystemType.COLD_EMAIL,
 ] as const;
 
@@ -111,12 +112,23 @@ const ruleConfig: Record<
   },
   [SystemType.NOTIFICATION]: {
     name: "Notification",
-    instructions: "Notifications: Alerts, status updates, or system messages",
+    instructions:
+      "Notifications: Alerts, status updates, or system messages. Exclude one-time passwords, verification codes, and magic sign-in links.",
     label: "Notification",
     runOnThreads: false,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
     tooltipText: "Alerts, status updates, and system messages",
+    shouldLearn: true,
+  },
+  [SystemType.OTP]: {
+    name: "OTP",
+    instructions:
+      "OTP: One-time passwords, 2FA/MFA codes, email verification codes, and magic sign-in or password-reset links used to complete a login or verify an account. Exclude security alerts that only report a sign-in or ask you to review activity.",
+    label: "OTP",
+    runOnThreads: false,
+    categoryAction: "label",
+    tooltipText: "One-time passwords, 2FA codes, and sign-in links",
     shouldLearn: true,
   },
   [SystemType.COLD_EMAIL]: {

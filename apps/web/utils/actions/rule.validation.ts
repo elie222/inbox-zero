@@ -107,6 +107,7 @@ const zodSystemRule = z.enum([
   SystemType.CALENDAR,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
+  SystemType.OTP,
 ]);
 
 const zodAiCondition = z.object({

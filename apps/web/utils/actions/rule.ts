@@ -745,11 +745,19 @@ async function toggleRule({
   });
 
   if (existingRule) {
-    return await setRuleEnabled({
+    const updatedRule = await setRuleEnabled({
       ruleId: existingRule.id,
       emailAccountId,
       enabled,
     });
+    if (enabled) {
+      await ensureDefaultMailSplitForRule({
+        emailAccountId,
+        systemType,
+        logger,
+      });
+    }
+    return updatedRule;
   }
 
   const emailProvider = await createEmailProvider({
@@ -812,6 +820,14 @@ async function toggleRule({
     ruleName: upsertedRule.name,
     systemType: upsertedRule.systemType,
   });
+
+  if (enabled) {
+    await ensureDefaultMailSplitForRule({
+      emailAccountId,
+      systemType,
+      logger,
+    });
+  }
 
   return upsertedRule;
 }
@@ -904,6 +920,34 @@ function handleRuleError(error: unknown, logger: Logger) {
   }
   logger.error("Error creating/updating rule", { error });
   throw new SafeError("Error creating/updating rule");
+}
+
+async function ensureDefaultMailSplitForRule({
+  emailAccountId,
+  systemType,
+  logger,
+}: {
+  emailAccountId: string;
+  systemType: SystemType;
+  logger: Logger;
+}) {
+  try {
+    const rule = await prisma.rule.findUnique({
+      where: { emailAccountId_systemType: { emailAccountId, systemType } },
+      select: {
+        systemType: true,
+        actions: { select: { type: true, labelId: true } },
+      },
+    });
+    if (!rule) return;
+    await setDefaultMailSplits({
+      emailAccountId,
+      defaultSplits: getDefaultMailSplitDrafts([rule]),
+      enabled: true,
+    });
+  } catch (error) {
+    logger.error("Error creating default mail split", { error });
+  }
 }
 
 async function resolveActionLabels<

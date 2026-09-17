@@ -10,6 +10,7 @@ export const SYSTEM_RULE_ORDER: SystemType[] = [
   SystemType.CALENDAR,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
+  SystemType.OTP,
   SystemType.COLD_EMAIL,
 ];
 

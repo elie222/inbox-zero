@@ -72,6 +72,12 @@ export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
     conditions: [{ kind: "LABEL", labelName: "Notification" }],
   },
   {
+    name: "OTP",
+    category: "General",
+    description: "One-time passwords, 2FA codes, and sign-in links.",
+    conditions: [{ kind: "LABEL", labelName: "OTP" }],
+  },
+  {
     name: "Cold email",
     category: "General",
     description: "Unsolicited outreach from senders you have no history with.",

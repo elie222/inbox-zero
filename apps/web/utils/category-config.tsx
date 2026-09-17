@@ -13,6 +13,7 @@ import {
   CalendarIcon,
   ReceiptIcon,
   BellIcon,
+  KeyRoundIcon,
   UsersIcon,
 } from "lucide-react";
 
@@ -73,6 +74,14 @@ export const categoryConfig = (
     Icon: BellIcon,
     iconColor: "red",
     action: getCategoryAction(SystemType.NOTIFICATION, provider),
+  },
+  {
+    key: SystemType.OTP,
+    label: getRuleLabel(SystemType.OTP),
+    tooltipText: getRuleConfig(SystemType.OTP).tooltipText,
+    Icon: KeyRoundIcon,
+    iconColor: "blue",
+    action: getCategoryAction(SystemType.OTP, provider),
   },
   {
     key: SystemType.COLD_EMAIL,

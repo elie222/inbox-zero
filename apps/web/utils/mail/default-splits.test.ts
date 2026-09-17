@@ -13,6 +13,7 @@ describe("getDefaultMailSplitDrafts", () => {
       rule(SystemType.FYI, "fyi-label"),
       rule(SystemType.TO_REPLY, "reply-label"),
       rule(SystemType.NEWSLETTER, "newsletter-label"),
+      rule(SystemType.OTP, "otp-label"),
       rule(null, "custom-label"),
     ];
 
@@ -33,6 +34,11 @@ describe("getDefaultMailSplitDrafts", () => {
         name: "Receipt",
         labelId: "receipt-label",
         filters: [{ kind: MailSplitFilterKind.LABEL, value: "receipt-label" }],
+      },
+      {
+        name: "OTP",
+        labelId: "otp-label",
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "otp-label" }],
       },
     ]);
   });

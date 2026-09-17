@@ -27,6 +27,11 @@ describe("sortRulesByCanonicalOrder", () => {
         systemType: SystemType.NEWSLETTER,
       },
       {
+        name: "OTP",
+        enabled: true,
+        systemType: SystemType.OTP,
+      },
+      {
         name: "Cold Email",
         enabled: true,
         systemType: SystemType.COLD_EMAIL,
@@ -36,6 +41,7 @@ describe("sortRulesByCanonicalOrder", () => {
 
     expect(sortRulesByCanonicalOrder(rules).map((rule) => rule.name)).toEqual([
       "Newsletter",
+      "OTP",
       "Cold Email",
       "Alpha",
     ]);

@@ -30,6 +30,7 @@ const systemTypeBadgeColor: Record<SystemType, Color> = {
   [SystemType.COLD_EMAIL]: "purple",
   [SystemType.RECEIPT]: "orange",
   [SystemType.NOTIFICATION]: "orange",
+  [SystemType.OTP]: "blue",
   [SystemType.MARKETING]: "yellow",
   [SystemType.FYI]: "yellow",
 };
