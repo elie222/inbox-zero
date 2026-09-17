@@ -10,6 +10,7 @@ import {
   Paragraph,
 } from "@/components/new-landing/common/Typography";
 import { CallToAction } from "@/components/new-landing/CallToAction";
+import { HeroReveal } from "@/components/new-landing/common/HeroReveal";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 import {
   Badge,
@@ -38,24 +39,28 @@ export function Hero({
   return (
     <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
       {badge ? (
-        <div className="flex justify-center mb-7">
+        <HeroReveal className="mb-7 flex justify-center">
           <Badge variant={badgeVariant}>{badge}</Badge>
-        </div>
+        </HeroReveal>
       ) : null}
       <PageHeading>{title}</PageHeading>
-      <Paragraph size="lg" className={"max-w-[640px] mx-auto mt-6"}>
-        {subtitle}
-      </Paragraph>
+      <HeroReveal delay={0.125 * 5}>
+        <Paragraph size="lg" className="mx-auto mt-6 max-w-[640px]">
+          {subtitle}
+        </Paragraph>
+      </HeroReveal>
       <SectionContent noMarginTop className="mt-6 md:mt-8">
-        <div className="space-y-3 mb-8">
-          {cta ?? <CallToAction />}
-          <div className="mb-12 flex items-center justify-center gap-2">
-            <Paragraph color="light" size="sm">
-              Works with
-            </Paragraph>
-            <Outlook />
-            <Gmail />
-          </div>
+        <div className="mb-8 space-y-3">
+          <HeroReveal delay={0.125 * 7}>{cta ?? <CallToAction />}</HeroReveal>
+          <HeroReveal delay={0.125 * 8}>
+            <div className="mb-12 flex items-center justify-center gap-2">
+              <Paragraph color="light" size="sm">
+                Works with
+              </Paragraph>
+              <Outlook />
+              <Gmail />
+            </div>
+          </HeroReveal>
         </div>
         {children}
       </SectionContent>
@@ -65,7 +70,7 @@ export function Hero({
 
 export function HeroVideoPlayer() {
   return (
-    <div className="relative w-full">
+    <HeroReveal className="relative w-full" delay={0.125 * 9}>
       <div className="relative block overflow-hidden rounded-3xl border border-[#EFEFEF] md:rounded-[43px]">
         <HeroVideoDialog />
         <Image
@@ -79,7 +84,7 @@ export function HeroVideoPlayer() {
         />
         <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
       </div>
-    </div>
+    </HeroReveal>
   );
 }
 
