@@ -112,6 +112,7 @@ describe("HtmlEmail", () => {
       <div class="card" style="background:#f8f9fa;font-family:Arial,sans-serif;font-size:16px">
         Finish setup
       </div>
+      <pre>prefers-color-scheme: dark</pre>
     </body></html>`;
     const { getByTitle } = render(
       <HtmlEmail html={html} messageId="designed-theme" />,
@@ -129,9 +130,11 @@ describe("HtmlEmail", () => {
         .querySelector('meta[name="color-scheme"]')
         ?.getAttribute("content"),
     ).toBe("light");
-    expect(iframe.srcdoc).not.toMatch(/prefers-color-scheme\s*:\s*dark/i);
     expect(iframe.srcdoc).toContain(
       "prefers-color-scheme: inbox-zero-authored",
+    );
+    expect(document.querySelector("pre")?.textContent).toBe(
+      "prefers-color-scheme: dark",
     );
   });
 

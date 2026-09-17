@@ -450,9 +450,11 @@ function disableAuthoredDarkColorScheme(html: string) {
   // Chromium still matches the embedder's prefers-color-scheme inside an
   // iframe, even when that frame is color-scheme: light. Neutralize the
   // query so authored dark-mode CSS cannot invert the designed layout.
-  return html.replace(
-    /prefers-color-scheme\s*:\s*dark/gi,
-    "prefers-color-scheme: inbox-zero-authored",
+  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, (stylesheet) =>
+    stylesheet.replace(
+      /prefers-color-scheme\s*:\s*dark/gi,
+      "prefers-color-scheme: inbox-zero-authored",
+    ),
   );
 }
 
