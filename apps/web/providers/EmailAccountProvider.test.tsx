@@ -7,6 +7,7 @@ import {
   EmailAccountPreviewProvider,
   useAccount,
 } from "./EmailAccountProvider";
+import { resetEmailAccountsInflight } from "@/utils/fetch-email-accounts";
 
 const navigation = vi.hoisted(() => ({
   emailAccountId: undefined as string | undefined,
@@ -24,11 +25,13 @@ vi.mock("@/utils/actions/email-account-cookie", () => ({
 describe("EmailAccountProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetEmailAccountsInflight();
     navigation.emailAccountId = undefined;
     cookie.setLastAccount.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    resetEmailAccountsInflight();
     vi.unstubAllGlobals();
   });
 

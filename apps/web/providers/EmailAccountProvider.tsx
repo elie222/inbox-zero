@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
+import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
 
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
@@ -43,13 +44,8 @@ export function EmailAccountProvider({
   useEffect(() => {
     async function fetchAccounts() {
       try {
-        // Not using SWR here because this will lead to a circular provider tree
-        // This is the simplest fix
-        const response = await fetch("/api/user/email-accounts");
-        if (response.ok) {
-          const result: GetEmailAccountsResponse = await response.json();
-          setData(result);
-        }
+        const result = await fetchEmailAccounts();
+        setData(result);
       } catch (error) {
         console.error("Error fetching accounts:", error);
       } finally {
