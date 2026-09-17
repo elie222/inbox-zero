@@ -131,7 +131,7 @@ const ruleConfig: Record<
   [SystemType.OTP]: {
     name: "OTP",
     instructions:
-      "OTP: One-time passwords, 2FA/MFA codes, email verification codes, and magic sign-in or password-reset links used to complete a login or verify an account. Exclude security alerts that only report a sign-in or ask you to review activity.",
+      "OTP: One-time passwords, 2FA/MFA codes, email verification codes, and magic sign-in or password-reset links.",
     label: "OTP",
     runOnThreads: false,
     categoryAction: "label",
