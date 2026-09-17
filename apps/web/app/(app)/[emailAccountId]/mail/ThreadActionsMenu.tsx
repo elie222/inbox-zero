@@ -3,7 +3,6 @@
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
-  CloudDownloadIcon,
   ExternalLinkIcon,
   FolderInputIcon,
   MailXIcon,
@@ -14,8 +13,6 @@ import {
   Trash2Icon,
   TagIcon,
 } from "lucide-react";
-import { useState } from "react";
-import { KeepOfflineDialog } from "@/app/(app)/[emailAccountId]/mail/KeepOfflineDialog";
 import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import { Button } from "@/components/ui/button";
@@ -58,8 +55,7 @@ export function ThreadActionsMenu({
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
-  const { emailAccountId, provider, userEmail } = useAccount();
-  const [isOfflineDialogOpen, setIsOfflineDialogOpen] = useState(false);
+  const { provider, userEmail } = useAccount();
   const {
     canManageAutoArchive,
     isUnsubscribeDisabled,
@@ -177,13 +173,6 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           ) : null}
 
-          {message && emailAccountId ? (
-            <DropdownMenuItem onSelect={() => setIsOfflineDialogOpen(true)}>
-              <CloudDownloadIcon className="mr-2 size-4" />
-              Keep offline
-            </DropdownMenuItem>
-          ) : null}
-
           {openUrl ? (
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
@@ -197,16 +186,6 @@ export function ThreadActionsMenu({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {message && emailAccountId ? (
-        <KeepOfflineDialog
-          key={`${emailAccountId}:${message.threadId}`}
-          emailAccountId={emailAccountId}
-          onOpenChange={setIsOfflineDialogOpen}
-          open={isOfflineDialogOpen}
-          threadId={message.threadId}
-        />
-      ) : null}
 
       <PremiumModal />
     </>

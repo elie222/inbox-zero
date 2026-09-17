@@ -189,7 +189,7 @@ export function ThreadReader({
               <span>
                 {localAvailability.refreshing
                   ? "Checking for more messages…"
-                  : "Showing downloaded messages. This conversation may be incomplete."}
+                  : "This conversation may be incomplete."}
               </span>
               <Button
                 size="sm"
@@ -210,7 +210,7 @@ export function ThreadReader({
             >
               {localAvailability.loadingMore
                 ? "Loading messages…"
-                : "Load older downloaded messages"}
+                : "Load older messages"}
             </Button>
           )}
           {messages.length > 0 ? (

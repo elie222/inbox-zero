@@ -530,8 +530,7 @@ export function MailShell() {
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
   let emptySearchMessage: string | undefined;
   if (showLocalSearch) {
-    emptySearchMessage =
-      "No matches in cached mail. Older mail and uncached bodies may still match.";
+    emptySearchMessage = "No matches yet.";
   } else if (searchQuery && !localSearch.online && !hasProviderResponse) {
     emptySearchMessage =
       "Connect to search this query with your email provider.";
@@ -2034,21 +2033,9 @@ function getSearchStatus({
   localStatus?: string;
 }) {
   if (!query || hasProviderResponse) return;
-  if (!online) {
-    if (localStatus === "unsupported")
-      return "Offline — this search needs your email provider.";
-    if (localStatus === "unavailable")
-      return "Offline — local search is unavailable.";
-    return "Offline — searching cached mail only. Results may be incomplete.";
-  }
-  if (error) {
-    if (localStatus !== "ready")
-      return "Full mailbox search is unavailable. Try again when connected.";
-    return "Full mailbox search is unavailable. Showing cached results only.";
-  }
-  if (localStatus === "unsupported")
-    return "This search needs your email provider. Searching your mailbox…";
-  if (localStatus === "unavailable")
-    return "Local search is unavailable. Searching your mailbox…";
-  return "Searching your full mailbox… Cached results may be incomplete.";
+  // Without local results the empty list already explains an offline or
+  // failed search, and an in-progress one needs no banner at all.
+  if (localStatus !== "ready") return;
+  if (!online) return "Offline. Results may be incomplete.";
+  if (error) return "Search could not complete. Results may be incomplete.";
 }

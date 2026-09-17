@@ -158,6 +158,12 @@ export function ThreadDeliveryStatus({
     if (result?.serverError || result?.validationErrors)
       throw new Error(getActionErrorMessage(result));
   };
+  const scheduledRows = (data?.scheduledEmails ?? []).filter(
+    (row) =>
+      row.status !== "SENT" ||
+      row.id === latestScheduledSendId ||
+      ["PENDING", "PROCESSING"].includes(row.reminderStatus),
+  );
   const visible = useMemo(
     () =>
       outbox
@@ -289,103 +295,84 @@ export function ThreadDeliveryStatus({
           </div>
         );
       })}
-      {data?.scheduledEmails
-        .filter(
-          (row) =>
-            row.status !== "SENT" ||
-            row.id === latestScheduledSendId ||
-            ["PENDING", "PROCESSING"].includes(row.reminderStatus),
-        )
-        .map((row) => (
-          <div
-            key={row.id}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
+      {scheduledRows.map((row) => (
+        <div
+          key={row.id}
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
+        >
+          <p
+            role="status"
+            className="flex items-center gap-2 font-medium text-foreground"
           >
-            <p
-              role="status"
-              className="flex items-center gap-2 font-medium text-foreground"
-            >
-              <DeliveryIcon status={row.status.toLowerCase()} />
-              {scheduledDeliveryLabel(row)}
+            <DeliveryIcon status={row.status.toLowerCase()} />
+            {scheduledDeliveryLabel(row)}
+          </p>
+          {row.error && (
+            <p className="order-last basis-full pl-5 text-destructive">
+              {row.error}
             </p>
-            {row.error && (
-              <p className="order-last basis-full pl-5 text-destructive">
-                {row.error}
+          )}
+          {row.remindAt &&
+            ["PENDING", "PROCESSING"].includes(row.reminderStatus) && (
+              <p className="order-last basis-full pl-5 text-muted-foreground">
+                Remind me {formatTime(row.remindAt)} if no reply.
               </p>
             )}
-            {row.remindAt &&
-              ["PENDING", "PROCESSING"].includes(row.reminderStatus) && (
-                <p className="order-last basis-full pl-5 text-muted-foreground">
-                  Remind me {formatTime(row.remindAt)} if no reply.
-                </p>
-              )}
-            <div className="contents">
-              {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                <InlineActionButton
-                  disabled={busy || !online}
-                  onClick={() =>
-                    act(() =>
-                      scheduledAction(cancelScheduledEmailAction, row.id),
-                    )
-                  }
-                >
-                  Cancel send
-                </InlineActionButton>
-              )}
-              {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                <InlineActionButton
-                  disabled={busy || !online}
-                  onClick={() =>
-                    act(() =>
-                      scheduledAction(retryScheduledEmailAction, row.id),
-                    )
-                  }
-                >
-                  Retry send
-                </InlineActionButton>
-              )}
-              {row.reminderStatus === "PENDING" && (
-                <InlineActionButton
-                  disabled={busy || !online}
-                  onClick={() =>
-                    act(() =>
-                      scheduledAction(cancelEmailReminderAction, row.id),
-                    )
-                  }
-                >
-                  Cancel reminder
-                </InlineActionButton>
-              )}
-              {row.status === "UNCERTAIN" && (
-                <a
-                  className="underline underline-offset-4"
-                  href={`/${emailAccountId}/mail?type=sent`}
-                >
-                  Check Sent
-                </a>
-              )}
-            </div>
+          <div className="contents">
+            {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
+              <InlineActionButton
+                disabled={busy || !online}
+                onClick={() =>
+                  act(() => scheduledAction(cancelScheduledEmailAction, row.id))
+                }
+              >
+                Cancel send
+              </InlineActionButton>
+            )}
+            {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
+              <InlineActionButton
+                disabled={busy || !online}
+                onClick={() =>
+                  act(() => scheduledAction(retryScheduledEmailAction, row.id))
+                }
+              >
+                Retry send
+              </InlineActionButton>
+            )}
+            {row.reminderStatus === "PENDING" && (
+              <InlineActionButton
+                disabled={busy || !online}
+                onClick={() =>
+                  act(() => scheduledAction(cancelEmailReminderAction, row.id))
+                }
+              >
+                Cancel reminder
+              </InlineActionButton>
+            )}
+            {row.status === "UNCERTAIN" && (
+              <a
+                className="underline underline-offset-4"
+                href={`/${emailAccountId}/mail?type=sent`}
+              >
+                Check Sent
+              </a>
+            )}
           </div>
-        ))}
-      {!online && (
+        </div>
+      ))}
+      {!online && scheduledRows.length > 0 && (
         <p role="status" className="text-muted-foreground text-xs">
-          {data
-            ? "Offline — showing the last known scheduled reply status."
-            : "Offline — scheduled reply status is unavailable."}
+          Offline. Showing the last known status.
         </p>
       )}
-      {online && error && (
+      {online && error && scheduledRows.length > 0 && (
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
-          <p role="status">
-            {data
-              ? "Could not refresh scheduled replies. Showing the last known status."
-              : "Scheduled reply status is unavailable."}
-          </p>
+          <p role="status">Could not refresh. Showing the last known status.</p>
           <InlineActionButton
             disabled={isValidating}
             onClick={() => mutate().catch(() => undefined)}
           >
-            Retry scheduled status
+            Retry
           </InlineActionButton>
         </div>
       )}
