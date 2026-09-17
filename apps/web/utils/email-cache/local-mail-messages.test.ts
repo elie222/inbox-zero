@@ -175,12 +175,63 @@ describe("canonical mail freshness", () => {
       await db.get("localMailMessages", [accountId, "message-2"]),
     ).toBeUndefined();
   });
+  it("keeps compact metadata for old mail without duplicating its body", async () => {
+    const db = (await getEmailCacheDatabase())!;
+    await store(
+      [
+        {
+          ...message("historical"),
+          date: "2001-01-01",
+          internalDate: "978307200000",
+          textPlain: "retained body",
+          textHtml: "<p>retained body</p>",
+        },
+      ],
+      100,
+    );
+    const compact = await db.get("mailboxMessages", [accountId, "historical"]);
+    expect(compact?.receivedAt).toBe(978_307_200_000);
+    expect(compact?.data.textPlain).toBeUndefined();
+    expect(compact?.data.textHtml).toBeUndefined();
+    expect(
+      (await db.get("localMailMessages", [accountId, "historical"]))?.data
+        .textPlain,
+    ).toBe("retained body");
+    await detail([], 200, "drafts:1|replies:0");
+    expect(
+      await db.get("mailboxMessages", [accountId, "historical"]),
+    ).toBeUndefined();
+  });
+
+  it("repairs stale projection writes using newer canonical metadata", async () => {
+    const db = (await getEmailCacheDatabase())!;
+    await store([message("message-1", ["STARRED"])], 300);
+    const tx = db.transaction(
+      [
+        "mailboxMessages",
+        "localMailMessages",
+        "localMailTombstones",
+        "searchIndexAccounts",
+        "searchIndexWork",
+      ],
+      "readwrite",
+    );
+    await tx.objectStore("mailboxMessages").delete([accountId, "message-1"]);
+    await deleteLocalMailMessages(tx, accountId, ["message-1"], 200);
+    await tx.done;
+    await store([message("message-1", ["UNREAD"])], 100);
+    expect(
+      (await db.get("mailboxMessages", [accountId, "message-1"]))?.data
+        .labelIds,
+    ).toEqual(["STARRED"]);
+  });
 });
 
 async function store(messages: ParsedMessage[], fetchedAt: number) {
   const db = (await getEmailCacheDatabase())!;
   const tx = db.transaction(
     [
+      "mailboxMessages",
       "localMailMessages",
       "localMailTombstones",
       "searchIndexAccounts",

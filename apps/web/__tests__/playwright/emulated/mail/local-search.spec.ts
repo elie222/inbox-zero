@@ -291,10 +291,12 @@ async function seedSearchCache(
           const account = tx.objectStore("searchIndexAccounts").get(accountId);
           account.onsuccess = () => {
             if (!account.result)
+              // Seeding an older source version would make the runtime migrate
+              // the account on its first tick, discarding the rows below.
               tx.objectStore("searchIndexAccounts").put({
                 emailAccountId: accountId,
                 generation: crypto.randomUUID(),
-                sourceVersion: 1,
+                sourceVersion: 2,
               });
             tx.objectStore("localMailMessages").put({
               emailAccountId: accountId,

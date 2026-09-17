@@ -7,20 +7,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLabelCounts } from "./useLabelCounts";
 
 const mailbox = vi.hoisted(() => {
-  const listeners = new Set<(emailAccountId: string) => void>();
+  const listeners = new Set<
+    (emailAccountId: string, options?: { refreshCounts?: boolean }) => void
+  >();
   return {
-    emit(emailAccountId: string) {
-      for (const listener of listeners) listener(emailAccountId);
+    emit(emailAccountId: string, options?: { refreshCounts?: boolean }) {
+      for (const listener of listeners) listener(emailAccountId, options);
     },
     reset() {
       listeners.clear();
     },
-    subscribe: vi.fn((listener: (emailAccountId: string) => void) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    }),
+    subscribe: vi.fn(
+      (
+        listener: (
+          emailAccountId: string,
+          options?: { refreshCounts?: boolean },
+        ) => void,
+      ) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    ),
   };
 });
 
@@ -56,6 +65,9 @@ describe("useLabelCounts", () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
 
     act(() => mailbox.emit("account-2"));
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    act(() => mailbox.emit("account-1", { refreshCounts: false }));
     expect(fetcher).toHaveBeenCalledOnce();
 
     act(() => mailbox.emit("account-1"));

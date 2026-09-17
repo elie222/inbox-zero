@@ -10,14 +10,14 @@ import { MailboxSyncManager } from "./MailboxSyncManager";
 
 const accounts = vi.hoisted(() => ({ useAccounts: vi.fn() }));
 const activeAccount = vi.hoisted(() => ({ emailAccountId: "account-2" }));
-const mailboxSync = vi.hoisted(() => ({ useMailboxSync: vi.fn() }));
+const mailboxSync = vi.hoisted(() => ({ useLocalMailSync: vi.fn() }));
 
 vi.mock("@/hooks/useAccounts", () => ({ useAccounts: accounts.useAccounts }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => activeAccount,
 }));
-vi.mock("@/app/(app)/[emailAccountId]/mail/use-mailbox-sync", () => ({
-  useMailboxSync: mailboxSync.useMailboxSync,
+vi.mock("@/hooks/useLocalMailSync", () => ({
+  useLocalMailSync: mailboxSync.useLocalMailSync,
 }));
 
 describe("MailboxSyncManager", () => {
@@ -43,8 +43,8 @@ describe("MailboxSyncManager", () => {
   it("does not enable background downloads for assistant-only users", () => {
     render(<MailboxSyncManager />);
 
-    expect(mailboxSync.useMailboxSync).toHaveBeenCalledTimes(2);
-    for (const [options] of mailboxSync.useMailboxSync.mock.calls) {
+    expect(mailboxSync.useLocalMailSync).toHaveBeenCalledTimes(2);
+    for (const [options] of mailboxSync.useLocalMailSync.mock.calls) {
       expect(options.enabled).toBe(false);
     }
   });
@@ -55,13 +55,13 @@ describe("MailboxSyncManager", () => {
     activateMailSync("disconnected-account");
     render(<MailboxSyncManager />);
 
-    expect(mailboxSync.useMailboxSync).toHaveBeenCalledTimes(2);
-    expect(mailboxSync.useMailboxSync).toHaveBeenNthCalledWith(1, {
+    expect(mailboxSync.useLocalMailSync).toHaveBeenCalledTimes(2);
+    expect(mailboxSync.useLocalMailSync).toHaveBeenNthCalledWith(1, {
       emailAccountId: "account-2",
       enabled: true,
       priority: true,
     });
-    expect(mailboxSync.useMailboxSync).toHaveBeenNthCalledWith(2, {
+    expect(mailboxSync.useLocalMailSync).toHaveBeenNthCalledWith(2, {
       emailAccountId: "account-1",
       enabled: true,
       priority: false,
@@ -70,20 +70,20 @@ describe("MailboxSyncManager", () => {
 
   it("starts only a newly activated account and stops after local cleanup", () => {
     render(<MailboxSyncManager />);
-    mailboxSync.useMailboxSync.mockClear();
+    mailboxSync.useLocalMailSync.mockClear();
 
     act(() => activateMailSync("account-1"));
-    expect(mailboxSync.useMailboxSync).toHaveBeenLastCalledWith({
+    expect(mailboxSync.useLocalMailSync).toHaveBeenLastCalledWith({
       emailAccountId: "account-1",
       enabled: true,
       priority: false,
     });
-    expect(mailboxSync.useMailboxSync).not.toHaveBeenCalledWith(
+    expect(mailboxSync.useLocalMailSync).not.toHaveBeenCalledWith(
       expect.objectContaining({ emailAccountId: "account-2", enabled: true }),
     );
 
     act(() => clearMailActivation("account-1"));
-    expect(mailboxSync.useMailboxSync).toHaveBeenLastCalledWith({
+    expect(mailboxSync.useLocalMailSync).toHaveBeenLastCalledWith({
       emailAccountId: "account-1",
       enabled: false,
       priority: false,
@@ -93,7 +93,7 @@ describe("MailboxSyncManager", () => {
   it("does not reuse activation for a different signed-in account", () => {
     activateMailSync("previous-account");
     render(<MailboxSyncManager />);
-    for (const [options] of mailboxSync.useMailboxSync.mock.calls) {
+    for (const [options] of mailboxSync.useLocalMailSync.mock.calls) {
       expect(options.enabled).toBe(false);
     }
   });

@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getMockMessage } from "@/__tests__/helpers";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { readMailboxSyncState } from "./mailbox";
@@ -39,24 +40,28 @@ describe("mailbox sync coordinator", () => {
         reset: true,
         upsertedMessages: [
           {
+            ...getMockMessage(),
             id: "new",
             threadId: "t1",
             internalDate: "1000",
             labelIds: ["INBOX", "UNREAD"],
           },
           {
+            ...getMockMessage(),
             id: "read",
             threadId: "t2",
             internalDate: "1000",
             labelIds: ["INBOX"],
           },
           {
+            ...getMockMessage(),
             id: "archived",
             threadId: "t3",
             internalDate: "1000",
             labelIds: ["UNREAD"],
           },
           {
+            ...getMockMessage(),
             id: "sent",
             threadId: "t4",
             internalDate: "1000",
@@ -87,6 +92,7 @@ describe("mailbox sync coordinator", () => {
         hasMore: false,
         reset: true,
         upsertedMessages: Array.from({ length: 101 }, (_, index) => ({
+          ...getMockMessage(),
           id: `message-${index}`,
           threadId: `thread-${index}`,
           internalDate: receivedAt,

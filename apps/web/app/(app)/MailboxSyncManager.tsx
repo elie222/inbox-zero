@@ -8,7 +8,7 @@ import {
 import { retainSearchIndex } from "@/utils/email-cache/search-index-service";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
+import { useLocalMailSync } from "@/hooks/useLocalMailSync";
 
 export function MailboxSyncManager() {
   const { data } = useAccounts();
@@ -42,7 +42,7 @@ function MailboxSync({
     () => isMailSyncActivated(emailAccountId),
     () => false,
   );
-  useMailboxSync({ emailAccountId, enabled, priority });
+  useLocalMailSync({ emailAccountId, enabled, priority });
   useEffect(() => {
     if (enabled) return retainSearchIndex(emailAccountId);
   }, [emailAccountId, enabled]);
