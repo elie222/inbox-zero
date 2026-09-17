@@ -227,6 +227,9 @@ function getIframeHtml(
 ) {
   const styleAttributeCount = (html.match(/style=/g) || []).length;
   const hasHeavyStyling = isDesignedHtmlEmail(html);
+  const authoredHtml = hasHeavyStyling
+    ? disableAuthoredDarkColorScheme(html)
+    : html;
 
   // Check for basic text styling that shouldn't prevent dark mode
   const hasMinimalStyling =
@@ -322,10 +325,12 @@ function getIframeHtml(
   // The server can fail closed to the original HTML when proxy signing is unavailable,
   // so only lock CSP to the proxy after the rendered markup actually points at it.
   const imageSourceDirective =
-    imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
+    imageProxyBaseUrl &&
+    imageProxyOrigin &&
+    authoredHtml.includes(imageProxyBaseUrl)
       ? imageProxyOrigin
       : "https:";
-  const localImageSourceDirective = html.includes("blob:")
+  const localImageSourceDirective = authoredHtml.includes("blob:")
     ? "data: blob:"
     : "data:";
 
@@ -371,7 +376,7 @@ function getIframeHtml(
     return content.replace(/<head([^>]*)>/i, `<head$1>${headContent}`);
   }
 
-  const htmlWithHead = wrapWithProperStructure(html);
+  const htmlWithHead = wrapWithProperStructure(authoredHtml);
   return addDarkModeClass(htmlWithHead, isDarkMode);
 }
 
@@ -439,6 +444,16 @@ function shouldApplyDarkEmailTheme(html: string, isDarkMode: boolean) {
   // A dark iframe color-scheme activates those, so the message no longer
   // matches Gmail/Superhuman. Keep that frame light and render as authored.
   return isDarkMode && !isDesignedHtmlEmail(html);
+}
+
+function disableAuthoredDarkColorScheme(html: string) {
+  // Chromium still matches the embedder's prefers-color-scheme inside an
+  // iframe, even when that frame is color-scheme: light. Neutralize the
+  // query so authored dark-mode CSS cannot invert the designed layout.
+  return html.replace(
+    /prefers-color-scheme\s*:\s*dark/gi,
+    "prefers-color-scheme: inbox-zero-authored",
+  );
 }
 
 function addDarkModeClass(html: string, isDarkMode: boolean) {

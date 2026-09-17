@@ -129,6 +129,10 @@ describe("HtmlEmail", () => {
         .querySelector('meta[name="color-scheme"]')
         ?.getAttribute("content"),
     ).toBe("light");
+    expect(iframe.srcdoc).not.toMatch(/prefers-color-scheme\s*:\s*dark/i);
+    expect(iframe.srcdoc).toContain(
+      "prefers-color-scheme: inbox-zero-authored",
+    );
   });
 
   it.each([
