@@ -186,21 +186,15 @@ export async function applyMailboxSyncPage({
   }
 
   if (page.reset) {
-    const incomingIds = new Set(
-      page.upsertedMessages.map((message) => message.id),
-    );
+    // Only the list snapshot resets here. A reset page is one page bounded by
+    // the provider's date window and page size, so a message it omits is not
+    // evidence of deletion, and tombstoning it would also block it from being
+    // stored again. Canonical mail is removed only on reported deletions.
     let resetCursor = await messages
       .index("byAccount")
       .openCursor(emailAccountId);
     while (resetCursor) {
       changedThreadIds.add(resetCursor.value.threadId);
-      if (!incomingIds.has(resetCursor.value.messageId))
-        await deleteLocalMailMessages(
-          transaction,
-          emailAccountId,
-          [resetCursor.value.messageId],
-          now,
-        );
       await resetCursor.delete();
       resetCursor = await resetCursor.continue();
     }
