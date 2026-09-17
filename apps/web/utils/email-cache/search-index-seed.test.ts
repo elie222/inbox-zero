@@ -18,8 +18,8 @@ import { activateMailSync, clearMailActivation } from "./mail-activation";
 import {
   initializeSearchIndexAccount,
   seedSearchIndexWork,
-  SOURCE_VERSION,
 } from "./search-index-seed";
+import { SOURCE_VERSION } from "./search-index-source-version";
 import {
   acknowledgeSearchIndexWork,
   readSearchIndexWork,

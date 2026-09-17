@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { localMailSyncBody } from "@/utils/actions/local-mail-sync.validation";
-import { SOURCE_VERSION } from "@/utils/email-cache/search-index-seed";
+import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";

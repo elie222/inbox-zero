@@ -1,4 +1,4 @@
-import { SOURCE_VERSION } from "./search-index-seed";
+import { SOURCE_VERSION } from "./search-index-source-version";
 // @vitest-environment jsdom
 
 import "fake-indexeddb/auto";

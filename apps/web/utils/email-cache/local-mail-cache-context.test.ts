@@ -8,7 +8,8 @@ import { captureLocalMailCacheContext } from "./local-mail-cache-context";
 import { activateMailSync } from "./mail-activation";
 import { settleMailMutationInCache } from "./mail-mutation-settlement";
 import { applyMailboxSyncPage, markSyncedMailboxThreadsRead } from "./mailbox";
-import { seedSearchIndexWork, SOURCE_VERSION } from "./search-index-seed";
+import { seedSearchIndexWork } from "./search-index-seed";
+import { SOURCE_VERSION } from "./search-index-source-version";
 import { writeCachedThreadList, writeCachedThreadRows } from "./thread-lists";
 import { writeCachedThreadDetail } from "./threads";
 

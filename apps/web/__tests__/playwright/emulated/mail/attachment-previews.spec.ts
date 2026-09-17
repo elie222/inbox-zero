@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { SOURCE_VERSION } from "@/utils/email-cache/search-index-seed";
+import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("bounds opened attachment previews and reuses them offline", async ({
