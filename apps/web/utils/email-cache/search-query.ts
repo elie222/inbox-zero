@@ -235,7 +235,7 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
     return node.nodes.some((child) => matchesNode(message, child));
   const term = node.term;
   if (term.field === "label") {
-    return term.value === "ARCHIVE"
+    return term.value === ARCHIVE_SEARCH_LABEL
       ? isArchivedLocalMessage(message.labelIds)
       : (message.labelIds?.includes(term.value) ?? false);
   }
@@ -252,14 +252,18 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
 }
 
 function isArchivedLocalMessage(labelIds: string[] | undefined) {
-  if (labelIds?.includes("ARCHIVE")) return true;
+  if (labelIds?.includes(ARCHIVE_SEARCH_LABEL)) return true;
   if (!labelIds?.length) return false;
   return !LIVE_MAILBOX_LABELS.some((label) => labelIds.includes(label));
 }
 
+/** Outlook stores a real archive label; Gmail has none, so the index cannot
+ *  select archived mail by token and must fall back to an exact check. */
+export const ARCHIVE_SEARCH_LABEL = "ARCHIVE";
 const LOCATION_FIELDS = new Set(["in", "is", "label", "category"]);
 const NAMED_LABEL_FIELDS = new Set(["label", "category"]);
-const LIVE_MAILBOX_LABELS = ["INBOX", "SENT", "DRAFT", "SPAM", "TRASH"];
+/** A message in none of these is archived, which is how Gmail represents it. */
+export const LIVE_MAILBOX_LABELS = ["INBOX", "SENT", "DRAFT", "SPAM", "TRASH"];
 const SYSTEM_SEARCH_LABELS: Record<string, string> = {
   inbox: "INBOX",
   sent: "SENT",
@@ -269,7 +273,7 @@ const SYSTEM_SEARCH_LABELS: Record<string, string> = {
   junk: "SPAM",
   trash: "TRASH",
   deleted: "TRASH",
-  archive: "ARCHIVE",
+  archive: ARCHIVE_SEARCH_LABEL,
   unread: "UNREAD",
   starred: "STARRED",
   flagged: "STARRED",

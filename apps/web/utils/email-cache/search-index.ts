@@ -1,6 +1,8 @@
 import type { BindingSpec, Database } from "@sqlite.org/sqlite-wasm";
 import {
+  ARCHIVE_SEARCH_LABEL,
   getNormalizedSearchText,
+  LIVE_MAILBOX_LABELS,
   parseLocalSearch,
   type SearchMessage,
   type SearchNode,
@@ -629,7 +631,8 @@ function compileMatch(
   const term = node.term;
   if (term.field === "after" || term.field === "before") return;
   if (term.field === "label") {
-    if (!options.labels) return;
+    // Archived Gmail mail carries no label of its own, so no token selects it.
+    if (!options.labels || term.value === ARCHIVE_SEARCH_LABEL) return;
     const identity = options.long
       ? encodeLongIdentity("l", term.value)
       : encodeIdentity("l", term.value);
@@ -657,12 +660,27 @@ function compileChecks(
     return `(${node.nodes.map((child) => compileChecks(child, values)).join(separator)})`;
   }
   const term = node.term;
-  values.push(term.value);
-  if (term.field === "after" || term.field === "before")
+  if (term.field === "after" || term.field === "before") {
+    values.push(term.value);
     return `d.received${term.field === "after" ? ">" : "<"}?`;
-  if (term.field === "label")
+  }
+  if (term.field === "label") {
+    if (term.value === ARCHIVE_SEARCH_LABEL) return compileArchived(values);
+    values.push(term.value);
     return "EXISTS (SELECT 1 FROM json_each(d.labels) WHERE value=?)";
+  }
+  values.push(term.value);
   return `instr(d.${getSearchColumn(term.field)},?)>0`;
+}
+
+/** The SQL counterpart of `isArchivedLocalMessage`. Both read the same label
+ *  lists so the two search paths cannot answer `in:archive` differently. */
+function compileArchived(values: (string | number | bigint)[]) {
+  values.push(ARCHIVE_SEARCH_LABEL, ...LIVE_MAILBOX_LABELS);
+  const live = LIVE_MAILBOX_LABELS.map(() => "?").join(",");
+  return `(EXISTS (SELECT 1 FROM json_each(d.labels) WHERE value=?)
+      OR (json_array_length(d.labels)>0
+        AND NOT EXISTS (SELECT 1 FROM json_each(d.labels) WHERE value IN (${live}))))`;
 }
 
 function getSearchColumn(

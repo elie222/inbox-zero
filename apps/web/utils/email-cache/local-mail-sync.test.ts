@@ -806,7 +806,9 @@ describe("local mail ownership and storage", () => {
     expect(
       (await readLocalMailSyncState(emailAccountId))?.coverage,
     ).toBeDefined();
-  });
+    // 205 seeded records across five sweeps take well under a second alone, but
+    // the default 5s bound is reached when parallel suites starve this worker.
+  }, 20_000);
   it("rolls back messages and hydration checkpoint when combined account bytes exceed capacity", async () => {
     await initializeGmail();
     const database = (await getEmailCacheDatabase())!;

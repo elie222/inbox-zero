@@ -1,7 +1,11 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createSearchIndex } from "./search-index";
-import type { SearchMessage } from "./search-query";
+import {
+  matchesLocalSearch,
+  parseLocalSearch,
+  type SearchMessage,
+} from "./search-query";
 
 const emailAccountId = "account-1";
 const generation = "generation-1";
@@ -164,5 +168,33 @@ describe("boolean queries against the local index", () => {
     expect(search("-in:trash quarterly", hidden)).toEqual([]);
     expect(search("-in:spam quarterly", hidden)).toEqual([]);
     expect(search("in:spam quarterly", hidden)).toEqual(["spam"]);
+  });
+  // `in:archive` has no label of its own on Gmail, so the index cannot answer
+  // it by token. Both paths must still agree, or the answer depends on which
+  // one happens to serve the query.
+  it.each([
+    { name: "Gmail archived", labelIds: ["UNREAD"], archived: true },
+    {
+      name: "Outlook archived",
+      labelIds: ["ARCHIVE", "UNREAD"],
+      archived: true,
+    },
+    { name: "inbox", labelIds: ["INBOX"], archived: false },
+    { name: "sent", labelIds: ["SENT"], archived: false },
+    { name: "draft", labelIds: ["DRAFT"], archived: false },
+    { name: "unlabelled", labelIds: [], archived: false },
+  ])("answers in:archive the same way for $name mail", (scenario) => {
+    const record = message("only", {
+      from: "alice@example.com",
+      subject: "Quarterly report",
+      body: "The forecast is ready",
+      labelIds: scenario.labelIds,
+    });
+    expect(search("in:archive", [record])).toEqual(
+      scenario.archived ? ["only"] : [],
+    );
+    expect(
+      matchesLocalSearch(record, parseLocalSearch("in:archive", [])!),
+    ).toBe(scenario.archived);
   });
 });
