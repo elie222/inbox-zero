@@ -27,6 +27,36 @@ export function getPosthogLlmClient() {
   return posthogLlmClient;
 }
 
+const FEATURE_FLAG_TIMEOUT_MS = 2000;
+
+// Server-side experiment lookup. Keyed by the same distinct id the browser
+// identifies with (the user's email) so assignment and exposure line up with
+// client-side flag calls. Falls back to undefined on any failure or timeout so
+// a PostHog outage never blocks a page.
+export async function getServerFeatureFlagVariant({
+  key,
+  distinctId,
+}: {
+  key: string;
+  distinctId: string;
+}): Promise<string | undefined> {
+  const client = getPosthogLlmClient();
+  if (!client) return;
+
+  try {
+    const variant = await Promise.race([
+      client.getFeatureFlag(key, distinctId),
+      new Promise<undefined>((resolve) =>
+        setTimeout(resolve, FEATURE_FLAG_TIMEOUT_MS),
+      ),
+    ]);
+    return typeof variant === "string" ? variant : undefined;
+  } catch (error) {
+    logger.warn("Failed to evaluate feature flag", { key, error });
+    return;
+  }
+}
+
 export function isPosthogLlmEvalApproved(email: string) {
   if (env.NODE_ENV !== "development") return false;
 

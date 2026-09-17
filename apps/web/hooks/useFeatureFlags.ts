@@ -110,13 +110,3 @@ export function useOnboardingChatVariant() {
     "control"
   );
 }
-
-export type OnboardingPaywallVariant = "control" | "paywall-first";
-
-export function useOnboardingPaywallVariant() {
-  return (
-    (useFeatureFlagVariantKey(
-      "onboarding-paywall-first",
-    ) as OnboardingPaywallVariant) || "control"
-  );
-}

@@ -7,8 +7,12 @@ import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
 } from "@/components/ConversionAnalytics";
+import { PAYWALL_FIRST_UPGRADE_PATH } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import { shouldShowPaywallFirst } from "@/app/(app)/[emailAccountId]/onboarding/paywallFirst";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
+import prisma from "@/utils/prisma";
+import { isPremiumRecord, premiumEntitlementSelect } from "@/utils/premium";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
 
 export const maxDuration = 300;
@@ -38,13 +42,33 @@ export default async function OnboardingPage(props: {
   const variant = getSingleSearchParamValue(searchParams.variant);
   const paywallFirst = getSingleSearchParamValue(searchParams.paywallFirst);
 
-  const utmValues = registerUtmTracking({
-    authPromise: auth(),
-    cookieStore,
-  });
+  const authPromise = auth();
+  const utmValues = registerUtmTracking({ authPromise, cookieStore });
 
   if (utmValues.utmSource === "briefmymeeting" && !force && !step) {
     redirect(`/${emailAccountId}/onboarding-brief`);
+  }
+
+  const session = await authPromise;
+  const user = session?.user
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          email: true,
+          premium: { select: premiumEntitlementSelect },
+        },
+      })
+    : null;
+
+  if (
+    user &&
+    (await shouldShowPaywallFirst({
+      email: user.email,
+      isPremium: isPremiumRecord(user.premium),
+      forced: paywallFirst,
+    }))
+  ) {
+    redirect(PAYWALL_FIRST_UPGRADE_PATH);
   }
 
   return (
@@ -54,11 +78,7 @@ export default async function OnboardingPage(props: {
       </Suspense>
       <ConversionAnalyticsScript />
       <Suspense>
-        <Onboarding
-          step={step}
-          forcedVariant={variant}
-          forcedPaywallFirst={paywallFirst}
-        />
+        <Onboarding step={step} forcedVariant={variant} />
       </Suspense>
     </>
   );

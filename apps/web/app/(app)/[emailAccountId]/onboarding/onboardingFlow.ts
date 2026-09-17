@@ -1,6 +1,5 @@
 import { prefixPath } from "@/utils/path";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
-import type { OnboardingPaywallVariant } from "@/hooks/useFeatureFlags";
 import { CHECKOUT_RETURN_TO_PARAM } from "@/utils/actions/premium.validation";
 
 export const PAYWALL_FIRST_UPGRADE_PATH = `/welcome-upgrade?${CHECKOUT_RETURN_TO_PARAM}=onboarding`;
@@ -133,23 +132,6 @@ export function getOnboardingStepIndex(
 
   const stepIndex = visibleStepKeys.indexOf(stepParam as StepKey);
   return stepIndex === -1 ? 0 : stepIndex;
-}
-
-// The paywall-first experiment arm shows pricing before any onboarding step.
-// Control users always enter the flow directly; their upgrade prompt comes
-// after onboarding completes.
-export function getOnboardingEntry({
-  paywallVariant,
-  isPremium,
-  isPremiumLoading,
-}: {
-  paywallVariant: OnboardingPaywallVariant;
-  isPremium: boolean;
-  isPremiumLoading: boolean;
-}): "flow" | "paywall" | "pending" {
-  if (paywallVariant !== "paywall-first") return "flow";
-  if (isPremiumLoading) return "pending";
-  return isPremium ? "flow" : "paywall";
 }
 
 export function isOptionalOnboardingStep(stepKey: StepKey) {
