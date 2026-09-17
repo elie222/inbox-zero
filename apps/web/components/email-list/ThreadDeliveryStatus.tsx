@@ -85,13 +85,15 @@ export function ThreadDeliveryStatus({
       }),
     [refreshOutbox],
   );
-  const { data, error, mutate } = useSWR<ScheduledEmailsResponse>(
+  const { data, error, isValidating, mutate } = useSWR<ScheduledEmailsResponse>(
     [
       `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
       emailAccountId,
     ],
     {
+      isPaused: () => !navigator.onLine,
       refreshInterval: (current) => {
+        if (!online) return 0;
         const rows = current?.scheduledEmails ?? [];
         if (
           rows.some(
@@ -320,7 +322,7 @@ export function ThreadDeliveryStatus({
             <div className="contents">
               {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <InlineActionButton
-                  disabled={busy}
+                  disabled={busy || !online}
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelScheduledEmailAction, row.id),
@@ -332,7 +334,7 @@ export function ThreadDeliveryStatus({
               )}
               {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <InlineActionButton
-                  disabled={busy}
+                  disabled={busy || !online}
                   onClick={() =>
                     act(() =>
                       scheduledAction(retryScheduledEmailAction, row.id),
@@ -344,7 +346,7 @@ export function ThreadDeliveryStatus({
               )}
               {row.reminderStatus === "PENDING" && (
                 <InlineActionButton
-                  disabled={busy}
+                  disabled={busy || !online}
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelEmailReminderAction, row.id),
@@ -365,9 +367,31 @@ export function ThreadDeliveryStatus({
             </div>
           </div>
         ))}
-      {(actionError || error) && (
+      {!online && (
+        <p role="status" className="text-muted-foreground text-xs">
+          {data
+            ? "Offline — showing the last known scheduled reply status."
+            : "Offline — scheduled reply status is unavailable."}
+        </p>
+      )}
+      {online && error && (
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <p role="status">
+            {data
+              ? "Could not refresh scheduled replies. Showing the last known status."
+              : "Scheduled reply status is unavailable."}
+          </p>
+          <InlineActionButton
+            disabled={isValidating}
+            onClick={() => mutate().catch(() => undefined)}
+          >
+            Retry scheduled status
+          </InlineActionButton>
+        </div>
+      )}
+      {actionError && (
         <p role="alert" className="text-destructive text-xs">
-          {actionError || "Could not load scheduled replies."}
+          {actionError}
         </p>
       )}
     </section>

@@ -1,3 +1,4 @@
+import { bootstrapLocalMailStorageLedgerBatch } from "@/utils/email-cache/local-mail-storage-ledger-bootstrap";
 import { createSearchIndexClient } from "@/utils/email-cache/search-index-client";
 import { getEmailCacheDatabase } from "@/utils/email-cache/database";
 import {
@@ -10,9 +11,26 @@ const client = createSearchIndexClient();
 Object.assign(window, {
   indexClientTest: {
     client,
+    async storageLedger() {
+      return (
+        await (await requireDatabase()).get("localMailStorageLedger", "origin")
+      )?.index;
+    },
     async activate() {
       activateMailSync(scope.emailAccountId);
       await (await requireDatabase()).put("searchIndexAccounts", scope);
+      while ((await bootstrapLocalMailStorageLedgerBatch()) === "progress") {}
+    },
+    async blockStorage() {
+      const database = await requireDatabase();
+      const ledger = (await database.get("localMailStorageLedger", "origin"))!;
+      ledger.stores.threadRows.bytes = 1024 ** 3;
+      await database.put("localMailStorageLedger", ledger);
+    },
+    async restoreStorage() {
+      const database = await requireDatabase();
+      await database.delete("localMailStorageLedger", "origin");
+      while ((await bootstrapLocalMailStorageLedgerBatch()) === "progress") {}
     },
     async removeSource() {
       clearMailActivation(scope.emailAccountId);

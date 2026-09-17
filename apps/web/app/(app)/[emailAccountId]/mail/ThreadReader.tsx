@@ -48,10 +48,17 @@ export type ThreadReaderProps = {
   loading: boolean;
   error?: ComponentProps<typeof LoadingContent>["error"];
   /**
-   * The open thread's full messages. The list payload has no bodies, so this
-   * arrives from a second fetch; the header renders before it lands.
+   * Messages currently available to the reader, including partial local pages.
    */
   messages: ThreadMessage[];
+  localAvailability?: {
+    missingBodyIds: Set<string>;
+    hasMore: boolean;
+    loadingMore: boolean;
+    loadMore: () => unknown;
+    refreshing: boolean;
+    providerConfirmed: boolean;
+  };
   userLabels: EmailLabels;
   layout: MailLayoutMode;
   labelHref: (labelId: string) => string;
@@ -84,6 +91,7 @@ export function ThreadReader({
   loading,
   error,
   messages,
+  localAvailability,
   userLabels,
   layout,
   labelHref,
@@ -108,7 +116,7 @@ export function ThreadReader({
   const [readerRef, readerWidth] = useElementWidth();
   const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
 
-  if (error || !headerMessage) {
+  if (error || (!headerMessage && !localAvailability)) {
     return (
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
@@ -138,7 +146,7 @@ export function ThreadReader({
 
   const labels =
     getEmailMessageCellLabels({
-      labelIds: headerMessage.labelIds,
+      labelIds: headerMessage?.labelIds,
       userLabels,
     }) ?? [];
 
@@ -159,7 +167,7 @@ export function ThreadReader({
       onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      subject={headerMessage.headers.subject}
+      subject={headerMessage?.headers.subject ?? "Conversation"}
     />
   );
 
@@ -173,6 +181,38 @@ export function ThreadReader({
         data-testid="thread-reader"
       >
         <div className={readerMeasure({ layout })}>
+          {localAvailability && !localAvailability.providerConfirmed && (
+            <div
+              className="mb-3 flex items-center justify-between gap-3 text-muted-foreground text-sm"
+              role="status"
+            >
+              <span>
+                {localAvailability.refreshing
+                  ? "Checking for more messages…"
+                  : "Showing downloaded messages. This conversation may be incomplete."}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={localAvailability.refreshing}
+                onClick={refetch}
+              >
+                Refresh
+              </Button>
+            </div>
+          )}
+          {localAvailability?.hasMore && (
+            <Button
+              className="mb-4"
+              variant="outline"
+              disabled={localAvailability.loadingMore}
+              onClick={() => localAvailability.loadMore()}
+            >
+              {localAvailability.loadingMore
+                ? "Loading messages…"
+                : "Load older downloaded messages"}
+            </Button>
+          )}
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}
@@ -182,6 +222,7 @@ export function ThreadReader({
               autoOpenForwardForMessageId={autoOpenForwardForMessageId}
               key={threadId}
               messages={messages}
+              missingBodyIds={localAvailability?.missingBodyIds}
               onMarkDone={onArchive}
               onOpenSenderContext={(message) => {
                 const senderEmail = extractEmailAddress(message.headers.from);

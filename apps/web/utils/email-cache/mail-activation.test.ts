@@ -6,6 +6,7 @@ import {
   clearMailActivation,
   isMailSyncActivated,
   subscribeToMailActivation,
+  setMailSyncEnabled,
 } from "./mail-activation";
 
 describe("device-local mail activation", () => {
@@ -17,6 +18,28 @@ describe("device-local mail activation", () => {
     activateMailSync("account-1");
     expect(isMailSyncActivated("account-1")).toBe(true);
     expect(isMailSyncActivated("account-2")).toBe(false);
+  });
+
+  it("keeps explicitly disabled sync off on later Mail visits until enabled", () => {
+    activateMailSync("account-1");
+    activateMailSync("account-2");
+    setMailSyncEnabled("account-1", false);
+    activateMailSync("account-1");
+    expect(isMailSyncActivated("account-1")).toBe(false);
+    expect(isMailSyncActivated("account-2")).toBe(true);
+    setMailSyncEnabled("account-1", true);
+    expect(isMailSyncActivated("account-1")).toBe(true);
+  });
+
+  it("reports an unsaved explicit preference instead of claiming it changed", () => {
+    activateMailSync("account-1");
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    expect(() => setMailSyncEnabled("account-1", false)).toThrow(
+      "Storage unavailable",
+    );
+    expect(isMailSyncActivated("account-1")).toBe(true);
   });
 
   it("does not overwrite another account's activation", () => {

@@ -1,3 +1,6 @@
+import { bootstrapLocalMailStorageLedgerBatch } from "./local-mail-storage-ledger-bootstrap";
+import { localMailRecordBytes } from "./local-mail-storage-ledger";
+import { installMailCacheStorageTestEnvironment } from "./optional-cache-write.test-helpers";
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -13,6 +16,8 @@ import {
 } from "./mailbox-sync-job";
 import { syncMailboxPages } from "./mailbox-sync";
 
+installMailCacheStorageTestEnvironment();
+
 describe("durable mailbox sync ownership", () => {
   beforeEach(async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000_000);
@@ -20,6 +25,25 @@ describe("durable mailbox sync ownership", () => {
     await clearEmailCache();
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("accounts lease claims, renewals, and completion exactly", async () => {
+    while ((await bootstrapLocalMailStorageLedgerBatch()) === "progress") {}
+    const db = (await getEmailCacheDatabase())!;
+    const assertBytes = async () => {
+      const rows = await db.getAll("mailboxSyncJobs");
+      expect(
+        (await db.get("localMailStorageLedger", "origin"))?.stores
+          .mailboxSyncJobs.bytes,
+      ).toBe(rows.reduce((sum, row) => sum + localMailRecordBytes(row), 0));
+    };
+    const token = (await claimMailboxSyncJob("account"))!;
+    await assertBytes();
+    vi.mocked(Date.now).mockReturnValue(1_010_000);
+    expect(await renewMailboxSyncJob("account", token)).toBe(true);
+    await assertBytes();
+    await finishMailboxSyncJob("account", token, { hasMore: false });
+    await assertBytes();
+  });
 
   it("allows only one owner across independent callers", async () => {
     const claims = await Promise.allSettled([

@@ -1,3 +1,4 @@
+import { installMailCacheStorageTestEnvironment } from "./optional-cache-write.test-helpers";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -21,6 +22,8 @@ vi.mock("./policy", async (importOriginal) => ({
 const accounts = [{ id: "account-a", labels: [] }];
 const search = (query: string, mutations: MailMutation[] = []) =>
   searchCachedMail({ query, accounts, mutations });
+installMailCacheStorageTestEnvironment();
+
 beforeEach(async () => {
   await clearEmailCache();
 });

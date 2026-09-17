@@ -1,4 +1,4 @@
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { readLocalMailSettings } from "./local-mail-settings";
 
 const MIB = 1024 * 1024;
 const DEFAULT_BATCH_HEADROOM_BYTES = 16 * MIB;
@@ -9,6 +9,7 @@ export type LocalMailStorageAdmission = {
   usageBytes?: number;
   budgetBytes: number;
   backfillLimitBytes: number;
+  limitBytes: number;
   remainingBytes: number;
 };
 
@@ -19,16 +20,21 @@ export class LocalMailStorageBusyError extends Error {
   }
 }
 
-export function withLocalMailStorageLock<T>(commit: () => Promise<T>) {
+export function withLocalMailStorageLock<T>(
+  commit: () => Promise<T>,
+  options?: { wait?: boolean; signal?: AbortSignal },
+) {
+  options?.signal?.throwIfAborted();
   if (typeof navigator === "undefined" || !navigator.locks?.request)
     return Promise.reject(
       new Error("Local mail storage coordination unavailable"),
     );
   return navigator.locks.request(
     "inbox-zero:local-mail-storage",
-    { ifAvailable: true },
+    options?.wait ? { signal: options.signal } : { ifAvailable: true },
     (lock) => {
       if (!lock) throw new LocalMailStorageBusyError();
+      options?.signal?.throwIfAborted();
       return commit();
     },
   );
@@ -37,27 +43,31 @@ export function withLocalMailStorageLock<T>(commit: () => Promise<T>) {
 export async function readLocalMailStorageAdmission(options?: {
   budgetBytes?: number;
   expectedGrowthBytes?: number;
+  purpose?: "current" | "backfill";
 }): Promise<LocalMailStorageAdmission> {
-  const desktop = !!getInboxZeroDesktopApp();
   let estimate: StorageEstimate | undefined;
   try {
     estimate = await navigator.storage?.estimate();
   } catch {
     // Unknown headroom must not start speculative historical downloads.
   }
-  return evaluateLocalMailStorageAdmission({ ...options, desktop, estimate });
+  return evaluateLocalMailStorageAdmission({
+    ...options,
+    budgetBytes: options?.budgetBytes ?? readLocalMailSettings().budgetBytes,
+    estimate,
+  });
 }
 
 export function evaluateLocalMailStorageAdmission({
-  desktop,
   estimate,
-  budgetBytes = (desktop ? 2048 : 500) * MIB,
+  budgetBytes,
   expectedGrowthBytes = DEFAULT_BATCH_HEADROOM_BYTES,
+  purpose = "backfill",
 }: {
-  desktop: boolean;
   estimate?: StorageEstimate;
-  budgetBytes?: number;
+  budgetBytes: number;
   expectedGrowthBytes?: number;
+  purpose?: "current" | "backfill";
 }): LocalMailStorageAdmission {
   if (!Number.isSafeInteger(budgetBytes) || budgetBytes <= 0)
     throw new Error("Invalid local mail storage budget");
@@ -79,24 +89,54 @@ export function evaluateLocalMailStorageAdmission({
       reason: "storage-unavailable",
       budgetBytes,
       backfillLimitBytes: 0,
+      limitBytes: 0,
       remainingBytes: 0,
     };
   }
 
-  // Origin usage includes every account, the index, attachments, and other app
-  // caches. Counting all of it conservatively avoids multiplying device limits.
-  const effectiveBudget = Math.floor(Math.min(budgetBytes, quota * 0.8));
-  const reserve = Math.max(32 * MIB, effectiveBudget * 0.1);
-  const backfillLimitBytes = Math.max(0, Math.floor(effectiveBudget - reserve));
-  const remainingBytes = Math.max(0, backfillLimitBytes - usage);
+  const limits = localMailLogicalLimitBytes({
+    purpose,
+    budgetBytes,
+    quotaBytes: quota,
+  });
+  const remainingBytes = Math.max(0, limits.limitBytes - usage);
   const allowed =
-    usage < backfillLimitBytes && expectedGrowthBytes <= remainingBytes;
+    usage < limits.limitBytes && expectedGrowthBytes <= remainingBytes;
   return {
     allowed,
     reason: allowed ? "available" : "storage-full",
     usageBytes: usage,
-    budgetBytes: effectiveBudget,
-    backfillLimitBytes,
+    ...limits,
     remainingBytes,
   };
+}
+
+// Every writer charging the shared ledger must stop at the same line, so the
+// reserve arithmetic lives here and nowhere else.
+export function localMailLogicalLimitBytes({
+  purpose,
+  budgetBytes,
+  quotaBytes,
+}: {
+  purpose: "current" | "backfill";
+  budgetBytes: number;
+  quotaBytes?: number;
+}) {
+  // Origin usage includes every account, the index, attachments, and other app
+  // caches. Counting all of it conservatively avoids multiplying device limits.
+  const effectiveBudget = Math.floor(
+    quotaBytes === undefined
+      ? budgetBytes
+      : Math.min(budgetBytes, quotaBytes * 0.8),
+  );
+  const reserve = Math.max(32 * MIB, effectiveBudget * 0.1);
+  const backfillLimitBytes = Math.max(0, Math.floor(effectiveBudget - reserve));
+  // Current mail can use half the reserve; the remainder protects unsent work
+  // and maintenance even after historical downloads have stopped.
+  const protectedReserve = Math.max(16 * MIB, effectiveBudget * 0.05);
+  const limitBytes =
+    purpose === "current"
+      ? Math.max(0, Math.floor(effectiveBudget - protectedReserve))
+      : backfillLimitBytes;
+  return { budgetBytes: effectiveBudget, backfillLimitBytes, limitBytes };
 }

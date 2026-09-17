@@ -12,9 +12,12 @@ const initialized = initSqlite().then(async (sqlite) => {
     directory: ".mail-search-test",
     initialCapacity: 6,
   });
+  const database = new pool.OpfsSAHPoolDb("/test.sqlite");
   return {
-    index: createSearchIndex(new pool.OpfsSAHPoolDb("/test.sqlite")),
+    database,
+    index: createSearchIndex(database),
     sqlite,
+    pool,
   };
 });
 
@@ -22,7 +25,7 @@ self.onmessage = async ({
   data,
 }: MessageEvent<{ command: string; count?: number }>) => {
   try {
-    const { index, sqlite } = await initialized;
+    const { index, sqlite, pool, database } = await initialized;
     if (data.command === "regression") {
       const labels = [{ id: "custom", name: "Work" }];
       const messages = [
@@ -673,6 +676,77 @@ self.onmessage = async ({
       });
       assert(result.messages.length === 1, "persisted reopen");
       self.postMessage({ result: "passed" });
+    } else if (data.command === "reclaim") {
+      const directory = await (
+        await navigator.storage.getDirectory()
+      ).getDirectoryHandle(".mail-search-test");
+      const beforeDelete = await directoryBytes(directory);
+      assert(
+        index.deleteAccount({
+          emailAccountId: "benchmark",
+          generation: "bench",
+        }),
+        "remove benchmark",
+      );
+      const before = await directoryBytes(directory);
+      const first = index.reclaimStorage();
+      assert(first.incrementalVacuum, "new index supports incremental vacuum");
+      assert(
+        first.afterBytes < first.beforeBytes,
+        "bounded vacuum shrinks index",
+      );
+      assert(
+        first.beforeBytes - first.afterBytes <=
+          256 * Number(database.selectValue("PRAGMA page_size")),
+        "bounded vacuum page count",
+      );
+      let result = first;
+      let iterations = 1;
+      while (result.reusableBytes && iterations < 100) {
+        result = index.reclaimStorage();
+        iterations++;
+      }
+      const after = await directoryBytes(directory);
+      assert(after < before, "SAHPool physical allocation shrinks");
+      assert(
+        index.getAccountState("a")?.generation === "second",
+        "retained account survives reclamation",
+      );
+      const legacyDatabase = new pool.OpfsSAHPoolDb("/legacy.sqlite");
+      legacyDatabase.exec(
+        "PRAGMA auto_vacuum=NONE; CREATE TABLE legacy_seed(id INTEGER);",
+      );
+      const legacy = createSearchIndex(legacyDatabase);
+      legacyDatabase.exec(
+        "CREATE TABLE ballast(value BLOB); INSERT INTO ballast VALUES(zeroblob(100000)); DELETE FROM ballast;",
+      );
+      const legacyResult = legacy.reclaimStorage();
+      assert(
+        !legacyResult.incrementalVacuum,
+        "existing layout reports unsupported reclamation",
+      );
+      assert(
+        legacyResult.beforeBytes === legacyResult.afterBytes,
+        "existing layout is not rebuilt under pressure",
+      );
+      assert(
+        legacyResult.reusableBytes > 0,
+        "legacy freelist remains reusable",
+      );
+      legacyDatabase.close();
+      self.postMessage({
+        result: {
+          beforeDelete,
+          before,
+          after,
+          first,
+          last: result,
+          iterations,
+          retainedPoolOverheadBytes: after - result.afterBytes,
+          pageSize: Number(database.selectValue("PRAGMA page_size")),
+          legacy: legacyResult,
+        },
+      });
     } else if (data.command === "benchmark") {
       index.resetAccount({
         emailAccountId: "benchmark",
@@ -784,4 +858,17 @@ function message(
 
 function assert(condition: unknown, name: string): asserts condition {
   if (!condition) throw new Error(name);
+}
+
+async function directoryBytes(
+  directory: FileSystemDirectoryHandle,
+): Promise<number> {
+  let bytes = 0;
+  for await (const handle of directory.values()) {
+    bytes +=
+      handle.kind === "directory"
+        ? await directoryBytes(handle)
+        : (await handle.getFile()).size;
+  }
+  return bytes;
 }

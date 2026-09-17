@@ -1,19 +1,15 @@
 {
-  "server-drafts.spec.ts": [
-    "components/email-list/EmailThread.tsx",
-    "components/email-list/EmailMessage.tsx"
-  ],
-  "draft-deletion.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
-    "components/email-list/EmailMessage.tsx",
-    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
-  ],
-  "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
-  "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
   "account-selection.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
   ],
+  "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
+  "attachment-previews.spec.ts": [
+    "components/email-list/EmailAttachments.tsx",
+    "utils/email-cache/local-mail-attachments.ts",
+    "utils/email-cache/local-mail-attachment-download.ts"
+  ],
+  "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "calendar-invitation.spec.ts": [
     "components/email-list/CalendarInvitation.tsx"
   ],
@@ -22,9 +18,6 @@
     "store/command-palette.ts",
     "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
-  ],
-  "contact-autocomplete.spec.ts": [
-    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
   ],
   "compose-and-reply.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
@@ -36,6 +29,18 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "hooks/useProviderDraftAutosave.ts",
     "utils/email/compose-draft.ts"
+  ],
+  "contact-autocomplete.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
+  ],
+  "draft-deletion.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
+  "draft-send-recovery.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
@@ -53,7 +58,14 @@
     "utils/email-cache/search.worker.ts",
     "utils/email-cache/search-index.worker.ts",
     "utils/email-cache/search-index-service.ts",
-    "utils/email-cache/search-index-query.ts"
+    "utils/email-cache/search-index-query.ts",
+    "hooks/useLocalMailThread.ts",
+    "hooks/useThread.ts",
+    "utils/email-cache/local-mail-reader.ts"
+  ],
+  "local-storage-settings.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/LocalMailSettingsDialog.tsx",
+    "utils/email-cache/local-mail-settings.ts"
   ],
   "mail-activation.spec.ts": [
     "app/(app)/MailboxSyncManager.tsx",
@@ -68,6 +80,12 @@
     "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
     "app/(app)/[emailAccountId]/mail/MailLabelChip.tsx",
     "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx"
+  ],
+  "message-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "utils/threads/load.ts"
   ],
   "message-overflow.spec.ts": ["components/email-list/EmailContents.tsx"],
   "navigation-and-views.spec.ts": [
@@ -86,6 +104,10 @@
     "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
+  "reader-transition.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
+    "components/email-list/BufferedEmailIframe.tsx"
+  ],
   "reader-visuals.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
     "components/email-list/EmailContents.tsx",
@@ -101,6 +123,10 @@
     "app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx",
     "app/(app)/[emailAccountId]/mail/mail-search-history.ts",
     "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
+  "server-drafts.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
   "starring.spec.ts": [
@@ -126,19 +152,5 @@
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-selection.ts"
-  ],
-  "reader-transition.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
-    "components/email-list/BufferedEmailIframe.tsx"
-  ],
-  "message-actions.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
-    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
-    "components/email-list/EmailMessage.tsx",
-    "utils/threads/load.ts"
-  ],
-  "draft-send-recovery.spec.ts": [
-    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
-    "components/email-list/ThreadDeliveryStatus.tsx"
   ]
 }

@@ -1,4 +1,4 @@
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { readLocalMailSettings } from "./local-mail-settings";
 import { getEmailCacheDatabase } from "./database";
 import { isMailSyncActivated } from "./mail-activation";
 import { randomUuid } from "@/utils/uuid";
@@ -8,15 +8,17 @@ import type {
 } from "./search-index.worker";
 
 type Scope = { emailAccountId: string; generation: string };
-type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
-type AccountCommand = WithoutId<
+type WithoutEnvelope<T> = T extends unknown
+  ? Omit<T, "id" | "storageBudgetBytes">
+  : never;
+type AccountCommand = WithoutEnvelope<
   Exclude<
     SearchIndexRequest,
     { command: "deleteAccount" | "accounts" | "storage" | "clearAll" }
   >
 >;
 type Result =
-  | WithoutId<SearchIndexResponse>
+  | WithoutEnvelope<SearchIndexResponse>
   | { error: "unsupported" | "stale" | "timeout" | "closed" };
 type Operation =
   | { kind: "account"; scope: Scope; command: AccountCommand }
@@ -139,7 +141,7 @@ export function createSearchIndexClient() {
   }
 
   function workerRequest(
-    command: WithoutId<SearchIndexRequest>,
+    command: WithoutEnvelope<SearchIndexRequest>,
   ): Promise<SearchIndexResponse> {
     worker ??= new Worker(
       new URL("./search-index.worker.ts", import.meta.url),
@@ -162,8 +164,7 @@ export function createSearchIndexClient() {
         worker!.postMessage({
           ...command,
           id,
-          storageBudgetBytes:
-            (getInboxZeroDesktopApp() ? 2048 : 500) * 1024 * 1024,
+          storageBudgetBytes: readLocalMailSettings().budgetBytes,
         });
       } catch {
         stopWorker();

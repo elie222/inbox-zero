@@ -226,7 +226,7 @@ describe("sending a Gmail draft from the reader", () => {
     expect(messages.send).not.toHaveBeenCalled();
   });
 
-  it("still sends the forward when the message it quotes is gone", async () => {
+  it("does not send a forward when its original attachments cannot be verified", async () => {
     const { gmail, messages } = createGmail();
     messages.get.mockRejectedValue(
       Object.assign(new Error("Requested entity was not found."), {
@@ -234,17 +234,19 @@ describe("sending a Gmail draft from the reader", () => {
       }),
     );
 
-    await sendEmailWithHtml(gmail, {
-      to: "recipient@example.com",
-      subject: "Fwd: Question",
-      messageHtml: "<p>Passing this on</p>",
-      replyToEmail: {
-        threadId: "thread-1",
-        forwardedMessageId: "forwarded-message",
-      },
-    });
+    await expect(
+      sendEmailWithHtml(gmail, {
+        to: "recipient@example.com",
+        subject: "Fwd: Question",
+        messageHtml: "<p>Passing this on</p>",
+        replyToEmail: {
+          threadId: "thread-1",
+          forwardedMessageId: "forwarded-message",
+        },
+      }),
+    ).rejects.toThrow("Reload the original message before forwarding");
 
-    expect(messages.send).toHaveBeenCalledTimes(1);
+    expect(messages.send).not.toHaveBeenCalled();
   });
 
   it("sends new messages without looking up a draft", async () => {

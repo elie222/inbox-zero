@@ -614,12 +614,13 @@ export function MailShell() {
     error: openThreadError,
     isLoading: isOpenThreadLoading,
     mutate: refetchOpenThread,
+    localAvailability: openThreadLocalAvailability,
   } = useThread(
     {
       id: deferredReaderSelection?.threadId ?? null,
       emailAccountId: deferredReaderSelection?.emailAccountId,
     },
-    { includeDrafts: true },
+    { includeDrafts: true, localMail: true },
   );
   // Withheld until the deferred id catches up, so a fast J/K can't pair the new
   // thread's header with the previous thread's body.
@@ -1827,6 +1828,11 @@ export function MailShell() {
                   }
                   error={readerSelectionSettled ? openThreadError : undefined}
                   messages={openMessages}
+                  localAvailability={
+                    readerSelectionSettled
+                      ? openThreadLocalAvailability
+                      : undefined
+                  }
                   userLabels={readerUserLabels}
                   layout={layout}
                   labelHref={labelHref}

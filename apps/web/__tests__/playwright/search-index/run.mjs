@@ -95,6 +95,7 @@ try {
   const stagedReplacement = await send("resume");
   const storageLimit = await send("storage-limit");
   const benchmark = await send("benchmark", count);
+  const reclamation = await send("reclaim");
   const cleanup = await page.evaluate(async () => {
     window.indexWorker.terminate();
     let worker = new Worker("/production.js", { type: "module" });
@@ -171,6 +172,10 @@ try {
         "worker yields to a canonical storage commit",
       );
       check(
+        (await rpc({ command: "reclaim", request })).error === "busy",
+        "reclamation yields to a canonical storage commit",
+      );
+      check(
         (await rpc({ command: "state", emailAccountId: "cleanup" })).result
           .revision === 0,
         "storage contention does not advance the checkpoint",
@@ -192,6 +197,19 @@ try {
     check(
       (await rpc({ command: "apply", request: batch })).result === true,
       "worker apply",
+    );
+    check(
+      (
+        await rpc({
+          command: "reclaim",
+          request: { ...request, generation: "stale" },
+        })
+      ).result === false,
+      "stale reclamation fenced",
+    );
+    check(
+      (await rpc({ command: "reclaim", request })).result.incrementalVacuum,
+      "account scoped reclamation supported",
     );
     check(
       (await rpc({ command: "accounts" })).result.accounts.length === 1,
@@ -257,6 +275,7 @@ try {
   const result = {
     browser: await browser.version(),
     regression,
+    reclamation,
     storageLimit,
     reopen,
     stagedReplacement,

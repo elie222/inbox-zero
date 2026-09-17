@@ -29,7 +29,7 @@ overrides:
 packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
 
 patchedDependencies:
-  '@inbox-zero/emulate@0.11.1': 834ac437967e2eeaf03cd3c2be17d4ce0d876e82eef921080e56c851f3926c52
+  '@inbox-zero/emulate@0.11.1': a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306
   '@sqlite.org/sqlite-wasm@3.53.4-build1': 0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855
 
 importers:
@@ -661,6 +661,9 @@ importers:
       sonner:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.2.18)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      stream-json:
+        specifier: 3.6.0
+        version: 3.6.0
       streamdown:
         specifier: 2.6.0
         version: 2.6.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)
@@ -778,7 +781,7 @@ importers:
         version: 11.0.0
       emulate:
         specifier: npm:@inbox-zero/emulate@0.11.1
-        version: '@inbox-zero/emulate@0.11.1(patch_hash=834ac437967e2eeaf03cd3c2be17d4ce0d876e82eef921080e56c851f3926c52)'
+        version: '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)'
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -12091,6 +12094,13 @@ packages:
   stream-browserify@3.0.0:
     resolution: {integrity: sha512-H73RAHsVBapbim0tU2JwwOiXUj+fikfiaoYAKHF3VJfA0pe2BCzkhAHBlLG6REzE+2WNZcxOXjK7lkso+9euLA==}
 
+  stream-chain@4.2.5:
+    resolution: {integrity: sha512-Wtyq3bNE3ggLR0v2vftqvuhltym3WbZAkZpfIrkr5F/6vpeUmWmwTgXa16zD87gpahwJ/Qulq3zVfUlgIc0J2A==}
+    engines: {node: '>=22'}
+
+  stream-json@3.6.0:
+    resolution: {integrity: sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ==}
+
   stream-shift@1.0.3:
     resolution: {integrity: sha512-76ORR0DO1o1hlKwTbi/DM3EXWGf3ZJYO8cXX5RJwnul2DEg2oyoZyjLNoQM8WsvZiFKCRfC1O0J7iCvie3RZmQ==}
 
@@ -15508,7 +15518,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@inbox-zero/emulate@0.11.1(patch_hash=834ac437967e2eeaf03cd3c2be17d4ce0d876e82eef921080e56c851f3926c52)':
+  '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
@@ -25864,6 +25874,12 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
     optional: true
+
+  stream-chain@4.2.5: {}
+
+  stream-json@3.6.0:
+    dependencies:
+      stream-chain: 4.2.5
 
   stream-shift@1.0.3: {}
 

@@ -1,3 +1,4 @@
+import { installMailCacheStorageTestEnvironment } from "./optional-cache-write.test-helpers";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
@@ -10,6 +11,8 @@ import { writeCachedThreadDetail } from "./threads";
 import { writeCachedThreadList, writeCachedThreadRows } from "./thread-lists";
 
 const accountId = "account-1";
+
+installMailCacheStorageTestEnvironment();
 
 describe("canonical mail freshness", () => {
   beforeEach(async () => {
@@ -29,6 +32,10 @@ describe("canonical mail freshness", () => {
         "localMailTombstones",
         "searchIndexAccounts",
         "searchIndexWork",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
       "readwrite",
     );
@@ -139,6 +146,10 @@ describe("canonical mail freshness", () => {
         "localMailTombstones",
         "searchIndexAccounts",
         "searchIndexWork",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
       "readwrite",
     );
@@ -163,6 +174,10 @@ describe("canonical mail freshness", () => {
         "localMailTombstones",
         "searchIndexAccounts",
         "searchIndexWork",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
       "readwrite",
     );
@@ -213,6 +228,10 @@ describe("canonical mail freshness", () => {
         "localMailTombstones",
         "searchIndexAccounts",
         "searchIndexWork",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
       "readwrite",
     );
@@ -236,6 +255,10 @@ async function store(messages: ParsedMessage[], fetchedAt: number) {
       "localMailTombstones",
       "searchIndexAccounts",
       "searchIndexWork",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );

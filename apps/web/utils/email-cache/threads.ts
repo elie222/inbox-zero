@@ -1,3 +1,12 @@
+import {
+  withOptionalMailCacheWrite,
+  createAccountedMailTransaction,
+} from "./optional-cache-write";
+import {
+  isLocalMailCacheContextCurrent,
+  canPersistLocalMailSnapshot,
+  type LocalMailCacheContext,
+} from "./local-mail-cache-context";
 import { getThreadDetailKeyRange } from "./keys";
 import {
   deleteLocalMailMessages,
@@ -30,6 +39,7 @@ export async function writeCachedThreadDetail({
   threadId,
   variant,
   data,
+  cacheContext,
   now = Date.now(),
   version = getThreadCacheVersion(emailAccountId, threadId),
 }: {
@@ -39,6 +49,7 @@ export async function writeCachedThreadDetail({
   data: ThreadResponse;
   now?: number;
   version?: string;
+  cacheContext?: LocalMailCacheContext;
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const sanitized = sanitizeThreadResponse(data);
@@ -47,7 +58,8 @@ export async function writeCachedThreadDetail({
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction(
+    return await withOptionalMailCacheWrite(
+      database,
       [
         "threadDetails",
         "searchIndexAccounts",
@@ -55,66 +67,95 @@ export async function writeCachedThreadDetail({
         "mailboxMessages",
         "localMailMessages",
         "localMailTombstones",
+        "localMailRetentionPolicies",
+        "localMailEvictedMessages",
+
+        "localMailAttachmentFiles",
+        "localMailAttachmentJobs",
+        "localMailThreadProtection",
       ],
-      "readwrite",
-    );
-    // Wait behind pending sync deletions before checking this response’s version.
-    await transaction
-      .objectStore("threadDetails")
-      .getKey([emailAccountId, threadId, variant]);
-    if (
-      !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
-      version !== getThreadCacheVersion(emailAccountId, threadId)
-    ) {
-      await transaction.done;
-      return;
-    }
-    await transaction.objectStore("threadDetails").put({
-      emailAccountId,
-      threadId,
-      variant,
-      data: sanitized,
-      fetchedAt: now,
-      lastAccessedAt: now,
-      byteSize,
-    });
-    const options = /^drafts:([01])\|replies:([01])$/u.exec(variant);
-    if (options) {
-      const included = new Set(
-        sanitized.thread.messages.map((message) => message.id),
-      );
-      let cursor = await transaction
-        .objectStore("localMailMessages")
-        .index("byAccountThreadMessage")
-        .openCursor(getThreadDetailKeyRange(emailAccountId, threadId));
-      while (cursor) {
-        const record = cursor.value;
+      async (transaction) => {
         if (
-          !included.has(record.messageId) &&
-          (options[1] === "1" || !record.data.labelIds?.includes("DRAFT")) &&
-          record.fetchedAt <= now
-        ) {
-          await deleteLocalMailMessages(
+          !(await isLocalMailCacheContextCurrent(
             transaction,
             emailAccountId,
-            [record.messageId],
-            now,
-          );
+            cacheContext,
+          )) ||
+          !(await canPersistLocalMailSnapshot(
+            transaction,
+            emailAccountId,
+            sanitized.thread.messages,
+          ))
+        ) {
+          await transaction.done;
+          return;
         }
-        cursor = await cursor.continue();
-      }
-    }
-    await storeLocalMailMessages(
-      transaction,
-      emailAccountId,
-      sanitized.thread.messages,
-      now,
-      { metadataOnly: options?.[2] !== "0" },
+        // Wait behind pending sync deletions before checking this response’s version.
+        await transaction
+          .objectStore("threadDetails")
+          .getKey([emailAccountId, threadId, variant]);
+        if (
+          !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
+          version !== getThreadCacheVersion(emailAccountId, threadId)
+        ) {
+          await transaction.done;
+          return;
+        }
+        await transaction.objectStore("threadDetails").put({
+          emailAccountId,
+          threadId,
+          variant,
+          data: sanitized,
+          fetchedAt: now,
+          lastAccessedAt: now,
+          byteSize,
+        });
+        const options = /^drafts:([01])\|replies:([01])$/u.exec(variant);
+        if (options) {
+          const included = new Set(
+            sanitized.thread.messages.map((message) => message.id),
+          );
+          let cursor = await transaction
+            .objectStore("localMailMessages")
+            .index("byAccountThreadMessage")
+            .openCursor(getThreadDetailKeyRange(emailAccountId, threadId));
+          while (cursor) {
+            const record = cursor.value;
+            if (
+              !included.has(record.messageId) &&
+              (options[1] === "1" ||
+                !record.data.labelIds?.includes("DRAFT")) &&
+              record.fetchedAt <= now
+            ) {
+              await deleteLocalMailMessages(
+                transaction,
+                emailAccountId,
+                [record.messageId],
+                now,
+              );
+            }
+            cursor = await cursor.continue();
+          }
+        }
+        await storeLocalMailMessages(
+          transaction,
+          emailAccountId,
+          sanitized.thread.messages,
+          now,
+          {
+            metadataOnly: options?.[2] !== "0",
+            retention:
+              cacheContext?.revision === undefined
+                ? undefined
+                : { revision: cacheContext.revision, purpose: "cache" },
+          },
+        );
+        await markSearchThreadsDirty(transaction, emailAccountId, [threadId]);
+        await transaction.done;
+        notifyEmailCacheChange(emailAccountId);
+        scheduleEmailCacheCleanup();
+      },
     );
-    await markSearchThreadsDirty(transaction, emailAccountId, [threadId]);
-    await transaction.done;
-    notifyEmailCacheChange(emailAccountId);
-    scheduleEmailCacheCleanup();
   } catch {
     scheduleEmailCacheCleanup({ force: true });
     // Cache writes are best-effort and must never affect thread rendering.
@@ -136,7 +177,10 @@ export async function readCachedThreadDetail({
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction("threadDetails", "readwrite");
+    const transaction = await createAccountedMailTransaction(
+      database,
+      "threadDetails",
+    );
     const store = transaction.objectStore("threadDetails");
     const record = await store.get([emailAccountId, threadId, variant]);
     if (!record) {

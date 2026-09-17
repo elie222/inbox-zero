@@ -1,3 +1,8 @@
+import {
+  createAccountedMailTransaction,
+  meterLocalMailStorageTransaction,
+  LocalMailStorageCapacityError,
+} from "./optional-cache-write";
 import type { IDBPTransaction, StoreNames } from "idb";
 import type { ParsedMessage } from "@/utils/types";
 import { localMailSyncAction } from "@/utils/actions/local-mail-sync";
@@ -15,6 +20,8 @@ import { isMailSyncActivated } from "./mail-activation";
 import {
   applyLocalMailSyncResponse,
   sweepLocalMailSyncWindow,
+  synchronizeLocalMailRetention,
+  prepareLocalMailRetentionJobs,
 } from "./local-mail-sync-transitions";
 import { LOCAL_MAIL_FIRST_WINDOW_MS } from "./local-mail-sync-state";
 
@@ -24,6 +31,8 @@ export type LocalMailSyncTransaction = IDBPTransaction<
   "readwrite"
 >;
 const stores: StoreNames<EmailCacheSchema>[] = [
+  "localMailRetentionPolicies",
+  "localMailEvictedMessages",
   "localMailSyncStates",
   "localMailSyncJobs",
   "localMailSyncSeen",
@@ -32,6 +41,10 @@ const stores: StoreNames<EmailCacheSchema>[] = [
   "localMailTombstones",
   "searchIndexAccounts",
   "searchIndexWork",
+
+  "localMailAttachmentFiles",
+  "localMailAttachmentJobs",
+  "localMailThreadProtection",
 ];
 
 type Options = {
@@ -41,7 +54,12 @@ type Options = {
   admitBackfill: () => Promise<boolean>;
   admitResponse: (
     response: LocalMailSyncResponse,
-  ) => Promise<{ allowed: boolean; maxCanonicalBytes: number }>;
+    purpose: "current" | "backfill",
+  ) => Promise<{
+    allowed: boolean;
+    maxGrowthBytes: number;
+    logicalLimitBytes: number;
+  }>;
   withStorageLock: <T>(commit: () => Promise<T>) => Promise<T>;
   withSyncLock?: <T>(
     emailAccountId: string,
@@ -88,7 +106,7 @@ async function runOwnedLocalMailSyncTick(options: Options) {
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch))
     return { status: "unavailable" as const };
   const owner = randomUuid();
-  const claim = database.transaction(stores, "readwrite");
+  const claim = await createAccountedMailTransaction(database, stores);
   const account = await claim
     .objectStore("searchIndexAccounts")
     .get(emailAccountId);
@@ -130,6 +148,26 @@ async function runOwnedLocalMailSyncTick(options: Options) {
       attempts: 0,
     });
   }
+  const policy = await claim
+    .objectStore("localMailRetentionPolicies")
+    .get(emailAccountId);
+  if (
+    account.retentionRevision !== undefined &&
+    (!policy ||
+      policy.generation !== account.generation ||
+      policy.revision !== account.retentionRevision)
+  ) {
+    await claim.done;
+    return { status: "unavailable" as const };
+  }
+  if (
+    policy &&
+    policy.generation === account.generation &&
+    policy.revision !== state.retentionRevision
+  ) {
+    await synchronizeLocalMailRetention(claim, state, policy, now);
+    await claim.objectStore("localMailSyncStates").put(state);
+  }
   // The browser lock fences live owners; a surviving durable lease belongs to
   // a destroyed document. Provider cooldowns still survive ownership changes.
   if (state.unsupported || state.nextAttemptAt > now) {
@@ -139,6 +177,8 @@ async function runOwnedLocalMailSyncTick(options: Options) {
       retryAt: state.nextAttemptAt,
     };
   }
+  if (state.retentionRevision !== undefined)
+    await prepareLocalMailRetentionJobs(claim, state, now);
   const jobs = await claim
     .objectStore("localMailSyncJobs")
     .index("byAccount")
@@ -242,6 +282,7 @@ async function runOwnedLocalMailSyncTick(options: Options) {
       "message-lookup",
     ].includes(job.request.phase);
     if (
+      !currentWork &&
       (downloadsBody || job.kind === "window") &&
       !(await options.admitBackfill())
     ) {
@@ -260,25 +301,44 @@ async function runOwnedLocalMailSyncTick(options: Options) {
 
   try {
     return await options.withStorageLock(async () => {
-      let maxCanonicalBytes = 0;
+      let maxGrowthBytes = 0;
+      let logicalLimitBytes = Number.POSITIVE_INFINITY;
       if (response?.status === "ok") {
-        const admission = await options.admitResponse(response);
+        const admission = await options.admitResponse(
+          response,
+          currentWork ? "current" : "backfill",
+        );
         if (
-          !Number.isFinite(admission.maxCanonicalBytes) ||
-          admission.maxCanonicalBytes < 0
+          !Number.isFinite(admission.maxGrowthBytes) ||
+          admission.maxGrowthBytes < 0
         )
           throw new Error("Invalid local mail storage budget");
-        maxCanonicalBytes = admission.maxCanonicalBytes;
+        maxGrowthBytes = admission.maxGrowthBytes;
+        logicalLimitBytes = admission.logicalLimitBytes;
         if (!admission.allowed) {
           storagePaused = true;
           response = { status: "paused", retryAfterMs: 60_000 };
         }
       }
-      const commit = database.transaction(stores, "readwrite");
+      const commit =
+        response?.status === "ok"
+          ? await meterLocalMailStorageTransaction(
+              database.transaction(
+                [...stores, "localMailStorageLedger"],
+                "readwrite",
+              ),
+              {
+                maxGrowthBytes,
+                logicalLimitBytes,
+                enforceLogicalBudget: Number.isFinite(logicalLimitBytes),
+              },
+            )
+          : await createAccountedMailTransaction(database, stores);
       const completedAt = options.now === undefined ? Date.now() : now;
-      const [current, currentAccount] = await Promise.all([
+      const [current, currentAccount, currentPolicy] = await Promise.all([
         commit.objectStore("localMailSyncStates").get(emailAccountId),
         commit.objectStore("searchIndexAccounts").get(emailAccountId),
+        commit.objectStore("localMailRetentionPolicies").get(emailAccountId),
       ]);
       if (
         !current ||
@@ -286,6 +346,10 @@ async function runOwnedLocalMailSyncTick(options: Options) {
         current.fence !== state.fence ||
         (current.leaseExpiresAt ?? 0) <= completedAt ||
         currentAccount?.generation !== state.generation ||
+        currentAccount.retentionRevision !== state.retentionRevision ||
+        (state.retentionRevision !== undefined &&
+          (currentPolicy?.revision !== state.retentionRevision ||
+            currentPolicy?.generation !== state.generation)) ||
         !isMailSyncActivated(emailAccountId) ||
         !isEmailCacheEpochCurrent(emailAccountId, epoch)
       ) {
@@ -294,9 +358,6 @@ async function runOwnedLocalMailSyncTick(options: Options) {
       }
       current.leaseOwner = undefined;
       current.leaseExpiresAt = undefined;
-      const bytesBefore = (
-        await commit.objectStore("searchIndexAccounts").getAll()
-      ).reduce((bytes, entry) => bytes + (entry.messageBytes ?? 0), 0);
       try {
         if (failed) {
           job.attempts += 1;
@@ -326,20 +387,22 @@ async function runOwnedLocalMailSyncTick(options: Options) {
             completedAt,
           );
         }
-        const accounts = await commit
-          .objectStore("searchIndexAccounts")
-          .getAll();
-        const bytesAfter = accounts.reduce(
-          (bytes, entry) => bytes + (entry.messageBytes ?? 0),
-          0,
-        );
-        if (bytesAfter > maxCanonicalBytes && bytesAfter > bytesBefore) {
+        await commit.objectStore("localMailSyncStates").put(current);
+        await commit.done;
+        notifyEmailCacheChange(emailAccountId);
+      } catch (error) {
+        try {
           commit.abort();
-          await commit.done.catch(() => undefined);
-          const pause = database.transaction(
-            ["localMailSyncStates", "localMailSyncJobs", "searchIndexAccounts"],
-            "readwrite",
-          );
+        } catch {
+          /* The transaction may already be aborted by IndexedDB. */
+        }
+        await commit.done.catch(() => undefined);
+        if (error instanceof LocalMailStorageCapacityError) {
+          const pause = await createAccountedMailTransaction(database, [
+            "localMailSyncStates",
+            "localMailSyncJobs",
+            "searchIndexAccounts",
+          ]);
           const unchanged = await pause
             .objectStore("localMailSyncStates")
             .get(emailAccountId);
@@ -372,16 +435,6 @@ async function runOwnedLocalMailSyncTick(options: Options) {
             retryAt: completedAt + 60_000,
           };
         }
-        await commit.objectStore("localMailSyncStates").put(current);
-        await commit.done;
-        notifyEmailCacheChange(emailAccountId);
-      } catch (error) {
-        try {
-          commit.abort();
-        } catch {
-          /* The transaction may already be aborted by IndexedDB. */
-        }
-        await commit.done.catch(() => undefined);
         throw error;
       }
       const newMail = currentWork
@@ -397,10 +450,11 @@ async function runOwnedLocalMailSyncTick(options: Options) {
       };
     });
   } catch {
-    const release = database.transaction(
-      ["localMailSyncStates", "localMailSyncJobs", "searchIndexAccounts"],
-      "readwrite",
-    );
+    const release = await createAccountedMailTransaction(database, [
+      "localMailSyncStates",
+      "localMailSyncJobs",
+      "searchIndexAccounts",
+    ]);
     const current = await release
       .objectStore("localMailSyncStates")
       .get(emailAccountId);

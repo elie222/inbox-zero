@@ -468,10 +468,6 @@ async function sendForwardUsingCreateForward(
     forwardedMessageId,
     logger,
   );
-  // The composed body already quotes the message, so a forward whose source
-  // Graph can no longer resolve is still worth delivering on its own.
-  if (!forwardDraft) return sendNewDraft(client, body, logger);
-
   const toRecipients = buildGraphRecipients(body.to);
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
@@ -515,16 +511,11 @@ async function sendForwardUsingCreateForward(
   };
 }
 
-/**
- * Graph reissues a message id whenever the message moves folders, so a source
- * that has been archived or deleted since the composer opened is a normal
- * outcome rather than a failure.
- */
 async function createForwardDraft(
   client: OutlookClient,
   forwardedMessageId: string,
   logger: Logger,
-): Promise<Message | null> {
+): Promise<Message> {
   try {
     return await withMicrosoftGraphWriteRetry(
       () =>
@@ -536,10 +527,9 @@ async function createForwardDraft(
     );
   } catch (error) {
     if (!isOutlookItemNotFoundError(error)) throw error;
-    logger.warn("Forward source is gone, sending outside its conversation", {
-      forwardedMessageId,
-    });
-    return null;
+    throw new SafeError(
+      "Reload the original message before forwarding. Its attachments could not be verified.",
+    );
   }
 }
 

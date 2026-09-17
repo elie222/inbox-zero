@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { GET } from "./route";
 
@@ -26,7 +27,7 @@ vi.mock("@/utils/middleware", () => ({
               name: "google",
               getThread: mockGetThread,
             },
-            logger: { error: vi.fn() },
+            logger: createScopedLogger("thread-route-test"),
           }),
           context,
         );
@@ -102,6 +103,26 @@ describe("GET /api/threads/[id]", () => {
     expect(await response.json()).toEqual({
       error: "Microsoft authorization has expired. Please reconnect.",
       isKnownError: true,
+    });
+  });
+
+  it("requests a cancellable complete inventory only for explicit offline preparation", async () => {
+    mockGetThread.mockResolvedValue({
+      id: "thread-id",
+      messages: [],
+      snippet: "",
+    });
+    const request = new NextRequest(
+      "http://localhost/api/threads/thread-id?complete=true",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ id: "thread-id" }),
+    });
+    expect(response.status).toBe(200);
+    expect(mockGetThread).toHaveBeenCalledWith("thread-id", {
+      includeDrafts: false,
+      complete: true,
+      signal: request.signal,
     });
   });
 

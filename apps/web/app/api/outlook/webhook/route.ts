@@ -12,6 +12,8 @@ import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
+import { publishLocalMailHint } from "@/utils/redis/local-mail-hints";
+
 export const maxDuration = 300;
 
 export const POST = withError("outlook/webhook", async (request) => {
@@ -123,7 +125,16 @@ async function processNotificationsAsync(
         changeType: notification.changeType,
       });
 
+      const emailAccount = await getWebhookEmailAccount(
+        { watchEmailsSubscriptionId: subscriptionId },
+        logger,
+      );
+      if (emailAccount) {
+        // Mail hint delivery must not delay automation for later notifications.
+        after(() => publishLocalMailHint(emailAccount.id, logger));
+      }
       await processHistoryForUser({
+        preloadedEmailAccount: emailAccount,
         subscriptionId,
         resourceData,
         logger,

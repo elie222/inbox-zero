@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { BULK_ARCHIVE_MESSAGES_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 import {
@@ -111,7 +112,10 @@ export async function enqueueMailMutationBatch(
   const database = await getEmailCacheDatabase();
   if (!database) throw new Error("Offline mail storage is unavailable");
 
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   let storedMutations: StoredMailMutation[];
   try {
@@ -273,7 +277,10 @@ export async function claimNextMailMutationBatch({
   }
   const database = await getEmailCacheDatabase();
   if (!database) return [];
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutations = (
     await readActiveStoredMutations(store.index("byNextAttempt"))
@@ -395,7 +402,10 @@ export async function renewMailMutationBatchLease(
   if (!ids.length) return 0;
   const database = await getEmailCacheDatabase();
   if (!database) return 0;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutations = await Promise.all(
     [...new Set(ids)].map((id) => store.get(id)),
@@ -463,7 +473,10 @@ export async function claimNextMailMutationSyncGroup({
 }): Promise<MailMutationSyncGroup | undefined> {
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const groups = createStoredSyncGroups(
     await readActiveStoredMutations(store.index("byNextAttempt")),
@@ -532,7 +545,10 @@ export async function renewMailMutationSyncGroupLease(
 ) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutations = (await store.index("byBatch").getAll(group.batchId)).filter(
     (mutation) => mutation.emailAccountId === group.emailAccountId,
@@ -610,7 +626,10 @@ export async function completeMailMutation(
 export async function claimNextMailMutationNotification(now = Date.now()) {
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutation = (await store.getAll()).find(
     (candidate) =>
@@ -630,7 +649,10 @@ export async function claimMailMutationNotification(
 ) {
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutation = await store.get(id);
   const claimed =
@@ -706,7 +728,10 @@ export async function blockMailMutationBatchForAuth(
 export async function resumeBlockedMailMutations(now = Date.now()) {
   const database = await getEmailCacheDatabase();
   if (!database) return 0;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutations = await store.getAll();
   let resumed = 0;
@@ -750,7 +775,10 @@ export async function failMailMutationBatch(
 export async function cancelPendingMailMutation(id: string) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutation = await store.get(id);
   const cancelled =
@@ -852,7 +880,10 @@ async function updateMailMutationSyncGroup(
 ) {
   const database = await getEmailCacheDatabase();
   if (!database) return [];
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const mutations = (await store.index("byBatch").getAll(group.batchId)).filter(
     (mutation) => mutation.emailAccountId === group.emailAccountId,
@@ -895,7 +926,10 @@ async function updateMutations(
   if (!updates.length) return;
   const database = await getEmailCacheDatabase();
   if (!database) return;
-  const transaction = database.transaction("mailMutations", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "mailMutations",
+  );
   const store = transaction.objectStore("mailMutations");
   const updatesById = new Map(updates.map(({ id, update }) => [id, update]));
   const stored = await Promise.all(

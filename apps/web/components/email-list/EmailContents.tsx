@@ -1,3 +1,4 @@
+import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { startTransition, useMemo, useState, useEffect } from "react";
 import {
   BufferedEmailIframe,
@@ -19,10 +20,6 @@ import {
   normalizeContentId,
   rewriteInlineImageSources,
 } from "@/utils/email/inline-images";
-import {
-  fetchAttachment,
-  getAttachmentUrl,
-} from "@/utils/attachments/download";
 import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
@@ -54,6 +51,7 @@ export function HtmlEmail({
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
+  const attachmentSession = useOpenedConversationAttachments();
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
   const [renderHtml, setRenderHtml] = useState(
@@ -66,6 +64,7 @@ export function HtmlEmail({
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const objectUrls: string[] = [];
     setRenderHtml(
       getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
@@ -75,7 +74,8 @@ export function HtmlEmail({
     Promise.all([
       prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
       loadInlineImageSources({
-        emailAccountId,
+        session: emailAccountId ? attachmentSession : undefined,
+        signal: controller.signal,
         html: sanitizedHtml,
         inlineAttachments,
         messageId,
@@ -102,9 +102,16 @@ export function HtmlEmail({
 
     return () => {
       cancelled = true;
+      controller.abort();
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
+  }, [
+    emailAccountId,
+    attachmentSession,
+    inlineAttachments,
+    messageId,
+    sanitizedHtml,
+  ]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
     () => splitEmailContent(renderHtml),
@@ -381,17 +388,19 @@ function getIframeHtml(
 }
 
 async function loadInlineImageSources({
-  emailAccountId,
+  session,
+  signal,
   html,
   inlineAttachments,
   messageId,
 }: {
-  emailAccountId?: string;
+  session: ReturnType<typeof useOpenedConversationAttachments>;
+  signal: AbortSignal;
   html: string;
   inlineAttachments: ParsedMessage["inline"];
   messageId: string;
 }): Promise<Record<string, string>> {
-  if (!emailAccountId || !inlineAttachments.length) return {};
+  if (!session || !inlineAttachments.length) return {};
 
   const attachmentByContentId = new Map<
     string,
@@ -408,15 +417,13 @@ async function loadInlineImageSources({
       if (!attachment?.attachmentId) return;
 
       try {
-        const blob = await fetchAttachment({
-          emailAccountId,
-          url: getAttachmentUrl({
-            messageId,
-            attachmentId: attachment.attachmentId,
-            mimeType: attachment.mimeType,
-            filename: attachment.filename,
-          }),
-        });
+        const blob = await session.load(
+          messageId,
+          attachment.attachmentId,
+          signal,
+          attachment,
+        );
+        if (!blob || signal.aborted) return;
         return [contentId, URL.createObjectURL(blob)] as const;
       } catch {
         return;

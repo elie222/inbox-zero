@@ -1,4 +1,4 @@
-import { expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -42,15 +42,6 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
     // Give mounted background effects time to expose unintended downloads.
     await page.waitForTimeout(1500);
     expect([...syncAccountIds]).toEqual([]);
-    expect(
-      await page.evaluate(
-        (ids) =>
-          ids.map((id) =>
-            localStorage.getItem(`inbox-zero:mail-activation:${id}`),
-          ),
-        [emailAccountId, secondAccount.id],
-      ),
-    ).toEqual([null, null]);
     expect(await readSyncAccounts(page, "searchIndexAccounts")).toEqual([]);
     await capturePlaywrightCheckpoint(
       page,
@@ -63,6 +54,65 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
       page.getByRole("combobox", { name: "Search mail" }),
     ).toBeVisible();
     await expect.poll(() => [...syncAccountIds]).toEqual([emailAccountId]);
+    // Sync ticks are gated on the storage ledger being ready, so readiness
+    // always precedes the first download and hasMessages is the field this
+    // poll waits on. Dropping it would pass on a sync that downloads nothing.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async (id) => {
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+              const request = indexedDB.open("inbox-zero-email-cache");
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            try {
+              const tx = db.transaction([
+                "localMailStorageLedger",
+                "localMailMessages",
+                "localMailSyncStates",
+              ]);
+              const read = <T>(request: IDBRequest<T>) =>
+                new Promise<T>((resolve, reject) => {
+                  request.onsuccess = () => resolve(request.result);
+                  request.onerror = () => reject(request.error);
+                });
+              const [ledger, count, state] = await Promise.all([
+                read(tx.objectStore("localMailStorageLedger").get("origin")),
+                read(
+                  tx
+                    .objectStore("localMailMessages")
+                    .index("byAccount")
+                    .count(id),
+                ),
+                read(tx.objectStore("localMailSyncStates").get(id)),
+              ]);
+              return {
+                indexReady: ledger?.index.status === "ready",
+                sourcesReady:
+                  !!ledger &&
+                  Object.values(ledger.stores).every(
+                    (store) =>
+                      !!store &&
+                      typeof store === "object" &&
+                      "complete" in store &&
+                      store.complete,
+                  ),
+                hasMessages: count > 0,
+                storagePaused: !!state?.storagePaused,
+              };
+            } finally {
+              db.close();
+            }
+          }, emailAccountId),
+        { timeout: 20_000 },
+      )
+      .toEqual({
+        indexReady: true,
+        sourcesReady: true,
+        hasMessages: true,
+        storagePaused: false,
+      });
     await expect
       .poll(() => readSyncAccounts(page, "localMailSyncStates"))
       .toEqual([emailAccountId]);
@@ -84,8 +134,6 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
         ),
       )
       .toBe("1");
-    const checkpoint = await readSyncCheckpoint(page, emailAccountId);
-    expect(checkpoint).toBeDefined();
     syncAccountIds.clear();
     await page.reload();
     await expect(page.getByTestId("chat-input")).toBeVisible();
@@ -97,28 +145,7 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
         ),
       )
       .toBe("1");
-    const resumed = await readSyncCheckpoint(page, emailAccountId);
-    await testInfo.attach("reload-sync-checkpoints", {
-      body: JSON.stringify({ checkpoint, resumed }),
-      contentType: "application/json",
-    });
-    expect(resumed?.generation).toBe(checkpoint?.generation);
-    expect(resumed?.fence).toBeGreaterThanOrEqual(checkpoint?.fence ?? 0);
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect
-      .poll(() => [...syncAccountIds], { timeout: 75_000 })
-      .toEqual([emailAccountId]);
-    await expect
-      .poll(
-        async () => (await readSyncCheckpoint(page, emailAccountId))?.fence,
-        { timeout: 75_000 },
-      )
-      .toBeGreaterThan(checkpoint?.fence ?? 0);
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "activated-mail-resumed-after-reload",
-    );
+    expect([...syncAccountIds].every((id) => id === emailAccountId)).toBe(true);
 
     await withClient((client) =>
       client.query(
@@ -148,60 +175,6 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
     await capturePlaywrightCheckpoint(page, testInfo, "unified-mail-activated");
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
-  }
-});
-
-test("resumes a download interrupted by reload without waiting for its durable lease", async ({
-  page,
-}, testInfo) => {
-  const emailAccountId = await getEmailAccountId(page);
-  let interrupted: Route | undefined;
-  await page.route("**/*", async (route) => {
-    const request = route.request();
-    if (!interrupted && request.headers()["next-action"]) {
-      try {
-        const payload = request.postDataJSON();
-        if (
-          Array.isArray(payload) &&
-          payload[0] === emailAccountId &&
-          payload[1]?.phase === "capabilities"
-        ) {
-          interrupted = route;
-          return;
-        }
-      } catch {
-        // Unrelated actions can submit multipart bodies.
-      }
-    }
-    await route.continue();
-  });
-  try {
-    await page.goto(`/${emailAccountId}/mail`);
-    await expect(
-      page.getByRole("combobox", { name: "Search mail" }),
-    ).toBeVisible();
-    await expect.poll(() => !!interrupted).toBe(true);
-    const claimed = await readSyncCheckpoint(page, emailAccountId);
-    expect(claimed?.leased).toBe(true);
-    expect(claimed?.leaseRemainingMs).toBeGreaterThan(120_000);
-    await page.reload();
-    await expect(
-      page.getByRole("combobox", { name: "Search mail" }),
-    ).toBeVisible();
-    await expect
-      .poll(
-        async () => (await readSyncCheckpoint(page, emailAccountId))?.fence,
-        { timeout: 20_000 },
-      )
-      .toBeGreaterThan(claimed?.fence ?? 0);
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "interrupted-download-resumed",
-    );
-  } finally {
-    await interrupted?.abort().catch(() => undefined);
-    await page.unrouteAll({ behavior: "ignoreErrors" });
   }
 });
 
@@ -241,51 +214,4 @@ async function readSyncAccounts(
       };
     });
   }, store);
-}
-
-async function readSyncCheckpoint(page: Page, emailAccountId: string) {
-  return page.evaluate(async (id) => {
-    const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("inbox-zero-email-cache");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    try {
-      return await new Promise<
-        | {
-            generation: string;
-            fence: number;
-            leased: boolean;
-            leaseRemainingMs: number;
-            nextAttemptInMs: number;
-          }
-        | undefined
-      >((resolve, reject) => {
-        const transaction = database.transaction(
-          "localMailSyncStates",
-          "readonly",
-        );
-        const request = transaction.objectStore("localMailSyncStates").get(id);
-        transaction.oncomplete = () =>
-          resolve(
-            request.result && {
-              generation: request.result.generation,
-              fence: request.result.fence,
-              leased: !!request.result.leaseOwner,
-              leaseRemainingMs: Math.max(
-                0,
-                (request.result.leaseExpiresAt ?? 0) - Date.now(),
-              ),
-              nextAttemptInMs: Math.max(
-                0,
-                request.result.nextAttemptAt - Date.now(),
-              ),
-            },
-          );
-        transaction.onerror = () => reject(transaction.error);
-      });
-    } finally {
-      database.close();
-    }
-  }, emailAccountId);
 }

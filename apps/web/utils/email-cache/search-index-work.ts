@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { randomUuid } from "@/utils/uuid";
 import type { IDBPTransaction, StoreNames } from "idb";
 import { getEmailCacheDatabase, type EmailCacheSchema } from "./database";
@@ -66,10 +67,10 @@ export async function acknowledgeSearchIndexWork({
 }) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction(
-    ["searchIndexAccounts", "searchIndexWork"],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "searchIndexAccounts",
+    "searchIndexWork",
+  ]);
   const account = await transaction
     .objectStore("searchIndexAccounts")
     .get(emailAccountId);
@@ -105,10 +106,10 @@ export async function advanceSearchIndexWork({
 }) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction(
-    ["searchIndexAccounts", "searchIndexWork"],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "searchIndexAccounts",
+    "searchIndexWork",
+  ]);
   const [account, item] = await Promise.all([
     transaction.objectStore("searchIndexAccounts").get(emailAccountId),
     transaction.objectStore("searchIndexWork").get([emailAccountId, threadId]),
@@ -139,10 +140,10 @@ export async function blockSearchIndexWork({
 }) {
   const database = await getEmailCacheDatabase();
   if (!database) return false;
-  const transaction = database.transaction(
-    ["searchIndexAccounts", "searchIndexWork"],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "searchIndexAccounts",
+    "searchIndexWork",
+  ]);
   const [account, item] = await Promise.all([
     transaction.objectStore("searchIndexAccounts").get(emailAccountId),
     transaction.objectStore("searchIndexWork").get([emailAccountId, threadId]),
