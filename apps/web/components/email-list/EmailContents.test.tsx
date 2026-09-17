@@ -138,6 +138,29 @@ describe("HtmlEmail", () => {
     );
   });
 
+  it("treats uppercase designed markup as authored html", () => {
+    mockTheme.theme = "dark";
+    mockTheme.resolvedTheme = "dark";
+    const html = `<HTML><HEAD><STYLE>
+      .card { background: #f8f9fa; color: #202124; }
+      @media (prefers-color-scheme: dark) {
+        .card { background: #202124; color: #e8eaed; }
+      }
+    </STYLE></HEAD><BODY>
+      <DIV CLASS="card" STYLE="background:#f8f9fa;font-family:Arial,sans-serif;font-size:16px">
+        Finish setup
+      </DIV>
+    </BODY></HTML>`;
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="designed-theme-uppercase" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    expect(iframe.style.colorScheme).toBe("light");
+    expect(iframe.srcdoc).toContain(
+      "prefers-color-scheme: inbox-zero-authored",
+    );
+  });
+
   it.each([
     false,
     true,

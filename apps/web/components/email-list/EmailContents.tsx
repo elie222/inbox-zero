@@ -428,14 +428,15 @@ async function loadInlineImageSources({
 }
 
 function isDesignedHtmlEmail(html: string) {
-  const styleAttributeCount = (html.match(/style=/g) || []).length;
+  const markup = html.toLowerCase();
+  const styleAttributeCount = (markup.match(/style=/g) || []).length;
   return (
-    html.includes("bgcolor") ||
-    html.includes("background") ||
-    html.includes("<style") ||
+    markup.includes("bgcolor") ||
+    markup.includes("background") ||
+    markup.includes("<style") ||
     styleAttributeCount > 1 ||
-    html.includes("font-family") ||
-    html.includes("font-size")
+    markup.includes("font-family") ||
+    markup.includes("font-size")
   );
 }
 
