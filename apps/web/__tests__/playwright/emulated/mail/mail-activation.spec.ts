@@ -54,6 +54,9 @@ test("starts downloads only after visiting Mail and resumes the activated accoun
       page.getByRole("combobox", { name: "Search mail" }),
     ).toBeVisible();
     await expect.poll(() => [...syncAccountIds]).toEqual([emailAccountId]);
+    // Sync ticks are gated on the storage ledger being ready, so readiness
+    // always precedes the first download and hasMessages is the field this
+    // poll waits on. Dropping it would pass on a sync that downloads nothing.
     await expect
       .poll(
         () =>
