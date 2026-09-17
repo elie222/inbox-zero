@@ -221,7 +221,9 @@ describe("MCP tool permissions and rule writes", () => {
       new Error("Upgrade required"),
     );
     const tool = await getTool("create_rule", ["mcp:write"]);
-    await expect(tool({ rule: {} })).rejects.toThrow("Upgrade required");
+    await expect(tool({ rule: digestRuleBody })).rejects.toThrow(
+      "Upgrade required",
+    );
     expect(createRule).not.toHaveBeenCalled();
   });
 
@@ -235,7 +237,7 @@ describe("MCP tool permissions and rule writes", () => {
       new Error("Upgrade required"),
     );
     const tool = await getTool("update_rule", ["mcp:write"]);
-    await expect(tool({ id: "rule_1", rule: {} })).rejects.toThrow(
+    await expect(tool({ id: "rule_1", rule: digestRuleBody })).rejects.toThrow(
       "Upgrade required",
     );
     expect(assertCanUseDigestsIfNeeded).toHaveBeenCalledWith(
@@ -264,6 +266,12 @@ describe("MCP tool permissions and rule writes", () => {
     expect(deleteRule).not.toHaveBeenCalled();
   });
 });
+
+const digestRuleBody = {
+  name: "Digest",
+  condition: { aiInstructions: "Match digest emails" },
+  actions: [{ type: "DIGEST" }],
+};
 
 async function getTool(name: string, scopes: string[]) {
   await handleMcpServerRequest(

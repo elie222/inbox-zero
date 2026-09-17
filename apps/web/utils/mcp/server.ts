@@ -262,7 +262,9 @@ export async function handleMcpServerRequest(
         userId,
         ...accountSelector(args),
       });
-      const ruleInput = toRuleWriteInput(args.rule);
+      const ruleInput = toRuleWriteInput(
+        ruleRequestBodySchema.parse(args.rule),
+      );
       const scopedLogger = toolLogger.with({
         emailAccountId: emailAccount.id,
       });
@@ -323,7 +325,9 @@ export async function handleMcpServerRequest(
         throw new Error("Rule not found for the selected email account.");
       }
 
-      const ruleInput = toRuleWriteInput(args.rule);
+      const ruleInput = toRuleWriteInput(
+        ruleRequestBodySchema.parse(args.rule),
+      );
       const scopedLogger = toolLogger.with({
         emailAccountId: emailAccount.id,
         ruleId: String(args.id),
