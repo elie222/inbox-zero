@@ -162,7 +162,7 @@ function FooterList(props: {
             <Link
               href={item.href}
               target={item.target}
-              prefetch={item.target !== "_blank"}
+              prefetch={false}
               className="text-sm leading-6 text-gray-500 hover:text-gray-900"
             >
               {item.name}
