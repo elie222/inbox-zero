@@ -1,9 +1,5 @@
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { isMailSyncActivated } from "./mail-activation";
-import {
-  readLocalMailSettings,
-  subscribeToLocalMailSettings,
-} from "./local-mail-settings";
 
 export function startLocalMailHints(
   emailAccountId: string,
@@ -20,7 +16,6 @@ export function startLocalMailHints(
   function eligible() {
     return (
       !disposed &&
-      readLocalMailSettings().pushEnabled &&
       navigator.onLine !== false &&
       isMailSyncActivated(emailAccountId) &&
       (document.visibilityState !== "hidden" || !!getInboxZeroDesktopApp())
@@ -96,13 +91,11 @@ export function startLocalMailHints(
   }
 
   window.addEventListener("online", wake);
-  const unsubscribeSettings = subscribeToLocalMailSettings(wake);
   window.addEventListener("offline", wake);
   document.addEventListener("visibilitychange", wake);
   connect();
   return () => {
     disposed = true;
-    unsubscribeSettings();
     close();
     clearTimeout(notification);
     window.removeEventListener("online", wake);

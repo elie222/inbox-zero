@@ -20,10 +20,6 @@ import {
 } from "./search-index-service";
 import { readSearchIndexWork } from "./search-index-work";
 import { relieveLocalMailStoragePressure } from "./local-mail-storage-pressure";
-import {
-  readLocalMailSettings,
-  subscribeToLocalMailSettings,
-} from "./local-mail-settings";
 
 type Entry = {
   references: number;
@@ -52,7 +48,6 @@ let sequence = 0;
 let lastActivityAt = 0;
 let lastCatchUpAt = 0;
 let unsubscribeRequests: (() => void) | undefined;
-let unsubscribeSettings: (() => void) | undefined;
 
 export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
   const entry = entries.get(emailAccountId) ?? {
@@ -80,7 +75,6 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
     indexWarmed = false;
     unsubscribeRequests =
       subscribeToLocalMailSyncRequests(requestLocalMailSync);
-    unsubscribeSettings = subscribeToLocalMailSettings(settingsChanged);
     window.addEventListener("online", wake);
     window.addEventListener("focus", wake);
     document.addEventListener("visibilitychange", wake);
@@ -103,8 +97,6 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
       clearTimeout(timer);
       unsubscribeRequests?.();
       unsubscribeRequests = undefined;
-      unsubscribeSettings?.();
-      unsubscribeSettings = undefined;
       window.removeEventListener("online", wake);
       window.removeEventListener("focus", wake);
       document.removeEventListener("visibilitychange", wake);
@@ -190,7 +182,6 @@ async function tick(emailAccountId: string, entry: Entry) {
       emailAccountId,
       retentionAfter,
       allowHistoricalWork:
-        readLocalMailSettings().backfillEnabled &&
         !eviction?.stage &&
         pressure !== "progress" &&
         document.visibilityState !== "hidden" &&
@@ -372,14 +363,6 @@ function activity() {
   const wasInactive = Date.now() - lastActivityAt >= 5 * 60_000;
   lastActivityAt = Date.now();
   if (wasInactive) wake();
-}
-
-function settingsChanged() {
-  for (const [id, entry] of entries) {
-    entry.pressureRequested = true;
-    entry.nextPressureAt = 0;
-    requestLocalMailSync(id, false);
-  }
 }
 
 function wake() {

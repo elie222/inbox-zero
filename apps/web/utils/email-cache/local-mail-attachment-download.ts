@@ -16,7 +16,10 @@ import {
   readLocalMailAttachment,
 } from "./local-mail-attachments";
 
-const MAX_MEMORY_BYTES = 16 * 1024 * 1024;
+// A transfer is buffered whole in memory before it is stored, so this caps
+// what any single attachment may cost. Pinning reads it to explain the files
+// it cannot keep rather than retrying them.
+export const LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT = 16 * 1024 * 1024;
 type StorageOptions = Omit<
   Parameters<typeof prepareLocalMailAttachmentDownload>[0],
   "reference" | "maxBytes"
@@ -83,7 +86,7 @@ export async function downloadLocalMailAttachment({
     typeof maxBytes !== "number" ||
     !Number.isSafeInteger(maxBytes) ||
     maxBytes <= 0 ||
-    maxBytes > MAX_MEMORY_BYTES ||
+    maxBytes > LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT ||
     (reference.reportedBytes ?? 0) > maxBytes
   )
     return priority === "requested"
