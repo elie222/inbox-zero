@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getMockMessage } from "@/__tests__/helpers";
 import { fetchWithAccount } from "@/utils/fetch";
 import { fetchAttachment } from "@/utils/attachments/download";
+import { LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT } from "./local-mail-attachment-download";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { bootstrapLocalMailStorageLedgerBatch } from "./local-mail-storage-ledger-bootstrap";
 import { prepareLocalMailOfflineConversation } from "./local-mail-offline-plan";
@@ -206,4 +207,65 @@ it("reports a conversation that changed rather than downloading a stale copy", a
       threadId: "thread",
     }),
   ).toMatchObject({ invalidated: true, attachmentsReady: false });
+});
+
+it("attempts a file whose size the provider did not report", async () => {
+  vi.mocked(fetchWithAccount).mockImplementation(async () =>
+    Response.json({
+      thread: {
+        id: "thread",
+        messages: [
+          getMockMessage({
+            id: "message",
+            threadId: "thread",
+            attachments: [{ ...attachment, size: 0 }],
+          }),
+        ],
+        snippet: "",
+      },
+    }),
+  );
+  await pin();
+  expect(
+    await drainLocalMailOfflineDownloads({ emailAccountId: "account" }),
+  ).toBe("progress");
+  // The transfer ceiling has to match what the storable check promises, or a
+  // file it calls storable is refused and retried until it is exhausted.
+  expect(vi.mocked(fetchAttachment).mock.calls[0][0]).toMatchObject({
+    maxBytes: LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT,
+  });
+  expect(
+    await readLocalMailOfflineSnapshot({
+      emailAccountId: "account",
+      threadId: "thread",
+    }),
+  ).toMatchObject({ attachmentsReady: true });
+});
+
+it("reports a file too large to keep without retrying it", async () => {
+  vi.mocked(fetchWithAccount).mockImplementation(async () =>
+    Response.json({
+      thread: {
+        id: "thread",
+        messages: [
+          getMockMessage({
+            id: "message",
+            threadId: "thread",
+            attachments: [
+              { ...attachment, size: LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT + 1 },
+            ],
+          }),
+        ],
+        snippet: "",
+      },
+    }),
+  );
+  await pin();
+  // Blocked rather than progress: reporting progress would have the sync loop
+  // return to this job every 250ms for as long as the pin exists.
+  for (let pass = 0; pass < 3; pass++)
+    expect(
+      await drainLocalMailOfflineDownloads({ emailAccountId: "account" }),
+    ).toBe("blocked");
+  expect(fetchAttachment).not.toHaveBeenCalled();
 });

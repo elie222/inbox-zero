@@ -31,6 +31,7 @@ import {
   forgetLocalMailOfflineDownloadWaits,
   isLocalMailOfflineFileExhausted,
   isLocalMailOfflineFileStorable,
+  isLocalMailOfflineFileTerminal,
 } from "@/utils/email-cache/local-mail-offline-runner";
 import {
   isMailSyncActivated,
@@ -86,9 +87,11 @@ export function KeepOfflineDialog({
         threadId: id,
       })) ?? null,
     {
-      // Poll only while there is something left to wait for.
+      // Poll only while a transfer can still change the answer. A copy whose
+      // remaining files are all terminal never will, and polling it forever
+      // is how the dialog used to claim it was still saving.
       refreshInterval: (latest) =>
-        latest && !latest.invalidated && !ready(latest) ? 1000 : 0,
+        latest && !latest.invalidated && !settled(latest) ? 1000 : 0,
     },
   );
 
@@ -150,10 +153,12 @@ export function KeepOfflineDialog({
       setError("");
       return;
     }
-    // Only a conversation known not to be kept offline needs a quote.
-    if (snapshot !== null || quote || preparing || saving) return;
+    // Only a conversation known not to be kept offline needs a quote, and
+    // only once: without the error guard a failing quote re-enters here the
+    // moment it resolves, fetching the whole conversation over and over.
+    if (error || snapshot !== null || quote || preparing || saving) return;
     prepare();
-  }, [open, snapshot, quote, preparing, saving, prepare]);
+  }, [open, error, snapshot, quote, preparing, saving, prepare]);
 
   const remove = async () => {
     setError("");
@@ -215,10 +220,10 @@ export function KeepOfflineDialog({
             </>
           ) : (
             <Button
-              disabled={!quote || busy}
-              onClick={() => quote && save(quote)}
+              disabled={busy || (!quote && !error)}
+              onClick={() => (quote ? save(quote) : prepare())}
             >
-              {saving ? "Saving…" : "Keep offline"}
+              {retryLabel({ quote, error, saving })}
             </Button>
           )}
         </DialogFooter>
@@ -264,7 +269,6 @@ function SnapshotStatus({
   snapshot: Snapshot;
   syncEnabled: boolean;
 }) {
-  const available = ready(snapshot);
   const tooLarge = snapshot.files.filter(
     (file) => !isLocalMailOfflineFileStorable(file),
   );
@@ -282,9 +286,7 @@ function SnapshotStatus({
           new.
         </p>
       ) : (
-        <p className="font-medium">
-          {available ? "Available offline" : "Saving for offline use…"}
-        </p>
+        <p className="font-medium">{headline(snapshot)}</p>
       )}
       {snapshot.files.length > 0 && <p>{storedLine(snapshot)}</p>}
       {!snapshot.messagesReady && !snapshot.invalidated && (
@@ -306,7 +308,7 @@ function SnapshotStatus({
           {count(unavailable.length, "file")} could not be downloaded.
         </p>
       )}
-      {!available && !syncEnabled && (
+      {!settled(snapshot) && !syncEnabled && (
         <p className="text-muted-foreground">
           Syncing this account on this device is off, so the remaining files
           will not download until you turn it back on.
@@ -314,6 +316,46 @@ function SnapshotStatus({
       )}
     </div>
   );
+}
+
+/**
+ * What the copy is, in one line. A copy whose only missing files can never
+ * arrive is finished, and saying so is the difference between a reader waiting
+ * for nothing and a reader who knows to download that file while online.
+ */
+function headline(snapshot: Snapshot) {
+  if (ready(snapshot)) return "Available offline";
+  if (!settled(snapshot)) return "Saving for offline use…";
+  return snapshot.messagesReady
+    ? "Available offline, apart from the files below"
+    : "Partly available offline";
+}
+
+/**
+ * Whether waiting any longer could change the answer.
+ */
+function settled(snapshot: Snapshot) {
+  return (
+    snapshot.messagesReady &&
+    snapshot.files.every(
+      (file) =>
+        file.state === "complete" || isLocalMailOfflineFileTerminal(file),
+    )
+  );
+}
+
+function retryLabel({
+  quote,
+  error,
+  saving,
+}: {
+  quote: Plan | undefined;
+  error: string;
+  saving: boolean;
+}) {
+  if (saving) return "Saving…";
+  if (!quote && error) return "Try again";
+  return "Keep offline";
 }
 
 /**

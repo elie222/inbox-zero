@@ -5,9 +5,6 @@ import {
 } from "./local-mail-attachment-download";
 import type { LocalMailAttachmentJob } from "./local-mail-attachments-types";
 
-// A file whose size the provider did not report is allowed this much before
-// the transfer is cut off, so an unreported size cannot consume the budget.
-const UNKNOWN_SIZE_ALLOWANCE = 2 * 1024 * 1024;
 const MAX_ATTEMPTS = 6;
 const RETRY_BASE_MS = 30_000;
 const RETRY_CEILING_MS = 30 * 60_000;
@@ -77,15 +74,21 @@ export async function drainLocalMailOfflineDownloads({
         messageId: job.messageId,
         attachmentId: job.attachmentId,
         priority: "speculative",
-        maxBytes: job.reportedBytes ?? UNKNOWN_SIZE_ALLOWANCE,
+        maxBytes: job.reportedBytes ?? LOCAL_MAIL_ATTACHMENT_MEMORY_LIMIT,
         signal,
       });
+      if (result.status === "ready") {
+        storageWaitUntil.delete(emailAccountId);
+        return "progress";
+      }
       if (result.status === "skipped" && result.reason === "storage") {
         storageWaitUntil.set(emailAccountId, now + STORAGE_RETRY_MS);
         return "blocked";
       }
-      storageWaitUntil.delete(emailAccountId);
-      return "progress";
+      // A stale reference or a refused size leaves the job untouched and
+      // eligible, so reporting progress here would busy-loop the tick on it
+      // every 250ms and never reach the files behind it.
+      blocked = true;
     }
   }
   return blocked ? "blocked" : "idle";
@@ -96,9 +99,21 @@ export function forgetLocalMailOfflineDownloadWaits(emailAccountId: string) {
 }
 
 /**
- * Whether a file can be kept at all, which the pin UI reports rather than
- * retrying. An unreported size is attempted against the allowance instead of
- * being refused, because most such files turn out to be small.
+ * Whether this file will never be downloaded, however long the reader waits.
+ * A copy holding only terminal files left is as finished as it will ever be,
+ * which is what stops the dialog claiming it is still saving.
+ */
+export function isLocalMailOfflineFileTerminal(job: LocalMailAttachmentJob) {
+  return (
+    !isLocalMailOfflineFileStorable(job) || isLocalMailOfflineFileExhausted(job)
+  );
+}
+
+/**
+ * Whether a file can be kept at all, which the dialog reports rather than
+ * retrying. An unreported size is attempted against the same ceiling as a
+ * known one, because the two must agree: a file this predicate calls storable
+ * and the transfer then refuses would retry until it exhausted its attempts.
  */
 export function isLocalMailOfflineFileStorable(job: LocalMailAttachmentJob) {
   return (
