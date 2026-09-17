@@ -89,6 +89,8 @@ function EmailIframe({
         position: pending ? "absolute" : undefined,
         top: pending ? 0 : undefined,
         visibility: pending ? "hidden" : undefined,
+        // Designed HTML emails keep `light` even when the app is dark so
+        // `prefers-color-scheme: dark` rules in the message do not activate.
         colorScheme: isDarkMode ? "dark" : "light",
       }}
       aria-hidden={pending || undefined}

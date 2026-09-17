@@ -95,8 +95,40 @@ describe("HtmlEmail", () => {
       iframe.srcdoc,
       "text/html",
     );
+    expect(iframe.style.colorScheme).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.body.classList.contains("dark")).toBe(true);
+  });
+
+  it("does not put designed html emails into the app dark color scheme", () => {
+    mockTheme.theme = "dark";
+    mockTheme.resolvedTheme = "dark";
+    const html = `<html><head><style>
+      .card { background: #f8f9fa; color: #202124; }
+      @media (prefers-color-scheme: dark) {
+        .card { background: #202124; color: #e8eaed; }
+      }
+    </style></head><body>
+      <div class="card" style="background:#f8f9fa;font-family:Arial,sans-serif;font-size:16px">
+        Finish setup
+      </div>
+    </body></html>`;
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="designed-theme" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    const document = new DOMParser().parseFromString(
+      iframe.srcdoc,
+      "text/html",
+    );
+    expect(iframe.style.colorScheme).toBe("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.body.classList.contains("dark")).toBe(false);
+    expect(
+      document
+        .querySelector('meta[name="color-scheme"]')
+        ?.getAttribute("content"),
+    ).toBe("light");
   });
 
   it.each([
