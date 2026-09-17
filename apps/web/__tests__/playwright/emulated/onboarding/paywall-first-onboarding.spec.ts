@@ -57,7 +57,12 @@ test("paywall-first arm shows pricing, then onboarding after payment, then setup
   await capturePlaywrightCheckpoint(page, testInfo, "paywall-pricing-first");
 
   await page.locator('button[aria-describedby="Starter"]').click();
-  await page.goto(await waitForCheckoutSessionUrl());
+  // Dev builds follow the app's redirect to the emulated checkout page;
+  // production builds refuse the plain-http origin, so fall back to opening it.
+  const checkoutUrl = await waitForCheckoutSessionUrl();
+  await page
+    .waitForURL(checkoutUrl, { timeout: 10_000 })
+    .catch(() => page.goto(checkoutUrl));
   await expect(
     page.getByRole("button", { name: "Pay and subscribe" }),
   ).toBeVisible({ timeout: 60_000 });

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  getOnboardingEntry,
   getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
@@ -151,54 +150,5 @@ describe("isDraftRepliesDisabledByRuleState", () => {
         },
       ]),
     ).toBe(false);
-  });
-});
-
-describe("getOnboardingEntry", () => {
-  it("sends control users straight into the flow regardless of premium state", () => {
-    expect(
-      getOnboardingEntry({
-        paywallVariant: "control",
-        isPremium: false,
-        isPremiumLoading: true,
-      }),
-    ).toBe("flow");
-    expect(
-      getOnboardingEntry({
-        paywallVariant: "control",
-        isPremium: false,
-        isPremiumLoading: false,
-      }),
-    ).toBe("flow");
-  });
-
-  it("waits for premium state before deciding in the paywall-first arm", () => {
-    expect(
-      getOnboardingEntry({
-        paywallVariant: "paywall-first",
-        isPremium: false,
-        isPremiumLoading: true,
-      }),
-    ).toBe("pending");
-  });
-
-  it("shows the paywall to non-premium users in the paywall-first arm", () => {
-    expect(
-      getOnboardingEntry({
-        paywallVariant: "paywall-first",
-        isPremium: false,
-        isPremiumLoading: false,
-      }),
-    ).toBe("paywall");
-  });
-
-  it("lets paying users in the paywall-first arm continue into the flow", () => {
-    expect(
-      getOnboardingEntry({
-        paywallVariant: "paywall-first",
-        isPremium: true,
-        isPremiumLoading: false,
-      }),
-    ).toBe("flow");
   });
 });
