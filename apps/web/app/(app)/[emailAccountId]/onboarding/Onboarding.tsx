@@ -67,11 +67,3 @@ export function Onboarding({
 
   return <OnboardingContent step={step} />;
 }
-
-function parseForcedPaywallVariant(
-  value: string | undefined,
-): OnboardingPaywallVariant | undefined {
-  if (value === "true") return "paywall-first";
-  if (value === "false") return "control";
-  return;
-}
