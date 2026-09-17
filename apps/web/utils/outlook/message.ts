@@ -1,5 +1,5 @@
 import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
-import { normalizeCalendarInvitationContent } from "@/utils/calendar/invitations/content";
+import { isSameCalendarInvitation } from "@/utils/calendar/invitations/content";
 import { escapeSearchValue } from "@/utils/outlook/search-escape";
 import PostalMime from "postal-mime";
 import { ResponseType } from "@microsoft/microsoft-graph-client";
@@ -903,8 +903,7 @@ export async function getMessage(
           contents.some(
             (candidate) =>
               candidate.length > CALENDAR_INVITATION_LIMITS.content ||
-              normalizeCalendarInvitationContent(candidate) !==
-                normalizeCalendarInvitationContent(content),
+              !isSameCalendarInvitation(candidate, content),
           )
         ) {
           parsed.isMeetingInvitation = false;

@@ -259,6 +259,33 @@ describe("loading calendar invitations", () => {
     expect(mocks.respond).not.toHaveBeenCalled();
   });
 
+  it("loads an Exchange-regenerated invitation alongside the sender's .ics", async () => {
+    const exchangeContent = content
+      .replace(
+        "VERSION:2.0",
+        "PRODID:Microsoft Exchange Server 2010\r\nVERSION:2.0",
+      )
+      .replace("ORGANIZER:mailto:", "ORGANIZER;CN=Organizer:MAILTO:");
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      isMeetingInvitation: true,
+      calendarContent: exchangeContent,
+      attachments: [
+        {
+          attachmentId: "download",
+          filename: "invite.ics",
+          mimeType: "application/ics",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(content).toString("base64"),
+      size: content.length,
+    });
+    expect((await getCalendarInvitation(params)).invitation).not.toBeNull();
+  });
+
   it("rejects inline content that conflicts with a single attachment", async () => {
     getMessage.mockResolvedValue({
       ...getEmail(),
