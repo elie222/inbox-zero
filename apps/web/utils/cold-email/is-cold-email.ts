@@ -14,6 +14,7 @@ import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { isWhitelistedSender } from "@/utils/email/whitelist";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
+import type { ColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -40,7 +41,10 @@ export async function isColdEmail({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType?: ModelType;
-  coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
+  coldEmailRule:
+    | (Pick<Rule, "instructions" | "groupId"> &
+        Partial<Pick<ColdEmailRule, "actions">>)
+    | null;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -120,6 +124,7 @@ export async function isColdEmail({
     date: email.date,
     messageId: email.id,
     logger,
+    coldEmailActions: coldEmailRule?.actions,
   });
 
   if (hasPreviousEmail) {

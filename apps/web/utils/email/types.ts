@@ -15,6 +15,14 @@ import type {
   MessageVisibility,
 } from "@/utils/gmail/constants";
 
+export type PriorCommunicationOptions = {
+  from: string;
+  date: Date;
+  messageId: string;
+  excludeLabelIds?: string[];
+  excludeFolderIds?: string[];
+};
+
 export interface EmailThread {
   historyId?: string;
   id: string;
@@ -295,11 +303,9 @@ export interface EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }>;
-  hasPreviousCommunicationsWithSenderOrDomain(options: {
-    from: string;
-    date: Date;
-    messageId: string;
-  }): Promise<boolean>;
+  hasPreviousCommunicationsWithSenderOrDomain(
+    options: PriorCommunicationOptions,
+  ): Promise<boolean>;
   isReplyInThread(message: ParsedMessage): boolean;
   isSentMessage(message: ParsedMessage): boolean;
   labelMessage(options: {

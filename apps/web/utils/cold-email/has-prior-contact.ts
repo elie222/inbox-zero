@@ -1,5 +1,6 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import type { ColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 /**
  * Whether the user has corresponded with this sender before, assuming yes whenever we
@@ -16,12 +17,14 @@ export async function hasPriorContactOrAssumeYes({
   date,
   messageId,
   logger,
+  coldEmailActions,
 }: {
   provider: EmailProvider;
   from: string;
   date: Date | undefined;
   messageId: string | undefined;
   logger: Logger;
+  coldEmailActions?: ColdEmailRule["actions"];
 }): Promise<boolean> {
   if (
     !from.trim() ||
@@ -36,10 +39,30 @@ export async function hasPriorContactOrAssumeYes({
   }
 
   try {
+    const excludeLabelIds: string[] = [];
+    const excludeFolderIds: string[] = [];
+    for (const action of coldEmailActions ?? []) {
+      if (action.type === "LABEL") {
+        const id =
+          action.labelId ||
+          (action.label
+            ? (await provider.getLabelByName(action.label))?.id
+            : null);
+        // A name-only label may not exist until the first cold email action creates it.
+        // A failed lookup throws and reaches the fail-safe below instead.
+        if (id) excludeLabelIds.push(id);
+      } else if (action.type === "MOVE_FOLDER") {
+        // The executor persists the ID after a successful move. Until then,
+        // retain the unfiltered history check rather than creating a folder here.
+        if (action.folderId) excludeFolderIds.push(action.folderId);
+      }
+    }
     return await provider.hasPreviousCommunicationsWithSenderOrDomain({
       from,
       date,
       messageId,
+      ...(excludeLabelIds.length ? { excludeLabelIds } : {}),
+      ...(excludeFolderIds.length ? { excludeFolderIds } : {}),
     });
   } catch (error) {
     logger.warn(
