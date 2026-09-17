@@ -345,7 +345,8 @@ describe("synced mailbox cache", () => {
   });
 
   it("keeps canonical mail that a bounded reset page merely omits", async () => {
-    const database = (await getEmailCacheDatabase())!;
+    const database = await getEmailCacheDatabase();
+    if (!database) throw new Error("Email cache database is unavailable");
     await database.put("searchIndexAccounts", {
       emailAccountId: "account-1",
       generation: "generation-1",
