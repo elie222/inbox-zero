@@ -267,11 +267,10 @@ export async function evictLocalMailMessage(
     row.receivedAt >= protection.recentAfter ||
     row.fetchedAt >= protection.fetchedAfter ||
     (protectedThread?.generation === account.generation &&
-      (protectedThread.pinned ||
-        Object.values(protectedThread.reservations ?? {}).some(
-          (reservation) =>
-            reservation.bytes > 0 && reservation.expiresAt > evictedAt,
-        ) ||
+      (Object.values(protectedThread.reservations ?? {}).some(
+        (reservation) =>
+          reservation.bytes > 0 && reservation.expiresAt > evictedAt,
+      ) ||
         (protectedThread.recentlyOpenedUntil ?? 0) > evictedAt))
   )
     return false;

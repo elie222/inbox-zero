@@ -10,26 +10,21 @@ export function isMailSyncActivated(emailAccountId: string): boolean {
   }
 }
 
+/**
+ * Marks an account's mail as worth downloading on this device, which opening
+ * its mailbox is taken to mean. There is no way back: an account you stop
+ * visiting simply stops being synchronized, because nothing renews the
+ * recency that keeps its mail from being evicted.
+ */
 export function activateMailSync(emailAccountId: string) {
   if (typeof window === "undefined" || !emailAccountId) return;
   if (isMailSyncActivated(emailAccountId)) return;
   try {
-    if (window.localStorage.getItem(STORAGE_PREFIX + emailAccountId) === "0")
-      return;
-    setMailSyncEnabled(emailAccountId, true);
+    window.localStorage.setItem(STORAGE_PREFIX + emailAccountId, "1");
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch {
     // Without durable activation, leave background downloads disabled.
   }
-}
-
-export function setMailSyncEnabled(emailAccountId: string, enabled: boolean) {
-  if (typeof window === "undefined" || !emailAccountId)
-    throw new Error("Mail account is unavailable");
-  window.localStorage.setItem(
-    STORAGE_PREFIX + emailAccountId,
-    enabled ? "1" : "0",
-  );
-  window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 export function clearMailActivation(emailAccountId?: string) {

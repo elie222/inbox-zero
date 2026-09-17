@@ -45,9 +45,8 @@ it("preserves retention and protected work when replacing the source generation"
   await database.put("localMailEvictedMessages", marker);
   await database.put("localMailThreadProtection", {
     emailAccountId,
-    threadId: "pinned",
+    threadId: "protected",
     generation,
-    pinned: true,
     reservations: { download: { bytes: 100, expiresAt: 1000 } },
   });
   await database.put("localMailEvictionJobs", {
@@ -81,10 +80,12 @@ it("preserves retention and protected work when replacing the source generation"
     await database.get("localMailEvictedMessages", [emailAccountId, "evicted"]),
   ).toEqual(marker);
   expect(
-    await database.get("localMailThreadProtection", [emailAccountId, "pinned"]),
+    await database.get("localMailThreadProtection", [
+      emailAccountId,
+      "protected",
+    ]),
   ).toMatchObject({
     generation: first?.generation,
-    pinned: true,
     reservations: { download: { bytes: 100, expiresAt: 1000 } },
   });
   expect(
@@ -166,7 +167,7 @@ it("keeps canonical bodies and reindexes them after a source migration", async (
     emailAccountId,
     threadId: data.threadId,
     generation: "old",
-    pinned: true,
+    reservations: { download: { bytes: 100, expiresAt: 1000 } },
   });
   await initializeSearchIndexAccount(emailAccountId);
   expect(

@@ -37,7 +37,6 @@ export type LocalMailThreadProtection = {
   emailAccountId: string;
   threadId: string;
   generation: string;
-  pinned?: boolean;
   reservations?: Record<string, { bytes: number; expiresAt: number }>;
   recentlyOpenedUntil?: number;
 };

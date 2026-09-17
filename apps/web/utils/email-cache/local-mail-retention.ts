@@ -295,7 +295,6 @@ export async function updateLocalMailThreadProtection(
   options: Options & {
     threadId: string;
     now: number;
-    pinned?: boolean;
     recentlyOpenedUntil?: number;
     reservation?: { id: string; bytes: number; expiresAt: number };
   },
@@ -356,7 +355,6 @@ export async function updateLocalMailThreadProtection(
     await store.put({
       ...current,
       reservations,
-      pinned: options.pinned ?? current.pinned,
       recentlyOpenedUntil:
         options.recentlyOpenedUntil === undefined
           ? current.recentlyOpenedUntil
