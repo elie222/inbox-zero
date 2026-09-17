@@ -16,6 +16,7 @@ import {
 import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,7 +55,6 @@ export function ThreadActionsMenu({
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
-  const hint = getShortcutHint("moreActions");
   const { provider, userEmail } = useAccount();
   const {
     canManageAutoArchive,
@@ -80,16 +80,13 @@ export function ThreadActionsMenu({
   return (
     <>
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`More actions (${hint})`}
-            size="iconXs"
-            title={`More actions (${hint})`}
-            variant="outline"
-          >
-            <MoreHorizontalIcon className="size-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
+        <Tooltip shortcuts={["moreActions"]}>
+          <DropdownMenuTrigger asChild>
+            <Button aria-label="More actions" size="iconXs" variant="outline">
+              <MoreHorizontalIcon className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </Tooltip>
 
         <DropdownMenuContent
           align="end"
