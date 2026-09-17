@@ -240,6 +240,39 @@ it("rolls back ledger and all data when a later representation exceeds the limit
   expect(await db.get("localMailStorageLedger", "origin")).toEqual(initial);
 });
 
+it("bounds growth by the budget while the scan is incomplete", () => {
+  const partial = {
+    id: "origin" as const,
+    version: 1 as const,
+    epoch: "epoch",
+    // An incomplete checkpoint carries the cursor it reached.
+    stores: {
+      threadRows: {
+        bytes: 900,
+        complete: false,
+        afterKey: ["account", "thread"],
+      },
+    },
+    index: { status: "unknown" as const },
+  };
+  expect(
+    evaluateLocalMailLogicalAdmission({
+      ledger: partial,
+      limitBytes: 1000,
+      expectedGrowthBytes: 50,
+    }).allowed,
+  ).toBe(true);
+  // Unmeasured must not mean unlimited: the configured budget still applies to
+  // what the scan has counted so far.
+  expect(
+    evaluateLocalMailLogicalAdmission({
+      ledger: partial,
+      limitBytes: 1000,
+      expectedGrowthBytes: 500,
+    }).allowed,
+  ).toBe(false);
+});
+
 it("allows optional growth while bootstrap is incomplete and still permits a protected shrinking write", async () => {
   const db = (await getEmailCacheDatabase())!;
   await db.put("threadRows", row("old", "body"));

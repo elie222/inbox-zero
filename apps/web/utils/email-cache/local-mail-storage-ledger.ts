@@ -133,19 +133,17 @@ export function evaluateLocalMailLogicalAdmission({
     throw new Error("Invalid logical storage allowance");
   const ready = isLocalMailStorageLedgerReady(ledger);
   const usedBytes = isValidLedger(ledger) ? localMailLedgerBytes(ledger) : 0;
-  // Until the scan finishes there is no measured total, so the logical budget
-  // cannot constrain yet and only physical headroom applies. Writing meanwhile
-  // is safe because the scan counts those rows when it reaches them, and
-  // refusing instead would mean caching nothing until the scan completes.
-  const remainingBytes = ready
-    ? Math.max(
-        0,
-        Math.min(
-          originRemainingBytes,
-          limitBytes - usedBytes - reservedGrowthBytes,
-        ),
-      )
-    : originRemainingBytes;
+  // An unfinished scan has measured only part of what is stored, so charge
+  // against the budget using what it has counted so far rather than refusing
+  // (which caches nothing until it completes) or waiving the limit (which lets
+  // a slow scan overshoot it). The scan counts the rest as it reaches them.
+  const remainingBytes = Math.max(
+    0,
+    Math.min(
+      originRemainingBytes,
+      limitBytes - usedBytes - reservedGrowthBytes,
+    ),
+  );
   const allowed = expectedGrowthBytes <= remainingBytes;
   return {
     allowed,
