@@ -18,9 +18,11 @@ import {
   EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
 } from "./policy";
 
-// Bumped whenever indexed documents gain a field, so existing accounts rebuild
-// from local mail rather than answering from a document shape that lacks it.
-const SOURCE_VERSION = 3;
+/** Bumped whenever indexed documents gain a field, so existing accounts rebuild
+ *  from local mail rather than answering from a shape that lacks it. Fixtures
+ *  seeding `localMailMessages` must use this, or the first sync tick migrates
+ *  the account and drops the rows they just wrote. */
+export const SOURCE_VERSION = 3;
 
 export async function initializeSearchIndexAccount(emailAccountId: string) {
   if (!isMailSyncActivated(emailAccountId)) return;

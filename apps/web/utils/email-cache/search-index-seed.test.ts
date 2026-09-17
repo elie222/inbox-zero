@@ -18,6 +18,7 @@ import { activateMailSync, clearMailActivation } from "./mail-activation";
 import {
   initializeSearchIndexAccount,
   seedSearchIndexWork,
+  SOURCE_VERSION,
 } from "./search-index-seed";
 import {
   acknowledgeSearchIndexWork,
@@ -44,7 +45,7 @@ describe("resumable local index seeding", () => {
     await database.put("searchIndexAccounts", {
       emailAccountId: "account-1",
       generation: "migration",
-      sourceVersion: 2,
+      sourceVersion: SOURCE_VERSION,
       seed: { store: "threadRows" },
     });
     await database.put("threadRows", {
@@ -126,7 +127,7 @@ describe("resumable local index seeding", () => {
       initializeSearchIndexAccount("account-1"),
     ]);
     expect(accounts[0]).toEqual(accounts[1]);
-    expect(accounts[0]?.sourceVersion).toBe(2);
+    expect(accounts[0]?.sourceVersion).toBe(SOURCE_VERSION);
     expect(accounts[0]?.generation).not.toBe("obsolete-generation");
   });
 

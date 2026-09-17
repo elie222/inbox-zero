@@ -8,7 +8,7 @@ import { captureLocalMailCacheContext } from "./local-mail-cache-context";
 import { activateMailSync } from "./mail-activation";
 import { settleMailMutationInCache } from "./mail-mutation-settlement";
 import { applyMailboxSyncPage, markSyncedMailboxThreadsRead } from "./mailbox";
-import { seedSearchIndexWork } from "./search-index-seed";
+import { seedSearchIndexWork, SOURCE_VERSION } from "./search-index-seed";
 import { writeCachedThreadList, writeCachedThreadRows } from "./thread-lists";
 import { writeCachedThreadDetail } from "./threads";
 
@@ -168,7 +168,7 @@ describe("retention fencing for legacy caches", () => {
     await database.put("searchIndexAccounts", {
       emailAccountId,
       generation,
-      sourceVersion: 2,
+      sourceVersion: SOURCE_VERSION,
     });
     const cacheContext = await captureLocalMailCacheContext(emailAccountId);
     await seedPolicy(1);
@@ -280,7 +280,7 @@ async function seedPolicy(revision: number) {
   await database.put("searchIndexAccounts", {
     emailAccountId,
     generation,
-    sourceVersion: 2,
+    sourceVersion: SOURCE_VERSION,
     retentionRevision: revision,
     messageBytes: 0,
   });
