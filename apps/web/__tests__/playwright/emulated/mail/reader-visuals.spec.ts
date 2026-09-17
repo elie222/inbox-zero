@@ -138,15 +138,27 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   });
   await expect(archiveButton.locator("kbd")).toHaveCount(0);
   await archiveButton.hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Archive (E)");
+  await expect(
+    page.getByRole("tooltip", { name: "Archive (E)" }),
+  ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
 
   const message = page.locator("[data-thread-message-id]").last();
+  await page
+    .getByRole("heading", { name: "Re: Reader Visual Message" })
+    .hover();
   await message.hover();
   await message.getByRole("button", { name: "Reply", exact: true }).hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Reply (R)");
+  await expect(page.getByRole("tooltip", { name: "Reply (R)" })).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-shortcut",
+  );
   await message.getByRole("button", { name: "Forward", exact: true }).hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Forward (F)");
+  await expect(
+    page.getByRole("tooltip", { name: "Forward (F)" }),
+  ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
