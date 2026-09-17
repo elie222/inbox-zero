@@ -209,4 +209,47 @@ describe("boolean queries against the local index", () => {
     expect(search("-newer_than:2d")).toEqual(["first"]);
     expect(search("newer_than:1y")).toEqual(["third", "second", "first"]);
   });
+  it("rebuilds an index written by a different schema version", () => {
+    const database = new sqlite3.oo1.DB(":memory:", "c");
+    const index = createSearchIndex(database);
+    index.resetAccount({
+      emailAccountId,
+      generation,
+      expectedGeneration: null,
+    });
+    index.applyBatch({
+      emailAccountId,
+      generation,
+      expectedRevision: 0,
+      revision: 1,
+      upserts: corpus,
+      deletes: [],
+    });
+    // A future or downgraded build leaves a layout this one cannot read. The
+    // index is derived from the local mail store, so it must be discarded and
+    // rebuilt rather than failing every request for good.
+    database.exec("PRAGMA user_version=99");
+    const reopened = createSearchIndex(database);
+    expect(reopened.getAccountState(emailAccountId)).toBeNull();
+    reopened.resetAccount({
+      emailAccountId,
+      generation,
+      expectedGeneration: null,
+    });
+    reopened.applyBatch({
+      emailAccountId,
+      generation,
+      expectedRevision: 0,
+      revision: 1,
+      upserts: corpus,
+      deletes: [],
+    });
+    expect(
+      reopened
+        .search({ emailAccountId, generation, query: "quarterly", labels })
+        .messages.map((result) => result.id),
+    ).toEqual(["third", "first"]);
+    expect(Number(database.selectValue("PRAGMA user_version"))).toBe(1);
+    database.close();
+  });
 });

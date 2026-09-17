@@ -69,9 +69,13 @@ export function createSearchIndex(database: Database) {
   database.exec(
     "PRAGMA cache_size=-8192; PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON;",
   );
-  const version = Number(database.selectValue("PRAGMA user_version"));
+  let version = Number(database.selectValue("PRAGMA user_version"));
   if (version !== 0 && version !== SCHEMA_VERSION) {
-    throw new Error("Unsupported local search index version");
+    // A future or downgraded build left a layout this one cannot read. Every
+    // document here is derived from the local mail store, so discarding it
+    // costs a rebuild; refusing to open would fail every search for good.
+    discardIndexSchema(database);
+    version = 0;
   }
   if (
     version === 0 &&
@@ -486,6 +490,23 @@ export function createSearchIndex(database: Database) {
       return getSearchIndexStorageBytes(database);
     },
   };
+}
+
+function discardIndexSchema(database: Database) {
+  const readTables = () =>
+    database.exec({
+      sql: "SELECT name, sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+      rowMode: "object",
+      returnValue: "resultRows",
+    }) as { name: string; sql: string | null }[];
+  const drop = (name: string) =>
+    database.exec(`DROP TABLE IF EXISTS "${name.replaceAll('"', '""')}"`);
+  // Dropping an FTS5 table also drops its shadow tables, which cannot be
+  // dropped on their own, so virtual tables go first.
+  for (const table of readTables())
+    if (table.sql?.startsWith("CREATE VIRTUAL TABLE")) drop(table.name);
+  for (const table of readTables()) drop(table.name);
+  database.exec("PRAGMA user_version=0");
 }
 
 export function getSearchIndexStorageBytes(database: Database) {
