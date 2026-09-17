@@ -1,9 +1,15 @@
+import {
+  captureEmailCacheEpoch,
+  isEmailCacheEpochCurrent,
+} from "@/utils/email-cache/database";
+
 type MailboxSyncResult = { hasMore: boolean; pagesSynced: number };
 
 type ScheduledSync = {
   emailAccountId: string;
   priority: boolean;
   queued: boolean;
+  callers: { isCurrent: () => boolean; force: boolean }[];
   result: ReturnType<typeof Promise.withResolvers<MailboxSyncResult>>;
 };
 
@@ -12,7 +18,7 @@ export function createMailboxSyncScheduler({
   sync,
 }: {
   maxConcurrent: number;
-  sync: (emailAccountId: string) => Promise<MailboxSyncResult>;
+  sync: (emailAccountId: string, force: boolean) => Promise<MailboxSyncResult>;
 }) {
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1) {
     throw new Error("maxConcurrent must be a positive integer");
@@ -48,11 +54,20 @@ export function createMailboxSyncScheduler({
       const request = queue.shift();
       if (!request) return;
       request.queued = false;
+      const callers = request.callers.filter((caller) => caller.isCurrent());
+      if (!callers.length) {
+        requests.delete(request.emailAccountId);
+        request.result.resolve({ hasMore: false, pagesSynced: 0 });
+        continue;
+      }
       activeCount += 1;
 
       let syncResult: Promise<MailboxSyncResult>;
       try {
-        syncResult = sync(request.emailAccountId);
+        syncResult = sync(
+          request.emailAccountId,
+          callers.some((caller) => caller.force),
+        );
       } catch (error) {
         syncResult = Promise.reject(error);
       }
@@ -76,12 +91,24 @@ export function createMailboxSyncScheduler({
   const run = ({
     emailAccountId,
     priority = false,
+    force = false,
+    isCurrent,
   }: {
     emailAccountId: string;
     priority?: boolean;
+    force?: boolean;
+    isCurrent?: () => boolean;
   }) => {
+    const epoch = captureEmailCacheEpoch(emailAccountId);
+    const caller = {
+      force,
+      isCurrent: () =>
+        isEmailCacheEpochCurrent(emailAccountId, epoch) &&
+        (isCurrent?.() ?? true),
+    };
     const existing = requests.get(emailAccountId);
     if (existing) {
+      if (existing.queued) existing.callers.push(caller);
       if (priority) setQueuedPriority(existing, true);
       return existing.result.promise;
     }
@@ -90,6 +117,7 @@ export function createMailboxSyncScheduler({
       emailAccountId,
       priority,
       queued: true,
+      callers: [caller],
       result: Promise.withResolvers<MailboxSyncResult>(),
     };
     requests.set(emailAccountId, request);
@@ -107,6 +135,7 @@ export function createMailboxSyncScheduler({
       emailAccountId: string;
       priority?: boolean;
     }) {
+      const epoch = captureEmailCacheEpoch(emailAccountId);
       const existing = requests.get(emailAccountId);
       if (existing) {
         try {
@@ -115,7 +144,12 @@ export function createMailboxSyncScheduler({
           // A fresh sync still needs to run after an older request fails.
         }
       }
-      return run({ emailAccountId, priority });
+      return run({
+        emailAccountId,
+        priority,
+        force: true,
+        isCurrent: () => isEmailCacheEpochCurrent(emailAccountId, epoch),
+      });
     },
     setPriority({
       emailAccountId,

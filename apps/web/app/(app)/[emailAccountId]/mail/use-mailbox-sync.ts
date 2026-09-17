@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { isMailSyncActivated } from "@/utils/email-cache/mail-activation";
+import { MailboxSyncDeferredError } from "@/utils/email-cache/mailbox-sync-job";
 import { trackMailboxSyncResult } from "@/utils/email-cache/analytics";
 import {
   fetchMailboxSyncPage,
@@ -18,9 +20,10 @@ const STEADY_SYNC_TELEMETRY_INTERVAL_MS = 15 * 60_000;
 const syncRequestListeners = new Set<(emailAccountId: string) => void>();
 const mailboxSyncScheduler = createMailboxSyncScheduler({
   maxConcurrent: MAX_CONCURRENT_MAILBOX_SYNCS,
-  sync: (emailAccountId) =>
+  sync: (emailAccountId, force) =>
     syncMailboxPages({
       emailAccountId,
+      force,
       fetchPage: (input) => fetchMailboxSyncPage(emailAccountId, input),
       maxPages: 1,
     }),
@@ -53,6 +56,7 @@ export function useMailboxSync({
     let lastSteadyTelemetryAt = 0;
     let running = false;
     let rerunRequested = false;
+    let forceRequested = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
 
     const schedule = (delay: number) => {
@@ -76,9 +80,17 @@ export function useMailboxSync({
       const initial = attempts === 0;
       const startedAt = performance.now();
       attempts += 1;
+      const force = forceRequested;
+      forceRequested = false;
       mailboxSyncScheduler
-        .run({ emailAccountId, priority: priorityRef.current })
+        .run({
+          emailAccountId,
+          priority: priorityRef.current,
+          force,
+          isCurrent: () => !cancelled && isMailSyncActivated(emailAccountId),
+        })
         .then(({ hasMore, pagesSynced }) => {
+          if (cancelled) return;
           const catchUpCompleted = catchingUp && !hasMore;
           const shouldTrackSteadySync =
             Date.now() - lastSteadyTelemetryAt >=
@@ -106,6 +118,13 @@ export function useMailboxSync({
           }
         })
         .catch((error: unknown) => {
+          if (cancelled) return;
+          if (error instanceof MailboxSyncDeferredError) {
+            attempts -= 1;
+            rerunRequested = false;
+            schedule(Math.min(error.retryAfterMs, MAX_TIMEOUT_MS));
+            return;
+          }
           consecutiveFailures += 1;
           const retryDelayMs = getRetryDelay(
             consecutiveFailures,
@@ -131,6 +150,7 @@ export function useMailboxSync({
     };
     const requestSync = (requestedAccountId: string) => {
       if (requestedAccountId !== emailAccountId) return;
+      forceRequested = true;
       if (running) rerunRequested = true;
       else schedule(0);
     };

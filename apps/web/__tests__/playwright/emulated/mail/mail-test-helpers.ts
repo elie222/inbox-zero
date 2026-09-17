@@ -30,6 +30,48 @@ export async function openMailboxFromSidebar(page: Page, name: string) {
   await link.click();
 }
 
+// The first mailbox sync of an account is a reset page, which drops every cached
+// thread detail it finds. Tests that seed the cache directly must either stub the
+// sync away or wait for that reset here, or their seeded rows are deleted behind
+// them. applyMailboxSyncPage stores the sync state in the same transaction as the
+// reset, so the stored state is the point at which seeding becomes safe.
+export async function waitForInitialMailboxSync(
+  page: Page,
+  emailAccountId: string,
+) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (accountId) =>
+            new Promise<boolean>((resolve, reject) => {
+              const openRequest = indexedDB.open("inbox-zero-email-cache");
+              openRequest.onerror = () => reject(openRequest.error);
+              openRequest.onsuccess = () => {
+                const database = openRequest.result;
+                if (!database.objectStoreNames.contains("mailboxSyncStates")) {
+                  database.close();
+                  resolve(false);
+                  return;
+                }
+                const request = database
+                  .transaction("mailboxSyncStates", "readonly")
+                  .objectStore("mailboxSyncStates")
+                  .get(accountId);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                  database.close();
+                  resolve(Boolean(request.result));
+                };
+              };
+            }),
+          emailAccountId,
+        ),
+      { timeout: 60_000 },
+    )
+    .toBe(true);
+}
+
 export function conversationWithSubject(
   page: Page,
   conversations: Locator,

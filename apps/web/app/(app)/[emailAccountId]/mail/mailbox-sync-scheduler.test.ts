@@ -1,9 +1,137 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+
+import "fake-indexeddb/auto";
+import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMailboxSyncScheduler } from "./mailbox-sync-scheduler";
 
 const SYNC_RESULT = { hasMore: false, pagesSynced: 1 };
 
 describe("mailbox sync scheduler", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    "getItem",
+    "setItem",
+  ] as const)("does not start queued work when shared generation storage denies %s", async (method) => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "account-1" });
+    const fresh = scheduler.runAfterCurrent({ emailAccountId: "account-1" });
+    if (method === "setItem")
+      localStorage.removeItem("inbox-zero:email-cache-generation:global");
+    vi.spyOn(Storage.prototype, method).mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "global",
+    "account:account-1",
+  ])("rejects deferred foreground work after shared %s invalidation without local cleanup", async (scope) => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "account-1" });
+    const fresh = scheduler.runAfterCurrent({ emailAccountId: "account-1" });
+    // Another tab replaces the shared token without touching this realm's epochs.
+    localStorage.setItem(
+      `inbox-zero:email-cache-generation:${scope}`,
+      "another-tab-generation",
+    );
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
+  it("discards queued work after account cleanup", async () => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "blocker" });
+    const queued = scheduler.run({ emailAccountId: "removed-account" });
+    await clearEmailCacheForAccount("removed-account");
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(queued).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
+  it("discards a queued request when its last subscriber leaves", async () => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "blocker" });
+    let mounted = true;
+    const queued = scheduler.run({
+      emailAccountId: "account-1",
+      isCurrent: () => mounted,
+    });
+    mounted = false;
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(queued).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
+  it("keeps shared queued work when another subscriber is still mounted", async () => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "blocker" });
+    const queued = scheduler.run({
+      emailAccountId: "account-1",
+      isCurrent: () => false,
+    });
+    const shared = scheduler.run({
+      emailAccountId: "account-1",
+      isCurrent: () => true,
+      force: true,
+    });
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(queued).resolves.toEqual(SYNC_RESULT);
+    await shared;
+    expect(sync).toHaveBeenLastCalledWith("account-1", true);
+  });
+
+  it("does not start foreground reconciliation after cleanup while waiting for current work", async () => {
+    const pending = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(SYNC_RESULT);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+    const first = scheduler.run({ emailAccountId: "account-1" });
+    const fresh = scheduler.runAfterCurrent({ emailAccountId: "account-1" });
+    await clearEmailCacheForAccount("account-1");
+    pending.resolve(SYNC_RESULT);
+    await first;
+    await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
+    expect(sync).toHaveBeenCalledOnce();
+  });
+
   it("caps concurrency and runs a queued priority account first", async () => {
     const pending = new Map<
       string,
@@ -160,6 +288,7 @@ describe("mailbox sync scheduler", () => {
     await expect(existing).resolves.toEqual(SYNC_RESULT);
     await settlePromises();
     expect(sync).toHaveBeenCalledTimes(2);
+    expect(sync).toHaveBeenLastCalledWith("account-1", true);
 
     second.resolve(SYNC_RESULT);
     await expect(fresh).resolves.toEqual(SYNC_RESULT);

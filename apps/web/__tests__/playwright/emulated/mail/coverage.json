@@ -51,6 +51,11 @@
     "app/(app)/[emailAccountId]/mail/local-search-results.ts",
     "utils/email-cache/search.worker.ts"
   ],
+  "mail-activation.spec.ts": [
+    "app/(app)/MailboxSyncManager.tsx",
+    "app/(app)/[emailAccountId]/mail/use-mail-sync-activation.ts",
+    "utils/email-cache/mail-activation.ts"
+  ],
   "mail-queue.spec.ts": [
     "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
     "app/(app)/[emailAccountId]/debug/page.tsx"
