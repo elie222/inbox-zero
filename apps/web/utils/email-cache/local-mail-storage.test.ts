@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { evaluateLocalMailStorageAdmission } from "./local-mail-storage";
+import {
+  evaluateLocalMailStorageAdmission,
+  localMailLogicalLimitBytes,
+} from "./local-mail-storage";
 
 const MIB = 1024 * 1024;
 
@@ -7,18 +10,18 @@ describe("local mail storage admission", () => {
   it("exposes the reserved limit even when usage already exceeds it", () => {
     expect(
       evaluateLocalMailStorageAdmission({
-        desktop: false,
+        budgetBytes: 500 * MIB,
         estimate: { usage: 600 * MIB, quota: 10_000 * MIB },
         purpose: "current",
       }),
     ).toMatchObject({ limitBytes: 475 * MIB, remainingBytes: 0 });
-    expect(evaluateLocalMailStorageAdmission({ desktop: false })).toMatchObject(
-      { limitBytes: 0, remainingBytes: 0 },
-    );
+    expect(
+      evaluateLocalMailStorageAdmission({ budgetBytes: 500 * MIB }),
+    ).toMatchObject({ limitBytes: 0, remainingBytes: 0 });
   });
   it("reserves incoming capacity and includes anticipated index growth", () => {
     const result = evaluateLocalMailStorageAdmission({
-      desktop: false,
+      budgetBytes: 500 * MIB,
       estimate: { usage: 440 * MIB, quota: 10_000 * MIB },
       expectedGrowthBytes: 16 * MIB,
     });
@@ -28,7 +31,7 @@ describe("local mail storage admission", () => {
 
   it("admits incoming mail after history stops while preserving protected work space", () => {
     const options = {
-      desktop: false,
+      budgetBytes: 500 * MIB,
       estimate: { usage: 450 * MIB, quota: 10_000 * MIB },
       expectedGrowthBytes: 16 * MIB,
     };
@@ -52,7 +55,6 @@ describe("local mail storage admission", () => {
     ]) {
       expect(
         evaluateLocalMailStorageAdmission({
-          desktop: false,
           purpose: "current",
           budgetBytes: options.budgetBytes,
           estimate: { usage: 80 * MIB, quota: options.quota },
@@ -62,22 +64,52 @@ describe("local mail storage admission", () => {
     }
   });
 
-  it("allows larger desktop retention but still clamps to origin quota", () => {
+  it("allows a larger configured budget but still clamps to origin quota", () => {
     const roomy = { usage: 600 * MIB, quota: 10_000 * MIB };
     expect(
-      evaluateLocalMailStorageAdmission({ desktop: true, estimate: roomy })
-        .allowed,
+      evaluateLocalMailStorageAdmission({
+        budgetBytes: 2048 * MIB,
+        estimate: roomy,
+      }).allowed,
     ).toBe(true);
     expect(
-      evaluateLocalMailStorageAdmission({ desktop: false, estimate: roomy })
-        .allowed,
+      evaluateLocalMailStorageAdmission({
+        budgetBytes: 500 * MIB,
+        estimate: roomy,
+      }).allowed,
     ).toBe(false);
     expect(
       evaluateLocalMailStorageAdmission({
-        desktop: true,
+        budgetBytes: 2048 * MIB,
         estimate: { ...roomy, quota: 800 * MIB },
       }).allowed,
     ).toBe(false);
+  });
+
+  it("gives optional writes the same limits as bulk admission", () => {
+    const roomy = { usage: 0, quota: 1_000_000 * MIB };
+    for (const budgetBytes of [64 * MIB, 100 * MIB, 500 * MIB, 2048 * MIB]) {
+      for (const purpose of ["current", "backfill"] as const) {
+        expect(
+          evaluateLocalMailStorageAdmission({
+            budgetBytes,
+            purpose,
+            estimate: roomy,
+          }),
+        ).toMatchObject(localMailLogicalLimitBytes({ purpose, budgetBytes }));
+      }
+    }
+    expect(
+      localMailLogicalLimitBytes({
+        purpose: "current",
+        budgetBytes: 500 * MIB,
+        quotaBytes: 400 * MIB,
+      }),
+    ).toEqual({
+      budgetBytes: 320 * MIB,
+      backfillLimitBytes: 288 * MIB,
+      limitBytes: 304 * MIB,
+    });
   });
 
   it.each([
@@ -88,7 +120,7 @@ describe("local mail storage admission", () => {
     { usage: 0, quota: Number.NaN },
   ])("does not backfill without a usable storage measurement: %j", (estimate) => {
     expect(
-      evaluateLocalMailStorageAdmission({ desktop: false, estimate }),
+      evaluateLocalMailStorageAdmission({ budgetBytes: 500 * MIB, estimate }),
     ).toMatchObject({
       allowed: false,
       reason: "storage-unavailable",
@@ -99,7 +131,6 @@ describe("local mail storage admission", () => {
   it("honors a smaller configured budget without consuming its reserve", () => {
     expect(
       evaluateLocalMailStorageAdmission({
-        desktop: true,
         budgetBytes: 100 * MIB,
         estimate: { usage: 55 * MIB, quota: 10_000 * MIB },
       }),
@@ -109,13 +140,12 @@ describe("local mail storage admission", () => {
   it("rejects invalid settings instead of bypassing admission", () => {
     expect(() =>
       evaluateLocalMailStorageAdmission({
-        desktop: false,
         budgetBytes: Number.POSITIVE_INFINITY,
       }),
     ).toThrow();
     expect(() =>
       evaluateLocalMailStorageAdmission({
-        desktop: false,
+        budgetBytes: 500 * MIB,
         expectedGrowthBytes: -1,
       }),
     ).toThrow();

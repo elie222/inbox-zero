@@ -27,6 +27,8 @@ import { writeCachedThreadRows } from "./thread-lists";
 
 vi.mock("./cleanup", () => ({ scheduleEmailCacheCleanup: vi.fn() }));
 
+const MIB = 1024 * 1024;
+
 installMailCacheStorageTestEnvironment();
 
 describe("resumable local index seeding", () => {
@@ -58,9 +60,10 @@ describe("resumable local index seeding", () => {
     ledger.index.pending = { token: "index-write", reservedGrowthBytes: 1000 };
     await database.put("localMailStorageLedger", ledger);
     // The reserved index growth consumes the remaining budget, so the seed has
-    // no room until the budget is raised below.
+    // no room until the budget is raised below. Budgets this small keep the
+    // flat 32 MiB backfill reserve, so it is added back to land the limit.
     const budget = vi.spyOn(settings, "readLocalMailSettings").mockReturnValue({
-      budgetBytes: initialBytes + 1000,
+      budgetBytes: initialBytes + 1000 + 32 * MIB,
       attachmentBudgetBytes: 0,
       backfillEnabled: true,
       pushEnabled: true,
@@ -80,7 +83,7 @@ describe("resumable local index seeding", () => {
       ledger,
     );
     budget.mockReturnValue({
-      budgetBytes: initialBytes + 1_000_000,
+      budgetBytes: initialBytes + 1_000_000 + 32 * MIB,
       attachmentBudgetBytes: 0,
       backfillEnabled: true,
       pushEnabled: true,

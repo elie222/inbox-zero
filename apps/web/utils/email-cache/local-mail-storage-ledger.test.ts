@@ -379,6 +379,28 @@ it("account cleanup subtracts only that account's bytes and preserves other acco
   ).toBe(localMailRecordBytes(second));
 });
 
+it("accounts every schema store and accepts checkpoints keyed like each store's primary key", async () => {
+  const db = (await getEmailCacheDatabase())!;
+  const names = Array.from(db.objectStoreNames).filter(
+    (name) => name !== "localMailStorageLedger",
+  );
+  expect([...names].sort()).toEqual([...LOCAL_MAIL_ACCOUNTED_STORES].sort());
+  const scan = db.transaction(names, "readonly");
+  const stores = Object.fromEntries(
+    names.map((name) => {
+      const { keyPath } = scan.objectStore(name);
+      const afterKey = Array.isArray(keyPath) ? keyPath.map(() => "k") : "k";
+      return [name, { bytes: 0, complete: false, afterKey }];
+    }),
+  );
+  await scan.done;
+  await db.put("localMailStorageLedger", { ...readyLedger(), stores });
+  const tx = db.transaction(["localMailStorageLedger"], "readwrite");
+  const ledger = await readLocalMailStorageLedger(tx);
+  await tx.done;
+  expect(ledger).toMatchObject({ epoch: "epoch", stores });
+});
+
 function readyLedger(): LocalMailStorageLedger {
   return {
     id: "origin",

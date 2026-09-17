@@ -42,7 +42,7 @@ type IndexCommand =
       threadId: string;
     }
   | { id: number; command: "storage" | "clearAll" };
-export type SearchIndexRequest = IndexCommand & { storageBudgetBytes?: number };
+export type SearchIndexRequest = IndexCommand & { storageBudgetBytes: number };
 export type SearchIndexResponse =
   | { id: number; result: ReturnType<Index[keyof Index]> }
   | {
@@ -170,12 +170,11 @@ self.onmessage = ({ data }: MessageEvent<SearchIndexRequest>) => {
 
 async function writeIndex<T>(
   index: Index,
-  budgetBytes: number | undefined,
+  budgetBytes: number,
   write: () => T,
 ) {
   return withLocalMailStorageLock(async () => {
     const admission = evaluateLocalMailStorageAdmission({
-      desktop: false,
       budgetBytes,
       estimate: await navigator.storage.estimate().catch(() => ({})),
       expectedGrowthBytes: 0,
@@ -204,7 +203,7 @@ function isStorageFull(error: unknown) {
   );
 }
 
-async function initialize(budgetBytes?: number) {
+async function initialize(budgetBytes: number) {
   const sqlite = await initSqlite();
   const pool = await sqlite.installOpfsSAHPoolVfs({
     name: "mail-search",
@@ -216,7 +215,6 @@ async function initialize(budgetBytes?: number) {
   try {
     const index = await withLocalMailStorageLock(async () => {
       const admission = evaluateLocalMailStorageAdmission({
-        desktop: false,
         budgetBytes,
         estimate: await navigator.storage.estimate().catch(() => ({})),
         expectedGrowthBytes: 0,

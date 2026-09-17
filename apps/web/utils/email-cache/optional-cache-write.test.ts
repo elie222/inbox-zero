@@ -11,7 +11,13 @@ import {
   prepareMailCacheLedgerForTest,
 } from "./optional-cache-write.test-helpers";
 import { readLocalMailSettings } from "./local-mail-settings";
-import { localMailLedgerBytes } from "./local-mail-storage-ledger";
+import {
+  localMailLedgerBytes,
+  localMailRecordBytes,
+} from "./local-mail-storage-ledger";
+import { evaluateLocalMailStorageAdmission } from "./local-mail-storage";
+
+const MIB = 1024 * 1024;
 
 vi.mock("./local-mail-settings", async (original) => ({
   ...(await original<typeof import("./local-mail-settings")>()),
@@ -290,6 +296,39 @@ describe("optional cache write budget", () => {
     expect(await db.count("threadRows")).toBe(1);
   });
 
+  it("keeps the same protected reserve as bulk admission", async () => {
+    const db = (await getEmailCacheDatabase())!;
+    const budgetBytes = 500 * MIB;
+    const row = message("a", "body");
+    const ledger = (await db.get("localMailStorageLedger", "origin"))!;
+    await db.put("localMailStorageLedger", {
+      ...ledger,
+      stores: {
+        ...ledger.stores,
+        threadRows: { bytes: 475 * MIB - 1, complete: true },
+      },
+    });
+    vi.mocked(readLocalMailSettings).mockReturnValue({
+      budgetBytes,
+      attachmentBudgetBytes: 0,
+      backfillEnabled: true,
+      pushEnabled: true,
+    });
+    await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
+      await tx.objectStore("threadRows").put(row);
+      await tx.done;
+    });
+    expect(await db.count("threadRows")).toBe(0);
+    expect(
+      evaluateLocalMailStorageAdmission({
+        budgetBytes,
+        purpose: "current",
+        estimate: { usage: 475 * MIB - 1, quota: 10 * 1024 ** 3 },
+        expectedGrowthBytes: localMailRecordBytes(row),
+      }),
+    ).toMatchObject({ allowed: false, limitBytes: 475 * MIB });
+  });
+
   it("caches mail without Web Locks", async () => {
     const db = (await getEmailCacheDatabase())!;
     vi.stubGlobal("navigator", { storage: navigator.storage });
@@ -305,8 +344,10 @@ async function admit(remainingBytes: number) {
   const db = (await getEmailCacheDatabase())!;
   const ledger = await db.get("localMailStorageLedger", "origin");
   const usedBytes = ledger ? localMailLedgerBytes(ledger) : 0;
+  // Budgets this small keep the flat 16 MiB protected reserve, which lands the
+  // current-mail limit exactly at usedBytes + remainingBytes.
   vi.mocked(readLocalMailSettings).mockReturnValue({
-    budgetBytes: usedBytes + remainingBytes,
+    budgetBytes: usedBytes + remainingBytes + 16 * MIB,
     attachmentBudgetBytes: 0,
     backfillEnabled: true,
     pushEnabled: true,

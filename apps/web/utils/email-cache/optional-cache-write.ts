@@ -13,6 +13,7 @@ import type {
 } from "idb";
 import type { EmailCacheSchema } from "./database";
 import { readLocalMailSettings } from "./local-mail-settings";
+import { localMailLogicalLimitBytes } from "./local-mail-storage";
 
 type Store = StoreNames<EmailCacheSchema>;
 type Transaction = IDBPTransaction<EmailCacheSchema, Store[], "readwrite">;
@@ -38,7 +39,13 @@ export async function withOptionalMailCacheWrite<T>(
   transaction.done.catch(() => undefined);
   const measured = await meterLocalMailStorageTransaction(transaction, {
     maxGrowthBytes: Number.POSITIVE_INFINITY,
-    logicalLimitBytes: localMailCacheLimitBytes(purpose),
+    // Deliberately no quotaBytes: probing navigator.storage.estimate() on every
+    // write is what was removed from this hot path, so only the reserves apply
+    // here. Sync, attachments and retention still clamp to the origin quota.
+    logicalLimitBytes: localMailLogicalLimitBytes({
+      purpose,
+      budgetBytes: readLocalMailSettings().budgetBytes,
+    }).limitBytes,
     enforceLogicalBudget: true,
   });
   try {
@@ -54,12 +61,6 @@ export async function withOptionalMailCacheWrite<T>(
     if (error instanceof LocalMailStorageCapacityError) return;
     throw error;
   }
-}
-
-// Backfill stops before the budget is spent so the mail being read keeps room.
-function localMailCacheLimitBytes(purpose: "current" | "backfill") {
-  const { budgetBytes } = readLocalMailSettings();
-  return purpose === "backfill" ? Math.floor(budgetBytes * 0.9) : budgetBytes;
 }
 
 // Protected user work and metadata maintenance account bytes without rejecting growth.
