@@ -1,6 +1,7 @@
 import {
   applyLocalMailStorageDelta,
   evaluateLocalMailLogicalAdmission,
+  isLocalMailStorageLedgerReady,
   localMailLedgerBytes,
   localMailRecordBytes,
   readLocalMailStorageLedger,
@@ -12,11 +13,7 @@ import type {
   StoreNames,
 } from "idb";
 import type { EmailCacheSchema } from "./database";
-import {
-  readLocalMailStorageAdmission,
-  withLocalMailStorageLock,
-  LocalMailStorageBusyError,
-} from "./local-mail-storage";
+import { readLocalMailSettings } from "./local-mail-settings";
 
 type Store = StoreNames<EmailCacheSchema>;
 type Transaction = IDBPTransaction<EmailCacheSchema, Store[], "readwrite">;
@@ -35,49 +32,35 @@ export async function withOptionalMailCacheWrite<T>(
   write: (transaction: Transaction) => Promise<T>,
   purpose: "current" | "backfill" = "current",
 ) {
-  const commit = async (coordinated: boolean) => {
-    const admission = await readLocalMailStorageAdmission({
-      purpose,
-      expectedGrowthBytes: 0,
-    });
-    const allowance =
-      coordinated && admission.reason !== "storage-unavailable"
-        ? admission.remainingBytes
-        : 0;
-    const transaction = database.transaction(
-      [...new Set<Store>([...stores, "localMailStorageLedger"])],
-      "readwrite",
-    );
-    transaction.done.catch(() => undefined);
-    const measured = await meterLocalMailStorageTransaction(transaction, {
-      maxGrowthBytes: allowance,
-      logicalLimitBytes: admission.limitBytes,
-      enforceLogicalBudget: true,
-    });
-    try {
-      const result = await write(measured);
-      await transaction.done;
-      return result;
-    } catch (error) {
-      try {
-        transaction.abort();
-      } catch {}
-      await transaction.done.catch(() => undefined);
-      throw error;
-    }
-  };
+  const transaction = database.transaction(
+    [...new Set<Store>([...stores, "localMailStorageLedger"])],
+    "readwrite",
+  );
+  transaction.done.catch(() => undefined);
+  const measured = await meterLocalMailStorageTransaction(transaction, {
+    maxGrowthBytes: Number.POSITIVE_INFINITY,
+    logicalLimitBytes: localMailCacheLimitBytes(purpose),
+    enforceLogicalBudget: true,
+  });
   try {
-    if (typeof navigator === "undefined" || !navigator.locks?.request)
-      return await commit(false);
-    return await withLocalMailStorageLock(() => commit(true));
+    const result = await write(measured);
+    await transaction.done;
+    return result;
   } catch (error) {
-    if (
-      error instanceof LocalMailStorageCapacityError ||
-      error instanceof LocalMailStorageBusyError
-    )
-      return;
+    try {
+      transaction.abort();
+    } catch {}
+    await transaction.done.catch(() => undefined);
+    // A full cache degrades to serving mail online rather than failing the read.
+    if (error instanceof LocalMailStorageCapacityError) return;
     throw error;
   }
+}
+
+// Backfill stops before the budget is spent so the mail being read keeps room.
+function localMailCacheLimitBytes(purpose: "current" | "backfill") {
+  const { budgetBytes } = readLocalMailSettings();
+  return purpose === "backfill" ? Math.floor(budgetBytes * 0.9) : budgetBytes;
 }
 
 // Protected user work and metadata maintenance account bytes without rejecting growth.
@@ -131,6 +114,10 @@ export async function meterLocalMailStorageTransaction(
       next > maxGrowthBytes ||
       (enforceLogicalBudget &&
         delta > 0 &&
+        // Until the ledger has finished measuring what is stored there is no
+        // total to compare against. Writing anyway is safe: the delta above is
+        // dropped for rows the scan has not reached, so it counts them once.
+        isLocalMailStorageLedgerReady(ledger) &&
         !evaluateLocalMailLogicalAdmission({
           ledger,
           limitBytes: Math.max(initialLogicalBytes, logicalLimitBytes),

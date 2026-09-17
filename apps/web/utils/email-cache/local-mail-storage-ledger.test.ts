@@ -240,7 +240,7 @@ it("rolls back ledger and all data when a later representation exceeds the limit
   expect(await db.get("localMailStorageLedger", "origin")).toEqual(initial);
 });
 
-it("blocks optional growth while bootstrap is incomplete but allows a protected shrinking write", async () => {
+it("allows optional growth while bootstrap is incomplete and still permits a protected shrinking write", async () => {
   const db = (await getEmailCacheDatabase())!;
   await db.put("threadRows", row("old", "body"));
   const tx = db.transaction(
@@ -252,10 +252,11 @@ it("blocks optional growth while bootstrap is incomplete but allows a protected 
     logicalLimitBytes: 1_000_000,
     enforceLogicalBudget: true,
   });
-  await expect(
-    measured.objectStore("threadRows").put(row("new", "body")),
-  ).rejects.toBeInstanceOf(LocalMailStorageCapacityError);
-  await tx.done.catch(() => undefined);
+  // There is no measured total to compare against yet, and the scan counts this
+  // row when it reaches it, so refusing the write would only lose cached mail.
+  await measured.objectStore("threadRows").put(row("new", "body"));
+  await tx.done;
+  expect(await db.count("threadRows")).toBe(2);
   const cleanup = db.transaction(
     ["threadRows", "localMailStorageLedger"],
     "readwrite",
@@ -267,7 +268,8 @@ it("blocks optional growth while bootstrap is incomplete but allows a protected 
   });
   await protectedWrite.objectStore("threadRows").delete(["account", "old"]);
   await cleanup.done;
-  expect(await db.count("threadRows")).toBe(0);
+  expect(await db.get("threadRows", ["account", "old"])).toBeUndefined();
+  expect(await db.count("threadRows")).toBe(1);
 });
 
 it("clears a complete store and its counter without retaining another account's deleted bytes", async () => {

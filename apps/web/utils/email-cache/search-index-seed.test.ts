@@ -1,4 +1,4 @@
-import * as storage from "./local-mail-storage";
+import * as settings from "./local-mail-settings";
 import { localMailLedgerBytes } from "./local-mail-storage-ledger";
 import {
   installMailCacheStorageTestEnvironment,
@@ -56,16 +56,14 @@ describe("resumable local index seeding", () => {
     const initialBytes = localMailLedgerBytes(ledger);
     ledger.index.pending = { token: "index-write", reservedGrowthBytes: 1000 };
     await database.put("localMailStorageLedger", ledger);
-    const admission = vi
-      .spyOn(storage, "readLocalMailStorageAdmission")
-      .mockResolvedValue({
-        allowed: true,
-        reason: "available",
-        budgetBytes: initialBytes + 1000,
-        backfillLimitBytes: initialBytes + 1000,
-        limitBytes: initialBytes + 1000,
-        remainingBytes: 1_000_000,
-      });
+    // The reserved index growth consumes the remaining budget, so the seed has
+    // no room until the budget is raised below.
+    const budget = vi.spyOn(settings, "readLocalMailSettings").mockReturnValue({
+      budgetBytes: initialBytes + 1000,
+      attachmentBudgetBytes: 0,
+      backfillEnabled: true,
+      pushEnabled: true,
+    });
     const before = await database.get("searchIndexAccounts", "account-1");
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
       complete: false,
@@ -80,13 +78,11 @@ describe("resumable local index seeding", () => {
     expect(await database.get("localMailStorageLedger", "origin")).toEqual(
       ledger,
     );
-    admission.mockResolvedValue({
-      allowed: true,
-      reason: "available",
-      budgetBytes: 1_000_000,
-      backfillLimitBytes: 1_000_000,
-      limitBytes: 1_000_000,
-      remainingBytes: 1_000_000,
+    budget.mockReturnValue({
+      budgetBytes: initialBytes + 1_000_000,
+      attachmentBudgetBytes: 0,
+      backfillEnabled: true,
+      pushEnabled: true,
     });
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
       complete: false,

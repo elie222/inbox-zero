@@ -10,17 +10,18 @@ import {
   installMailCacheStorageTestEnvironment,
   prepareMailCacheLedgerForTest,
 } from "./optional-cache-write.test-helpers";
-import { readLocalMailStorageAdmission } from "./local-mail-storage";
+import { readLocalMailSettings } from "./local-mail-settings";
+import { localMailLedgerBytes } from "./local-mail-storage-ledger";
 
-vi.mock("./local-mail-storage", async (original) => ({
-  ...(await original<typeof import("./local-mail-storage")>()),
-  readLocalMailStorageAdmission: vi.fn(),
+vi.mock("./local-mail-settings", async (original) => ({
+  ...(await original<typeof import("./local-mail-settings")>()),
+  readLocalMailSettings: vi.fn(),
 }));
 installMailCacheStorageTestEnvironment();
 beforeEach(async () => {
   await clearEmailCache();
   await prepareMailCacheLedgerForTest();
-  admit(100_000);
+  await admit(100_000);
 });
 
 describe("optional cache write budget", () => {
@@ -73,7 +74,7 @@ describe("optional cache write budget", () => {
       hasMore: false,
       lastSyncedAt: 1,
     };
-    admit(bytes(row) + bytes(state));
+    await admit(bytes(row) + bytes(state));
     await withOptionalMailCacheWrite(
       db,
       ["threadRows", "mailboxSyncStates", "threadDetails"],
@@ -166,7 +167,7 @@ describe("optional cache write budget", () => {
     await clearEmailCache();
     await prepareMailCacheLedgerForTest();
     await db.put("searchIndexAccounts", account);
-    admit(total - 1);
+    await admit(total - 1);
     await write();
     for (const store of stores.filter((name) => name !== "searchIndexAccounts"))
       expect(await db.count(store)).toBe(0);
@@ -195,7 +196,7 @@ describe("optional cache write budget", () => {
         upsertedMessages: [payload],
       },
     });
-    admit(0);
+    await admit(0);
     await markSyncedMailboxThreadsRead({
       emailAccountId: "account",
       threadIds: ["thread"],
@@ -212,7 +213,7 @@ describe("optional cache write budget", () => {
     const before = message("a", "large body".repeat(100));
     await db.put("threadRows", before);
     const after = message("a", "small");
-    admit(0);
+    await admit(0);
     await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
       await Promise.all([
         tx.objectStore("threadRows").put(after),
@@ -225,9 +226,14 @@ describe("optional cache write budget", () => {
 
   it("measures cursor updates and rolls back earlier cursor deletions on growth rejection", async () => {
     const db = (await getEmailCacheDatabase())!;
-    await db.put("threadRows", message("a", "small"));
-    await db.put("threadRows", message("b", "small"));
-    admit(0);
+    // Seeded through the meter so the ledger counts them; raw writes would make
+    // the later deletion underflow the counter and force a recount.
+    await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
+      await tx.objectStore("threadRows").put(message("a", "small"));
+      await tx.objectStore("threadRows").put(message("b", "small"));
+      await tx.done;
+    });
+    await admit(0);
     await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
       let cursor = await tx
         .objectStore("threadRows")
@@ -244,18 +250,11 @@ describe("optional cache write budget", () => {
     });
   });
 
-  it("permits range deletion and shrinking writes with unknown quota", async () => {
+  it("permits range deletion and shrinking writes at the budget limit", async () => {
     const db = (await getEmailCacheDatabase())!;
     await db.put("threadRows", message("a", "large".repeat(100)));
     await db.put("threadRows", message("b", "large".repeat(100)));
-    vi.mocked(readLocalMailStorageAdmission).mockResolvedValue({
-      allowed: false,
-      reason: "storage-unavailable",
-      budgetBytes: 0,
-      backfillLimitBytes: 0,
-      limitBytes: 0,
-      remainingBytes: 0,
-    });
+    await admit(0);
     await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
       await tx
         .objectStore("threadRows")
@@ -271,30 +270,46 @@ describe("optional cache write budget", () => {
     });
   });
 
-  it("fails closed to optional growth without Web Locks while preserving deletion", async () => {
+  it("caches mail while other site storage is large and the mail budget has room", async () => {
+    const db = (await getEmailCacheDatabase())!;
+    // The offline app bundle and other site caches share this origin, so origin
+    // usage says nothing about how much of the mail budget is spent.
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      storage: {
+        estimate: async () => ({
+          usage: 480 * 1024 * 1024,
+          quota: 10 * 1024 ** 3,
+        }),
+      },
+    });
+    await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
+      await tx.objectStore("threadRows").put(message("a", "body"));
+      await tx.done;
+    });
+    expect(await db.count("threadRows")).toBe(1);
+  });
+
+  it("caches mail without Web Locks", async () => {
     const db = (await getEmailCacheDatabase())!;
     vi.stubGlobal("navigator", { storage: navigator.storage });
     await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
       await tx.objectStore("threadRows").put(message("a", "new"));
       await tx.done;
     });
-    expect(await db.count("threadRows")).toBe(0);
-    await db.put("threadRows", message("a", "existing"));
-    await withOptionalMailCacheWrite(db, ["threadRows"], async (tx) => {
-      await tx.objectStore("threadRows").delete(["account", "a"]);
-      await tx.done;
-    });
-    expect(await db.count("threadRows")).toBe(0);
+    expect(await db.count("threadRows")).toBe(1);
   });
 });
-function admit(remainingBytes: number) {
-  vi.mocked(readLocalMailStorageAdmission).mockResolvedValue({
-    allowed: remainingBytes > 0,
-    reason: remainingBytes ? "available" : "storage-full",
-    budgetBytes: 100_000,
-    backfillLimitBytes: 90_000,
-    limitBytes: 90_000,
-    remainingBytes,
+// Allows exactly `remainingBytes` of further growth on top of what is stored.
+async function admit(remainingBytes: number) {
+  const db = (await getEmailCacheDatabase())!;
+  const ledger = await db.get("localMailStorageLedger", "origin");
+  const usedBytes = ledger ? localMailLedgerBytes(ledger) : 0;
+  vi.mocked(readLocalMailSettings).mockReturnValue({
+    budgetBytes: usedBytes + remainingBytes,
+    attachmentBudgetBytes: 0,
+    backfillEnabled: true,
+    pushEnabled: true,
   });
 }
 function message(threadId: string, body: string) {
