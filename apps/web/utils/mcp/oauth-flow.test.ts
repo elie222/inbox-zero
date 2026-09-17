@@ -191,6 +191,40 @@ describe("MCP OAuth flow", () => {
     expect(flow.consents()).toHaveLength(0);
   });
 
+  it("registers Cursor's host-bearing cursor:// callback as a native public client", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Cursor",
+      application_type: "web",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(201);
+    expect(await registration.json()).toMatchObject({
+      application_type: "native",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+    });
+  });
+
+  it("still rejects javascript: redirect URIs", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Evil",
+      application_type: "native",
+      redirect_uris: ["javascript:alert(1)"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(400);
+    expect(await registration.json()).toMatchObject({
+      error: "invalid_redirect_uri",
+    });
+  });
+
   it("returns access_denied without issuing a code when consent is denied", async () => {
     const flow = await createFlow();
     const response = await flow.request(
