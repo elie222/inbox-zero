@@ -53,6 +53,10 @@ const gemini3_0pro = {
   cachedInput: 0.2 / 1_000_000,
 };
 
+// Introductory rates through 2026-12-31; they double on 2027-01-01 to
+// $1.50/$7.50/$0.15. Static pricing wins over the generated OpenRouter table
+// for non-OpenRouter providers, so regenerating that file will not correct
+// Google-provider costs. Update these values before the switchover date.
 const gemini3_8flash = {
   input: 0.75 / 1_000_000,
   output: 3.75 / 1_000_000,
