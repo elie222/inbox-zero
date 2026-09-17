@@ -38,9 +38,6 @@ export type LocalMailThreadProtection = {
   threadId: string;
   generation: string;
   pinned?: boolean;
-  pinSnapshotId?: string;
-  pinSnapshotInvalidated?: boolean;
-  pinMessageRevisions?: Record<string, number>;
   reservations?: Record<string, { bytes: number; expiresAt: number }>;
   recentlyOpenedUntil?: number;
 };
