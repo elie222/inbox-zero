@@ -20,20 +20,25 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "deepseek/deepseek-v4-flash",
     label: "DeepSeek V4 Flash",
   },
+  "gemini-3.8-flash": {
+    provider: "openrouter",
+    model: "google/gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
+  },
+  "gemini-3.1-flash-lite": {
+    provider: "openrouter",
+    model: "google/gemini-3.1-flash-lite",
+    label: "Gemini 3.1 Flash Lite",
+  },
   "gemini-3-flash": {
     provider: "openrouter",
-    model: "google/gemini-3-flash-preview",
+    model: "google/gemini-3-flash",
     label: "Gemini 3 Flash",
   },
   "gemini-2.5-flash": {
     provider: "openrouter",
     model: "google/gemini-2.5-flash",
     label: "Gemini 2.5 Flash",
-  },
-  "gemini-3.1-flash-lite": {
-    provider: "openrouter",
-    model: "google/gemini-3.1-flash-lite-preview",
-    label: "Gemini 3.1 Flash Lite",
   },
   "gpt-5.4-nano": {
     provider: "openrouter",
@@ -54,6 +59,16 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     provider: "openrouter",
     model: "openai/gpt-5.6-terra",
     label: "GPT-5.6 Terra",
+  },
+  "claude-sonnet-5": {
+    provider: "openrouter",
+    model: "anthropic/claude-sonnet-5",
+    label: "Claude Sonnet 5",
+  },
+  "claude-haiku-4.5": {
+    provider: "openrouter",
+    model: "anthropic/claude-haiku-4.5",
+    label: "Claude Haiku 4.5",
   },
   "gpt-5.6-luna-azure": {
     provider: "azure-foundry",

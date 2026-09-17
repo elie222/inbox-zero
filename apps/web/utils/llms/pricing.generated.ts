@@ -10,9 +10,9 @@ export type ModelPricing = {
 
 export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "~deepseek/deepseek-v4-flash-latest": {
-    input: 9e-8,
-    output: 1.8e-7,
-    cachedInput: 1.8e-8,
+    input: 4e-8,
+    output: 1e-7,
+    cachedInput: 1e-8,
   },
   "anthropic.claude-3-5-haiku-20241022-v1:0": {
     input: 8.000_000_000_000_001e-7,
@@ -34,6 +34,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "anthropic.claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2.000_000_000_000_000_2e-7,
+  },
   "anthropic/claude-3.5-sonnet": {
     input: 0.000_003,
     output: 0.000_015,
@@ -48,6 +53,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.000_001,
     output: 0.000_005,
     cachedInput: 1e-7,
+  },
+  "anthropic/claude-opus-5": {
+    input: 0.000_005,
+    output: 0.000_025,
+    cachedInput: 5e-7,
   },
   "anthropic/claude-sonnet-4": {
     input: 0.000_003,
@@ -79,6 +89,16 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "anthropic/claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2e-7,
+  },
+  "au.anthropic.claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2.000_000_000_000_000_2e-7,
+  },
   "claude-3-5-sonnet-20240620": {
     input: 0.000_003,
     output: 0.000_015,
@@ -93,6 +113,21 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.000_003,
     output: 0.000_015,
     cachedInput: 3e-7,
+  },
+  "claude-haiku-4-5": {
+    input: 0.000_001,
+    output: 0.000_005,
+    cachedInput: 1e-7,
+  },
+  "claude-haiku-4-5-20251001": {
+    input: 0.000_001,
+    output: 0.000_005,
+    cachedInput: 1e-7,
+  },
+  "claude-opus-5": {
+    input: 0.000_005,
+    output: 0.000_025,
+    cachedInput: 5e-7,
   },
   "claude-sonnet-4-20250514": {
     input: 0.000_003,
@@ -114,6 +149,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2e-7,
+  },
   "DeepSeek-V4-Flash": {
     input: 1.9e-7,
     output: 5.1e-7,
@@ -125,14 +165,19 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 1.65e-7,
   },
   "deepseek/deepseek-v4-flash": {
-    input: 1.4e-7,
-    output: 2.8e-7,
-    cachedInput: 2.8e-8,
+    input: 8.8606e-8,
+    output: 1.772_12e-7,
+    cachedInput: 1.772_12e-8,
   },
   "eu.anthropic.claude-sonnet-4-6": {
     input: 0.000_003,
     output: 0.000_015,
     cachedInput: 3e-7,
+  },
+  "eu.anthropic.claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2.000_000_000_000_000_2e-7,
   },
   "gemini-1.5-flash-latest": {
     input: 7.5e-8,
@@ -145,9 +190,9 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 0.000_001_25,
   },
   "gemini-2.0-flash": {
-    input: 1.5e-7,
-    output: 6e-7,
-    cachedInput: 1.5e-7,
+    input: 1.000_000_000_000_000_1e-7,
+    output: 4.000_000_000_000_000_3e-7,
+    cachedInput: 2.500_000_000_000_000_2e-8,
   },
   "gemini-2.0-flash-lite": {
     input: 7.5e-8,
@@ -162,7 +207,7 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gemini-3-flash": {
     input: 5e-7,
     output: 0.000_003,
-    cachedInput: 5e-8,
+    cachedInput: 5.000_000_000_000_000_4e-8,
   },
   "gemini-3-flash-preview": {
     input: 5e-7,
@@ -172,12 +217,22 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gemini-3-pro": {
     input: 0.000_002,
     output: 0.000_012,
-    cachedInput: 0.000_002,
+    cachedInput: 2.000_000_000_000_000_2e-7,
   },
   "gemini-3-pro-preview": {
     input: 0.000_002,
     output: 0.000_012,
-    cachedInput: 0.000_002,
+    cachedInput: 2.000_000_000_000_000_2e-7,
+  },
+  "gemini-3.1-flash-lite": {
+    input: 2.5e-7,
+    output: 0.000_001_5,
+    cachedInput: 2.5e-8,
+  },
+  "gemini-3.8-flash": {
+    input: 7.5e-7,
+    output: 0.000_003_75,
+    cachedInput: 7.5e-8,
   },
   "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
     input: 0.000_001,
@@ -194,15 +249,20 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "global.anthropic.claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2.000_000_000_000_000_2e-7,
+  },
   "google/gemini-2.0-flash-001": {
-    input: 1.5e-7,
-    output: 6e-7,
-    cachedInput: 1.5e-7,
+    input: 1.000_000_000_000_000_1e-7,
+    output: 4.000_000_000_000_000_3e-7,
+    cachedInput: 2.500_000_000_000_000_2e-8,
   },
   "google/gemini-2.5-flash-preview-05-20": {
-    input: 1.5e-7,
-    output: 6e-7,
-    cachedInput: 1.5e-7,
+    input: 3e-7,
+    output: 0.000_002_5,
+    cachedInput: 3e-8,
   },
   "google/gemini-2.5-pro": {
     input: 0.000_001_25,
@@ -227,7 +287,7 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "google/gemini-3-flash": {
     input: 5e-7,
     output: 0.000_003,
-    cachedInput: 5e-7,
+    cachedInput: 5.000_000_000_000_000_4e-8,
   },
   "google/gemini-3-flash-preview": {
     input: 5e-7,
@@ -237,12 +297,27 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "google/gemini-3-pro": {
     input: 0.000_002,
     output: 0.000_012,
-    cachedInput: 0.000_002,
+    cachedInput: 2.000_000_000_000_000_2e-7,
   },
   "google/gemini-3-pro-preview": {
     input: 0.000_002,
     output: 0.000_012,
-    cachedInput: 0.000_002,
+    cachedInput: 2.000_000_000_000_000_2e-7,
+  },
+  "google/gemini-3.1-flash-lite": {
+    input: 2.5e-7,
+    output: 0.000_001_5,
+    cachedInput: 2.5e-8,
+  },
+  "google/gemini-3.1-flash-lite-preview": {
+    input: 2.5e-7,
+    output: 0.000_001_5,
+    cachedInput: 2.5e-8,
+  },
+  "google/gemini-3.8-flash": {
+    input: 7.5e-7,
+    output: 0.000_003_75,
+    cachedInput: 7.5e-8,
   },
   "gpt-3.5-turbo-0125": {
     input: 5e-7,
@@ -295,14 +370,24 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 2e-8,
   },
   "gpt-5.6-luna": {
-    input: 1e-7,
-    output: 6e-7,
-    cachedInput: 1e-8,
+    input: 2e-7,
+    output: 0.000_001_2,
+    cachedInput: 2e-8,
+  },
+  "gpt-5.6-sol": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2e-7,
   },
   "gpt-5.6-terra": {
-    input: 0.000_001,
-    output: 0.000_006,
-    cachedInput: 1e-7,
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
+  "gpt-oss-120b": {
+    input: 3.7e-8,
+    output: 1.7e-7,
+    cachedInput: 3.7e-8,
   },
   "llama-3.3-70b-versatile": {
     input: 5.9e-7,
@@ -310,9 +395,9 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 5.9e-7,
   },
   "meta-llama/llama-4-maverick": {
-    input: 2e-7,
-    output: 8e-7,
-    cachedInput: 2e-7,
+    input: 1.875e-7,
+    output: 6.525e-7,
+    cachedInput: 1.875e-7,
   },
   "moonshotai/kimi-k2": {
     input: 5.7e-7,
@@ -328,6 +413,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 5e-8,
     output: 4e-7,
     cachedInput: 5e-9,
+  },
+  "qwen-3.8-27b": {
+    input: 9.9e-7,
+    output: 0.000_001_49,
+    cachedInput: 9.9e-7,
   },
   "sonar-pro": {
     input: 0.000_003,
@@ -358,5 +448,10 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.000_003,
     output: 0.000_015,
     cachedInput: 3e-7,
+  },
+  "us.anthropic.claude-sonnet-5": {
+    input: 0.000_002,
+    output: 0.000_01,
+    cachedInput: 2.000_000_000_000_000_2e-7,
   },
 };
