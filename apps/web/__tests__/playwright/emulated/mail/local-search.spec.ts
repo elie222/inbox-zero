@@ -111,11 +111,8 @@ for (const scope of ["single", "all"] as const) {
     await expect(match).toBeVisible();
     await expect(input).toBeFocused();
     await expect(
-      page.getByText(
-        "Searching your full mailbox… Cached results may be incomplete.",
-        { exact: true },
-      ),
-    ).toBeVisible();
+      page.getByRole("status").filter({ hasText: /searching|cached/i }),
+    ).toHaveCount(0);
     await testInfo.attach("local-search-latency", {
       body: JSON.stringify({ firstResultMs: Date.now() - startedAt }),
       contentType: "application/json",
@@ -132,10 +129,7 @@ for (const scope of ["single", "all"] as const) {
     await expect(match).toHaveCount(1);
     await expect(match).toHaveAttribute("tabindex", "0");
     await expect(
-      page.getByText(
-        "Searching your full mailbox… Cached results may be incomplete.",
-        { exact: true },
-      ),
+      page.getByRole("status").filter({ hasText: /searching|cached/i }),
     ).toHaveCount(0);
     await context.setOffline(true);
     await capturePlaywrightCheckpoint(

@@ -2046,9 +2046,5 @@ function getSearchStatus({
       return "Full mailbox search is unavailable. Try again when connected.";
     return "Full mailbox search is unavailable. Showing cached results only.";
   }
-  if (localStatus === "unsupported")
-    return "This search needs your email provider. Searching your mailbox…";
-  if (localStatus === "unavailable")
-    return "Local search is unavailable. Searching your mailbox…";
-  return "Searching your full mailbox… Cached results may be incomplete.";
+  // In-progress search has no banner: the list and spinner already show it.
 }
