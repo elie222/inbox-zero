@@ -28,6 +28,18 @@ test("requires client consent, enforces read-only access, and disconnects existi
 }, testInfo) => {
   test.setTimeout(360_000);
   await openSettings(page);
+  const developerSection = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Developer", exact: true }),
+  });
+  await expect(developerSection.getByText("API Access")).toBeVisible();
+  await expect(
+    developerSection.getByText("Allow MCP clients to connect to your account."),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    developerSection,
+    testInfo,
+    "developer-mcp-row",
+  );
   const toggle = page.getByRole("switch", { name: "MCP", exact: true });
   await toggle.setChecked(false);
   await expect(toggle).not.toBeChecked();
