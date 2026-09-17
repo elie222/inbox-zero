@@ -7,6 +7,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   conversationWithSubject,
   openMail,
+  openMailboxFromSidebar,
   waitForComposeOutboxSend,
 } from "./mail-test-helpers";
 
@@ -44,7 +45,7 @@ test("saves a closed new message with attachments in Drafts and discards it from
       );
     })
     .toBe(true);
-  await page.getByRole("link", { name: /^Drafts/ }).click();
+  await openMailboxFromSidebar(page, "Drafts");
   const draft = conversationWithSubject(
     page,
     conversations,

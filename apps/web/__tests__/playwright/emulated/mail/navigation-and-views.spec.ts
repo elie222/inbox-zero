@@ -5,6 +5,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   conversationWithSubject,
   openMail,
+  openMailboxFromSidebar,
   readLatestMailMutation,
 } from "./mail-test-helpers";
 
@@ -257,7 +258,7 @@ test("filters the mail list by state, category, and label", async ({
 test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   const { conversations } = await openMail(page);
 
-  await page.getByRole("link", { name: /^Drafts/ }).click();
+  await openMailboxFromSidebar(page, "Drafts");
   const draft = conversationWithSubject(
     page,
     conversations,
@@ -266,7 +267,7 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   await expect(draft).toBeVisible();
   await expect(draft.getByText("Draft", { exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await expect(
     conversationWithSubject(page, conversations, "Seeded Sent Message"),
   ).toBeVisible();
