@@ -24,6 +24,37 @@ export function getActiveThreadIndex({
   return openThreadIndex;
 }
 
+export function getSearchFocus({
+  previous,
+  view,
+  focusedIndex,
+  orderedIds,
+}: {
+  previous?: { view: string | null; key?: string; index: number };
+  view: string | null;
+  focusedIndex: number;
+  orderedIds: string[];
+}) {
+  let nextIndex = focusedIndex;
+  if (
+    view &&
+    previous?.view === view &&
+    previous.index === focusedIndex &&
+    previous.key
+  ) {
+    if (!orderedIds.length) return previous;
+    const retainedIndex = orderedIds.indexOf(previous.key);
+    // A retained row that is gone from a shorter result set would otherwise
+    // leave the cursor past the end, where appended rows later land on an
+    // unrelated thread.
+    nextIndex =
+      retainedIndex >= 0
+        ? retainedIndex
+        : Math.min(nextIndex, orderedIds.length - 1);
+  }
+  return { view, key: orderedIds[nextIndex], index: nextIndex };
+}
+
 export function resolveThreadActionTargets<T extends { key: string }>({
   focusedKey,
   listTargets,

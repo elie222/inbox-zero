@@ -60,6 +60,7 @@ import { BufferedThreadReader } from "@/app/(app)/[emailAccountId]/mail/Buffered
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
+  getSearchFocus,
   getNextThreadAfterRemoval,
   resolveThreadActionTargets,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
@@ -515,26 +516,17 @@ export function MailShell() {
   ]);
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const previousSearchFocus = useRef<
-    { view: string; key?: string; index: number } | undefined
+    ReturnType<typeof getSearchFocus> | undefined
   >(undefined);
   useLayoutEffect(() => {
-    const previous = previousSearchFocus.current;
-    let nextIndex = focusedIndex;
-    if (
-      searchQuery &&
-      previous?.view === searchViewIdentity &&
-      previous.index === focusedIndex &&
-      previous.key
-    ) {
-      const retainedIndex = orderedIds.indexOf(previous.key);
-      if (retainedIndex >= 0) nextIndex = retainedIndex;
-    }
-    previousSearchFocus.current = {
-      view: searchViewIdentity,
-      key: orderedIds[nextIndex],
-      index: nextIndex,
-    };
-    if (nextIndex !== focusedIndex) setFocusedIndex(nextIndex);
+    const next = getSearchFocus({
+      previous: previousSearchFocus.current,
+      view: searchQuery ? searchViewIdentity : null,
+      focusedIndex,
+      orderedIds,
+    });
+    previousSearchFocus.current = next;
+    if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
   let emptySearchMessage: string | undefined;
   if (showLocalSearch) {
@@ -1775,10 +1767,25 @@ export function MailShell() {
                     onToggleSelect={selection.toggle}
                     onSelectRangeTo={selection.selectRangeTo}
                     showLoadMore={
-                      hasMore && (!showLocalSearch || hasProviderResponse)
+                      showLocalSearch
+                        ? localSearch.hasMore ||
+                          (hasProviderResponse && hasMore)
+                        : hasMore
                     }
-                    isLoadingMore={isLoadingMore}
-                    onLoadMore={loadMore}
+                    isLoadingMore={
+                      showLocalSearch
+                        ? localSearch.isLoadingMore ||
+                          (hasProviderResponse && isLoadingMore)
+                        : isLoadingMore
+                    }
+                    onLoadMore={
+                      showLocalSearch
+                        ? () => {
+                            if (localSearch.hasMore) localSearch.loadMore();
+                            if (hasProviderResponse && hasMore) loadMore();
+                          }
+                        : loadMore
+                    }
                     showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
                     listKey={
                       isAllAccounts

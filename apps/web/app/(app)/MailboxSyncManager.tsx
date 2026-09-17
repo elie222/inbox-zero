@@ -1,10 +1,11 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
   isMailSyncActivated,
   subscribeToMailActivation,
 } from "@/utils/email-cache/mail-activation";
+import { retainSearchIndex } from "@/utils/email-cache/search-index-service";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
@@ -42,5 +43,8 @@ function MailboxSync({
     () => false,
   );
   useMailboxSync({ emailAccountId, enabled, priority });
+  useEffect(() => {
+    if (enabled) return retainSearchIndex(emailAccountId);
+  }, [emailAccountId, enabled]);
   return null;
 }

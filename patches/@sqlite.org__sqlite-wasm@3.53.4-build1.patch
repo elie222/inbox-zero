@@ -1,0 +1,17 @@
+diff --git a/dist/sqlite3-worker1.mjs b/dist/sqlite3-worker1.mjs
+index 55836559c280d5263be6258ba404bb3870081d86..e6b51ae8905bd267fa9182633e8e23ea09581ae1 100644
+--- a/dist/sqlite3-worker1.mjs
++++ b/dist/sqlite3-worker1.mjs
+@@ -15634,7 +15634,11 @@ async function sqlite3InitModule(moduleArg = {}) {
+ 						};
+ 						const options = opfsUtil.options;
+ 						const proxyUri = options.proxyUri + (options.proxyUri.indexOf("?") < 0 ? "?" : "&") + "vfs=" + vfsName;
+-						const W = opfsVfs.worker = new Worker(new URL(proxyUri, import.meta.url));
++						const W = opfsVfs.worker = (() => {
++                            const url = new URL("sqlite3-opfs-async-proxy.js", import.meta.url);
++                            url.searchParams.set("vfs", vfsName);
++                            return new Worker(url.toString());
++                        })();
+ 						let zombieTimer = setTimeout(() => {
+ 							if (void 0 === promiseWasRejected) promiseReject(/* @__PURE__ */ new Error("Timeout while waiting for OPFS async proxy worker."));
+ 						}, 4e3);
