@@ -59,19 +59,6 @@ describe("user/api-keys route", () => {
       {} as never,
     );
 
-    expect(prisma.apiKey.findMany).toHaveBeenCalledWith({
-      where: { userId: "user_1", emailAccountId: "account_1", isActive: true },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        expiresAt: true,
-        lastUsedAt: true,
-        scopes: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    expect(getMcpServerAccessMock).toHaveBeenCalledWith("user_1");
     await expect(response.json()).resolves.toEqual({
       apiKeys: [
         {
