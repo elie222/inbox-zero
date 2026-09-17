@@ -96,11 +96,6 @@ export async function prepareLocalMailAttachmentDownload(
     const protection = await tx
       .objectStore("localMailThreadProtection")
       .get([reference.emailAccountId, reference.threadId]);
-    if (
-      previous?.snapshotId &&
-      protection?.pinSnapshotId !== previous.snapshotId
-    )
-      return;
     const reservationId = `attachment:${randomUuid()}`;
     const reserved = await reservedBytes(
       tx,
@@ -114,7 +109,6 @@ export async function prepareLocalMailAttachmentDownload(
     await tx.objectStore("localMailAttachmentJobs").put({
       ...reference,
       reservationId,
-      snapshotId: previous?.snapshotId,
       state: "pending",
       attempts: previous?.attempts ?? 0,
       updatedAt: now,
@@ -167,7 +161,6 @@ export async function commitLocalMailAttachmentDownload(
         !reservation ||
         reservation.expiresAt <= now ||
         blob.size > reservation.bytes ||
-        (job.snapshotId && protection?.pinSnapshotId !== job.snapshotId) ||
         !(await referenceIsCurrent(tx, reference))
       )
         return false;
@@ -266,7 +259,6 @@ export async function invalidateLocalMailMessageAttachments(
   messageId: string,
   next?: EmailCacheSchema["localMailMessages"]["value"],
 ) {
-  const affectedThreads = new Set<string>();
   let removedBytes = 0;
   let file = await tx
     .objectStore("localMailAttachmentFiles")
@@ -279,7 +271,6 @@ export async function invalidateLocalMailMessageAttachments(
       current.threadId !== file.value.threadId ||
       current.revision !== file.value.revision
     ) {
-      affectedThreads.add(file.value.threadId);
       removedBytes += file.value.byteSize;
       await file.delete();
     }
@@ -296,7 +287,6 @@ export async function invalidateLocalMailMessageAttachments(
       current.threadId !== job.value.threadId ||
       current.revision !== job.value.revision
     ) {
-      affectedThreads.add(job.value.threadId);
       await releaseReservation(tx, job.value, job.value.reservationId);
       await job.delete();
     }
@@ -313,15 +303,6 @@ export async function invalidateLocalMailMessageAttachments(
         (account.attachmentBytes ?? 0) - removedBytes,
       ),
     });
-  for (const threadId of affectedThreads) {
-    const protection = await tx
-      .objectStore("localMailThreadProtection")
-      .get([emailAccountId, threadId]);
-    if (protection?.pinSnapshotId)
-      await tx
-        .objectStore("localMailThreadProtection")
-        .put({ ...protection, pinSnapshotInvalidated: true });
-  }
 }
 
 async function withTransaction<T>(

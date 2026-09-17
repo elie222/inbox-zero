@@ -18,7 +18,6 @@ export type LocalMailAttachmentFile = LocalMailAttachmentReference & {
 };
 
 export type LocalMailAttachmentJob = LocalMailAttachmentReference & {
-  snapshotId?: string;
   reservationId: string;
   state: "pending" | "failed" | "complete";
   attempts: number;
