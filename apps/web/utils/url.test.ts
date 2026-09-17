@@ -167,28 +167,41 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // Graph resolves its own webLink without any id translation; Graph REST ids
-  // cannot be substituted into OWA /drafts/id/ URLs, so untrusted or missing
-  // links yield null instead of a broken deeplink.
+  // Graph REST ids cannot be substituted into /drafts/id/ URLs; only the
+  // webLink's EWS ItemID can.
   it.each([
-    "https://outlook.office365.com/owa/?ItemID=synthetic%2Bitem%2Fid%3D&exvsurl=1&viewmodel=ReadMessageItem",
-    "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=1",
-    "https://outlook.live.com/mail/0/deeplink/read/synthetic-item?ispopout=0",
-    "https://outlook.office.com/owa/?ItemID=synthetic-item&ispopout=1&ispopout=1#draft",
-  ])("opens the provider draft inside Outlook: %s", (externalUrl) => {
-    const result = getEmailDraftUrl(
-      { id: "draft-123", externalUrl },
-      "user@example.com",
-      "microsoft",
-    );
-    if (!result) throw new Error("Expected a trusted Outlook draft URL");
-    const actual = new URL(result);
-    const original = new URL(externalUrl);
-
-    expect(actual.searchParams.getAll("ispopout")).toEqual(["0"]);
-    actual.searchParams.delete("ispopout");
-    original.searchParams.delete("ispopout");
-    expect(actual.toString()).toBe(original.toString());
+    {
+      name: "a business mailbox",
+      externalUrl:
+        "https://outlook.office365.com/owa/?ItemID=AAMkAG%2Bsynthetic%2Fid%3D&exvsurl=1&viewmodel=ReadMessageItem",
+      expected:
+        "https://outlook.office.com/mail/drafts/id/AAMkAG%2Bsynthetic%2Fid%3D",
+    },
+    {
+      name: "a personal mailbox",
+      externalUrl:
+        "https://outlook.live.com/owa/?ItemID=AQMkAD%2Bsynthetic%3D&exvsurl=1&viewmodel=ReadMessageItem",
+      expected:
+        "https://outlook.live.com/mail/0/drafts/id/AQMkAD%2Bsynthetic%3D",
+    },
+    {
+      name: "a link without an item id",
+      externalUrl:
+        "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=1",
+      expected:
+        "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=0",
+    },
+  ])("opens the draft within the full Outlook client for $name", ({
+    externalUrl,
+    expected,
+  }) => {
+    expect(
+      getEmailDraftUrl(
+        { id: "draft-123", externalUrl },
+        "user@example.com",
+        "microsoft",
+      ),
+    ).toBe(expected);
   });
 
   it.each([
