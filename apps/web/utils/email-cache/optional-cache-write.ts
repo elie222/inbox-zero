@@ -273,7 +273,11 @@ export async function meterLocalMailStorageTransaction(
   return measured;
 }
 
-function recordKey(value: unknown, keyPath: string | string[]) {
+function recordKey(value: unknown, keyPath: string | string[] | null) {
+  // Every store in this schema declares a key path, so a missing one means the
+  // write cannot be charged to the right record rather than that it is unkeyed.
+  if (keyPath === null)
+    throw new Error("An accounted write needs a key path or an explicit key");
   const read = (path: string) =>
     path
       .split(".")

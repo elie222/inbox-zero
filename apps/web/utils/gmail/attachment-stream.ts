@@ -11,7 +11,9 @@ export function decodeGmailAttachmentStream(
   let foundData = false;
   let remainder = "";
   let padding = false;
-  const tokens = source
+  const tokens = (source as unknown as ReadableStream<BufferSource>)
+    // TextDecoderStream accepts any BufferSource, but ReadableStream is
+    // invariant here, so the wider input type needs to be stated.
     .pipeThrough(new TextDecoderStream(), { signal })
     .pipeThrough(
       parser.asWebStream({

@@ -29,7 +29,8 @@ export async function getCompleteGmailThread(
     );
   });
   const result = await readCompleteThreadJson<gmail_v1.Schema$Thread>(
-    Readable.toWeb(response.data),
+    // Node's web stream type is a separate declaration from the DOM one.
+    Readable.toWeb(response.data) as unknown as ReadableStream<Uint8Array>,
     createCompleteThreadBudget(),
     signal,
   );

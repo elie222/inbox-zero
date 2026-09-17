@@ -37,7 +37,11 @@ export async function getGmailAttachmentStream(
     response.data.destroy();
     signal.throwIfAborted();
   }
-  return decodeGmailAttachmentStream(Readable.toWeb(response.data), signal);
+  return decodeGmailAttachmentStream(
+    // Node's web stream type is a separate declaration from the DOM one.
+    Readable.toWeb(response.data) as unknown as ReadableStream<Uint8Array>,
+    signal,
+  );
 }
 
 export async function getGmailMessageAttachments(
