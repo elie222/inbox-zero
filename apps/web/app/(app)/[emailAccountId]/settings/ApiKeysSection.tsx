@@ -20,6 +20,7 @@ import {
   ItemTitle,
   ItemActions,
   ItemDescription,
+  ItemSeparator,
 } from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -94,105 +95,140 @@ export function ApiKeysSection() {
   );
 
   return (
+    <>
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>API Access</ItemTitle>
+          <ItemDescription>Manage API keys for this inbox.</ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                View keys{keyCount > 0 ? ` (${keyCount})` : ""}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>API Keys</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Keys created here are limited to the current inbox account.
+              </p>
+              <LoadingContent loading={isLoading} error={error}>
+                {keyCount > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Permissions</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Expires</TableHead>
+                        <TableHead>Last used</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.apiKeys.map((apiKey) => (
+                        <TableRow key={apiKey.id}>
+                          <TableCell>{apiKey.name}</TableCell>
+                          <TableCell>
+                            {apiKey.scopes.map(formatApiKeyScope).join(", ")}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(apiKey.createdAt).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {apiKey.expiresAt
+                              ? new Date(apiKey.expiresAt).toLocaleString()
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>
+                            {apiKey.lastUsedAt
+                              ? new Date(apiKey.lastUsedAt).toLocaleString()
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>
+                            <ApiKeysDeactivateButton
+                              id={apiKey.id}
+                              emailAccountId={emailAccountId}
+                              mutate={mutate}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No API keys yet.
+                  </p>
+                )}
+              </LoadingContent>
+            </DialogContent>
+          </Dialog>
+          <ApiKeysCreateButtonModal mutate={mutate} />
+        </ItemActions>
+      </Item>
+      {(mcpAvailable || mcpEnabled) && (
+        <>
+          <ItemSeparator />
+          <McpAccessItem
+            enabled={mcpEnabled}
+            connections={mcpConnections}
+            isLoading={isLoading}
+            isExecuting={isExecuting}
+            error={error}
+            mutate={mutate}
+            onToggle={handleToggleMcp}
+          />
+        </>
+      )}
+    </>
+  );
+}
+
+function McpAccessItem({
+  enabled,
+  connections,
+  isLoading,
+  isExecuting,
+  error,
+  mutate,
+  onToggle,
+}: {
+  enabled: boolean;
+  connections: ApiKeyResponse["mcpConnections"];
+  isLoading: boolean;
+  isExecuting: boolean;
+  error: ComponentProps<typeof LoadingContent>["error"];
+  mutate: () => void;
+  onToggle: (checked: boolean) => void;
+}) {
+  return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>API Access</ItemTitle>
+        <ItemTitle>MCP</ItemTitle>
         <ItemDescription>
-          Manage API keys and optionally allow MCP clients to connect to your
-          account.
+          Allow MCP clients to connect to your account.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        {(mcpAvailable || mcpEnabled) && (
-          <div className="flex items-center gap-2">
-            <label
-              htmlFor="mcp-access"
-              className="text-sm text-muted-foreground"
-            >
-              MCP
-            </label>
-            <Switch
-              id="mcp-access"
-              checked={mcpEnabled}
-              onCheckedChange={handleToggleMcp}
-              disabled={isLoading || isExecuting}
-            />
-          </div>
-        )}
-        {mcpConnections.length > 0 && (
+        {connections.length > 0 && (
           <McpConnectionsDialog
-            connections={mcpConnections}
+            connections={connections}
             isLoading={isLoading}
             error={error}
             mutate={mutate}
           />
         )}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              View keys{keyCount > 0 ? ` (${keyCount})` : ""}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>API Keys</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              Keys created here are limited to the current inbox account.
-            </p>
-            <LoadingContent loading={isLoading} error={error}>
-              {keyCount > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Permissions</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Last used</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data?.apiKeys.map((apiKey) => (
-                      <TableRow key={apiKey.id}>
-                        <TableCell>{apiKey.name}</TableCell>
-                        <TableCell>
-                          {apiKey.scopes.map(formatApiKeyScope).join(", ")}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(apiKey.createdAt).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {apiKey.expiresAt
-                            ? new Date(apiKey.expiresAt).toLocaleString()
-                            : "Never"}
-                        </TableCell>
-                        <TableCell>
-                          {apiKey.lastUsedAt
-                            ? new Date(apiKey.lastUsedAt).toLocaleString()
-                            : "Never"}
-                        </TableCell>
-                        <TableCell>
-                          <ApiKeysDeactivateButton
-                            id={apiKey.id}
-                            emailAccountId={emailAccountId}
-                            mutate={mutate}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No API keys yet.
-                </p>
-              )}
-            </LoadingContent>
-          </DialogContent>
-        </Dialog>
-        <ApiKeysCreateButtonModal mutate={mutate} />
+        <Switch
+          id="mcp-access"
+          aria-label="MCP"
+          checked={enabled}
+          onCheckedChange={onToggle}
+          disabled={isLoading || isExecuting}
+        />
       </ItemActions>
     </Item>
   );
