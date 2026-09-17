@@ -1105,6 +1105,8 @@ export class OutlookProvider implements EmailProvider {
   async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
     if (update.name)
       throw new Error("Microsoft category names cannot be changed");
+    if (update.labelListVisibility || update.messageListVisibility)
+      throw new Error("Microsoft categories have no visibility settings");
     if (!update.color) throw new Error("Microsoft category color is required");
     const color = getOutlookCategoryPreset(update.color.backgroundColor);
     if (!color) throw new Error("Unsupported Microsoft category color");

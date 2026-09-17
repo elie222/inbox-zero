@@ -101,7 +101,7 @@ import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
-import { useSplitLabels } from "@/hooks/useLabels";
+import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -161,7 +161,7 @@ export function MailShell() {
   const categories = getMailCategories({ isGoogle, isOutlook });
   const terminology = getEmailTerminology(provider);
   const { userLabels } = useEmail();
-  const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
+  const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
   const {
     adjustInboxUnread,
@@ -1304,14 +1304,14 @@ export function MailShell() {
   const splitLabelChoices = useMemo(
     () =>
       [
-        ...visibleLabels,
+        ...allLabels,
         ...(isGoogle ? [{ id: GmailLabel.IMPORTANT, name: "Important" }] : []),
       ].map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         value: label.id,
       })),
-    [visibleLabels, isGoogle],
+    [allLabels, isGoogle],
   );
   const splitCategoryChoices = useMemo(
     () =>
@@ -1618,7 +1618,7 @@ export function MailShell() {
               activeLabelId={scopeLabelId}
               activeFolderId={scopeFolderId}
               hrefFor={hrefFor}
-              labels={isAllAccounts ? [] : visibleLabels}
+              labels={isAllAccounts ? [] : allLabels}
               folders={isAllAccounts || !isOutlook ? [] : folders}
               countsById={isAllAccounts ? NO_COUNTS : countsById}
               categories={isAllAccounts ? [] : categories}
@@ -1632,6 +1632,7 @@ export function MailShell() {
               onEditMailboxItem={onEditMailboxItem}
               onDeleteMailboxItem={onDeleteMailboxItem}
               labelEditMode={isOutlook ? "color" : "name-and-color"}
+              supportsLabelVisibility={isGoogle}
               labelColorOptions={
                 isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
               }
@@ -1673,7 +1674,7 @@ export function MailShell() {
                 setSearchDraft({ identity: searchEditIdentity, value })
               }
               searchInputRef={searchInputRef}
-              searchLabels={isAllAccounts ? [] : visibleLabels}
+              searchLabels={isAllAccounts ? [] : allLabels}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}

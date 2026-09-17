@@ -25,7 +25,9 @@ export const GET = withEmailProvider(
     const { emailProvider } = request;
 
     try {
-      const labels = await emailProvider.getLabels();
+      // Hidden labels are included so the client can honour Gmail's visibility
+      // settings itself, and still offer a way back to a hidden label.
+      const labels = await emailProvider.getLabels({ includeHidden: true });
       // Map to unified format
       const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
         id: label.id,
