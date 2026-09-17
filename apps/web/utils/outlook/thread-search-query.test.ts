@@ -47,6 +47,20 @@ describe("buildOutlookThreadSearchQuery", () => {
     );
   });
 
+  it("keeps a quoted operator-like phrase as literal text", () => {
+    expect(buildOutlookThreadSearchQuery('"from:alice@example.com"')).toBe(
+      '"\\"from:alice@example.com\\""',
+    );
+  });
+
+  it.each([
+    ["an impossible day", "after:2026/02/30"],
+    ["an impossible month", "before:2026/13/01"],
+    ["an oversized number", `larger:${"9".repeat(400)}`],
+  ])("drops a restriction with %s", (_name, query) => {
+    expect(buildOutlookThreadSearchQuery(`invoice ${query}`)).toBe('"invoice"');
+  });
+
   it("returns an empty query when nothing searchable remains", () => {
     expect(buildOutlookThreadSearchQuery("in:inbox")).toBe("");
     expect(buildOutlookThreadSearchQuery("   ")).toBe("");

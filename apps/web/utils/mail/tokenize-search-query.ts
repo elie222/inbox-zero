@@ -29,7 +29,7 @@ export function parseSearchToken(token: string): {
   const excluded = token.startsWith("-") && token.length > 1;
   const raw = excluded ? token.slice(1) : token;
   const colon = raw.indexOf(":");
-  if (colon <= 0) {
+  if (colon <= 0 || raw.startsWith('"')) {
     return { excluded, operator: null, value: unquoteSearchValue(raw) };
   }
   return {

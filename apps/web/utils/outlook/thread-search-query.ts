@@ -68,7 +68,8 @@ function toKqlValue(value: string): string | null {
   const cleaned = value.replace(/[?"]/g, " ").replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
   const escaped = escapeSearchValue(cleaned);
-  return cleaned.includes(" ") ? `\\"${escaped}\\"` : escaped;
+  // An unquoted colon would turn literal text into a property restriction.
+  return /[\s:]/.test(cleaned) ? `\\"${escaped}\\"` : escaped;
 }
 
 function parseSizeBytes(value: string): number | null {
@@ -78,11 +79,16 @@ function parseSizeBytes(value: string): number | null {
   let bytes = Number(match[1]);
   if (unit === "k") bytes *= 1024;
   if (unit === "m") bytes *= 1024 ** 2;
+  if (!Number.isFinite(bytes)) return null;
   return Math.round(bytes);
 }
 
 function parseGmailDate(value: string): string | null {
   const match = value.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   if (!match) return null;
-  return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  const [, year, month, day] = match;
+  const date = new Date(`${year}-01-01T00:00:00Z`);
+  date.setUTCMonth(Number(month) - 1, Number(day));
+  if (date.getUTCMonth() !== Number(month) - 1) return null;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
