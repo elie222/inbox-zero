@@ -1,5 +1,5 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createSearchIndex } from "./search-index";
 import {
   matchesLocalSearch,
@@ -196,5 +196,17 @@ describe("boolean queries against the local index", () => {
     expect(
       matchesLocalSearch(record, parseLocalSearch("in:archive", [])!),
     ).toBe(scenario.archived);
+  });
+  afterEach(() => vi.useRealTimers());
+  it("prunes the scan on a relative date bound", () => {
+    // The corpus spans 1 to 3 September at noon. Anchor the clock off that
+    // hour so no boundary ties with a message; the comparison is strict.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-04T06:00:00Z"));
+    expect(search("newer_than:2d")).toEqual(["third", "second"]);
+    expect(search("older_than:2d")).toEqual(["first"]);
+    expect(search("newer_than:2d quarterly")).toEqual(["third"]);
+    expect(search("-newer_than:2d")).toEqual(["first"]);
+    expect(search("newer_than:1y")).toEqual(["third", "second", "first"]);
   });
 });

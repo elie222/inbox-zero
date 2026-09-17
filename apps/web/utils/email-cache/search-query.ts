@@ -190,7 +190,19 @@ function parseTermNode(
       term: { field: field as "text" | "from" | "to" | "subject", value },
     };
   }
-  if (field === "after" || field === "before") {
+  if (field === "older_than" || field === "newer_than") {
+    const boundary = readRelativeDate(value);
+    if (boundary === undefined) return;
+    return {
+      type: "term",
+      term: {
+        field: field === "older_than" ? "before" : "after",
+        value: boundary,
+      },
+    };
+  }
+  const dateField = DATE_FIELD_ALIASES[field] ?? field;
+  if (dateField === "after" || dateField === "before") {
     const date = value.replaceAll("/", "-");
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return;
     const utc = new Date(`${date}T00:00:00Z`);
@@ -202,7 +214,7 @@ function parseTermNode(
     // Gmail interprets calendar dates at midnight PST, independent of the device timezone.
     return {
       type: "term",
-      term: { field, value: Date.parse(`${date}T00:00:00-08:00`) },
+      term: { field: dateField, value: Date.parse(`${date}T00:00:00-08:00`) },
     };
   }
   if (!LOCATION_FIELDS.has(field)) return;
@@ -218,6 +230,19 @@ function parseTermNode(
   if (!label) return;
   if (label === "SPAM" || label === "TRASH") widenCorpus(state);
   return { type: "term", term: { field: "label", value: label } };
+}
+
+/** Relative ages count back from the present instant rather than a calendar
+ *  boundary, so `newer_than:2d` means the last 48 hours. */
+function readRelativeDate(value: string) {
+  const parts = /^(\d+)([dmy])$/u.exec(value);
+  if (!parts) return;
+  const amount = Number(parts[1]);
+  const boundary = new Date();
+  if (parts[2] === "d") boundary.setDate(boundary.getDate() - amount);
+  else if (parts[2] === "m") boundary.setMonth(boundary.getMonth() - amount);
+  else boundary.setFullYear(boundary.getFullYear() - amount);
+  return boundary.getTime();
 }
 
 /** Excluding spam or trash is not a request to search it, so a negated term
@@ -257,6 +282,10 @@ function isArchivedLocalMessage(labelIds: string[] | undefined) {
   return !LIVE_MAILBOX_LABELS.some((label) => labelIds.includes(label));
 }
 
+const DATE_FIELD_ALIASES: Record<string, string> = {
+  older: "before",
+  newer: "after",
+};
 /** Outlook stores a real archive label; Gmail has none, so the index cannot
  *  select archived mail by token and must fall back to an exact check. */
 export const ARCHIVE_SEARCH_LABEL = "ARCHIVE";
