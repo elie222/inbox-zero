@@ -98,7 +98,7 @@ describe("mcp-server", () => {
 
   it("returns 401 when the MCP access token has no user id", async () => {
     const response = await handleMcpServerRequest(
-      new Request("http://localhost/api/mcp-server", { method: "POST" }),
+      new Request("http://localhost/mcp", { method: "POST" }),
       {} as never,
     );
 
@@ -107,7 +107,7 @@ describe("mcp-server", () => {
   });
 
   it("registers tools and delegates the request to the MCP transport", async () => {
-    const request = new Request("http://localhost/api/mcp-server", {
+    const request = new Request("http://localhost/mcp", {
       method: "POST",
     });
 
@@ -117,7 +117,34 @@ describe("mcp-server", () => {
     } as never);
 
     expect(mcpServerConstructor).toHaveBeenCalledTimes(1);
-    expect(registerTool).toHaveBeenCalledTimes(8);
+    expect(registerTool.mock.calls.map(([name]) => name)).toEqual([
+      "list_email_accounts",
+      "search_inbox",
+      "read_thread",
+      "create_draft",
+      "list_rules",
+      "get_rule",
+      "create_rule",
+      "update_rule",
+      "delete_rule",
+      "get_stats_by_period",
+      "get_response_time_stats",
+    ]);
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "search_inbox")?.[1],
+    ).toMatchObject({
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    });
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "create_draft")?.[1],
+    ).toMatchObject({
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    });
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "delete_rule")?.[1],
+    ).toMatchObject({
+      annotations: { readOnlyHint: false, destructiveHint: true },
+    });
     expect(connect).toHaveBeenCalledTimes(1);
     expect(transportConstructor).toHaveBeenCalledWith({
       sessionIdGenerator: undefined,
@@ -131,7 +158,7 @@ describe("mcp-server", () => {
     vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(false);
 
     const response = await handleMcpServerRequest(
-      new Request("http://localhost/api/mcp-server", { method: "POST" }),
+      new Request("http://localhost/mcp", { method: "POST" }),
       { userId: "user_1", scopes: [] } as never,
     );
 
@@ -159,6 +186,7 @@ describe("MCP tool permissions and rule writes", () => {
   });
 
   it.each([
+    "create_draft",
     "create_rule",
     "update_rule",
     "delete_rule",
@@ -175,6 +203,8 @@ describe("MCP tool permissions and rule writes", () => {
 
   it.each([
     "list_email_accounts",
+    "search_inbox",
+    "read_thread",
     "list_rules",
     "get_rule",
     "get_stats_by_period",
@@ -237,7 +267,7 @@ describe("MCP tool permissions and rule writes", () => {
 
 async function getTool(name: string, scopes: string[]) {
   await handleMcpServerRequest(
-    new Request("http://localhost/api/mcp-server", { method: "POST" }),
+    new Request("http://localhost/mcp", { method: "POST" }),
     { userId: "user_1", scopes },
   );
   const registration = registerTool.mock.calls.find(

@@ -21,7 +21,9 @@ describe("agent markdown content", () => {
     expect(body).toContain(`${origin}/api/v1/openapi`);
     expect(body).toContain("https://github.com/elie222/inbox-zero");
     expect(body).toContain("support@getinboxzero.com");
-    expect(body).toContain("no public product MCP server");
+    expect(body).toContain(`${origin}/mcp`);
+    expect(body).toContain("https://docs.getinboxzero.com/api-reference/mcp");
+    expect(body).not.toContain("no public product MCP server");
   });
 
   it("maps homepage and pricing paths", () => {

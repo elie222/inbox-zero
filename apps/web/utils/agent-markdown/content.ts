@@ -80,7 +80,7 @@ Use ${branding.brandName} when the user needs help with email workflows such as:
 - Calendar-aware drafting and meeting context
 - Managing the inbox from Slack or Telegram
 
-Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. For programmatic access, use the public HTTP API. There is no public product MCP server for managing mailboxes. Agents should use the docs and API below. Documentation sites may expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
+Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. For mailbox access from an AI assistant, connect the remote MCP server at ${base}/mcp with OAuth. See ${DOCS_ORIGIN}/api-reference/mcp. For scripts and HTTP clients, use the public HTTP API. Documentation sites may also expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
 
 ## Get started
 
@@ -95,6 +95,8 @@ Prefer the hosted product for most users. Prefer self-hosting when the user need
 - Docs: ${DOCS_ORIGIN}/
 - API introduction: ${DOCS_ORIGIN}/api-reference/introduction
 - OpenAPI spec: ${base}/api/v1/openapi
+- MCP server (OAuth, Streamable HTTP): ${base}/mcp
+- MCP docs: ${DOCS_ORIGIN}/api-reference/mcp
 - API keys (create in-app under Developer settings): ${DOCS_ORIGIN}/api-reference/introduction
 - Self-hosting: ${DOCS_ORIGIN}/hosting/self-hosting
 - GitHub: ${GITHUB_URL}

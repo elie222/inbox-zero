@@ -77,17 +77,20 @@ export function McpConsent({
           <ul className="list-disc space-y-2 pl-5 text-sm">
             {scopes.includes("mcp:read") && (
               <li>
-                View your linked inboxes, automation rules, and email
-                statistics.
+                View your linked inboxes, search and read email, automation
+                rules, and email statistics.
               </li>
             )}
             {scopes.includes("mcp:write") && (
-              <li>Create, replace, and delete automation rules.</li>
+              <li>
+                Create mailbox drafts and create, replace, or delete automation
+                rules. This does not send email.
+              </li>
             )}
             {scopes.includes("offline_access") && (
               <li>
-                Stay connected until you revoke access or your login session
-                expires.
+                Stay connected until you disconnect the app or turn off MCP in
+                Settings.
               </li>
             )}
           </ul>
@@ -96,8 +99,8 @@ export function McpConsent({
             inboxes you link later. Only allow applications you trust.
           </p>
           <p className="text-sm text-muted-foreground">
-            You can disconnect all MCP applications by turning off MCP in
-            Settings → Developer.
+            You can disconnect one app from Settings → Developer → MCP apps, or
+            disconnect every app by turning off MCP.
           </p>
           {error && (
             <p role="alert" className="text-sm text-destructive">
