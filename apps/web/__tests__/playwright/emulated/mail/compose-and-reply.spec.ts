@@ -9,6 +9,7 @@ import {
 import {
   conversationWithSubject,
   openMail,
+  openMailboxFromSidebar,
   readLatestMailMutation,
   waitForComposeOutboxSend,
 } from "./mail-test-helpers";
@@ -405,7 +406,7 @@ test("does not add a line break for the send shortcut", async ({
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await waitForComposeOutboxSend(page, emailAccountId);
   const sentConversation = conversationWithSubject(
     page,
@@ -484,7 +485,7 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await waitForComposeOutboxSend(page, emailAccountId);
   const sentConversation = conversationWithSubject(
     page,
@@ -554,7 +555,7 @@ test("undoes a composed message before it is delivered", async ({
     .toBeUndefined();
   await capturePlaywrightCheckpoint(page, testInfo, "compose-undo-restored");
 
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await expect(
     conversationWithSubject(page, conversations, subject),
   ).toHaveCount(0);

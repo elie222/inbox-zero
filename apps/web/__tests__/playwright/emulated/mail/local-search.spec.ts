@@ -9,7 +9,11 @@ import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
 } from "./account-test-helpers";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  openMailboxFromSidebar,
+} from "./mail-test-helpers";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
@@ -20,7 +24,7 @@ test("clears an uncommitted live search with the button and sidebar navigation",
   await page.getByRole("button", { name: "Clear search" }).click();
   await expect(input).toHaveValue("");
   await input.fill("uncommitted search");
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
   await expect(page).toHaveURL(/type=sent/);
   await expect(input).toHaveValue("");
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();

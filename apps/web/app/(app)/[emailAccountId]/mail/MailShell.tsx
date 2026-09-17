@@ -27,9 +27,11 @@ import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   MAIL_CATEGORIES,
+  MAIL_SCHEDULED_TYPE,
   MailSidebar,
   OUTLOOK_INBOX_CATEGORIES,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type {
   MailCategory,
   MailNavTarget,
@@ -345,6 +347,10 @@ export function MailShell() {
       ? searchDraft.value
       : searchParam) ?? "";
   const searchQuery = searchValue.trim() || null;
+  // Scheduled sends live in our own database, so this view has no thread
+  // list to fetch.
+  const isScheduledView =
+    !isAllAccounts && !searchQuery && scopeType === MAIL_SCHEDULED_TYPE;
   const [settledSearch, setSettledSearch] = useState(searchQuery);
   useEffect(() => {
     const timeout = setTimeout(() => setSettledSearch(searchQuery), 250);
@@ -416,7 +422,7 @@ export function MailShell() {
   const accountThreadState = useMailThreads({
     emailAccountId,
     query,
-    enabled: !isAllAccounts && searchSettled,
+    enabled: !isAllAccounts && searchSettled && !isScheduledView,
   });
   const combinedThreadState = useCombinedMailThreads({
     accounts: combinedAccounts,
@@ -1733,57 +1739,62 @@ export function MailShell() {
               ])}
               title="Unable to show your mail list"
             >
-              <LoadingContent
-                loading={
-                  !showLocalSearch &&
-                  (isLoading || (!!searchQuery && !searchSettled)) &&
-                  !threads.length &&
-                  (!searchQuery ||
-                    (localSearch.online && !providerState.searchError))
-                }
-                error={searchQuery ? undefined : error}
-              >
-                <ThreadList
-                  threads={threads}
-                  emptyMessage={emptySearchMessage}
-                  layout={layout}
-                  expandedPreview={expandedPreview}
-                  userEmail={userEmail}
-                  userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                  labelsByAccount={labelsByAccount}
-                  focusedIndex={clampedIndex}
-                  isSelected={selection.isSelected}
-                  selectedCount={selection.selectedCount}
-                  onOpenThread={openAt}
-                  onToggleSelect={selection.toggle}
-                  onSelectRangeTo={selection.selectRangeTo}
-                  showLoadMore={
-                    showLocalSearch
-                      ? localSearch.hasMore || (hasProviderResponse && hasMore)
-                      : hasMore
+              {isScheduledView ? (
+                <ScheduledEmailList />
+              ) : (
+                <LoadingContent
+                  loading={
+                    !showLocalSearch &&
+                    (isLoading || (!!searchQuery && !searchSettled)) &&
+                    !threads.length &&
+                    (!searchQuery ||
+                      (localSearch.online && !providerState.searchError))
                   }
-                  isLoadingMore={
-                    showLocalSearch
-                      ? localSearch.isLoadingMore ||
-                        (hasProviderResponse && isLoadingMore)
-                      : isLoadingMore
-                  }
-                  onLoadMore={
-                    showLocalSearch
-                      ? () => {
-                          if (localSearch.hasMore) localSearch.loadMore();
-                          if (hasProviderResponse && hasMore) loadMore();
-                        }
-                      : loadMore
-                  }
-                  showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
-                  listKey={
-                    isAllAccounts
-                      ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                      : JSON.stringify(query)
-                  }
-                />
-              </LoadingContent>
+                  error={searchQuery ? undefined : error}
+                >
+                  <ThreadList
+                    threads={threads}
+                    emptyMessage={emptySearchMessage}
+                    layout={layout}
+                    expandedPreview={expandedPreview}
+                    userEmail={userEmail}
+                    userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                    labelsByAccount={labelsByAccount}
+                    focusedIndex={clampedIndex}
+                    isSelected={selection.isSelected}
+                    selectedCount={selection.selectedCount}
+                    onOpenThread={openAt}
+                    onToggleSelect={selection.toggle}
+                    onSelectRangeTo={selection.selectRangeTo}
+                    showLoadMore={
+                      showLocalSearch
+                        ? localSearch.hasMore ||
+                          (hasProviderResponse && hasMore)
+                        : hasMore
+                    }
+                    isLoadingMore={
+                      showLocalSearch
+                        ? localSearch.isLoadingMore ||
+                          (hasProviderResponse && isLoadingMore)
+                        : isLoadingMore
+                    }
+                    onLoadMore={
+                      showLocalSearch
+                        ? () => {
+                            if (localSearch.hasMore) localSearch.loadMore();
+                            if (hasProviderResponse && hasMore) loadMore();
+                          }
+                        : loadMore
+                    }
+                    showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
+                    listKey={
+                      isAllAccounts
+                        ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                        : JSON.stringify(query)
+                    }
+                  />
+                </LoadingContent>
+              )}
             </MailPanelErrorBoundary>
           </section>
         )}

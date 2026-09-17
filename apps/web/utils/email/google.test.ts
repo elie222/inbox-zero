@@ -548,6 +548,47 @@ describe("GmailProvider.getThreadsWithQuery", () => {
     );
   });
 
+  it.each([
+    { type: "spam", labelIds: [GmailLabel.SPAM] },
+    { type: "trash", labelIds: [GmailLabel.TRASH] },
+  ])("asks Gmail to include spam and trash for the $type view", async ({
+    type,
+    labelIds,
+  }) => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+
+    await provider.getThreadsWithQuery({ query: { type } });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ labelIds, includeSpamTrash: true }),
+    );
+  });
+
+  it("leaves spam and trash out of the starred view", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+
+    await provider.getThreadsWithQuery({ query: { type: "starred" } });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labelIds: [GmailLabel.STARRED],
+        includeSpamTrash: false,
+      }),
+    );
+  });
+
   it("uses multiple label IDs in preference to the legacy single label", async () => {
     const getThreadsWithNextPageToken = vi
       .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
