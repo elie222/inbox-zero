@@ -39,6 +39,7 @@ import {
 } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
+import type { ScopedMutator } from "swr";
 import type {
   ContactsErrorResponse,
   ContactsResponse,
@@ -867,13 +868,14 @@ function ComposeEmailFormContent({
           if (markDoneAfterSend) onMarkDone?.();
           // The Scheduled view stops polling once nothing is pending, so it
           // needs the new send pushed to it rather than waiting for a refresh.
-          await mutate(["/api/user/scheduled-emails", selectedEmailAccountId]);
-          if (scheduledThreadId) {
-            await mutate([
-              `/api/user/scheduled-emails?threadId=${encodeURIComponent(scheduledThreadId)}`,
-              selectedEmailAccountId,
-            ]);
-          } else {
+          // The email is already scheduled by now, so a refresh that fails must
+          // not reach the catch below and report the send itself as failed.
+          await refreshScheduledEmails(
+            mutate,
+            selectedEmailAccountId,
+            scheduledThreadId,
+          );
+          if (!scheduledThreadId) {
             toastSuccess({ description: "Email scheduled." });
           }
           onClose?.();
@@ -1890,4 +1892,28 @@ function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {
     disposition: attachment.disposition,
     contentId: attachment.contentId,
   }));
+}
+
+/**
+ * SWR's `mutate` rejects when the revalidation request fails. These refreshes
+ * run after the send is already scheduled, so a failure is stale data, not a
+ * failed send, and must never surface as one.
+ */
+async function refreshScheduledEmails(
+  mutate: ScopedMutator,
+  emailAccountId: string,
+  threadId: string | null,
+) {
+  const keys = [
+    ["/api/user/scheduled-emails", emailAccountId],
+    ...(threadId
+      ? [
+          [
+            `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
+            emailAccountId,
+          ],
+        ]
+      : []),
+  ];
+  await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
 }

@@ -54,7 +54,9 @@ export function ScheduledEmailList() {
     setActionError("");
     try {
       await action();
-      await mutate();
+      // The action already succeeded; a refresh that fails is stale data, not a
+      // failed cancel, and SWR retries on its own.
+      await mutate().catch(() => {});
     } catch (failure) {
       setActionError(
         failure instanceof Error ? failure.message : "Something went wrong",
