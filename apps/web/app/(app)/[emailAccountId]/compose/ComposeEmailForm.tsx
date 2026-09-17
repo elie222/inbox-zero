@@ -1499,11 +1499,11 @@ function ComposeEmailFormContent({
           >
             <Button
               aria-label="Attach files"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="hover:bg-transparent"
               onClick={() => attachmentInputRef.current?.click()}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="mutedGhost"
             >
               <PaperclipIcon className="size-4" />
             </Button>
@@ -1519,11 +1519,11 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Insert inline images"
-            className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+            className="hover:bg-transparent"
             onClick={() => inlineImageInputRef.current?.click()}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="mutedGhost"
           >
             <ImageIcon className="size-4" />
           </Button>
@@ -1535,12 +1535,12 @@ function ComposeEmailFormContent({
             >
               <Button
                 aria-label="Discard draft"
-                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                className="hover:bg-transparent"
                 disabled={isSubmitting}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"
-                variant="ghost"
+                variant="mutedGhost"
               >
                 <TrashIcon className="size-4" />
               </Button>

@@ -247,9 +247,8 @@ export function ThreadDeliveryStatus({
                     <Button
                       disabled={busy}
                       type="button"
-                      variant="ghost"
-                      className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
-                      size="sm"
+                      variant="mutedGhost"
+                      size="compact"
                       onClick={() =>
                         act(async () => {
                           const restored = await restoreReplyFromOutbox(
@@ -303,9 +302,8 @@ export function ThreadDeliveryStatus({
                 <Button
                   type="button"
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  variant="mutedGhost"
+                  size="compact"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelScheduledEmailAction, row.id),
@@ -319,9 +317,8 @@ export function ThreadDeliveryStatus({
                 <Button
                   type="button"
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  variant="mutedGhost"
+                  size="compact"
                   onClick={() =>
                     act(() =>
                       scheduledAction(retryScheduledEmailAction, row.id),
@@ -335,9 +332,8 @@ export function ThreadDeliveryStatus({
                 <Button
                   type="button"
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  variant="mutedGhost"
+                  size="compact"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelEmailReminderAction, row.id),

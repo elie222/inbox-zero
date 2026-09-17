@@ -11,6 +11,8 @@ import {
 import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/utils";
 import { randomUuid } from "@/utils/uuid";
 import { BookingSidebar } from "./BookingSidebar";
@@ -245,29 +247,26 @@ function DetailsStep({
 
         <div className="mt-6 flex flex-col gap-4">
           <FormField label="Your name" required>
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="Email" required>
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="What would you like to discuss?" optional>
-            <textarea
+            <Textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={4}
-              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
         </div>

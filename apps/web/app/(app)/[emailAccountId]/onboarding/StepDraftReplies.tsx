@@ -1,31 +1,17 @@
 "use client";
 
-import { ArrowRightIcon } from "lucide-react";
-import { PageHeading, TypographyP } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
 import { DraftRepliesIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration";
+import { OnboardingFeatureStep } from "./OnboardingFeatureStep";
 
 export function StepDraftReplies({ onNext }: { onNext: () => void }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="flex flex-col items-center text-center max-w-md">
-        <div className="mb-6 h-[240px] flex items-end justify-center">
-          <DraftRepliesIllustration />
-        </div>
-
-        <PageHeading className="mb-3">Drafts ready to send</PageHeading>
-
-        <TypographyP className="text-muted-foreground mb-8">
-          Every email needing a reply gets a draft, written in your tone.
-        </TypographyP>
-
-        <div className="flex flex-col gap-2 w-full max-w-xs">
-          <Button className="w-full" onClick={onNext}>
-            Continue
-            <ArrowRightIcon className="size-4 ml-2" />
-          </Button>
-        </div>
-      </div>
-    </div>
+    <OnboardingFeatureStep
+      illustration={<DraftRepliesIllustration />}
+      title="Drafts ready to send"
+      description={
+        "Every email needing a reply gets a draft, written in your tone."
+      }
+      onNext={onNext}
+    />
   );
 }

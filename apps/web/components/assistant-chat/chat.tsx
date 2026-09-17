@@ -267,10 +267,10 @@ export function Chat({
         <Tooltip content="Attach images">
           <Button
             type="button"
-            variant="ghost"
+            variant="mutedGhost"
             size="icon"
             aria-label="Attach images"
-            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+            className="size-9 rounded-full"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
                 attachment_count: attachments.length,

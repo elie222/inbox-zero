@@ -516,9 +516,8 @@ function SenderRow({
           />
         </div>
         <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 text-muted-foreground hover:text-foreground"
+          variant="mutedGhost"
+          size="iconSm"
           onClick={(e) => {
             e.stopPropagation();
             setEditDialogOpen(true);

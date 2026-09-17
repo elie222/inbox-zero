@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { CheckIcon, TrendingUpIcon } from "lucide-react";
 import { ButtonLoader } from "@/components/Loading";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -98,9 +99,9 @@ export function OnboardingSetupCard({
                   {rule.name}
                 </span>
                 {rule.addedByAssistant && (
-                  <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                  <Badge variant="info" size="xs" className="shrink-0">
                     Added for you
-                  </span>
+                  </Badge>
                 )}
               </div>
               {isLive ? (
@@ -154,29 +155,29 @@ function StatusBadge({ status }: { status: OnboardingSetup["status"] }) {
   switch (status) {
     case "draft":
       return (
-        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <Badge variant="muted" size="sm">
           Draft
-        </span>
+        </Badge>
       );
     case "enabling":
       return (
-        <span className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <Badge variant="muted" size="sm">
           <ButtonLoader />
           Turning on
-        </span>
+        </Badge>
       );
     case "live":
       return (
-        <span className="flex items-center gap-1.5 rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-400">
+        <Badge variant="success" size="sm">
           <span className="size-1.5 rounded-full bg-green-600" />
           Live
-        </span>
+        </Badge>
       );
     case "error":
       return (
-        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400">
+        <Badge variant="warning" size="sm">
           Finish in app
-        </span>
+        </Badge>
       );
   }
 }

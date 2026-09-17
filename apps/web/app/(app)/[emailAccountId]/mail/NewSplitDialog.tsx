@@ -346,7 +346,7 @@ export function NewSplitDialog({
       >
         <div className="flex shrink-0 items-center gap-2.5 border-border border-b px-4 py-3">
           {(mode !== "library" || detail) && (
-            <button
+            <Button
               type="button"
               aria-label="Back"
               onClick={() => {
@@ -356,10 +356,11 @@ export function NewSplitDialog({
                   if (!editing) setConditions([]);
                 }
               }}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              variant="secondary"
+              size="icon2xs"
             >
               <ChevronLeftIcon className="size-3.5" />
-            </button>
+            </Button>
           )}
           <DialogTitle className="min-w-0 flex-1 truncate font-medium text-[15px] tracking-tight">
             {detail ? detail.name : title}
@@ -367,14 +368,15 @@ export function NewSplitDialog({
           <DialogDescription className="sr-only">
             Add a filtered tab to your inbox.
           </DialogDescription>
-          <button
+          <Button
             type="button"
             aria-label="Close"
             onClick={close}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            variant="mutedGhost"
+            size="icon2xs"
           >
             <XIcon className="size-3.5" />
-          </button>
+          </Button>
         </div>
 
         {detail ? (
@@ -490,9 +492,8 @@ export function NewSplitDialog({
                           {split.name}
                         </button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground"
+                          variant="mutedGhost"
+                          size="iconXs"
                           aria-label={`Move ${split.name} up`}
                           disabled={
                             isBusy ||
@@ -507,9 +508,8 @@ export function NewSplitDialog({
                           <ArrowUpIcon className="size-3.5" />
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground"
+                          variant="mutedGhost"
+                          size="iconXs"
                           aria-label={`Move ${split.name} down`}
                           disabled={
                             isBusy ||
@@ -523,9 +523,8 @@ export function NewSplitDialog({
                           <ArrowDownIcon className="size-3.5" />
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground"
+                          variant="mutedGhost"
+                          size="iconXs"
                           disabled={isBusy || !split.filters.length}
                           aria-label={`Turn off the ${split.name} split`}
                           onClick={() => removeSplit(split.id)}
@@ -910,14 +909,15 @@ function ConditionRow({
         </select>
       )}
 
-      <button
+      <Button
         type="button"
         aria-label="Remove condition"
         onClick={onRemove}
-        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        variant="destructiveGhost"
+        size="iconXs"
       >
         <XIcon className="size-3.5" />
-      </button>
+      </Button>
     </div>
   );
 }

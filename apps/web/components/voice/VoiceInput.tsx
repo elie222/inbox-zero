@@ -92,7 +92,7 @@ export function VoiceInput({
           <Tooltip content="Dictate">
             <Button
               aria-label="Dictate"
-              className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+              className="size-9 rounded-full"
               data-testid="voice-dictate-button"
               onClick={() => {
                 beginDictation().catch((error) => {
@@ -101,7 +101,7 @@ export function VoiceInput({
               }}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="mutedGhost"
             >
               <MicIcon className="size-4" />
             </Button>
@@ -111,7 +111,7 @@ export function VoiceInput({
           <Tooltip content="Live conversation">
             <Button
               aria-label="Start live conversation"
-              className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+              className="size-9 rounded-full"
               data-testid="voice-live-button"
               onClick={() => {
                 beginLive().catch((error) => {
@@ -123,7 +123,7 @@ export function VoiceInput({
               }}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="mutedGhost"
             >
               <AudioLinesIcon className="size-4" />
             </Button>
