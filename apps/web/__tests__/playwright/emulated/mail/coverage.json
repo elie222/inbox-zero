@@ -42,6 +42,11 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
   ],
+  "keep-offline.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/KeepOfflineDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "utils/email-cache/local-mail-offline-runner.ts"
+  ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
