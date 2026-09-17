@@ -308,13 +308,7 @@ export function NewSplitDialog({
       const existing = findLibrarySplit(entry, filters);
       if (entry.createsSystemType) {
         if (!onToggleSystemType) return;
-        if (existing) {
-          const deleted = await onDelete(existing.id);
-          if (!deleted) return;
-          await onToggleSystemType(entry.createsSystemType, false);
-        } else {
-          await onToggleSystemType(entry.createsSystemType, true);
-        }
+        await onToggleSystemType(entry.createsSystemType, !existing);
         return;
       }
       if (existing) await onDelete(existing.id);
