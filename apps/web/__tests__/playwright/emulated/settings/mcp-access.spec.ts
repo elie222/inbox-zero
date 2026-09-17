@@ -33,8 +33,8 @@ test("requires client consent, enforces read-only access, and disconnects existi
   });
   await expect(developerSection.getByText("API Access")).toBeVisible();
   await expect(
-    developerSection.getByText("Allow MCP clients to connect to your account."),
-  ).toBeVisible();
+    developerSection.getByRole("button", { name: "Connect", exact: true }),
+  ).toBeHidden();
   await capturePlaywrightCheckpoint(
     developerSection,
     testInfo,
@@ -151,6 +151,13 @@ test("requires client consent, enforces read-only access, and disconnects existi
 
   await page.goto("/settings");
   await expect(toggle).toBeChecked();
+  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  const connectDialog = page.getByRole("dialog", { name: "Connect MCP" });
+  await expect(connectDialog.locator('input[name="copy-input"]')).toHaveValue(
+    resource,
+  );
+  await capturePlaywrightCheckpoint(connectDialog, testInfo, "mcp-connect-url");
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /^MCP apps/ }).click();
   const appsDialog = page.getByRole("dialog", { name: "MCP apps" });
   await expect(
@@ -180,6 +187,8 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await expect(
     page.getByText("MCP access enabled!", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Connect MCP" })).toBeVisible();
+  await page.keyboard.press("Escape");
   const stillRevoked = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 6, method: "tools/list" },

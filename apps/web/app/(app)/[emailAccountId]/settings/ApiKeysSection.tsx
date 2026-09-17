@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type ComponentProps } from "react";
+import { useCallback, useState, type ComponentProps } from "react";
 import { useAction } from "next-safe-action/hooks";
 import {
   Table,
@@ -19,14 +19,15 @@ import {
   ItemContent,
   ItemTitle,
   ItemActions,
-  ItemDescription,
   ItemSeparator,
 } from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { CopyInput } from "@/components/CopyInput";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -42,6 +43,8 @@ import {
   updateMcpServerAccessAction,
 } from "@/utils/actions/api-key";
 import type { ApiKeyResponse } from "@/app/api/user/api-keys/route";
+import { env } from "@/env";
+import { MCP_GUIDE_URL } from "@/utils/mcp/config";
 
 export function ApiKeysSection() {
   const { emailAccountId } = useAccount();
@@ -99,7 +102,6 @@ export function ApiKeysSection() {
       <Item size="sm">
         <ItemContent>
           <ItemTitle>API Access</ItemTitle>
-          <ItemDescription>Manage API keys for this inbox.</ItemDescription>
         </ItemContent>
         <ItemActions>
           <Dialog>
@@ -205,13 +207,13 @@ function McpAccessItem({
   mutate: () => void;
   onToggle: (checked: boolean) => void;
 }) {
+  const [connectOpen, setConnectOpen] = useState(false);
+  const mcpUrl = `${env.NEXT_PUBLIC_BASE_URL}/mcp`;
+
   return (
     <Item size="sm">
       <ItemContent>
         <ItemTitle>MCP</ItemTitle>
-        <ItemDescription>
-          Allow MCP clients to connect to your account.
-        </ItemDescription>
       </ItemContent>
       <ItemActions>
         {connections.length > 0 && (
@@ -222,13 +224,45 @@ function McpAccessItem({
             mutate={mutate}
           />
         )}
+        {enabled && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConnectOpen(true)}
+          >
+            Connect
+          </Button>
+        )}
         <Switch
           aria-label="MCP"
           checked={enabled}
-          onCheckedChange={onToggle}
+          onCheckedChange={(checked) => {
+            onToggle(checked);
+            setConnectOpen(checked);
+          }}
           disabled={isLoading || isExecuting}
         />
       </ItemActions>
+      <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect MCP</DialogTitle>
+            <DialogDescription>
+              Add this URL in Cursor, Claude, or another MCP client. You'll be
+              asked to allow access.
+            </DialogDescription>
+          </DialogHeader>
+          <CopyInput value={mcpUrl} />
+          <a
+            href={MCP_GUIDE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-muted-foreground underline underline-offset-4"
+          >
+            Setup guide
+          </a>
+        </DialogContent>
+      </Dialog>
     </Item>
   );
 }

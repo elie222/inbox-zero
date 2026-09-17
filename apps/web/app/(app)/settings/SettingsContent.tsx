@@ -41,7 +41,6 @@ import {
   Item,
   ItemCard,
   ItemContent,
-  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -189,9 +188,6 @@ export function SettingsContent() {
           <Item size="sm">
             <ItemContent>
               <ItemTitle>Beta Features</ItemTitle>
-              <ItemDescription>
-                Try experimental features that are still in progress.
-              </ItemDescription>
             </ItemContent>
             <ItemActions>
               <Button asChild size="sm" variant="outline">
