@@ -154,7 +154,7 @@ describe("useThread", () => {
         "cached body",
       ),
     );
-    expect(result.current.localAvailability).toBeDefined();
+    expect(result.current.localAvailability?.providerConfirmed).toBe(false);
     expect(result.current.isLoading).toBe(false);
     const data = {
       thread: {
@@ -181,7 +181,7 @@ describe("useThread", () => {
         "fresh body",
       ),
     );
-    expect(result.current.localAvailability).toBeDefined();
+    expect(result.current.localAvailability?.providerConfirmed).toBe(true);
   });
 
   it("loads another retained page without treating the first page as the whole conversation", async () => {

@@ -142,7 +142,7 @@ it("limits growth by the shared logical envelope even if origin estimates stay u
   expect(setLimit).toHaveBeenLastCalledWith(150);
 });
 
-it("allows no positive growth until logical bootstrap completes", async () => {
+it("allows bounded growth until logical bootstrap completes", async () => {
   const setLimit = vi.fn();
   await accountSearchIndexWrite({
     readBytes: () => 100,
@@ -152,5 +152,7 @@ it("allows no positive growth until logical bootstrap completes", async () => {
     enforceLogicalBudget: true,
     write: () => {},
   });
-  expect(setLimit).toHaveBeenCalledWith(100);
+  // Nothing has measured the stores yet, so only physical headroom applies.
+  // Refusing growth here stalls indexing until the scan finishes.
+  expect(setLimit).toHaveBeenCalledWith(600);
 });

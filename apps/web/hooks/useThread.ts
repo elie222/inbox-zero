@@ -178,6 +178,9 @@ export function useThread(
             loadingMore: localMail.isValidating,
             loadMore: localMail.loadMore,
             refreshing: swr.isValidating,
+            // Only a provider response vouches for the local copy; without one
+            // the reader can only promise the messages it has downloaded.
+            providerConfirmed: swr.data?.thread.id === id,
           }
         : undefined,
     isValidating: swr.isValidating,

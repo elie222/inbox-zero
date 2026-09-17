@@ -1,7 +1,6 @@
 import {
   applyLocalMailStorageDelta,
   evaluateLocalMailLogicalAdmission,
-  isLocalMailStorageLedgerReady,
   localMailLedgerBytes,
   localMailRecordBytes,
   readLocalMailStorageLedger,
@@ -114,10 +113,6 @@ export async function meterLocalMailStorageTransaction(
       next > maxGrowthBytes ||
       (enforceLogicalBudget &&
         delta > 0 &&
-        // Until the ledger has finished measuring what is stored there is no
-        // total to compare against. Writing anyway is safe: the delta above is
-        // dropped for rows the scan has not reached, so it counts them once.
-        isLocalMailStorageLedgerReady(ledger) &&
         !evaluateLocalMailLogicalAdmission({
           ledger,
           limitBytes: Math.max(initialLogicalBytes, logicalLimitBytes),

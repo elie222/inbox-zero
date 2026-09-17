@@ -22,10 +22,7 @@ export function createOpenedConversationAttachments(
   let controller = new AbortController();
   let consumedBytes = 0;
   let epoch = 0;
-  const pending = new Map<
-    string,
-    { promise: Promise<Blob | undefined>; signal?: AbortSignal }
-  >();
+  const pending = new Map<string, Promise<Blob | undefined>>();
   return {
     open() {
       if (controller.signal.aborted) controller = new AbortController();
@@ -48,30 +45,31 @@ export function createOpenedConversationAttachments(
       attachment?: ParsedMessage["inline"][number],
     ) {
       const key = JSON.stringify([messageId, attachmentId]);
-      const existing = pending.get(key);
-      if (existing && !existing.signal?.aborted) return existing.promise;
-      const operation = load(messageId, attachmentId, signal, attachment);
-      pending.set(key, { promise: operation, signal });
-      operation
-        .finally(() => {
-          if (pending.get(key)?.promise === operation) pending.delete(key);
-        })
-        .catch(() => undefined);
-      return operation;
+      // Consumers are replaced while bytes are still arriving: the reader
+      // re-renders a preview whenever the cached conversation changes under
+      // it. The session owns the transfer, so a newcomer joins the one in
+      // flight instead of cancelling it and paying for the download again.
+      let operation = pending.get(key);
+      if (!operation) {
+        operation = load(messageId, attachmentId, attachment);
+        pending.set(key, operation);
+        operation
+          .finally(() => {
+            if (pending.get(key) === operation) pending.delete(key);
+          })
+          .catch(() => undefined);
+      }
+      return signal ? untilAborted(operation, signal) : operation;
     },
   };
   async function load(
     messageId: string,
     attachmentId: string,
-    signal?: AbortSignal,
     attachment?: ParsedMessage["inline"][number],
   ) {
-    const sessionSignal = controller.signal;
     const startedEpoch = epoch;
     const accountEpoch = captureEmailCacheEpoch(emailAccountId);
-    const transferSignal = signal
-      ? AbortSignal.any([sessionSignal, signal])
-      : sessionSignal;
+    const transferSignal = controller.signal;
     transferSignal.throwIfAborted();
     const reference = await getLocalMailAttachmentReference({
       emailAccountId,
@@ -145,6 +143,16 @@ export function createOpenedConversationAttachments(
         consumedBytes -= size - Math.min(size, actualBytes);
     }
   }
+}
+function untilAborted<T>(operation: Promise<T>, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    operation
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 function eligible() {
   const connection = (

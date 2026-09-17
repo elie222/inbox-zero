@@ -124,16 +124,42 @@ describe("local attachment storage", () => {
     expect(await (await db()).count("localMailThreadProtection")).toBe(0);
   });
 
-  it("denies incomplete accounting and rolls back binary plus metadata when logical headroom is insufficient", async () => {
+  it("caches an attachment while the ledger is still being measured", async () => {
     const reference = await seed(account, "message-1", 4);
+    const database = await db();
     expect(
-      await prepareLocalMailAttachmentDownload({
-        ...options,
-        reference,
-        maxBytes: 4,
-        enforceLogicalBudget: true,
+      (await database.get("localMailStorageLedger", "origin"))?.index.status,
+    ).not.toBe("ready");
+    const ticket = await prepareLocalMailAttachmentDownload({
+      ...options,
+      reference,
+      maxBytes: 4,
+      enforceLogicalBudget: true,
+      // Physical headroom still applies while the ledger is unmeasured, so this
+      // isolates the logical budget rather than the shared 100-byte allowance.
+      readAdmission: async () => ({
+        remainingBytes: 100_000,
+        limitBytes: 100_000,
       }),
-    ).toBeUndefined();
+    });
+    expect(ticket).toBeDefined();
+    expect(
+      await commitLocalMailAttachmentDownload({
+        ...options,
+        ticket: ticket!,
+        blob: new Blob(["1234"]),
+        enforceLogicalBudget: true,
+        readAdmission: async () => ({
+          remainingBytes: 100_000,
+          limitBytes: 100_000,
+        }),
+      }),
+    ).toBe(true);
+    expect(await readLocalMailAttachment(reference)).toBeDefined();
+  });
+
+  it("rolls back binary plus metadata when logical headroom is insufficient", async () => {
+    const reference = await seed(account, "message-1", 4);
     const database = await db();
     while ((await bootstrapLocalMailStorageLedgerBatch()) === "progress") {}
     const ledger = (await database.get("localMailStorageLedger", "origin"))!;

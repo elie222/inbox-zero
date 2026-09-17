@@ -178,22 +178,26 @@ it("bounds foreground assistant fallback without starting canonical downloads", 
   );
   expect(downloadLocalMailAttachment).not.toHaveBeenCalled();
 });
-it("starts a fresh preview when a replaced consumer cancels the previous request", async () => {
-  const started = Promise.withResolvers<void>();
+it("keeps a transfer running when its consumer is replaced and shares the result", async () => {
+  const started = Promise.withResolvers<AbortSignal>();
   const finish = Promise.withResolvers<void>();
-  vi.mocked(downloadLocalMailAttachment).mockImplementationOnce(async () => {
-    started.resolve();
-    await finish.promise;
-    return { status: "ready", cached: true, blob: new Blob(["old"]) };
-  });
+  vi.mocked(downloadLocalMailAttachment).mockImplementation(
+    async ({ signal }) => {
+      started.resolve(signal!);
+      await finish.promise;
+      return { status: "ready", cached: true, blob: new Blob(["shared"]) };
+    },
+  );
   const session = createOpenedConversationAttachments("account", "thread");
   const controller = new AbortController();
   const first = session.load("a", "file", controller.signal);
   const rejected = expect(first).rejects.toMatchObject({ name: "AbortError" });
-  await started.promise;
+  const signal = await started.promise;
   controller.abort();
+  await rejected;
+  expect(signal.aborted).toBe(false);
   const second = session.load("a", "file", new AbortController().signal);
   finish.resolve();
-  await rejected;
-  await expect(second).resolves.toBeInstanceOf(Blob);
+  expect(await (await second)?.text()).toBe("shared");
+  expect(downloadLocalMailAttachment).toHaveBeenCalledTimes(1);
 });

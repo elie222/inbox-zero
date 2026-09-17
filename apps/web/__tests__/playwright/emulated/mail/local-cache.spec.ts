@@ -393,8 +393,11 @@ async function seedUnifiedMailbox(
           states.clear();
           for (const account of accounts) {
             const internalDate = new Date(account.receivedAt).toISOString();
-            const messageId = `${account.emailAccountId}-shared-message`;
             const threadId = "shared-thread";
+            // The same id as the cached detail for this thread: local sync
+            // merges list and detail rows by message id, and a second id would
+            // read as a newer, undownloaded message that hides the cached body.
+            const messageId = `${threadId}-message`;
             messages.put({
               data: {
                 date: internalDate,

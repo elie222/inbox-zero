@@ -596,13 +596,13 @@ async function withTransaction<T>(
         ? Math.max(0, admission.remainingBytes)
         : 0;
       options.signal?.throwIfAborted();
-      const enforce = options.enforceLogicalBudget ?? true;
       const native = database.transaction(
         [...stores, "localMailStorageLedger"],
         "readwrite",
       );
       const ledger = await readLocalMailStorageLedger(native);
       const initialBytes = localMailLedgerBytes(ledger);
+      const enforce = options.enforceLogicalBudget ?? true;
       if (enforce)
         remaining = evaluateLocalMailLogicalAdmission({
           ledger,

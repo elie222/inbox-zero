@@ -13,6 +13,7 @@ import {
   clearEmailCacheForAccount,
   getEmailCacheDatabase,
 } from "./database";
+import { readLocalMailThreadPage } from "./local-mail-reader";
 import { activateMailSync, clearMailActivation } from "./mail-activation";
 import {
   initializeSearchIndexAccount,
@@ -215,6 +216,53 @@ describe("resumable local index seeding", () => {
     await seedSearchIndexWork("account-1");
     expect(await database.count("localMailMessages")).toBe(150);
     expect((await seedSearchIndexWork("account-1"))?.complete).toBe(true);
+  });
+
+  it("merges a list projection and its cached detail into one downloaded message", async () => {
+    const message = getMessage("thread");
+    const now = Date.now();
+    const database = await getTestDatabase();
+    await database.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: message.id,
+      threadId: message.threadId,
+      data: message,
+      receivedAt: now,
+      lastAccessedAt: now,
+    });
+    await database.put("threadDetails", {
+      emailAccountId: "account-1",
+      threadId: message.threadId,
+      variant: "drafts:1|replies:0",
+      data: {
+        thread: {
+          id: message.threadId,
+          messages: [{ ...message, textPlain: "Downloaded body" }],
+          snippet: "",
+        },
+      },
+      fetchedAt: now,
+      lastAccessedAt: now,
+      byteSize: 1,
+    });
+    activateMailSync("account-1");
+    await initializeSearchIndexAccount("account-1");
+    for (let pass = 0; pass < 10; pass++) {
+      if ((await seedSearchIndexWork("account-1"))?.complete) break;
+    }
+    const page = await readLocalMailThreadPage({
+      emailAccountId: "account-1",
+      threadId: message.threadId,
+    });
+    expect(
+      page?.messages.map(({ message, bodyAvailable }) => ({
+        id: message.id,
+        textPlain: message.textPlain,
+        bodyAvailable,
+      })),
+    ).toEqual([
+      { id: message.id, textPlain: "Downloaded body", bodyAvailable: true },
+    ]);
   });
 
   it("revokes seeding on cleanup and creates a new generation on reactivation", async () => {

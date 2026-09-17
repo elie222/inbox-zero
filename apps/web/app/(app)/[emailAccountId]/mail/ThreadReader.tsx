@@ -57,6 +57,7 @@ export type ThreadReaderProps = {
     loadingMore: boolean;
     loadMore: () => unknown;
     refreshing: boolean;
+    providerConfirmed: boolean;
   };
   userLabels: EmailLabels;
   layout: MailLayoutMode;
@@ -180,7 +181,7 @@ export function ThreadReader({
         data-testid="thread-reader"
       >
         <div className={readerMeasure({ layout })}>
-          {localAvailability && (
+          {localAvailability && !localAvailability.providerConfirmed && (
             <div
               className="mb-3 flex items-center justify-between gap-3 text-muted-foreground text-sm"
               role="status"
