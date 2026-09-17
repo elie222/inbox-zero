@@ -117,37 +117,42 @@ export function HtmlEmail({
     () => splitEmailContent(renderHtml),
     [renderHtml],
   );
+  const applyDarkTheme = shouldApplyDarkEmailTheme(mainContent, isDarkMode);
+  const applyQuotedDarkTheme = shouldApplyDarkEmailTheme(
+    quotedContent,
+    isDarkMode,
+  );
 
   const documentKey = useMemo(
-    () => getIframeDocumentKey(mainContent, isDarkMode),
-    [mainContent, isDarkMode],
+    () => getIframeDocumentKey(mainContent, applyDarkTheme),
+    [mainContent, applyDarkTheme],
   );
   const srcDoc = useMemo(
     () =>
       getIframeHtml(
         mainContent,
-        isDarkMode,
+        applyDarkTheme,
         IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
         documentKey,
       ),
-    [mainContent, isDarkMode, documentKey],
+    [mainContent, applyDarkTheme, documentKey],
   );
 
   const quotedDocumentKey = useMemo(
-    () => getIframeDocumentKey(quotedContent, isDarkMode),
-    [quotedContent, isDarkMode],
+    () => getIframeDocumentKey(quotedContent, applyQuotedDarkTheme),
+    [quotedContent, applyQuotedDarkTheme],
   );
   const quotedSrcDoc = useMemo(
     () =>
       getIframeHtml(
         quotedContent,
-        isDarkMode,
+        applyQuotedDarkTheme,
         IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
         quotedDocumentKey,
       ),
-    [quotedContent, isDarkMode, quotedDocumentKey],
+    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey],
   );
   const callbacks = {
     onForwardMessage,
@@ -161,7 +166,7 @@ export function HtmlEmail({
       <BufferedEmailIframe
         srcDoc={srcDoc}
         documentKey={documentKey}
-        isDarkMode={isDarkMode}
+        isDarkMode={applyDarkTheme}
         callbacks={callbacks}
       />
       {hasQuotedContent && (
@@ -181,7 +186,7 @@ export function HtmlEmail({
         <BufferedEmailIframe
           srcDoc={quotedSrcDoc}
           documentKey={quotedDocumentKey}
-          isDarkMode={isDarkMode}
+          isDarkMode={applyQuotedDarkTheme}
           callbacks={callbacks}
         />
       )}
@@ -227,18 +232,11 @@ function getIframeHtml(
   imageProxyOrigin: string | null,
   documentKey: string,
 ) {
-  // Count style attributes safely
   const styleAttributeCount = (html.match(/style=/g) || []).length;
-
-  // Check for heavy styling that would indicate a rich HTML email
-  const hasHeavyStyling =
-    html.includes("bgcolor") ||
-    html.includes("background") ||
-    html.includes("<style") ||
-    // Look for multiple style attributes or font styling
-    styleAttributeCount > 1 ||
-    html.includes("font-family") ||
-    html.includes("font-size");
+  const hasHeavyStyling = isDesignedHtmlEmail(html);
+  const authoredHtml = hasHeavyStyling
+    ? disableAuthoredDarkColorScheme(html)
+    : html;
 
   // Check for basic text styling that shouldn't prevent dark mode
   const hasMinimalStyling =
@@ -334,10 +332,12 @@ function getIframeHtml(
   // The server can fail closed to the original HTML when proxy signing is unavailable,
   // so only lock CSP to the proxy after the rendered markup actually points at it.
   const imageSourceDirective =
-    imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
+    imageProxyBaseUrl &&
+    imageProxyOrigin &&
+    authoredHtml.includes(imageProxyBaseUrl)
       ? imageProxyOrigin
       : "https:";
-  const localImageSourceDirective = html.includes("blob:")
+  const localImageSourceDirective = authoredHtml.includes("blob:")
     ? "data: blob:"
     : "data:";
 
@@ -362,7 +362,7 @@ function getIframeHtml(
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
   `;
 
-  const headContent = `<meta name="${EMAIL_DOCUMENT_MARKER}" content="${documentKey}">${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
+  const headContent = `<meta name="${EMAIL_DOCUMENT_MARKER}" content="${documentKey}"><meta name="color-scheme" content="${isDarkMode ? "dark" : "light"}">${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
 
   function wrapWithProperStructure(content: string) {
     if (content.indexOf("<html") === -1) {
@@ -383,7 +383,7 @@ function getIframeHtml(
     return content.replace(/<head([^>]*)>/i, `<head$1>${headContent}`);
   }
 
-  const htmlWithHead = wrapWithProperStructure(html);
+  const htmlWithHead = wrapWithProperStructure(authoredHtml);
   return addDarkModeClass(htmlWithHead, isDarkMode);
 }
 
@@ -432,6 +432,38 @@ async function loadInlineImageSources({
   );
 
   return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+}
+
+function isDesignedHtmlEmail(html: string) {
+  const markup = html.toLowerCase();
+  const styleAttributeCount = (markup.match(/style=/g) || []).length;
+  return (
+    markup.includes("bgcolor") ||
+    markup.includes("background") ||
+    markup.includes("<style") ||
+    styleAttributeCount > 1 ||
+    markup.includes("font-family") ||
+    markup.includes("font-size")
+  );
+}
+
+function shouldApplyDarkEmailTheme(html: string, isDarkMode: boolean) {
+  // Designed emails include @media (prefers-color-scheme: dark) rules.
+  // A dark iframe color-scheme activates those, so the message no longer
+  // matches Gmail/Superhuman. Keep that frame light and render as authored.
+  return isDarkMode && !isDesignedHtmlEmail(html);
+}
+
+function disableAuthoredDarkColorScheme(html: string) {
+  // Chromium still matches the embedder's prefers-color-scheme inside an
+  // iframe, even when that frame is color-scheme: light. Neutralize the
+  // query so authored dark-mode CSS cannot invert the designed layout.
+  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, (stylesheet) =>
+    stylesheet.replace(
+      /prefers-color-scheme\s*:\s*dark/gi,
+      "prefers-color-scheme: inbox-zero-authored",
+    ),
+  );
 }
 
 function addDarkModeClass(html: string, isDarkMode: boolean) {
