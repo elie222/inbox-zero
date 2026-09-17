@@ -1788,6 +1788,12 @@ export class OutlookProvider implements EmailProvider {
         filters.push("isRead eq false");
       }
 
+      // Outlook has no starred folder: a star is a flag on the message, so
+      // this view spans every folder rather than scoping to one.
+      if (type === "starred" && !hasExplicitLabelFilters) {
+        filters.push("flag/flagStatus eq 'flagged'");
+      }
+
       if (inboxSection && !folderId) {
         filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
@@ -2455,6 +2461,8 @@ function getRequiredOutlookThreadLabelIds({
       return ["SENT"];
     case "spam":
       return ["SPAM"];
+    case "starred":
+      return ["STARRED"];
     case "trash":
       return ["TRASH"];
     case "unread":

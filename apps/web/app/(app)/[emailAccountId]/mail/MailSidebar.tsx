@@ -8,6 +8,7 @@ import {
   BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  Clock3Icon,
   FileIcon,
   FolderIcon,
   InboxIcon,
@@ -17,8 +18,11 @@ import {
   PenLineIcon,
   PlusIcon,
   SendIcon,
+  ShieldAlertIcon,
   SparklesIcon,
+  StarIcon,
   TagIcon,
+  Trash2Icon,
   UserIcon,
   Users2Icon,
 } from "lucide-react";
@@ -95,20 +99,24 @@ type SystemItem = {
   /** null means the row never shows a count (a "sent unread" number is noise). */
   countId: string | null;
   Icon: LucideIcon;
-  emphasizeCount?: boolean;
 };
 
-const SYSTEM_ITEMS: SystemItem[] = [
-  {
-    name: "Inbox",
-    type: "inbox",
-    countId: "INBOX",
-    Icon: InboxIcon,
-    emphasizeCount: true,
-  },
+export const MAIL_SCHEDULED_TYPE = "scheduled";
+
+/** Everything the inbox isn't. Visited rarely enough to stay behind a toggle. */
+const MAILBOX_ITEMS: SystemItem[] = [
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
   { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
   { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
+  { name: "Starred", type: "starred", countId: null, Icon: StarIcon },
+  {
+    name: "Scheduled",
+    type: MAIL_SCHEDULED_TYPE,
+    countId: null,
+    Icon: Clock3Icon,
+  },
+  { name: "Spam", type: "spam", countId: null, Icon: ShieldAlertIcon },
+  { name: "Trash", type: "trash", countId: null, Icon: Trash2Icon },
 ];
 
 export type MailCategory = {
@@ -202,11 +210,26 @@ export function MailSidebar({
   const [showCategories, setShowCategories] = useState(isCategoryActive);
   const [showLabels, setShowLabels] = useState(true);
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
-  const showCategoryRows = !collapsibleCategories || showCategories;
+  // Nothing in the rail can toggle a group, so there a group follows the open
+  // view rather than a stored choice, which would otherwise be a one-way door.
+  // The expanded sidebar keeps whatever the user chose.
+  const showCategoryRows =
+    !collapsibleCategories || (collapsed ? isCategoryActive : showCategories);
+
+  const isMailboxActive =
+    !activeLabelId &&
+    !activeFolderId &&
+    MAILBOX_ITEMS.some((item) => item.type === activeType);
+  const [showMailboxes, setShowMailboxes] = useState(isMailboxActive);
+  const showMailboxRows = collapsed ? isMailboxActive : showMailboxes;
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
   }, [isCategoryActive]);
+
+  useEffect(() => {
+    if (isMailboxActive) setShowMailboxes(true);
+  }, [isMailboxActive]);
 
   // Expand when the open view changes to a label so a collapsed list can
   // still reveal the selected row. A same-label collapse stays put.
@@ -294,28 +317,52 @@ export function MailSidebar({
           padding, so a platform-width bar can't crowd the unread counts. */}
       <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
-          {(unified ? SYSTEM_ITEMS.slice(0, 1) : SYSTEM_ITEMS).map(
-            ({ name, type, countId, Icon, emphasizeCount }) => (
-              <NavRow
-                key={type}
-                href={unified ? undefined : hrefFor({ kind: "type", type })}
-                active={
-                  unified ||
-                  (!activeLabelId && !activeFolderId && activeType === type)
-                }
-                icon={<Icon className="size-4 shrink-0" />}
-                name={unified ? "All inboxes" : name}
-                count={
-                  unified || !countId
-                    ? null
-                    : displayCount(countsById.get(countId))
-                }
-                emphasizeCount={emphasizeCount}
-                collapsed={collapsed}
-              />
-            ),
-          )}
+          <NavRow
+            href={
+              unified ? undefined : hrefFor({ kind: "type", type: "inbox" })
+            }
+            active={
+              unified ||
+              (!activeLabelId && !activeFolderId && activeType === "inbox")
+            }
+            icon={<InboxIcon className="size-4 shrink-0" />}
+            name={unified ? "All inboxes" : "Inbox"}
+            count={unified ? null : displayCount(countsById.get("INBOX"))}
+            emphasizeCount
+            collapsed={collapsed}
+          />
         </nav>
+
+        {!unified && (!collapsed || showMailboxRows) && (
+          <>
+            <GroupHeading
+              collapsed={collapsed}
+              expanded={showMailboxes}
+              onToggle={() => setShowMailboxes((open) => !open)}
+            >
+              Mail
+            </GroupHeading>
+            {showMailboxRows && (
+              <nav className="flex flex-col gap-px">
+                {MAILBOX_ITEMS.map(({ name, type, countId, Icon }) => (
+                  <NavRow
+                    key={type}
+                    href={hrefFor({ kind: "type", type })}
+                    active={
+                      !activeLabelId && !activeFolderId && activeType === type
+                    }
+                    icon={<Icon className="size-4 shrink-0" />}
+                    name={name}
+                    count={
+                      countId ? displayCount(countsById.get(countId)) : null
+                    }
+                    collapsed={collapsed}
+                  />
+                ))}
+              </nav>
+            )}
+          </>
+        )}
 
         {/* The rail replaces headings with a rule, so an empty group would
             leave a stray line behind. */}

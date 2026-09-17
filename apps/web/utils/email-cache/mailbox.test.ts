@@ -599,6 +599,37 @@ describe("synced mailbox cache", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("paints the newest starred threads even when the scan budget runs out", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: Array.from({ length: 501 }, (_, index) =>
+          getMessage({
+            id: `message-${index}`,
+            threadId: `thread-${index}`,
+            internalDate: new Date(
+              Date.UTC(2026, 7, 23, 12, 0, 0) - index * 1000,
+            ).toISOString(),
+            labelIds: index === 2 ? ["INBOX", "STARRED"] : ["INBOX"],
+          }),
+        ),
+      },
+    });
+
+    const snapshot = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "starred" },
+    });
+
+    expect(snapshot?.threads.map((thread) => thread.id)).toEqual(["thread-2"]);
+    expect(snapshot?.complete).toBe(false);
+  });
+
   it("supports unread, sender, label, folder, and date filters", async () => {
     await applyMailboxSyncPage({
       emailAccountId: "account-1",
