@@ -119,7 +119,7 @@ export function ApiKeysSection() {
             />
           </div>
         )}
-        {(mcpAvailable || mcpEnabled) && (
+        {mcpConnections.length > 0 && (
           <McpConnectionsDialog
             connections={mcpConnections}
             isLoading={isLoading}
@@ -213,12 +213,12 @@ function McpConnectionsDialog({
     revokeMcpConnectionAction,
     {
       onSuccess: () => {
-        toastSuccess({ description: "MCP application disconnected!" });
+        toastSuccess({ description: "Disconnected" });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to disconnect MCP application",
+            prefix: "Failed to disconnect",
           }),
         });
       },
@@ -232,57 +232,35 @@ function McpConnectionsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          MCP apps{connections.length > 0 ? ` (${connections.length})` : ""}
+          MCP apps ({connections.length})
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connected MCP apps</DialogTitle>
+          <DialogTitle>MCP apps</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          Disconnecting an app revokes its tokens. Other apps stay connected.
-          Turn off MCP to disconnect every app.
-        </p>
         <LoadingContent loading={isLoading} error={error}>
-          {connections.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>App</TableHead>
-                  <TableHead>Permissions</TableHead>
-                  <TableHead>Connected</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {connections.map((connection) => (
-                  <TableRow key={connection.clientId}>
-                    <TableCell>{connection.name}</TableCell>
-                    <TableCell>{connection.scopes.join(", ")}</TableCell>
-                    <TableCell>
-                      {new Date(connection.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isExecuting}
-                        onClick={() =>
-                          executeRevoke({ clientId: connection.clientId })
-                        }
-                      >
-                        Disconnect {connection.name}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No MCP applications are connected.
-            </p>
-          )}
+          <ul className="space-y-3">
+            {connections.map((connection) => (
+              <li
+                key={connection.clientId}
+                className="flex items-center justify-between gap-3"
+              >
+                <span className="truncate text-sm">{connection.name}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isExecuting}
+                  aria-label={`Disconnect ${connection.name}`}
+                  onClick={() =>
+                    executeRevoke({ clientId: connection.clientId })
+                  }
+                >
+                  Disconnect
+                </Button>
+              </li>
+            ))}
+          </ul>
         </LoadingContent>
       </DialogContent>
     </Dialog>

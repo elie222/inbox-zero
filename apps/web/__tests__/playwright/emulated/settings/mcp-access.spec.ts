@@ -142,14 +142,12 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await page.goto("/settings");
   await expect(toggle).toBeChecked();
   await page.getByRole("button", { name: /^MCP apps/ }).click();
-  const appsDialog = page.getByRole("dialog", { name: "Connected MCP apps" });
+  const appsDialog = page.getByRole("dialog", { name: "MCP apps" });
   await expect(appsDialog.getByText("Playwright MCP client")).toBeVisible();
   await appsDialog
     .getByRole("button", { name: "Disconnect Playwright MCP client" })
     .click();
-  await expect(
-    page.getByText("MCP application disconnected!", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Disconnected", { exact: true })).toBeVisible();
   const disconnected = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 4, method: "tools/list" },
