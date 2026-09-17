@@ -20,7 +20,9 @@ const captureMock = vi.fn();
 const flushMock = vi.fn().mockResolvedValue(undefined);
 const shutdownMock = vi.fn();
 const getFeatureFlagMock = vi.fn();
-const afterMock = vi.fn((callback: () => unknown) => callback());
+const { afterMock } = vi.hoisted(() => ({
+  afterMock: vi.fn((callback: () => unknown) => callback()),
+}));
 
 vi.mock("posthog-node", () => ({
   PostHog: class PostHogMock {
