@@ -39,7 +39,24 @@ test("bounds opened attachment previews and reuses them offline", async ({
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
-      const tx = database.transaction("localMailMessages", "readwrite");
+      const tx = database.transaction(
+        ["localMailMessages", "searchIndexAccounts"],
+        "readwrite",
+      );
+      // Attachment downloads resolve the account generation first and report a
+      // missing row as stale, so seed it here rather than rely on activation
+      // having already run. The current source version keeps the runtime from
+      // migrating the account and discarding the rows below.
+      const accounts = tx.objectStore("searchIndexAccounts");
+      const existingAccount = accounts.get(emailAccountId);
+      existingAccount.onsuccess = () => {
+        if (!existingAccount.result)
+          accounts.put({
+            emailAccountId,
+            generation: crypto.randomUUID(),
+            sourceVersion: 2,
+          });
+      };
       const store = tx.objectStore("localMailMessages");
       const messages = thread.messages;
       for (const message of messages) {

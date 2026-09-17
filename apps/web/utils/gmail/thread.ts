@@ -37,6 +37,8 @@ export async function getCompleteGmailThread(
   if (
     result.id !== threadId ||
     !Array.isArray(result.messages) ||
+    // A thread is its messages, so an empty list is a truncated response.
+    !result.messages.length ||
     result.messages.length > COMPLETE_THREAD_MESSAGE_LIMIT ||
     result.messages.some(
       (message) => !message.id || message.threadId !== threadId,
