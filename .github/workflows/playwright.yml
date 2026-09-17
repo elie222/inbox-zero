@@ -81,8 +81,9 @@ env:
   EMAIL_ENCRYPT_SECRET: secret
   EMAIL_ENCRYPT_SALT: salt
   INTERNAL_API_KEY: secret
-  # LLM calls go to the in-repo emulator; playwright.config.mjs wires the
-  # server env, so nothing here needs a provider key.
+  # LLM calls go to the in-repo emulator. playwright.config.mjs wires the
+  # server env; this only satisfies env validation during the build.
+  DEFAULT_LLMS: openai-compatible:emulated
   UPSTASH_REDIS_URL: http://localhost:8079
   UPSTASH_REDIS_TOKEN: playwright-token
   PLAYWRIGHT_PRODUCTION: "1"
