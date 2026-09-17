@@ -225,6 +225,22 @@ describe("MCP OAuth flow", () => {
     });
   });
 
+  it("still rejects an explicit empty application_type", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Cursor",
+      application_type: "",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(400);
+    expect(await registration.json()).toMatchObject({
+      error: "invalid_client_metadata",
+    });
+  });
+
   it("returns access_denied without issuing a code when consent is denied", async () => {
     const flow = await createFlow();
     const response = await flow.request(

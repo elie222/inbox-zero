@@ -18,11 +18,7 @@ export function applyNativeMcpClientRegistration(
   body: ClientRegistrationBody | null | undefined,
 ) {
   if (!body || body.application_type === "native") return;
-  if (
-    body.application_type != null &&
-    body.application_type !== "web" &&
-    body.application_type !== ""
-  ) {
+  if (body.application_type != null && body.application_type !== "web") {
     return;
   }
 

@@ -45,4 +45,13 @@ describe("applyNativeMcpClientRegistration", () => {
     applyNativeMcpClientRegistration(body);
     expect(body.application_type).toBe("web");
   });
+
+  it("does not rewrite an explicit empty application_type", () => {
+    const body = {
+      application_type: "",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+    };
+    applyNativeMcpClientRegistration(body);
+    expect(body.application_type).toBe("");
+  });
 });
