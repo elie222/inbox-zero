@@ -1,6 +1,7 @@
 "use client";
 
 import { mergePartialSearchResults } from "./local-search-results";
+import { useMailSyncActivation } from "./use-mail-sync-activation";
 import { useLocalMailSearch } from "./use-local-mail-search";
 import type { ListThread } from "./types";
 
@@ -253,6 +254,11 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
+  useMailSyncActivation({
+    emailAccountId,
+    isAllAccounts,
+    combinedAccounts,
+  });
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;

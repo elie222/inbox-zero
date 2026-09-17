@@ -2,6 +2,7 @@ import { notifyEmailCacheChange } from "./cache-events";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
+import { clearMailActivation } from "./mail-activation";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
 const DATABASE_VERSION = 10;
@@ -308,6 +309,7 @@ export function isEmailCacheEpochCurrent(
 }
 
 export async function clearEmailCache() {
+  clearMailActivation();
   cacheInvalidationCount += 1;
   cacheEpoch += 1;
   accountEpochs.clear();
@@ -346,6 +348,7 @@ export async function clearEmailCache() {
 }
 
 export async function clearEmailCacheForAccount(emailAccountId: string) {
+  clearMailActivation(emailAccountId);
   accountInvalidationCounts.set(
     emailAccountId,
     (accountInvalidationCounts.get(emailAccountId) ?? 0) + 1,
