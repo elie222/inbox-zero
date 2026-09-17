@@ -18,6 +18,7 @@ type Entry = {
   references: number;
   priority: boolean;
   running: boolean;
+  requested: boolean;
   nextAt: number;
   lastServed: number;
   lastNotified: number;
@@ -39,6 +40,7 @@ export function retainLocalMailSync(emailAccountId: string, priority: boolean) {
     references: 0,
     priority,
     running: false,
+    requested: false,
     nextAt: 0,
     lastServed: 0,
     lastNotified: 0,
@@ -99,6 +101,10 @@ function requestLocalMailSync(emailAccountId: string, forceCounts = true) {
   if (!entry) return;
   entry.nextAt = 0;
   entry.forceCounts ||= forceCounts;
+  if (entry.running) entry.requested = true;
+  // The running tick holds the lease, so it will overwrite nextAt with its own
+  // retry deadline before clearing running. Record the request so it is honoured
+  // once that tick finishes instead of waiting out the overwritten deadline.
   expediteCurrentJobs(emailAccountId).finally(() => schedule(0));
 }
 
@@ -187,6 +193,10 @@ async function tick(emailAccountId: string, entry: Entry) {
     entry.nextAt = Date.now() + 5000;
   } finally {
     entry.running = false;
+    if (entry.requested) {
+      entry.requested = false;
+      entry.nextAt = 0;
+    }
     running -= 1;
     schedule(250);
   }
