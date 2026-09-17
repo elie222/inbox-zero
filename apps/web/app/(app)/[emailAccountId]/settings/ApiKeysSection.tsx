@@ -223,7 +223,6 @@ function McpAccessItem({
           />
         )}
         <Switch
-          id="mcp-access"
           aria-label="MCP"
           checked={enabled}
           onCheckedChange={onToggle}
