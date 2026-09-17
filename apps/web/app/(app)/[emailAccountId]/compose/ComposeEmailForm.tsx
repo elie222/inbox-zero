@@ -113,7 +113,6 @@ import {
   resolveComposeRecipients,
   resolveRecipientSelection,
 } from "./compose-recipients";
-import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
 import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
 import { useComposeSnippets } from "./useComposeSnippets";
 import {
@@ -1437,11 +1436,7 @@ function ComposeEmailFormContent({
       >
         <div className="flex flex-wrap items-center gap-1">
           <Tooltip
-            contentComponent={
-              <ComposeShortcutTooltipContent
-                shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
-              />
-            }
+            shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
@@ -1490,11 +1485,7 @@ function ComposeEmailFormContent({
             ref={attachmentInputRef}
             type="file"
           />
-          <Tooltip
-            contentComponent={
-              <ComposeShortcutTooltipContent shortcuts={["attachFiles"]} />
-            }
-          >
+          <Tooltip shortcuts={["attachFiles"]}>
             <Button
               aria-label="Attach files"
               className="hover:bg-transparent"
@@ -1526,11 +1517,7 @@ function ComposeEmailFormContent({
             <ImageIcon className="size-4" />
           </Button>
           {onDiscard && (
-            <Tooltip
-              contentComponent={
-                <ComposeShortcutTooltipContent shortcuts={["discardDraft"]} />
-              }
-            >
+            <Tooltip shortcuts={["discardDraft"]}>
               <Button
                 aria-label="Discard draft"
                 className="hover:bg-transparent"

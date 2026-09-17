@@ -13,12 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
+import { Tooltip } from "@/components/Tooltip";
 
 export type DeliveryOptionsHandle = {
   open: (option: "sendLater" | "remindMe") => void;
@@ -121,31 +116,26 @@ function DeliveryTimePicker({
         if (!nextOpen) setShowCustom(false);
       }}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghostMuted"
-              size="sm"
-              disabled={disabled}
-              className="px-2 text-xs hover:bg-transparent"
-              aria-label={label}
-            >
-              {value
-                ? new Date(value).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
-                : label}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>
-          <ComposeShortcutTooltipContent shortcuts={[shortcut]} />
-        </TooltipContent>
+      <Tooltip shortcuts={[shortcut]}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghostMuted"
+            size="sm"
+            disabled={disabled}
+            className="px-2 text-xs hover:bg-transparent"
+            aria-label={label}
+          >
+            {value
+              ? new Date(value).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : label}
+          </Button>
+        </PopoverTrigger>
       </Tooltip>
       <PopoverContent
         className="w-72 p-1"

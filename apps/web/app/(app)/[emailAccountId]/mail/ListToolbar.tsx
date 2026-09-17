@@ -105,10 +105,11 @@ export function ListToolbar({
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       <Tooltip
-        content={
+        content={allSelected ? "Deselect all conversations" : undefined}
+        shortcuts={
           allSelected
-            ? "Deselect all conversations"
-            : "Select all conversations"
+            ? undefined
+            : [{ id: "selectAll", label: "Select all conversations" }]
         }
       >
         <Checkbox
@@ -135,7 +136,7 @@ export function ListToolbar({
             className="min-w-0 flex-1 truncate font-medium text-sm"
           >{`${selectedCount} selected`}</span>
 
-          <Tooltip content={`Archive (${getShortcutHint("archive")})`}>
+          <Tooltip shortcuts={["archive"]}>
             <button
               type="button"
               onClick={onArchiveSelected}
@@ -147,11 +148,8 @@ export function ListToolbar({
           </Tooltip>
 
           <Tooltip
-            content={
-              isUnreadSelected
-                ? "Mark as read"
-                : `Mark as unread (${getShortcutHint("markUnread")})`
-            }
+            content={isUnreadSelected ? "Mark as read" : undefined}
+            shortcuts={isUnreadSelected ? undefined : ["markUnread"]}
           >
             <button
               type="button"
@@ -169,7 +167,7 @@ export function ListToolbar({
             </button>
           </Tooltip>
 
-          <Tooltip content={`Delete (${getShortcutHint("delete")})`}>
+          <Tooltip shortcuts={["delete"]}>
             <button
               type="button"
               onClick={onDeleteSelected}
@@ -184,7 +182,7 @@ export function ListToolbar({
           </Tooltip>
 
           {onLabelSelected ? (
-            <Tooltip content={`Label (${getShortcutHint("label")})`}>
+            <Tooltip shortcuts={["label"]}>
               <button
                 type="button"
                 onClick={onLabelSelected}
@@ -196,9 +194,7 @@ export function ListToolbar({
             </Tooltip>
           ) : null}
 
-          <Tooltip
-            content={`Clear selection (${getShortcutHint("backToList")})`}
-          >
+          <Tooltip shortcuts={[{ id: "backToList", label: "Clear selection" }]}>
             <button
               type="button"
               onClick={onClearSelection}
@@ -224,7 +220,14 @@ export function ListToolbar({
 
       {selectedCount === 0 ? (
         <Tooltip
-          content={`${expandedPreview ? "Shorten" : "Expand"} preview text (${getShortcutHint("togglePreview")})`}
+          shortcuts={[
+            {
+              id: "togglePreview",
+              label: expandedPreview
+                ? "Shorten preview text"
+                : "Expand preview text",
+            },
+          ]}
         >
           <button
             type="button"
@@ -244,7 +247,9 @@ export function ListToolbar({
 
       {showLayoutToggle && selectedCount === 0 ? (
         <Tooltip
-          content={`Switch list / split view (${getShortcutHint("toggleLayout")})`}
+          shortcuts={[
+            { id: "toggleLayout", label: "Switch list / split view" },
+          ]}
         >
           <button
             type="button"

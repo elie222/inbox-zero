@@ -132,12 +132,40 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     ),
   ).toHaveCount(0);
 
-  const archiveButton = page.getByRole("button", { name: /^Archive/ });
+  const archiveButton = page.getByRole("button", {
+    name: "Archive",
+    exact: true,
+  });
   await expect(archiveButton.locator("kbd")).toHaveCount(0);
   await archiveButton.hover();
-  await page.waitForTimeout(250);
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const archiveTooltip = page.getByRole("tooltip", { name: /Archive/ });
+  await expect(archiveTooltip).toContainText("Archive");
+  await expect(archiveTooltip.locator("kbd")).toHaveText("E");
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
+
+  const message = page.locator("[data-thread-message-id]").last();
+  await page
+    .getByRole("heading", { name: "Re: Reader Visual Message" })
+    .hover();
+  await message.hover();
+  await message.getByRole("button", { name: "Reply", exact: true }).hover();
+  const replyTooltip = page.getByRole("tooltip", { name: /Reply/ });
+  await expect(replyTooltip).toContainText("Reply");
+  await expect(replyTooltip.locator("kbd")).toHaveText("R");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-shortcut",
+  );
+  await message.getByRole("button", { name: "Forward", exact: true }).hover();
+  const forwardTooltip = page.getByRole("tooltip", { name: /Forward/ });
+  await expect(forwardTooltip).toContainText("Forward");
+  await expect(forwardTooltip.locator("kbd")).toHaveText("F");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-forward-shortcuts",
+  );
 
   const senderStatsResponse = page.waitForResponse((response) =>
     response.url().includes("/api/user/stats/newsletters"),

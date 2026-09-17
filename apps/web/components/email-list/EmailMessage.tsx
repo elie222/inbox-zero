@@ -489,7 +489,7 @@ function MessageHeader({
           <span className="flex shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 has-[[data-state=open]]:opacity-100 sm:opacity-0">
             {showReplyButton && (
               <>
-                <Tooltip content="Reply">
+                <Tooltip shortcuts={["reply"]}>
                   <Button
                     onClick={compose(onReply)}
                     size="iconXs"
@@ -499,7 +499,7 @@ function MessageHeader({
                     <span className="sr-only">Reply</span>
                   </Button>
                 </Tooltip>
-                <Tooltip content="Forward">
+                <Tooltip shortcuts={["forward"]}>
                   <Button
                     onClick={compose(onForward)}
                     size="iconXs"
