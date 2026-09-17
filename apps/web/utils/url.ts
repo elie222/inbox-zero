@@ -38,8 +38,8 @@ function isPersonalMicrosoftEmail(emailAddress?: string | null) {
   );
 }
 
-function getOutlookBaseUrl(emailAddress?: string | null) {
-  return isPersonalMicrosoftEmail(emailAddress)
+function getOutlookBaseUrl(isPersonalMailbox: boolean) {
+  return isPersonalMailbox
     ? "https://outlook.live.com/mail/0"
     : "https://outlook.office.com/mail";
 }
@@ -70,7 +70,14 @@ function getOutlookDraftUrl(externalUrl?: string | null) {
     if (url.protocol !== "https:" || url.port !== "") return null;
     if (!MICROSOFT_MAIL_HOSTS.includes(url.hostname)) return null;
 
-    // Graph webLinks default to a standalone popout without this parameter.
+    // The webLink itself opens a standalone item view. Its ItemID is the EWS
+    // id the mail client routes expect, so reopen it inside the full client.
+    const itemId = url.searchParams.get("ItemID");
+    if (itemId) {
+      const baseUrl = getOutlookBaseUrl(url.hostname === "outlook.live.com");
+      return `${baseUrl}/drafts/id/${encodeURIComponent(itemId)}`;
+    }
+
     url.searchParams.set("ispopout", "0");
     return url.toString();
   } catch {
@@ -114,17 +121,17 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
     requiresMessageId: true,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
-      return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
+      return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/inbox/id/${encodedMessageId}`;
     },
-    // Graph hands back a webLink that resolves the item without any id
-    // translation. Assembling /drafts/id/<graphId> uses the wrong id space
-    // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
+    // The draft id comes from Graph's webLink. Assembling /drafts/id/<graphId>
+    // uses the wrong id space (REST vs EWS) and reproduces INB-328, so there
+    // is no Graph-id fallback.
     buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
       getOutlookDraftUrl(draft.externalUrl),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
-      return `${getOutlookBaseUrl(emailAddress)}/search/q/${query}`;
+      return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/search/q/${query}`;
     },
   },
   google: GOOGLE_CONFIG,
@@ -156,8 +163,8 @@ export function getEmailUrl(
  * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
  * at link time — its message id changes on every edit.
  *
- * Outlook opens the trusted provider webLink within the mail client, or returns
- * null when none is available.
+ * Outlook opens the draft from its trusted provider webLink within the full mail
+ * client, or returns null when no such link is available.
  * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
  * id the API does not expose).
  */
