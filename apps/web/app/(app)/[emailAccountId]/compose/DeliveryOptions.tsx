@@ -126,10 +126,10 @@ function DeliveryTimePicker({
           <PopoverTrigger asChild>
             <Button
               type="button"
-              variant="ghost"
+              variant="ghostMuted"
               size="sm"
               disabled={disabled}
-              className="px-2 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="px-2 text-xs hover:bg-transparent"
               aria-label={label}
             >
               {value
@@ -234,8 +234,8 @@ function DeliveryTimePicker({
             {value && (
               <Button
                 type="button"
-                variant="ghost"
-                className="h-9 w-full justify-start gap-2 px-2 text-xs font-normal text-muted-foreground"
+                variant="ghostMuted"
+                className="h-9 w-full justify-start gap-2 px-2 text-xs font-normal"
                 onClick={() => {
                   onChange("");
                   onOpenChange(false);

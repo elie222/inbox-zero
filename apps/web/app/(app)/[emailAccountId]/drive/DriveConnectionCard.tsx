@@ -84,8 +84,7 @@ export function DriveConnectionCard({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
+            size="icon2xs"
             aria-label="Connection options"
           >
             <MoreVertical className="h-4 w-4" />

@@ -39,9 +39,8 @@ export function MessageActionsMenu({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="More message actions"
-          className="size-7 text-muted-foreground"
-          size="icon"
-          variant="ghost"
+          size="iconXs"
+          variant="ghostMuted"
           onClick={(event) => event.stopPropagation()}
         >
           <MoreHorizontalIcon className="size-3.5" />

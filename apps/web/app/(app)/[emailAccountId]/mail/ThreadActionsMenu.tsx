@@ -83,8 +83,7 @@ export function ThreadActionsMenu({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`More actions (${hint})`}
-            className="h-7 w-7"
-            size="icon"
+            size="iconXs"
             title={`More actions (${hint})`}
             variant="outline"
           >

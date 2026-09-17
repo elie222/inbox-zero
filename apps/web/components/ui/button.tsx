@@ -16,6 +16,8 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         destructiveSoft:
           "border border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/50",
+        destructiveGhost:
+          "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
@@ -41,6 +43,8 @@ const buttonVariants = cva(
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10 flex-shrink-0",
         iconSm: "h-8 w-8 flex-shrink-0",
+        iconXs: "h-7 w-7 flex-shrink-0",
+        icon2xs: "h-6 w-6 flex-shrink-0",
       },
       loading: {
         true: "opacity-50 cursor-not-allowed",

@@ -6,6 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -286,9 +287,9 @@ function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
     <CardBasic className="px-4 py-4">
       <div className="mb-1 flex items-center gap-2">
         <h3 className="font-medium">Booking link</h3>
-        <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-400">
+        <Badge variant="info" size="xs">
           New
-        </span>
+        </Badge>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
         Create a link people can use to book time on your calendar.
@@ -334,10 +335,10 @@ function ActiveLinkCard({
           <div className="flex items-center gap-2">
             <h3 className="font-medium">Booking link</h3>
             {!isActive ? (
-              <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <Badge variant="muted" size="sm">
                 <span className="size-1.5 rounded-full bg-muted-foreground/60" />
                 Inactive
-              </span>
+              </Badge>
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
