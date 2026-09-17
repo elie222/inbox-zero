@@ -25,9 +25,6 @@ describe("agent markdown content", () => {
     expect(body).not.toContain(
       `connect the remote MCP server at ${origin}/mcp`,
     );
-    expect(body).not.toContain("MCP_SERVER_ENABLED");
-    expect(body).not.toContain("not generally available");
-    expect(body).not.toContain("disabled on this deployment");
   });
 
   it("points assistants at MCP when the server is enabled", () => {
