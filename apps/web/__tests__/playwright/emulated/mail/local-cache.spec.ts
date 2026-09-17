@@ -67,6 +67,28 @@ test("renders and isolates two locally cached accounts without server mail reque
       if (syncAccountId) syncAccountIds.add(syncAccountId);
       await route.abort("connectionfailed");
     });
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      if (request.headers()["next-action"]) {
+        try {
+          const payload = request.postDataJSON();
+          if (
+            Array.isArray(payload) &&
+            typeof payload[0] === "string" &&
+            payload[1] &&
+            typeof payload[1] === "object" &&
+            "phase" in payload[1]
+          ) {
+            syncAccountIds.add(payload[0]);
+            await route.abort("connectionfailed");
+            return;
+          }
+        } catch {
+          // Other actions may submit multipart form data.
+        }
+      }
+      await route.fallback();
+    });
     await seedUnifiedMailbox(page, emailAccountId, secondAccount.id);
 
     await page.goto(`/${emailAccountId}/mail?accountScope=all`);

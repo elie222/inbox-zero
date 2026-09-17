@@ -34,12 +34,12 @@ test("keeps an archive hidden while mailbox sync has older pages remaining", asy
               request.onerror = () => reject(request.error);
               request.onsuccess = () => {
                 const database = request.result;
-                const transaction = database.transaction("mailboxSyncStates");
+                const transaction = database.transaction("localMailSyncStates");
                 const state = transaction
-                  .objectStore("mailboxSyncStates")
+                  .objectStore("localMailSyncStates")
                   .get(accountId);
                 state.onsuccess = () =>
-                  resolve(state.result?.hasMore === false);
+                  resolve(Boolean(state.result?.coverage));
                 state.onerror = () => reject(state.error);
                 transaction.oncomplete = () => database.close();
               };
