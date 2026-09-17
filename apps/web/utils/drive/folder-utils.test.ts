@@ -207,6 +207,46 @@ describe("createAndSaveFilingFolder", () => {
 });
 
 describe("resolveFolderPathTarget", () => {
+  it.each([
+    "Plans:2026",
+    "Plans:2026.",
+  ])("resolves Microsoft-normalized paths: %s", (folderPath) => {
+    const parent = {
+      ...knownFolder("plans", "Plans-2026"),
+      driveProvider: "microsoft",
+    };
+    expect(resolveFolderPathTarget({ folderPath, folders: [parent] })).toEqual({
+      kind: "existing",
+      folder: parent,
+    });
+    expect(
+      resolveFolderPathTarget({
+        folderPath: `${folderPath}/Acme`,
+        folders: [parent],
+      }),
+    ).toEqual({
+      kind: "create",
+      parent,
+      relativePath: "Acme",
+      fullPath: "Plans-2026/Acme",
+    });
+  });
+
+  it("does not apply Microsoft filename replacements to Google folders", () => {
+    const folder = knownFolder("plans", "Plans-2026");
+    expect(
+      resolveFolderPathTarget({
+        folderPath: "Plans:2026/Acme",
+        folders: [folder],
+      }),
+    ).toEqual({
+      kind: "create",
+      parent: null,
+      relativePath: "Plans:2026/Acme",
+      fullPath: "Plans:2026/Acme",
+    });
+  });
+
   const folders = [
     knownFolder("receipts", "Receipts"),
     knownFolder("receipts-2025", "Receipts/2025"),
@@ -293,6 +333,7 @@ function knownFolder(id: string, path: string) {
     name: path.split("/").at(-1) ?? path,
     path,
     driveConnectionId: "drive-1",
+    driveProvider: "google",
   };
 }
 

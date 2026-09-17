@@ -91,8 +91,12 @@ export async function processFilingReply({
       id: filing.id,
       filename: filing.filename,
       currentFolder: filing.folderPath || "root",
+      knownFolderPaths: knownFolders
+        .filter(
+          (folder) => folder.driveConnectionId === filing.driveConnectionId,
+        )
+        .map((folder) => folder.path),
     })),
-    knownFolderPaths: knownFolders.map((folder) => folder.path),
     emailAccount,
   });
 
@@ -274,6 +278,19 @@ async function handleMove({
       ),
     });
 
+    if (target.kind === "create" && !target.parent) {
+      const otherDriveTarget = resolveFolderPathTarget({
+        folderPath,
+        folders: knownFolders.filter(
+          (folder) => folder.driveConnectionId !== driveConnection.id,
+        ),
+      });
+      if (otherDriveTarget.kind === "existing" || otherDriveTarget.parent) {
+        logger.warn("Move destination belongs to another drive connection");
+        return false;
+      }
+    }
+
     let targetFolderId: string;
     let targetFolderPath: string;
 
@@ -422,6 +439,7 @@ async function getKnownFilingFolders(
       folderName: true,
       folderPath: true,
       driveConnectionId: true,
+      driveConnection: { select: { provider: true } },
     },
   });
 
@@ -430,6 +448,7 @@ async function getKnownFilingFolders(
     name: folder.folderName,
     path: folder.folderPath,
     driveConnectionId: folder.driveConnectionId,
+    driveProvider: folder.driveConnection.provider,
   }));
 }
 

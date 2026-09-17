@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
 import prisma from "@/utils/__mocks__/prisma";
 import { getEmailAccount } from "@/__tests__/helpers";
 import {
@@ -95,21 +96,25 @@ describe("processAttachment", () => {
   describe("creating folders", () => {
     beforeEach(() => {
       prisma.filingFolder.findMany.mockResolvedValue([
-        {
+        mockDeep<
+          Prisma.FilingFolderGetPayload<{ include: { driveConnection: true } }>
+        >({
           folderId: "folder-1",
           folderName: "Invoices",
           folderPath: "Finance/Invoices",
           driveConnectionId: "drive-connection-1",
           driveConnection: { provider: "google" },
-        },
-        {
+        }),
+        mockDeep<
+          Prisma.FilingFolderGetPayload<{ include: { driveConnection: true } }>
+        >({
           folderId: "folder-2",
           folderName: "Acme",
           folderPath: "Finance/Invoices/Acme",
           driveConnectionId: "drive-connection-1",
           driveConnection: { provider: "google" },
-        },
-      ] as any);
+        }),
+      ]);
     });
 
     it("creates a subfolder inside the parent folder the AI chose", async () => {
@@ -322,13 +327,41 @@ describe("processAttachment", () => {
       });
     });
 
-    it("falls back to the drive root when neither the parent id nor the path matches a known folder", async () => {
-      const { attachment, emailAccount, emailProvider, message } =
+    it("does not file when an explicit parent is missing", async () => {
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
         setupSuccessfulFiling({ confidence: 0.95 });
       vi.mocked(analyzeDocument).mockResolvedValue({
         action: "create_new",
         folderId: null,
         parentFolderId: "deleted-folder",
+        folderPath: "Finance/Invoices/Acme",
+        confidence: 0.95,
+        reasoning: "File beneath the selected parent",
+      });
+
+      const result = await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "The selected parent folder could not be found",
+      });
+      expect(createAndSaveFilingFolder).not.toHaveBeenCalled();
+      expect(uploadFile).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the drive root when no parent is selected and the path is unknown", async () => {
+      const { attachment, emailAccount, emailProvider, message } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: null,
         folderPath: "Contracts",
         confidence: 0.95,
         reasoning: "No contracts folder exists",

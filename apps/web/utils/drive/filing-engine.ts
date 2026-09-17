@@ -694,10 +694,7 @@ function resolveFolderTarget(
     : undefined;
 
   if (analysis.parentFolderId && !parentFolder) {
-    logger.warn(
-      "Could not find parent folder from AI response, resolving path against known folders",
-      { parentFolderId: analysis.parentFolderId, folderPath: requestedPath },
-    );
+    throw new Error("The selected parent folder could not be found");
   }
 
   if (parentFolder) {

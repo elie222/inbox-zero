@@ -13,6 +13,7 @@ interface FolderPathResult {
  */
 export interface KnownFolder {
   driveConnectionId: string;
+  driveProvider: string;
   id: string;
   name: string;
   path: string;
@@ -58,7 +59,7 @@ export async function createFolderPath(
     : [];
 
   for (const part of parts) {
-    const normalizedPart = normalizeFolderPathPart(provider, part);
+    const normalizedPart = normalizeFolderPathPart(provider.name, part);
     const existingFolders = await provider.listFolders(parentId);
     const existing = existingFolders.find(
       (f) => f.name.toLowerCase() === normalizedPart.toLowerCase(),
@@ -158,12 +159,14 @@ export function resolveFolderPathTarget<T extends KnownFolder>({
   folders: T[];
 }): FolderPathTarget<T> {
   const requestedParts = splitFolderPath(folderPath);
-  const requestedKey = requestedParts.map(normalizeFolderKey);
 
   let bestParent: { folder: T; depth: number } | null = null;
 
   for (const folder of folders) {
-    const folderKey = splitFolderPath(folder.path).map(normalizeFolderKey);
+    const normalizeKey = (part: string) =>
+      normalizeFolderPathPart(folder.driveProvider, part).toLowerCase();
+    const requestedKey = requestedParts.map(normalizeKey);
+    const folderKey = splitFolderPath(folder.path).map(normalizeKey);
     if (folderKey.length === 0 || folderKey.length > requestedKey.length) {
       continue;
     }
@@ -219,14 +222,10 @@ function splitFolderPath(path: string) {
     .filter(Boolean);
 }
 
-function normalizeFolderKey(part: string) {
-  return part.toLowerCase();
-}
-
 const INVALID_ONEDRIVE_NAME_CHARS = /[\\/:*?"<>|]/g;
 
-function normalizeFolderPathPart(provider: DriveProvider, part: string) {
-  if (provider.name !== "microsoft") {
+function normalizeFolderPathPart(provider: string, part: string) {
+  if (provider !== "microsoft") {
     return part;
   }
 
