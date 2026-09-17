@@ -103,7 +103,7 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.4-mini";
+      const modelName = aiModel || "gpt-5.6-luna";
       // When Zero Data Retention is enabled, set store: false to avoid
       // "Items are not persisted for Zero Data Retention organizations" errors
       // See: https://github.com/vercel/ai/issues/10060
@@ -126,7 +126,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5.4-mini";
+      const modelName = aiModel || "gpt-5.6-luna";
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
@@ -188,7 +188,7 @@ function selectModel(
       };
     }
     case Provider.GOOGLE: {
-      const mod = aiModel || "gemini-2.0-flash";
+      const mod = aiModel || "gemini-3.8-flash";
       const googleProviderOptions = getGoogleProviderOptions(mod, modelType);
       return {
         provider: Provider.GOOGLE,
@@ -202,7 +202,7 @@ function selectModel(
       };
     }
     case Provider.VERTEX: {
-      const modelName = aiModel || "gemini-3-flash";
+      const modelName = aiModel || "gemini-3.8-flash";
       const googleProviderOptions = getGoogleProviderOptions(
         modelName,
         modelType,
@@ -243,7 +243,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || "anthropic/claude-sonnet-4.6";
+      const modelName = aiModel || "anthropic/claude-sonnet-5";
 
       const openrouter = createOpenRouter({
         apiKey: resolveApiKey(aiApiKey, env.OPENROUTER_API_KEY),
@@ -266,7 +266,7 @@ function selectModel(
       };
     }
     case Provider.AI_GATEWAY: {
-      const modelName = aiModel || "anthropic/claude-sonnet-4.6";
+      const modelName = aiModel || "anthropic/claude-sonnet-5";
       const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
       const gateway = createGateway({
         apiKey: aiGatewayApiKey,
@@ -333,7 +333,7 @@ function selectModel(
     }
 
     case Provider.BEDROCK: {
-      const modelName = aiModel || "global.anthropic.claude-sonnet-4-6";
+      const modelName = aiModel || "global.anthropic.claude-sonnet-5";
       return {
         provider: Provider.BEDROCK,
         modelName,
@@ -350,7 +350,7 @@ function selectModel(
       };
     }
     case Provider.ANTHROPIC: {
-      const modelName = aiModel || "claude-sonnet-4-6";
+      const modelName = aiModel || "claude-sonnet-5";
       return {
         provider: Provider.ANTHROPIC,
         modelName,

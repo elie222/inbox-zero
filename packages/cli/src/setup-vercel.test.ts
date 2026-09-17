@@ -133,7 +133,7 @@ describe("seedLlmPlaceholderCredentials", () => {
     seedLlmPlaceholderCredentials("bedrock", env);
 
     expect(env).toMatchObject({
-      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-5",
       ECONOMY_LLMS: "bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0",
       BEDROCK_ACCESS_KEY: "replace-me",
       BEDROCK_SECRET_KEY: "replace-me",
