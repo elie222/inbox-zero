@@ -42,7 +42,11 @@ import {
   actionClientUser,
   adminActionClient,
 } from "@/utils/actions/safe-action";
-import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
+import {
+  activateLicenseKeySchema,
+  CHECKOUT_RETURN_TO_PARAM,
+  checkoutReturnToSchema,
+} from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
 import { getStripe } from "@/ee/billing/stripe";
@@ -548,9 +552,11 @@ export const generateCheckoutSessionAction = actionClientUser
     z.object({
       tier: z.nativeEnum(PremiumTier),
       offer: checkoutOfferSchema.optional(),
+      returnTo: checkoutReturnToSchema.optional(),
     }),
   )
-  .action(async ({ ctx: { userId, logger }, parsedInput: { tier, offer } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput }) => {
+    const { tier, offer, returnTo } = parsedInput;
     const priceId = getCheckoutPriceId({ tier, offer });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
@@ -641,7 +647,9 @@ export const generateCheckoutSessionAction = actionClientUser
 
     const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}${
+        returnTo ? `&${CHECKOUT_RETURN_TO_PARAM}=${returnTo}` : ""
+      }`,
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: {

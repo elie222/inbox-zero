@@ -9,6 +9,10 @@ import {
   CONVERSION_EVENT_PARAM,
 } from "@/utils/analytics/conversion-events";
 import { buildRedirectUrl } from "@/utils/redirect";
+import {
+  CHECKOUT_RETURN_TO_PARAM,
+  checkoutReturnToSchema,
+} from "@/utils/actions/premium.validation";
 
 export const GET = withAuth("stripe/success", async (request) => {
   const userId = request.auth.userId;
@@ -24,9 +28,12 @@ export const GET = withAuth("stripe/success", async (request) => {
 
   if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
-  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
-    "session_id",
+  const searchParams = new URL(request.url).searchParams;
+  const stripeCheckoutSessionId = searchParams.get("session_id");
+  const returnTo = checkoutReturnToSchema.safeParse(
+    searchParams.get(CHECKOUT_RETURN_TO_PARAM),
   );
+  const destination = returnTo.success ? "/onboarding" : "/setup";
 
   after(async () => {
     if (!user?.email) return;
@@ -41,7 +48,7 @@ export const GET = withAuth("stripe/success", async (request) => {
   });
 
   redirect(
-    buildRedirectUrl("/setup", {
+    buildRedirectUrl(destination, {
       [CONVERSION_EVENT_PARAM]: "trial_started",
       [CONVERSION_EVENT_ID_PARAM]: stripeCheckoutSessionId ?? undefined,
     }),

@@ -3,6 +3,10 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
+import {
+  ConversionAnalyticsScript,
+  ConversionQueryParamEvents,
+} from "@/components/ConversionAnalytics";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
@@ -21,6 +25,7 @@ export default async function OnboardingPage(props: {
     step?: string | string[];
     force?: string | string[];
     variant?: string | string[];
+    paywallFirst?: string | string[];
   }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
@@ -31,6 +36,7 @@ export default async function OnboardingPage(props: {
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
   const variant = getSingleSearchParamValue(searchParams.variant);
+  const paywallFirst = getSingleSearchParamValue(searchParams.paywallFirst);
 
   const utmValues = registerUtmTracking({
     authPromise: auth(),
@@ -42,9 +48,19 @@ export default async function OnboardingPage(props: {
   }
 
   return (
-    <Suspense>
-      <Onboarding step={step} forcedVariant={variant} />
-    </Suspense>
+    <>
+      <Suspense>
+        <ConversionQueryParamEvents />
+      </Suspense>
+      <ConversionAnalyticsScript />
+      <Suspense>
+        <Onboarding
+          step={step}
+          forcedVariant={variant}
+          forcedPaywallFirst={paywallFirst}
+        />
+      </Suspense>
+    </>
   );
 }
 
