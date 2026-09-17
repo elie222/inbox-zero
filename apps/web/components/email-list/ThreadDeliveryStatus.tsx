@@ -17,12 +17,15 @@ import {
 import useSWR from "swr";
 import { restoreReplyFromOutbox } from "@/utils/email-cache/reply-drafts";
 import type { ReplyDraftMode } from "@/utils/email-cache/reply-drafts";
-import { Button } from "@/components/ui/button";
+import { InlineActionButton } from "@/components/InlineActionButton";
 import {
   getEmailCacheDatabase,
   type StoredMailMutation,
 } from "@/utils/email-cache/database";
-import { subscribeToMailMutations } from "@/utils/email-cache/mail-mutations";
+import {
+  dismissFailedReply,
+  subscribeToMailMutations,
+} from "@/utils/email-cache/mail-mutations";
 import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import {
   cancelScheduledEmailAction,
@@ -175,6 +178,11 @@ export function ThreadDeliveryStatus({
         });
         return (
           <div key={row.id}>
+            {row.status === "failed" && (
+              <p className="px-1 pt-3 text-xs font-medium text-destructive">
+                Unsent reply · {formatTime(new Date(row.createdAt))}
+              </p>
+            )}
             {preview && (
               <>
                 <ul>
@@ -227,13 +235,28 @@ export function ThreadDeliveryStatus({
                     {row.lastError}
                   </p>
                 )}
-                {row.status === "uncertain" && (
+                {(row.status === "uncertain" || row.status === "failed") && (
                   <a
                     className="underline underline-offset-4"
                     href={`/${emailAccountId}/mail?type=sent`}
                   >
                     Check Sent
                   </a>
+                )}
+                {row.status === "failed" && (
+                  <InlineActionButton
+                    disabled={busy}
+                    onClick={() =>
+                      act(async () => {
+                        if (!(await dismissFailedReply(row.id, emailAccountId)))
+                          throw new Error(
+                            "This reply's status changed. Refresh the thread and try again.",
+                          );
+                      })
+                    }
+                  >
+                    Dismiss failed reply
+                  </InlineActionButton>
                 )}
                 {canEditReply &&
                   !(
@@ -244,12 +267,8 @@ export function ThreadDeliveryStatus({
                   ["pending", "retry_wait", "blocked_auth", "failed"].includes(
                     row.status,
                   ) && (
-                    <Button
+                    <InlineActionButton
                       disabled={busy}
-                      type="button"
-                      variant="ghost"
-                      className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
-                      size="sm"
                       onClick={() =>
                         act(async () => {
                           const restored = await restoreReplyFromOutbox(
@@ -261,7 +280,7 @@ export function ThreadDeliveryStatus({
                       }
                     >
                       Edit reply
-                    </Button>
+                    </InlineActionButton>
                   )}
               </div>
             )}
@@ -300,12 +319,8 @@ export function ThreadDeliveryStatus({
               )}
             <div className="contents">
               {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                <Button
-                  type="button"
+                <InlineActionButton
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelScheduledEmailAction, row.id),
@@ -313,15 +328,11 @@ export function ThreadDeliveryStatus({
                   }
                 >
                   Cancel send
-                </Button>
+                </InlineActionButton>
               )}
               {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                <Button
-                  type="button"
+                <InlineActionButton
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(retryScheduledEmailAction, row.id),
@@ -329,15 +340,11 @@ export function ThreadDeliveryStatus({
                   }
                 >
                   Retry send
-                </Button>
+                </InlineActionButton>
               )}
               {row.reminderStatus === "PENDING" && (
-                <Button
-                  type="button"
+                <InlineActionButton
                   disabled={busy}
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelEmailReminderAction, row.id),
@@ -345,7 +352,7 @@ export function ThreadDeliveryStatus({
                   }
                 >
                   Cancel reminder
-                </Button>
+                </InlineActionButton>
               )}
               {row.status === "UNCERTAIN" && (
                 <a
