@@ -53,6 +53,7 @@ type ComposeSession = { id: number; mode: ReplyDraftMode };
 
 export function EmailMessage({
   message,
+  bodyAvailable = true,
   menu,
   refetch,
   showReplyButton,
@@ -70,6 +71,7 @@ export function EmailMessage({
   sentMessageOpen,
 }: {
   message: ThreadMessage;
+  bodyAvailable?: boolean;
   menu?: React.ReactNode;
   draftMessages?: ThreadMessage[];
   refetch: () => void;
@@ -245,7 +247,14 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {!serverDrafts.some((draft) => draft.id === message.id) &&
+          {!bodyAvailable && (
+            <p className="text-muted-foreground text-sm">
+              This message hasn’t been downloaded yet. Connect to the internet
+              to load it.
+            </p>
+          )}
+          {bodyAvailable &&
+            !serverDrafts.some((draft) => draft.id === message.id) &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -289,6 +298,7 @@ export function EmailMessage({
             <ReplyPanel
               key={composerKey}
               autoScroll
+              bodyAvailable={bodyAvailable}
               message={message}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
@@ -489,7 +499,7 @@ function MessageHeader({
           <span className="flex shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 has-[[data-state=open]]:opacity-100 sm:opacity-0">
             {showReplyButton && (
               <>
-                <Tooltip content="Reply">
+                <Tooltip shortcuts={["reply"]}>
                   <Button
                     onClick={compose(onReply)}
                     size="iconXs"
@@ -499,7 +509,7 @@ function MessageHeader({
                     <span className="sr-only">Reply</span>
                   </Button>
                 </Tooltip>
-                <Tooltip content="Forward">
+                <Tooltip shortcuts={["forward"]}>
                   <Button
                     onClick={compose(onForward)}
                     size="iconXs"
@@ -540,6 +550,7 @@ function ReplyPanel({
   composeMode,
   draftMessage,
   autoScroll = false,
+  bodyAvailable = true,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -552,10 +563,16 @@ function ReplyPanel({
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
   autoScroll?: boolean;
+  bodyAvailable?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
   const replyRef = useRef<HTMLDivElement>(null);
+  // A forward owns its original source once composing starts. A later cache
+  // fallback must not replace that source or discard the unsent editor state.
+  const [forwardSource, setForwardSource] = useState<ParsedMessage>();
+  if (composeMode === "forward" && bodyAvailable && !forwardSource)
+    setForwardSource(message);
 
   // scroll to the reply panel when it first opens
   useEffect(() => {
@@ -569,14 +586,14 @@ function ReplyPanel({
     return () => clearTimeout(scrollTimeout);
   }, [autoScroll]);
 
-  const replyingToEmail: ReplyingToEmail = useMemo(() => {
+  const replyingToEmail = useMemo((): ReplyingToEmail | undefined => {
     if (composeMode === "reply") {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
       return prepareReplyingToEmail(message);
     }
-    return prepareForwardingEmail(message);
-  }, [composeMode, message, draftMessage]);
+    return forwardSource ? prepareForwardingEmail(forwardSource) : undefined;
+  }, [composeMode, message, draftMessage, forwardSource]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -626,6 +643,24 @@ function ReplyPanel({
       refetch,
     ],
   );
+
+  if (!replyingToEmail)
+    return (
+      <div className="mt-5 space-y-2" role="status">
+        <p className="text-muted-foreground text-sm">
+          Load this message before forwarding so its content and attachments are
+          included. Connect to the internet to continue.
+        </p>
+        <div className="flex gap-2">
+          <Button onClick={refetch} size="sm" variant="outline">
+            Load message to forward
+          </Button>
+          <Button onClick={onCloseCompose} size="sm" variant="ghost">
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
 
   return (
     <div className="mt-5" ref={replyRef}>

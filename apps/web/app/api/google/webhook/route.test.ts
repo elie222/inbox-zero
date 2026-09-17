@@ -1,4 +1,9 @@
+import { publishLocalMailHint } from "@/utils/redis/local-mail-hints";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/utils/redis/local-mail-hints", () => ({
+  publishLocalMailHint: vi.fn().mockResolvedValue(undefined),
+}));
 
 const {
   envMock,
@@ -85,6 +90,7 @@ describe("Google webhook route", () => {
     expect(response.status).toBe(503);
     expect(body).toEqual({ message: "Google webhook is not configured" });
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
+    expect(publishLocalMailHint).not.toHaveBeenCalled();
   });
 
   it("rejects requests with an invalid verification token", async () => {
@@ -98,6 +104,7 @@ describe("Google webhook route", () => {
     expect(response.status).toBe(403);
     expect(body).toEqual({ message: "Invalid verification token" });
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
+    expect(publishLocalMailHint).not.toHaveBeenCalled();
   });
 
   it("allows requests without a token when verification is intentionally disabled", async () => {
@@ -133,6 +140,10 @@ describe("Google webhook route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true });
+    expect(publishLocalMailHint).toHaveBeenCalledWith(
+      "account-1",
+      expect.anything(),
+    );
     expect(runWithBackgroundLoggerFlushMock).toHaveBeenCalledTimes(1);
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
@@ -162,6 +173,10 @@ describe("Google webhook route", () => {
     expect(body).toEqual({ ok: true });
     expect(cleanupWebhookAccountOnRateLimitSkipMock).toHaveBeenCalledWith(
       { id: "account-1" },
+      expect.anything(),
+    );
+    expect(publishLocalMailHint).toHaveBeenCalledWith(
+      "account-1",
       expect.anything(),
     );
     expect(runWithBackgroundLoggerFlushMock).not.toHaveBeenCalled();

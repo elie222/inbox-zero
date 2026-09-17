@@ -8,6 +8,7 @@ export type LocalMailSyncState = {
   leaseExpiresAt?: number;
   strategy?: "account-history" | "folder-delta";
   retentionAfter: number;
+  retentionRevision?: number;
   retainedAfter: number;
   snapshotBefore: number;
   nextWindowSize: number;
@@ -99,4 +100,16 @@ export function getLocalMailWindowAfter(
   return retentionAfter === LOCAL_MAIL_HISTORY_AFTER && after < 0
     ? LOCAL_MAIL_HISTORY_AFTER
     : after;
+}
+
+export function getLocalMailSyncRetention(
+  state: LocalMailSyncState,
+  job: LocalMailSyncJob,
+) {
+  if (state.retentionRevision === undefined) return;
+  const purpose =
+    job.kind === "window" || job.kind === "sweep" || job.kind === "bootstrap"
+      ? ("backfill" as const)
+      : ("current" as const);
+  return { revision: state.retentionRevision, purpose };
 }

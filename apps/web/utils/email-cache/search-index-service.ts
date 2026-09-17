@@ -61,6 +61,56 @@ export function searchPersistentMail(request: LocalSearchRequest) {
   return querySearchIndex(client, request);
 }
 
+export async function warmSearchIndexStorage(scope: {
+  emailAccountId: string;
+  generation: string;
+}) {
+  if (!isMailSyncActivated(scope.emailAccountId)) return false;
+  client ??= createSearchIndexClient();
+  const result = await client.request(scope, {
+    command: "state",
+    emailAccountId: scope.emailAccountId,
+  });
+  return "result" in result;
+}
+
+export async function reclaimSearchIndexStorage(scope: {
+  emailAccountId: string;
+  generation: string;
+}) {
+  const notReady = { status: "not-ready" } as const;
+  if (!isMailSyncActivated(scope.emailAccountId)) return notReady;
+  const before = await readSearchIndexWork(scope.emailAccountId);
+  if (
+    !before ||
+    before.generation !== scope.generation ||
+    before.work.length ||
+    before.blockedCount
+  )
+    return notReady;
+  client ??= createSearchIndexClient();
+  const response = await client.request(scope, {
+    command: "reclaim",
+    request: scope,
+  });
+  if (
+    !("result" in response) ||
+    !response.result ||
+    typeof response.result !== "object" ||
+    !("incrementalVacuum" in response.result)
+  )
+    return notReady;
+  const after = await readSearchIndexWork(scope.emailAccountId);
+  if (
+    !after ||
+    after.generation !== scope.generation ||
+    after.work.length ||
+    after.blockedCount
+  )
+    return notReady;
+  return { status: "ready", storage: response.result } as const;
+}
+
 export async function cleanupSearchIndex(
   emailAccountId?: string,
   generation?: string,
@@ -116,7 +166,12 @@ function schedule(emailAccountId: string, delay = 200) {
       if (account.seed) {
         const seeded = await seedSearchIndexWork(emailAccountId);
         again = !!seeded && !seeded.complete;
-        notifyProgress(emailAccountId);
+        if (seeded && "retryAfterMs" in seeded && seeded.retryAfterMs)
+          state.nextAttemptAt = Date.now() + seeded.retryAfterMs;
+        else {
+          state.nextAttemptAt = undefined;
+          notifyProgress(emailAccountId);
+        }
       }
       if (!again) {
         if (state.warmed !== account.generation) {

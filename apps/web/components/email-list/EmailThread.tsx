@@ -1,3 +1,4 @@
+import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
@@ -21,6 +22,7 @@ import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 
 export function EmailThread({
   messages,
+  missingBodyIds,
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
@@ -35,6 +37,7 @@ export function EmailThread({
   enableMessageNavigation = false,
 }: {
   messages: ThreadMessage[];
+  missingBodyIds?: Set<string>;
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
@@ -161,145 +164,155 @@ export function EmailThread({
   return (
     // White regardless of the surface it is dropped on: an email body renders
     // on white inside its iframe, so anything else leaves each message boxed.
-    <div className="min-w-0 bg-card" ref={threadRef}>
-      {renderToolbar?.({
-        allExpanded,
-        canExpand: organizedMessages.length > 1,
-        onToggleAll: toggleAll,
-      })}
-      {withHeader && (
-        <div className="flex items-center justify-between">
-          <div className="font-semibold text-2xl text-foreground">
-            {messages[0]?.headers.subject}
+    <OpenedConversationAttachments
+      emailAccountId={emailAccountId}
+      threadId={threadId}
+    >
+      <div className="min-w-0 bg-card" ref={threadRef}>
+        {renderToolbar?.({
+          allExpanded,
+          canExpand: organizedMessages.length > 1,
+          onToggleAll: toggleAll,
+        })}
+        {withHeader && (
+          <div className="flex items-center justify-between">
+            <div className="font-semibold text-2xl text-foreground">
+              {messages[0]?.headers.subject}
+            </div>
+            {topRightComponent && (
+              <div className="flex items-center gap-2">{topRightComponent}</div>
+            )}
           </div>
-          {topRightComponent && (
-            <div className="flex items-center gap-2">{topRightComponent}</div>
-          )}
-        </div>
-      )}
+        )}
 
-      {!renderToolbar && organizedMessages.length > 1 && (
-        <div className="flex justify-end pt-2">
-          <Tooltip
-            content={
-              allExpanded ? "Collapse all messages" : "Expand all messages"
-            }
-          >
-            <Button
-              aria-label={
+        {!renderToolbar && organizedMessages.length > 1 && (
+          <div className="flex justify-end pt-2">
+            <Tooltip
+              content={
                 allExpanded ? "Collapse all messages" : "Expand all messages"
               }
-              onClick={toggleAll}
-              size="iconXs"
-              variant="ghostMuted"
             >
-              {allExpanded ? (
-                <ChevronsDownUpIcon className="size-3.5" />
-              ) : (
-                <ChevronsUpDownIcon className="size-3.5" />
-              )}
-            </Button>
-          </Tooltip>
-        </div>
-      )}
+              <Button
+                aria-label={
+                  allExpanded ? "Collapse all messages" : "Expand all messages"
+                }
+                onClick={toggleAll}
+                size="iconXs"
+                variant="ghostMuted"
+              >
+                {allExpanded ? (
+                  <ChevronsDownUpIcon className="size-3.5" />
+                ) : (
+                  <ChevronsUpDownIcon className="size-3.5" />
+                )}
+              </Button>
+            </Tooltip>
+          </div>
+        )}
 
-      <ul className="pt-1">
-        {organizedMessages.map(({ message, draftMessages }) => {
-          const defaultComposeMode = getDefaultComposeMode({
-            autoOpenMode:
-              autoOpenForwardForMessageId === message.id
-                ? "forward"
-                : autoOpenReplyForMessageId === message.id
-                  ? "reply"
+        <ul className="pt-1">
+          {organizedMessages.map(({ message, draftMessages }) => {
+            const defaultComposeMode = getDefaultComposeMode({
+              autoOpenMode:
+                autoOpenForwardForMessageId === message.id
+                  ? "forward"
+                  : autoOpenReplyForMessageId === message.id
+                    ? "reply"
+                    : undefined,
+              localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
+                ? undefined
+                : getLocalDraftMode(localDrafts, message.id),
+              recoveredReply:
+                recoveredReply?.messageId === message.id
+                  ? recoveredReply
                   : undefined,
-            localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
-              ? undefined
-              : getLocalDraftMode(localDrafts, message.id),
-            recoveredReply:
-              recoveredReply?.messageId === message.id
-                ? recoveredReply
-                : undefined,
-          });
-          return (
-            <EmailMessage
-              onNavigateMessage={
-                enableMessageNavigation
-                  ? (direction) => selectRelativeMessage(direction, message.id)
-                  : undefined
-              }
-              selected={
-                enableMessageNavigation ? message.id === selectedId : undefined
-              }
-              onSelect={
-                enableMessageNavigation
-                  ? () => setSelectedMessageId(message.id)
-                  : undefined
-              }
-              defaultComposeMode={defaultComposeMode}
-              draftMessages={draftMessages}
-              expanded={expanded(
-                message.id,
-                Boolean(defaultComposeMode) || draftMessages.length > 0,
-              )}
-              hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
-              key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
-              message={message}
-              menu={renderMessageMenu?.(message)}
-              onOpenSenderContext={onOpenSenderContext}
-              onMarkDone={onMarkDone}
-              onSendSuccess={(messageId, sentThreadId) => {
-                setExpansionOverrides((prev) =>
-                  new Map(prev).set(messageId, true),
-                );
+            });
+            return (
+              <EmailMessage
+                bodyAvailable={!missingBodyIds?.has(message.id)}
+                onNavigateMessage={
+                  enableMessageNavigation
+                    ? (direction) =>
+                        selectRelativeMessage(direction, message.id)
+                    : undefined
+                }
+                selected={
+                  enableMessageNavigation
+                    ? message.id === selectedId
+                    : undefined
+                }
+                onSelect={
+                  enableMessageNavigation
+                    ? () => setSelectedMessageId(message.id)
+                    : undefined
+                }
+                defaultComposeMode={defaultComposeMode}
+                draftMessages={draftMessages}
+                expanded={expanded(
+                  message.id,
+                  Boolean(defaultComposeMode) || draftMessages.length > 0,
+                )}
+                hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
+                key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
+                message={message}
+                menu={renderMessageMenu?.(message)}
+                onOpenSenderContext={onOpenSenderContext}
+                onMarkDone={onMarkDone}
+                onSendSuccess={(messageId, sentThreadId) => {
+                  setExpansionOverrides((prev) =>
+                    new Map(prev).set(messageId, true),
+                  );
 
-                onSendSuccess?.(messageId, sentThreadId);
-              }}
-              // A one-message thread has nothing to collapse back to.
-              onToggle={
-                organizedMessages.length === 1
-                  ? undefined
-                  : () => {
-                      setExpansionOverrides((prev) =>
-                        new Map(prev).set(
-                          message.id,
-                          !expanded(
+                  onSendSuccess?.(messageId, sentThreadId);
+                }}
+                // A one-message thread has nothing to collapse back to.
+                onToggle={
+                  organizedMessages.length === 1
+                    ? undefined
+                    : () => {
+                        setExpansionOverrides((prev) =>
+                          new Map(prev).set(
                             message.id,
-                            Boolean(defaultComposeMode) ||
-                              draftMessages.length > 0,
+                            !expanded(
+                              message.id,
+                              Boolean(defaultComposeMode) ||
+                                draftMessages.length > 0,
+                            ),
                           ),
-                        ),
-                      );
-                    }
-              }
-              refetch={refetch}
-              sentMessageOpen={sentMessageOpens?.opens[message.id]}
-              showReplyButton={
-                showReplyButton && !message.labelIds?.includes(GmailLabel.DRAFT)
-              }
-            />
-          );
-        })}
-      </ul>
-      {threadId && (
-        <ThreadDeliveryStatus
-          emailAccountId={emailAccountId}
-          canEditReply={showReplyButton}
-          threadId={threadId}
-          messageIds={messages.map((message) => message.id)}
-          refetch={refetch}
-          onEditReply={(messageId, mode) => {
-            setExpansionOverrides((previous) =>
-              new Map(previous).set(messageId, true),
+                        );
+                      }
+                }
+                refetch={refetch}
+                sentMessageOpen={sentMessageOpens?.opens[message.id]}
+                showReplyButton={
+                  showReplyButton &&
+                  !message.labelIds?.includes(GmailLabel.DRAFT)
+                }
+              />
             );
-            setRecoveredReply((previous) => ({
-              messageId,
-              mode,
-              version: (previous?.version ?? 0) + 1,
-            }));
-          }}
-        />
-      )}
-    </div>
+          })}
+        </ul>
+        {threadId && (
+          <ThreadDeliveryStatus
+            emailAccountId={emailAccountId}
+            canEditReply={showReplyButton}
+            threadId={threadId}
+            messageIds={messages.map((message) => message.id)}
+            refetch={refetch}
+            onEditReply={(messageId, mode) => {
+              setExpansionOverrides((previous) =>
+                new Map(previous).set(messageId, true),
+              );
+              setRecoveredReply((previous) => ({
+                messageId,
+                mode,
+                version: (previous?.version ?? 0) + 1,
+              }));
+            }}
+          />
+        )}
+      </div>
+    </OpenedConversationAttachments>
   );
 }
 

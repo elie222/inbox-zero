@@ -108,6 +108,8 @@ type DraftReference = {
 };
 
 export type GetThreadOptions = {
+  complete?: boolean;
+  signal?: AbortSignal;
   includeDrafts?: boolean;
 };
 
@@ -189,6 +191,11 @@ export interface EmailProvider {
     messageId: string,
     attachmentId: string,
   ): Promise<{ data: string; size: number }>;
+  getAttachmentStream(
+    messageId: string,
+    attachmentId: string,
+    signal?: AbortSignal,
+  ): Promise<ReadableStream<Uint8Array>>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   getDraftReferenceForMessage(
     messageId: string,

@@ -10,6 +10,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const attachmentPreview = vi.hoisted(() => ({ load: vi.fn() }));
+vi.mock("./OpenedConversationAttachments", () => ({
+  useOpenedConversationAttachments: () => attachmentPreview,
+}));
+
 const mockTheme = vi.hoisted(() => ({
   theme: "light",
   resolvedTheme: "light",
@@ -95,8 +100,70 @@ describe("HtmlEmail", () => {
       iframe.srcdoc,
       "text/html",
     );
+    expect(iframe.style.colorScheme).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.body.classList.contains("dark")).toBe(true);
+  });
+
+  it("does not put designed html emails into the app dark color scheme", () => {
+    mockTheme.theme = "dark";
+    mockTheme.resolvedTheme = "dark";
+    const html = `<html><head><style>
+      .card { background: #f8f9fa; color: #202124; }
+      @media (prefers-color-scheme: dark) {
+        .card { background: #202124; color: #e8eaed; }
+      }
+    </style></head><body>
+      <div class="card" style="background:#f8f9fa;font-family:Arial,sans-serif;font-size:16px">
+        Finish setup
+      </div>
+      <pre>prefers-color-scheme: dark</pre>
+    </body></html>`;
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="designed-theme" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    const document = new DOMParser().parseFromString(
+      iframe.srcdoc,
+      "text/html",
+    );
+    expect(iframe.style.colorScheme).toBe("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.body.classList.contains("dark")).toBe(false);
+    expect(
+      document
+        .querySelector('meta[name="color-scheme"]')
+        ?.getAttribute("content"),
+    ).toBe("light");
+    expect(iframe.srcdoc).toContain(
+      "prefers-color-scheme: inbox-zero-authored",
+    );
+    expect(document.querySelector("pre")?.textContent).toBe(
+      "prefers-color-scheme: dark",
+    );
+  });
+
+  it("treats uppercase designed markup as authored html", () => {
+    mockTheme.theme = "dark";
+    mockTheme.resolvedTheme = "dark";
+    const html = `<HTML><HEAD><STYLE>
+      .card { background: #f8f9fa; color: #202124; }
+      @media (prefers-color-scheme: dark) {
+        .card { background: #202124; color: #e8eaed; }
+      }
+    </STYLE></HEAD><BODY>
+      <DIV CLASS="card" STYLE="background:#f8f9fa;font-family:Arial,sans-serif;font-size:16px">
+        Finish setup
+      </DIV>
+    </BODY></HTML>`;
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="designed-theme-uppercase" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    expect(iframe.style.colorScheme).toBe("light");
+    expect(iframe.srcdoc).toContain(
+      "prefers-color-scheme: inbox-zero-authored",
+    );
   });
 
   it.each([
@@ -428,6 +495,9 @@ describe("HtmlEmail", () => {
   it("resolves authenticated cid images to temporary local URLs", async () => {
     const html = '<img src="cid:screenshot@inboxzero.local" />';
     const objectUrl = "blob:https://app.example.com/inline-image";
+    attachmentPreview.load.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
     const createObjectUrl = vi
       .spyOn(URL, "createObjectURL")
       .mockReturnValue(objectUrl);
@@ -484,6 +554,12 @@ describe("HtmlEmail", () => {
       );
     });
     expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(attachmentPreview.load).toHaveBeenCalledWith(
+      "message-inline",
+      "attachment-1",
+      expect.any(AbortSignal),
+      expect.objectContaining({ attachmentId: "attachment-1" }),
+    );
 
     unmount();
     expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);

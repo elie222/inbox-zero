@@ -14,11 +14,22 @@ export function activateMailSync(emailAccountId: string) {
   if (typeof window === "undefined" || !emailAccountId) return;
   if (isMailSyncActivated(emailAccountId)) return;
   try {
-    window.localStorage.setItem(STORAGE_PREFIX + emailAccountId, "1");
-    window.dispatchEvent(new Event(CHANGE_EVENT));
+    if (window.localStorage.getItem(STORAGE_PREFIX + emailAccountId) === "0")
+      return;
+    setMailSyncEnabled(emailAccountId, true);
   } catch {
     // Without durable activation, leave background downloads disabled.
   }
+}
+
+export function setMailSyncEnabled(emailAccountId: string, enabled: boolean) {
+  if (typeof window === "undefined" || !emailAccountId)
+    throw new Error("Mail account is unavailable");
+  window.localStorage.setItem(
+    STORAGE_PREFIX + emailAccountId,
+    enabled ? "1" : "0",
+  );
+  window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 export function clearMailActivation(emailAccountId?: string) {

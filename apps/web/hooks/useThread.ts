@@ -1,6 +1,8 @@
+import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { useLocalMailThread } from "@/hooks/useLocalMailThread";
 import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
 import { createMailMutationOverlay } from "@/utils/email-cache/mail-mutation-overlay";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -26,13 +28,35 @@ export function useThread(
     id,
     emailAccountId: explicitEmailAccountId,
   }: { id: string | null; emailAccountId?: string },
-  options?: ThreadRequestOptions,
+  options?: ThreadRequestOptions & { localMail?: boolean },
 ) {
   const { emailAccountId: currentEmailAccountId } = useAccount();
   const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
   const { cache, fetcher } = useSWRConfig();
   const includeDrafts = options?.includeDrafts;
   const parseReplies = options?.parseReplies;
+  const localMail = useLocalMailThread({
+    emailAccountId,
+    threadId: id,
+    includeDrafts,
+    enabled: Boolean(options?.localMail && !parseReplies && id),
+  });
+  const localData = useMemo<ThreadResponse | undefined>(() => {
+    if (
+      !id ||
+      (!localMail.messages.length &&
+        !localMail.hasMore &&
+        !localMail.hasRetainedThread)
+    )
+      return;
+    return {
+      thread: {
+        id,
+        messages: localMail.messages.map(({ message }) => message),
+        snippet: "",
+      },
+    };
+  }, [id, localMail.hasMore, localMail.hasRetainedThread, localMail.messages]);
   const request = useMemo(
     () =>
       id && emailAccountId
@@ -76,6 +100,8 @@ export function useThread(
               if (cached) return cached.data;
             }
 
+            const cacheContext =
+              await captureLocalMailCacheContext(emailAccountId);
             const requestedAt = Date.now();
             const data = (await fetcher(request.key)) as ThreadResponse;
             writeCachedThreadDetail({
@@ -85,6 +111,7 @@ export function useThread(
               version,
               data,
               now: requestedAt,
+              cacheContext,
             });
             return data;
           })
@@ -96,15 +123,16 @@ export function useThread(
       revalidateOnReconnect: false,
     },
   );
-  const currentData = swr.data?.thread.id === id ? swr.data : undefined;
+  const currentData =
+    localData ?? (swr.data?.thread.id === id ? swr.data : undefined);
   const lastResponse = useRef<{ key: string; data: ThreadResponse } | null>(
     null,
   );
   useLayoutEffect(() => {
-    if (request && currentData) {
+    if (request && currentData && currentData !== localData) {
       lastResponse.current = { key: request.cacheIdentity, data: currentData };
     }
-  }, [currentData, request]);
+  }, [currentData, localData, request]);
   // Cache invalidation must not disable actions for a reader that is still visible.
   const data =
     currentData ??
@@ -137,7 +165,24 @@ export function useThread(
     ...swr,
     data: overlaidData,
     error: data ? undefined : swr.error,
-    isLoading: !data && swr.isLoading,
+    isLoading: !data && (swr.isLoading || localMail.isLoading),
+    localAvailability:
+      currentData === localData && localData
+        ? {
+            missingBodyIds: new Set(
+              localMail.messages
+                .filter((entry) => !entry.bodyAvailable)
+                .map(({ message }) => message.id),
+            ),
+            hasMore: localMail.hasMore,
+            loadingMore: localMail.isValidating,
+            loadMore: localMail.loadMore,
+            refreshing: swr.isValidating,
+            // Only a provider response vouches for the local copy; without one
+            // the reader can only promise the messages it has downloaded.
+            providerConfirmed: swr.data?.thread.id === id,
+          }
+        : undefined,
     isValidating: swr.isValidating,
     mutate: swr.mutate,
   };

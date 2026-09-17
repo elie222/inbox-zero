@@ -64,7 +64,10 @@ import {
   getThreadMessages,
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
-import { getOutlookAttachment } from "@/utils/outlook/attachment";
+import {
+  getOutlookAttachment,
+  getOutlookAttachmentStream,
+} from "@/utils/outlook/attachment";
 import {
   getDraft,
   getDraftReference,
@@ -1730,6 +1733,19 @@ export class OutlookProvider implements EmailProvider {
       });
       return 0; // Default to 0 on error
     }
+  }
+
+  getAttachmentStream(
+    messageId: string,
+    attachmentId: string,
+    signal?: AbortSignal,
+  ) {
+    return getOutlookAttachmentStream(
+      this.client,
+      messageId,
+      attachmentId,
+      signal,
+    );
   }
 
   async getAttachment(

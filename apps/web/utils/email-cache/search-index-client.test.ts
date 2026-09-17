@@ -114,7 +114,8 @@ describe("local search index client", () => {
     await makeClient().request(scope, {
       command: "state",
       emailAccountId: "account",
-      storageBudgetBytes: Number.MAX_SAFE_INTEGER,
+      // Other windows post commands over a channel, so types cannot stop this.
+      ...{ storageBudgetBytes: Number.MAX_SAFE_INTEGER },
     });
     expect(
       workers[0].requests.find((request) => request.command === "state")

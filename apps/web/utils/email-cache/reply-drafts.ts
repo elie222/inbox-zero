@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { notifyMailMutationChange } from "./mail-mutations";
 import { decodedBase64Size, sendEmailBody } from "@/utils/types/mail";
@@ -102,8 +103,11 @@ export async function getReplyDraftForSession(
     if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
       throw new Error("This account’s local draft storage was cleared.");
 
-    const transaction = database.transaction("replyDrafts", "readwrite");
-    const store = transaction.store;
+    const transaction = await createAccountedMailTransaction(
+      database,
+      "replyDrafts",
+    );
+    const store = transaction.objectStore("replyDrafts");
     const currentDraft = await store.get([
       identity.emailAccountId,
       identity.threadId,
@@ -190,13 +194,16 @@ export async function updateReplyDraftProviderState(
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
     throw new Error("Draft storage is unavailable on this device.");
-  const transaction = database.transaction("replyDrafts", "readwrite");
+  const transaction = await createAccountedMailTransaction(
+    database,
+    "replyDrafts",
+  );
   const key: [string, string, string] = [
     identity.emailAccountId,
     identity.threadId,
     identity.messageId,
   ];
-  const current = await transaction.store.get(key);
+  const current = await transaction.objectStore("replyDrafts").get(key);
   if (!current?.content || current.content.requestId !== requestId)
     throw new Error("This draft changed. Reopen the composer.");
   if (current.content.providerDraftId) {
@@ -209,7 +216,7 @@ export async function updateReplyDraftProviderState(
     );
   // Provider metadata is separate from editable content. Updating it must not
   // invalidate a writer opened while the provider request was in flight.
-  await transaction.store.put({
+  await transaction.objectStore("replyDrafts").put({
     ...current,
     content: {
       ...current.content,
@@ -255,13 +262,16 @@ export function createReplyDraftWriter(
           throw new Error("Draft storage is unavailable on this device.");
         if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
           throw new Error("This account's local draft storage was cleared.");
-        const transaction = database.transaction("replyDrafts", "readwrite");
+        const transaction = await createAccountedMailTransaction(
+          database,
+          "replyDrafts",
+        );
         const key: [string, string, string] = [
           identity.emailAccountId,
           identity.threadId,
           identity.messageId,
         ];
-        const previous = await transaction.store.get(key);
+        const previous = await transaction.objectStore("replyDrafts").get(key);
         if ((previous?.revision ?? 0) !== revision) {
           await transaction.done;
           throw new Error(
@@ -286,7 +296,7 @@ export function createReplyDraftWriter(
             }),
           };
         }
-        await transaction.store.put({
+        await transaction.objectStore("replyDrafts").put({
           ...identity,
           content: nextContent,
           revision: revision + 1,
@@ -390,10 +400,10 @@ export async function restoreReplyFromOutbox(
   };
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch))
     throw new Error("This account’s local draft storage was cleared.");
-  const transaction = database.transaction(
-    ["mailMutations", "replyDrafts"],
-    "readwrite",
-  );
+  const transaction = await createAccountedMailTransaction(database, [
+    "mailMutations",
+    "replyDrafts",
+  ]);
   const current = await transaction.objectStore("mailMutations").get(id);
   const key: [string, string, string] = [
     identity.emailAccountId,

@@ -88,6 +88,22 @@ try {
   );
   assert.equal(created, 0, "assistant-only request creates no worker");
   await pages[0].evaluate(() => window.indexClientTest.activate());
+  await pages[0].evaluate(() => window.indexClientTest.blockStorage());
+  const denied = await pages[0].evaluate(() => window.indexClientTest.reset());
+  assert.equal(
+    denied.error,
+    "unavailable",
+    "initial schema creation is bounded before allocation",
+  );
+  const deniedAllocation = await pages[0].evaluate(() =>
+    window.indexClientTest.storageLedger(),
+  );
+  assert.equal(
+    deniedAllocation.bytes,
+    0,
+    "denied fresh schema initialization allocates no database pages",
+  );
+  await pages[0].evaluate(() => window.indexClientTest.restoreStorage());
   assert.deepEqual(
     await pages[0].evaluate(() => window.indexClientTest.reset()),
     { result: true },
@@ -96,14 +112,29 @@ try {
     await pages[1].evaluate(() => window.indexClientTest.apply()),
     { result: true },
   );
+  const allocation = await pages[0].evaluate(() =>
+    window.indexClientTest.storageLedger(),
+  );
+  assert.equal(allocation.status, "ready");
+  assert.ok(allocation.bytes > 0, "actual SQLite allocation is accounted");
+  assert.equal(
+    allocation.pending,
+    undefined,
+    "completed writes release reservation",
+  );
   const results = await Promise.all(
     pages.map((page) => page.evaluate(() => window.indexClientTest.search())),
   );
   for (const result of results)
     assert.equal(result.result.messages[0].id, "message");
-  assert.equal(created, 1, "two tabs share one OPFS worker");
-  const owner = ownerPages[0];
+  assert.equal(
+    created,
+    2,
+    "two tabs share one OPFS worker after initialization retry",
+  );
+  const owner = ownerPages.at(-1);
   const survivor = pages.find((page) => page !== owner);
+  await owner.evaluate(() => window.indexClientTest.blockStorage());
   await owner.close();
   const recovered = await survivor.evaluate(() =>
     window.indexClientTest.search(),
@@ -111,9 +142,9 @@ try {
   assert.equal(
     recovered.result.messages[0].id,
     "message",
-    "owner death recovers persistent index",
+    "owner death recovers persisted reads without demanding growth headroom",
   );
-  assert.equal(created, 2);
+  assert.equal(created, 3);
   assert.equal(maxAlive, 1, "no overlapping workers during handoff");
   await survivor.evaluate(() => window.indexClientTest.removeSource());
   assert.deepEqual(
@@ -127,6 +158,11 @@ try {
   assert.deepEqual(
     await survivor.evaluate(() => window.indexClientTest.client.clearAll()),
     { result: true },
+  );
+  assert.deepEqual(
+    await survivor.evaluate(() => window.indexClientTest.storageLedger()),
+    { status: "ready", bytes: 0 },
+    "physical cleanup settles shared index allocation",
   );
   await survivor.evaluate(() => window.indexClientTest.client.close());
   console.log(

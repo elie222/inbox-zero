@@ -36,6 +36,56 @@ test("uses the system dark theme when opening HTML emails", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });
 
+test("keeps designed HTML emails in their authored light palette in dark mode", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+  await page.route(
+    "**/api/threads/thr_playwright_reader_visual?**",
+    async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      for (const message of body.thread.messages) {
+        message.textHtml = `<html><head><style>
+          .card { background: #f8f9fa; color: #202124; }
+          @media (prefers-color-scheme: dark) {
+            .card { background: #202124 !important; color: #e8eaed !important; }
+          }
+        </style></head><body>
+          <div class="card" style="background:#f8f9fa;color:#202124;font-family:Arial,sans-serif;font-size:16px">
+            Finish setup
+          </div>
+        </body></html>`;
+      }
+      await route.fulfill({ response, json: body });
+    },
+  );
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const emailFrame = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .last();
+  const card = emailFrame.getByText("Finish setup");
+  await expect(card).toBeVisible();
+  await expect(emailFrame.locator("html")).toHaveCSS("color-scheme", "light");
+  await expect(emailFrame.locator("body")).toHaveCSS("color-scheme", "light");
+  await expect(
+    page.locator('iframe[title="Email content preview"]').last(),
+  ).toHaveCSS("color-scheme", "light");
+  await expect(card).toHaveCSS("background-color", "rgb(248, 249, 250)");
+  await expect(card).toHaveCSS("color", "rgb(32, 33, 36)");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-designed-html-dark-app",
+  );
+});
+
 test("keeps the quote toggle between the reply and expanded history", async ({
   page,
 }, testInfo) => {
@@ -132,12 +182,40 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     ),
   ).toHaveCount(0);
 
-  const archiveButton = page.getByRole("button", { name: /^Archive/ });
+  const archiveButton = page.getByRole("button", {
+    name: "Archive",
+    exact: true,
+  });
   await expect(archiveButton.locator("kbd")).toHaveCount(0);
   await archiveButton.hover();
-  await page.waitForTimeout(250);
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const archiveTooltip = page.getByRole("tooltip", { name: /Archive/ });
+  await expect(archiveTooltip).toContainText("Archive");
+  await expect(archiveTooltip.locator("kbd")).toHaveText("E");
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
+
+  const message = page.locator("[data-thread-message-id]").last();
+  await page
+    .getByRole("heading", { name: "Re: Reader Visual Message" })
+    .hover();
+  await message.hover();
+  await message.getByRole("button", { name: "Reply", exact: true }).hover();
+  const replyTooltip = page.getByRole("tooltip", { name: /Reply/ });
+  await expect(replyTooltip).toContainText("Reply");
+  await expect(replyTooltip.locator("kbd")).toHaveText("R");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-shortcut",
+  );
+  await message.getByRole("button", { name: "Forward", exact: true }).hover();
+  const forwardTooltip = page.getByRole("tooltip", { name: /Forward/ });
+  await expect(forwardTooltip).toContainText("Forward");
+  await expect(forwardTooltip.locator("kbd")).toHaveText("F");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-forward-shortcuts",
+  );
 
   const senderStatsResponse = page.waitForResponse((response) =>
     response.url().includes("/api/user/stats/newsletters"),

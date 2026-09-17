@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
+import { Tooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type ReaderToolbarProps = {
   subject: string;
@@ -128,10 +128,16 @@ export function ReaderToolbar({
             )}
           </Button>
         )}
-        <Button onClick={onArchive} size="xs-2" variant="outline">
-          <ArchiveIcon className="mr-1.5 size-3.5" />
-          Archive
-        </Button>
+        <Tooltip shortcuts={["archive"]}>
+          <Button
+            aria-label="Archive"
+            onClick={onArchive}
+            size="iconXs"
+            variant="outline"
+          >
+            <ArchiveIcon className="size-3.5" />
+          </Button>
+        </Tooltip>
         <ReadStateButton
           isUnread={isUnread}
           onMarkRead={onMarkRead}
@@ -153,19 +159,21 @@ function ReadStateButton({
   onMarkUnread: () => void;
 }) {
   const label = isUnread ? "Mark as read" : "Mark as unread";
-  const hint = isUnread ? undefined : getShortcutHint("markUnread");
-  const title = hint ? `${label} (${hint})` : label;
   const Icon = isUnread ? MailOpenIcon : MailIcon;
 
   return (
-    <Button
-      aria-label={title}
-      onClick={isUnread ? onMarkRead : onMarkUnread}
-      size="iconXs"
-      title={title}
-      variant="outline"
+    <Tooltip
+      content={isUnread ? label : undefined}
+      shortcuts={isUnread ? undefined : ["markUnread"]}
     >
-      <Icon className="size-3.5" />
-    </Button>
+      <Button
+        aria-label={label}
+        onClick={isUnread ? onMarkRead : onMarkUnread}
+        size="iconXs"
+        variant="outline"
+      >
+        <Icon className="size-3.5" />
+      </Button>
+    </Tooltip>
   );
 }

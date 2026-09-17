@@ -5,13 +5,20 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig, unstable_serialize } from "swr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
+import { notifyEmailCacheChange } from "@/utils/email-cache/cache-events";
 import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import { useRetainedMailMutationOverlay } from "./useMailMutationOverlay";
 import { useThread } from "./useThread";
 
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
+  localRead: vi.fn(),
   write: vi.fn(),
+}));
+
+vi.mock("@/utils/email-cache/local-mail-reader", () => ({
+  readLocalMailThreadPage: cache.localRead,
+  keepLocalMailThreadOpen: () => () => {},
 }));
 
 vi.mock("./useMailMutationOverlay", () => ({
@@ -39,6 +46,8 @@ describe("useThread", () => {
       retainMutations: vi.fn(),
     });
     cache.write.mockResolvedValue(undefined);
+    cache.localRead.mockResolvedValue(undefined);
+    cache.read.mockResolvedValue(undefined);
   });
 
   it.each([
@@ -120,6 +129,212 @@ describe("useThread", () => {
       wrapper: createWrapper(vi.fn().mockResolvedValue(data)),
     });
     await waitFor(() => expect(result.current.data).toEqual(data));
+  });
+
+  it("shows canonical mail before the provider completes and then reconciles", async () => {
+    const network = Promise.withResolvers<unknown>();
+    const message = {
+      id: "message-1",
+      threadId: "thread-1",
+      headers: {},
+      labelIds: [],
+      textPlain: "cached body",
+    };
+    cache.localRead.mockResolvedValue({
+      generation: "generation-1",
+      messages: [{ message, bodyAvailable: true, fetchedAt: 100 }],
+    });
+    const fetcher = vi.fn().mockReturnValue(network.promise);
+    const { result } = renderHook(
+      () => useThread({ id: "thread-1" }, { localMail: true }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.textPlain).toBe(
+        "cached body",
+      ),
+    );
+    expect(result.current.localAvailability?.providerConfirmed).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+    const data = {
+      thread: {
+        id: "thread-1",
+        messages: [{ ...message, textPlain: "fresh body" }],
+      },
+    };
+    cache.write.mockImplementationOnce(async () => {
+      cache.localRead.mockResolvedValue({
+        generation: "generation-1",
+        messages: [
+          {
+            message: data.thread.messages[0],
+            bodyAvailable: true,
+            fetchedAt: Date.now(),
+          },
+        ],
+      });
+      notifyEmailCacheChange("account-1");
+    });
+    await act(async () => network.resolve(data));
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0].textPlain).toBe(
+        "fresh body",
+      ),
+    );
+    expect(result.current.localAvailability?.providerConfirmed).toBe(true);
+  });
+
+  it("loads another retained page without treating the first page as the whole conversation", async () => {
+    cache.localRead.mockImplementation(async ({ before }) => ({
+      generation: "generation-1",
+      messages: [
+        {
+          message: {
+            id: before ? "message-2" : "message-1",
+            threadId: "thread-pages",
+            headers: {},
+            labelIds: [],
+          },
+          bodyAvailable: true,
+          fetchedAt: 100,
+        },
+      ],
+      next: before ? undefined : { receivedAt: 100, messageId: "message-1" },
+    }));
+    const { result } = renderHook(
+      () => useThread({ id: "thread-pages" }, { localMail: true }),
+      {
+        wrapper: createWrapper(vi.fn().mockRejectedValue(new Error("Offline"))),
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.localAvailability?.hasMore).toBe(true),
+    );
+    await act(async () => {
+      await result.current.localAvailability?.loadMore();
+    });
+    await waitFor(() =>
+      expect(
+        result.current.data?.thread.messages.map((message) => message.id),
+      ).toEqual(["message-2", "message-1"]),
+    );
+    expect(result.current.localAvailability?.hasMore).toBe(false);
+    expect(result.current.localAvailability).toBeDefined();
+  });
+
+  it("updates an old in-memory conversation from canonical changes without polling the provider", async () => {
+    const oldMessage = {
+      id: "message-1",
+      threadId: "thread-current",
+      headers: {},
+      labelIds: [],
+      textPlain: "old body",
+    };
+    const memoryCache = new Map([
+      [
+        unstable_serialize(["/api/threads/thread-current", "account-1"]),
+        { data: { thread: { id: "thread-current", messages: [oldMessage] } } },
+      ],
+    ]);
+    const fetcher = vi.fn();
+    cache.localRead.mockResolvedValue({
+      generation: "generation-1",
+      messages: [{ message: oldMessage, bodyAvailable: true, fetchedAt: 100 }],
+    });
+    const { result } = renderHook(
+      () => useThread({ id: "thread-current" }, { localMail: true }),
+      { wrapper: createWrapper(fetcher, { cache: memoryCache }) },
+    );
+    await waitFor(() => expect(result.current.localAvailability).toBeDefined());
+    cache.localRead.mockResolvedValue({
+      generation: "generation-1",
+      messages: [
+        {
+          message: { ...oldMessage, textPlain: "new body" },
+          bodyAvailable: true,
+          fetchedAt: 200,
+        },
+        {
+          message: { ...oldMessage, id: "reply", textPlain: "new reply" },
+          bodyAvailable: true,
+          fetchedAt: 200,
+        },
+      ],
+    });
+    await act(async () => notifyEmailCacheChange("account-1"));
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages).toHaveLength(2),
+    );
+    expect(result.current.data?.thread.messages[0].textPlain).toBe("new body");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("offers the next local page even when a page contains only filtered drafts", async () => {
+    cache.localRead.mockImplementation(async ({ before }) => ({
+      generation: "generation-1",
+      messages: before
+        ? [
+            {
+              message: {
+                id: "older",
+                threadId: "thread-filtered",
+                headers: {},
+                labelIds: [],
+              },
+              bodyAvailable: true,
+              fetchedAt: 100,
+            },
+          ]
+        : [],
+      next: before ? undefined : { receivedAt: 100, messageId: "draft" },
+      hasRetainedThread: true,
+    }));
+    const { result } = renderHook(
+      () => useThread({ id: "thread-filtered" }, { localMail: true }),
+      {
+        wrapper: createWrapper(vi.fn().mockRejectedValue(new Error("Offline"))),
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.localAvailability?.hasMore).toBe(true),
+    );
+    await act(async () => {
+      await result.current.localAvailability?.loadMore();
+    });
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0].id).toBe("older"),
+    );
+  });
+
+  it("keeps unavailable bodies explicit after a network failure", async () => {
+    cache.localRead.mockResolvedValue({
+      generation: "generation-1",
+      messages: [
+        {
+          message: {
+            id: "message-1",
+            threadId: "thread-1",
+            headers: {},
+            labelIds: [],
+          },
+          bodyAvailable: false,
+          fetchedAt: 100,
+        },
+      ],
+    });
+    const { result } = renderHook(
+      () => useThread({ id: "thread-1" }, { localMail: true }),
+      {
+        wrapper: createWrapper(vi.fn().mockRejectedValue(new Error("Offline"))),
+      },
+    );
+    await waitFor(() =>
+      expect(
+        result.current.localAvailability?.missingBodyIds.has("message-1"),
+      ).toBe(true),
+    );
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.data?.thread.messages[0].textPlain).toBeUndefined();
   });
 
   it("returns an idle response when no thread is selected", async () => {

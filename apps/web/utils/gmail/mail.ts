@@ -119,7 +119,6 @@ export async function sendEmailWithHtml(
   const forwardedAttachments = await getForwardedAttachments(
     gmail,
     body.replyToEmail?.forwardedMessageId,
-    sendLogger,
   );
 
   const raw = await createRawMailMessage({
@@ -520,22 +519,17 @@ async function trackGmailSend<T>(
 async function getForwardedAttachments(
   gmail: gmail_v1.Gmail,
   forwardedMessageId: string | undefined,
-  sendLogger: Logger,
 ): Promise<Attachment[]> {
   if (!forwardedMessageId) return [];
 
   const message = await getMessage(forwardedMessageId, gmail).catch(
     (error: unknown) => {
       if (extractErrorInfo(error).status !== 404) throw error;
-      // The body already quotes the message, so a source that has since been
-      // deleted costs the forward its files rather than the whole send.
-      sendLogger.warn("Forwarded message is gone, sending without its files", {
-        forwardedMessageId,
-      });
-      return null;
+      throw new SafeError(
+        "Reload the original message before forwarding. Its attachments could not be verified.",
+      );
     },
   );
-  if (!message) return [];
 
   // A part that fails to download fails the send: silently dropping one file
   // from a forward is worse than asking the user to try again.

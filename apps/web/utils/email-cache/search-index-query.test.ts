@@ -130,6 +130,10 @@ async function store(id: string, textPlain: string) {
       "searchIndexWork",
       "localMailMessages",
       "localMailTombstones",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );

@@ -166,6 +166,10 @@ async function store(count: number, threadId = "thread-1", prefix = "message") {
       "searchIndexWork",
       "localMailMessages",
       "localMailTombstones",
+
+      "localMailAttachmentFiles",
+      "localMailAttachmentJobs",
+      "localMailThreadProtection",
     ],
     "readwrite",
   );

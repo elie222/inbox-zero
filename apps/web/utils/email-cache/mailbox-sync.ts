@@ -1,3 +1,4 @@
+import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
 import type { MailboxSyncResponse } from "@/app/api/mobile/mailbox-sync/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ONE_DAY_MS } from "@/utils/date";
@@ -117,6 +118,7 @@ async function syncOwnedMailboxPages({
     if (!(await renewMailboxSyncJob(emailAccountId, leaseToken))) {
       return { hasMore: true, pagesSynced };
     }
+    const cacheContext = await captureLocalMailCacheContext(emailAccountId);
     const response = await fetchPage(input);
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
       return { hasMore: false, pagesSynced: 0 };
@@ -128,6 +130,7 @@ async function syncOwnedMailboxPages({
     const applied = await applyMailboxSyncPage({
       emailAccountId,
       page,
+      cacheContext,
       after: resumeCursor ? undefined : initialAfter,
       leaseToken,
       now: now?.getTime() ?? Date.now(),

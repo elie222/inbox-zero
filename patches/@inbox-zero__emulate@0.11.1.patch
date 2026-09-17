@@ -1,5 +1,5 @@
 diff --git a/dist/dist-ZHFKHW5R.js b/dist/dist-ZHFKHW5R.js
-index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4e975f618 100644
+index b601480e5db77d6c86200023af4352aa9d49f3e3..66d9ec63db4bdb23a4a1fa39d67f614c17797ef0 100644
 --- a/dist/dist-ZHFKHW5R.js
 +++ b/dist/dist-ZHFKHW5R.js
 @@ -1,5 +1,7 @@
@@ -11,7 +11,18 @@ index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4
  } from "./chunk-U6ISZSHV.js";
  import "./chunk-PZ5AY32C.js";
  
-@@ -3082,7 +3084,8 @@ function bodyStr(v) {
+@@ -792,6 +794,10 @@ function buildQueryPredicates(gs, userEmail, term) {
+     const labelQuery = cleaned.slice(6);
+     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
+   }
++  if (lower.startsWith("-in:")) {
++    const labelQuery = cleaned.slice(4);
++    return [(message) => !messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
++  }
+   if (lower.startsWith("in:")) {
+     const labelQuery = cleaned.slice(3);
+     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
+@@ -3082,7 +3088,8 @@ function bodyStr(v) {
    if (Array.isArray(v) && typeof v[0] === "string") return v[0];
    return "";
  }
@@ -21,7 +32,7 @@ index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4
  var PENDING_CODE_TTL_MS = 10 * 60 * 1e3;
  function getPendingCodes(store) {
    let map = store.getData("google.oauth.pendingCodes");
-@@ -3116,8 +3119,9 @@ async function createIdToken(user, clientId, nonce, baseUrl) {
+@@ -3116,8 +3123,9 @@ async function createIdToken(user, clientId, nonce, baseUrl) {
      locale: user.locale,
      ...user.hd ? { hd: user.hd } : {},
      ...nonce ? { nonce } : {}
@@ -33,7 +44,7 @@ index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4
  }
  function oauthRoutes({ app, store, baseUrl, tokenMap }) {
    const gs = getGoogleStore(store);
-@@ -3131,7 +3135,7 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
+@@ -3131,7 +3139,7 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
        jwks_uri: `${baseUrl}/oauth2/v3/certs`,
        response_types_supported: ["code"],
        subject_types_supported: ["public"],
@@ -42,7 +53,7 @@ index b601480e5db77d6c86200023af4352aa9d49f3e3..54dbc4e23b03e40d46327ae38eaa55c4
        scopes_supported: ["openid", "email", "profile"],
        token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
        claims_supported: [
-@@ -3148,8 +3152,10 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
+@@ -3148,8 +3156,10 @@ function oauthRoutes({ app, store, baseUrl, tokenMap }) {
        code_challenge_methods_supported: ["plain", "S256"]
      });
    });

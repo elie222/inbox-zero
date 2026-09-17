@@ -1,3 +1,9 @@
+import { Readable } from "node:stream";
+import {
+  COMPLETE_THREAD_MESSAGE_LIMIT,
+  createCompleteThreadBudget,
+  readCompleteThreadJson,
+} from "@/utils/email/complete-thread";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getBatchWithRetry } from "@/utils/gmail/batch-with-retry";
 import {
@@ -9,6 +15,40 @@ import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+
+export async function getCompleteGmailThread(
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+  signal?: AbortSignal,
+) {
+  const response = await withGmailRetry(() => {
+    signal?.throwIfAborted();
+    return gmail.users.threads.get(
+      { userId: "me", id: threadId, format: "full" },
+      { responseType: "stream", signal },
+    );
+  });
+  const result = await readCompleteThreadJson<gmail_v1.Schema$Thread>(
+    // Node's web stream type is a separate declaration from the DOM one.
+    Readable.toWeb(response.data) as unknown as ReadableStream<Uint8Array>,
+    createCompleteThreadBudget(),
+    signal,
+  );
+  if (
+    result.id !== threadId ||
+    !Array.isArray(result.messages) ||
+    // A thread is its messages, so an empty list is a truncated response.
+    !result.messages.length ||
+    result.messages.length > COMPLETE_THREAD_MESSAGE_LIMIT ||
+    result.messages.some(
+      (message) => !message.id || message.threadId !== threadId,
+    ) ||
+    new Set(result.messages.map((message) => message.id)).size !==
+      result.messages.length
+  )
+    throw new Error("Incomplete or oversized conversation snapshot");
+  return result;
+}
 
 export async function getThread(
   threadId: string,

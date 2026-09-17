@@ -12,7 +12,7 @@ import type {
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenStatus";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Avatar,
@@ -24,8 +24,6 @@ import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-
-const SELECT_HINT = getShortcutHint("select");
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -117,22 +115,23 @@ export const ThreadRow = memo(function ThreadRow({
       )}
     >
       {selectionEnabled ? (
-        <Checkbox
-          aria-label={`Select conversation with ${participantSummary}`}
-          checked={isSelected}
-          className={cn(
-            "size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
-            showCheckbox
-              ? "opacity-100"
-              : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (event.shiftKey) onSelectRangeTo(index);
-            else onToggleSelect(index);
-          }}
-          title={`Select (${SELECT_HINT})`}
-        />
+        <Tooltip shortcuts={["select"]}>
+          <Checkbox
+            aria-label={`Select conversation with ${participantSummary}`}
+            checked={isSelected}
+            className={cn(
+              "size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
+              showCheckbox
+                ? "opacity-100"
+                : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+            )}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (event.shiftKey) onSelectRangeTo(index);
+              else onToggleSelect(index);
+            }}
+          />
+        </Tooltip>
       ) : null}
       <span
         aria-hidden

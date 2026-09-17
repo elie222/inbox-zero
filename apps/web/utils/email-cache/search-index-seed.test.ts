@@ -1,3 +1,9 @@
+import * as settings from "./local-mail-settings";
+import { localMailLedgerBytes } from "./local-mail-storage-ledger";
+import {
+  installMailCacheStorageTestEnvironment,
+  prepareMailCacheLedgerForTest,
+} from "./optional-cache-write.test-helpers";
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
 import type { ParsedMessage } from "@/utils/types";
@@ -7,6 +13,7 @@ import {
   clearEmailCacheForAccount,
   getEmailCacheDatabase,
 } from "./database";
+import { readLocalMailThreadPage } from "./local-mail-reader";
 import { activateMailSync, clearMailActivation } from "./mail-activation";
 import {
   initializeSearchIndexAccount,
@@ -20,12 +27,76 @@ import { writeCachedThreadRows } from "./thread-lists";
 
 vi.mock("./cleanup", () => ({ scheduleEmailCacheCleanup: vi.fn() }));
 
+const MIB = 1024 * 1024;
+
+installMailCacheStorageTestEnvironment();
+
 describe("resumable local index seeding", () => {
   beforeEach(async () => {
     await clearEmailCache();
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  it("pauses migration under reserved logical capacity without advancing its cursor, then resumes", async () => {
+    activateMailSync("account-1");
+    const database = await getTestDatabase();
+    await database.put("searchIndexAccounts", {
+      emailAccountId: "account-1",
+      generation: "migration",
+      sourceVersion: 2,
+      seed: { store: "threadRows" },
+    });
+    await database.put("threadRows", {
+      emailAccountId: "account-1",
+      threadId: "thread",
+      fetchedAt: Date.now(),
+      lastAccessedAt: Date.now(),
+      data: { messages: [getMessage("thread")] },
+    });
+    await prepareMailCacheLedgerForTest();
+    const ledger = (await database.get("localMailStorageLedger", "origin"))!;
+    const initialBytes = localMailLedgerBytes(ledger);
+    ledger.index.pending = { token: "index-write", reservedGrowthBytes: 1000 };
+    await database.put("localMailStorageLedger", ledger);
+    // The reserved index growth consumes the remaining budget, so the seed has
+    // no room until the budget is raised below. Budgets this small keep the
+    // flat 32 MiB backfill reserve, so it is added back to land the limit.
+    const budget = vi.spyOn(settings, "readLocalMailSettings").mockReturnValue({
+      budgetBytes: initialBytes + 1000 + 32 * MIB,
+      attachmentBudgetBytes: 0,
+      backfillEnabled: true,
+      pushEnabled: true,
+    });
+    const before = await database.get("searchIndexAccounts", "account-1");
+    expect(await seedSearchIndexWork("account-1")).toMatchObject({
+      complete: false,
+      retryAfterMs: 60_000,
+    });
+    expect(await database.get("searchIndexAccounts", "account-1")).toEqual(
+      before,
+    );
+    expect(await database.count("localMailMessages")).toBe(0);
+    expect(await database.count("mailboxMessages")).toBe(0);
+    expect(await database.count("searchIndexWork")).toBe(0);
+    expect(await database.get("localMailStorageLedger", "origin")).toEqual(
+      ledger,
+    );
+    budget.mockReturnValue({
+      budgetBytes: initialBytes + 1_000_000 + 32 * MIB,
+      attachmentBudgetBytes: 0,
+      backfillEnabled: true,
+      pushEnabled: true,
+    });
+    expect(await seedSearchIndexWork("account-1")).toMatchObject({
+      complete: false,
+    });
+    expect(await database.count("localMailMessages")).toBe(1);
+    expect(
+      (await database.get("searchIndexAccounts", "account-1"))?.seed?.store,
+    ).toBe("threadDetails");
+    expect((await seedSearchIndexWork("account-1"))?.complete).toBe(true);
+  });
 
   it("does not create an index for assistant-only accounts", async () => {
     expect(await initializeSearchIndexAccount("account-1")).toBeUndefined();
@@ -148,6 +219,53 @@ describe("resumable local index seeding", () => {
     await seedSearchIndexWork("account-1");
     expect(await database.count("localMailMessages")).toBe(150);
     expect((await seedSearchIndexWork("account-1"))?.complete).toBe(true);
+  });
+
+  it("merges a list projection and its cached detail into one downloaded message", async () => {
+    const message = getMessage("thread");
+    const now = Date.now();
+    const database = await getTestDatabase();
+    await database.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: message.id,
+      threadId: message.threadId,
+      data: message,
+      receivedAt: now,
+      lastAccessedAt: now,
+    });
+    await database.put("threadDetails", {
+      emailAccountId: "account-1",
+      threadId: message.threadId,
+      variant: "drafts:1|replies:0",
+      data: {
+        thread: {
+          id: message.threadId,
+          messages: [{ ...message, textPlain: "Downloaded body" }],
+          snippet: "",
+        },
+      },
+      fetchedAt: now,
+      lastAccessedAt: now,
+      byteSize: 1,
+    });
+    activateMailSync("account-1");
+    await initializeSearchIndexAccount("account-1");
+    for (let pass = 0; pass < 10; pass++) {
+      if ((await seedSearchIndexWork("account-1"))?.complete) break;
+    }
+    const page = await readLocalMailThreadPage({
+      emailAccountId: "account-1",
+      threadId: message.threadId,
+    });
+    expect(
+      page?.messages.map(({ message, bodyAvailable }) => ({
+        id: message.id,
+        textPlain: message.textPlain,
+        bodyAvailable,
+      })),
+    ).toEqual([
+      { id: message.id, textPlain: "Downloaded body", bodyAvailable: true },
+    ]);
   });
 
   it("revokes seeding on cleanup and creates a new generation on reactivation", async () => {

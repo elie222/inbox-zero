@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryForUser } from "./process-history";
 import {
@@ -89,6 +90,28 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     vi.mocked(processHistoryItem).mockResolvedValue(undefined);
     vi.mocked(learnFromOutlookLabelRemoval).mockResolvedValue(undefined);
     vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
+  });
+
+  it("still checks automation eligibility for a preloaded webhook account", async () => {
+    const response = new NextResponse(null, { status: 200 });
+    vi.mocked(validateWebhookAccount).mockResolvedValueOnce({
+      success: false,
+      response,
+    });
+    const result = await processHistoryForUser({
+      subscriptionId: "sub-123",
+      preloadedEmailAccount: mockEmailAccount as never,
+      resourceData: mockResourceData,
+      logger,
+    });
+    expect(result).toBe(response);
+    expect(getWebhookEmailAccount).not.toHaveBeenCalled();
+    expect(validateWebhookAccount).toHaveBeenCalledWith(
+      mockEmailAccount,
+      expect.anything(),
+    );
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(processHistoryItem).not.toHaveBeenCalled();
   });
 
   it("processes messages in INBOX folder", async () => {

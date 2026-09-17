@@ -1,3 +1,4 @@
+import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
 import type { BareFetcher, ScopedMutator } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import {
@@ -59,6 +60,7 @@ export async function prefetchThreadDetail({
     request,
     async (requestVersion) => {
       version = requestVersion;
+      const cacheContext = await captureLocalMailCacheContext(emailAccountId);
       const requestedAt = Date.now();
       const response = (await fetcher(request.key)) as
         | ThreadResponse
@@ -71,6 +73,7 @@ export async function prefetchThreadDetail({
           version: requestVersion,
           data: response,
           now: requestedAt,
+          cacheContext,
         });
       }
       return response;

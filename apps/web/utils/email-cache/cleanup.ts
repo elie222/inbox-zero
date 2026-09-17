@@ -1,3 +1,4 @@
+import { createAccountedMailTransaction } from "./optional-cache-write";
 import { markSearchThreadsDirty } from "./search-index-work";
 import { getEmailCacheDatabase } from "./database";
 import {
@@ -48,18 +49,15 @@ async function cleanupEmailCache() {
           storageEstimate.quota * 0.1,
         )
       : EMAIL_CACHE_DEFAULT_DETAIL_BUDGET_BYTES;
-    const transaction = database.transaction(
-      [
-        "threadRows",
-        "threadViews",
-        "threadDetails",
-        "mailboxMessages",
-        "mailMutations",
-        "searchIndexAccounts",
-        "searchIndexWork",
-      ],
-      "readwrite",
-    );
+    const transaction = await createAccountedMailTransaction(database, [
+      "threadRows",
+      "threadViews",
+      "threadDetails",
+      "mailboxMessages",
+      "mailMutations",
+      "searchIndexAccounts",
+      "searchIndexWork",
+    ]);
     const detailsStore = transaction.objectStore("threadDetails");
     const viewsStore = transaction.objectStore("threadViews");
     const rowsStore = transaction.objectStore("threadRows");
