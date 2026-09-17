@@ -3,9 +3,10 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 import { clearMailActivation } from "./mail-activation";
+import { randomUuid } from "@/utils/uuid";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 10;
+const DATABASE_VERSION = 11;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -50,6 +51,15 @@ export type CachedMailboxSyncState = {
   hasMore: boolean;
   lastSyncedAt: number;
   completedAt?: number;
+};
+
+type MailboxSyncJob = {
+  emailAccountId: string;
+  leaseToken?: string;
+  leaseExpiresAt: number;
+  retryAt: number;
+  nextPollAt: number;
+  failures: number;
 };
 
 export type MailMutationClientSource = {
@@ -118,6 +128,10 @@ interface EmailCacheSchema extends DBSchema {
       byReceivedAt: number;
     };
   };
+  mailboxSyncJobs: {
+    key: string;
+    value: MailboxSyncJob;
+  };
   mailboxSyncStates: {
     key: string;
     value: CachedMailboxSyncState;
@@ -175,7 +189,13 @@ const accountEpochs = new Map<string, number>();
 let cacheInvalidationCount = 0;
 const accountInvalidationCounts = new Map<string, number>();
 
-type EmailCacheEpoch = readonly [cache: number, account: number];
+const GENERATION_PREFIX = "inbox-zero:email-cache-generation:";
+type EmailCacheEpoch = readonly [
+  cache: number,
+  account: number,
+  globalGeneration: string,
+  accountGeneration: string,
+];
 
 export function getEmailCacheDatabase() {
   if (typeof indexedDB === "undefined") return Promise.resolve(undefined);
@@ -183,6 +203,11 @@ export function getEmailCacheDatabase() {
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
     upgrade(database, oldVersion, _newVersion, transaction) {
+      if (oldVersion < 11) {
+        database.createObjectStore("mailboxSyncJobs", {
+          keyPath: "emailAccountId",
+        });
+      }
       if (oldVersion < 1) {
         const rows = database.createObjectStore("threadRows", {
           keyPath: ["emailAccountId", "threadId"],
@@ -293,7 +318,9 @@ export function captureEmailCacheEpoch(
   emailAccountId: string,
 ): EmailCacheEpoch | undefined {
   if (isCacheInvalidationActive(emailAccountId)) return;
-  return [cacheEpoch, accountEpochs.get(emailAccountId) ?? 0];
+  const generation = readCacheGeneration(emailAccountId);
+  if (!generation) return;
+  return [cacheEpoch, accountEpochs.get(emailAccountId) ?? 0, ...generation];
 }
 
 export function isEmailCacheEpochCurrent(
@@ -301,14 +328,23 @@ export function isEmailCacheEpochCurrent(
   epoch: EmailCacheEpoch | undefined,
 ) {
   if (!epoch || isCacheInvalidationActive(emailAccountId)) return false;
-  const [capturedCacheEpoch, capturedAccountEpoch] = epoch;
+  const [
+    capturedCacheEpoch,
+    capturedAccountEpoch,
+    globalGeneration,
+    accountGeneration,
+  ] = epoch;
+  const generation = readCacheGeneration(emailAccountId);
   return (
     capturedCacheEpoch === cacheEpoch &&
-    capturedAccountEpoch === (accountEpochs.get(emailAccountId) ?? 0)
+    capturedAccountEpoch === (accountEpochs.get(emailAccountId) ?? 0) &&
+    generation?.[0] === globalGeneration &&
+    generation[1] === accountGeneration
   );
 }
 
 export async function clearEmailCache() {
+  invalidateCacheGeneration();
   clearMailActivation();
   cacheInvalidationCount += 1;
   cacheEpoch += 1;
@@ -324,6 +360,7 @@ export async function clearEmailCache() {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailboxSyncJobs",
         "mailMutations",
         "replyDrafts",
       ],
@@ -335,6 +372,7 @@ export async function clearEmailCache() {
       transaction.objectStore("threadDetails").clear(),
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
+      transaction.objectStore("mailboxSyncJobs").clear(),
       transaction.objectStore("mailMutations").clear(),
       transaction.objectStore("replyDrafts").clear(),
       transaction.done,
@@ -348,6 +386,7 @@ export async function clearEmailCache() {
 }
 
 export async function clearEmailCacheForAccount(emailAccountId: string) {
+  invalidateCacheGeneration(emailAccountId);
   clearMailActivation(emailAccountId);
   accountInvalidationCounts.set(
     emailAccountId,
@@ -368,6 +407,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailboxSyncJobs",
         "mailMutations",
         "replyDrafts",
       ],
@@ -402,6 +442,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       ...mutationKeys.map((key) => mutations.delete(key)),
       ...draftKeys.map((key) => drafts.delete(key)),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
+      transaction.objectStore("mailboxSyncJobs").delete(emailAccountId),
     ]);
     await transaction.done;
   } catch {
@@ -423,4 +464,44 @@ function isCacheInvalidationActive(emailAccountId: string) {
     cacheInvalidationCount > 0 ||
     (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
   );
+}
+
+function readCacheGeneration(
+  emailAccountId: string,
+): readonly [string, string] | undefined {
+  if (typeof window === "undefined") return ["", ""];
+  try {
+    const keys = [
+      `${GENERATION_PREFIX}global`,
+      `${GENERATION_PREFIX}account:${emailAccountId}`,
+    ];
+    const values = keys.map((key) => {
+      const current = window.localStorage.getItem(key);
+      if (current) return current;
+      const generation = randomUuid();
+      window.localStorage.setItem(key, generation);
+      return generation;
+    });
+    return [values[0], values[1]];
+  } catch {
+    // Without shared invalidation state, work cannot safely survive tab changes.
+    return;
+  }
+}
+
+function invalidateCacheGeneration(emailAccountId?: string) {
+  if (typeof window === "undefined") return;
+  const scope =
+    emailAccountId === undefined ? "global" : `account:${emailAccountId}`;
+  const key = GENERATION_PREFIX + scope;
+  try {
+    window.localStorage.setItem(key, randomUuid());
+  } catch {
+    // A denied write must not leave a readable old token authorizing queued work.
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Storage access denial also makes generation reads fail closed.
+    }
+  }
 }

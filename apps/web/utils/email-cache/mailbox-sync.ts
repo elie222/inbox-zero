@@ -4,6 +4,11 @@ import { ONE_DAY_MS } from "@/utils/date";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { captureEmailCacheEpoch, isEmailCacheEpochCurrent } from "./database";
 import { applyMailboxSyncPage, readMailboxSyncState } from "./mailbox";
+import {
+  claimMailboxSyncJob,
+  finishMailboxSyncJob,
+  renewMailboxSyncJob,
+} from "./mailbox-sync-job";
 
 const DEFAULT_SYNC_DAYS = 30;
 const SYNC_WINDOW_REFRESH_DAYS = 7;
@@ -33,16 +38,54 @@ export async function syncMailboxPages({
   fetchPage,
   now,
   maxPages = DEFAULT_MAX_PAGES,
+  force = false,
 }: {
   emailAccountId: string;
   fetchPage: (input: MailboxSyncInput) => Promise<MailboxSyncResponse>;
   now?: Date;
   maxPages?: number;
+  force?: boolean;
 }) {
   if (!Number.isInteger(maxPages) || maxPages < 1) {
     throw new Error("maxPages must be a positive integer");
   }
 
+  const leaseToken = await claimMailboxSyncJob(emailAccountId, { force });
+  if (!leaseToken) return { hasMore: false, pagesSynced: 0 };
+  try {
+    const result = await syncOwnedMailboxPages({
+      emailAccountId,
+      fetchPage,
+      now,
+      maxPages,
+      leaseToken,
+    });
+    await finishMailboxSyncJob(emailAccountId, leaseToken, result);
+    return result;
+  } catch (error) {
+    await finishMailboxSyncJob(emailAccountId, leaseToken, {
+      retryAfterMs:
+        error instanceof MailboxSyncRequestError
+          ? error.retryAfterMs
+          : undefined,
+    }).catch(() => {});
+    throw error;
+  }
+}
+
+async function syncOwnedMailboxPages({
+  emailAccountId,
+  fetchPage,
+  now,
+  maxPages,
+  leaseToken,
+}: {
+  emailAccountId: string;
+  fetchPage: (input: MailboxSyncInput) => Promise<MailboxSyncResponse>;
+  now?: Date;
+  maxPages: number;
+  leaseToken: string;
+}) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   if (!epoch) return { hasMore: false, pagesSynced: 0 };
   const syncStartedAt = now ?? new Date();
@@ -71,6 +114,9 @@ export async function syncMailboxPages({
   let pagesSynced = 0;
 
   while (hasMore && pagesSynced < maxPages) {
+    if (!(await renewMailboxSyncJob(emailAccountId, leaseToken))) {
+      return { hasMore: true, pagesSynced };
+    }
     const response = await fetchPage(input);
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
       return { hasMore: false, pagesSynced: 0 };
@@ -83,6 +129,7 @@ export async function syncMailboxPages({
       emailAccountId,
       page,
       after: resumeCursor ? undefined : initialAfter,
+      leaseToken,
       now: now?.getTime() ?? Date.now(),
     });
     if (!applied) throw new Error("Mailbox sync page was not persisted");
@@ -124,6 +171,7 @@ export async function fetchMailboxSyncPage(
   input: MailboxSyncInput,
 ): Promise<MailboxSyncResponse> {
   const response = await fetch("/api/mobile/mailbox-sync", {
+    signal: AbortSignal.timeout(90_000),
     method: "POST",
     headers: {
       "Content-Type": "application/json",

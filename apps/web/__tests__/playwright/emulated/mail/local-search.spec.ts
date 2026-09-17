@@ -2,7 +2,11 @@ import type { ThreadListItem } from "@/utils/threads/load";
 import { expect, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  waitForInitialMailboxSync,
+} from "./mail-test-helpers";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
@@ -186,6 +190,9 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
 
 test("ignores delayed responses after the search changes", async ({ page }) => {
   const { emailAccountId, conversations } = await openMail(page);
+  // This is the one cache-seeding test that leaves background sync enabled, so
+  // it has to let the reset page land before seeding rather than race it.
+  await waitForInitialMailboxSync(page, emailAccountId);
   const cachedThread = await seedSearchCache(page, emailAccountId);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {

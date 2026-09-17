@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { MailboxSyncDeferredError } from "@/utils/email-cache/mailbox-sync-job";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -7,6 +8,8 @@ import {
   syncMailboxNow,
   useMailboxSync,
 } from "./use-mailbox-sync";
+
+const activation = vi.hoisted(() => ({ isActivated: vi.fn() }));
 
 const desktop = vi.hoisted(() => ({ getApp: vi.fn() }));
 const mailboxSync = vi.hoisted(() => ({
@@ -17,6 +20,9 @@ const analytics = vi.hoisted(() => ({
   trackSyncResult: vi.fn(),
 }));
 
+vi.mock("@/utils/email-cache/mail-activation", () => ({
+  isMailSyncActivated: activation.isActivated,
+}));
 vi.mock("@/utils/email-cache/mailbox-sync", () => ({
   fetchMailboxSyncPage: mailboxSync.fetchPage,
   syncMailboxPages: mailboxSync.syncPages,
@@ -38,6 +44,7 @@ describe("useMailboxSync", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    activation.isActivated.mockReturnValue(true);
     setOnline(true);
     setVisibility("visible");
     desktop.getApp.mockReturnValue(undefined);
@@ -70,6 +77,7 @@ describe("useMailboxSync", () => {
       emailAccountId: "account-1",
       fetchPage: expect.any(Function),
       maxPages: 1,
+      force: false,
     });
     await settlePromises();
 
@@ -166,6 +174,9 @@ describe("useMailboxSync", () => {
     await act(() => vi.advanceTimersByTimeAsync(0));
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
 
+    expect(mailboxSync.syncPages).toHaveBeenLastCalledWith(
+      expect.objectContaining({ emailAccountId: "account-1", force: true }),
+    );
     rerun.resolve({ hasMore: false, pagesSynced: 1 });
     await settlePromises();
   });
@@ -192,8 +203,93 @@ describe("useMailboxSync", () => {
     await settlePromises();
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
 
+    expect(mailboxSync.syncPages).toHaveBeenLastCalledWith(
+      expect.objectContaining({ emailAccountId: "account-1", force: true }),
+    );
     reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
     await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 1 });
+  });
+
+  it("waits for durable deferrals without reporting a failure or increasing backoff", async () => {
+    mailboxSync.syncPages
+      .mockRejectedValueOnce(new MailboxSyncDeferredError(20_000))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    await settlePromises();
+    expect(analytics.trackSyncResult).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(19_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    await settlePromises();
+    expect(analytics.trackSyncResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({ consecutiveFailures: 1, retryDelayMs: 60_000 }),
+    );
+  });
+
+  it("drops queued background work when disabled before it starts", async () => {
+    const first = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    const second = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    mailboxSync.syncPages
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "blocker-1", enabled: true }),
+    );
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "blocker-2", enabled: true }),
+    );
+    const queued = renderHook(
+      ({ enabled }) => useMailboxSync({ emailAccountId: "account-1", enabled }),
+      { initialProps: { enabled: true } },
+    );
+    queued.rerender({ enabled: false });
+    first.resolve({ hasMore: false, pagesSynced: 1 });
+    second.resolve({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops queued work after another tab revokes activation before React cleanup", async () => {
+    const first = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    const second = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    mailboxSync.syncPages
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "blocker-1", enabled: true }),
+    );
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "blocker-2", enabled: true }),
+    );
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    activation.isActivated.mockImplementation(
+      (id: string) => id !== "account-1",
+    );
+    first.resolve({ hasMore: false, pagesSynced: 1 });
+    second.resolve({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+    await syncMailboxNow("account-1");
+    expect(mailboxSync.syncPages).toHaveBeenLastCalledWith(
+      expect.objectContaining({ emailAccountId: "account-1", force: true }),
+    );
   });
 
   it("backs off repeated failures and resets after recovery", async () => {
