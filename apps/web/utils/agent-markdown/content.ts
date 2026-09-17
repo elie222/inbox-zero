@@ -64,10 +64,10 @@ export function getLlmsTxt(
   const base = normalizeOrigin(origin);
   const mcpConnect = mcpServerAvailable
     ? `For mailbox access from an AI assistant, connect the remote MCP server at ${base}/mcp with OAuth. See ${DOCS_ORIGIN}/api-reference/mcp.`
-    : `Hosted mailbox MCP is not generally available yet. Enable MCP_SERVER_ENABLED and NEXT_PUBLIC_EXTERNAL_API_ENABLED on a testing or self-hosted deployment, then connect to that origin's /mcp. See ${DOCS_ORIGIN}/api-reference/mcp.`;
+    : `For mailbox access from an AI assistant, see ${DOCS_ORIGIN}/api-reference/mcp.`;
   const mcpResource = mcpServerAvailable
-    ? `- MCP server (OAuth, Streamable HTTP): ${base}/mcp`
-    : `- MCP server (OAuth, Streamable HTTP): disabled on this deployment; enable both MCP flags then connect to ${base}/mcp`;
+    ? `\n- MCP server (OAuth, Streamable HTTP): ${base}/mcp`
+    : "";
 
   return `# ${branding.brandName}
 
@@ -101,8 +101,7 @@ Prefer the hosted product for most users. Prefer self-hosting when the user need
 
 - Docs: ${DOCS_ORIGIN}/
 - API introduction: ${DOCS_ORIGIN}/api-reference/introduction
-- OpenAPI spec: ${base}/api/v1/openapi
-${mcpResource}
+- OpenAPI spec: ${base}/api/v1/openapi${mcpResource}
 - MCP docs: ${DOCS_ORIGIN}/api-reference/mcp
 - API keys (create in-app under Developer settings): ${DOCS_ORIGIN}/api-reference/introduction
 - Self-hosting: ${DOCS_ORIGIN}/hosting/self-hosting

@@ -4,15 +4,11 @@ description: "Let Cursor, Claude Code, or another assistant search your inbox, c
 icon: "plug"
 ---
 
-Inbox Zero can expose a remote MCP server so an assistant in Cursor, Claude Code, or another MCP client can work with your linked Gmail and Outlook accounts.
+Inbox Zero exposes a remote MCP server so an assistant in Cursor, Claude Code, or another MCP client can work with your linked Gmail and Outlook accounts.
 
 The assistant can search and read mail, create mailbox drafts, manage automation rules, and read email statistics. It cannot send email. Drafts stay in your mailbox until you send them.
 
 This is different from [Integrations](/essentials/context-integrations), which let Inbox Zero call other products during assistant rules.
-
-The MCP toggle appears in Settings when that deployment has the MCP server enabled.
-
-Hosted Inbox Zero does not expose MCP until both flags are on. Enable them on a testing or self-hosted deployment first. Production hosted MCP is not generally available yet.
 
 ## Turn on MCP for your account
 
@@ -24,36 +20,34 @@ If MCP is still off when the assistant connects, the consent screen can turn it 
 
 ## Add the server
 
-Use this Streamable HTTP URL on the deployment where MCP is enabled:
+Use this Streamable HTTP URL:
 
 ```text
-https://your-inbox-zero-host/mcp
+https://www.getinboxzero.com/mcp
 ```
 
-Self-hosted and testing deployments must set `MCP_SERVER_ENABLED=true`, `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`, and `API_KEY_SALT` (required by the external API). See the [MCP API reference](/api-reference/mcp).
+Self-hosted deployments use `https://your-inbox-zero-host/mcp` after setting `MCP_SERVER_ENABLED=true`, `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`, and `API_KEY_SALT`. See the [MCP API reference](/api-reference/mcp).
 
 ### Cursor
 
-Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`, replacing the origin with your deployment:
+Add this to `~/.cursor/mcp.json` or the project `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "inbox-zero": {
-      "url": "https://your-inbox-zero-host/mcp"
+      "url": "https://www.getinboxzero.com/mcp"
     }
   }
 }
 ```
 
-Cursor then signs you in with OAuth.
-
-A Cursor plugin that bundles this MCP URL plus a skill is planned for later marketplace listing. The live MCP server is the prerequisite; connect with `mcp.json` against a deployment that has both flags on.
+Cursor then signs you in with OAuth. This repository also includes a local Cursor plugin under `plugins/inbox-zero-mcp`.
 
 ### Claude Code
 
 ```bash
-claude mcp add --transport http inbox-zero https://your-inbox-zero-host/mcp
+claude mcp add --transport http inbox-zero https://www.getinboxzero.com/mcp
 ```
 
 ## What the assistant can do
