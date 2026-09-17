@@ -25,7 +25,6 @@ import {
   MESSAGE_LIST_SELECT_FIELDS,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
-  sanitizeOutlookSearchQuery,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -37,6 +36,7 @@ import {
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { buildOutlookThreadSearchQuery } from "@/utils/outlook/thread-search-query";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
@@ -2051,7 +2051,7 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const searchQuery = sanitizeOutlookSearchQuery(options.query).sanitized;
+    const searchQuery = buildOutlookThreadSearchQuery(options.query);
     if (!searchQuery) return { threads: [] };
 
     const client = this.client.getClient();
