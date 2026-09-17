@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { TagIcon } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MailSidebar, type MailSidebarProps } from "./MailSidebar";
 
@@ -131,6 +132,31 @@ describe("MailSidebar", () => {
     rerender(sidebar({ activeType: "inbox" }));
 
     expect(screen.getByText("Trash")).toBeDefined();
+  });
+
+  it("closes the Categories group in the rail once its view is left behind", () => {
+    const categories = [
+      { name: "Promotions", type: "CATEGORY_PROMOTIONS", Icon: TagIcon },
+    ];
+    const { rerender } = renderSidebar({
+      activeType: "CATEGORY_PROMOTIONS",
+      categories,
+      collapsibleCategories: true,
+      collapsed: true,
+    });
+
+    expect(screen.getByText("Promotions")).toBeDefined();
+
+    rerender(
+      sidebar({
+        activeType: "inbox",
+        categories,
+        collapsibleCategories: true,
+        collapsed: true,
+      }),
+    );
+
+    expect(screen.queryByText("Promotions")).toBeNull();
   });
 
   it("leaves the extra views out of the combined inbox", () => {

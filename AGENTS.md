@@ -12,7 +12,7 @@
 - Run focused browser test: `pnpm -F inbox-zero-ai test:playwright:emulated <area-or-spec>`; for browser-facing UI changes, inspect the generated screenshots before finishing
 - Moving, renaming, or hiding a UI affordance breaks specs that select it by visible name. Grep `__tests__/playwright` for that name before pushing, and never pipe the grep through `head` — a truncated result read as complete misses call sites. Screenshots will not catch this; the UI still looks right.
 - Waiting on slow work (CI, a Playwright run, a build): background one command that exits when the work is actually done. The harness notifies you when it exits, so a polling loop on top of it only duplicates that signal.
-- Bound anything that can hang with `timeout <seconds>` so it always exits and reports rather than waiting forever. If you must match on log output, anchor the pattern to the real summary line (`^\s+[0-9]+ (passed|failed)`), not a bare `failed` that startup banners also contain.
+- Bound anything that can hang so it always exits and reports rather than waiting forever. `timeout(1)` is not on macOS; use the Bash tool's own `timeout` parameter, or `perl -e 'alarm shift; exec @ARGV' <seconds> <command>`. If you must match on log output, anchor the pattern to the real summary line (`^\s+[0-9]+ (passed|failed)`), not a bare `failed` that startup banners also contain.
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`

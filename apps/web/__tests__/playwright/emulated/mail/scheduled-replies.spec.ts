@@ -249,6 +249,52 @@ test("schedules a new message from the composer", async ({
   }
 });
 
+test("adds a newly scheduled message to the Scheduled view already on screen", async ({
+  page,
+}, testInfo) => {
+  page.setDefaultTimeout(20_000);
+  const { emailAccountId } = await openMail(page);
+  const subject = `Playwright Scheduled View ${testInfo.retry}`;
+  await page.goto(`/${emailAccountId}/mail?type=scheduled`, {
+    waitUntil: "domcontentloaded",
+  });
+  // The list stops polling once nothing is pending, so a row can only appear
+  // here if scheduling invalidates its cache.
+  await expect(page.getByText(/Nothing scheduled/)).toBeVisible({
+    timeout: 60_000,
+  });
+
+  try {
+    await page.getByRole("button", { name: /^Compose/ }).click();
+    const dialog = page.getByRole("dialog", { name: "New Message" });
+    await dialog
+      .getByRole("combobox", { name: "To" })
+      .fill("recipient@example.com");
+    await dialog.getByPlaceholder("Subject").fill(subject);
+    await dialog
+      .locator("[contenteditable='true']")
+      .pressSequentially("A scheduled message body.");
+    await dialog
+      .getByRole("button", { name: "Send later", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Send later" })
+      .getByRole("button", { name: /Tomorrow morning/ })
+      .click();
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText(subject, { exact: true })).toBeVisible();
+  } finally {
+    await withClient((client) =>
+      client.query(
+        `DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+  }
+});
+
 async function openReply(page: Page) {
   page.setDefaultTimeout(20_000);
   page.setDefaultNavigationTimeout(30_000);

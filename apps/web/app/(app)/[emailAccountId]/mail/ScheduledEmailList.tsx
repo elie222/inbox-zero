@@ -12,6 +12,7 @@ import {
 } from "@/utils/actions/scheduled-email";
 import { getActionErrorMessage } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 type ScheduledEmail =
   UpcomingScheduledEmailsResponse["scheduledEmails"][number];
@@ -121,6 +122,16 @@ export function ScheduledEmailList() {
                       >
                         Cancel send
                       </InlineActionButton>
+                    )}
+                    {row.status === "UNCERTAIN" && (
+                      // Neither cancel nor retry accepts an uncertain row, so
+                      // this is the only way to resolve one.
+                      <a
+                        className="text-xs underline underline-offset-4"
+                        href={prefixPath(emailAccountId, "/mail?type=sent")}
+                      >
+                        Check Sent
+                      </a>
                     )}
                     {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                       <InlineActionButton

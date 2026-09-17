@@ -193,15 +193,17 @@ export function MailSidebar({
     categories.some((category) => category.type === activeType);
   const [showCategories, setShowCategories] = useState(isCategoryActive);
   const [showLabels, setShowLabels] = useState(true);
-  const showCategoryRows = !collapsibleCategories || showCategories;
+  // Nothing in the rail can toggle a group, so there a group follows the open
+  // view rather than a stored choice, which would otherwise be a one-way door.
+  // The expanded sidebar keeps whatever the user chose.
+  const showCategoryRows =
+    !collapsibleCategories || (collapsed ? isCategoryActive : showCategories);
 
   const isMailboxActive =
     !activeLabelId &&
     !activeFolderId &&
     MAILBOX_ITEMS.some((item) => item.type === activeType);
   const [showMailboxes, setShowMailboxes] = useState(isMailboxActive);
-  // Nothing in the rail can toggle the group, so leaving its views is the only
-  // way to close it there. The expanded sidebar keeps whatever the user chose.
   const showMailboxRows = collapsed ? isMailboxActive : showMailboxes;
 
   useEffect(() => {
