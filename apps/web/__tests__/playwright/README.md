@@ -26,6 +26,16 @@ into the app, so a spec can follow a real checkout through to the `Premium`
 row. Specs drive Stripe-side events through its control endpoints; run it
 outside Playwright with `pnpm emulate:stripe`.
 
+Every model role is pointed at the in-repo LLM emulator in
+`__tests__/emulators/llm.ts`, an OpenAI-compatible server the app reaches
+through the real AI SDK. By default it returns the smallest answer that
+satisfies the request: a schema-valid object for structured calls, schema-valid
+arguments for forced tool calls, and a short line of text otherwise. Specs that
+need a particular answer register one with `POST /__emulator/replies` on
+`PLAYWRIGHT_LLM_BASE_URL`, matched by a prompt substring, and can read what the
+app asked from `GET /__emulator/requests`. Run it outside Playwright with
+`pnpm emulate:llm`.
+
 The package-level emulated command runs each spec with a fresh Next process,
 emulator, and authenticated mailbox, then merges the reports. Tests inside a
 spec remain serial. This avoids state leaking between specs and bounds the
