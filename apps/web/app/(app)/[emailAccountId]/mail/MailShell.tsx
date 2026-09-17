@@ -1678,9 +1678,7 @@ export function MailShell() {
               searchFolders={
                 isOutlook && !isAllAccounts ? getMailSearchFolders(folders) : []
               }
-              searchVariant={
-                isAllAccounts ? "common" : isOutlook ? "outlook" : "gmail"
-              }
+              searchVariant={getMailSearchVariant({ isAllAccounts, isOutlook })}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
@@ -2023,6 +2021,18 @@ function getMailNavPath(target: MailNavTarget): `/${string}` {
     case "type":
       return `/mail?type=${encodeURIComponent(target.type)}`;
   }
+}
+
+function getMailSearchVariant({
+  isAllAccounts,
+  isOutlook,
+}: {
+  isAllAccounts: boolean;
+  isOutlook: boolean;
+}): "gmail" | "outlook" | "common" {
+  if (isAllAccounts) return "common";
+  if (isOutlook) return "outlook";
+  return "gmail";
 }
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];

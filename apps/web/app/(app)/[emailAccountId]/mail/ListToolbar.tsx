@@ -54,7 +54,7 @@ export type ListToolbarProps = {
   onSearchChange: (query: string) => void;
   /** Lets `/` focus the mail search field from the shortcut handler. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
-  /** User labels offered in the Gmail-style Search dropdown. */
+  /** Gmail labels or Outlook categories offered in the Search dropdown. */
   searchLabels?: { name: string }[];
   searchFolders?: { name: string }[];
   searchVariant?: "gmail" | "outlook" | "common";
@@ -485,32 +485,55 @@ function MailSearchInput({
         }}
       >
         {filtersOpen ? (
-          searchVariant === "outlook" ? (
-            <OutlookSearchFiltersForm
-              key={filterDraft}
-              initialFields={parseOutlookSearchQuery(filterDraft)}
-              folders={searchFolders}
-              categories={searchLabels}
-              onSearch={(query) => {
-                commitSearch(query);
-                setFiltersOpen(false);
-              }}
-            />
-          ) : (
-            <MailSearchFiltersForm
-              key={filterDraft}
-              initialFields={parseMailSearchQuery(filterDraft)}
-              extraLocations={searchLabels}
-              variant={searchVariant === "common" ? "common" : "gmail"}
-              onSearch={(query) => {
-                commitSearch(query);
-                setFiltersOpen(false);
-              }}
-            />
-          )
+          <AdvancedSearchForm
+            filterDraft={filterDraft}
+            searchFolders={searchFolders}
+            searchLabels={searchLabels}
+            searchVariant={searchVariant}
+            onSearch={(query) => {
+              commitSearch(query);
+              setFiltersOpen(false);
+            }}
+          />
         ) : null}
       </PopoverContent>
     </Popover>
+  );
+}
+
+function AdvancedSearchForm({
+  filterDraft,
+  searchFolders,
+  searchLabels,
+  searchVariant,
+  onSearch,
+}: {
+  filterDraft: string;
+  searchFolders: { name: string }[];
+  searchLabels: { name: string }[];
+  searchVariant: "gmail" | "outlook" | "common";
+  onSearch: (query: string) => void;
+}) {
+  if (searchVariant === "outlook") {
+    return (
+      <OutlookSearchFiltersForm
+        key={filterDraft}
+        initialFields={parseOutlookSearchQuery(filterDraft)}
+        folders={searchFolders}
+        categories={searchLabels}
+        onSearch={onSearch}
+      />
+    );
+  }
+
+  return (
+    <MailSearchFiltersForm
+      key={filterDraft}
+      initialFields={parseMailSearchQuery(filterDraft)}
+      extraLocations={searchLabels}
+      variant={searchVariant === "common" ? "common" : "gmail"}
+      onSearch={onSearch}
+    />
   );
 }
 

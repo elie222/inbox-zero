@@ -2093,12 +2093,15 @@ export class OutlookProvider implements EmailProvider {
           maxResults: options.maxResults,
         });
 
-    const requiredLabelIds = [
-      ...(compiled.flagged && compiled.search ? [OutlookLabel.STARRED] : []),
-      ...(compiled.category && compiled.search
-        ? [categoryMap.get(compiled.category) ?? compiled.category]
-        : []),
-    ];
+    const requiredLabelIds: string[] = [];
+    if (compiled.search) {
+      if (compiled.flagged) requiredLabelIds.push(OutlookLabel.STARRED);
+      if (compiled.category) {
+        requiredLabelIds.push(
+          categoryMap.get(compiled.category) ?? compiled.category,
+        );
+      }
+    }
 
     let threads = buildOutlookThreadsFromMessages({
       messages: response.value,

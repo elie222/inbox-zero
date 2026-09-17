@@ -69,17 +69,13 @@ const SEARCH_IN_OPERATOR: Record<string, string> = {
   deleted: "in:deleted",
 };
 
-const OPERATOR_TO_SEARCH_IN: Record<string, string> = {
-  "in:inbox": "inbox",
-  "is:flagged": "flagged",
-  "in:sent": "sent",
-  "in:drafts": "drafts",
-  "in:archive": "archive",
-  "in:junk": "junk",
-  "in:deleted": "deleted",
-};
+const OPERATOR_TO_SEARCH_IN: Record<string, string> = Object.fromEntries(
+  Object.entries(SEARCH_IN_OPERATOR).map(([searchIn, operator]) => [
+    operator,
+    searchIn,
+  ]),
+);
 
-/** Turns the Outlook advanced-search form into an Outlook query string. */
 export function buildOutlookSearchQuery(fields: OutlookSearchFields): string {
   const parts: string[] = [];
 
@@ -114,7 +110,6 @@ export function buildOutlookSearchQuery(fields: OutlookSearchFields): string {
   return parts.join(" ");
 }
 
-/** Fills the Outlook advanced-search form from a typed or previously composed query. */
 export function parseOutlookSearchQuery(query: string): OutlookSearchFields {
   const fields: OutlookSearchFields = { ...EMPTY_OUTLOOK_SEARCH_FIELDS };
   const keywords: string[] = [];
@@ -150,7 +145,7 @@ export function parseOutlookSearchQuery(query: string): OutlookSearchFields {
     }
 
     if (!parsed.field) {
-      if (token) keywords.push(token);
+      keywords.push(token);
       continue;
     }
 
@@ -159,59 +154,54 @@ export function parseOutlookSearchQuery(query: string): OutlookSearchFields {
       continue;
     }
 
-    if (parsed.field === "from") {
-      assignSingle(fields, "from", parsed.value, token, keywords);
-      continue;
-    }
-    if (parsed.field === "to") {
-      assignSingle(fields, "to", parsed.value, token, keywords);
-      continue;
-    }
-    if (parsed.field === "subject") {
-      assignSingle(fields, "subject", parsed.value, token, keywords);
-      continue;
-    }
-    if (
-      parsed.field === "hasattachments" &&
-      /^(true|yes)$/i.test(parsed.value)
-    ) {
-      fields.hasAttachment = true;
-      continue;
-    }
-    if (parsed.field === "size" && parsed.comparator) {
-      const size = parseSizeValue(parsed.value, parsed.comparator);
-      if (!size || fields.sizeValue) {
-        keywords.push(token);
+    switch (parsed.field) {
+      case "from":
+      case "to":
+      case "subject":
+        assignSingle(fields, parsed.field, parsed.value, token, keywords);
+        continue;
+      case "hasattachments":
+        if (/^(true|yes)$/i.test(parsed.value)) {
+          fields.hasAttachment = true;
+          continue;
+        }
+        break;
+      case "size": {
+        if (!parsed.comparator) break;
+        const size = parseSizeValue(parsed.value, parsed.comparator);
+        if (!size || fields.sizeValue) {
+          keywords.push(token);
+          continue;
+        }
+        fields.sizeComparison = size.comparison;
+        fields.sizeValue = size.value;
+        fields.sizeUnit = size.unit;
         continue;
       }
-      fields.sizeComparison = size.comparison;
-      fields.sizeValue = size.value;
-      fields.sizeUnit = size.unit;
-      continue;
-    }
-    if (parsed.field === "received" && parsed.comparator) {
-      const date = parseOutlookDate(parsed.value);
-      if (!date) {
-        keywords.push(token);
+      case "received": {
+        if (!parsed.comparator) break;
+        const date = parseOutlookDate(parsed.value);
+        if (!date) {
+          keywords.push(token);
+          continue;
+        }
+        if (parsed.comparator === ">=" || parsed.comparator === ">") {
+          receivedAfter = date;
+          afterToken = token;
+        } else {
+          receivedBefore = date;
+          beforeToken = token;
+        }
         continue;
       }
-      if (parsed.comparator === ">=" || parsed.comparator === ">") {
-        receivedAfter = date;
-        afterToken = token;
-      } else {
-        receivedBefore = date;
-        beforeToken = token;
-      }
-      continue;
+      case "folder":
+        assignSearchIn(fields, `folder:${parsed.value}`, token, keywords);
+        continue;
+      case "category":
+        assignSearchIn(fields, `category:${parsed.value}`, token, keywords);
+        continue;
     }
-    if (parsed.field === "folder") {
-      assignSearchIn(fields, `folder:${parsed.value}`, token, keywords);
-      continue;
-    }
-    if (parsed.field === "category") {
-      assignSearchIn(fields, `category:${parsed.value}`, token, keywords);
-      continue;
-    }
+
     const searchIn =
       OPERATOR_TO_SEARCH_IN[`${parsed.field}:${parsed.value.toLowerCase()}`];
     if (searchIn) {
@@ -263,8 +253,8 @@ function buildDateQuery(fields: OutlookSearchFields): string[] {
       (option) => option.value === fields.dateWithin,
     )?.days ?? 1;
   return [
-    `received>=${formatOutlookDate(addDays(center, -days))}`,
-    `received<${formatOutlookDate(addDays(center, days))}`,
+    `received>=${formatInputDate(addDays(center, -days))}`,
+    `received<${formatInputDate(addDays(center, days))}`,
   ];
 }
 
@@ -376,10 +366,6 @@ function parseOutlookDate(value: string): Date | null {
   if (date.getMonth() + 1 !== Number(match[2])) return null;
   if (date.getDate() !== Number(match[3])) return null;
   return date;
-}
-
-function formatOutlookDate(date: Date): string {
-  return formatInputDate(date);
 }
 
 function formatInputDate(date: Date): string {

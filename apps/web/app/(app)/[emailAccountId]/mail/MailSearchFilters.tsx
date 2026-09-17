@@ -227,42 +227,40 @@ export function MailSearchFiltersForm({
               </SelectContent>
             </Select>
           </FilterField>
-        </>
-      ) : null}
 
-      {isGmail ? (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="mail-search-has-attachment"
-              checked={fields.hasAttachment}
-              onCheckedChange={(checked) =>
-                update("hasAttachment", checked === true)
-              }
-            />
-            <Label
-              htmlFor="mail-search-has-attachment"
-              className="font-normal text-sm"
-            >
-              Has attachment
-            </Label>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="mail-search-has-attachment"
+                checked={fields.hasAttachment}
+                onCheckedChange={(checked) =>
+                  update("hasAttachment", checked === true)
+                }
+              />
+              <Label
+                htmlFor="mail-search-has-attachment"
+                className="font-normal text-sm"
+              >
+                Has attachment
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="mail-search-exclude-chats"
+                checked={fields.excludeChats}
+                onCheckedChange={(checked) =>
+                  update("excludeChats", checked === true)
+                }
+              />
+              <Label
+                htmlFor="mail-search-exclude-chats"
+                className="font-normal text-sm"
+              >
+                Don't include chats
+              </Label>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="mail-search-exclude-chats"
-              checked={fields.excludeChats}
-              onCheckedChange={(checked) =>
-                update("excludeChats", checked === true)
-              }
-            />
-            <Label
-              htmlFor="mail-search-exclude-chats"
-              className="font-normal text-sm"
-            >
-              Don't include chats
-            </Label>
-          </div>
-        </div>
+        </>
       ) : null}
 
       <div className="flex justify-end pt-1">

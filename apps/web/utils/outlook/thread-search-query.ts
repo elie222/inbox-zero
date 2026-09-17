@@ -16,6 +16,20 @@ export type CompiledOutlookSearch = {
   category?: string;
 };
 
+type OutlookSearchToken = {
+  excluded: boolean;
+  field: string | null;
+  comparator: ":" | ">" | ">=" | "<" | "<=" | null;
+  value: string;
+};
+
+type OutlookSearchScope = {
+  folderKey?: OutlookWellKnownFolder;
+  folderName?: string;
+  flagged: boolean;
+  category?: string;
+};
+
 const FOLDER_KEY_BY_IN_VALUE: Record<string, OutlookWellKnownFolder> = {
   inbox: "inbox",
   sent: "sentitems",
@@ -24,6 +38,8 @@ const FOLDER_KEY_BY_IN_VALUE: Record<string, OutlookWellKnownFolder> = {
   junk: "junkemail",
   deleted: "deleteditems",
 };
+
+const KQL_TEXT_FIELDS = new Set(["from", "to", "subject"]);
 
 /**
  * Compiles an Outlook search-box query into Graph `$search` KQL plus the
@@ -34,10 +50,7 @@ export function compileOutlookThreadSearch(
 ): CompiledOutlookSearch {
   const included: string[] = [];
   const excluded: string[] = [];
-  let folderKey: OutlookWellKnownFolder | undefined;
-  let folderName: string | undefined;
-  let flagged = false;
-  let category: string | undefined;
+  const scope: OutlookSearchScope = { flagged: false };
 
   const tokens = tokenizeSearchQuery(query);
   for (let index = 0; index < tokens.length; index++) {
@@ -54,35 +67,15 @@ export function compileOutlookThreadSearch(
     }
 
     const parsed = parseOutlookSearchToken(token);
-    if (parsed.field === "in") {
-      if (!parsed.excluded) {
-        const key = FOLDER_KEY_BY_IN_VALUE[parsed.value.toLowerCase()];
-        if (key && !folderKey && !folderName) folderKey = key;
-      }
-      continue;
-    }
-    if (parsed.field === "folder") {
-      if (!parsed.excluded && parsed.value && !folderKey && !folderName) {
-        folderName = parsed.value;
-      }
-      continue;
-    }
-    if (parsed.field === "is" && parsed.value.toLowerCase() === "flagged") {
-      if (!parsed.excluded) flagged = true;
-      continue;
-    }
-    if (parsed.field === "category") {
-      if (!parsed.excluded && parsed.value && !category) {
-        category = parsed.value;
-      }
-      continue;
-    }
+    if (applyOutlookSearchScope(parsed, scope)) continue;
 
     const term = toKqlTerm(parsed);
     if (!term) continue;
     if (parsed.excluded) excluded.push(`NOT ${term}`);
     else included.push(term);
   }
+
+  const { folderKey, folderName, flagged, category } = scope;
 
   if (!included.length && !excluded.length) {
     return { search: "", folderKey, folderName, flagged, category };
@@ -109,12 +102,7 @@ export function isEmptyOutlookSearch(compiled: CompiledOutlookSearch): boolean {
   );
 }
 
-export function parseOutlookSearchToken(token: string): {
-  excluded: boolean;
-  field: string | null;
-  comparator: ":" | ">" | ">=" | "<" | "<=" | null;
-  value: string;
-} {
+export function parseOutlookSearchToken(token: string): OutlookSearchToken {
   const excluded = token.startsWith("-") && token.length > 1;
   const raw = excluded ? token.slice(1) : token;
   if (raw.startsWith('"')) {
@@ -139,19 +127,52 @@ export function parseOutlookSearchToken(token: string): {
   return {
     excluded,
     field: match[1].toLowerCase(),
-    comparator: match[2] as ":" | ">" | ">=" | "<" | "<=",
+    comparator: match[2] as OutlookSearchToken["comparator"],
     value: unquoteSearchValue(match[3]),
   };
 }
 
-function toKqlTerm(
-  parsed: ReturnType<typeof parseOutlookSearchToken>,
-): string | null {
+function applyOutlookSearchScope(
+  parsed: OutlookSearchToken,
+  scope: OutlookSearchScope,
+): boolean {
+  if (parsed.field === "in") {
+    if (!parsed.excluded) {
+      const key = FOLDER_KEY_BY_IN_VALUE[parsed.value.toLowerCase()];
+      if (key && !scope.folderKey && !scope.folderName) scope.folderKey = key;
+    }
+    return true;
+  }
+  if (parsed.field === "folder") {
+    if (
+      !parsed.excluded &&
+      parsed.value &&
+      !scope.folderKey &&
+      !scope.folderName
+    ) {
+      scope.folderName = parsed.value;
+    }
+    return true;
+  }
+  if (parsed.field === "is" && parsed.value.toLowerCase() === "flagged") {
+    if (!parsed.excluded) scope.flagged = true;
+    return true;
+  }
+  if (parsed.field === "category") {
+    if (!parsed.excluded && parsed.value && !scope.category) {
+      scope.category = parsed.value;
+    }
+    return true;
+  }
+  return false;
+}
+
+function toKqlTerm(parsed: OutlookSearchToken): string | null {
   const { field, comparator, value } = parsed;
 
   if (!field) return toKqlValue(value);
 
-  if (field === "from" || field === "to" || field === "subject") {
+  if (KQL_TEXT_FIELDS.has(field)) {
     const kqlValue = toKqlValue(value);
     return kqlValue ? `${field}:${kqlValue}` : null;
   }

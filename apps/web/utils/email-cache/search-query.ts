@@ -50,36 +50,16 @@ export function parseLocalSearch(
         return;
       // Gmail interprets calendar dates at midnight PST, independent of the device timezone.
       terms.push({ field, value: Date.parse(`${date}T00:00:00-08:00`) });
-    } else if (
-      field === "in" ||
-      field === "is" ||
-      field === "label" ||
-      field === "category"
-    ) {
+    } else if (LOCATION_FIELDS.has(field)) {
       if (field === "in" && value === "anywhere") {
         includeSpamTrash = true;
         continue;
       }
-      const systemLabels: Record<string, string> = {
-        inbox: "INBOX",
-        sent: "SENT",
-        drafts: "DRAFT",
-        draft: "DRAFT",
-        spam: "SPAM",
-        junk: "SPAM",
-        trash: "TRASH",
-        deleted: "TRASH",
-        archive: "ARCHIVE",
-        unread: "UNREAD",
-        starred: "STARRED",
-        flagged: "STARRED",
-      };
-      const label =
-        field === "label" || field === "category"
-          ? (labels.find(
-              (label) => label.name.normalize("NFKC").toLowerCase() === value,
-            )?.id ?? systemLabels[value])
-          : systemLabels[value];
+      const label = NAMED_LABEL_FIELDS.has(field)
+        ? (labels.find(
+            (label) => label.name.normalize("NFKC").toLowerCase() === value,
+          )?.id ?? SYSTEM_SEARCH_LABELS[value])
+        : SYSTEM_SEARCH_LABELS[value];
       if (!label) return;
       if (label === "SPAM" || label === "TRASH") includeSpamTrash = true;
       terms.push({ field: "label", value: label });
@@ -135,3 +115,20 @@ export function getNormalizedSearchText(
         : message.headers[field];
   return (text ?? "").normalize("NFKC").toLowerCase();
 }
+
+const LOCATION_FIELDS = new Set(["in", "is", "label", "category"]);
+const NAMED_LABEL_FIELDS = new Set(["label", "category"]);
+const SYSTEM_SEARCH_LABELS: Record<string, string> = {
+  inbox: "INBOX",
+  sent: "SENT",
+  drafts: "DRAFT",
+  draft: "DRAFT",
+  spam: "SPAM",
+  junk: "SPAM",
+  trash: "TRASH",
+  deleted: "TRASH",
+  archive: "ARCHIVE",
+  unread: "UNREAD",
+  starred: "STARRED",
+  flagged: "STARRED",
+};
