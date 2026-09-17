@@ -23,9 +23,11 @@ export function isNotFoundError(error: unknown) {
   );
 }
 
+// Driver adapters report either the violated fields or, when Postgres only
+// names the index, the index name (e.g. `Rule_name_emailAccountId_key`).
 function getDriverAdapterConstraintFields(
   meta: Record<string, unknown> | undefined,
-): string[] | undefined {
+): string[] | string | undefined {
   const driverAdapterError = meta?.driverAdapterError;
   if (!isRecord(driverAdapterError)) return;
 
@@ -38,11 +40,14 @@ function getDriverAdapterConstraintFields(
     return;
   }
 
-  const fields = cause.constraint.fields;
-  return Array.isArray(fields) &&
+  const { fields, index } = cause.constraint;
+  if (
+    Array.isArray(fields) &&
     fields.every((field): field is string => typeof field === "string")
-    ? fields
-    : undefined;
+  ) {
+    return fields;
+  }
+  return typeof index === "string" ? index : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
