@@ -44,7 +44,13 @@ export function getSearchFocus({
   ) {
     if (!orderedIds.length) return previous;
     const retainedIndex = orderedIds.indexOf(previous.key);
-    if (retainedIndex >= 0) nextIndex = retainedIndex;
+    // A retained row that is gone from a shorter result set would otherwise
+    // leave the cursor past the end, where appended rows later land on an
+    // unrelated thread.
+    nextIndex =
+      retainedIndex >= 0
+        ? retainedIndex
+        : Math.min(nextIndex, orderedIds.length - 1);
   }
   return { view, key: orderedIds[nextIndex], index: nextIndex };
 }
