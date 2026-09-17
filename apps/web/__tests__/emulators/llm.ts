@@ -340,6 +340,10 @@ function fillNumber(schema: JsonSchema) {
     return schema.exclusiveMinimum + 1;
   }
   if (typeof schema.minimum === "number") return schema.minimum;
+  if (typeof schema.exclusiveMaximum === "number") {
+    return Math.min(0, schema.exclusiveMaximum - 1);
+  }
+  if (typeof schema.maximum === "number") return Math.min(0, schema.maximum);
   return 0;
 }
 
@@ -357,7 +361,10 @@ function fillString(schema: JsonSchema) {
     default: {
       const minLength =
         typeof schema.minLength === "number" ? schema.minLength : 0;
-      return DEFAULT_TEXT.slice(0, -1).padEnd(minLength, ".");
+      const text = DEFAULT_TEXT.slice(0, -1).padEnd(minLength, ".");
+      return typeof schema.maxLength === "number"
+        ? text.slice(0, schema.maxLength)
+        : text;
     }
   }
 }

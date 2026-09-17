@@ -29,9 +29,11 @@ const stripeBaseUrl =
   process.env.PLAYWRIGHT_STRIPE_BASE_URL ??
   `http://127.0.0.1:${await getAvailablePort()}`;
 const stripePort = getUrlPort(stripeBaseUrl);
+// Set PLAYWRIGHT_LLM_BASE_URL to run against an external OpenAI-compatible
+// server (serving a model named `emulated`) instead of the in-repo emulator.
+const externalLlmBaseUrl = process.env.PLAYWRIGHT_LLM_BASE_URL;
 const llmBaseUrl =
-  process.env.PLAYWRIGHT_LLM_BASE_URL ??
-  `http://127.0.0.1:${await getAvailablePort()}`;
+  externalLlmBaseUrl ?? `http://127.0.0.1:${await getAvailablePort()}`;
 const llmPort = getUrlPort(llmBaseUrl);
 const llmModelName = "emulated";
 const stripeSecretKey = "playwright-stripe-key";
@@ -190,16 +192,20 @@ export default defineConfig({
         STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
       },
     },
-    {
-      name: "LLM emulator",
-      stdout: "pipe",
-      command: `pnpm exec tsx scripts/run-llm-emulator.ts ${llmPort}`,
-      cwd: process.cwd(),
-      url: `${llmBaseUrl}/health`,
-      timeout: 60_000,
-      reuseExistingServer: false,
-      env: { ...process.env, LLM_EMULATOR_MODEL: llmModelName },
-    },
+    ...(externalLlmBaseUrl
+      ? []
+      : [
+          {
+            name: "LLM emulator",
+            stdout: "pipe",
+            command: `pnpm exec tsx scripts/run-llm-emulator.ts ${llmPort}`,
+            cwd: process.cwd(),
+            url: `${llmBaseUrl}/health`,
+            timeout: 60_000,
+            reuseExistingServer: false,
+            env: { ...process.env, LLM_EMULATOR_MODEL: llmModelName },
+          },
+        ]),
     {
       name: "Next.js",
       stdout: "pipe",
@@ -239,8 +245,7 @@ export default defineConfig({
         API_KEY_SALT: process.env.API_KEY_SALT ?? "playwright-api-key-salt",
         INTERNAL_API_KEY: internalApiKey,
         // Every model role resolves to the emulator so no spec depends on a
-        // live provider. Point PLAYWRIGHT_LLM_BASE_URL at a real
-        // OpenAI-compatible server to run against a real model locally.
+        // live provider.
         DEFAULT_LLMS: `openai-compatible:${llmModelName}`,
         ECONOMY_LLMS: "",
         CHAT_LLMS: "",

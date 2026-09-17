@@ -43,6 +43,8 @@ describe("isDuplicateError", () => {
     );
 
     expect(isDuplicateError(error, "name")).toBe(true);
+    expect(isDuplicateError(error, ["name", "emailAccountId"])).toBe(true);
+    expect(isDuplicateError(error, "email")).toBe(false);
     expect(isDuplicateError(error, "systemType")).toBe(false);
   });
 });

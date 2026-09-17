@@ -127,6 +127,20 @@ describe("LLM emulator through the AI SDK", () => {
 });
 
 describe("fillJsonSchema", () => {
+  it("honors upper bounds", () => {
+    expect(
+      fillJsonSchema({
+        type: "object",
+        required: ["negative", "belowZero", "short"],
+        properties: {
+          negative: { type: "integer", maximum: -1 },
+          belowZero: { type: "number", exclusiveMaximum: 0 },
+          short: { type: "string", maxLength: 8 },
+        },
+      }),
+    ).toEqual({ negative: -1, belowZero: -1, short: "Emulated" });
+  });
+
   it("follows refs, honors minimums, and prefers null when allowed", () => {
     expect(
       fillJsonSchema({
