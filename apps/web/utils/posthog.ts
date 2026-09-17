@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { PostHog } from "posthog-node";
 import type { Properties } from "posthog-js";
 import { env } from "@/env";
@@ -32,7 +33,9 @@ const FEATURE_FLAG_TIMEOUT_MS = 2000;
 // Server-side experiment lookup. Keyed by the same distinct id the browser
 // identifies with (the user's email) so assignment and exposure line up with
 // client-side flag calls. Falls back to undefined on any failure or timeout so
-// a PostHog outage never blocks a page.
+// a PostHog outage never blocks a page. The exposure event is flushed after
+// the response, since a redirect would otherwise end the request before the
+// client's background send completes.
 export async function getServerFeatureFlagVariant({
   key,
   distinctId,
@@ -50,6 +53,11 @@ export async function getServerFeatureFlagVariant({
         setTimeout(resolve, FEATURE_FLAG_TIMEOUT_MS),
       ),
     ]);
+    after(() =>
+      client.flush().catch((error) => {
+        logger.warn("Failed to flush feature flag exposure", { key, error });
+      }),
+    );
     return typeof variant === "string" ? variant : undefined;
   } catch (error) {
     logger.warn("Failed to evaluate feature flag", { key, error });

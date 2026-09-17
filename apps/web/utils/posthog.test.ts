@@ -19,14 +19,21 @@ vi.mock("@/env", () => ({
 const captureMock = vi.fn();
 const flushMock = vi.fn().mockResolvedValue(undefined);
 const shutdownMock = vi.fn();
+const getFeatureFlagMock = vi.fn();
+const { afterMock } = vi.hoisted(() => ({
+  afterMock: vi.fn((callback: () => unknown) => callback()),
+}));
 
 vi.mock("posthog-node", () => ({
   PostHog: class PostHogMock {
     capture = captureMock;
     flush = flushMock;
     shutdown = shutdownMock;
+    getFeatureFlag = getFeatureFlagMock;
   },
 }));
+
+vi.mock("next/server", () => ({ after: afterMock }));
 
 vi.mock("@/utils/redis", () => ({
   redis: {
@@ -41,6 +48,7 @@ import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
   getCheckoutSessionIdHash,
+  getServerFeatureFlagVariant,
   posthogCaptureEvent,
   trackFirstTimeEvent,
   trackProductFeedback,
@@ -353,5 +361,50 @@ describe("posthogCaptureEvent", () => {
     ).resolves.toBe(true);
 
     expect(catchSpy).toHaveBeenCalledOnce();
+  });
+});
+
+describe("getServerFeatureFlagVariant", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the variant and flushes the exposure after the response", async () => {
+    getFeatureFlagMock.mockResolvedValue("paywall-first");
+
+    const variant = await getServerFeatureFlagVariant({
+      key: "onboarding-paywall-first",
+      distinctId: "user@example.com",
+    });
+
+    expect(variant).toBe("paywall-first");
+    expect(getFeatureFlagMock).toHaveBeenCalledWith(
+      "onboarding-paywall-first",
+      "user@example.com",
+    );
+    expect(afterMock).toHaveBeenCalledOnce();
+    expect(flushMock).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to undefined when the lookup fails", async () => {
+    getFeatureFlagMock.mockRejectedValue(new Error("network"));
+
+    expect(
+      await getServerFeatureFlagVariant({
+        key: "onboarding-paywall-first",
+        distinctId: "user@example.com",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("treats boolean flags as no variant", async () => {
+    getFeatureFlagMock.mockResolvedValue(true);
+
+    expect(
+      await getServerFeatureFlagVariant({
+        key: "integration-actions",
+        distinctId: "user@example.com",
+      }),
+    ).toBeUndefined();
   });
 });

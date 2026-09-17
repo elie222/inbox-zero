@@ -27,7 +27,7 @@ test("control arm opens onboarding on the first step with no paywall", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/onboarding?variant=control`);
+  await page.goto(`/${emailAccountId}/onboarding`);
   await expect(
     page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
   ).toBeVisible({ timeout: 60_000 });

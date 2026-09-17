@@ -28,7 +28,6 @@ export default async function OnboardingPage(props: {
   searchParams: Promise<{
     step?: string | string[];
     force?: string | string[];
-    variant?: string | string[];
     paywallFirst?: string | string[];
   }>;
 }) {
@@ -39,7 +38,6 @@ export default async function OnboardingPage(props: {
   ]);
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
-  const variant = getSingleSearchParamValue(searchParams.variant);
   const paywallFirst = getSingleSearchParamValue(searchParams.paywallFirst);
 
   const authPromise = auth();
@@ -78,7 +76,7 @@ export default async function OnboardingPage(props: {
       </Suspense>
       <ConversionAnalyticsScript />
       <Suspense>
-        <Onboarding step={step} forcedVariant={variant} />
+        <Onboarding step={step} />
       </Suspense>
     </>
   );

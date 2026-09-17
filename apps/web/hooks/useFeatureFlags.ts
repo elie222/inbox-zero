@@ -53,27 +53,6 @@ export function useTeamsEnabled() {
   return useFeatureFlagEnabled("microsoft-teams");
 }
 
-const HERO_FLAG_NAME = "hero-copy-7";
-
-export type HeroVariant = "control" | "clean-up-in-minutes";
-
-export function useHeroVariant() {
-  return (useFeatureFlagVariantKey(HERO_FLAG_NAME) as HeroVariant) || "control";
-}
-
-export function useHeroVariantEnabled() {
-  return useFeatureFlagEnabled(HERO_FLAG_NAME);
-}
-
-export type PricingVariant = "control" | "basic-business" | "business-basic";
-
-export function usePricingVariant() {
-  return (
-    (useFeatureFlagVariantKey("pricing-options-2") as PricingVariant) ||
-    "control"
-  );
-}
-
 export type PricingFrequencyDefault = "control" | "monthly" | "annually";
 
 export function usePricingFrequencyDefault():
@@ -84,24 +63,8 @@ export function usePricingFrequencyDefault():
     | undefined;
 }
 
-export type TestimonialsVariant = "control" | "senja-widget";
-
-export function useTestimonialsVariant() {
-  return (
-    (useFeatureFlagVariantKey("testimonials") as TestimonialsVariant) ||
-    "control"
-  );
-}
-
-export type WelcomePricingVariant = "control" | "two-tiers";
-
-export function useWelcomePricingVariant() {
-  return (
-    (useFeatureFlagVariantKey(
-      "welcome-pricing-tiers",
-    ) as WelcomePricingVariant) || "control"
-  );
-}
+// Not currently wired up: the chat onboarding is parked and not rendered.
+// See Onboarding.tsx for how to re-enable it.
 export type OnboardingChatVariant = "control" | "chat";
 
 export function useOnboardingChatVariant() {
