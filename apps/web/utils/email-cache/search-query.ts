@@ -5,6 +5,7 @@ import type { ParsedMessage } from "@/utils/types";
 type SearchTerm =
   | { field: "text" | "from" | "to" | "subject"; value: string }
   | { field: "label"; value: string }
+  | { field: "attachment" }
   | { field: "after"; value: number }
   | { field: "before"; value: number };
 
@@ -34,7 +35,12 @@ export type SearchMessage = Pick<
   | "internalDate"
   | "labelIds"
 > &
-  Partial<Pick<ParsedMessage, "textPlain" | "date" | "parentFolderId">>;
+  Partial<
+    Pick<ParsedMessage, "textPlain" | "date" | "parentFolderId" | "attachments">
+  > & {
+    /** Outlook reports attachment presence without the metadata Gmail keeps. */
+    hasAttachment?: boolean;
+  };
 
 export function parseLocalSearch(
   query: string,
@@ -217,6 +223,10 @@ function parseTermNode(
       term: { field: dateField, value: Date.parse(`${date}T00:00:00-08:00`) },
     };
   }
+  if (field === "has") {
+    if (value !== "attachment") return;
+    return { type: "term", term: { field: "attachment" } };
+  }
   if (!LOCATION_FIELDS.has(field)) return;
   if (field === "in" && value === "anywhere") {
     widenCorpus(state);
@@ -241,10 +251,24 @@ function readRelativeDate(value: string) {
   if (!parts) return;
   const amount = Number(parts[1]);
   if (parts[2] === "d") return asTimestamp(Date.now() - amount * 86_400_000);
+  return asTimestamp(stepMonthsBack(parts[2] === "m" ? amount : amount * 12));
+}
+
+/** Stepping straight back overflows into the following month whenever the
+ *  target is shorter than the current one, so the day is clamped first: one
+ *  month before 31 March is 28 February, not 3 March. */
+function stepMonthsBack(months: number) {
   const boundary = new Date();
-  if (parts[2] === "m") boundary.setMonth(boundary.getMonth() - amount);
-  else boundary.setFullYear(boundary.getFullYear() - amount);
-  return asTimestamp(boundary.getTime());
+  const day = boundary.getDate();
+  boundary.setDate(1);
+  boundary.setMonth(boundary.getMonth() - months);
+  const lastDay = new Date(
+    boundary.getFullYear(),
+    boundary.getMonth() + 1,
+    0,
+  ).getDate();
+  boundary.setDate(Math.min(day, lastDay));
+  return boundary.getTime();
 }
 
 function asTimestamp(value: number) {
@@ -265,6 +289,7 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
   if (node.type === "or")
     return node.nodes.some((child) => matchesNode(message, child));
   const term = node.term;
+  if (term.field === "attachment") return hasLocalMailAttachment(message);
   if (term.field === "label") {
     return term.value === ARCHIVE_SEARCH_LABEL
       ? isArchivedLocalMessage(message.labelIds)
@@ -280,6 +305,14 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
       : timestamp < term.value;
   }
   return getNormalizedSearchText(message, term.field).includes(term.value);
+}
+
+/** Gmail keeps attachment metadata on the message; Outlook only reports a
+ *  flag. Both search paths and the index read presence through here. */
+export function hasLocalMailAttachment(
+  message: Pick<SearchMessage, "attachments" | "hasAttachment">,
+) {
+  return message.hasAttachment ?? Boolean(message.attachments?.length);
 }
 
 function isArchivedLocalMessage(labelIds: string[] | undefined) {

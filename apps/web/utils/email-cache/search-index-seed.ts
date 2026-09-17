@@ -18,6 +18,10 @@ import {
   EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
 } from "./policy";
 
+// Bumped whenever indexed documents gain a field, so existing accounts rebuild
+// from local mail rather than answering from a document shape that lacks it.
+const SOURCE_VERSION = 3;
+
 export async function initializeSearchIndexAccount(emailAccountId: string) {
   if (!isMailSyncActivated(emailAccountId)) return;
   const epoch = captureEmailCacheEpoch(emailAccountId);
@@ -29,7 +33,7 @@ export async function initializeSearchIndexAccount(emailAccountId: string) {
     !isEmailCacheEpochCurrent(emailAccountId, epoch)
   )
     return;
-  if (current?.sourceVersion === 2) return current;
+  if (current?.sourceVersion === SOURCE_VERSION) return current;
   const transaction = await createAccountedMailTransaction(database, [
     "searchIndexAccounts",
     "searchIndexWork",
@@ -55,12 +59,12 @@ export async function initializeSearchIndexAccount(emailAccountId: string) {
     return;
   }
   const account =
-    existing?.sourceVersion === 2
+    existing?.sourceVersion === SOURCE_VERSION
       ? existing
       : {
           emailAccountId,
           generation: randomUuid(),
-          sourceVersion: 2,
+          sourceVersion: SOURCE_VERSION,
           messageBytes: existing?.messageBytes ?? 0,
           attachmentBytes: existing?.attachmentBytes ?? 0,
           retentionRevision: policy?.revision,

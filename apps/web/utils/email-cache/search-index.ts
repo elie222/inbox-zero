@@ -2,6 +2,7 @@ import type { BindingSpec, Database } from "@sqlite.org/sqlite-wasm";
 import {
   ARCHIVE_SEARCH_LABEL,
   getNormalizedSearchText,
+  hasLocalMailAttachment,
   LIVE_MAILBOX_LABELS,
   parseLocalSearch,
   type SearchMessage,
@@ -43,13 +44,17 @@ type AccountState = { generation: string; revision: number };
 type StoredDocument = { row_id: bigint; received: number | null };
 type SearchField = "all_text" | "from_text" | "to_text" | "subject_text";
 type ParsedQuery = NonNullable<ReturnType<typeof parseLocalSearch>>;
+// Fixed markers rather than encoded identities, like the visibility tokens;
+// the trigram table needs exactly three characters to index one token.
+const ATTACHMENT_TOKEN = "attachment";
+const LONG_ATTACHMENT_TOKEN = "att";
 const ROW_ID_SCALE = BigInt("1048576");
 const MAX_ROW_ID = (BigInt("1") << BigInt("63")) - BigInt("1");
 const MIN_ROW_ID = -(BigInt("1") << BigInt("63"));
 const MAX_BATCH_SIZE = 100;
 const MAX_PAGE_SIZE = 100;
 const MAX_MESSAGE_CHARACTERS = 2_000_000;
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export class SearchIndexCapacityError extends Error {
   readonly code:
@@ -92,6 +97,7 @@ export function createSearchIndex(database: Database) {
         thread_id TEXT NOT NULL, received INTEGER,
         all_text TEXT NOT NULL, from_text TEXT NOT NULL, to_text TEXT NOT NULL,
         subject_text TEXT NOT NULL, labels TEXT NOT NULL, visible INTEGER NOT NULL,
+        has_attachment INTEGER NOT NULL,
         replacement_token TEXT,
         UNIQUE(account, message_id)
       );
@@ -381,15 +387,18 @@ export function createSearchIndex(database: Database) {
           const visible = !labels.some(
             (label) => label === "SPAM" || label === "TRASH",
           );
+          const attachment = hasLocalMailAttachment(message);
           const filters = [
             encodeIdentity("a", batch.emailAccountId),
             ...labels.map((label) => encodeIdentity("l", label)),
             ...(visible ? ["visible"] : []),
+            ...(attachment ? [ATTACHMENT_TOKEN] : []),
           ].join(" ");
           const longFilters = [
             encodeLongIdentity("a", batch.emailAccountId),
             ...labels.map((label) => encodeLongIdentity("l", label)),
             ...(visible ? ["vis"] : []),
+            ...(attachment ? [LONG_ATTACHMENT_TOKEN] : []),
           ].join(" ");
           const texts = [
             fields.all_text,
@@ -398,7 +407,7 @@ export function createSearchIndex(database: Database) {
             fields.subject_text,
           ];
           database.exec({
-            sql: "INSERT INTO search_documents VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            sql: "INSERT INTO search_documents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             bind: [
               rowId,
               batch.emailAccountId,
@@ -408,6 +417,7 @@ export function createSearchIndex(database: Database) {
               ...texts,
               JSON.stringify(labels),
               Number(visible),
+              Number(attachment),
               replacement?.token ?? null,
             ],
           });
@@ -651,6 +661,8 @@ function compileMatch(
   }
   const term = node.term;
   if (term.field === "after" || term.field === "before") return;
+  if (term.field === "attachment")
+    return `filter_tokens:"${options.long ? LONG_ATTACHMENT_TOKEN : ATTACHMENT_TOKEN}"`;
   if (term.field === "label") {
     // Archived Gmail mail carries no label of its own, so no token selects it.
     if (!options.labels || term.value === ARCHIVE_SEARCH_LABEL) return;
@@ -685,6 +697,7 @@ function compileChecks(
     values.push(term.value);
     return `d.received${term.field === "after" ? ">" : "<"}?`;
   }
+  if (term.field === "attachment") return "d.has_attachment=1";
   if (term.field === "label") {
     if (term.value === ARCHIVE_SEARCH_LABEL) return compileArchived(values);
     values.push(term.value);

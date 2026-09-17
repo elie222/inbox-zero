@@ -249,7 +249,43 @@ describe("boolean queries against the local index", () => {
         .search({ emailAccountId, generation, query: "quarterly", labels })
         .messages.map((result) => result.id),
     ).toEqual(["third", "first"]);
-    expect(Number(database.selectValue("PRAGMA user_version"))).toBe(1);
+    const fresh = new sqlite3.oo1.DB(":memory:", "c");
+    createSearchIndex(fresh);
+    const current = Number(fresh.selectValue("PRAGMA user_version"));
+    fresh.close();
+    expect(Number(database.selectValue("PRAGMA user_version"))).toBe(current);
     database.close();
+  });
+  it("finds attachments from either provider's signal", () => {
+    const documents = [
+      message("gmail", {
+        from: "alice@example.com",
+        subject: "Quarterly report",
+        body: "The forecast is ready",
+      }),
+      message("outlook", {
+        from: "bob@example.com",
+        subject: "Budget review",
+        body: "Numbers are ok",
+      }),
+      message("plain", {
+        from: "carol@example.com",
+        subject: "Quarterly lunch",
+        body: "No files here",
+      }),
+    ];
+    // Gmail keeps attachment metadata; Outlook only reports a flag.
+    Object.assign(documents[0], {
+      attachments: [{ filename: "report.pdf" }],
+    });
+    Object.assign(documents[1], { hasAttachment: true });
+    expect(search("has:attachment", documents)).toEqual(["outlook", "gmail"]);
+    expect(search("-has:attachment", documents)).toEqual(["plain"]);
+    expect(search("has:attachment quarterly", documents)).toEqual(["gmail"]);
+    expect(search("has:attachment OR lunch", documents)).toEqual([
+      "plain",
+      "outlook",
+      "gmail",
+    ]);
   });
 });
