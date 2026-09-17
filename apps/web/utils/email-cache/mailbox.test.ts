@@ -344,6 +344,53 @@ describe("synced mailbox cache", () => {
     expect(snapshot?.after).toBe("2026-07-25T00:00:00.000Z");
   });
 
+  it("keeps canonical mail that a bounded reset page merely omits", async () => {
+    const database = await getEmailCacheDatabase();
+    if (!database) throw new Error("Email cache database is unavailable");
+    await database.put("searchIndexAccounts", {
+      emailAccountId: "account-1",
+      generation: "generation-1",
+    });
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "page-1",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({ id: "older", threadId: "older-thread" }),
+        ],
+      },
+    });
+    expect(
+      await database.get("localMailMessages", ["account-1", "older"]),
+    ).toBeDefined();
+
+    // A reset page is one bounded page, not a complete mailbox snapshot.
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-25T00:00:00.000Z"),
+      page: {
+        cursor: "page-2",
+        deletedMessageIds: [],
+        hasMore: true,
+        reset: true,
+        upsertedMessages: [
+          getMessage({ id: "newer", threadId: "newer-thread" }),
+        ],
+      },
+    });
+
+    expect(
+      await database.get("localMailMessages", ["account-1", "older"]),
+    ).toBeDefined();
+    expect(
+      await database.get("localMailTombstones", ["account-1", "older"]),
+    ).toBeUndefined();
+  });
+
   it("filters inbox rows and gives malformed dates a valid cleanup key", async () => {
     const dateFallback = getMessage({
       id: "date-fallback",

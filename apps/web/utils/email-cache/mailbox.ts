@@ -1,3 +1,7 @@
+import {
+  storeLocalMailMessages,
+  deleteLocalMailMessages,
+} from "./local-mail-messages";
 import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
@@ -72,6 +76,8 @@ export async function applyMailboxSyncPage({
       "mailboxSyncJobs",
       "searchIndexAccounts",
       "searchIndexWork",
+      "localMailMessages",
+      "localMailTombstones",
     ],
     "readwrite",
   );
@@ -86,6 +92,7 @@ export async function applyMailboxSyncPage({
   }
   const messages = transaction.objectStore("mailboxMessages");
   const states = transaction.objectStore("mailboxSyncStates");
+  const localMessages = transaction.objectStore("localMailMessages");
   const currentState = await states.get(emailAccountId);
   const syncAfter = after?.toISOString() ?? currentState?.after;
   if (!syncAfter) {
@@ -99,6 +106,11 @@ export async function applyMailboxSyncPage({
     ...page.upsertedMessages.map((message) => message.threadId),
   ]);
   const deletedIds = new Set(page.deletedMessageIds);
+  const deletedLocalMessages = await Promise.all(
+    page.deletedMessageIds.map((id) => localMessages.get([emailAccountId, id])),
+  );
+  for (const record of deletedLocalMessages)
+    if (record) changedThreadIds.add(record.threadId);
   const deletedMessages = await Promise.all(
     page.deletedMessageIds.map((id) => messages.get([emailAccountId, id])),
   );
@@ -174,6 +186,10 @@ export async function applyMailboxSyncPage({
   }
 
   if (page.reset) {
+    // Only the list snapshot resets here. A reset page is one page bounded by
+    // the provider's date window and page size, so a message it omits is not
+    // evidence of deletion, and tombstoning it would also block it from being
+    // stored again. Canonical mail is removed only on reported deletions.
     let resetCursor = await messages
       .index("byAccount")
       .openCursor(emailAccountId);
@@ -200,6 +216,18 @@ export async function applyMailboxSyncPage({
       completedAt: page.hasMore ? currentState?.completedAt : now,
     }),
   ]);
+  await deleteLocalMailMessages(
+    transaction,
+    emailAccountId,
+    page.deletedMessageIds,
+    now,
+  );
+  await storeLocalMailMessages(
+    transaction,
+    emailAccountId,
+    page.upsertedMessages,
+    now,
+  );
   await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
   await transaction.done;
 
@@ -480,7 +508,13 @@ export async function markSyncedMailboxThreadsRead({
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
   const transaction = database.transaction(
-    ["mailboxMessages", "searchIndexAccounts", "searchIndexWork"],
+    [
+      "mailboxMessages",
+      "searchIndexAccounts",
+      "searchIndexWork",
+      "localMailMessages",
+      "localMailTombstones",
+    ],
     "readwrite",
   );
   const store = transaction.objectStore("mailboxMessages");
@@ -515,6 +549,36 @@ export async function markSyncedMailboxThreadsRead({
     );
   }
 
+  for (const threadId of uniqueThreadIds) {
+    let cursor = await transaction
+      .objectStore("localMailMessages")
+      .index("byAccountThreadMessage")
+      .openCursor(
+        IDBKeyRange.bound(
+          [emailAccountId, threadId, ""],
+          [emailAccountId, threadId, []],
+        ),
+      );
+    while (cursor) {
+      const message = cursor.value.data;
+      const labels = message.labelIds ?? [];
+      await storeLocalMailMessages(
+        transaction,
+        emailAccountId,
+        [
+          {
+            ...message,
+            labelIds: read
+              ? labels.filter((label) => label !== "UNREAD")
+              : [...new Set([...labels, "UNREAD"])],
+          },
+        ],
+        lastAccessedAt,
+        { metadataOnly: true },
+      );
+      cursor = await cursor.continue();
+    }
+  }
   await markSearchThreadsDirty(transaction, emailAccountId, uniqueThreadIds);
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
@@ -533,7 +597,13 @@ export async function removeSyncedMailboxThreads({
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
   const transaction = database.transaction(
-    ["mailboxMessages", "searchIndexAccounts", "searchIndexWork"],
+    [
+      "mailboxMessages",
+      "searchIndexAccounts",
+      "searchIndexWork",
+      "localMailMessages",
+      "localMailTombstones",
+    ],
     "readwrite",
   );
   const store = transaction.objectStore("mailboxMessages");
@@ -555,6 +625,26 @@ export async function removeSyncedMailboxThreads({
     );
   }
 
+  for (const threadId of uniqueThreadIds) {
+    let cursor = await transaction
+      .objectStore("localMailMessages")
+      .index("byAccountThreadMessage")
+      .openCursor(
+        IDBKeyRange.bound(
+          [emailAccountId, threadId, ""],
+          [emailAccountId, threadId, []],
+        ),
+      );
+    while (cursor) {
+      await deleteLocalMailMessages(
+        transaction,
+        emailAccountId,
+        [cursor.value.messageId],
+        Date.now(),
+      );
+      cursor = await cursor.continue();
+    }
+  }
   await markSearchThreadsDirty(transaction, emailAccountId, uniqueThreadIds);
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;

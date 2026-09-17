@@ -1,98 +1,185 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
-import { clearEmailCache, getEmailCacheDatabase } from "./database";
-import { readSearchIndexThread } from "./search-index-source";
+import {
+  clearEmailCache,
+  clearEmailCacheForAccount,
+  getEmailCacheDatabase,
+} from "./database";
+import { storeLocalMailMessages } from "./local-mail-messages";
+import { readSearchIndexThreadPage } from "./search-index-source";
+import { readSearchIndexWork } from "./search-index-work";
 
-const request = {
+const identity = {
   emailAccountId: "account-1",
   generation: "generation-1",
   threadId: "thread-1",
-  token: "work-1",
-  now: 1000,
 };
-describe("search index source snapshots", () => {
+describe("paged local mail source", () => {
   beforeEach(async () => {
     await clearEmailCache();
-    const database = await getTestDatabase();
-    await database.put("searchIndexAccounts", {
-      emailAccountId: request.emailAccountId,
-      generation: request.generation,
-    });
-    await database.put("searchIndexWork", {
-      emailAccountId: request.emailAccountId,
-      threadId: request.threadId,
-      token: request.token,
+    await (await getTestDatabase()).put("searchIndexAccounts", {
+      emailAccountId: identity.emailAccountId,
+      generation: identity.generation,
     });
   });
 
-  it("combines current metadata with available bodies without a hidden body truncation", async () => {
-    const database = await getTestDatabase();
+  it("combines newer metadata with available bodies without truncating content", async () => {
     const textPlain = `${"body ".repeat(25_000)} searchable ending`;
-    const message = getMessage();
-    await database.put("threadDetails", {
-      emailAccountId: request.emailAccountId,
-      threadId: request.threadId,
-      variant: "full",
-      fetchedAt: 500,
-      lastAccessedAt: 1000,
-      byteSize: 1,
-      data: { thread: { messages: [{ ...message, textPlain }] } },
+    await store([{ ...getMessage(), textPlain, textHtml: "<p>Body</p>" }], 500);
+    await store([{ ...getMessage(), labelIds: ["STARRED"] }], 800);
+    const result = await readSearchIndexThreadPage(await request());
+    expect(result?.messages[0]).toMatchObject({
+      labelIds: ["STARRED"],
+      textPlain,
     });
-    await database.put("mailboxMessages", {
-      emailAccountId: request.emailAccountId,
-      messageId: message.id,
-      threadId: request.threadId,
-      receivedAt: 1,
-      lastAccessedAt: 800,
-      data: { ...message, labelIds: ["STARRED"] },
-    });
-    expect(await readSearchIndexThread(request)).toEqual([
-      { ...message, labelIds: ["STARRED"], textPlain },
+    const record = await (await getTestDatabase()).get("localMailMessages", [
+      identity.emailAccountId,
+      "message-1",
     ]);
+    expect(record?.data.textHtml).toBe("<p>Body</p>");
+    expect(result?.messages[0]).not.toHaveProperty("textHtml");
+    expect(record?.byteSize).toBe(
+      new Blob([JSON.stringify(record?.data)]).size,
+    );
+    await store([{ ...getMessage(), textPlain: "older body" }], 400);
+    expect(
+      (await readSearchIndexThreadPage(await request()))?.messages[0].textPlain,
+    ).toBe(textPlain);
   });
 
-  it("rejects an obsolete token or account generation before returning source content", async () => {
+  it("pages conversations larger than one index batch without skipping messages", async () => {
+    const messages = Array.from({ length: 150 }, (_, i) =>
+      getMessage(`message-${String(i).padStart(3, "0")}`),
+    );
+    await store(messages, 500);
+    const current = await request();
+    const first = (await readSearchIndexThreadPage(current))!;
+    expect(first.messages).toHaveLength(100);
+    const second = (await readSearchIndexThreadPage({
+      ...current,
+      afterMessageId: first.nextMessageId,
+    }))!;
+    expect(second.messages).toHaveLength(50);
+    expect(second.nextMessageId).toBeUndefined();
     expect(
-      await readSearchIndexThread({ ...request, token: "old-work" }),
-    ).toBeUndefined();
-    expect(
-      await readSearchIndexThread({ ...request, generation: "old-generation" }),
-    ).toBeUndefined();
-    expect(
-      await readSearchIndexThread({ ...request, emailAccountId: "account-2" }),
-    ).toBeUndefined();
+      [...first.messages, ...second.messages].map((message) => message.id),
+    ).toEqual(messages.map((message) => message.id));
   });
 
-  it("returns an empty replacement for deleted or evicted threads", async () => {
-    expect(await readSearchIndexThread(request)).toEqual([]);
-    const database = await getTestDatabase();
-    await database.put("threadRows", {
-      emailAccountId: request.emailAccountId,
-      threadId: request.threadId,
-      fetchedAt: -Number.MAX_SAFE_INTEGER,
-      lastAccessedAt: 1000,
-      data: { messages: [getMessage()] },
+  it("returns one oversized record and continues without skipping the next message", async () => {
+    const textPlain = "x".repeat(1_100_000);
+    await store(
+      [{ ...getMessage("first"), textPlain }, getMessage("second")],
+      500,
+    );
+    const current = await request();
+    const first = await readSearchIndexThreadPage(current);
+    expect(first?.messages.map((message) => message.id)).toEqual(["first"]);
+    expect(first?.messages[0].textPlain).toBe(textPlain);
+    expect(first?.nextMessageId).toBe("first");
+    const second = await readSearchIndexThreadPage({
+      ...current,
+      afterMessageId: first?.nextMessageId,
     });
-    expect(await readSearchIndexThread(request)).toEqual([]);
+    expect(second?.messages.map((message) => message.id)).toEqual(["second"]);
+    expect(second?.nextMessageId).toBeUndefined();
   });
 
-  it("does not mistake a unified wrapper row for account-owned message data", async () => {
-    const database = await getTestDatabase();
-    await database.put("threadRows", {
-      emailAccountId: request.emailAccountId,
-      threadId: request.threadId,
-      fetchedAt: 900,
-      lastAccessedAt: 1000,
-      data: { thread: { messages: [getMessage()] } },
-    });
-    expect(await readSearchIndexThread(request)).toEqual([]);
+  it("bounds page bytes and rejects continuation after a concurrent edit", async () => {
+    await store(
+      [getMessage("first"), getMessage("second")].map((message) => ({
+        ...message,
+        textPlain: "x".repeat(700_000),
+      })),
+      500,
+    );
+    const current = await request();
+    const first = (await readSearchIndexThreadPage(current))!;
+    expect(first.messages).toHaveLength(1);
+    expect(first.nextMessageId).toBe("first");
+    await store([{ ...getMessage("first"), labelIds: ["STARRED"] }], 600);
+    expect(
+      await readSearchIndexThreadPage({
+        ...current,
+        afterMessageId: first.nextMessageId,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("fences account cleanup and never returns another account's messages", async () => {
+    await store([getMessage()], 500);
+    const current = await request();
+    expect(
+      await readSearchIndexThreadPage({
+        ...current,
+        emailAccountId: "account-2",
+      }),
+    ).toBeUndefined();
+    expect(
+      await readSearchIndexThreadPage({
+        ...current,
+        generation: "old-generation",
+      }),
+    ).toBeUndefined();
+    await clearEmailCacheForAccount(identity.emailAccountId);
+    expect(await readSearchIndexThreadPage(current)).toBeUndefined();
+    expect(await (await getTestDatabase()).count("localMailMessages")).toBe(0);
+  });
+
+  it("retains signed epoch timestamps for imported historical mail", async () => {
+    await store([{ ...getMessage(), internalDate: "-1000" }], 500);
+    expect(
+      (
+        await (
+          await getTestDatabase()
+        ).get("localMailMessages", [identity.emailAccountId, "message-1"])
+      )?.receivedAt,
+    ).toBe(-1000);
+  });
+
+  it("does not retain parser binary fields and keeps empty bodies distinct from missing bodies", async () => {
+    await store(
+      [
+        {
+          ...getMessage(),
+          textPlain: "",
+          raw: "unwanted payload",
+        } as ParsedMessage,
+      ],
+      500,
+    );
+    const result = (await readSearchIndexThreadPage(await request()))!;
+    expect(result.messages[0].textPlain).toBe("");
+    expect(result.messages[0]).not.toHaveProperty("raw");
   });
 });
-function getMessage(): ParsedMessage {
+async function store(messages: ParsedMessage[], fetchedAt: number) {
+  const transaction = (await getTestDatabase()).transaction(
+    [
+      "searchIndexAccounts",
+      "searchIndexWork",
+      "localMailMessages",
+      "localMailTombstones",
+    ],
+    "readwrite",
+  );
+  await storeLocalMailMessages(
+    transaction,
+    identity.emailAccountId,
+    messages,
+    fetchedAt,
+  );
+  await transaction.done;
+}
+async function request() {
+  const item = (await readSearchIndexWork(identity.emailAccountId))!.work[0];
+  return { ...identity, token: item.token };
+}
+function getMessage(id = "message-1"): ParsedMessage {
   return {
-    id: "message-1",
-    threadId: request.threadId,
+    id,
+    threadId: identity.threadId,
     headers: {
       date: "2026-01-01",
       from: "sender@example.com",

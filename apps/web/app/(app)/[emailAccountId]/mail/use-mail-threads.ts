@@ -106,10 +106,26 @@ export function useMailThreads({
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
       const requestedAt = Date.now();
       const page = (await fetcher(key)) as ThreadsListResponse;
+      const params = new URL(key[0], "https://local.invalid").searchParams;
+      if (params.has("nextPageToken")) {
+        writeCachedThreadRows({
+          emailAccountId: key[1],
+          threads: page.threads,
+          fetchedAt: requestedAt,
+        }).catch(() => {});
+      } else {
+        writeCachedThreadList({
+          emailAccountId: key[1],
+          viewKey,
+          threads: page.threads,
+          hasMore: Boolean(page.nextPageToken),
+          now: requestedAt,
+        }).catch(() => {});
+      }
       // Cache freshness belongs to the request, not the time a split is opened.
       return { ...page, requestedAt };
     },
-    [fetcher],
+    [fetcher, viewKey],
   );
   const { data, size, setSize, isLoading, error, mutate } =
     useSWRInfinite<FetchedThreadsPage>(getKey, fetcher ? fetchPage : null, {
@@ -313,17 +329,6 @@ export function useMailThreads({
       threadCount: threads.length,
     });
   }, [readySource, threads.length]);
-
-  useEffect(() => {
-    const firstPage = data?.[0];
-    if (!firstPage) return;
-    writeCachedThreadList({
-      emailAccountId,
-      viewKey,
-      threads: firstPage.threads,
-      hasMore: Boolean(firstPage.nextPageToken),
-    }).catch(() => {});
-  }, [data, emailAccountId, viewKey]);
 
   useEffect(() => {
     if (!paginationRequestIdentity) return;

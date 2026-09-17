@@ -1,3 +1,5 @@
+import { storeLocalMailMessages } from "./local-mail-messages";
+import type { SearchMessage } from "./search-query";
 import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import { scheduleEmailCacheCleanup } from "./cleanup";
@@ -8,7 +10,7 @@ import {
 } from "./database";
 import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
 
-type ThreadRow = { id: string };
+type ThreadRow = { id: string; messages?: SearchMessage[] };
 
 export async function writeCachedThreadRows<T extends ThreadRow>({
   emailAccountId,
@@ -28,7 +30,13 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
-      ["threadRows", "searchIndexAccounts", "searchIndexWork"],
+      [
+        "threadRows",
+        "searchIndexAccounts",
+        "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
+      ],
       "readwrite",
     );
     const store = transaction.objectStore("threadRows");
@@ -38,7 +46,15 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
       const current = await store.get([emailAccountId, thread.id]);
       if (fetchedAt !== undefined && current && current.fetchedAt > fetchedAt)
         continue;
-      changedThreadIds.push(thread.id);
+      if (fetchedAt !== undefined && Array.isArray(thread.messages)) {
+        await storeLocalMailMessages(
+          transaction,
+          emailAccountId,
+          thread.messages,
+          fetchedAt ?? current?.fetchedAt ?? now,
+        );
+      }
+      if (fetchedAt !== undefined) changedThreadIds.push(thread.id);
       await store.put({
         emailAccountId,
         threadId: thread.id,
@@ -76,34 +92,53 @@ export async function writeCachedThreadList<T extends ThreadRow>({
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
-      ["threadRows", "threadViews", "searchIndexAccounts", "searchIndexWork"],
+      [
+        "threadRows",
+        "threadViews",
+        "searchIndexAccounts",
+        "searchIndexWork",
+        "localMailMessages",
+        "localMailTombstones",
+      ],
       "readwrite",
     );
 
-    await Promise.all([
-      ...threads.map((thread) =>
-        transaction.objectStore("threadRows").put({
-          emailAccountId,
-          threadId: thread.id,
-          data: thread,
-          fetchedAt: now,
-          lastAccessedAt: now,
-        }),
-      ),
-      transaction.objectStore("threadViews").put({
+    const views = transaction.objectStore("threadViews");
+    const currentView = await views.get([emailAccountId, viewKey]);
+    if (currentView && currentView.fetchedAt > now) {
+      await transaction.done;
+      return;
+    }
+    const rows = transaction.objectStore("threadRows");
+    const changedThreadIds: string[] = [];
+    for (const thread of threads) {
+      const current = await rows.get([emailAccountId, thread.id]);
+      if (current && current.fetchedAt > now) continue;
+      await rows.put({
         emailAccountId,
-        viewKey,
-        threadIds: threads.map((thread) => thread.id),
-        hasMore,
+        threadId: thread.id,
+        data: thread,
         fetchedAt: now,
         lastAccessedAt: now,
-      }),
-    ]);
-    await markSearchThreadsDirty(
-      transaction,
+      });
+      if (Array.isArray(thread.messages))
+        await storeLocalMailMessages(
+          transaction,
+          emailAccountId,
+          thread.messages,
+          now,
+        );
+      changedThreadIds.push(thread.id);
+    }
+    await views.put({
       emailAccountId,
-      threads.map((thread) => thread.id),
-    );
+      viewKey,
+      threadIds: threads.map((thread) => thread.id),
+      hasMore,
+      fetchedAt: now,
+      lastAccessedAt: now,
+    });
+    await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
