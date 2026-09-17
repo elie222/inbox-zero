@@ -81,7 +81,11 @@ import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-a
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
-import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailSplitFilterKind,
+  type SystemType,
+} from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -126,6 +130,7 @@ import {
   removeThreadLabelAction,
   updateMailboxItemAction,
 } from "@/utils/actions/mail";
+import { toggleRuleAction } from "@/utils/actions/rule";
 import {
   getPortableLabelSplits,
   OTHER_SPLIT_ID,
@@ -1454,6 +1459,22 @@ export function MailShell() {
     [emailAccountId, mutateSettings, setActiveSplitId],
   );
 
+  const onToggleSystemType = useCallback(
+    async (systemType: SystemType, enabled: boolean) => {
+      const result = await toggleRuleAction(emailAccountId, {
+        systemType,
+        enabled,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await Promise.all([mutateSettings(), mutateLabels()]);
+      return true;
+    },
+    [emailAccountId, mutateLabels, mutateSettings],
+  );
+
   const onCreateLabel = useCallback(
     async (name: string) => {
       const result = await createLabelAction(emailAccountId, { name });
@@ -1940,6 +1961,7 @@ export function MailShell() {
           onReorder={onReorderSplits}
           onEdit={setEditingSplitId}
           onDescribe={onDescribeSplit}
+          onToggleSystemType={onToggleSystemType}
         />
       )}
 

@@ -39,6 +39,7 @@ describe.runIf(isAiTest)(
         getRuleConfig(SystemType.RECEIPT),
         getRuleConfig(SystemType.CALENDAR),
         getRuleConfig(SystemType.NOTIFICATION),
+        getRuleConfig(SystemType.OTP),
         getRuleConfig(SystemType.COLD_EMAIL),
       ]);
     }

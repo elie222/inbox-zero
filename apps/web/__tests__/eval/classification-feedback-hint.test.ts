@@ -30,6 +30,7 @@ const rules = [
   systemRule(SystemType.CALENDAR),
   systemRule(SystemType.RECEIPT),
   systemRule(SystemType.NOTIFICATION),
+  systemRule(SystemType.OTP),
   getRule(CONVERSATION_TRACKING_INSTRUCTIONS, [], "Conversations"),
 ];
 

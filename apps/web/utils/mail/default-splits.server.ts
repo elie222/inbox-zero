@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import prisma from "@/utils/prisma";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { lockMailSplits } from "@/utils/mail/split-lock";
-import { STANDARD_CATEGORY_SYSTEM_TYPES } from "@/utils/rule/consts";
+import { DEFAULT_MAIL_SPLIT_SYSTEM_TYPES } from "@/utils/rule/consts";
 
 export async function getDefaultMailSplitDraftsForAccount(
   emailAccountId: string,
@@ -13,7 +13,7 @@ export async function getDefaultMailSplitDraftsForAccount(
     where: {
       emailAccountId,
       enabled: true,
-      systemType: { in: [...STANDARD_CATEGORY_SYSTEM_TYPES] },
+      systemType: { in: [...DEFAULT_MAIL_SPLIT_SYSTEM_TYPES] },
     },
     select: {
       systemType: true,

@@ -1,4 +1,4 @@
-import { MailSplitFilterKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind, SystemType } from "@/generated/prisma/enums";
 import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 
 /**
@@ -19,6 +19,11 @@ export type SplitLibraryEntry = {
   conditions: LibraryCondition[];
   /** Prepared splits ask for every condition unless they list alternatives. */
   matchAll?: boolean;
+  /**
+   * Turning this on creates the owned system rule (and its label) rather than
+   * requiring the label to already exist.
+   */
+  createsSystemType?: SystemType;
 };
 
 export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
@@ -70,6 +75,13 @@ export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
     category: "General",
     description: "Tool alerts and digests, out of the main inbox.",
     conditions: [{ kind: "LABEL", labelName: "Notification" }],
+  },
+  {
+    name: "OTP",
+    category: "General",
+    description: "One-time passwords, 2FA codes, and sign-in links.",
+    conditions: [{ kind: "LABEL", labelName: "OTP" }],
+    createsSystemType: SystemType.OTP,
   },
   {
     name: "Cold email",
@@ -180,7 +192,8 @@ export const SPLIT_LIBRARY_CATEGORIES = [
 /**
  * Resolves an entry's label and category names against this account. Returns
  * null when the account has no such label, so the library never offers a split
- * that would come back empty for a reason the reader can't see.
+ * that would come back empty for a reason the reader can't see. Opt-in entries
+ * that create their own system rule still appear — see availableLibraryFilters.
  */
 export function resolveLibraryEntry(
   entry: SplitLibraryEntry,
@@ -226,6 +239,22 @@ export function resolveLibraryEntry(
   }
 
   return filters;
+}
+
+/**
+ * Same as resolveLibraryEntry, except opt-in system-rule entries stay visible
+ * before their label exists so the library can be the way they get created.
+ */
+export function availableLibraryFilters(
+  entry: SplitLibraryEntry,
+  maps: {
+    labelsByName: Map<string, string>;
+    categoriesByName: Map<string, string>;
+  },
+): MailSplitFilterDraft[] | null {
+  const filters = resolveLibraryEntry(entry, maps);
+  if (filters) return filters;
+  return entry.createsSystemType ? [] : null;
 }
 
 /** The human-readable "Definition" rows shown on a library entry's detail view. */
