@@ -67,28 +67,9 @@ test("renders and isolates two locally cached accounts without server mail reque
       if (syncAccountId) syncAccountIds.add(syncAccountId);
       await route.abort("connectionfailed");
     });
-    await page.route("**/*", async (route) => {
-      const request = route.request();
-      if (request.headers()["next-action"]) {
-        try {
-          const payload = request.postDataJSON();
-          if (
-            Array.isArray(payload) &&
-            typeof payload[0] === "string" &&
-            payload[1] &&
-            typeof payload[1] === "object" &&
-            "phase" in payload[1]
-          ) {
-            syncAccountIds.add(payload[0]);
-            await route.abort("connectionfailed");
-            return;
-          }
-        } catch {
-          // Other actions may submit multipart form data.
-        }
-      }
-      await route.fallback();
-    });
+    await blockLocalMailSync(page, (syncAccountId) =>
+      syncAccountIds.add(syncAccountId),
+    );
     await seedUnifiedMailbox(page, emailAccountId, secondAccount.id);
 
     await page.goto(`/${emailAccountId}/mail?accountScope=all`);
@@ -200,6 +181,7 @@ test("renders a cached thread body when the reader request is offline", async ({
   await page.route("**/api/mobile/mailbox-sync", (route) =>
     route.abort("connectionfailed"),
   );
+  await blockLocalMailSync(page);
   await page.route(threadDetailRoute(threadId), (route) =>
     route.abort("connectionfailed"),
   );
@@ -258,6 +240,12 @@ test("serves cached reader content without revalidating from the network", async
   let threadDetailRequestCount = 0;
 
   await leaveThreadReader(page, emailAccountId);
+  // A sync delta for this thread would invalidate the detail and count as a
+  // revalidation; this test is about the reader alone.
+  await page.route("**/api/mobile/mailbox-sync", (route) =>
+    route.abort("connectionfailed"),
+  );
+  await blockLocalMailSync(page);
   await page.route(threadDetailRoute(threadId), async (route) => {
     threadDetailRequestCount += 1;
     await route.fulfill({
@@ -481,14 +469,21 @@ async function seedThreadDetail(
 ) {
   const data = getThreadDetailResponse({ textPlain, threadId });
   await page.evaluate(
-    async ({ byteSize, data, emailAccountId, threadId, variant }) => {
+    async ({
+      byteSize,
+      data,
+      emailAccountId,
+      textPlain,
+      threadId,
+      variant,
+    }) => {
       await new Promise<void>((resolve, reject) => {
         const openRequest = indexedDB.open("inbox-zero-email-cache");
         openRequest.onerror = () => reject(openRequest.error);
         openRequest.onsuccess = () => {
           const database = openRequest.result;
           const transaction = database.transaction(
-            "threadDetails",
+            ["threadDetails", "localMailMessages"],
             "readwrite",
           );
           transaction.onerror = () => reject(transaction.error);
@@ -506,6 +501,33 @@ async function seedThreadDetail(
             threadId,
             variant,
           });
+          // The reader prefers the account's canonical message rows over a
+          // detail snapshot, and opening the thread online may already have
+          // stored them. Give those rows the seeded body so it is what renders
+          // whichever store the reader reads first.
+          const rows = transaction
+            .objectStore("localMailMessages")
+            .index("byAccountThreadMessage")
+            .openCursor(
+              IDBKeyRange.bound(
+                [emailAccountId, threadId, ""],
+                [emailAccountId, threadId, []],
+              ),
+            );
+          rows.onsuccess = () => {
+            const cursor = rows.result;
+            if (!cursor) return;
+            const row = cursor.value;
+            const seeded = { ...row.data, textPlain };
+            cursor.update({
+              ...row,
+              bodyFetchedAt: now,
+              byteSize: new Blob([JSON.stringify(seeded)]).size,
+              data: seeded,
+              fetchedAt: now,
+            });
+            cursor.continue();
+          };
         };
       });
     },
@@ -513,10 +535,41 @@ async function seedThreadDetail(
       byteSize: JSON.stringify(data).length,
       data,
       emailAccountId,
+      textPlain,
       threadId,
       variant: THREAD_DETAIL_VARIANT,
     },
   );
+}
+
+// Local sync runs as a server action, so aborting the mobile sync route alone
+// leaves it downloading; its hydrated rows would outrank any seeded detail.
+async function blockLocalMailSync(
+  page: Page,
+  onRequest?: (emailAccountId: string) => void,
+) {
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (request.headers()["next-action"]) {
+      try {
+        const payload = request.postDataJSON();
+        if (
+          Array.isArray(payload) &&
+          typeof payload[0] === "string" &&
+          payload[1] &&
+          typeof payload[1] === "object" &&
+          "phase" in payload[1]
+        ) {
+          onRequest?.(payload[0]);
+          await route.abort("connectionfailed");
+          return;
+        }
+      } catch {
+        // Other actions may submit multipart form data.
+      }
+    }
+    await route.fallback();
+  });
 }
 
 async function clearThreadDetail(
