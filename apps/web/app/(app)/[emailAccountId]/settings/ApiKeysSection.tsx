@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, type ComponentProps } from "react";
 import { useAction } from "next-safe-action/hooks";
 import {
   Table,
@@ -206,7 +206,7 @@ function McpConnectionsDialog({
 }: {
   connections: ApiKeyResponse["mcpConnections"];
   isLoading: boolean;
-  error: unknown;
+  error: ComponentProps<typeof LoadingContent>["error"];
   mutate: () => void;
 }) {
   const { execute: executeRevoke, isExecuting } = useAction(
