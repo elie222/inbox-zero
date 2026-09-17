@@ -77,6 +77,22 @@ describe("MailSidebar", () => {
     ).toBe("page");
   });
 
+  it("keeps the active view reachable in the icon rail", () => {
+    renderSidebar({ activeType: "trash", collapsed: true });
+
+    expect(screen.getByText("Trash").closest("a")?.getAttribute("href")).toBe(
+      "/mail?type=trash",
+    );
+  });
+
+  it("leaves the extra views out of the icon rail for other views", () => {
+    // Nothing in the rail can toggle the group, so a row only earns its space
+    // there while its own view is open.
+    renderSidebar({ activeType: "inbox", collapsed: true });
+
+    expect(screen.queryByText("Trash")).toBeNull();
+  });
+
   it("leaves the extra views out of the combined inbox", () => {
     renderSidebar({ unified: true });
 

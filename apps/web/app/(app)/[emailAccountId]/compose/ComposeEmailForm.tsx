@@ -865,6 +865,9 @@ function ComposeEmailFormContent({
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
+          // The Scheduled view stops polling once nothing is pending, so it
+          // needs the new send pushed to it rather than waiting for a refresh.
+          await mutate(["/api/user/scheduled-emails", selectedEmailAccountId]);
           if (scheduledThreadId) {
             await mutate([
               `/api/user/scheduled-emails?threadId=${encodeURIComponent(scheduledThreadId)}`,
