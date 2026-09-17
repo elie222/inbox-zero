@@ -170,6 +170,14 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
     page.getByText("Offline. Results may be incomplete.", { exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "local-search-offline");
+  await input.fill("needle OR no-such-cached-message");
+  await expect(
+    conversationWithSubject(page, conversations, "Cached body search result"),
+  ).toBeVisible();
+  await input.fill("subject:Cached -needle");
+  await expect(
+    page.getByText("No matches yet.", { exact: true }),
+  ).toBeVisible();
   await input.fill("no-such-cached-message");
   await expect(
     page.getByText("No matches yet.", { exact: true }),

@@ -3,6 +3,7 @@ import {
   getNormalizedSearchText,
   parseLocalSearch,
   type SearchMessage,
+  type SearchNode,
 } from "./search-query";
 
 export type SearchIndexBatch = {
@@ -510,60 +511,33 @@ function compileQuery(
   parsed: ParsedQuery,
   limit: number,
 ) {
-  const filters = [
-    `filter_tokens:${quoteMatch(encodeIdentity("a", request.emailAccountId))}`,
-  ];
-  const longFilters = [
-    `filter_tokens:${quoteMatch(encodeLongIdentity("a", request.emailAccountId))}`,
-  ];
-  if (!parsed.includeSpamTrash) filters.push('filter_tokens:"visible"');
-  if (!parsed.includeSpamTrash) longFilters.push('filter_tokens:"vis"');
-  const long: string[] = [];
-  const short: string[] = [];
-  const checks = ["d.account=?"];
+  // The MATCH expression only narrows candidates, so it may be a superset of
+  // the query: negation and any branch a tokenizer cannot express are dropped
+  // from it and enforced by the exact checks below.
+  const longText = compileMatch(parsed.node, { long: true, labels: false });
+  const shortText = compileMatch(parsed.node, { long: false, labels: false });
+  const long = longText !== undefined;
+  const expression = compileMatch(parsed.node, { long, labels: true });
   const values: (string | number | bigint)[] = [request.emailAccountId];
+  const checks = ["d.account=?"];
   if (!parsed.includeSpamTrash) checks.push("d.visible=1");
-  for (const term of parsed.terms) {
-    if (term.field === "after" || term.field === "before") {
-      checks.push(`d.received${term.field === "after" ? ">" : "<"}?`);
-      values.push(term.value);
-      const bound =
-        BigInt(term.value + (term.field === "after" ? 1 : 0)) * ROW_ID_SCALE;
-      if (
-        (term.field === "after" && bound > MAX_ROW_ID) ||
-        (term.field === "before" && bound <= MIN_ROW_ID)
-      )
-        checks.push("0");
-      else if (bound >= MIN_ROW_ID && bound <= MAX_ROW_ID) {
-        checks.push(`p.rowid${term.field === "after" ? ">=" : "<"}?`);
-        values.push(bound);
-      }
-    } else if (term.field === "label") {
-      filters.push(
-        `filter_tokens:${quoteMatch(encodeIdentity("l", term.value))}`,
-      );
-      longFilters.push(
-        `filter_tokens:${quoteMatch(encodeLongIdentity("l", term.value))}`,
-      );
-      checks.push("EXISTS (SELECT 1 FROM json_each(d.labels) WHERE value=?)");
-      values.push(term.value);
-    } else {
-      const field: SearchField =
-        term.field === "text"
-          ? "all_text"
-          : term.field === "from"
-            ? "from_text"
-            : term.field === "to"
-              ? "to_text"
-              : "subject_text";
-      if (Array.from(term.value).length < 3)
-        short.push(`${field}:${quoteMatch(encodeShortQuery(term.value))}`);
-      else
-        long.push(
-          `${field}:${quoteMatch(term.value.replaceAll("\0", "\uFFFD"))}`,
-        );
-      checks.push(`instr(d.${field},?)>0`);
-      values.push(term.value);
+  checks.push(compileChecks(parsed.node, values));
+  for (const node of getConjuncts(parsed.node)) {
+    if (node.type !== "term") continue;
+    const term = node.term;
+    if (term.field !== "after" && term.field !== "before") continue;
+    // Row ids order by received time, so a top-level date bound also stops the
+    // ordered scan early. It is only sound outside a disjunction or negation.
+    const bound =
+      BigInt(term.value + (term.field === "after" ? 1 : 0)) * ROW_ID_SCALE;
+    if (
+      (term.field === "after" && bound > MAX_ROW_ID) ||
+      (term.field === "before" && bound <= MIN_ROW_ID)
+    )
+      checks.push("0");
+    else if (bound >= MIN_ROW_ID && bound <= MAX_ROW_ID) {
+      checks.push(`p.rowid${term.field === "after" ? ">=" : "<"}?`);
+      values.push(bound);
     }
   }
   if (request.beforeRowId !== undefined) {
@@ -577,15 +551,27 @@ function compileQuery(
   }
   // Even filter-only queries traverse ordered postings, avoiding a scan of all
   // text matches when a label or account is sparse.
-  const primary = long.length ? "search_long" : "search_short";
-  const secondary = long.length && short.length ? "search_short" : undefined;
+  const primary = long ? "search_long" : "search_short";
   const match = [
-    ...(long.length ? longFilters : filters),
-    ...(long.length ? long : short),
+    ...getBaseFilters(request.emailAccountId, parsed.includeSpamTrash, long),
+    ...(expression ? [expression] : []),
   ].join(" AND ");
+  // Terms below the trigram length only exist in the ascii-tokenized table.
+  const secondaryMatch =
+    long && shortText
+      ? [
+          ...getBaseFilters(
+            request.emailAccountId,
+            parsed.includeSpamTrash,
+            false,
+          ),
+          shortText,
+        ].join(" AND ")
+      : undefined;
+  const secondary = secondaryMatch ? "search_short" : undefined;
   const bind: BindingSpec = [
     match,
-    ...(secondary ? [[...filters, ...short].join(" AND ")] : []),
+    ...(secondaryMatch ? [secondaryMatch] : []),
     ...values,
     limit,
   ];
@@ -599,6 +585,92 @@ function compileQuery(
       ORDER BY p.rowid DESC LIMIT ?`,
     bind,
   };
+}
+
+function getBaseFilters(
+  emailAccountId: string,
+  includeSpamTrash: boolean,
+  long: boolean,
+) {
+  const identity = long
+    ? encodeLongIdentity("a", emailAccountId)
+    : encodeIdentity("a", emailAccountId);
+  return [
+    `filter_tokens:${quoteMatch(identity)}`,
+    ...(includeSpamTrash
+      ? []
+      : [`filter_tokens:"${long ? "vis" : "visible"}"`]),
+  ];
+}
+
+function getConjuncts(node: SearchNode): SearchNode[] {
+  return node.type === "and" ? node.nodes.flatMap(getConjuncts) : [node];
+}
+
+/** Undefined means the node constrains nothing this tokenizer can express, so
+ *  callers must widen rather than exclude. */
+function compileMatch(
+  node: SearchNode,
+  options: { long: boolean; labels: boolean },
+): string | undefined {
+  if (node.type === "any" || node.type === "not") return;
+  if (node.type === "and") {
+    const parts = node.nodes.flatMap(
+      (child) => compileMatch(child, options) ?? [],
+    );
+    if (!parts.length) return;
+    return parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`;
+  }
+  if (node.type === "or") {
+    const parts = node.nodes.map((child) => compileMatch(child, options));
+    if (parts.some((part) => part === undefined)) return;
+    return `(${parts.join(" OR ")})`;
+  }
+  const term = node.term;
+  if (term.field === "after" || term.field === "before") return;
+  if (term.field === "label") {
+    if (!options.labels) return;
+    const identity = options.long
+      ? encodeLongIdentity("l", term.value)
+      : encodeIdentity("l", term.value);
+    return `filter_tokens:${quoteMatch(identity)}`;
+  }
+  const long = Array.from(term.value).length >= 3;
+  if (long !== options.long) return;
+  const value = long
+    ? term.value.replaceAll("\0", "\uFFFD")
+    : encodeShortQuery(term.value);
+  return `${getSearchColumn(term.field)}:${quoteMatch(value)}`;
+}
+
+function compileChecks(
+  node: SearchNode,
+  values: (string | number | bigint)[],
+): string {
+  if (node.type === "any") return "1";
+  // A document with no received time yields NULL rather than false, which
+  // would otherwise make both a date bound and its negation reject it.
+  if (node.type === "not")
+    return `NOT COALESCE(${compileChecks(node.node, values)},0)`;
+  if (node.type === "and" || node.type === "or") {
+    const separator = node.type === "and" ? " AND " : " OR ";
+    return `(${node.nodes.map((child) => compileChecks(child, values)).join(separator)})`;
+  }
+  const term = node.term;
+  values.push(term.value);
+  if (term.field === "after" || term.field === "before")
+    return `d.received${term.field === "after" ? ">" : "<"}?`;
+  if (term.field === "label")
+    return "EXISTS (SELECT 1 FROM json_each(d.labels) WHERE value=?)";
+  return `instr(d.${getSearchColumn(term.field)},?)>0`;
+}
+
+function getSearchColumn(
+  field: "text" | "from" | "to" | "subject",
+): SearchField {
+  if (field === "text") return "all_text";
+  if (field === "from") return "from_text";
+  return field === "to" ? "to_text" : "subject_text";
 }
 
 function getSearchFields(message: SearchMessage) {

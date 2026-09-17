@@ -44,11 +44,53 @@ describe("local search queries", () => {
     expect(matches("after:2026/09/09 before:2026/09/11")).toBe(true);
     expect(matches("before:2026/09/10")).toBe(false);
   });
+  it("excludes negated terms", () => {
+    expect(matches("-absent")).toBe(true);
+    expect(matches("-forecast")).toBe(false);
+    expect(matches("report -absent")).toBe(true);
+    expect(matches("report -forecast")).toBe(false);
+    expect(matches("-from:other@example.com")).toBe(true);
+    expect(matches("-is:starred")).toBe(true);
+    expect(matches("-is:unread")).toBe(false);
+    expect(matches('-"quarterly report"')).toBe(false);
+  });
+  it("accepts either side of a disjunction", () => {
+    expect(matches("absent OR forecast")).toBe(true);
+    expect(matches("forecast OR absent")).toBe(true);
+    expect(matches("absent OR missing")).toBe(false);
+    expect(matches("from:other@example.com OR from:user@example.com")).toBe(
+      true,
+    );
+    expect(matches("is:starred OR is:unread")).toBe(true);
+    expect(matches("absent OR missing OR forecast")).toBe(true);
+  });
+  it("binds a disjunction tighter than adjacency", () => {
+    expect(matches("absent OR forecast budget")).toBe(true);
+    expect(matches("absent OR forecast missing")).toBe(false);
+    expect(matches("missing absent OR forecast")).toBe(false);
+  });
+  it("groups with parentheses and negates a whole group", () => {
+    expect(matches("(absent OR forecast) budget")).toBe(true);
+    expect(matches("(absent OR missing) budget")).toBe(false);
+    expect(matches("forecast (absent OR budget)")).toBe(true);
+    expect(matches("-(absent OR missing)")).toBe(true);
+    expect(matches("-(absent OR forecast)")).toBe(false);
+    expect(matches("budget -(forecast OR missing)")).toBe(false);
+    expect(matches("(forecast (budget OR absent)) OR missing")).toBe(true);
+  });
+  it("treats an explicit conjunction like adjacency", () => {
+    expect(matches("forecast AND budget")).toBe(true);
+    expect(matches("forecast AND absent")).toBe(false);
+    expect(matches("forecast AND (absent OR budget)")).toBe(true);
+  });
+  it("keeps a widened corpus available to boolean queries", () => {
+    const trashed = { ...message, labelIds: ["TRASH"] };
+    const parsed = parseLocalSearch("in:anywhere (report OR absent)", [])!;
+    expect(parsed).toBeDefined();
+    expect(matchesLocalSearch(trashed, parsed)).toBe(true);
+  });
   it.each([
-    "a OR b",
-    "(a b)",
     "{a b}",
-    "-forecast",
     "has:attachment",
     "larger:1M",
     "is:unknown",
@@ -57,9 +99,40 @@ describe("local search queries", () => {
     "after:2026/02/30",
     "label:unknown",
     "a*",
-    "a AND b",
+    "a NOT b",
+    "+exact",
+    "a OR",
+    "OR a",
+    "a AND",
+    "AND a",
+    "(a",
+    "a)",
+    "()",
+    "-",
+    "a -",
   ])("defers unsupported or incomplete syntax: %s", (query) => {
     expect(parseLocalSearch(query, [])).toBeUndefined();
+  });
+  it("keeps spam and trash out when the query only excludes them", () => {
+    const spam = { ...message, labelIds: ["SPAM"] };
+    const trashed = { ...message, labelIds: ["TRASH"] };
+    expect(
+      matchesLocalSearch(spam, parseLocalSearch("-in:trash report", [])!),
+    ).toBe(false);
+    expect(
+      matchesLocalSearch(trashed, parseLocalSearch("-in:spam report", [])!),
+    ).toBe(false);
+    expect(
+      matchesLocalSearch(spam, parseLocalSearch("report -(in:trash)", [])!),
+    ).toBe(false);
+    expect(
+      matchesLocalSearch(spam, parseLocalSearch("-in:anywhere report", [])!),
+    ).toBe(false);
+    // Excluding one of them is still not a reason to hide the other's corpus
+    // when the query also asks for it.
+    expect(
+      matchesLocalSearch(spam, parseLocalSearch("in:spam -in:trash", [])!),
+    ).toBe(true);
   });
   it("excludes spam and trash unless explicitly requested", () => {
     const trashed = { ...message, labelIds: ["TRASH"] };
