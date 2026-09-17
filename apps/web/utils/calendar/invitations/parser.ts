@@ -12,19 +12,10 @@ export type CalendarInvitation = NonNullable<
 export function parseCalendarInvitation(content: string, email: string) {
   if (content.length > CALENDAR_INVITATION_LIMITS.content) return null;
   try {
-    const calendar = new ICAL.Component(ICAL.parse(content));
-    if (
-      calendar.name !== "vcalendar" ||
-      calendar.getFirstPropertyValue("method") !== "REQUEST"
-    )
-      return null;
-    const events = calendar.getAllSubcomponents("vevent");
-    // A multi-event request needs an explicit event selector before it can be answered.
-    if (events.length !== 1) return null;
-    const event = events[0];
+    const identity = getCalendarInvitationIdentity(content);
+    if (identity?.method !== "REQUEST") return null;
+    const { event, uid, organizer, sequence, recurrenceId } = identity;
     if (event.getFirstPropertyValue("status") === "CANCELLED") return null;
-    const uid = event.getFirstPropertyValue("uid");
-    const organizer = getEmail(event.getFirstPropertyValue("organizer"));
     const attendee = event
       .getAllProperties("attendee")
       .find(
@@ -33,22 +24,11 @@ export function parseCalendarInvitation(content: string, email: string) {
       );
     const start = event.getFirstPropertyValue("dtstart");
     if (
-      typeof uid !== "string" ||
-      !uid ||
-      !organizer ||
       !attendee ||
       !(start instanceof ICAL.Time) ||
       organizer === email.toLowerCase()
     )
       return null;
-    const sequence = event.getFirstPropertyValue("sequence") ?? 0;
-    if (
-      typeof sequence !== "number" ||
-      !Number.isInteger(sequence) ||
-      sequence < 0
-    )
-      return null;
-    const recurrence = event.getFirstPropertyValue("recurrence-id");
     const response = attendee
       .getParameter("partstat")
       ?.toString()
@@ -62,9 +42,9 @@ export function parseCalendarInvitation(content: string, email: string) {
       ),
       start: start.toString(),
       sequence,
-      recurrenceId:
-        recurrence instanceof ICAL.Time ? recurrence.toString() : null,
-      recurring: event.hasProperty("rrule") || !!recurrence,
+      recurrenceId,
+      recurring:
+        event.hasProperty("rrule") || event.hasProperty("recurrence-id"),
       response:
         response === "accepted" ||
         response === "declined" ||
@@ -76,6 +56,38 @@ export function parseCalendarInvitation(content: string, email: string) {
   } catch {
     return null;
   }
+}
+
+// Throws on malformed ICS; callers own the error handling.
+export function getCalendarInvitationIdentity(content: string) {
+  const calendar = new ICAL.Component(ICAL.parse(content));
+  if (calendar.name !== "vcalendar") return null;
+  const events = calendar.getAllSubcomponents("vevent");
+  // A multi-event request needs an explicit event selector before it can be answered.
+  if (events.length !== 1) return null;
+  const event = events[0];
+  const uid = event.getFirstPropertyValue("uid");
+  const organizer = getEmail(event.getFirstPropertyValue("organizer"));
+  const sequence = event.getFirstPropertyValue("sequence") ?? 0;
+  if (
+    typeof uid !== "string" ||
+    !uid ||
+    !organizer ||
+    typeof sequence !== "number" ||
+    !Number.isInteger(sequence) ||
+    sequence < 0
+  )
+    return null;
+  const recurrence = event.getFirstPropertyValue("recurrence-id");
+  return {
+    method: calendar.getFirstPropertyValue("method"),
+    event,
+    uid,
+    organizer,
+    sequence,
+    recurrenceId:
+      recurrence instanceof ICAL.Time ? recurrence.toString() : null,
+  };
 }
 
 export function createCalendarReply(

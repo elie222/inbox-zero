@@ -65,8 +65,8 @@ describe("meeting follow-up draft route", () => {
     );
   });
 
-  // The Graph webLink resolves the item without translating a REST id into the
-  // EWS id the compose deeplink expects.
+  // The Graph webLink carries the EWS item id that the mail client route
+  // expects, so no REST id translation is needed.
   it("opens the related draft within the full Outlook client", async () => {
     getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
@@ -83,7 +83,7 @@ describe("meeting follow-up draft route", () => {
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
     expect(response.headers.get("location")).toBe(
-      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0",
+      "https://outlook.office.com/mail/drafts/id/AAMkAG",
     );
   });
 

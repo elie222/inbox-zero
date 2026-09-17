@@ -808,6 +808,54 @@ describe("calendar MIME enrichment", () => {
     if (!conflicting) expect(message.calendarContent).toBeTruthy();
   });
 
+  it("keeps Exchange-regenerated calendars that match the sender's .ics", async () => {
+    const google = [
+      "BEGIN:VCALENDAR",
+      "PRODID:-//Google Inc//Google Calendar 70.9054//EN",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:meeting@google.com",
+      "SEQUENCE:0",
+      "ORGANIZER;CN=Organizer:mailto:organizer@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const exchange = google
+      .replace(
+        "-//Google Inc//Google Calendar 70.9054//EN",
+        "Microsoft Exchange Server 2010",
+      )
+      .replace("ORGANIZER;CN=Organizer:mailto:", "ORGANIZER:MAILTO:");
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        [
+          "MIME-Version: 1.0",
+          'Content-Type: multipart/mixed; boundary="calendar-boundary"',
+          "",
+          "--calendar-boundary",
+          "Content-Type: text/calendar; method=REQUEST",
+          "",
+          exchange,
+          "--calendar-boundary",
+          "Content-Type: application/ics",
+          'Content-Disposition: attachment; filename="invite.ics"',
+          "Content-Transfer-Encoding: base64",
+          "",
+          Buffer.from(google).toString("base64"),
+          "--calendar-boundary--",
+        ].join("\r\n"),
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.calendarContent).toContain("Microsoft Exchange");
+  });
+
   it.each([
     3, 4,
   ])("rejects %s MIME calendar copies even when identical", async (count) => {

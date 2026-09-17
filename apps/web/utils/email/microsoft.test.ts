@@ -1485,6 +1485,18 @@ describe("OutlookProvider.searchThreads", () => {
     });
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
   });
+
+  it("sends single advanced-search fields as quoted KQL", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "subject:test" });
+
+    const searchRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(searchRequest?.search).toBe('"subject:test"');
+  });
 });
 
 describe("OutlookProvider.labelMessage", () => {

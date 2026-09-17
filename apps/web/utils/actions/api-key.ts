@@ -3,8 +3,10 @@
 import {
   createApiKeyBody,
   deactivateApiKeyBody,
+  revokeMcpConnectionBody,
   updateMcpServerAccessBody,
 } from "@/utils/actions/api-key.validation";
+import { revokeMcpConnection } from "@/utils/mcp/connections";
 import prisma from "@/utils/prisma";
 import { generateSecureToken, hashApiKey } from "@/utils/api-key";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -93,6 +95,20 @@ export const updateMcpServerAccessAction = actionClientUser
     ]);
 
     return { enabled };
+  });
+
+export const revokeMcpConnectionAction = actionClientUser
+  .metadata({ name: "revokeMcpConnection" })
+  .inputSchema(revokeMcpConnectionBody)
+  .action(async ({ ctx: { userId, session }, parsedInput: { clientId } }) => {
+    if (session.session.emailOtp) {
+      throw new SafeError(
+        "Sign in with your connected provider to manage MCP access.",
+      );
+    }
+
+    await revokeMcpConnection({ userId, clientId });
+    return { clientId };
   });
 
 function getApiKeyExpiryDate(expiresIn: ApiKeyExpiryValue): Date | null {

@@ -24,7 +24,7 @@ vi.mock("@/env", () => ({
 }));
 
 const origin = "http://localhost:3000";
-const resource = `${origin}/api/mcp-server`;
+const resource = `${origin}/mcp`;
 
 // Exercise the real OAuth provider, PKCE, consent, token rotation and JWT verification.
 // Only persistence is replaced; no auth or MCP transport classes are mocked.
@@ -106,12 +106,11 @@ describe("MCP OAuth flow", () => {
     prisma.oauthConsent.findFirst.mockResolvedValue({
       scopes: ["mcp:read", "offline_access"],
     } as never);
-    prisma.session.findFirst.mockResolvedValue({
-      id: "active-session",
-    } as never);
     const principal = await verifyMcpToken(tokens.access_token, jwks);
     expect(principal?.scopes).toEqual(["mcp:read", "offline_access"]);
     expect(principal?.userId).toBeTruthy();
+    expect(principal?.clientId).toBe(flow.clientId);
+    expect(prisma.session.findFirst).not.toHaveBeenCalled();
     expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

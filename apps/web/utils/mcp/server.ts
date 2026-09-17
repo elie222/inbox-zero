@@ -18,17 +18,47 @@ import {
 } from "@/utils/mcp/account-selection";
 import type { MCP_SCOPES } from "@/utils/mcp/config";
 import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
+import {
+  createDraftForMcp,
+  createDraftInputShape,
+  mcpAccountSelectorShape,
+  readThreadForMcp,
+  readThreadInputShape,
+  searchInboxForMcp,
+  searchInboxInputShape,
+} from "@/utils/mcp/email-tools";
 
 const logger = createScopedLogger("mcp-server");
 type ToolResultData = Record<string, unknown>;
-const accountSelectorShape = {
-  emailAccountId: z.string().optional(),
-  emailAddress: z.string().email().optional(),
+const readOnlyAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+const writeAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+const destructiveAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  openWorldHint: false,
+};
+const mailboxReadAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: true,
+};
+const mailboxWriteAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: true,
 };
 
 export async function handleMcpServerRequest(
   request: Request,
-  session: { userId: string; scopes: string[] },
+  session: { userId: string; scopes: string[]; clientId?: string },
 ) {
   const userId = session.userId;
   if (!userId) {
@@ -39,63 +69,179 @@ export async function handleMcpServerRequest(
     return new Response(null, { status: 403 });
   }
 
+  const toolLogger = logger.with({
+    userId,
+    ...(session.clientId ? { clientId: session.clientId } : {}),
+  });
+
   const server = new McpServer(
     { name: `${BRAND_NAME} MCP`, version: "1.0.0" },
     {
       instructions:
-        "Use list_email_accounts when the user needs to target a specific inbox account. All rule and stats tools accept either emailAccountId or emailAddress and default to the first linked account.",
+        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
     },
   );
+
+  const runTool =
+    (
+      name: string,
+      required: (typeof MCP_SCOPES)[number],
+      handler: (args: Record<string, unknown>) => Promise<ToolResultData>,
+    ) =>
+    async (args: Record<string, unknown>) => {
+      try {
+        assertMcpScope(session.scopes, required);
+        const data = await handler(args);
+        toolLogger.info("MCP tool call", {
+          tool: name,
+          ...emailAccountLogFields(data),
+        });
+        return createToolResult(data);
+      } catch (error) {
+        toolLogger.warn("MCP tool failed", {
+          tool: name,
+          error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+      }
+    };
 
   server.registerTool(
     "list_email_accounts",
     {
+      title: "List email accounts",
       description: "List the inbox accounts linked to the authenticated user.",
+      annotations: readOnlyAnnotations,
     },
-    async () => {
-      assertMcpScope(session.scopes, "mcp:read");
-      const accounts = await listMcpEmailAccounts(userId);
+    runTool("list_email_accounts", "mcp:read", async () => ({
+      accounts: await listMcpEmailAccounts(userId),
+    })),
+  );
 
-      return createToolResult({ accounts });
+  server.registerTool(
+    "search_inbox",
+    {
+      title: "Search inbox",
+      description:
+        "Search one inbox and return message metadata and snippets. Use read_thread for full bodies. Does not send or change mail.",
+      inputSchema: searchInboxInputShape,
+      annotations: mailboxReadAnnotations,
     },
+    runTool("search_inbox", "mcp:read", async (args) =>
+      searchInboxForMcp({
+        userId,
+        query: String(args.query),
+        maxResults:
+          typeof args.maxResults === "number" ? args.maxResults : undefined,
+        pageToken:
+          typeof args.pageToken === "string" ? args.pageToken : undefined,
+        emailAccountId:
+          typeof args.emailAccountId === "string"
+            ? args.emailAccountId
+            : undefined,
+        emailAddress:
+          typeof args.emailAddress === "string" ? args.emailAddress : undefined,
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "read_thread",
+    {
+      title: "Read thread",
+      description:
+        "Read messages in a thread. Returns plain-text bodies truncated per message. Use search_inbox to find threadId.",
+      inputSchema: readThreadInputShape,
+      annotations: mailboxReadAnnotations,
+    },
+    runTool("read_thread", "mcp:read", async (args) =>
+      readThreadForMcp({
+        userId,
+        threadId: String(args.threadId),
+        maxMessages:
+          typeof args.maxMessages === "number" ? args.maxMessages : undefined,
+        emailAccountId:
+          typeof args.emailAccountId === "string"
+            ? args.emailAccountId
+            : undefined,
+        emailAddress:
+          typeof args.emailAddress === "string" ? args.emailAddress : undefined,
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "create_draft",
+    {
+      title: "Create draft",
+      description:
+        "Create a mailbox draft. This does not send. Prefer this over inventing a send action; sending is not available.",
+      inputSchema: createDraftInputShape,
+      annotations: mailboxWriteAnnotations,
+    },
+    runTool("create_draft", "mcp:write", async (args) =>
+      createDraftForMcp({
+        userId,
+        to: String(args.to),
+        subject: String(args.subject),
+        body: String(args.body),
+        emailAccountId:
+          typeof args.emailAccountId === "string"
+            ? args.emailAccountId
+            : undefined,
+        emailAddress:
+          typeof args.emailAddress === "string" ? args.emailAddress : undefined,
+        logger: toolLogger,
+      }),
+    ),
   );
 
   server.registerTool(
     "list_rules",
     {
+      title: "List rules",
       description: "List automation rules for one inbox account.",
-      inputSchema: accountSelectorShape,
+      inputSchema: mcpAccountSelectorShape,
+      annotations: readOnlyAnnotations,
     },
-    async (args) => {
-      assertMcpScope(session.scopes, "mcp:read");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
+    runTool("list_rules", "mcp:read", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
+        userId,
+        ...accountSelector(args),
+      });
       const rules = await prisma.rule.findMany({
         where: { emailAccountId: emailAccount.id },
         select: apiRuleSelect,
         orderBy: { createdAt: "asc" },
       });
 
-      return createToolResult({
+      return {
         emailAccount,
         rules: rules.map(serializeRule),
-      });
-    },
+      };
+    }),
   );
 
   server.registerTool(
     "get_rule",
     {
+      title: "Get rule",
       description: "Get one automation rule by ID for one inbox account.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         id: z.string(),
       },
+      annotations: readOnlyAnnotations,
     },
-    async ({ id, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:read");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
+    runTool("get_rule", "mcp:read", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
+        userId,
+        ...accountSelector(args),
+      });
       const rule = await prisma.rule.findFirst({
-        where: { id, emailAccountId: emailAccount.id },
+        where: { id: String(args.id), emailAccountId: emailAccount.id },
         select: apiRuleSelect,
       });
 
@@ -103,28 +249,33 @@ export async function handleMcpServerRequest(
         throw new Error("Rule not found for the selected email account.");
       }
 
-      return createToolResult({
+      return {
         emailAccount,
         rule: serializeRule(rule),
-      });
-    },
+      };
+    }),
   );
 
   server.registerTool(
     "create_rule",
     {
+      title: "Create rule",
       description: "Create an automation rule for one inbox account.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         rule: ruleRequestBodySchema,
       },
+      annotations: writeAnnotations,
     },
-    async ({ rule, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:write");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
-      const ruleInput = toRuleWriteInput(rule);
-      const scopedLogger = logger.with({
+    runTool("create_rule", "mcp:write", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
         userId,
+        ...accountSelector(args),
+      });
+      const ruleInput = toRuleWriteInput(
+        ruleRequestBodySchema.parse(args.rule),
+      );
+      const scopedLogger = toolLogger.with({
         emailAccountId: emailAccount.id,
       });
 
@@ -151,28 +302,32 @@ export async function handleMcpServerRequest(
         throw new Error("Created rule could not be loaded.");
       }
 
-      return createToolResult({
+      return {
         emailAccount,
         rule: serializeRule(storedRule),
-      });
-    },
+      };
+    }),
   );
 
   server.registerTool(
     "update_rule",
     {
+      title: "Update rule",
       description: "Replace an automation rule for one inbox account.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         id: z.string(),
         rule: ruleRequestBodySchema,
       },
+      annotations: writeAnnotations,
     },
-    async ({ id, rule, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:write");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
+    runTool("update_rule", "mcp:write", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
+        userId,
+        ...accountSelector(args),
+      });
       const existingRule = await prisma.rule.findFirst({
-        where: { id, emailAccountId: emailAccount.id },
+        where: { id: String(args.id), emailAccountId: emailAccount.id },
         select: { id: true, actions: { select: { type: true } } },
       });
 
@@ -180,11 +335,12 @@ export async function handleMcpServerRequest(
         throw new Error("Rule not found for the selected email account.");
       }
 
-      const ruleInput = toRuleWriteInput(rule);
-      const scopedLogger = logger.with({
-        userId,
+      const ruleInput = toRuleWriteInput(
+        ruleRequestBodySchema.parse(args.rule),
+      );
+      const scopedLogger = toolLogger.with({
         emailAccountId: emailAccount.id,
-        ruleId: id,
+        ruleId: String(args.id),
       });
 
       await assertCanUseDigestsIfNeeded(
@@ -194,7 +350,7 @@ export async function handleMcpServerRequest(
       );
 
       await updateRule({
-        ruleId: id,
+        ruleId: String(args.id),
         result: {
           name: ruleInput.name,
           condition: ruleInput.condition,
@@ -207,7 +363,7 @@ export async function handleMcpServerRequest(
       });
 
       const updatedRule = await prisma.rule.findFirst({
-        where: { id, emailAccountId: emailAccount.id },
+        where: { id: String(args.id), emailAccountId: emailAccount.id },
         select: apiRuleSelect,
       });
 
@@ -215,27 +371,31 @@ export async function handleMcpServerRequest(
         throw new Error("Updated rule could not be loaded.");
       }
 
-      return createToolResult({
+      return {
         emailAccount,
         rule: serializeRule(updatedRule),
-      });
-    },
+      };
+    }),
   );
 
   server.registerTool(
     "delete_rule",
     {
+      title: "Delete rule",
       description: "Delete an automation rule for one inbox account.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         id: z.string(),
       },
+      annotations: destructiveAnnotations,
     },
-    async ({ id, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:write");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
+    runTool("delete_rule", "mcp:write", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
+        userId,
+        ...accountSelector(args),
+      });
       const existingRule = await prisma.rule.findFirst({
-        where: { id, emailAccountId: emailAccount.id },
+        where: { id: String(args.id), emailAccountId: emailAccount.id },
         select: { groupId: true },
       });
 
@@ -245,61 +405,74 @@ export async function handleMcpServerRequest(
 
       await deleteRule({
         emailAccountId: emailAccount.id,
-        ruleId: id,
+        ruleId: String(args.id),
         groupId: existingRule.groupId,
       });
 
-      return createToolResult({
+      return {
         deleted: true,
         emailAccount,
-        id,
-      });
-    },
+        id: String(args.id),
+      };
+    }),
   );
 
   server.registerTool(
     "get_stats_by_period",
     {
+      title: "Get stats by period",
       description: "Get email statistics grouped by day, week, month, or year.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         period: z.enum(["day", "week", "month", "year"]).optional(),
         fromDate: z.number().int().optional(),
         toDate: z.number().int().optional(),
       },
+      annotations: readOnlyAnnotations,
     },
-    async ({ period, fromDate, toDate, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:read");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
+    runTool("get_stats_by_period", "mcp:read", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
+        userId,
+        ...accountSelector(args),
+      });
       const result = await getStatsByPeriod({
-        period: period ?? "week",
-        fromDate,
-        toDate,
+        period:
+          args.period === "day" ||
+          args.period === "week" ||
+          args.period === "month" ||
+          args.period === "year"
+            ? args.period
+            : "week",
+        fromDate: typeof args.fromDate === "number" ? args.fromDate : undefined,
+        toDate: typeof args.toDate === "number" ? args.toDate : undefined,
         emailAccountId: emailAccount.id,
       });
 
-      return createToolResult({
+      return {
         emailAccount,
         ...result,
-      });
-    },
+      };
+    }),
   );
 
   server.registerTool(
     "get_response_time_stats",
     {
+      title: "Get response time stats",
       description: "Get response time analytics for one inbox account.",
       inputSchema: {
-        ...accountSelectorShape,
+        ...mcpAccountSelectorShape,
         fromDate: z.number().int().optional(),
         toDate: z.number().int().optional(),
       },
+      annotations: readOnlyAnnotations,
     },
-    async ({ fromDate, toDate, ...args }) => {
-      assertMcpScope(session.scopes, "mcp:read");
-      const emailAccount = await resolveMcpEmailAccount({ userId, ...args });
-      const scopedLogger = logger.with({
+    runTool("get_response_time_stats", "mcp:read", async (args) => {
+      const emailAccount = await resolveMcpEmailAccount({
         userId,
+        ...accountSelector(args),
+      });
+      const scopedLogger = toolLogger.with({
         emailAccountId: emailAccount.id,
       });
       const emailProvider = await createEmailProvider({
@@ -308,18 +481,18 @@ export async function handleMcpServerRequest(
         logger: scopedLogger,
       });
       const result = await getResponseTimeStats({
-        fromDate,
-        toDate,
+        fromDate: typeof args.fromDate === "number" ? args.fromDate : undefined,
+        toDate: typeof args.toDate === "number" ? args.toDate : undefined,
         emailAccountId: emailAccount.id,
         emailProvider,
         logger: scopedLogger,
       });
 
-      return createToolResult({
+      return {
         emailAccount,
         ...serializeResponseTimeStats(result),
-      });
-    },
+      };
+    }),
   );
 
   const transport = new WebStandardStreamableHTTPServerTransport({
@@ -357,4 +530,26 @@ function assertMcpScope(
 ) {
   if (!scopes.includes(required))
     throw new Error(`Missing required permission: ${required}`);
+}
+
+function accountSelector(args: Record<string, unknown>) {
+  return {
+    emailAccountId:
+      typeof args.emailAccountId === "string" ? args.emailAccountId : undefined,
+    emailAddress:
+      typeof args.emailAddress === "string" ? args.emailAddress : undefined,
+  };
+}
+
+function emailAccountLogFields(data: ToolResultData) {
+  const emailAccount = data.emailAccount;
+  if (
+    !emailAccount ||
+    typeof emailAccount !== "object" ||
+    !("id" in emailAccount) ||
+    typeof emailAccount.id !== "string"
+  ) {
+    return {};
+  }
+  return { emailAccountId: emailAccount.id };
 }

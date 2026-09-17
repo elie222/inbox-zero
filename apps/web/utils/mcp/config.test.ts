@@ -1,5 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { isMcpServerAvailable } from "@/utils/mcp/config";
+import {
+  getMcpProtectedResourceMetadata,
+  getMcpResourceUrl,
+  isMcpServerAvailable,
+} from "@/utils/mcp/config";
 
 const { config } = vi.hoisted(() => ({
   config: {
@@ -20,4 +24,14 @@ it.each([
 ])("gates MCP bearer-token access at %s", (url, available) => {
   config.NEXT_PUBLIC_BASE_URL = url;
   expect(isMcpServerAvailable()).toBe(available);
+});
+
+it("uses /mcp as the canonical resource identifier", () => {
+  config.NEXT_PUBLIC_BASE_URL = "https://example.com";
+  expect(getMcpResourceUrl()).toBe("https://example.com/mcp");
+  expect(getMcpProtectedResourceMetadata()).toMatchObject({
+    resource: "https://example.com/mcp",
+    authorization_servers: ["https://example.com/api/auth"],
+    scopes_supported: ["mcp:read", "mcp:write", "offline_access"],
+  });
 });
