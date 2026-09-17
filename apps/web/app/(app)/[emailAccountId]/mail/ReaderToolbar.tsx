@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
+import { Tooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 
@@ -128,10 +129,16 @@ export function ReaderToolbar({
             )}
           </Button>
         )}
-        <Button onClick={onArchive} size="xs-2" variant="outline">
-          <ArchiveIcon className="mr-1.5 size-3.5" />
-          Archive
-        </Button>
+        <Tooltip content={`Archive (${getShortcutHint("archive")})`}>
+          <Button
+            aria-label="Archive"
+            onClick={onArchive}
+            size="iconXs"
+            variant="outline"
+          >
+            <ArchiveIcon className="size-3.5" />
+          </Button>
+        </Tooltip>
         <ReadStateButton
           isUnread={isUnread}
           onMarkRead={onMarkRead}

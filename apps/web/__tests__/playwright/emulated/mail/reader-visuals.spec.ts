@@ -132,12 +132,26 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     ),
   ).toHaveCount(0);
 
-  const archiveButton = page.getByRole("button", { name: /^Archive/ });
+  const archiveButton = page.getByRole("button", {
+    name: "Archive",
+    exact: true,
+  });
   await expect(archiveButton.locator("kbd")).toHaveCount(0);
   await archiveButton.hover();
-  await page.waitForTimeout(250);
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(page.getByRole("tooltip")).toHaveText("Archive (E)");
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
+
+  const message = page.locator("[data-thread-message-id]").last();
+  await message.hover();
+  await message.getByRole("button", { name: "Reply", exact: true }).hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Reply (R)");
+  await message.getByRole("button", { name: "Forward", exact: true }).hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Forward (F)");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-reply-forward-shortcuts",
+  );
 
   const senderStatsResponse = page.waitForResponse((response) =>
     response.url().includes("/api/user/stats/newsletters"),

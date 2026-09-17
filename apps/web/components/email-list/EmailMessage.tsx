@@ -36,7 +36,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
-import { isTypingTarget } from "@/lib/shortcuts/registry";
+import { getShortcutHint, isTypingTarget } from "@/lib/shortcuts/registry";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -489,7 +489,7 @@ function MessageHeader({
           <span className="flex shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 has-[[data-state=open]]:opacity-100 sm:opacity-0">
             {showReplyButton && (
               <>
-                <Tooltip content="Reply">
+                <Tooltip content={`Reply (${getShortcutHint("reply")})`}>
                   <Button
                     onClick={compose(onReply)}
                     size="iconXs"
@@ -499,7 +499,7 @@ function MessageHeader({
                     <span className="sr-only">Reply</span>
                   </Button>
                 </Tooltip>
-                <Tooltip content="Forward">
+                <Tooltip content={`Forward (${getShortcutHint("forward")})`}>
                   <Button
                     onClick={compose(onForward)}
                     size="iconXs"
