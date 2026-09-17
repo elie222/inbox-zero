@@ -16,6 +16,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
+import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
   MailSearchSuggestionList,
   suggestionOptionId,
@@ -26,6 +27,7 @@ import {
   rememberRecentSearch,
 } from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
 import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
+import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { LocalMailSettingsDialog } from "@/app/(app)/[emailAccountId]/mail/LocalMailSettingsDialog";
 import { Kbd } from "@/components/Kbd";
@@ -54,6 +56,8 @@ export type ListToolbarProps = {
   searchInputRef?: RefObject<HTMLInputElement | null>;
   /** User labels offered in the Gmail-style Search dropdown. */
   searchLabels?: { name: string }[];
+  searchFolders?: { name: string }[];
+  searchVariant?: "gmail" | "outlook" | "common";
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
@@ -80,6 +84,8 @@ export function ListToolbar({
   searchValue,
   searchInputRef,
   searchLabels,
+  searchFolders,
+  searchVariant = "gmail",
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
@@ -216,6 +222,8 @@ export function ListToolbar({
           searchValue={searchValue}
           inputRef={searchInputRef}
           searchLabels={searchLabels}
+          searchFolders={searchFolders}
+          searchVariant={searchVariant}
         />
       )}
 
@@ -291,6 +299,8 @@ function MailSearchInput({
   searchValue,
   inputRef: inputRefProp,
   searchLabels = [],
+  searchFolders = [],
+  searchVariant = "gmail",
 }: {
   searchQuery: string;
   onSearch: (query: string) => void;
@@ -298,6 +308,8 @@ function MailSearchInput({
   onSearchChange: (query: string) => void;
   inputRef?: RefObject<HTMLInputElement | null>;
   searchLabels?: { name: string }[];
+  searchFolders?: { name: string }[];
+  searchVariant?: "gmail" | "outlook" | "common";
 }) {
   const localRef = useRef<HTMLInputElement>(null);
   const inputRef = inputRefProp ?? localRef;
@@ -473,15 +485,29 @@ function MailSearchInput({
         }}
       >
         {filtersOpen ? (
-          <MailSearchFiltersForm
-            key={filterDraft}
-            initialFields={parseMailSearchQuery(filterDraft)}
-            extraLocations={searchLabels}
-            onSearch={(query) => {
-              commitSearch(query);
-              setFiltersOpen(false);
-            }}
-          />
+          searchVariant === "outlook" ? (
+            <OutlookSearchFiltersForm
+              key={filterDraft}
+              initialFields={parseOutlookSearchQuery(filterDraft)}
+              folders={searchFolders}
+              categories={searchLabels}
+              onSearch={(query) => {
+                commitSearch(query);
+                setFiltersOpen(false);
+              }}
+            />
+          ) : (
+            <MailSearchFiltersForm
+              key={filterDraft}
+              initialFields={parseMailSearchQuery(filterDraft)}
+              extraLocations={searchLabels}
+              variant={searchVariant === "common" ? "common" : "gmail"}
+              onSearch={(query) => {
+                commitSearch(query);
+                setFiltersOpen(false);
+              }}
+            />
+          )
         ) : null}
       </PopoverContent>
     </Popover>

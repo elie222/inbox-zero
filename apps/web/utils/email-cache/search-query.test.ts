@@ -38,7 +38,9 @@ describe("local search queries", () => {
     expect(matches("subject:budget")).toBe(false);
     expect(matches("to:team@example.com is:unread in:inbox")).toBe(true);
     expect(matches("is:starred")).toBe(false);
+    expect(matches("is:flagged")).toBe(false);
     expect(matches('label:"Work Projects"')).toBe(true);
+    expect(matches('category:"Work Projects"')).toBe(true);
     expect(matches("after:2026/09/09 before:2026/09/11")).toBe(true);
     expect(matches("before:2026/09/10")).toBe(false);
   });

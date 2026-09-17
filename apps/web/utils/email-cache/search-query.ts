@@ -50,7 +50,12 @@ export function parseLocalSearch(
         return;
       // Gmail interprets calendar dates at midnight PST, independent of the device timezone.
       terms.push({ field, value: Date.parse(`${date}T00:00:00-08:00`) });
-    } else if (field === "in" || field === "is" || field === "label") {
+    } else if (
+      field === "in" ||
+      field === "is" ||
+      field === "label" ||
+      field === "category"
+    ) {
       if (field === "in" && value === "anywhere") {
         includeSpamTrash = true;
         continue;
@@ -61,12 +66,16 @@ export function parseLocalSearch(
         drafts: "DRAFT",
         draft: "DRAFT",
         spam: "SPAM",
+        junk: "SPAM",
         trash: "TRASH",
+        deleted: "TRASH",
+        archive: "ARCHIVE",
         unread: "UNREAD",
         starred: "STARRED",
+        flagged: "STARRED",
       };
       const label =
-        field === "label"
+        field === "label" || field === "category"
           ? (labels.find(
               (label) => label.name.normalize("NFKC").toLowerCase() === value,
             )?.id ?? systemLabels[value])

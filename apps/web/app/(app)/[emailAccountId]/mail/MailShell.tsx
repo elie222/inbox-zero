@@ -24,6 +24,7 @@ import {
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
+import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   MAIL_CATEGORIES,
@@ -1674,6 +1675,12 @@ export function MailShell() {
               }
               searchInputRef={searchInputRef}
               searchLabels={isAllAccounts ? [] : allLabels}
+              searchFolders={
+                isOutlook && !isAllAccounts ? getMailSearchFolders(folders) : []
+              }
+              searchVariant={
+                isAllAccounts ? "common" : isOutlook ? "outlook" : "gmail"
+              }
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}

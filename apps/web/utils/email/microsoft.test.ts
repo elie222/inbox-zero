@@ -1497,6 +1497,32 @@ describe("OutlookProvider.searchThreads", () => {
       .find((request) => request.apiPath === "/me/messages");
     expect(searchRequest?.search).toBe('"subject:test"');
   });
+
+  it("searches a well-known folder instead of dropping in:inbox", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "subject:test in:inbox" });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders/inbox-folder-id/messages",
+      filter: undefined,
+      search: '"subject:test"',
+    });
+  });
+
+  it("filters flagged mail with $filter when there is no keyword search", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "is:flagged" });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/messages",
+      filter: "flag/flagStatus eq 'flagged'",
+      search: undefined,
+    });
+  });
 });
 
 describe("OutlookProvider.labelMessage", () => {
