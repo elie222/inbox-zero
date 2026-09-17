@@ -257,9 +257,11 @@ export async function seedAutomationSettings(emailAccountId: string) {
       [emailAccountId, KNOWLEDGE_TITLE, UPDATED_KNOWLEDGE_TITLE],
     );
     await client.query(
+      // The app analyzes the writing style on first visit whenever it is
+      // empty, so seed one to keep that background write out of the test.
       `UPDATE "EmailAccount"
        SET about = NULL,
-           "writingStyle" = NULL,
+           "writingStyle" = 'Seeded writing style',
            signature = NULL,
            "includeReferralSignature" = false,
            "multiRuleSelectionEnabled" = false,

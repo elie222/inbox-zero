@@ -29,6 +29,13 @@ const stripeBaseUrl =
   process.env.PLAYWRIGHT_STRIPE_BASE_URL ??
   `http://127.0.0.1:${await getAvailablePort()}`;
 const stripePort = getUrlPort(stripeBaseUrl);
+// Set PLAYWRIGHT_LLM_BASE_URL to run against an external OpenAI-compatible
+// server (serving a model named `emulated`) instead of the in-repo emulator.
+const externalLlmBaseUrl = process.env.PLAYWRIGHT_LLM_BASE_URL;
+const llmBaseUrl =
+  externalLlmBaseUrl ?? `http://127.0.0.1:${await getAvailablePort()}`;
+const llmPort = getUrlPort(llmBaseUrl);
+const llmModelName = "emulated";
 const stripeSecretKey = "playwright-stripe-key";
 // The emulator accepts any price id; these only have to match what the app was
 // built with so the tier lookup resolves.
@@ -83,6 +90,7 @@ process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 process.env.PLAYWRIGHT_STRIPE_BASE_URL = stripeBaseUrl;
+process.env.PLAYWRIGHT_LLM_BASE_URL = llmBaseUrl;
 // Only a default. Production runs freeze NEXT_PUBLIC_* into the build, which
 // happens in a separate job before this config loads, so those runs must set
 // these in the workflow and have their values win here.
@@ -184,6 +192,20 @@ export default defineConfig({
         STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
       },
     },
+    ...(externalLlmBaseUrl
+      ? []
+      : [
+          {
+            name: "LLM emulator",
+            stdout: "pipe",
+            command: `pnpm exec tsx scripts/run-llm-emulator.ts ${llmPort}`,
+            cwd: process.cwd(),
+            url: `${llmBaseUrl}/health`,
+            timeout: 60_000,
+            reuseExistingServer: false,
+            env: { ...process.env, LLM_EMULATOR_MODEL: llmModelName },
+          },
+        ]),
     {
       name: "Next.js",
       stdout: "pipe",
@@ -222,7 +244,14 @@ export default defineConfig({
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
         API_KEY_SALT: process.env.API_KEY_SALT ?? "playwright-api-key-salt",
         INTERNAL_API_KEY: internalApiKey,
-        DEFAULT_LLMS: process.env.DEFAULT_LLMS ?? "openai:gpt-5.4-mini",
+        // Every model role resolves to the emulator so no spec depends on a
+        // live provider.
+        DEFAULT_LLMS: `openai-compatible:${llmModelName}`,
+        ECONOMY_LLMS: "",
+        CHAT_LLMS: "",
+        NANO_LLMS: "",
+        DRAFT_LLMS: "",
+        OPENAI_COMPATIBLE_BASE_URL: `${llmBaseUrl}/v1`,
         OPENAI_API_KEY: "",
         ANTHROPIC_API_KEY: "",
         OPENROUTER_API_KEY: "",

@@ -23,6 +23,9 @@ export function isNotFoundError(error: unknown) {
   );
 }
 
+// Driver adapters report either the violated fields or, when Postgres only
+// names the index, the index name. Prisma names unique indexes
+// `<Model>_<field>_<field>_key`, which is parsed back into fields.
 function getDriverAdapterConstraintFields(
   meta: Record<string, unknown> | undefined,
 ): string[] | undefined {
@@ -38,11 +41,17 @@ function getDriverAdapterConstraintFields(
     return;
   }
 
-  const fields = cause.constraint.fields;
-  return Array.isArray(fields) &&
+  const { fields, index } = cause.constraint;
+  if (
+    Array.isArray(fields) &&
     fields.every((field): field is string => typeof field === "string")
-    ? fields
-    : undefined;
+  ) {
+    return fields;
+  }
+  if (typeof index !== "string") return;
+  const segments = index.split("_");
+  if (segments.length < 3 || segments.at(-1) !== "key") return;
+  return segments.slice(1, -1);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

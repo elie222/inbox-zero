@@ -23,6 +23,30 @@ describe("isDuplicateError", () => {
     ).toBe(true);
     expect(isDuplicateError(error, "otherField")).toBe(false);
   });
+
+  it("matches the index name when the driver adapter reports no fields", () => {
+    const error = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      {
+        code: "P2002",
+        clientVersion: "7.8.0",
+        meta: {
+          modelName: "Rule",
+          driverAdapterError: {
+            cause: {
+              kind: "UniqueConstraintViolation",
+              constraint: { index: "Rule_name_emailAccountId_key" },
+            },
+          },
+        },
+      },
+    );
+
+    expect(isDuplicateError(error, "name")).toBe(true);
+    expect(isDuplicateError(error, ["name", "emailAccountId"])).toBe(true);
+    expect(isDuplicateError(error, "email")).toBe(false);
+    expect(isDuplicateError(error, "systemType")).toBe(false);
+  });
 });
 
 function createDriverAdapterDuplicateError(fields: string[]) {

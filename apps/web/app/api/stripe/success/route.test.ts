@@ -88,4 +88,30 @@ describe("stripe success route", () => {
       },
     );
   });
+
+  it("returns paywall-first users to onboarding after checkout", async () => {
+    await GET(
+      new Request(
+        "http://localhost:3000/api/stripe/success?session_id=checkout-session-id&returnTo=onboarding",
+      ) as never,
+      {} as never,
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/onboarding?conversion_event=trial_started&conversion_event_id=checkout-session-id",
+    );
+  });
+
+  it("ignores unknown return destinations", async () => {
+    await GET(
+      new Request(
+        "http://localhost:3000/api/stripe/success?session_id=checkout-session-id&returnTo=https://evil.example",
+      ) as never,
+      {} as never,
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/setup?conversion_event=trial_started&conversion_event_id=checkout-session-id",
+    );
+  });
 });
