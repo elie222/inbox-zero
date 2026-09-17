@@ -21,8 +21,8 @@ vi.mock("@/components/ui/sidebar", () => ({
 
 afterEach(cleanup);
 
-function renderSidebar(overrides: Partial<MailSidebarProps> = {}) {
-  return render(
+function sidebar(overrides: Partial<MailSidebarProps> = {}) {
+  return (
     <MailSidebar
       activeType="inbox"
       activeLabelId={null}
@@ -45,8 +45,12 @@ function renderSidebar(overrides: Partial<MailSidebarProps> = {}) {
       labelEditMode="name-and-color"
       labelColorOptions={[]}
       {...overrides}
-    />,
+    />
   );
+}
+
+function renderSidebar(overrides: Partial<MailSidebarProps> = {}) {
+  return render(sidebar(overrides));
 }
 
 describe("MailSidebar", () => {
@@ -105,6 +109,28 @@ describe("MailSidebar", () => {
     renderSidebar({ activeType: "inbox", collapsed: true });
 
     expect(screen.queryByText("Trash")).toBeNull();
+  });
+
+  it("closes the Mail group in the rail once its view is left behind", () => {
+    const { rerender } = renderSidebar({
+      activeType: "trash",
+      collapsed: true,
+    });
+
+    expect(screen.getByText("Trash")).toBeDefined();
+
+    // The rail offers no way back out, so the group cannot outlive its view.
+    rerender(sidebar({ activeType: "inbox", collapsed: true }));
+
+    expect(screen.queryByText("Trash")).toBeNull();
+  });
+
+  it("keeps a chosen Mail group open across navigation when expanded", () => {
+    const { rerender } = renderSidebar({ activeType: "trash" });
+
+    rerender(sidebar({ activeType: "inbox" }));
+
+    expect(screen.getByText("Trash")).toBeDefined();
   });
 
   it("leaves the extra views out of the combined inbox", () => {

@@ -200,6 +200,9 @@ export function MailSidebar({
     !activeFolderId &&
     MAILBOX_ITEMS.some((item) => item.type === activeType);
   const [showMailboxes, setShowMailboxes] = useState(isMailboxActive);
+  // Nothing in the rail can toggle the group, so leaving its views is the only
+  // way to close it there. The expanded sidebar keeps whatever the user chose.
+  const showMailboxRows = collapsed ? isMailboxActive : showMailboxes;
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
@@ -305,7 +308,7 @@ export function MailSidebar({
           />
         </nav>
 
-        {!unified && (!collapsed || showMailboxes) && (
+        {!unified && (!collapsed || showMailboxRows) && (
           <>
             <GroupHeading
               collapsed={collapsed}
@@ -314,7 +317,7 @@ export function MailSidebar({
             >
               Mail
             </GroupHeading>
-            {showMailboxes && (
+            {showMailboxRows && (
               <nav className="flex flex-col gap-px">
                 {MAILBOX_ITEMS.map(({ name, type, countId, Icon }) => (
                   <NavRow
