@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import {
@@ -26,13 +27,18 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
   try {
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction("threadRows", "readwrite");
+    const transaction = database.transaction(
+      ["threadRows", "searchIndexAccounts", "searchIndexWork"],
+      "readwrite",
+    );
     const store = transaction.objectStore("threadRows");
 
+    const changedThreadIds: string[] = [];
     for (const thread of threads) {
       const current = await store.get([emailAccountId, thread.id]);
       if (fetchedAt !== undefined && current && current.fetchedAt > fetchedAt)
         continue;
+      changedThreadIds.push(thread.id);
       await store.put({
         emailAccountId,
         threadId: thread.id,
@@ -41,6 +47,7 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
         lastAccessedAt: now,
       });
     }
+    await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();
@@ -69,7 +76,7 @@ export async function writeCachedThreadList<T extends ThreadRow>({
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
-      ["threadRows", "threadViews"],
+      ["threadRows", "threadViews", "searchIndexAccounts", "searchIndexWork"],
       "readwrite",
     );
 
@@ -92,6 +99,11 @@ export async function writeCachedThreadList<T extends ThreadRow>({
         lastAccessedAt: now,
       }),
     ]);
+    await markSearchThreadsDirty(
+      transaction,
+      emailAccountId,
+      threads.map((thread) => thread.id),
+    );
     await transaction.done;
     notifyEmailCacheChange(emailAccountId);
     scheduleEmailCacheCleanup();

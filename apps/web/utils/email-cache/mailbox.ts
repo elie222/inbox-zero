@@ -1,3 +1,4 @@
+import { markSearchThreadsDirty } from "./search-index-work";
 import { notifyEmailCacheChange } from "./cache-events";
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
@@ -69,6 +70,8 @@ export async function applyMailboxSyncPage({
       "threadDetails",
       "threadRows",
       "mailboxSyncJobs",
+      "searchIndexAccounts",
+      "searchIndexWork",
     ],
     "readwrite",
   );
@@ -117,6 +120,7 @@ export async function applyMailboxSyncPage({
           ),
         )
       ).flat();
+  for (const key of detailKeys) changedThreadIds.add(key[1]);
   await Promise.all(detailKeys.map((key) => details.delete(key)));
   let detailCursor =
     !page.reset && deletedIds.size
@@ -160,18 +164,24 @@ export async function applyMailboxSyncPage({
       let rowCursor = await rows.index("byAccount").openCursor(emailAccountId);
       while (rowCursor) {
         const thread = getCachedThread(rowCursor.value.data);
-        if (thread?.messages.some((message) => deletedIds.has(message.id)))
+        if (thread?.messages.some((message) => deletedIds.has(message.id))) {
+          changedThreadIds.add(rowCursor.value.threadId);
           await rowCursor.delete();
+        }
         rowCursor = await rowCursor.continue();
       }
     }
   }
 
   if (page.reset) {
-    const messageKeys = await messages
+    let resetCursor = await messages
       .index("byAccount")
-      .getAllKeys(emailAccountId);
-    await Promise.all(messageKeys.map((key) => messages.delete(key)));
+      .openCursor(emailAccountId);
+    while (resetCursor) {
+      changedThreadIds.add(resetCursor.value.threadId);
+      await resetCursor.delete();
+      resetCursor = await resetCursor.continue();
+    }
   }
 
   await Promise.all([
@@ -190,6 +200,7 @@ export async function applyMailboxSyncPage({
       completedAt: page.hasMore ? currentState?.completedAt : now,
     }),
   ]);
+  await markSearchThreadsDirty(transaction, emailAccountId, changedThreadIds);
   await transaction.done;
 
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return false;
@@ -472,7 +483,10 @@ export async function markSyncedMailboxThreadsRead({
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  const transaction = database.transaction("mailboxMessages", "readwrite");
+  const transaction = database.transaction(
+    ["mailboxMessages", "searchIndexAccounts", "searchIndexWork"],
+    "readwrite",
+  );
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 
@@ -505,6 +519,7 @@ export async function markSyncedMailboxThreadsRead({
     );
   }
 
+  await markSearchThreadsDirty(transaction, emailAccountId, uniqueThreadIds);
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
   notifyMailboxStoreChange(emailAccountId);
@@ -521,7 +536,10 @@ export async function removeSyncedMailboxThreads({
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  const transaction = database.transaction("mailboxMessages", "readwrite");
+  const transaction = database.transaction(
+    ["mailboxMessages", "searchIndexAccounts", "searchIndexWork"],
+    "readwrite",
+  );
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 
@@ -541,6 +559,7 @@ export async function removeSyncedMailboxThreads({
     );
   }
 
+  await markSearchThreadsDirty(transaction, emailAccountId, uniqueThreadIds);
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
   notifyMailboxStoreChange(emailAccountId);

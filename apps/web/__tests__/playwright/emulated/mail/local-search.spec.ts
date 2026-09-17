@@ -6,7 +6,6 @@ import {
   conversationWithSubject,
   openMail,
   openMailboxFromSidebar,
-  waitForInitialMailboxSync,
 } from "./mail-test-helpers";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
@@ -31,6 +30,9 @@ for (const scope of ["single", "all"] as const) {
     page,
     context,
   }, testInfo) => {
+    // Every cache-seeding test here stubs sync before loading the page: an
+    // account's first sync applies a reset that clears its cached mail, which
+    // would delete the rows seeded below.
     await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
     const { emailAccountId, conversations } = await openMail(page);
     if (scope === "all")
@@ -190,10 +192,8 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
 });
 
 test("ignores delayed responses after the search changes", async ({ page }) => {
+  await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
   const { emailAccountId, conversations } = await openMail(page);
-  // This is the one cache-seeding test that leaves background sync enabled, so
-  // it has to let the reset page land before seeding rather than race it.
-  await waitForInitialMailboxSync(page, emailAccountId);
   const cachedThread = await seedSearchCache(page, emailAccountId);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
