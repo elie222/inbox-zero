@@ -8,10 +8,10 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `233a2ece2`
+- Last implementation commit: `569b18dea`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: watch CI on the exact head; keep C1 inspect green without the Next overlay; answer remaining review comments.
+- Next action: watch CI on the exact head; packaged Electron (C2) and remaining UI matrix; answer remaining review comments.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
@@ -271,8 +271,8 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Tasks: partial C1
 - Tree: `cursor/mail-engine-0b4f`
 - Commands: see Resume state last validation.
-- What it proved: MailCoverageGate hydrates with the shared loading shell instead of the SSR storage-error copy. A `runUntil` slice that expires during `beginBootstrap` still enumerates and writes metadata coverage. Playwright `mail-engine-inspect.spec.ts` first-paints the conversations listbox and asserts owner + OPFS + ready connection.
-- Limitations: the inspect run still logged a React maximum-update-depth warning from combined-mail query identity; packaged Electron remains unrun.
+- What it proved: MailCoverageGate hydrates with the shared loading shell instead of the SSR storage-error copy. A `runUntil` slice that expires during `beginBootstrap` still enumerates and writes metadata coverage. Playwright `mail-engine-inspect.spec.ts` first-paints the conversations listbox and asserts owner + OPFS + ready connection. Combined-mail `ThreadsQuery` identity is memoized so the list does not hit a React maximum-update-depth overlay.
+- Limitations: packaged Electron remains unrun.
 
 ## Decision and deviation log
 
