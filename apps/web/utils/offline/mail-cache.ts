@@ -7,8 +7,9 @@ export const SKIP_WAITING = "SKIP_WAITING";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
-// Documents and account metadata let the existing IndexedDB mailbox open
-// without a server. API mutations and authentication always use the network.
+// Shell documents and account metadata let the mail route reopen from Cache
+// Storage after activation. Mailbox state lives in SQLite; API mutations and
+// authentication always use the network.
 export function createOfflineMailCache({
   origin,
   cacheName,

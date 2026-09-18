@@ -9,16 +9,20 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts, and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: pending this checkpoint.
-- Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
-- Current task: run UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: unit-test F5 deletion; watch CI on the exact head; continue remaining C/D/G gates.
+- Pull request: https://github.com/elie222/inbox-zero/pull/3793
+- Current task: live OPFS/Electron/UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: watch CI on the exact head; run Playwright inspect (C1); continue remaining C/D/G gates.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `cd apps/web && pnpm exec vitest --run store/sender-queue.test.ts store/archive-sender-queue.test.tsx app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.test.ts utils/mail-engine/reply-drafts.test.ts utils/mail-engine/thread-mail-mutations.test.ts utils/attachments/opened-conversation.test.ts app/(app)/[emailAccountId]/compose/send-draft-reference.test.ts utils/email-send-operation-retention.test.ts hooks/useReplyDraftPersistence.test.ts utils/playwright/emulated-suite-targets.test.mjs utils/playwright/emulated-suite-selection.test.mjs` — 11 files, 79 passed
-  - `pnpm exec ultracite check` on F5-changed files — pass
+  - `cd apps/web && pnpm exec vitest --run hooks/useThread.test.tsx utils/mail-engine/wasm-sqlite.test.ts` — 2 files, 5 passed
+  - `pnpm exec ultracite check` on reader/list error, inspect spec, and offline cache comment — pass
+  - Reader/list engine errors map to the LoadingContent shape used by MailShell (`useThread` / `useEngineMailThreads`)
+  - Inspect spec no longer mentions a legacy IndexedDB list
   - No remaining `email-cache`, `indexeddb-import`, `MailboxSyncManager`, or `MailMutationOutboxManager` TypeScript imports
   - Previous checkpoint:
+  - `cd apps/web && pnpm exec vitest --run store/sender-queue.test.ts store/archive-sender-queue.test.tsx app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.test.ts utils/mail-engine/reply-drafts.test.ts utils/mail-engine/thread-mail-mutations.test.ts utils/attachments/opened-conversation.test.ts app/(app)/[emailAccountId]/compose/send-draft-reference.test.ts utils/email-send-operation-retention.test.ts hooks/useReplyDraftPersistence.test.ts utils/playwright/emulated-suite-targets.test.mjs utils/playwright/emulated-suite-selection.test.mjs` — 11 files, 79 passed
+  - `pnpm exec ultracite check` on F5-changed files — pass
   - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-ui --filter @inboxzero/desktop typecheck` — pass
   - `pnpm --filter @inboxzero/mail-core test` — 4 files, 11 passed
   - `pnpm --filter @inboxzero/mail-sqlite test` — 4 files, 22 passed including blocked_auth recover + missed/duplicate idle catch-up, blob metadata, and 10k/100k/1M list smoke (184s)
@@ -61,7 +65,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. Lists stay on the legacy path until engine coverage is complete. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
 
 ### D. Provider replication and repair
 
@@ -90,7 +94,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F2. Replace mail lists/splits/counts/readers/search/composer paths with the shared facade; account for the feature inventory.
 - [ ] F3. Package a locally bootable desktop mail renderer and verify returning-user offline behavior.
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
-- [ ] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
+- [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
 Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
 
@@ -98,7 +102,7 @@ Mail page waits for OPFS engine coverage, then first-paints MailShell inside `Ma
 
 - [ ] G1. Benchmark 10k/100k/1M metadata corpora, query plans, long threads, multiple accounts, and multilingual search against agreed budgets.
 - [ ] G2. Verify quota fairness, bounded memory/storage/background work, retention, disk pressure, and corruption/user-work recovery.
-- [ ] G3. Preserve irreplaceable beta user work through a focused restartable import if required; otherwise document why an importer is unnecessary.
+- [x] G3. Preserve irreplaceable beta user work through a focused restartable import if required; otherwise document why an importer is unnecessary.
 - [ ] G4. Verify supported browser/desktop packaging, protocol upgrades, self-hosted behavior, and account/logout isolation.
 - [ ] G5. Run the full required acceptance matrix; independently verify provider, committed local state, and visible UI for applicable scenarios.
 - [ ] G6. Record emulator limitations and complete necessary bounded live-contract checks when authorized; no required gap silently waived.
@@ -137,7 +141,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen send payload + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection |
 | Account/owner/session isolation | Not run | Not run | Not run | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Not run | Not run | Not run | Not run | Restartable IndexedDB draft/mutation import + coverage-gated UI cutover |
+| Coverage/retention/storage pressure | Not run | Not run | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Not run | Not run | Not run | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
@@ -211,7 +215,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Tasks: partial C2, partial D4, partial E3, partial F1
 - Commands: see Resume state last validation.
 - What it proved: staged blob filename/content-type metadata is written beside bytes and loaded into `executeDurableEmailSend`; `accounts.connection` persists `blocked_auth` then recovers to `ready`; idle catch-up applies a missed archive and a duplicate hint without duplicating conversations; MailApp surfaces reconnect/offline from mailbox `connection`; desktop owner injects Electron-shaped `postMessage` children and the utility child replies on `parentPort`.
-- Limitations: Playwright inspect spec and packaged Electron/OPFS sessions still unrun; IndexedDB owners remain; live assistant UI remains open.
+- Limitations: Playwright inspect spec and packaged Electron/OPFS sessions still unrun; live assistant UI remains open.
+
+### E8. IndexedDB mailbox deletion and G3 skip (2026-09-18)
+
+- Tasks: F5, G3
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: see Resume state last validation and the F5 deletion commit `a12cdbab7`.
+- What it proved: IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session. G3 importer is skipped because the mail client is not live (decision D3). MailShell reader/list errors use the LoadingContent shape instead of a generic `Error`. There is no remaining TypeScript import of `email-cache`, `indexeddb-import`, `MailboxSyncManager`, or `MailMutationOutboxManager`.
+- Limitations: Playwright inspect and packaged Electron/OPFS sessions still unrun; live assistant UI remains open; UI matrix cells remain Not run.
 
 ## Decision and deviation log
 

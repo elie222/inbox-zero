@@ -3,7 +3,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail } from "./mail-test-helpers";
 
-test("exposes engine diagnostics after metadata coverage or keeps the legacy list", async ({
+test("exposes engine diagnostics after metadata coverage", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
