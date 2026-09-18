@@ -19,17 +19,17 @@ export async function createDesktopMailOwner(input: {
   source: MailboxSource;
   executor: OperationExecutor;
 }): Promise<DesktopMailOwner> {
-  let engine = await createOwnedEngine(input);
+  let owned = await createOwnedEngine(input);
   return {
     handleIpc(payload) {
-      return dispatchMailIpc(engine, payload);
+      return dispatchMailIpc(owned.engine, payload);
     },
     async recover() {
-      await engine.close();
-      engine = await createOwnedEngine(input);
+      await owned.stop();
+      owned = await createOwnedEngine(input);
     },
     close() {
-      return engine.close();
+      return owned.stop();
     },
   };
 }
@@ -38,13 +38,52 @@ async function createOwnedEngine(input: {
   databasePath: string;
   source: MailboxSource;
   executor: OperationExecutor;
-}): Promise<MailEngine> {
+}): Promise<{ engine: MailEngine; stop(): Promise<void> }> {
   const store = await createDesktopMailStore(input.databasePath);
-  return createMailEngine({
+  const engine = createMailEngine({
     store,
     source: input.source,
     executor: input.executor,
     runtime: createHostRuntime(),
     ownerId: "desktop-owner",
+  });
+  const abort = new AbortController();
+  const loop = pumpEngine(engine, abort.signal);
+  return {
+    engine,
+    async stop() {
+      abort.abort();
+      await loop;
+      await engine.close();
+    },
+  };
+}
+
+async function pumpEngine(engine: MailEngine, signal: AbortSignal) {
+  while (!signal.aborted) {
+    try {
+      await engine.runUntil(Date.now() + 2000, signal);
+    } catch {
+      if (signal.aborted) return;
+    }
+    await delay(250, signal);
+  }
+}
+
+function delay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
   });
 }

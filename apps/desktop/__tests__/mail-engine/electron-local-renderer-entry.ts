@@ -7,7 +7,14 @@ import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
 import { createDesktopMailStore } from "../../src/mail-engine/sqlite";
 
-app.whenReady().then(runSmoke);
+app.whenReady().then(() =>
+  runSmoke().catch((error: unknown) => {
+    process.stderr.write(
+      `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+    );
+    app.exit(1);
+  }),
+);
 
 async function runSmoke() {
   const directory = await mkdtemp(join(tmpdir(), "electron-local-mail-"));
@@ -39,24 +46,27 @@ async function runSmoke() {
     (_event: IpcMainInvokeEvent, payload: unknown) => owner.handleIpc(payload),
   );
   const renderer = requiredEnv("ELECTRON_RENDERER_HTML");
-  await window.loadFile(renderer, { query: { accountId: "acc-1" } });
-  const subjects = await waitForSubjects(window);
-  await window.webContents.executeJavaScript(`
+  try {
+    await window.loadFile(renderer, { query: { accountId: "acc-1" } });
+    const subjects = await waitForSubjects(window);
+    await window.webContents.executeJavaScript(`
     [...document.querySelectorAll("ul[aria-label='Conversations'] button")]
       .find((button) => button.textContent === "Archive")
       ?.click();
   `);
-  const afterArchive = await waitForEmptyInbox(owner);
-  process.stdout.write(
-    `ELECTRON_LOCAL_MAIL ${JSON.stringify({
-      electron: process.versions.electron,
-      url: window.webContents.getURL(),
-      subjects,
-      inboxAfterArchive: afterArchive,
-    })}\n`,
-  );
-  await owner.close();
-  app.quit();
+    const afterArchive = await waitForEmptyInbox(owner);
+    process.stdout.write(
+      `ELECTRON_LOCAL_MAIL ${JSON.stringify({
+        electron: process.versions.electron,
+        url: window.webContents.getURL(),
+        subjects,
+        inboxAfterArchive: afterArchive,
+      })}\n`,
+    );
+  } finally {
+    await owner.close();
+    app.quit();
+  }
 }
 
 async function seedMailbox(databasePath: string) {
@@ -188,8 +198,27 @@ function emptySource(): MailboxSource {
     async hydrate() {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
-    async readConversationMembership() {
-      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    async readConversationMembership({ conversation }) {
+      if (
+        conversation.accountId !== "acc-1" ||
+        conversation.conversationId !== "c-local"
+      ) {
+        return { status: "ok", value: { status: "not_found" } };
+      }
+      return {
+        status: "ok",
+        value: {
+          status: "page",
+          page: {
+            conversation,
+            resolutionId: "res-local",
+            keys: [{ accountId: "acc-1", messageId: "m-local" }],
+            changes: [],
+            nextPage: null,
+            evidence: null,
+          },
+        },
+      };
     },
     async search() {
       return { status: "unsupported" };
