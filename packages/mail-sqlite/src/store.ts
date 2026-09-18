@@ -4,7 +4,11 @@ import type {
   SubmitConversationCommand,
   SubmitMetadataCommand,
 } from "@inboxzero/mail-core/commands";
-import type { DraftSaveResult, SaveDraft } from "@inboxzero/mail-core/drafts";
+import {
+  draftContentSchema,
+  type DraftSaveResult,
+  type SaveDraft,
+} from "@inboxzero/mail-core/drafts";
 import {
   applyMetadataChange,
   applyMetadataPatch,
@@ -543,6 +547,28 @@ export async function createSqliteMailStore(
     },
     async saveDraft(input) {
       return driver.write((tx) => saveDraftRow(tx, input));
+    },
+    async readDraft(key) {
+      return driver.read(async (tx) => {
+        const current = await tx.query(
+          "SELECT revision, content_json FROM drafts WHERE account_id = ? AND draft_id = ?",
+          [key.accountId, key.draftId],
+        );
+        if (!current[0]) return { status: "missing" as const };
+        try {
+          const parsed = draftContentSchema.safeParse(
+            JSON.parse(String(current[0].content_json)),
+          );
+          if (!parsed.success) return { status: "missing" as const };
+          return {
+            status: "found" as const,
+            draftRevision: Number(current[0].revision),
+            content: parsed.data,
+          };
+        } catch {
+          return { status: "missing" as const };
+        }
+      });
     },
     async admitSend(input) {
       return driver.write(async (tx) => {

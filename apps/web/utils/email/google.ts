@@ -1345,6 +1345,7 @@ export class GmailProvider implements EmailProvider {
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -1368,7 +1369,9 @@ export class GmailProvider implements EmailProvider {
       query += ` after:${Math.floor(options.after.getTime() / 1000) - 1}`;
     }
 
-    query += ` -label:${GmailLabel.DRAFT}`;
+    if (!options.includeDrafts) {
+      query += ` -label:${GmailLabel.DRAFT}`;
+    }
 
     const response = await getMessages(this.client, {
       query: query.trim() || undefined,

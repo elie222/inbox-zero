@@ -3,9 +3,15 @@ import type {
   SubmitConversationCommand,
   SubmitMetadataCommand,
 } from "./commands";
-import type { DraftSaveResult, SaveDraft, SubmitSend } from "./drafts";
+import type {
+  DraftReadResult,
+  DraftSaveResult,
+  SaveDraft,
+  SubmitSend,
+} from "./drafts";
 import type {
   ConversationKey,
+  DraftKey,
   LocalRevision,
   MessageKey,
   OperationKey,
@@ -56,6 +62,7 @@ export type MailClient = {
   submitMetadata(input: SubmitMetadataCommand): Promise<Admission>;
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
+  readDraft(key: DraftKey): Promise<DraftReadResult>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -149,6 +156,9 @@ export function createMailEngine(input: {
     },
     saveDraft(inputDraft) {
       return store.saveDraft(inputDraft);
+    },
+    readDraft(key) {
+      return store.readDraft(key);
     },
     async submitSend(send) {
       const admission = await store.admitSend(send);

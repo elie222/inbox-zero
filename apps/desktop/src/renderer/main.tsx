@@ -90,6 +90,9 @@ const client: DesktopMailClient = {
   async saveDraft(payload) {
     return (await callEngine("saveDraft", payload)).result;
   },
+  async readDraft(payload) {
+    return (await callEngine("readDraft", payload)).result;
+  },
   async submitSend(payload) {
     return (await callEngine("submitSend", payload)).result;
   },

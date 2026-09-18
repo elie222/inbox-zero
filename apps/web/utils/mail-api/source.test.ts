@@ -163,6 +163,32 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("enumerates mailbox pages including drafts", async () => {
+    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+      messages: [],
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMessagesWithPagination,
+      } as unknown as EmailProvider,
+    });
+    await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: "{}",
+      pageSize: 50,
+    });
+    expect(getMessagesWithPagination).toHaveBeenCalledWith({
+      maxResults: 50,
+      pageToken: undefined,
+      includeDrafts: true,
+    });
+  });
+
   it("blocks catch-up when provider authentication fails", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

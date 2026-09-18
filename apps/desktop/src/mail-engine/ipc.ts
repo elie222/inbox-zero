@@ -28,6 +28,11 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         status: "ok" as const,
         result: await engine.saveDraft(request.payload),
       };
+    case "readDraft":
+      return {
+        status: "ok" as const,
+        result: await engine.readDraft(request.payload),
+      };
     case "submitSend":
       return {
         status: "ok" as const,

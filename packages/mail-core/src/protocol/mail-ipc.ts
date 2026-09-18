@@ -7,6 +7,7 @@ import {
 } from "../commands";
 import {
   conversationKeySchema,
+  draftKeySchema,
   messageKeySchema,
   operationKeySchema,
   accountIdSchema,
@@ -39,6 +40,12 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
     requestId: z.string().min(1).max(128),
     method: z.literal("saveDraft"),
     payload: saveDraftSchema,
+  }),
+  z.object({
+    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
+    requestId: z.string().min(1).max(128),
+    method: z.literal("readDraft"),
+    payload: draftKeySchema,
   }),
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),

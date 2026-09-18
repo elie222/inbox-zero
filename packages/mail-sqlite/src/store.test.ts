@@ -384,6 +384,13 @@ describe("drafts, freeze, and uncertain settlement", () => {
     });
     expect(saved.status).toBe("saved");
     if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      await store.readDraft({ accountId: "acc-1", draftId: "d1" }),
+    ).toMatchObject({
+      status: "found",
+      draftRevision: saved.draftRevision,
+      content: { subject: "Hi" },
+    });
     const send = await store.admitSend({
       commandId: "send-1",
       draft: { accountId: "acc-1", draftId: "d1" },

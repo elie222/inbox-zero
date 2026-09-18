@@ -67,6 +67,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
@@ -291,7 +292,7 @@ function ComposeEmailFormContent({
   const canScheduleDelivery = isInlineReply || isComposeWindow;
   const isNewCompose = !replyingToEmail && !providerDraftMessageId;
   const { mutate } = useSWRConfig();
-  const client = useOptionalMailClient();
+  const client = useOptionalMailClient() ?? getActiveMailClient();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
   const [remindAt, setRemindAt] = useState(
     storedDraft?.content?.remindAt ?? "",
@@ -533,6 +534,13 @@ function ComposeEmailFormContent({
                 "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
               );
             draftId = created.data.draftId;
+            if (created.data.messageId) {
+              await ingestMailboxDraft(
+                client,
+                selectedEmailAccountId,
+                created.data.messageId,
+              );
+            }
           }
         }
         providerDraftId.current = draftId;
@@ -553,6 +561,13 @@ function ComposeEmailFormContent({
         });
         if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
         savedAttachments.current = attachmentSnapshot;
+        if (result.data.messageId) {
+          await ingestMailboxDraft(
+            client,
+            selectedEmailAccountId,
+            result.data.messageId,
+          );
+        }
         return;
       }
       if (!providerDraftMessageId) return;
@@ -910,7 +925,7 @@ function ComposeEmailFormContent({
             mutationId: requestId,
             emailAccountId: selectedEmailAccountId,
             holdUntil,
-            messageIds: [readerMessageId],
+            messageIds: isNewCompose ? [] : [readerMessageId],
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -1028,6 +1043,7 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
+      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,
@@ -1881,6 +1897,19 @@ function isShortcutForForm(
       .closest("[data-compose-shortcut-owner]")
       ?.getAttribute("data-compose-shortcut-owner") === shortcutOwnerId
   );
+}
+
+async function ingestMailboxDraft(
+  client: ReturnType<typeof useOptionalMailClient>,
+  emailAccountId: string,
+  messageId: string,
+) {
+  if (!client) return;
+  await client.ensureMessageContent({
+    accountId: emailAccountId,
+    messageId,
+  });
+  await client.requestSync([emailAccountId]);
 }
 
 function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {

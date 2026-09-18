@@ -114,6 +114,9 @@ function stubClient(input: {
     async saveDraft() {
       return { status: "rejected", code: "invalid" };
     },
+    async readDraft() {
+      return { status: "missing" };
+    },
     async submitSend() {
       return { status: "rejected", code: "unsupported" };
     },

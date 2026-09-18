@@ -3,10 +3,16 @@ import type {
   SubmitConversationCommand,
   SubmitMetadataCommand,
 } from "../commands";
-import type { DraftSaveResult, SaveDraft, SubmitSend } from "../drafts";
+import type {
+  DraftReadResult,
+  DraftSaveResult,
+  SaveDraft,
+  SubmitSend,
+} from "../drafts";
 import type {
   AccountSession,
   ConversationKey,
+  DraftKey,
   LocalRevision,
   MessageKey,
   OperationKey,
@@ -216,6 +222,7 @@ export interface MailStore {
     key: ConversationKey,
     page: { after: string | null; pageSize: number },
   ): Promise<{ revision: LocalRevision; view: ConversationView }>;
+  readDraft(key: DraftKey): Promise<DraftReadResult>;
   readMailboxView(query: ConversationQuery): Promise<{
     revision: LocalRevision;
     view: MailboxView;

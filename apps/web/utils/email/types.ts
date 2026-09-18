@@ -251,6 +251,7 @@ export interface EmailProvider {
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;

@@ -3,6 +3,8 @@ import type {
   PreparedEmailDraft,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
+import { splitRecipientList } from "@/utils/email";
+import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import type { SendEmailBody } from "@/utils/types/mail";
 
 export type ReplyDraftContent = {
@@ -73,7 +75,13 @@ export function subscribeToReplyDrafts(
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
   await pendingWrites.get(draftKey(identity))?.catch(() => {});
   assertAccountEpoch(identity.emailAccountId);
-  return drafts.get(draftKey(identity));
+  const local = drafts.get(draftKey(identity));
+  if (local) return local;
+  try {
+    return await loadEngineReplyDraft(identity);
+  } catch {
+    return;
+  }
 }
 
 export async function getReplyDraftForSession(
@@ -191,6 +199,7 @@ export function createReplyDraftWriter(
           updatedAt: Date.now(),
         });
         revision += 1;
+        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
         if (Boolean(previous?.content) !== Boolean(content)) {
           notifyReplyDraftChange(identity);
         }
@@ -273,4 +282,82 @@ function getComposeMode(
   replyToEmail: SendEmailBody["replyToEmail"],
 ): ReplyDraftMode {
   return replyToEmail?.headerMessageId ? "reply" : "forward";
+}
+
+async function persistEngineReplyDraft(
+  identity: ReplyDraftIdentity,
+  content: ReplyDraftContent | null,
+) {
+  const client = getActiveMailClient();
+  if (!client) return;
+  const draftId = engineDraftId(identity);
+  if (content == null) {
+    const current = await client.readDraft({
+      accountId: identity.emailAccountId,
+      draftId,
+    });
+    if (current.status !== "found") return;
+    await client.saveDraft({
+      key: { accountId: identity.emailAccountId, draftId },
+      expectedRevision: current.draftRevision,
+      content: {
+        to: [],
+        cc: [],
+        bcc: [],
+        subject: "",
+        editableHtml: "",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    return;
+  }
+  let expectedRevision: number | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const saved = await client.saveDraft({
+      key: { accountId: identity.emailAccountId, draftId },
+      expectedRevision,
+      content: {
+        to: splitRecipientList(content.values.to).slice(0, 100),
+        cc: splitRecipientList(content.values.cc ?? "").slice(0, 100),
+        bcc: splitRecipientList(content.values.bcc ?? "").slice(0, 100),
+        subject: content.values.subject,
+        editableHtml: content.draft.editableHtml,
+        quotedHtml: content.draft.quotedHtml,
+        attachmentIds: [],
+        clientState: JSON.stringify(content).slice(0, 1_000_000),
+      },
+    });
+    if (saved.status === "saved") return;
+    if (saved.status !== "conflict") return;
+    expectedRevision = saved.currentDraftRevision;
+  }
+}
+
+async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
+  const client = getActiveMailClient();
+  if (!client) return;
+  const stored = await client.readDraft({
+    accountId: identity.emailAccountId,
+    draftId: engineDraftId(identity),
+  });
+  if (stored.status !== "found" || !stored.content.clientState) return;
+  try {
+    const content = JSON.parse(stored.content.clientState) as ReplyDraftContent;
+    if (!content?.draft || !content.values) return;
+    const restored: StoredReplyDraft = {
+      ...identity,
+      content,
+      revision: stored.draftRevision,
+      updatedAt: Date.now(),
+    };
+    drafts.set(draftKey(identity), restored);
+    return restored;
+  } catch {
+    return;
+  }
+}
+
+function engineDraftId(identity: ReplyDraftIdentity) {
+  return identity.messageId.slice(0, 128);
 }

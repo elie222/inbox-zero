@@ -326,7 +326,9 @@ async function executeSend(
     input: {
       mutationId: sendMutationId(operation.key.operationId),
       queuedAt: operation.intent.queuedAtMs,
-      threadId: operation.intent.replyToConversationId,
+      threadId: operation.intent.replyToMessageId
+        ? operation.intent.replyToConversationId
+        : undefined,
       messageIds: operation.intent.replyToMessageId
         ? [operation.intent.replyToMessageId]
         : [operation.intent.frozenDraftId],
@@ -336,10 +338,10 @@ async function executeSend(
         bcc: operation.intent.bcc.join(", ") || undefined,
         subject: operation.intent.subject,
         messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
-        replyToEmail: operation.intent.replyToConversationId
+        replyToEmail: operation.intent.replyToMessageId
           ? {
-              threadId: operation.intent.replyToConversationId,
-              messageId: operation.intent.replyToMessageId ?? undefined,
+              threadId: operation.intent.replyToConversationId ?? undefined,
+              messageId: operation.intent.replyToMessageId,
             }
           : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,

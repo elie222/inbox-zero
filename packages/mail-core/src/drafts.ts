@@ -14,6 +14,7 @@ export const draftContentSchema = z.object({
   editableHtml: z.string().max(1_000_000),
   quotedHtml: z.string().max(1_000_000),
   attachmentIds: z.array(z.string().min(1).max(128)).max(20),
+  clientState: z.string().max(1_000_000).optional(),
 });
 export type DraftContent = z.infer<typeof draftContentSchema>;
 
@@ -50,3 +51,13 @@ export const draftSaveResultSchema = z.discriminatedUnion("status", [
   }),
 ]);
 export type DraftSaveResult = z.infer<typeof draftSaveResultSchema>;
+
+export const draftReadResultSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("found"),
+    draftRevision: z.number().int().nonnegative(),
+    content: draftContentSchema,
+  }),
+  z.object({ status: z.literal("missing") }),
+]);
+export type DraftReadResult = z.infer<typeof draftReadResultSchema>;

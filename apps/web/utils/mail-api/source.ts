@@ -81,6 +81,7 @@ export function createEmailProviderMailboxSource(input: {
         const syncPage = await provider.getMessagesWithPagination({
           maxResults: 50,
           pageToken: token.pageToken,
+          includeDrafts: true,
         });
         const changes = syncPage.messages.map((message) =>
           parsedMessagePatch(accountId, providerName, message),
@@ -164,6 +165,7 @@ export function createEmailProviderMailboxSource(input: {
         try {
           const result = await provider.getMessagesWithPagination({
             maxResults: pageSize,
+            includeDrafts: true,
           });
           return {
             status: "page" as const,

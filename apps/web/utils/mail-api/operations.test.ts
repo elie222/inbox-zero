@@ -91,6 +91,7 @@ describe("createEmailProviderOperationExecutor", () => {
           email: expect.objectContaining({
             to: "ada@example.com",
             subject: "Hi",
+            replyToEmail: undefined,
           }),
         }),
       }),

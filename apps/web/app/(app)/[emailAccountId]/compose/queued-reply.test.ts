@@ -41,6 +41,24 @@ describe("queueReaderEmail", () => {
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
+  it("admits a new message without a reply target", async () => {
+    const client = createClient();
+    await queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account-two",
+      messageIds: [],
+      online: false,
+      threadId: "compose:new-message",
+    });
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "compose:new-message",
+        replyTo: null,
+      }),
+    );
+  });
+
   it("reuses a draft identity and refuses a conflicting send payload", async () => {
     const client = createClient();
     client.submitSend.mockResolvedValue({
@@ -217,10 +235,12 @@ function createClient(options?: { handle?: ReturnType<typeof createHandle> }) {
       status: "saved",
       draftRevision: 1,
     }),
+    readDraft: vi.fn().mockResolvedValue({ status: "missing" }),
     submitSend: vi.fn().mockResolvedValue({ status: "queued" }),
   } as {
     observeOperation: ReturnType<typeof vi.fn>;
     saveDraft: ReturnType<typeof vi.fn>;
+    readDraft: ReturnType<typeof vi.fn>;
     submitSend: ReturnType<typeof vi.fn>;
   } & import("@inboxzero/mail-core/engine").MailClient;
 }

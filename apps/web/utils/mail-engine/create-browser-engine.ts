@@ -180,6 +180,7 @@ async function createWorkerOwnedEngine(input: {
     submitConversations: (payload) =>
       callWorker(worker, pending, "submitConversations", [payload]),
     saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
+    readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
     submitSend: (payload) =>
       callWorker(worker, pending, "submitSend", [payload]),
     cancelOperation: (payload) =>
