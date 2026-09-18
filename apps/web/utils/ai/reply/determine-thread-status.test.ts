@@ -81,7 +81,9 @@ describe("buildThreadStatusSystemPrompt", () => {
       definitions: getConversationStatusDefinitions([]),
       userSentLastEmail: false,
     });
-    expect(prompt).toContain("FYI is only when nothing was ever asked");
+    expect(prompt).toContain(
+      `* FYI - ${getRuleConfig(SystemType.FYI).instructions}`,
+    );
     expect(prompt).toContain(
       "status: One of TO_REPLY, AWAITING_REPLY, FYI, ACTIONED",
     );
@@ -95,7 +97,6 @@ describe("buildThreadStatusSystemPrompt", () => {
       userSentLastEmail: false,
     });
     expect(prompt).toContain("* FYI - Anything from my accountant");
-    expect(prompt).toContain("FYI follows the user's definition");
     expect(prompt).not.toContain("nothing was ever asked");
   });
 
@@ -108,7 +109,6 @@ describe("buildThreadStatusSystemPrompt", () => {
       userSentLastEmail: true,
     });
     expect(prompt).not.toContain("* FYI");
-    expect(prompt).toContain("FYI is NOT an option");
     expect(prompt).toContain(
       "status: One of TO_REPLY, AWAITING_REPLY, ACTIONED",
     );
