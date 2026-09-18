@@ -87,13 +87,13 @@ export function useMailThreads({
     query,
     enabled: Boolean(client) && enabled,
   });
+  const engineReady =
+    Boolean(client) && engineState.coverageComplete && !engineState.isLoading;
   const legacyState = useLegacyMailThreads({
     emailAccountId,
     query,
-    enabled: !client && enabled,
+    enabled: enabled && !engineReady,
   });
-  const engineReady =
-    Boolean(client) && engineState.coverageComplete && !engineState.isLoading;
   return engineReady ? engineState : legacyState;
 }
 

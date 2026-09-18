@@ -55,7 +55,11 @@ function observeSnapshot<T>(
   };
 }
 
-const client: MailClient = {
+type DesktopMailClient = MailClient & {
+  inspect(): Promise<{ accounts?: Array<{ accountId: string }> } | null>;
+};
+
+const client: DesktopMailClient = {
   observeMailbox: (query) => observeSnapshot("observeMailbox", query),
   observeConversation: (key, page) =>
     observeSnapshot("observeConversation", {
@@ -101,14 +105,18 @@ const client: MailClient = {
   async getDiagnostics(accountId) {
     return (await callEngine("getDiagnostics", { accountId })).result;
   },
+  async inspect() {
+    return (await callEngine("inspect", {})).result;
+  },
 };
 
 const root = document.getElementById("root");
 if (root) {
+  const accountIds = await resolveDesktopAccountIds(client);
   createRoot(root).render(
     <MailEngineProvider client={client}>
       <MailApp
-        accountIds={[]}
+        accountIds={accountIds}
         host={{
           compose() {},
           openAccount() {},
@@ -116,5 +124,19 @@ if (root) {
         }}
       />
     </MailEngineProvider>,
+  );
+}
+
+async function resolveDesktopAccountIds(mailClient: DesktopMailClient) {
+  const fromQuery = new URLSearchParams(window.location.search).getAll(
+    "accountId",
+  );
+  if (fromQuery.length > 0) return fromQuery;
+  const inspection = await mailClient.inspect().catch(() => ({
+    accounts: [] as Array<{ accountId: string }>,
+  }));
+  return (
+    inspection?.accounts?.map((account) => account.accountId).filter(Boolean) ??
+    []
   );
 }

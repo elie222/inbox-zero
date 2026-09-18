@@ -94,6 +94,19 @@ export function conversationIsUnread(
   );
 }
 
+export function extractTextPredicates(
+  predicate: MailPredicate,
+): Array<Extract<MailPredicate, { kind: "text" }>> {
+  if (predicate.kind === "text") return [predicate];
+  if (predicate.kind === "all" || predicate.kind === "any") {
+    return predicate.predicates.flatMap(extractTextPredicates);
+  }
+  if (predicate.kind === "not") {
+    return extractTextPredicates(predicate.predicate);
+  }
+  return [];
+}
+
 function addressMatches(
   message: EffectiveMessage,
   field: "from" | "to" | "cc",

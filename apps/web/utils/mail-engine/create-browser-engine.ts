@@ -190,6 +190,7 @@ async function createWorkerOwnedEngine(input: {
       callWorker(worker, pending, "ensureMessageContent", [key]),
     getDiagnostics: (accountId) =>
       callWorker(worker, pending, "getDiagnostics", [accountId]),
+    inspect: () => callWorker(worker, pending, "inspect", []),
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),
     async close() {

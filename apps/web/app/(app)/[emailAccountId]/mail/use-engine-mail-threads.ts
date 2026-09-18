@@ -7,6 +7,7 @@ import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { conversationSummaryToListThread } from "@/utils/mail-engine/list-thread";
 import { threadsQueryToConversationQuery } from "@/utils/mail-engine/threads-query";
+import { isMetadataCoverageComplete } from "@/utils/mail-engine/coverage";
 
 export function useEngineMailThreads({
   emailAccountId,
@@ -47,9 +48,7 @@ export function useEngineMailThreads({
         ),
       );
       setCoverageComplete(
-        (snapshot.data?.coverage ?? []).some(
-          (item) => item.metadata === "complete",
-        ),
+        isMetadataCoverageComplete(snapshot.data?.coverage ?? []),
       );
     };
     const unsubscribe = handle.subscribe(applySnapshot);

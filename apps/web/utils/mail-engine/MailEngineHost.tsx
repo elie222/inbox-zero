@@ -14,6 +14,7 @@ import {
   createBroadcastTabBus,
   createTabFollowerClient,
 } from "@/utils/mail-engine/tab-channel";
+import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
 
 export function MailEngineHost({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
@@ -25,14 +26,34 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     if (!capabilities.opfs) return;
     let engine: Awaited<ReturnType<typeof createBrowserMailEngine>> | undefined;
     let unbindOwner: (() => void) | undefined;
+    let unbindHello: (() => void) | undefined;
     const abort = new AbortController();
     const channel =
       typeof BroadcastChannel !== "undefined"
         ? new BroadcastChannel(MAIL_ENGINE_TAB_CHANNEL)
         : null;
     const bus = channel ? createBroadcastTabBus(channel) : null;
+
+    async function publishClient(next: MailClient) {
+      const ready = await waitForMetadataCoverage(
+        next,
+        emailAccountId,
+        abort.signal,
+      );
+      if (!ready || abort.signal.aborted) return;
+      publishMailEngineInspect(next, emailAccountId);
+      setClient(next);
+    }
+
     if (bus) {
-      setClient(createTabFollowerClient({ accountId: emailAccountId, bus }));
+      unbindHello = bus.subscribe((message) => {
+        if (message.type !== "owner" || message.accountId !== emailAccountId) {
+          return;
+        }
+        publishClient(
+          createTabFollowerClient({ accountId: emailAccountId, bus }),
+        ).catch(() => undefined);
+      });
       bus.post({ type: "hello", accountId: emailAccountId });
     }
 
@@ -65,7 +86,7 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
           });
           bus.post({ type: "owner", accountId: emailAccountId });
         }
-        setClient(engine);
+        await publishClient(engine);
       };
       if (typeof navigator !== "undefined" && navigator.locks?.request) {
         await navigator.locks.request(
@@ -83,6 +104,8 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     return () => {
       abort.abort();
       unbindOwner?.();
+      unbindHello?.();
+      clearMailEngineInspect();
       channel?.close();
       engine?.close().catch(() => undefined);
       setClient(null);
@@ -91,4 +114,35 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
 
   if (!client) return children;
   return <MailEngineProvider client={client}>{children}</MailEngineProvider>;
+}
+
+function publishMailEngineInspect(client: MailClient, accountId: string) {
+  if (typeof window === "undefined") return;
+  window.__inboxZeroMailInspect = {
+    accountId,
+    read: () => client.getDiagnostics(accountId),
+    inspect: () =>
+      "inspect" in client && typeof client.inspect === "function"
+        ? (
+            client as MailClient & {
+              inspect: () => Promise<unknown>;
+            }
+          ).inspect()
+        : Promise.resolve(null),
+  };
+}
+
+function clearMailEngineInspect() {
+  if (typeof window === "undefined") return;
+  window.__inboxZeroMailInspect = undefined;
+}
+
+declare global {
+  interface Window {
+    __inboxZeroMailInspect?: {
+      accountId: string;
+      read: () => Promise<unknown>;
+      inspect: () => Promise<unknown>;
+    };
+  }
 }

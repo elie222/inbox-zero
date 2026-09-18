@@ -53,6 +53,11 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         status: "ok" as const,
         result: await engine.getDiagnostics(request.payload.accountId),
       };
+    case "inspect":
+      return {
+        status: "ok" as const,
+        result: await engine.inspect(),
+      };
     case "observeMailbox": {
       const handle = engine.observeMailbox(request.payload);
       const snapshot = await waitForLoadedSnapshot(handle);

@@ -100,6 +100,16 @@ describe("desktop mail owner", () => {
       status: "ok",
       result: { status: "ready" },
     });
+    const inspected = await owner.handleIpc({
+      protocolVersion: 1,
+      requestId: "inspect",
+      method: "inspect",
+      payload: {},
+    });
+    expect(inspected).toMatchObject({
+      status: "ok",
+      result: { revision: expect.anything(), accounts: expect.any(Array) },
+    });
     await owner.close();
     await rm(directory, { recursive: true, force: true });
   });

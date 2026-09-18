@@ -67,6 +67,46 @@ export async function readLatestMailMutation(
   },
 ) {
   try {
+    const engineMutation = await page.evaluate(async (match) => {
+      const inspect = window.__inboxZeroMailInspect;
+      if (!inspect?.read) return;
+      const diagnostics = (await inspect.read()) as {
+        commands?: Array<{
+          status: string;
+          kind: string;
+          changeKind: string | null;
+          messageIds: string[];
+          conversationIds: string[];
+        }>;
+      };
+      const command = diagnostics.commands
+        ?.filter((item) => {
+          const kind = item.changeKind ?? item.kind;
+          const kindMatches =
+            kind === match.kind ||
+            (match.kind === "reply" && item.kind === "send");
+          const threadMatches =
+            !match.threadId ||
+            item.conversationIds.includes(match.threadId) ||
+            item.messageIds.some((messageId) =>
+              messageId.includes(match.threadId ?? ""),
+            );
+          return kindMatches && threadMatches;
+        })
+        .at(-1);
+      if (!command) return;
+      return {
+        kind: command.changeKind ?? command.kind,
+        status:
+          command.status === "succeeded"
+            ? "succeeded"
+            : command.status === "failed" || command.status === "cancelled"
+              ? "failed"
+              : "pending",
+        threadId: command.conversationIds[0],
+      };
+    }, expected);
+    if (engineMutation) return engineMutation;
     return await page.evaluate(
       async (match) =>
         await new Promise<Record<string, unknown> | undefined>(

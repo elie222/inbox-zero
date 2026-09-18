@@ -19,6 +19,7 @@ import type {
 import type {
   ConversationQuery,
   Coverage,
+  MailPredicate,
   MailboxView,
   QuerySnapshot,
 } from "../queries";
@@ -73,6 +74,13 @@ export type ClaimedWork =
       jobId: string;
       keys: MessageKey[];
       purpose: "metadata" | "body";
+    }
+  | {
+      kind: "search";
+      jobId: string;
+      accountId: string;
+      predicate: MailPredicate;
+      page: string | null;
     };
 
 export type MailStoreInspection = {
@@ -158,9 +166,15 @@ export interface MailStore {
     leaseMs: number;
   }): Promise<ClaimedWork | null>;
   close(): Promise<void>;
+  completeJob(jobId: string): Promise<void>;
   enqueueHydration(input: {
     keys: MessageKey[];
     purpose: "metadata" | "body";
+  }): Promise<LocalRevision>;
+  enqueueSearch(input: {
+    accountId: string;
+    predicate: MailPredicate;
+    page: string | null;
   }): Promise<LocalRevision>;
   ensureAccount(input: {
     accountId: string;
@@ -186,6 +200,14 @@ export interface MailStore {
     uncertainOperations: number;
     pendingJobs: number;
     oldestPendingAtMs: number | null;
+    commands: Array<{
+      operationId: string;
+      status: OperationState["status"];
+      kind: string;
+      changeKind: string | null;
+      messageIds: string[];
+      conversationIds: string[];
+    }>;
   }>;
   inspect(): Promise<MailStoreInspection>;
   readConversation(

@@ -16,6 +16,7 @@ import type { MailStore } from "./ports/mail-store";
 import type { OperationExecutor } from "./ports/operation-executor";
 import type { AssistantStateSource } from "./ports/assistant-source";
 import type { HostRuntime } from "./ports/runtime";
+import { extractTextPredicates } from "./query-semantics";
 import type { ConversationQuery, MailboxView, QueryHandle } from "./queries";
 import { createQueryRegistry, mailboxQueryKey } from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
@@ -34,6 +35,14 @@ export type MailDiagnostics = {
   uncertainOperations: number;
   pendingJobs: number;
   oldestPendingAtMs: number | null;
+  commands: Array<{
+    operationId: string;
+    status: OperationState["status"];
+    kind: string;
+    changeKind: string | null;
+    messageIds: string[];
+    conversationIds: string[];
+  }>;
 };
 
 export type MailClient = {
@@ -60,6 +69,7 @@ export type MailClient = {
 
 export type MailEngine = MailClient & {
   runUntil(deadlineMs: number, signal?: AbortSignal): Promise<void>;
+  inspect(): Promise<import("./ports/mail-store").MailStoreInspection>;
   close(): Promise<void>;
 };
 
@@ -83,6 +93,13 @@ export function createMailEngine(input: {
 
   return {
     observeMailbox(query) {
+      for (const accountId of query.accountIds) {
+        for (const predicate of extractTextPredicates(query.predicate)) {
+          store
+            .enqueueSearch({ accountId, predicate, page: null })
+            .catch(() => undefined);
+        }
+      }
       return queries.observe(mailboxQueryKey(query), () =>
         store.readMailboxView(query).then((result) => ({
           revision: result.revision,
@@ -154,6 +171,9 @@ export function createMailEngine(input: {
     },
     getDiagnostics(accountId) {
       return store.getDiagnostics(accountId);
+    },
+    inspect() {
+      return store.inspect();
     },
     async runUntil(deadlineMs, signal) {
       while (runtime.nowMs() < deadlineMs) {
@@ -233,7 +253,10 @@ export function createMailEngine(input: {
         }
         if (work.kind === "hydrate") {
           const accountId = work.keys[0]?.accountId;
-          if (!accountId) continue;
+          if (!accountId) {
+            await store.completeJob(work.jobId);
+            continue;
+          }
           const hydrated = await source.hydrate({
             session: {
               accountId,
@@ -255,6 +278,43 @@ export function createMailEngine(input: {
               bodies: hydrated.value.bodies,
             });
             await refreshViews();
+            await store.completeJob(work.jobId);
+          }
+          continue;
+        }
+        if (work.kind === "search") {
+          const searched = await source.search({
+            session: {
+              accountId: work.accountId,
+              generation: generations.get(work.accountId) ?? work.accountId,
+            },
+            requestId: work.jobId,
+            signal: signal ?? new AbortController().signal,
+            predicate: work.predicate,
+            page: work.page,
+            pageSize: 50,
+          });
+          if (searched.status === "ok") {
+            if (searched.value.matches.length > 0) {
+              await store.enqueueHydration({
+                keys: searched.value.matches,
+                purpose: "body",
+              });
+            }
+            if (searched.value.nextPage) {
+              await store.enqueueSearch({
+                accountId: work.accountId,
+                predicate: work.predicate,
+                page: searched.value.nextPage,
+              });
+            }
+            await refreshViews();
+          }
+          if (
+            searched.status !== "paused" &&
+            searched.status !== "blocked_auth"
+          ) {
+            await store.completeJob(work.jobId);
           }
           continue;
         }

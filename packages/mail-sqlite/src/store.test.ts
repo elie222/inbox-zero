@@ -1036,6 +1036,90 @@ describe("sqlite scale smoke", () => {
     expect(elapsedMs).toBeLessThan(5000);
     await store.close();
   });
+
+  it("lists and counts 100k conversations under the local query budget", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    for (let batch = 0; batch < 10; batch += 1) {
+      const changes = Array.from({ length: 10_000 }, (_, index) => {
+        const id = batch * 10_000 + index;
+        return messagePatch(`m${id}`, `c${id}`, id, ["inbox"]);
+      });
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: `scale-100k-${batch}`,
+          from: {
+            streamId: "primary",
+            generation: "g1",
+            checkpoint: batch === 0 ? null : String(batch),
+          },
+          to: {
+            streamId: "primary",
+            generation: "g1",
+            checkpoint: String(batch + 1),
+          },
+          changes,
+          requiredHydration: [],
+          roundComplete: batch === 9,
+        },
+      });
+    }
+    const started = Date.now();
+    const view = await store.readMailboxView(inboxQuery);
+    const elapsedMs = Date.now() - started;
+    expect(view.view.counts.matchingConversations).toBe(100_000);
+    expect(view.view.conversations).toHaveLength(25);
+    expect(elapsedMs).toBeLessThan(5000);
+    await store.close();
+  }, 120_000);
+
+  it("lists and counts 1M conversations in batched pages", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    for (let batch = 0; batch < 100; batch += 1) {
+      const changes = Array.from({ length: 10_000 }, (_, index) => {
+        const id = batch * 10_000 + index;
+        return messagePatch(`m${id}`, `c${id}`, id, ["inbox"]);
+      });
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: `scale-1m-${batch}`,
+          from: {
+            streamId: "primary",
+            generation: "g1",
+            checkpoint: batch === 0 ? null : String(batch),
+          },
+          to: {
+            streamId: "primary",
+            generation: "g1",
+            checkpoint: String(batch + 1),
+          },
+          changes,
+          requiredHydration: [],
+          roundComplete: batch === 99,
+        },
+      });
+    }
+    const started = Date.now();
+    const view = await store.readMailboxView(inboxQuery);
+    const elapsedMs = Date.now() - started;
+    expect(view.view.counts.matchingConversations).toBe(1_000_000);
+    expect(view.view.conversations).toHaveLength(25);
+    expect(elapsedMs).toBeLessThan(5000);
+    await store.close();
+  }, 600_000);
 });
 
 function messagePatch(

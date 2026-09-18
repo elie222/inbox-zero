@@ -266,6 +266,27 @@ export async function createSqliteMailStore(
             purpose: payload.purpose,
           };
         }
+        const search = await tx.query(
+          `SELECT * FROM sync_jobs WHERE kind = 'search' AND (claimed_by IS NULL OR claimed_until_ms < ?) LIMIT 1`,
+          [input.nowMs],
+        );
+        if (search[0]) {
+          await tx.execute(
+            "UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ? WHERE job_id = ?",
+            [input.ownerId, input.nowMs + input.leaseMs, search[0].job_id],
+          );
+          const payload = JSON.parse(String(search[0].payload_json)) as {
+            predicate: import("@inboxzero/mail-core/queries").MailPredicate;
+            page: string | null;
+          };
+          return {
+            kind: "search" as const,
+            jobId: String(search[0].job_id),
+            accountId: String(search[0].account_id),
+            predicate: payload.predicate,
+            page: payload.page,
+          };
+        }
         return null;
       });
     },
@@ -681,6 +702,18 @@ export async function createSqliteMailStore(
           "SELECT COUNT(*) AS n FROM sync_jobs WHERE account_id = ?",
           [accountId],
         );
+        const operationRows = await tx.query(
+          "SELECT * FROM operations WHERE account_id = ?",
+          [accountId],
+        );
+        const targets = await tx.query(
+          "SELECT command_id, message_id, conversation_id FROM operation_targets WHERE account_id = ?",
+          [accountId],
+        );
+        const conversations = await tx.query(
+          "SELECT command_id, conversation_id FROM operation_conversations WHERE account_id = ?",
+          [accountId],
+        );
         return {
           accountId,
           revision,
@@ -691,6 +724,36 @@ export async function createSqliteMailStore(
           pendingJobs: Number(jobs[0]?.n ?? 0),
           oldestPendingAtMs:
             pending[0]?.oldest == null ? null : Number(pending[0].oldest),
+          commands: operationRows.map((row) => {
+            const payload = parseOperationPayload(row.payload_json);
+            const operationId = String(row.command_id);
+            return {
+              operationId,
+              status: String(row.status) as OperationState["status"],
+              kind: payload.kind,
+              changeKind: payload.changeKind,
+              messageIds: targets
+                .filter((target) => String(target.command_id) === operationId)
+                .map((target) => String(target.message_id)),
+              conversationIds: [
+                ...conversations
+                  .filter(
+                    (conversation) =>
+                      String(conversation.command_id) === operationId,
+                  )
+                  .map((conversation) => String(conversation.conversation_id)),
+                ...targets
+                  .filter(
+                    (target) =>
+                      String(target.command_id) === operationId &&
+                      target.conversation_id != null,
+                  )
+                  .map((target) => String(target.conversation_id)),
+              ].filter(
+                (value, index, values) => values.indexOf(value) === index,
+              ),
+            };
+          }),
         };
       });
     },
@@ -711,6 +774,32 @@ export async function createSqliteMailStore(
           ],
         );
         return bumpRevision(tx);
+      });
+    },
+    async enqueueSearch(input) {
+      return driver.write(async (tx) => {
+        const jobId = `search:${input.accountId}:${await hashCanonical({
+          predicate: input.predicate,
+          page: input.page,
+        })}`;
+        await tx.execute(
+          `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
+           VALUES (?, ?, 'search', ?)`,
+          [
+            jobId,
+            input.accountId,
+            JSON.stringify({
+              predicate: input.predicate,
+              page: input.page,
+            }),
+          ],
+        );
+        return bumpRevision(tx);
+      });
+    },
+    async completeJob(jobId) {
+      await driver.write(async (tx) => {
+        await tx.execute("DELETE FROM sync_jobs WHERE job_id = ?", [jobId]);
       });
     },
     async failOperation(key, code) {
@@ -1603,6 +1692,21 @@ function operationStatusFromTargets(
   if (rejected && !applied) return "failed";
   if (applied && !rejected) return "succeeded";
   return completeStatus;
+}
+
+function parseOperationPayload(value: import("./driver").SqlValue) {
+  try {
+    const payload = JSON.parse(String(value)) as {
+      kind?: string;
+      change?: { kind?: string };
+    };
+    return {
+      kind: payload.kind ?? "unknown",
+      changeKind: payload.change?.kind ?? null,
+    };
+  } catch {
+    return { kind: "unknown", changeKind: null };
+  }
 }
 
 export type { SyncPage, ConversationKey };

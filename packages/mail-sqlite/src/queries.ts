@@ -114,8 +114,8 @@ export function compilePredicate(
         };
       }
       return {
-        sql: `(${alias}.subject LIKE ? ESCAPE '\\' OR ${alias}.preview LIKE ? ESCAPE '\\' OR ${alias}.from_address LIKE ? ESCAPE '\\')`,
-        bindings: [like, like, like],
+        sql: `(${alias}.subject LIKE ? ESCAPE '\\' OR ${alias}.preview LIKE ? ESCAPE '\\' OR ${alias}.from_address LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM message_content c WHERE c.account_id = ${alias}.account_id AND c.message_id = ${alias}.message_id AND (c.text LIKE ? ESCAPE '\\' OR c.html LIKE ? ESCAPE '\\')))`,
+        bindings: [like, like, like, like, like],
       };
     }
     default: {

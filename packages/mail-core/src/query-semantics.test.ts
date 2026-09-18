@@ -3,6 +3,7 @@ import type { EffectiveMessage } from "./query-semantics";
 import {
   conversationIsUnread,
   conversationMatchesPredicate,
+  extractTextPredicates,
   messageMatchesPredicate,
 } from "./query-semantics";
 
@@ -87,6 +88,27 @@ describe("messageMatchesPredicate", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("extractTextPredicates", () => {
+  it("collects nested text clauses for provider search", () => {
+    expect(
+      extractTextPredicates({
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          {
+            kind: "text",
+            field: "any",
+            value: "invoice",
+            match: "phrase",
+          },
+        ],
+      }),
+    ).toEqual([
+      { kind: "text", field: "any", value: "invoice", match: "phrase" },
+    ]);
   });
 });
 
