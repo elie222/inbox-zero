@@ -44,6 +44,7 @@
     "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
     "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
     "pack:smoke": "node scripts/pack-smoke.mjs",
+    "pack:expo-smoke": "node scripts/expo-harness.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check-imports": "node scripts/check-imports.mjs"
