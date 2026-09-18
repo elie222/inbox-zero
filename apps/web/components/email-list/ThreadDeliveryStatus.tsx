@@ -15,17 +15,9 @@ import {
   WifiOffIcon,
 } from "lucide-react";
 import useSWR from "swr";
-import { restoreReplyFromOutbox } from "@/utils/email-cache/reply-drafts";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ReplyDraftMode } from "@/utils/email-cache/reply-drafts";
 import { InlineActionButton } from "@/components/InlineActionButton";
-import {
-  getEmailCacheDatabase,
-  type StoredMailMutation,
-} from "@/utils/email-cache/database";
-import {
-  dismissFailedReply,
-  subscribeToMailMutations,
-} from "@/utils/email-cache/mail-mutations";
 import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import {
   cancelScheduledEmailAction,
@@ -34,12 +26,12 @@ import {
 } from "@/utils/actions/scheduled-email";
 import { getActionErrorMessage } from "@/utils/error";
 import { getLatestScheduledSendId } from "@/components/email-list/latest-scheduled-send";
-import { EmailMessage } from "@/components/email-list/EmailMessage";
 import {
-  getOutboxReplyPreview,
-  shouldShowOutboxDeliveryStatus,
-} from "@/components/email-list/outbox-reply";
-import { useAccount } from "@/providers/EmailAccountProvider";
+  canEditEngineSend,
+  engineDeliveryLabel,
+  engineSendCommandsForThread,
+  shouldShowEngineDeliveryStatus,
+} from "@/utils/mail-engine/engine-delivery";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -56,7 +48,7 @@ export function ThreadDeliveryStatus({
   refetch: () => void;
   canEditReply: boolean;
 }) {
-  const { userEmail } = useAccount();
+  const client = useOptionalMailClient();
   const online = useSyncExternalStore(
     subscribeToConnectivity,
     () => navigator.onLine,
@@ -64,26 +56,28 @@ export function ThreadDeliveryStatus({
   );
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dismissedSendIds, setDismissedSendIds] = useState<string[]>([]);
   const { data: outbox = [], mutate: refreshOutbox } = useSWR(
-    ["thread-deliveries", emailAccountId, threadId],
+    client ? ["thread-deliveries", emailAccountId, threadId] : null,
     async () => {
-      const db = await getEmailCacheDatabase();
-      const rows = await db?.getAllFromIndex(
-        "mailMutations",
-        "byAccountThread",
-        [emailAccountId, threadId],
-      );
-      return (rows ?? [])
-        .filter((row) => row.kind === "reply")
-        .sort((a, b) => b.createdAt - a.createdAt);
+      if (!client) return [];
+      const diagnostics = await client.getDiagnostics(emailAccountId);
+      return engineSendCommandsForThread(diagnostics.commands, threadId);
     },
-  );
-  useEffect(
-    () =>
-      subscribeToMailMutations(() => {
-        refreshOutbox();
-      }),
-    [refreshOutbox],
+    {
+      refreshInterval: (current) =>
+        current?.some((row) =>
+          [
+            "queued",
+            "preparing",
+            "executing",
+            "verifying",
+            "retry_wait",
+          ].includes(row.status),
+        )
+          ? 1000
+          : 0,
+    },
   );
   const { data, error, isValidating, mutate } = useSWR<ScheduledEmailsResponse>(
     [
@@ -121,7 +115,7 @@ export function ThreadDeliveryStatus({
     data?.scheduledEmails ?? [],
   );
   const latestOutboxSendId =
-    outbox.find((row) => row.status === "succeeded")?.id ?? "";
+    outbox.find((row) => row.status === "succeeded")?.operationId ?? "";
   const completedSendKey = `${latestScheduledSendId}:${latestOutboxSendId}`;
   const refreshedSendKey = useRef(":");
   useEffect(() => {
@@ -166,132 +160,97 @@ export function ThreadDeliveryStatus({
   );
   const visible = useMemo(
     () =>
-      outbox
-        .filter((row, index) => row.status !== "succeeded" || index === 0)
-        .map((row) => ({
-          row,
-          preview: getOutboxReplyPreview(row, messageIds, userEmail),
-        }))
-        .filter(({ row, preview }) => row.status !== "succeeded" || preview)
-        .reverse(),
-    [outbox, messageIds, userEmail],
+      outbox.filter(
+        (row) =>
+          !dismissedSendIds.includes(row.operationId) &&
+          row.status !== "cancelled" &&
+          row.status !== "superseded",
+      ),
+    [dismissedSendIds, outbox],
   );
   return (
     <section className="space-y-1" aria-label="Reply delivery status">
-      {visible.map(({ row, preview }) => {
-        const showStatus = shouldShowOutboxDeliveryStatus({
-          hasPreview: Boolean(preview),
+      {visible.map((row) => {
+        const showStatus = shouldShowEngineDeliveryStatus({
           online,
           status: row.status,
         });
+        if (!showStatus) return null;
+        const iconStatus =
+          online &&
+          (row.status === "queued" ||
+            row.status === "preparing" ||
+            row.status === "retry_wait" ||
+            row.status === "executing" ||
+            row.status === "verifying")
+            ? "processing"
+            : row.status;
         return (
-          <div key={row.id}>
+          <div key={row.operationId}>
             {row.status === "failed" && (
               <p className="px-1 pt-3 text-xs font-medium text-destructive">
-                Unsent reply · {formatTime(new Date(row.createdAt))}
+                Unsent reply
               </p>
             )}
-            {preview && (
-              <>
-                <ul>
-                  <EmailMessage
-                    message={preview.message}
-                    expanded
-                    showReplyButton={false}
-                    refetch={refetch}
-                    onSendSuccess={refetch}
-                  />
-                </ul>
-                {preview.attachments.length > 0 && (
-                  <ul
-                    aria-label="Attachments"
-                    className="flex flex-wrap gap-3 px-2 sm:pl-14 text-sm"
-                  >
-                    {preview.attachments.map((attachment, index) => (
-                      <li key={attachment.id ?? index}>
-                        <a
-                          className="underline underline-offset-4"
-                          download={attachment.filename}
-                          href={`data:${attachment.contentType};base64,${attachment.content}`}
-                        >
-                          {attachment.filename}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-            {showStatus && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
-                <p
-                  role="status"
-                  className="flex items-center gap-2 font-medium text-foreground"
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
+              <p
+                role="status"
+                className="flex items-center gap-2 font-medium text-foreground"
+              >
+                <DeliveryIcon status={iconStatus} offline={!online} />
+                {engineDeliveryLabel(row.status, online)}
+              </p>
+              {(row.status === "uncertain" || row.status === "failed") && (
+                <a
+                  className="underline underline-offset-4"
+                  href={`/${emailAccountId}/mail?type=sent`}
                 >
-                  <DeliveryIcon
-                    status={
-                      online && row.status === "pending"
-                        ? "processing"
-                        : row.status
-                    }
-                    offline={!online}
-                  />
-                  {deliveryLabel(row, online)}
-                </p>
-                {row.status !== "succeeded" && row.lastError && (
-                  <p className="order-last basis-full pl-5 text-muted-foreground">
-                    {row.lastError}
-                  </p>
-                )}
-                {(row.status === "uncertain" || row.status === "failed") && (
-                  <a
-                    className="underline underline-offset-4"
-                    href={`/${emailAccountId}/mail?type=sent`}
-                  >
-                    Check Sent
-                  </a>
-                )}
-                {row.status === "failed" && (
-                  <InlineActionButton
-                    disabled={busy}
-                    onClick={() =>
-                      act(async () => {
-                        if (!(await dismissFailedReply(row.id, emailAccountId)))
+                  Check Sent
+                </a>
+              )}
+              {row.status === "failed" && (
+                <InlineActionButton
+                  disabled={busy}
+                  onClick={() =>
+                    setDismissedSendIds((current) => [
+                      ...current,
+                      row.operationId,
+                    ])
+                  }
+                >
+                  Dismiss failed reply
+                </InlineActionButton>
+              )}
+              {canEditReply && canEditEngineSend(row.status, online) && (
+                <InlineActionButton
+                  disabled={busy}
+                  onClick={() =>
+                    act(async () => {
+                      if (
+                        row.status === "queued" ||
+                        row.status === "preparing"
+                      ) {
+                        const result = await client?.cancelOperation({
+                          accountId: emailAccountId,
+                          operationId: row.operationId,
+                        });
+                        if (result && result.status !== "cancelled") {
                           throw new Error(
                             "This reply's status changed. Refresh the thread and try again.",
                           );
-                      })
-                    }
-                  >
-                    Dismiss failed reply
-                  </InlineActionButton>
-                )}
-                {canEditReply &&
-                  !(
-                    online &&
-                    row.status === "pending" &&
-                    row.nextAttemptAt <= Date.now()
-                  ) &&
-                  ["pending", "retry_wait", "blocked_auth", "failed"].includes(
-                    row.status,
-                  ) && (
-                    <InlineActionButton
-                      disabled={busy}
-                      onClick={() =>
-                        act(async () => {
-                          const restored = await restoreReplyFromOutbox(
-                            row.id,
-                            emailAccountId,
-                          );
-                          onEditReply(restored.messageId, restored.mode);
-                        })
+                        }
                       }
-                    >
-                      Edit reply
-                    </InlineActionButton>
-                  )}
-              </div>
-            )}
+                      onEditReply(
+                        row.messageIds[0] ?? messageIds.at(-1) ?? threadId,
+                        "reply",
+                      );
+                    })
+                  }
+                >
+                  Edit reply
+                </InlineActionButton>
+              )}
+            </div>
           </div>
         );
       })}
@@ -392,23 +351,6 @@ function formatTime(value: string | Date) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function deliveryLabel(row: StoredMailMutation, online: boolean) {
-  switch (row.status) {
-    case "succeeded":
-      return "Reply sent";
-    case "processing":
-      return "Sending…";
-    case "uncertain":
-      return "Delivery uncertain";
-    case "failed":
-      return "Reply could not be sent";
-    case "blocked_auth":
-      return "Reconnect your account to send this reply";
-    default:
-      return online ? "Sending…" : "Waiting for connection";
-  }
 }
 
 function scheduledDeliveryLabel(

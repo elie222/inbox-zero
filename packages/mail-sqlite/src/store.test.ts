@@ -434,6 +434,68 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("holds a send until notBeforeMs and records the conversation on diagnostics", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-hold" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hold",
+        editableHtml: "<p>Hold</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    const notBeforeMs = Date.now() + 5000;
+    const send = await store.admitSend({
+      commandId: "send-hold",
+      conversationId: "thread-hold",
+      draft: { accountId: "acc-1", draftId: "d-hold" },
+      draftRevision: saved.draftRevision,
+      notBeforeMs,
+      replyTo: null,
+    });
+    expect(send.status).toBe("queued");
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: notBeforeMs - 1,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: notBeforeMs,
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    const replay = await store.admitSend({
+      commandId: "send-hold",
+      conversationId: "thread-hold",
+      draft: { accountId: "acc-1", draftId: "d-hold" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    expect(replay.status).toBe("already_recorded");
+    const diagnostics = await store.getDiagnostics("acc-1");
+    expect(
+      diagnostics.commands.find(
+        (command) => command.operationId === "send-hold",
+      )?.conversationIds,
+    ).toEqual(["thread-hold"]);
+    await store.close();
+  });
+
   it("keeps conversation commands preparing until membership freeze", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({

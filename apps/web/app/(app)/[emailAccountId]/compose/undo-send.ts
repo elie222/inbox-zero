@@ -1,19 +1,15 @@
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import { cancelPendingMailMutation } from "@/utils/email-cache/mail-mutations";
-import {
-  restoreReplyFromOutbox,
-  type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
+import type { MailClient } from "@inboxzero/mail-core/engine";
 
 export const UNDO_SEND_DELAY_MS = 5000;
 const UNDO_SEND_TOAST_ID = "undo-send";
 
 type PendingUndoSend = {
-  mutationId: string;
+  client: MailClient;
+  operationId: string;
   emailAccountId: string;
-  identity: ReplyDraftIdentity;
   restoreComposer: () => void;
   undone: boolean;
 };
@@ -25,22 +21,22 @@ export function getUndoSendHoldUntil(online: boolean, now = Date.now()) {
 }
 
 export function beginUndoSend({
-  mutationId,
+  client,
+  operationId,
   emailAccountId,
-  identity,
   restoreComposer,
   holdUntil,
 }: {
-  mutationId: string;
+  client: MailClient;
+  operationId: string;
   emailAccountId: string;
-  identity: ReplyDraftIdentity;
   restoreComposer: () => void;
   holdUntil: number;
 }) {
   pending = {
-    mutationId,
+    client,
+    operationId,
     emailAccountId,
-    identity,
     restoreComposer,
     undone: false,
   };
@@ -59,22 +55,15 @@ export async function undoPendingSend() {
   const current = pending;
   if (!current || current.undone) return false;
   current.undone = true;
-  try {
-    await restoreReplyFromOutbox(
-      current.mutationId,
-      current.emailAccountId,
-      current.identity,
-    );
-  } catch {
-    if (!(await cancelPendingMailMutation(current.mutationId))) {
-      current.undone = false;
-      if (pending === current) pending = null;
-      toastError({ description: "Couldn't undo send" });
-      return false;
-    }
+  const result = await current.client.cancelOperation({
+    accountId: current.emailAccountId,
+    operationId: current.operationId,
+  });
+  if (result.status !== "cancelled") {
+    current.undone = false;
     if (pending === current) pending = null;
-    toast.dismiss(UNDO_SEND_TOAST_ID);
-    return true;
+    toastError({ description: "Couldn't undo send" });
+    return false;
   }
   if (pending === current) pending = null;
   toast.dismiss(UNDO_SEND_TOAST_ID);

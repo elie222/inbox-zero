@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  conversationIdSchema,
   draftKeySchema,
   localRevisionSchema,
   messageKeySchema,
@@ -28,6 +29,8 @@ export const submitSendSchema = z.object({
   draft: draftKeySchema,
   draftRevision: z.number().int().nonnegative(),
   replyTo: messageKeySchema.nullable(),
+  conversationId: conversationIdSchema.optional(),
+  notBeforeMs: z.number().int().nonnegative().optional(),
 });
 export type SubmitSend = z.infer<typeof submitSendSchema>;
 

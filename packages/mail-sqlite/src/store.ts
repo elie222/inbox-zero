@@ -562,20 +562,16 @@ export async function createSqliteMailStore(
           quotedHtml: string;
           attachmentIds: string[];
         };
-        let replyToConversationId: string | null = null;
+        let replyToConversationId: string | null = input.conversationId ?? null;
         if (input.replyTo) {
           const replied = await tx.query(
             "SELECT conversation_id FROM messages WHERE account_id = ? AND message_id = ?",
             [input.replyTo.accountId, input.replyTo.messageId],
           );
-          replyToConversationId = replied[0]
-            ? String(replied[0].conversation_id)
-            : null;
+          replyToConversationId =
+            (replied[0] ? String(replied[0].conversation_id) : null) ??
+            replyToConversationId;
         }
-        await tx.execute(
-          "UPDATE drafts SET frozen = 1 WHERE account_id = ? AND draft_id = ?",
-          [input.draft.accountId, input.draft.draftId],
-        );
         const payload = {
           kind: "send" as const,
           frozenDraftId: input.draft.draftId,
@@ -591,12 +587,35 @@ export async function createSqliteMailStore(
           replyToConversationId,
           queuedAtMs: Date.now(),
         };
-        const hash = await hashCanonical(payload);
+        const hash = await hashCanonical({ ...payload, queuedAtMs: 0 });
+        const existing = await loadOperation(
+          tx,
+          input.draft.accountId,
+          input.commandId,
+        );
+        if (existing) {
+          if (String(existing.intent_hash) === hash) {
+            return {
+              status: "already_recorded" as const,
+              operation: {
+                accountId: input.draft.accountId,
+                operationId: input.commandId,
+              },
+              revision: await readRevision(tx),
+            };
+          }
+          return { status: "rejected" as const, code: "invalid" as const };
+        }
+        await tx.execute(
+          "UPDATE drafts SET frozen = 1 WHERE account_id = ? AND draft_id = ?",
+          [input.draft.accountId, input.draft.draftId],
+        );
         await tx.execute(
           `INSERT INTO operations(
              account_id, command_id, status, authority, intent_hash, executable_hash,
-             payload_json, executable_payload_json, attempts, created_at_ms
-           ) VALUES (?, ?, 'queued', 'backend', ?, ?, ?, ?, 0, ?)`,
+             payload_json, executable_payload_json, attempts, created_at_ms,
+             next_attempt_at_ms
+           ) VALUES (?, ?, 'queued', 'backend', ?, ?, ?, ?, 0, ?, ?)`,
           [
             input.draft.accountId,
             input.commandId,
@@ -605,6 +624,7 @@ export async function createSqliteMailStore(
             JSON.stringify(payload),
             JSON.stringify(payload),
             Date.now(),
+            input.notBeforeMs ?? null,
           ],
         );
         return {
@@ -754,6 +774,7 @@ export async function createSqliteMailStore(
                       target.conversation_id != null,
                   )
                   .map((target) => String(target.conversation_id)),
+                ...payload.conversationIds,
               ].filter(
                 (value, index, values) => values.indexOf(value) === index,
               ),
@@ -1749,14 +1770,23 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
     const payload = JSON.parse(String(value)) as {
       kind?: string;
       change?: Record<string, unknown> & { kind?: string };
+      replyToConversationId?: string | null;
     };
     return {
       kind: payload.kind ?? "unknown",
       changeKind: payload.change?.kind ?? null,
       change: payload.change ?? null,
+      conversationIds: payload.replyToConversationId
+        ? [payload.replyToConversationId]
+        : [],
     };
   } catch {
-    return { kind: "unknown", changeKind: null, change: null };
+    return {
+      kind: "unknown",
+      changeKind: null,
+      change: null,
+      conversationIds: [],
+    };
   }
 }
 
