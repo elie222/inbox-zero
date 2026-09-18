@@ -138,7 +138,9 @@ test("advanced search still filters the mailbox by Has the words", async ({
 
   await page.getByRole("button", { name: "Show search options" }).click();
   const filters = page.getByRole("form", { name: "Search options" });
-  await filters.getByLabel("Has the words").fill("Archive Action");
+  await filters
+    .getByLabel(isMicrosoftPlaywright() ? "Keywords" : "Has the words")
+    .fill("Archive Action");
   await filters.getByRole("button", { name: "Search" }).click();
 
   await expect(page).toHaveURL(/[?&]q=/);
