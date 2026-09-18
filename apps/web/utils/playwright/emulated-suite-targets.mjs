@@ -47,12 +47,7 @@ const featureGroups = [
   },
   {
     name: "mail-offline",
-    specs: [
-      "mail/local-cache.spec.ts",
-      "mail/offline-loading.spec.ts",
-      "mail/offline-outbox.spec.ts",
-      "mail/mail-queue.spec.ts",
-    ],
+    specs: ["mail/offline-loading.spec.ts", "mail/mail-queue.spec.ts"],
   },
   {
     name: "mail-navigation",
@@ -61,7 +56,6 @@ const featureGroups = [
       "mail/navigation-and-views.spec.ts",
       "mail/split-tabs.spec.ts",
       "mail/search.spec.ts",
-      "mail/local-search.spec.ts",
     ],
   },
   {

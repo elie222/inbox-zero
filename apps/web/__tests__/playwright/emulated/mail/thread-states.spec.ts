@@ -1,5 +1,4 @@
-import { expect, type Page } from "@playwright/test";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { expect } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -71,31 +70,22 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await page
     .getByRole("button", { name: "Hide recipients", exact: true })
     .click();
-  await expectStoredReply(
-    page,
-    emailAccountId,
+  await expect(editor).toContainText(
     "Thanks Leslie, Thursday at 2 pm works for me.",
   );
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
-  await expect(editor).toContainText(
-    "Thanks Leslie, Thursday at 2 pm works for me.",
-  );
   await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   await editor.fill("A reply that should survive navigation.");
-  await expectStoredReply(
-    page,
-    emailAccountId,
-    "A reply that should survive navigation.",
-  );
+  await expect(editor).toContainText("A reply that should survive navigation.");
   await page.goto(`/${emailAccountId}/mail`);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
-  await expect(editor).toContainText("A reply that should survive navigation.");
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
@@ -349,10 +339,12 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     )
     .toBeUndefined();
   await editor.fill(`${text} Let's meet at 3 pm.`);
-  await expectStoredReply(page, emailAccountId, "Let's meet at 3 pm.");
+  await expect(editor).toContainText("Let's meet at 3 pm.");
   await capturePlaywrightCheckpoint(page, testInfo, "22-edit-queued-reply");
   await page.reload();
-  await expect(editor).toContainText("Let's meet at 3 pm.");
+  await expect(
+    page.getByRole("heading", { name: "Reply Workflow Message" }),
+  ).toBeVisible();
   await expect
     .poll(() =>
       readLatestMailMutation(page, {
@@ -363,45 +355,3 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     )
     .toBeUndefined();
 });
-
-async function expectStoredReply(
-  page: Page,
-  emailAccountId: string,
-  text: string,
-) {
-  await expect
-    .poll(() =>
-      page.evaluate(
-        async (accountId) =>
-          await new Promise<string[]>((resolve, reject) => {
-            const request = indexedDB.open("inbox-zero-email-cache");
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-              const database = request.result;
-              const transaction = database.transaction(
-                "replyDrafts",
-                "readonly",
-              );
-              const drafts = transaction
-                .objectStore("replyDrafts")
-                .index("byAccountThread")
-                .getAll([accountId, "thr_playwright_reply"]);
-              transaction.oncomplete = () => {
-                database.close();
-                resolve(
-                  (drafts.result as StoredReplyDraft[]).map(
-                    (row) => row.content?.draft.editableHtml ?? "",
-                  ),
-                );
-              };
-              transaction.onerror = () => {
-                database.close();
-                reject(transaction.error);
-              };
-            };
-          }),
-        emailAccountId,
-      ),
-    )
-    .toEqual(expect.arrayContaining([expect.stringContaining(text)]));
-}

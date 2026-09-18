@@ -7,11 +7,7 @@
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
-  "attachment-previews.spec.ts": [
-    "components/email-list/EmailAttachments.tsx",
-    "utils/email-cache/local-mail-attachments.ts",
-    "utils/email-cache/local-mail-attachment-download.ts"
-  ],
+  "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "calendar-invitation.spec.ts": [
     "components/email-list/CalendarInvitation.tsx"
@@ -49,28 +45,6 @@
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
   ],
-  "local-cache.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/use-mailbox-sync.ts",
-    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts",
-    "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts",
-    "utils/email-cache/threads.ts"
-  ],
-  "local-search.spec.ts": [
-    "app/(app)/[emailAccountId]/mail/use-local-mail-search.ts",
-    "app/(app)/[emailAccountId]/mail/local-search-results.ts",
-    "utils/email-cache/search.worker.ts",
-    "utils/email-cache/search-index.worker.ts",
-    "utils/email-cache/search-index-service.ts",
-    "utils/email-cache/search-index-query.ts",
-    "hooks/useLocalMailThread.ts",
-    "hooks/useThread.ts",
-    "utils/email-cache/local-mail-reader.ts"
-  ],
-  "mail-activation.spec.ts": [
-    "app/(app)/MailboxSyncManager.tsx",
-    "app/(app)/[emailAccountId]/mail/use-mail-sync-activation.ts",
-    "utils/email-cache/mail-activation.ts"
-  ],
   "mail-engine-inspect.spec.ts": [
     "utils/mail-engine/MailEngineHost.tsx",
     "utils/mail-engine/coverage.ts",
@@ -101,11 +75,6 @@
     "app/sw.ts",
     "providers/GlobalProviders.tsx",
     "utils/offline/clear-mail-cache.ts"
-  ],
-  "offline-outbox.spec.ts": [
-    "app/(app)/MailMutationOutboxManager.tsx",
-    "utils/email-cache/mail-mutations.ts",
-    "components/email-list/ThreadDeliveryStatus.tsx"
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
   "reader-transition.spec.ts": [
@@ -144,8 +113,7 @@
   "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
   "thread-navigation.spec.ts": [
     "components/email-list/EmailThread.tsx",
-    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
-    "app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch.ts"
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
   ],
   "thread-states.spec.ts": [
     "components/email-list/EmailThread.tsx",

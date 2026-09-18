@@ -1,12 +1,6 @@
 "use client";
 
 import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
-import { downloadLocalMailAttachment } from "@/utils/email-cache/local-mail-attachment-download";
-import { getLocalMailAttachmentReference } from "@/utils/email-cache/local-mail-attachments";
-import {
-  captureEmailCacheEpoch,
-  isEmailCacheEpochCurrent,
-} from "@/utils/email-cache/database";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,47 +34,21 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
     size: number;
   }) => {
     const signal = controller.current.signal;
-    const epoch = captureEmailCacheEpoch(emailAccountId);
     setIsDownloading(true);
 
     try {
-      const reference = await getLocalMailAttachmentReference({
-        emailAccountId,
-        messageId: message.id,
-        attachmentId,
-      });
-      const result = reference
-        ? await downloadLocalMailAttachment({
-            emailAccountId,
-            messageId: message.id,
-            attachmentId,
-            priority: "requested",
-            signal,
-            maxBytes: size || undefined,
-          })
-        : { status: "external-download-required" as const };
-      signal.throwIfAborted();
-      if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
       const link = document.createElement("a");
-      let objectUrl: string | undefined;
-      if (result.status === "external-download-required") {
-        const downloadUrl = new URL(url, window.location.origin);
-        downloadUrl.searchParams.set("emailAccountId", emailAccountId);
-        link.href = downloadUrl.toString();
-      } else if (result.status === "ready") {
-        objectUrl = URL.createObjectURL(result.blob);
-        link.href = objectUrl;
-      } else {
-        throw new Error("Attachment unavailable");
-      }
+      const downloadUrl = new URL(url, window.location.origin);
+      downloadUrl.searchParams.set("emailAccountId", emailAccountId);
+      link.href = downloadUrl.toString();
       link.download = filename;
       document.body.appendChild(link);
       try {
         link.click();
       } finally {
         link.remove();
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
       }
+      signal.throwIfAborted();
     } catch {
       if (!signal.aborted)
         toastError({ description: "Failed to download attachment" });

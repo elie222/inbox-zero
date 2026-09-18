@@ -4,13 +4,25 @@ import {
   type ThreadMutationPayload,
 } from "@/utils/mail-engine/mutation-change";
 import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
-import type { MailMutationClientSource } from "./database";
-import type { MailMutation } from "./mail-mutations";
 import { randomUuid } from "@/utils/uuid";
 
 type ThreadMailMutationTarget = {
   id: string;
   messages: readonly { id: string }[];
+};
+
+export type ThreadMailMutation = ThreadMutationPayload & {
+  id: string;
+  batchId: string;
+  clientSource?: { kind: "sender"; sender: string };
+  emailAccountId: string;
+  threadId: string;
+  messageIds: string[];
+  status: "succeeded";
+  attempts: number;
+  nextAttemptAt: number;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export async function enqueueThreadMailMutationBatch(
@@ -22,7 +34,7 @@ export async function enqueueThreadMailMutationBatch(
     threads,
   }: {
     batchId?: string;
-    clientSource?: MailMutationClientSource;
+    clientSource?: { kind: "sender"; sender: string };
     emailAccountId: string;
     payload: ThreadMutationPayload;
     threads: readonly ThreadMailMutationTarget[];
@@ -40,7 +52,8 @@ export async function enqueueThreadMailMutationBatch(
     }
     return { messageIds, threadId: thread.id };
   });
-  if (!targets.length) return { batchId, mutations: [] };
+  if (!targets.length)
+    return { batchId, mutations: [] as ThreadMailMutation[] };
 
   const client = getActiveMailClient();
   if (!client) {
@@ -51,7 +64,7 @@ export async function enqueueThreadMailMutationBatch(
     throw new Error("Unsupported mail mutation");
   }
 
-  const mutations = [];
+  const mutations: ThreadMailMutation[] = [];
   for (const target of targets) {
     const { admission, commandId } = await submitConversationChange({
       accountId: emailAccountId,
@@ -73,7 +86,7 @@ export async function enqueueThreadMailMutationBatch(
       nextAttemptAt: now,
       createdAt: now,
       updatedAt: now,
-    } as MailMutation);
+    });
   }
   return { batchId, mutations };
 }

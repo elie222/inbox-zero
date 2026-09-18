@@ -43,7 +43,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import {
   getReplyDraftSessionId,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 import {
   SentMessageOpenStatus,
   type SentMessageOpenState,

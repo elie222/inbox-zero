@@ -1,10 +1,9 @@
 import { useEffect, useSyncExternalStore } from "react";
-import {
-  isActiveMailMutationStatus,
-  type MailMutation,
-} from "@/utils/email-cache/mail-mutations";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
 import type { ThreadMutationPayload } from "@/utils/mail-engine/mutation-change";
+import {
+  enqueueThreadMailMutationBatch,
+  type ThreadMailMutation,
+} from "@/utils/mail-engine/thread-mail-mutations";
 import { fetchAllSenderThreads } from "./fetch-sender-threads";
 
 type QueueStatus = "pending" | "processing" | "completed" | "failed";
@@ -157,7 +156,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
   }: {
     emailAccountId: string;
     mutationPayload: ThreadMutationPayload;
-    mutations: MailMutation[];
+    mutations: ThreadMailMutation[];
     trackedBatchByQueueKey: Map<string, string>;
   }) {
     const items = getLatestSenderItems(
@@ -241,9 +240,9 @@ function getSenderBatchItems({
 }: {
   emailAccountId: string;
   mutationPayload: ThreadMutationPayload;
-  mutations: MailMutation[];
+  mutations: ThreadMailMutation[];
 }) {
-  const batches = new Map<string, MailMutation[]>();
+  const batches = new Map<string, ThreadMailMutation[]>();
   for (const mutation of mutations) {
     if (
       mutation.emailAccountId !== emailAccountId ||
@@ -304,12 +303,12 @@ function getLatestSenderItems(
 
 function getBatchQueueItem(
   batchId: string,
-  mutations: MailMutation[],
+  mutations: ThreadMailMutation[],
 ): QueueItem {
   const activeThreadIds = Array.from(
     new Set(
       mutations
-        .filter((mutation) => isActiveMailMutationStatus(mutation.status))
+        .filter((mutation) => mutation.status !== "succeeded")
         .map((mutation) => mutation.threadId),
     ),
   );
@@ -317,27 +316,16 @@ function getBatchQueueItem(
     new Set(mutations.map((mutation) => mutation.threadId)),
   );
 
-  let status: QueueStatus = "completed";
-  if (activeThreadIds.length) status = "processing";
-  else if (
-    mutations.some(
-      (mutation) =>
-        mutation.status === "failed" || mutation.status === "uncertain",
-    )
-  ) {
-    status = "failed";
-  }
-
   return {
     batchId,
-    status,
+    status: activeThreadIds.length ? "processing" : "completed",
     threadIds: activeThreadIds,
     threadsTotal: threadIds.length,
   };
 }
 
 function matchesMutationPayload(
-  mutation: MailMutation,
+  mutation: ThreadMailMutation,
   payload: ThreadMutationPayload,
 ) {
   if (mutation.kind !== payload.kind) return false;

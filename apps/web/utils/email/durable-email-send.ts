@@ -3,7 +3,7 @@ import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import type { EmailProvider } from "@/utils/email/types";
-import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";

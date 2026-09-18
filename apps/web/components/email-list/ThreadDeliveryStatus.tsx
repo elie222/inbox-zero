@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import useSWR from "swr";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
-import type { ReplyDraftMode } from "@/utils/email-cache/reply-drafts";
+import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
 import { InlineActionButton } from "@/components/InlineActionButton";
 import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import {

@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
+import type { MailDiagnostics } from "@inboxzero/mail-core/engine";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import {
+  isPendingEffectStatus,
+  type OperationStatus,
+} from "@inboxzero/mail-core/operations";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeading } from "@/components/Typography";
@@ -25,25 +31,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type {
-  StoredMailMutation,
-  CachedMailboxSyncState,
-} from "@/utils/email-cache/database";
-import { readMailQueueDiagnostics } from "@/utils/email-cache/mail-queue-diagnostics";
-import { isActiveMailMutationStatus } from "@/utils/email-cache/mail-mutations";
 import { prefixPath } from "@/utils/path";
 
 const STATUS_DESCRIPTIONS = {
-  pending: "Queued locally",
-  processing: "Sending to provider",
+  preparing: "Preparing",
+  queued: "Queued locally",
+  executing: "Sending to provider",
+  verifying: "Confirming with mailbox",
   retry_wait: "Waiting to retry",
   blocked_auth: "Reconnect account",
-  awaiting_sync: "Accepted; waiting for mailbox sync",
-  reconciling: "Syncing mailbox",
+  uncertain: "Outcome unknown",
+  needs_attention: "Needs attention",
   succeeded: "Completed",
   failed: "Failed",
-  uncertain: "Outcome unknown",
-} satisfies Record<StoredMailMutation["status"], string>;
+  cancelled: "Cancelled",
+  superseded: "Superseded",
+} satisfies Record<OperationStatus, string>;
 
 export default function MailQueuePage() {
   const { emailAccountId } = useAccount();
@@ -51,15 +54,20 @@ export default function MailQueuePage() {
 }
 
 function MailQueue({ emailAccountId }: { emailAccountId: string }) {
+  const client = useOptionalMailClient();
   const [filter, setFilter] = useState("active");
   const [limit, setLimit] = useState(50);
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    ["mail-queue-diagnostics", emailAccountId, filter, limit],
-    async () => ({
-      ...(await readMailQueueDiagnostics({ emailAccountId, filter, limit })),
-      online: navigator.onLine,
-      readAt: Date.now(),
-    }),
+    client ? ["mail-queue-diagnostics", emailAccountId, filter, limit] : null,
+    async () => {
+      if (!client) throw new Error("Mail engine is unavailable");
+      const diagnostics = await client.getDiagnostics(emailAccountId);
+      return {
+        ...summarizeDiagnostics(diagnostics, filter, limit),
+        online: navigator.onLine,
+        readAt: Date.now(),
+      };
+    },
     { refreshInterval: 2000, refreshWhenOffline: true },
   );
 
@@ -69,8 +77,8 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
         <div>
           <PageHeading>Mail queue</PageHeading>
           <p className="mt-2 text-sm text-muted-foreground">
-            Actions for this account in this browser. Refreshes every 2 seconds
-            while open.
+            Engine operations for this account in this browser. Refreshes every
+            2 seconds while open.
           </p>
         </div>
         <div className="flex gap-2">
@@ -81,7 +89,7 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
           </Button>
           <Button
             variant="outline"
-            disabled={isValidating}
+            disabled={isValidating || !client}
             onClick={() => mutate()}
           >
             Refresh
@@ -89,14 +97,14 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
         </div>
       </div>
       <LoadingContent
-        loading={isLoading}
+        loading={isLoading || !client}
         error={
           error
             ? {
                 error:
                   error instanceof Error
                     ? error.message
-                    : "Could not read the local queue.",
+                    : "Could not read the mail engine queue.",
               }
             : undefined
         }
@@ -111,8 +119,8 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                 <CardContent>
                   <p className="text-3xl font-semibold">{data.activeCount}</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Batches: {data.activeBatchCount} · Message operations:{" "}
-                    {data.activeMessageCount}
+                    Uncertain: {data.uncertainCount} · Sync jobs:{" "}
+                    {data.pendingJobs}
                   </p>
                 </CardContent>
               </Card>
@@ -121,11 +129,7 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                   <CardTitle>Connection</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>
-                    {data.online
-                      ? "Online"
-                      : "Offline — actions wait for connection"}
-                  </p>
+                  <p>{connectionLabel(data.connection, data.online)}</p>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Updated {formatTime(data.readAt)}
                   </p>
@@ -133,26 +137,21 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>Mailbox sync</CardTitle>
+                  <CardTitle>Mailbox coverage</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <p>{getSyncStatus(data.sync)}</p>
+                  <p>{coverageLabel(data.coverage)}</p>
                   <p className="text-muted-foreground">
-                    Last synced: {formatTime(data.sync?.lastSyncedAt)}
+                    Last completed sync:{" "}
+                    {formatTime(data.lastCompletedSyncAtMs)}
                   </p>
-                  {data.sync && (
-                    <p className="text-muted-foreground">
-                      Coverage starts:{" "}
-                      {formatTime(new Date(data.sync.after).getTime())}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
             </div>
             <p className="text-sm text-muted-foreground">
-              Pending includes actions accepted by the provider that are still
-              syncing locally. This shows our queue, not the provider’s internal
-              processing. Completed history is retained temporarily.
+              Pending includes admitted operations that have not reached a
+              terminal state. This shows the local engine, not the provider’s
+              internal processing.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="queue-status" className="text-sm font-medium">
@@ -176,17 +175,14 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                   {Object.entries(STATUS_DESCRIPTIONS).map(
                     ([status, description]) => (
                       <SelectItem key={status} value={status}>
-                        {description} (
-                        {data.counts[status as StoredMailMutation["status"]] ??
-                          0}
-                        )
+                        {description} ({data.counts[status] ?? 0})
                       </SelectItem>
                     ),
                   )}
                 </SelectContent>
               </Select>
               <span className="text-sm text-muted-foreground">
-                Showing {data.mutations.length} of {data.matchingCount} actions
+                Showing {data.commands.length} of {data.matchingCount} actions
               </span>
             </div>
             {data.matchingCount === 0 ? (
@@ -200,72 +196,53 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                     <TableHead>Action</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Messages</TableHead>
-                    <TableHead>Attempts</TableHead>
-                    <TableHead>Queued</TableHead>
+                    <TableHead>Conversations</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="[&_td]:align-top">
-                  {data.mutations.map((mutation) => (
-                    <TableRow key={mutation.id}>
+                  {data.commands.map((command) => (
+                    <TableRow key={command.operationId}>
                       <TableCell className="whitespace-nowrap">
-                        {mutation.kind.replaceAll("_", " ")}
+                        {(command.changeKind ?? command.kind).replaceAll(
+                          "_",
+                          " ",
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            mutation.status === "failed" ||
-                            mutation.status === "uncertain" ||
-                            mutation.status === "blocked_auth"
+                            command.status === "failed" ||
+                            command.status === "uncertain" ||
+                            command.status === "blocked_auth" ||
+                            command.status === "needs_attention"
                               ? "destructive"
                               : "secondary"
                           }
                         >
-                          {STATUS_DESCRIPTIONS[mutation.status]}
+                          {STATUS_DESCRIPTIONS[command.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell>{mutation.messageIds.length}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {mutation.attempts} provider /{" "}
-                        {mutation.syncAttempts ?? 0} sync
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {formatTime(mutation.createdAt)}
-                      </TableCell>
+                      <TableCell>{command.messageIds.length}</TableCell>
+                      <TableCell>{command.conversationIds.length}</TableCell>
                       <TableCell>
                         <details>
                           <summary className="cursor-pointer whitespace-nowrap">
                             Inspect action
                           </summary>
                           <dl className="mt-3 min-w-56 space-y-2 break-all text-xs">
-                            <dt>Action ID</dt>
-                            <dd>{mutation.id}</dd>
-                            <dt>Batch ID</dt>
-                            <dd>{mutation.batchId}</dd>
-                            <dt>Thread ID</dt>
-                            <dd>{mutation.threadId}</dd>
-                            <dt>Message IDs</dt>
-                            <dd>{mutation.messageIds.join(", ")}</dd>
-                            <dt>Updated</dt>
-                            <dd>{formatTime(mutation.updatedAt)}</dd>
-                            {isActiveMailMutationStatus(mutation.status) && (
+                            <dt>Operation ID</dt>
+                            <dd>{command.operationId}</dd>
+                            {command.conversationIds.length > 0 && (
                               <>
-                                <dt>Next eligible attempt</dt>
-                                <dd>{formatTime(mutation.nextAttemptAt)}</dd>
+                                <dt>Conversation IDs</dt>
+                                <dd>{command.conversationIds.join(", ")}</dd>
                               </>
                             )}
-                            {mutation.leaseExpiresAt && (
+                            {command.messageIds.length > 0 && (
                               <>
-                                <dt>Worker lease expires</dt>
-                                <dd>{formatTime(mutation.leaseExpiresAt)}</dd>
-                              </>
-                            )}
-                            {mutation.lastError && (
-                              <>
-                                <dt>Last error</dt>
-                                <dd className="text-destructive">
-                                  {mutation.lastError}
-                                </dd>
+                                <dt>Message IDs</dt>
+                                <dd>{command.messageIds.join(", ")}</dd>
                               </>
                             )}
                           </dl>
@@ -288,12 +265,64 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
   );
 }
 
-function formatTime(timestamp?: number) {
-  if (timestamp === undefined || !Number.isFinite(timestamp)) return "—";
+function summarizeDiagnostics(
+  diagnostics: MailDiagnostics,
+  filter: string,
+  limit: number,
+) {
+  const counts = Object.fromEntries(
+    Object.keys(STATUS_DESCRIPTIONS).map((status) => [status, 0]),
+  ) as Record<string, number>;
+  for (const command of diagnostics.commands) {
+    counts[command.status] = (counts[command.status] ?? 0) + 1;
+  }
+  const matching = diagnostics.commands.filter((command) => {
+    if (filter === "all") return true;
+    if (filter === "active") {
+      return (
+        command.status === "preparing" || isPendingEffectStatus(command.status)
+      );
+    }
+    return command.status === filter;
+  });
+  const coverage = diagnostics.coverage[0];
+  return {
+    connection: diagnostics.connection,
+    coverage: coverage?.metadata,
+    lastCompletedSyncAtMs: coverage?.lastCompletedSyncAtMs ?? null,
+    activeCount: diagnostics.pendingOperations,
+    uncertainCount: diagnostics.uncertainOperations,
+    pendingJobs: diagnostics.pendingJobs,
+    total: diagnostics.commands.length,
+    matchingCount: matching.length,
+    counts,
+    commands: matching.slice(0, limit),
+  };
+}
+
+function formatTime(timestamp?: number | null) {
+  if (
+    timestamp === undefined ||
+    timestamp === null ||
+    !Number.isFinite(timestamp)
+  )
+    return "—";
   return new Date(timestamp).toLocaleString();
 }
 
-function getSyncStatus(sync?: CachedMailboxSyncState) {
-  if (!sync) return "No sync recorded";
-  return sync.hasMore ? "Catching up" : "Caught up at last sync";
+function connectionLabel(
+  connection: MailDiagnostics["connection"],
+  online: boolean,
+) {
+  if (connection === "blocked_auth") return "Reconnect account";
+  if (connection === "offline" || !online)
+    return "Offline — actions wait for connection";
+  return "Online";
+}
+
+function coverageLabel(
+  metadata?: MailDiagnostics["coverage"][number]["metadata"],
+) {
+  if (!metadata) return "No coverage recorded";
+  return metadata === "complete" ? "Metadata complete" : "Catching up";
 }

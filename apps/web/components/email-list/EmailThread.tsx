@@ -14,8 +14,8 @@ import {
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";

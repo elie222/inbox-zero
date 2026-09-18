@@ -85,14 +85,14 @@ import {
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";

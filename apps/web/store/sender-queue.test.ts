@@ -2,26 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockEnqueueThreadMailMutationBatch = vi.fn();
 const mockFetchAllSenderThreads = vi.fn();
-const mockGetMailMutationsForAccount = vi.fn();
-const mutationListeners = new Set<() => void>();
 let durableMutations: Array<Record<string, unknown>> = [];
 
-vi.mock("@/utils/email-cache/mail-mutations", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@/utils/email-cache/mail-mutations")>();
-  return {
-    ...original,
-    getMailMutationsForAccount: (
-      ...args: Parameters<typeof mockGetMailMutationsForAccount>
-    ) => mockGetMailMutationsForAccount(...args),
-    subscribeToMailMutations: (listener: () => void) => {
-      mutationListeners.add(listener);
-      return () => mutationListeners.delete(listener);
-    },
-  };
-});
-
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
+vi.mock("@/utils/mail-engine/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: (
     ...args: Parameters<typeof mockEnqueueThreadMailMutationBatch>
   ) => mockEnqueueThreadMailMutationBatch(...args),
@@ -38,14 +21,7 @@ describe("sender queue", () => {
     vi.resetModules();
     vi.clearAllMocks();
     durableMutations = [];
-    mutationListeners.clear();
     mockFetchAllSenderThreads.mockResolvedValue({ threads: [] });
-    mockGetMailMutationsForAccount.mockImplementation(
-      async (emailAccountId: string) =>
-        durableMutations.filter(
-          (mutation) => mutation.emailAccountId === emailAccountId,
-        ),
-    );
     mockEnqueueThreadMailMutationBatch.mockImplementation(async (input) => {
       const batchId = `batch-${durableMutations.length + 1}`;
       const mutations = input.threads.map(
@@ -57,7 +33,7 @@ describe("sender queue", () => {
           emailAccountId: input.emailAccountId,
           threadId: thread.id,
           messageIds: thread.messages.map((message) => message.id),
-          status: "pending",
+          status: "succeeded",
           attempts: 0,
           nextAttemptAt: 1,
           createdAt: 1,
@@ -65,7 +41,6 @@ describe("sender queue", () => {
         }),
       );
       durableMutations.push(...mutations);
-      for (const listener of mutationListeners) listener();
       return { batchId, mutations };
     });
   });
@@ -102,25 +77,36 @@ describe("sender queue", () => {
     ).toBeLessThan(onSuccess.mock.invocationCallOrder[0]);
   });
 
-  it("dedupes senders case-insensitively within an account only", async () => {
-    mockFetchAllSenderThreads.mockResolvedValue({
-      threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
-    });
+  it("dedupes senders case-insensitively while a batch is in flight", async () => {
+    let releaseFetch: (() => void) | undefined;
+    mockFetchAllSenderThreads.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseFetch = () =>
+            resolve({
+              threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
+            });
+        }),
+    );
     const { createSenderQueue } = await import("./sender-queue");
     const { addToQueue } = createSenderQueue(() => ({ kind: "trash" }));
 
-    await expect(
-      addToQueue({
-        sender: " Sender@example.com ",
-        emailAccountId: "account-1",
-      }),
-    ).resolves.toBe(true);
+    const first = addToQueue({
+      sender: " Sender@example.com ",
+      emailAccountId: "account-1",
+    });
+    await Promise.resolve();
     await expect(
       addToQueue({
         sender: "sender@EXAMPLE.com",
         emailAccountId: "account-1",
       }),
     ).resolves.toBe(false);
+    releaseFetch?.();
+    await expect(first).resolves.toBe(true);
+    mockFetchAllSenderThreads.mockResolvedValue({
+      threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
+    });
     await expect(
       addToQueue({
         sender: "sender@example.com",
@@ -175,7 +161,7 @@ describe("sender queue", () => {
             emailAccountId: input.emailAccountId,
             threadId: thread.id,
             messageIds: thread.messages.map((message) => message.id),
-            status: "pending",
+            status: "succeeded",
             attempts: 0,
             nextAttemptAt: 2,
             createdAt: 2,

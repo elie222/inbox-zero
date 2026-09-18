@@ -1,6 +1,6 @@
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
-import { emailSendOperationResponse } from "@/utils/email-cache/email-send-operation";
+import { emailSendOperationResponse } from "@/utils/email/email-send-operation";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
