@@ -76,6 +76,17 @@ describe("messageMatchesPredicate", () => {
         match: "domain",
       }),
     ).toBe(true);
+    expect(
+      messageMatchesPredicate(
+        { ...inboxUnread, from: "ada@example.com" },
+        {
+          kind: "address",
+          field: "from",
+          value: "ada@example.com",
+          match: "address",
+        },
+      ),
+    ).toBe(true);
   });
 });
 

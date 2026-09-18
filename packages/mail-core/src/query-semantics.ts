@@ -142,6 +142,10 @@ function textMatches(
 }
 
 function extractEmail(value: string): string {
-  const match = value.match(/<([^>]+)>/);
-  return (match?.[1] ?? value).trim();
+  const start = value.indexOf("<");
+  const end = value.indexOf(">", start + 1);
+  if (start >= 0 && end > start) {
+    return value.slice(start + 1, end).trim();
+  }
+  return value.trim();
 }

@@ -66,7 +66,14 @@ export function useEngineMailThreads({
     hasMore: false,
     isLoadingMore: false,
     loadMore: () => {},
-    optimisticallyUpdateThreads: async () => {},
+    optimisticallyUpdateThreads: (
+      threadIds: string[],
+      _updater: (thread: ListThread) => ListThread,
+    ) => ({
+      threadIds,
+      commit: (_threadId: string) => undefined,
+      rollback: (_threadIds: string[]) => undefined,
+    }),
     refetch: async () => {
       await client?.requestSync([emailAccountId]);
     },

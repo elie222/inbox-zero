@@ -245,41 +245,14 @@ export function createMailEngine(input: {
           await store.applySyncPage({ page: changes.page, ownerId });
           await refreshViews();
         } else if (changes.status === "reset_required") {
-          const bootstrap = await source.beginBootstrap({
+          await ingestBootstrap({
             session: work.session,
+            from: work.position,
+            deadlineMs,
+            signal,
             requestId: `${work.jobId}-reset`,
-            signal: signal ?? new AbortController().signal,
-            scope: { id: changes.scopeId, kind: "account", folderId: null },
-            afterMs: null,
+            scopeId: changes.scopeId,
           });
-          if (bootstrap.status !== "ok") continue;
-          let page = bootstrap.value.enumerationToken;
-          while (page) {
-            const enumerated = await source.enumerate({
-              session: work.session,
-              requestId: `${work.jobId}-enum`,
-              signal: signal ?? new AbortController().signal,
-              bootstrapId: bootstrap.value.bootstrapId,
-              page,
-              pageSize: 50,
-            });
-            if (enumerated.status !== "ok") break;
-            await store.applySyncPage({
-              page: {
-                session: work.session,
-                requestId: `${work.jobId}-enum`,
-                from: work.position,
-                to: enumerated.value.catchUpFrom ?? work.position,
-                changes: enumerated.value.changes,
-                requiredHydration: enumerated.value.requiredHydration,
-                roundComplete: enumerated.value.nextPage === null,
-              },
-              ownerId,
-            });
-            page = enumerated.value.nextPage ?? "";
-            if (!enumerated.value.nextPage) break;
-          }
-          await refreshViews();
         }
       }
     },
@@ -288,6 +261,58 @@ export function createMailEngine(input: {
       await store.close();
     },
   };
+
+  async function ingestBootstrap(input: {
+    session: { accountId: string; generation: string };
+    from: {
+      streamId: string;
+      generation: string;
+      checkpoint: string | null;
+    };
+    deadlineMs: number;
+    signal?: AbortSignal;
+    requestId: string;
+    scopeId?: string;
+  }) {
+    const bootstrap = await source.beginBootstrap({
+      session: input.session,
+      requestId: input.requestId,
+      signal: input.signal ?? new AbortController().signal,
+      scope: {
+        id: input.scopeId ?? "primary",
+        kind: "account",
+        folderId: null,
+      },
+      afterMs: null,
+    });
+    if (bootstrap.status !== "ok") return;
+    let page: string | null = bootstrap.value.enumerationToken;
+    while (page && runtime.nowMs() < input.deadlineMs) {
+      const enumerated = await source.enumerate({
+        session: input.session,
+        requestId: `${input.requestId}-enum`,
+        signal: input.signal ?? new AbortController().signal,
+        bootstrapId: bootstrap.value.bootstrapId,
+        page,
+        pageSize: 50,
+      });
+      if (enumerated.status !== "ok") break;
+      await store.applySyncPage({
+        page: {
+          session: input.session,
+          requestId: `${input.requestId}-enum`,
+          from: input.from,
+          to: enumerated.value.catchUpFrom ?? input.from,
+          changes: enumerated.value.changes,
+          requiredHydration: enumerated.value.requiredHydration,
+          roundComplete: enumerated.value.nextPage === null,
+        },
+        ownerId,
+      });
+      page = enumerated.value.nextPage;
+    }
+    await refreshViews();
+  }
 
   async function catchUpIdleAccounts(deadlineMs: number, signal?: AbortSignal) {
     const inspection = await store.inspect();
@@ -307,40 +332,13 @@ export function createMailEngine(input: {
       };
       generations.set(account.accountId, account.generation);
       if (!stream.checkpoint) {
-        const bootstrap = await source.beginBootstrap({
+        await ingestBootstrap({
           session,
+          from: stream,
+          deadlineMs,
+          signal,
           requestId: runtime.randomId(),
-          signal: signal ?? new AbortController().signal,
-          scope: { id: "primary", kind: "account", folderId: null },
-          afterMs: null,
         });
-        if (bootstrap.status !== "ok") continue;
-        let page: string | null = bootstrap.value.enumerationToken;
-        while (page && runtime.nowMs() < deadlineMs) {
-          const enumerated = await source.enumerate({
-            session,
-            requestId: runtime.randomId(),
-            signal: signal ?? new AbortController().signal,
-            bootstrapId: bootstrap.value.bootstrapId,
-            page,
-            pageSize: 50,
-          });
-          if (enumerated.status !== "ok") break;
-          await store.applySyncPage({
-            page: {
-              session,
-              requestId: runtime.randomId(),
-              from: stream,
-              to: enumerated.value.catchUpFrom ?? stream,
-              changes: enumerated.value.changes,
-              requiredHydration: enumerated.value.requiredHydration,
-              roundComplete: enumerated.value.nextPage === null,
-            },
-            ownerId,
-          });
-          page = enumerated.value.nextPage;
-        }
-        await refreshViews();
         continue;
       }
       const changes = await source.readChanges({
@@ -353,6 +351,15 @@ export function createMailEngine(input: {
       if (changes.status === "page") {
         await store.applySyncPage({ page: changes.page, ownerId });
         await refreshViews();
+      } else if (changes.status === "reset_required") {
+        await ingestBootstrap({
+          session,
+          from: stream,
+          deadlineMs,
+          signal,
+          requestId: runtime.randomId(),
+          scopeId: changes.scopeId,
+        });
       }
     }
   }

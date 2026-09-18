@@ -5,6 +5,7 @@ import {
   mailHttpErrorResponse,
   operationAdmitRequestSchema,
   operationAdmitResultSchema,
+  operationInspectRequestSchema,
 } from "@inboxzero/mail-core/protocol/mail-http";
 import {
   accountMismatchResponse,
@@ -63,19 +64,39 @@ export const GET = withEmailProvider(
   "mail/v1/operations/inspect",
   async (request, context) => {
     const params = await context.params;
-    const requestId = mailRequestId(request);
+    const body = await request.json().catch(() => null);
+    const requestId = mailRequestId(request, body ?? undefined);
     const mismatch = accountMismatchResponse(
       request,
       params.accountId,
       requestId,
     );
     if (mismatch) return mismatch;
+    const parsed = operationInspectRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        operationAdmitResultSchema.parse({
+          status: "uncertain",
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId,
+          receiptId: params.commandId,
+        }),
+      );
+    }
+    const executor = createEmailProviderOperationExecutor({
+      provider: request.emailProvider,
+      accountId: request.auth.emailAccountId,
+    });
+    const result = await executor.inspect({
+      operation: parsed.data.operation,
+      receiptId: parsed.data.receiptId,
+      signal: request.signal,
+    });
     return NextResponse.json(
       operationAdmitResultSchema.parse({
-        status: "uncertain",
-        protocolVersion: MAIL_PROTOCOL_VERSION,
+        ...result,
+        protocolVersion: parsed.data.protocolVersion,
         requestId,
-        receiptId: params.commandId,
       }),
     );
   },

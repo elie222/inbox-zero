@@ -3,7 +3,17 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const portableFiles = ["driver.ts", "migrations.ts", "store.ts", "rows.ts", "queries.ts", "commands.ts", "observations.ts", "drafts.ts", "maintenance.ts"];
+const portableFiles = [
+  "driver.ts",
+  "migrations.ts",
+  "store.ts",
+  "rows.ts",
+  "queries.ts",
+  "commands.ts",
+  "observations.ts",
+  "drafts.ts",
+  "maintenance.ts",
+];
 const forbidden = [
   /from\s+["']react/,
   /from\s+["']next/,

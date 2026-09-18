@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
@@ -12,14 +12,23 @@ const forbidden = ["prisma", "next/", "electron", "@prisma"];
 const directory = await mkdtemp(join(tmpdir(), "mail-pack-"));
 try {
   for (const name of packages) {
-    const { stdout } = await exec("pnpm", ["pack", "--pack-destination", directory], {
-      cwd: join(process.cwd(), "packages", name),
-    });
+    const { stdout } = await exec(
+      "pnpm",
+      ["pack", "--pack-destination", directory],
+      {
+        cwd: join(process.cwd(), "packages", name),
+      },
+    );
     const packed = stdout.trim().split("\n").at(-1) ?? "";
     const tarball = packed.endsWith(".tgz")
       ? packed
       : join(directory, `${name}.tgz`);
-    const listing = await exec("tar", ["-tf", tarball.startsWith("/") ? tarball : join(directory, packed.split("/").at(-1) ?? packed)]);
+    const listing = await exec("tar", [
+      "-tf",
+      tarball.startsWith("/")
+        ? tarball
+        : join(directory, packed.split("/").at(-1) ?? packed),
+    ]);
     const contents = listing.stdout;
     for (const token of forbidden) {
       if (contents.includes(token)) {

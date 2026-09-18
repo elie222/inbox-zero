@@ -204,6 +204,79 @@ describe("engine plus sqlite archive slice", () => {
     });
     await engine.close();
   });
+
+  it("rebuilds from bootstrap when catch-up reports an expired position", async () => {
+    const messages = new Map([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+    ]);
+    let changesCalls = 0;
+    const source = fixtureSource(messages);
+    const resetting: MailboxSource = {
+      ...source,
+      async readChanges(input) {
+        changesCalls += 1;
+        if (changesCalls === 1) {
+          return { status: "reset_required", scopeId: "primary" };
+        }
+        return source.readChanges(input);
+      },
+      async enumerate() {
+        return {
+          status: "ok",
+          value: {
+            bootstrapId: "boot",
+            scopeId: "primary",
+            changes: [...messages.values()],
+            requiredHydration: [],
+            nextPage: null,
+            catchUpFrom: {
+              streamId: "primary",
+              generation: "g1",
+              checkpoint: "rebuilt",
+            },
+          },
+        };
+      },
+    };
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "stale",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "expired" },
+        changes: [],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const engine = createMailEngine({
+      store,
+      source: resetting,
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime(),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(Date.now() + 2000);
+    const view = await store.readMailboxView(inboxQuery);
+    expect(view.view.counts.matchingConversations).toBe(1);
+    const inspection = await store.inspect();
+    expect(inspection.streams[0]?.checkpoint).toBe("rebuilt");
+    await engine.close();
+  });
 });
 
 describe("drafts, freeze, and uncertain settlement", () => {
@@ -309,6 +382,24 @@ describe("drafts, freeze, and uncertain settlement", () => {
       leaseMs: 30_000,
     });
     expect(work?.kind).toBe("prepare");
+    const cancelled = await store.cancelOperation({
+      accountId: "acc-1",
+      operationId: "archive-c1",
+    });
+    expect(cancelled.status).toBe("cancelled");
+    const delayed = await store.applyPreparationPage({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      page: {
+        conversation: { accountId: "acc-1", conversationId: "c1" },
+        resolutionId: "res-cancelled",
+        keys: [{ accountId: "acc-1", messageId: "m1" }],
+        changes: [],
+        nextPage: null,
+        evidence: null,
+      },
+    });
+    expect(delayed.status).toBe("stale");
     await store.close();
   });
 

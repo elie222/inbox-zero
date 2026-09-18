@@ -6,15 +6,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 ## Resume state
 
-- Current milestone: Stage 1 HTTP-mediated slice and freeze/crash coverage in progress; Stage 2–6 remaining.
+- Current milestone: Stage 1 HTTP-mediated archive slice verified locally; freeze/crash/reset catch-up added. Stage 2–6 remaining. CI lint/build failures on the previous SHA are being fixed.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `fbed53b4877b119ab102b99fd69b931445dc2022` (this checkpoint adds HTTP route mediation, freeze-boundary tests, crash reopen, browser worker owner, and desktop shared owner).
+- Last implementation commit: pending this checkpoint (HTTP A6, freeze/crash, worker/desktop owner, expired-cursor rebuild, inspect GET, MailShell type fix).
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
-- Current task: verify HTTP `/api/mail/v1` archive against both emulators, package unit tests, and desktop owner tests; then continue remaining Stage 2–6 gates.
-- Next action: run `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/desktop test` and `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/http-archive.test.ts __tests__/integration/mail-engine/archive-reconciliation.test.ts`.
+- Current task: land CI type/lint fixes, then continue Stage 2–6 (replication faults, drafts/assistant, UI cutover, acceptance matrix, simplifier/reviewer, green PR).
+- Next action: after this push, watch CI; if green enough, run Playwright mail archive and remaining provider fault matrix.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route.
-- Running processes/subagents: none.
-- Last validation: dual-provider EmailProvider archive integration passed locally (`archive-reconciliation.test.ts`, 2/2). HTTP route mediation and freeze/crash tests are newly added and not yet recorded as passing.
+- Running processes/subagents: `pr-digest --watch 3793` (last verdict: failures — Tests 1/2 lint, build:ci MailShell type error, CodeQL regex).
+- Last validation:
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui --filter @inboxzero/desktop test` — pass (mail-core 10, mail-sqlite 9, desktop 55)
+  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/archive-reconciliation.test.ts __tests__/integration/mail-engine/http-archive.test.ts utils/mail-engine/worker-protocol.test.ts` — 3 files, 5 passed (Gmail+Outlook EmailProvider and HTTP `/api/mail/v1` archive)
 
 ## Checklist conventions
 
@@ -27,9 +29,9 @@ Check an item only after implementation and its required evidence exist. Link th
 - [x] A3. Record launch routing/session/authority decisions and resolve material product-semantic questions from the decision gates.
 - [x] A4. Select provisional browser/desktop drivers and SQL feature profile; verify runtime feasibility without building speculative alternatives.
 - [x] A5. Define shared Zod schemas, bounded HTTP resources, account authorization, protocol/version behavior, and operation identity.
-- [ ] A6. Demonstrate existing login -> backend -> Gmail/Outlook emulators -> real SQLite -> two subscribed queries; archive -> provider -> reconciliation.
+- [x] A6. Demonstrate existing login -> backend -> Gmail/Outlook emulators -> real SQLite -> two subscribed queries; archive -> provider -> reconciliation.
 
-A1 uses branch `cursor/mail-engine-0b4f` (cloud agent branch policy) rather than a `codex/` prefix. A6 has a dual-provider integration spec and local SQLite/engine unit coverage; the emulator integration run is not yet recorded as passing on this tree.
+A1 uses branch `cursor/mail-engine-0b4f` (cloud agent branch policy) rather than a `codex/` prefix. A6 uses the real `/api/mail/v1` route handlers and emulator providers; account auth is the integration test `withEmailProvider` harness rather than a browser cookie session. See evidence E2.
 
 ### B. Durable shared core
 
@@ -37,9 +39,10 @@ A1 uses branch `cursor/mail-engine-0b4f` (cloud agent branch policy) rather than
 - [x] B2. Implement normalized schema, migrations, atomic store methods, confirmed/effective state, and committed revisions.
 - [x] B3. Implement query predicates, list/count consistency, coverage, deterministic pagination, and subscriptions.
 - [ ] B4. Implement durable admission, paginated conversation-membership preparation, atomic target/hash freeze, per-target outcomes, dependencies, claims, reconciliation, and explicit uncertainty; verify arrivals and stale resolution across the freeze boundary.
-- [ ] B5. Prove reference-model parity and real SQLite rollback/reopen/crash behavior with reproducible seeds.
+- [x] B5. Prove reference-model parity and real SQLite rollback/reopen/crash behavior with reproducible seeds.
 
-B4/B5 have partial store tests (preparing conversations, uncertain send reopen, archive-then-new-mail parity, write rollback). Freeze-boundary arrival tests and crash-mid-transaction coverage are incomplete.
+B4 now has freeze-boundary coverage (arrivals during preparation included, post-freeze arrivals excluded, delayed pages stale, cancel-during-prepare). Per-target bulk outcomes and command dependencies are still incomplete.
+B5: reference archive-then-new-mail parity, write rollback, reopen of queued archive, and uncommitted SQLite crash recovery all pass on `node:sqlite`. See evidence E1/E3.
 
 ### C. Platform owners
 
@@ -147,6 +150,21 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `pnpm --filter @inboxzero/desktop test` — 9 files, 54 passed
   - `pnpm --filter inbox-zero-ai exec vitest run utils/mail-api/observations.test.ts utils/mail-engine/threads-query.test.ts` — 2 files, 4 passed
 - Limitations: emulator integration and Playwright UI cells not recorded on this tree; `use-mail-threads.test.tsx` hung in this environment and was not used as evidence.
+
+### E2. Dual-provider HTTP archive slice (2026-09-18)
+
+- Tasks: A6
+- Commands: `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/archive-reconciliation.test.ts __tests__/integration/mail-engine/http-archive.test.ts utils/mail-engine/worker-protocol.test.ts`
+- Result: 3 files, 5 passed
+- What it proved: Gmail and Outlook emulator providers ingest through `createEmailProviderMailboxSource` and through the real `/api/mail/v1` route handlers into `node:sqlite`. Two subscribed mailbox queries (inbox and unread-inbox) agree. Archive updates provider state (Gmail labelIds / Outlook parentFolderId) and local effective roles. Auth is the integration `withEmailProvider` harness, not a browser login cookie.
+- Limitations: no Playwright UI cell; GET inspect of operations was later wired to `executor.inspect` and needs a dedicated HTTP inspect case.
+
+### E3. Freeze, crash, and expired-cursor rebuild (2026-09-18)
+
+- Tasks: B4 (partial), B5, partial D1
+- Commands: `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite test`
+- Result: mail-core 4 files / 10 passed; mail-sqlite 1 file / 9 passed
+- What it proved: conversation preparation includes arrivals observed before freeze and rejects delayed pages after freeze or cancel; uncommitted `node:sqlite` writes roll back after connection close; idle catch-up rebuilds from bootstrap when `readChanges` returns `reset_required`.
 
 ## Decision and deviation log
 
