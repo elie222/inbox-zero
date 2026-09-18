@@ -80,6 +80,7 @@ Hey, I run a development agency. I was wondering if you need extra hands on your
         const result = await isColdEmail({
           email,
           emailAccount,
+          logger,
           provider: {
             hasPreviousCommunicationsWithSenderOrDomain: async () => false,
           } as any,

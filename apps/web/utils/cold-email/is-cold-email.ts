@@ -6,7 +6,7 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
@@ -41,19 +41,8 @@ type ColdEmailGuardsInput = {
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
+  logger: Logger;
 };
-
-function getColdEmailLogger({
-  email,
-  emailAccount,
-}: Pick<ColdEmailGuardsInput, "email" | "emailAccount">) {
-  return createScopedLogger("ai-cold-email").with({
-    emailAccountId: emailAccount.id,
-    email: emailAccount.email,
-    threadId: email.threadId,
-    messageId: email.id,
-  });
-}
 
 /**
  * Runs the deterministic cold-email checks (whitelist, same org, learned
@@ -65,9 +54,8 @@ export async function checkColdEmailGuards({
   emailAccount,
   provider,
   coldEmailRule,
+  logger,
 }: ColdEmailGuardsInput): Promise<ColdEmailResult | null> {
-  const logger = getColdEmailLogger({ email, emailAccount });
-
   logger.info("Checking is cold email");
 
   if (
@@ -150,6 +138,7 @@ export async function isColdEmail({
   provider,
   modelType,
   coldEmailRule,
+  logger,
 }: ColdEmailGuardsInput & {
   modelType?: ModelType;
 }): Promise<ColdEmailResult> {
@@ -158,11 +147,10 @@ export async function isColdEmail({
     emailAccount,
     provider,
     coldEmailRule,
+    logger,
   });
 
   if (guardResult) return guardResult;
-
-  const logger = getColdEmailLogger({ email, emailAccount });
 
   // run through ai to see if it's a cold email
   const res = await aiIsColdEmail(

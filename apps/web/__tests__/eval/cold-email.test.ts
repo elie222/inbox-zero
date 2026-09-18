@@ -56,6 +56,7 @@ describe.runIf(shouldRunEval)("Eval: cold email", () => {
           `${variant.label} | ${testCase.name}`,
           async () => {
             const result = await isColdEmail({
+              logger,
               email: testCase.email,
               emailAccount,
               provider,

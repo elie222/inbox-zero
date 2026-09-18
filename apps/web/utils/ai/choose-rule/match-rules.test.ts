@@ -2062,6 +2062,7 @@ describe("findMatchingRules - Integration Tests", () => {
       provider,
       modelType: "default",
       coldEmailRule,
+      logger: expect.any(Object),
     });
 
     expect(result.matches[0]?.rule.id).toBe("cold-email-rule");

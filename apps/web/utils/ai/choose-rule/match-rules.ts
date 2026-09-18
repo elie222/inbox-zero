@@ -111,6 +111,7 @@ export async function findMatchingRules({
       emailAccount,
       provider,
       coldEmailRule,
+      logger,
     };
     const coldEmailResult = useJev
       ? await checkColdEmailGuards(coldEmailInput)
@@ -195,6 +196,7 @@ export async function findMatchingRules({
       provider,
       modelType,
       coldEmailRule: pendingColdEmailRule,
+      logger,
     });
 
     if (coldEmailResult.isColdEmail) {

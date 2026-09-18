@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { checkColdEmailGuards, isColdEmail } from "./is-cold-email";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
+
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 
@@ -72,6 +74,7 @@ describe("isColdEmail", () => {
     };
 
     const result = await isColdEmail({
+      logger,
       email,
       emailAccount,
       provider: mockProvider as never,
@@ -131,6 +134,7 @@ describe("isColdEmail", () => {
     };
 
     const result = await isColdEmail({
+      logger,
       email,
       emailAccount,
       provider: mockProvider as never,
@@ -162,6 +166,7 @@ describe("isColdEmail", () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-internal",
         from: "ceo@company.com",
@@ -194,6 +199,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-internal",
         from: "ceo@company.com",
@@ -215,6 +221,7 @@ describe("isColdEmail", () => {
 
   it("should not classify the application notification sender as cold", async () => {
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-application-notification",
         from: env.RESEND_FROM_EMAIL,
@@ -256,6 +263,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-onboarding",
         from,
@@ -307,6 +315,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-untrusted",
         from,
@@ -329,6 +338,7 @@ describe("isColdEmail", () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-no-date",
         from: "unknown@example.com",
@@ -384,6 +394,7 @@ describe("isColdEmail", () => {
       };
 
       const result = await isColdEmail({
+        logger,
         email,
         emailAccount,
         provider: mockProvider as never,
@@ -416,6 +427,7 @@ describe("isColdEmail", () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await checkColdEmailGuards({
+      logger,
       email: {
         id: "msg-undecided",
         from: "unknown@example.com",
@@ -441,6 +453,7 @@ describe("isColdEmail", () => {
     vi.mocked(createGenerateObject).mockReturnValue(generateObject as never);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-ai",
         from: "unknown@example.com",
