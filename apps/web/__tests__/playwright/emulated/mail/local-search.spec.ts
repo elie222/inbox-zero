@@ -170,13 +170,24 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
   await page.evaluate((prompt) => {
     const state = window as unknown as { sawProviderPrompt?: boolean };
     state.sawProviderPrompt = false;
-    new MutationObserver(() => {
-      if (document.body.textContent?.includes(prompt))
-        state.sawProviderPrompt = true;
+    // Read each record, not the settled page: text inserted then removed or
+    // rewritten before the callback runs is only visible in the records.
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const texts = [
+          record.oldValue,
+          record.target.textContent,
+          ...Array.from(record.addedNodes, (node) => node.textContent),
+          ...Array.from(record.removedNodes, (node) => node.textContent),
+        ];
+        if (texts.some((text) => text?.includes(prompt)))
+          state.sawProviderPrompt = true;
+      }
     }).observe(document.body, {
       childList: true,
       subtree: true,
       characterData: true,
+      characterDataOldValue: true,
     });
   }, PROVIDER_PROMPT);
   const input = page.getByPlaceholder("Search mail");
