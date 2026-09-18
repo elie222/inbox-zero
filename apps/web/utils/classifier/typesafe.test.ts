@@ -74,6 +74,20 @@ describe("classifyWithTypeSafe", () => {
     });
   });
 
+  it("rejects probabilities outside 0 to 1", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        model: "test-model",
+        usage: { input_tokens: 1, output_tokens: 1 },
+        answers: { applies: { type: "noul", noul: 2 } },
+      }),
+    );
+
+    await expect(
+      classifyWithTypeSafe({ config, state: {}, questions: {} }),
+    ).rejects.toThrow();
+  });
+
   it("throws on an error status", async () => {
     fetchMock.mockResolvedValue(new Response("rate limited", { status: 429 }));
 

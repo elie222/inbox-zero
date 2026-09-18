@@ -8,19 +8,21 @@ import type {
 const TYPESAFE_API_URL = "https://api.typesafe.ai/v1/systemone";
 const TYPESAFE_TIMEOUT_MS = 30_000;
 
+const probabilitySchema = z.number().min(0).max(1);
+
 const typeSafeResponseSchema = z.object({
   model: z.string(),
-  usage: z.object({ input_tokens: z.number() }),
+  usage: z.object({ input_tokens: z.number().int().nonnegative() }),
   answers: z.record(
     z.string(),
     z.discriminatedUnion("type", [
       z.object({
         type: z.literal("choice"),
         choice: z.string(),
-        confidence: z.number(),
-        probabilities: z.record(z.string(), z.number()),
+        confidence: probabilitySchema,
+        probabilities: z.record(z.string(), probabilitySchema),
       }),
-      z.object({ type: z.literal("noul"), noul: z.number() }),
+      z.object({ type: z.literal("noul"), noul: probabilitySchema }),
     ]),
   ),
 });

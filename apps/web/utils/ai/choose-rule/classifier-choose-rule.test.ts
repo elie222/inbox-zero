@@ -227,6 +227,33 @@ describe("classifierChooseRule", () => {
       ]);
     });
 
+    it("never adds system rules as secondary matches", async () => {
+      const calendarRule = {
+        id: "r3",
+        name: "Calendar",
+        instructions: "Calendar invites",
+        systemType: "CALENDAR",
+      };
+      mockAnswer("Receipts", {
+        ruleApplies: { Newsletter: 0.9, Receipts: 0.95, Calendar: 0.9 },
+      });
+
+      const result = await chooseRule({
+        emailAccount: multiRuleAccount,
+        rules: [...customRules, calendarRule],
+      });
+
+      expect(Object.keys(getRequest().questions)).toEqual([
+        "Newsletter",
+        "Receipts",
+        CHOICE_KEY,
+      ]);
+      expect(result.rules).toEqual([
+        { rule: receiptRule, isPrimary: true },
+        { rule: newsletterRule, isPrimary: false },
+      ]);
+    });
+
     it("keeps only the primary rule when the others fall below the threshold", async () => {
       mockAnswer("Receipts", {
         ruleApplies: { Newsletter: 0.2, Receipts: 0.95 },

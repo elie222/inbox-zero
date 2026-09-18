@@ -60,21 +60,24 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   const { criteria, rulesByKey } = buildCriteria({ rules, coldEmailRule });
 
   // For multi-rule accounts, the choice picks the primary rule and a yes/no per
-  // rule, in the same request, adds any others that also apply.
+  // custom rule, in the same request, adds any others that also apply. System
+  // rules are only ever primary, so at most one is selected.
   const selectMultiple = shouldSelectMultipleRules({ rules, emailAccount });
   const ruleAppliesQuestions: Record<string, ClassifierQuestion> =
     selectMultiple
       ? Object.fromEntries(
-          [...rulesByKey.keys()].map((key) => [
-            key,
-            {
-              type: "yesNo",
-              instructions: {
-                question: RULE_APPLIES_QUESTION,
-                rule: criteria[key],
+          [...rulesByKey]
+            .filter(([, rule]) => !rule.systemType)
+            .map(([key]) => [
+              key,
+              {
+                type: "yesNo",
+                instructions: {
+                  question: RULE_APPLIES_QUESTION,
+                  rule: criteria[key],
+                },
               },
-            },
-          ]),
+            ]),
         )
       : {};
 

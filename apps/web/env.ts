@@ -326,7 +326,7 @@ const parsedEnv = createEnv({
     // provider:model for structured classifiers, e.g. typesafe:jev-latest
     DEFAULT_CLASSIFIER: z
       .string()
-      .regex(/^typesafe:.+$/, "Expected typesafe:<model>")
+      .regex(/^typesafe:\S+$/, "Expected typesafe:<model>")
       .optional(),
     // Whether users who haven't chosen get DEFAULT_CLASSIFIER; otherwise opt-in
     DEFAULT_CLASSIFIER_ENABLED: booleanString.optional().default(false),
