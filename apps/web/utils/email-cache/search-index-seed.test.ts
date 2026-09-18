@@ -19,7 +19,7 @@ import {
   initializeSearchIndexAccount,
   seedSearchIndexWork,
 } from "./search-index-seed";
-import { SOURCE_VERSION } from "./search-index-source-version";
+import { SEARCH_INDEX_VERSION } from "./search-index-version";
 import {
   acknowledgeSearchIndexWork,
   readSearchIndexWork,
@@ -45,7 +45,7 @@ describe("resumable local index seeding", () => {
     await database.put("searchIndexAccounts", {
       emailAccountId: "account-1",
       generation: "migration",
-      sourceVersion: SOURCE_VERSION,
+      sourceVersion: SEARCH_INDEX_VERSION,
       seed: { store: "threadRows" },
     });
     await database.put("threadRows", {
@@ -127,7 +127,7 @@ describe("resumable local index seeding", () => {
       initializeSearchIndexAccount("account-1"),
     ]);
     expect(accounts[0]).toEqual(accounts[1]);
-    expect(accounts[0]?.sourceVersion).toBe(SOURCE_VERSION);
+    expect(accounts[0]?.sourceVersion).toBe(SEARCH_INDEX_VERSION);
     expect(accounts[0]?.generation).not.toBe("obsolete-generation");
   });
 

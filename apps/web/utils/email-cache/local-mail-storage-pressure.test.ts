@@ -1,4 +1,4 @@
-import { SOURCE_VERSION } from "./search-index-source-version";
+import { SEARCH_INDEX_VERSION } from "./search-index-version";
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -302,7 +302,7 @@ async function seed(emailAccountId: string, receivedAt: number) {
   await db.put("searchIndexAccounts", {
     emailAccountId,
     generation: "generation",
-    sourceVersion: SOURCE_VERSION,
+    sourceVersion: SEARCH_INDEX_VERSION,
   });
   await db.put("localMailSyncStates", {
     emailAccountId,

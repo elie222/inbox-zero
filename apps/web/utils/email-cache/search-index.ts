@@ -8,6 +8,7 @@ import {
   type SearchMessage,
   type SearchNode,
 } from "./search-query";
+import { SEARCH_INDEX_VERSION } from "./search-index-version";
 
 export type SearchIndexBatch = {
   emailAccountId: string;
@@ -54,9 +55,6 @@ const MIN_ROW_ID = -(BigInt("1") << BigInt("63"));
 const MAX_BATCH_SIZE = 100;
 const MAX_PAGE_SIZE = 100;
 const MAX_MESSAGE_CHARACTERS = 2_000_000;
-// Changing this discards every existing index, and nothing refills it unless
-// SOURCE_VERSION in search-index-source-version.ts is bumped in the same change.
-const SCHEMA_VERSION = 2;
 
 export class SearchIndexCapacityError extends Error {
   readonly code:
@@ -77,10 +75,9 @@ export function createSearchIndex(database: Database) {
     "PRAGMA cache_size=-8192; PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON;",
   );
   let version = Number(database.selectValue("PRAGMA user_version"));
-  if (version !== 0 && version !== SCHEMA_VERSION) {
-    // A future or downgraded build left a layout this one cannot read. Every
-    // document here is derived from the local mail store, so discarding it
-    // costs a rebuild; refusing to open would fail every search for good.
+  if (version !== 0 && version !== SEARCH_INDEX_VERSION) {
+    // Another build wrote this layout. Its accounts carry the same version, so
+    // they re-queue their mail and refill what this discards.
     discardIndexSchema(database);
     version = 0;
   }
@@ -117,7 +114,7 @@ export function createSearchIndex(database: Database) {
         all_text, from_text, to_text, subject_text, filter_tokens,
         content='', contentless_delete=1, detail=column, tokenize='ascii'
       );
-      PRAGMA user_version=${SCHEMA_VERSION};
+      PRAGMA user_version=${SEARCH_INDEX_VERSION};
       INSERT INTO search_long(search_long,rank) VALUES('secure-delete',1);
       INSERT INTO search_short(search_short,rank) VALUES('secure-delete',1);
     `);
