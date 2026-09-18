@@ -328,7 +328,7 @@ async function executeSend(
       queuedAt: operation.intent.queuedAtMs,
       threadId: operation.intent.replyToMessageId
         ? operation.intent.replyToConversationId
-        : undefined,
+        : null,
       messageIds: operation.intent.replyToMessageId
         ? [operation.intent.replyToMessageId]
         : [operation.intent.frozenDraftId],
