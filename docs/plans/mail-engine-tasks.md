@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `a5a5d635c`
+- Last implementation commit: `1f8a8b2e9`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; packaged Electron (C2) and remaining UI matrix; answer remaining review comments.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m on `1f8a8b2e9`; log contains 0 `Invalid mailbox sync cursor` lines (was 33 on the previous compose-drafts run)
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts` — 1 file, 8 passed including last-page provider history cursor
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts` — 1 file, 6 passed
   - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m; closed compose appears in Drafts, discard after reload removes it, send consumes the Gmail draft
   - `pnpm --filter @inboxzero/mail-sqlite test src/engine-bootstrap.test.ts src/store.test.ts src/engine-assistant.test.ts src/engine-search.test.ts` — 4 files, 25 passed including bootstrap tombstone of unseen messages
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/draft-content.test.ts utils/mail-api/operations.test.ts utils/mail-engine/reply-drafts.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 4 files, 24 passed including frozen provider draft ids
@@ -90,7 +93,7 @@ Browser host uses a dedicated module worker when available, OPFS SAHPool when pe
 - [ ] D4. Implement wake/hint/periodic catch-up and repair; verify missing/duplicate notifications and auth/throttle recovery.
 - [ ] D5. Pass the required dual-provider replication fault scenarios with independent provider/local-state inspection.
 
-Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Web `MailEngineConnectionBanner` renders reconnect/offline from mailbox `connection`. Live Playwright intercepts `/changes` with `blocked_auth`, shows the reconnect heading, and follows Reconnect to the stubbed linking URL.
+Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. The last bootstrap enumeration page records the provider mailbox cursor (`getMailboxSyncPage` or the newest numeric Gmail `historyId`), not a list page token. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Web `MailEngineConnectionBanner` renders reconnect/offline from mailbox `connection`. Live Playwright intercepts `/changes` with `blocked_auth`, shows the reconnect heading, and follows Reconnect to the stubbed linking URL.
 
 ### E. Complete operations, drafts, and assistant coexistence
 
@@ -322,7 +325,17 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Tree: `cursor/mail-engine-0b4f` at `a5a5d635c`
 - Commands: `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m
 - What it proved: closing a new message with an attachment creates a Drafts row; reload restores the composer; discard deletes the Gmail draft and leaves Drafts without that conversation; send converts the provider draft so `/api/threads?type=draft` is empty for that subject.
-- Limitations: Outlook web and both desktop compose cells remain unrun; `/changes` still logs invalid mailbox sync cursor and recovers by bootstrap.
+- Limitations: Outlook web and both desktop compose cells remain unrun.
+
+### E19. Bootstrap catch-up cursor (2026-09-18)
+
+- Tasks: partial D1
+- Tree: `cursor/mail-engine-0b4f` at `1f8a8b2e9`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts` — 1 file, 8 passed
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m; `Invalid mailbox sync cursor` count 0 (33 on the prior compose-drafts log)
+- What it proved: finishing enumeration stores a decodeable Gmail history cursor from `getMailboxSyncPage`, or the newest numeric message `historyId` if that call fails. Live compose-drafts catch-up no longer logs invalid cursors.
+- Limitations: Outlook folder-delta catch-up after bootstrap still uses a single primary stream; expired-history 404 still rebuilds via `reset_required`.
 
 ## Decision and deviation log
 
