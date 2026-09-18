@@ -53,12 +53,15 @@ export async function getDraftReference({
     return null;
   }
 
-  const version = (draft.message as { "@odata.etag"?: string })["@odata.etag"];
+  const version = draftVersionFromMessage(draft.message);
   if (!version) {
-    throw new Error("Draft response did not include a version");
+    logger.warn(
+      "Outlook draft omitted etag and changeKey; using an unconditional version",
+      { messageId },
+    );
   }
 
-  return { id: messageId, version };
+  return { id: messageId, version: version ?? "*" };
 }
 
 export async function sendDraft({
@@ -175,4 +178,13 @@ async function getDraftMessage({
 
     throw error;
   }
+}
+
+function draftVersionFromMessage(message: Message): string | undefined {
+  const etag = (message as { "@odata.etag"?: string })["@odata.etag"];
+  if (etag) return etag;
+  if (!message.changeKey) return;
+  return message.changeKey.startsWith("W/")
+    ? message.changeKey
+    : `W/"${message.changeKey}"`;
 }
