@@ -8,13 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `13978e827`
+- Last implementation commit: `233a2ece2`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: watch CI on the exact head; answer remaining review comments; run Playwright inspect (C1).
+- Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: watch CI on the exact head; keep C1 inspect green without the Next overlay; answer remaining review comments.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 2 passed, including live OPFS owner inspect after metadata coverage
+  - `pnpm --filter @inboxzero/mail-sqlite test src/engine-bootstrap.test.ts src/store.test.ts src/engine-assistant.test.ts src/engine-search.test.ts` — 4 files, 22 passed including bootstrap-over-deadline coverage
+  - `pnpm exec ultracite check` on MailEngineHost, engine bootstrap, and inline-email-card — pass
+  - Previous checkpoint:
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed including unarchive/restore_from_trash
   - `pnpm exec ultracite check` on use-thread-actions and mutation-change test — pass
   - Previous checkpoint:
@@ -70,7 +74,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. `MailEngineConnectionBanner` surfaces `blocked_auth` (reconnect) and `offline` (automatic retry) from the mailbox snapshot. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Playwright inspect on a live Chromium session now reports owner + OPFS + ready connection. `MailEngineConnectionBanner` surfaces `blocked_auth` (reconnect) and `offline` (automatic retry) from the mailbox snapshot. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
 
 ### D. Provider replication and repair
 
@@ -261,6 +265,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed; `pnpm exec ultracite check` on `use-thread-actions.ts`.
 - What it proved: undo compensation uses `mutationPayloadToChange` (`unarchive` / `restore_from_trash`) instead of an undeclared `MetadataChange` name that failed `build:ci`.
 - Limitations: `build:ci` itself is not run locally (repo instruction).
+
+### E13. Live OPFS inspect, hydration, and bootstrap coverage (2026-09-18)
+
+- Tasks: partial C1
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: see Resume state last validation.
+- What it proved: MailCoverageGate hydrates with the shared loading shell instead of the SSR storage-error copy. A `runUntil` slice that expires during `beginBootstrap` still enumerates and writes metadata coverage. Playwright `mail-engine-inspect.spec.ts` first-paints the conversations listbox and asserts owner + OPFS + ready connection.
+- Limitations: the inspect run still logged a React maximum-update-depth warning from combined-mail query identity; packaged Electron remains unrun.
 
 ## Decision and deviation log
 
