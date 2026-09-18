@@ -35,6 +35,7 @@ import {
   jevChooseRule,
 } from "@/utils/ai/choose-rule/jev-choose-rule";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
+import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 
 const logger = createTestLogger();
 
@@ -54,7 +55,9 @@ vi.mock("@/utils/cold-email/cold-email-rule", () => ({
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
   isColdEmail: vi.fn(),
   checkColdEmailGuards: vi.fn(),
-  getColdEmailDefinition: vi.fn().mockReturnValue("Cold email definition"),
+}));
+vi.mock("@/utils/rule/classification-feedback", () => ({
+  getClassificationFeedback: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/utils/ai/choose-rule/jev-choose-rule", () => ({
   isJevRuleSelectionEnabled: vi.fn().mockReturnValue(false),
@@ -3044,6 +3047,16 @@ describe("findMatchingRules - Jev rule selection", () => {
 
   it("merges the Jev-chosen rule with an AI match reason", async () => {
     const aiRule = getAiRule();
+    const classificationFeedback = [
+      {
+        subject: "Earlier email",
+        ruleName: "AI rule",
+        eventType: "LABEL_ADDED" as const,
+      },
+    ];
+    vi.mocked(getClassificationFeedback).mockResolvedValue(
+      classificationFeedback,
+    );
     vi.mocked(jevChooseRule).mockResolvedValue({
       rules: [{ rule: aiRule as any, isPrimary: true }],
       reason: "Jev reason",
@@ -3062,7 +3075,8 @@ describe("findMatchingRules - Jev rule selection", () => {
     expect(jevChooseRule).toHaveBeenCalledWith(
       expect.objectContaining({
         rules: [expect.objectContaining({ id: "ai-rule" })],
-        coldEmailOption: null,
+        coldEmailRule: null,
+        classificationFeedback,
       }),
     );
     expect(aiChooseRule).not.toHaveBeenCalled();
@@ -3081,7 +3095,7 @@ describe("findMatchingRules - Jev rule selection", () => {
     const aiRule = getAiRule();
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue({ decided: false });
+    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
     vi.mocked(jevChooseRule).mockResolvedValue({
       rules: [],
@@ -3101,7 +3115,7 @@ describe("findMatchingRules - Jev rule selection", () => {
     expect(jevChooseRule).toHaveBeenCalledWith(
       expect.objectContaining({
         rules: [expect.objectContaining({ id: "ai-rule" })],
-        coldEmailOption: { instructions: "Cold email definition" },
+        coldEmailRule,
       }),
     );
     expect(isColdEmail).not.toHaveBeenCalled();
@@ -3119,8 +3133,8 @@ describe("findMatchingRules - Jev rule selection", () => {
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
     vi.mocked(checkColdEmailGuards).mockResolvedValue({
-      decided: true,
-      result: { isColdEmail: true, reason: "ai-already-labeled" },
+      isColdEmail: true,
+      reason: "ai-already-labeled",
     });
     vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
 
@@ -3146,8 +3160,8 @@ describe("findMatchingRules - Jev rule selection", () => {
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
     vi.mocked(checkColdEmailGuards).mockResolvedValue({
-      decided: true,
-      result: { isColdEmail: false, reason: "hasPreviousEmail" },
+      isColdEmail: false,
+      reason: "hasPreviousEmail",
     });
 
     const result = await findMatchingRules({
@@ -3195,7 +3209,7 @@ describe("findMatchingRules - Jev rule selection", () => {
     const aiRule = getAiRule();
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue({ decided: false });
+    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(jevChooseRule).mockRejectedValue(new Error("Jev down"));
     vi.mocked(isColdEmail).mockResolvedValue({
       isColdEmail: false,

@@ -43,10 +43,6 @@ type ColdEmailGuardsInput = {
   coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
 };
 
-export type ColdEmailGuardsResult =
-  | { decided: true; result: ColdEmailResult }
-  | { decided: false };
-
 function getColdEmailLogger({
   email,
   emailAccount,
@@ -61,15 +57,15 @@ function getColdEmailLogger({
 
 /**
  * Runs the deterministic cold-email checks (whitelist, same org, learned
- * patterns, prior contact). Returns `decided: false` when only the AI check
- * remains, so a caller can run that check itself.
+ * patterns, prior contact). Returns null when only the AI check remains, so a
+ * caller can run that check itself.
  */
 export async function checkColdEmailGuards({
   email,
   emailAccount,
   provider,
   coldEmailRule,
-}: ColdEmailGuardsInput): Promise<ColdEmailGuardsResult> {
+}: ColdEmailGuardsInput): Promise<ColdEmailResult | null> {
   const logger = getColdEmailLogger({ email, emailAccount });
 
   logger.info("Checking is cold email");
@@ -79,20 +75,14 @@ export async function checkColdEmailGuards({
     isWhitelistedSender(email.from, env.WHITELIST_FROM)
   ) {
     logger.info("Sender is an application sender");
-    return {
-      decided: true,
-      result: { isColdEmail: false, reason: "applicationSender" },
-    };
+    return { isColdEmail: false, reason: "applicationSender" };
   }
 
   // Nobody at your own company is a cold emailer. Checked here rather than only at the
   // actions, so a colleague is never labelled or archived either.
   if (isSameOrganization(email.from, emailAccount.email)) {
     logger.info("Sender is internal");
-    return {
-      decided: true,
-      result: { isColdEmail: false, reason: "hasPreviousEmail" },
-    };
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
   // Check if we marked it as a cold email already
@@ -125,12 +115,9 @@ export async function checkColdEmailGuards({
     logger.info("Known cold email sender", { from: email.from });
     const { group, ...groupItem } = patternMatch;
     return {
-      decided: true,
-      result: {
-        isColdEmail: true,
-        reason: "ai-already-labeled",
-        ...(group ? { patternMatch: { group, groupItem } } : {}),
-      },
+      isColdEmail: true,
+      reason: "ai-already-labeled",
+      ...(group ? { patternMatch: { group, groupItem } } : {}),
     };
   }
 
@@ -138,10 +125,7 @@ export async function checkColdEmailGuards({
     logger.info("Sender explicitly excluded from cold email blocker", {
       from: email.from,
     });
-    return {
-      decided: true,
-      result: { isColdEmail: false, reason: "excluded" },
-    };
+    return { isColdEmail: false, reason: "excluded" };
   }
 
   const hasPreviousEmail = await hasPriorContactOrAssumeYes({
@@ -154,13 +138,10 @@ export async function checkColdEmailGuards({
 
   if (hasPreviousEmail) {
     logger.info("Has previous email");
-    return {
-      decided: true,
-      result: { isColdEmail: false, reason: "hasPreviousEmail" },
-    };
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
-  return { decided: false };
+  return null;
 }
 
 export async function isColdEmail({
@@ -172,14 +153,14 @@ export async function isColdEmail({
 }: ColdEmailGuardsInput & {
   modelType?: ModelType;
 }): Promise<ColdEmailResult> {
-  const guards = await checkColdEmailGuards({
+  const guardResult = await checkColdEmailGuards({
     email,
     emailAccount,
     provider,
     coldEmailRule,
   });
 
-  if (guards.decided) return guards.result;
+  if (guardResult) return guardResult;
 
   const logger = getColdEmailLogger({ email, emailAccount });
 
@@ -200,20 +181,6 @@ export async function isColdEmail({
     reason: "ai",
     aiReason: res.reason,
   };
-}
-
-/**
- * Short cold-email definition for classifiers that take a one-line criterion.
- * Custom instructions are passed through verbatim.
- */
-export function getColdEmailDefinition(
-  coldEmailRule: Pick<Rule, "instructions"> | null,
-): string {
-  const instructions = coldEmailRule?.instructions?.trim();
-  if (!instructions || instructions === DEFAULT_COLD_EMAIL_PROMPT.trim()) {
-    return DEFAULT_COLD_EMAIL_PROMPT.split(/\n\s*\n/)[0] ?? "";
-  }
-  return instructions;
 }
 
 async function aiIsColdEmail(

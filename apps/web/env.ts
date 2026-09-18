@@ -605,7 +605,10 @@ if (
   );
 }
 
-if (parsedEnv.JEV_RULE_SELECTION_ENABLED && !process.env.TYPESAFE_API_KEY) {
+if (
+  process.env.JEV_RULE_SELECTION_ENABLED === "true" &&
+  !process.env.TYPESAFE_API_KEY
+) {
   throw new Error(
     "TYPESAFE_API_KEY is required when JEV_RULE_SELECTION_ENABLED is set.",
   );

@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  checkColdEmailGuards,
-  getColdEmailDefinition,
-  isColdEmail,
-} from "./is-cold-email";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
+import { checkColdEmailGuards, isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
@@ -417,7 +412,7 @@ describe("isColdEmail", () => {
     }
   });
 
-  it("checkColdEmailGuards is undecided when every guard passes", async () => {
+  it("checkColdEmailGuards returns null when every guard passes", async () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await checkColdEmailGuards({
@@ -434,7 +429,7 @@ describe("isColdEmail", () => {
       coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
     });
 
-    expect(result).toEqual({ decided: false });
+    expect(result).toBeNull();
     expect(createGenerateObject).not.toHaveBeenCalled();
   });
 
@@ -466,27 +461,5 @@ describe("isColdEmail", () => {
       reason: "ai",
       aiReason: "pitch",
     });
-  });
-});
-
-describe("getColdEmailDefinition", () => {
-  const firstParagraph = DEFAULT_COLD_EMAIL_PROMPT.split(/\n\s*\n/)[0];
-
-  it("uses the first paragraph of the default prompt when instructions are empty", () => {
-    expect(getColdEmailDefinition(null)).toBe(firstParagraph);
-    expect(getColdEmailDefinition({ instructions: "" })).toBe(firstParagraph);
-    expect(getColdEmailDefinition({ instructions: null })).toBe(firstParagraph);
-  });
-
-  it("uses the first paragraph when instructions equal the default prompt", () => {
-    expect(
-      getColdEmailDefinition({ instructions: DEFAULT_COLD_EMAIL_PROMPT }),
-    ).toBe(firstParagraph);
-  });
-
-  it("returns custom instructions verbatim", () => {
-    expect(getColdEmailDefinition({ instructions: "Only vendors" })).toBe(
-      "Only vendors",
-    );
   });
 });
