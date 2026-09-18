@@ -380,7 +380,10 @@ export function createMailEngine(input: {
     }
     await noteConnection(input.session.accountId, "ok");
     let page: string | null = bootstrap.value.enumerationToken;
-    while (page && runtime.nowMs() < input.deadlineMs) {
+    // Coverage-gated first paint needs this round to finish. A slice
+    // deadline that expires during beginBootstrap must not skip enumerate.
+    while (page) {
+      if (input.signal?.aborted) return;
       const enumerated = await source.enumerate({
         session: input.session,
         requestId: `${input.requestId}-enum`,
