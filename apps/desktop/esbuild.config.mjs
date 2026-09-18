@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import * as esbuild from "esbuild";
 import {
   desktopEsbuildShared,
@@ -27,3 +28,20 @@ await esbuild.build({
   outfile: "dist/mail-engine-child.js",
   format: "esm",
 });
+
+await mkdir("dist/renderer", { recursive: true });
+await esbuild.build({
+  entryPoints: ["src/renderer/main.tsx"],
+  outfile: "dist/renderer/main.js",
+  bundle: true,
+  platform: "browser",
+  format: "iife",
+  jsx: "automatic",
+  target: "chrome120",
+  sourcemap: true,
+  define: { "process.env.NODE_ENV": '"production"' },
+});
+await writeFile(
+  "dist/renderer/index.html",
+  await readFile("src/renderer/index.html", "utf8"),
+);

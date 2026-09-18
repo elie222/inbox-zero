@@ -1,3 +1,6 @@
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
 export const DESKTOP_PROTOCOL = "inboxzero";
 export const DESKTOP_AUTH_CALLBACK_PATH = "/auth-callback";
 export const DEFAULT_APP_URL = "https://www.getinboxzero.com";
@@ -92,8 +95,15 @@ export function parseDesktopAuthCallback(url: string): DesktopAuthCallback {
 export function isAllowedDesktopNavigation(
   url: string,
   appOrigin: string,
+  localMailRendererFile?: string,
 ): boolean {
   if (url === "about:blank") return true;
+  if (
+    localMailRendererFile &&
+    isDesktopLocalMailUrl(url, localMailRendererFile)
+  ) {
+    return true;
+  }
 
   let parsed: URL;
   try {
@@ -103,6 +113,36 @@ export function isAllowedDesktopNavigation(
   }
 
   return parsed.origin === appOrigin;
+}
+
+export function getDesktopLocalMailUrl(
+  rendererFile: string,
+  accountIds: string[] = [],
+): string {
+  const url = pathToFileURL(path.resolve(rendererFile));
+  for (const accountId of accountIds) {
+    url.searchParams.append("accountId", accountId);
+  }
+  return url.href;
+}
+
+export function isDesktopLocalMailUrl(
+  url: string,
+  rendererFile: string,
+): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "file:") return false;
+    return path.resolve(fileURLToPath(parsed)) === path.resolve(rendererFile);
+  } catch {
+    return false;
+  }
+}
+
+export function shouldUseLocalMailRenderer(
+  env: NodeJS.Dict<string> = process.env,
+): boolean {
+  return env.INBOX_ZERO_LOCAL_MAIL === "1";
 }
 
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set([

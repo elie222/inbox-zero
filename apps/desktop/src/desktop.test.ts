@@ -4,6 +4,7 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
+  getDesktopLocalMailUrl,
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
@@ -14,9 +15,11 @@ import {
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
+  isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
   shouldPersistDesktopUrl,
+  shouldUseLocalMailRenderer,
 } from "./desktop";
 
 describe("desktop shell helpers", () => {
@@ -103,6 +106,32 @@ describe("desktop shell helpers", () => {
     expect(
       isAllowedDesktopNavigation("about:blank", "https://www.getinboxzero.com"),
     ).toBe(true);
+  });
+
+  it("allows the bundled local mail renderer over file URLs", () => {
+    const rendererFile = "/tmp/inbox-zero-desktop/renderer/index.html";
+    const url = getDesktopLocalMailUrl(rendererFile, ["acc-1"]);
+    expect(url.startsWith("file:")).toBe(true);
+    expect(url).toContain("accountId=acc-1");
+    expect(isDesktopLocalMailUrl(url, rendererFile)).toBe(true);
+    expect(
+      isAllowedDesktopNavigation(
+        url,
+        "https://www.getinboxzero.com",
+        rendererFile,
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedDesktopNavigation(
+        "file:///etc/passwd",
+        "https://www.getinboxzero.com",
+        rendererFile,
+      ),
+    ).toBe(false);
+    expect(shouldUseLocalMailRenderer({ INBOX_ZERO_LOCAL_MAIL: "1" })).toBe(
+      true,
+    );
+    expect(shouldUseLocalMailRenderer({})).toBe(false);
   });
 
   it("finds the protocol URL in process arguments", () => {

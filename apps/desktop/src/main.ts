@@ -30,6 +30,7 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
+  getDesktopLocalMailUrl,
   getDesktopMailAccountId,
   getDesktopPostAuthUrl,
   getDesktopSessionRestoreUrl,
@@ -38,8 +39,10 @@ import {
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
+  isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  shouldUseLocalMailRenderer,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
@@ -72,6 +75,13 @@ let pendingCallbackPath: string | null = null;
 let isQuitting = false;
 const appOrigin = getDesktopAppOrigin();
 const homeUrl = getDesktopHomeUrl(appOrigin);
+const localMailRendererFile = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "renderer/index.html",
+);
+const localMailUrl = shouldUseLocalMailRenderer()
+  ? getDesktopLocalMailUrl(localMailRendererFile)
+  : null;
 const trackNewMail = createMailNotificationTracker();
 const mailNotifications = new Map<string, Notification>();
 
@@ -130,7 +140,8 @@ function startDesktopApp() {
     const callbackPath = normalizeDesktopCallbackPath(path);
     if (!callbackPath) return;
     const url = new URL(callbackPath, appOrigin).toString();
-    if (!isAllowedDesktopNavigation(url, appOrigin)) return;
+    if (!isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile))
+      return;
     openAppWindow(url, { navigate: true });
   });
   ipcMain.handle("mail-engine", async (event, payload: unknown) => {
@@ -240,7 +251,7 @@ function createAppWindow(options?: {
     return existing;
   }
 
-  const startUrl = options?.url ?? homeUrl;
+  const startUrl = options?.url ?? localMailUrl ?? homeUrl;
   const bounds = resolveWindowBounds(options?.bounds);
   const window = new BrowserWindow({
     width: bounds?.width ?? DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -390,11 +401,14 @@ function persistWindowsNow() {
 }
 
 function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
-  return (
-    windows.some((window) => event.sender === window.webContents) &&
-    event.senderFrame === event.sender.mainFrame &&
-    event.senderFrame.origin === appOrigin
-  );
+  if (
+    !windows.some((window) => event.sender === window.webContents) ||
+    event.senderFrame !== event.sender.mainFrame
+  ) {
+    return false;
+  }
+  if (event.senderFrame.origin === appOrigin) return true;
+  return isDesktopLocalMailUrl(event.sender.getURL(), localMailRendererFile);
 }
 
 function applyUnreadBadge() {
@@ -436,7 +450,7 @@ function applyDesktopWindowDragRegion(contents: WebContents) {
 
 function applyNavigationPolicy(contents: WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedDesktopNavigation(url, appOrigin)) {
+    if (isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile)) {
       openAppWindow(url, { navigate: true });
     } else {
       openExternal(url).catch(showSignInError);
@@ -449,7 +463,7 @@ function applyNavigationPolicy(contents: WebContents) {
 }
 
 function guardNavigation(event: { preventDefault: () => void }, url: string) {
-  if (isAllowedDesktopNavigation(url, appOrigin)) return;
+  if (isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile)) return;
   event.preventDefault();
   openExternal(url).catch(showSignInError);
 }

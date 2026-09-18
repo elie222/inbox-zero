@@ -76,16 +76,34 @@ importers:
       '@inboxzero/mail-core':
         specifier: workspace:*
         version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
       '@inboxzero/mail-sqlite':
         specifier: workspace:*
         version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9(supports-color@10.2.2)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
       electron:
         specifier: 43.4.0
         version: 43.4.0(supports-color@10.2.2)

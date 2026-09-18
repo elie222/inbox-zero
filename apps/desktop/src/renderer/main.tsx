@@ -3,63 +3,21 @@ import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailApp } from "@inboxzero/mail-ui/MailApp";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { QueryHandle, QuerySnapshot } from "@inboxzero/mail-core/queries";
+import type { InboxZeroDesktopApi } from "./desktop-api";
+
+declare global {
+  interface Window {
+    inboxZeroDesktop?: InboxZeroDesktopApi;
+  }
+}
 
 const ipc = window.inboxZeroDesktop;
 if (!ipc?.mailEngine) {
   throw new Error("Desktop mail engine IPC is unavailable");
 }
 
-function callEngine(method: string, payload: unknown) {
-  return ipc.mailEngine({
-    protocolVersion: 1,
-    requestId: crypto.randomUUID(),
-    method,
-    payload,
-  });
-}
-
-function observeSnapshot<T>(
-  method: "observeMailbox" | "observeConversation",
-  payload: unknown,
-): QueryHandle<T> {
-  let snapshot: QuerySnapshot<T> = {
-    status: "loading",
-    revision: null,
-    data: null,
-    refreshing: true,
-    error: null,
-  };
-  const listeners = new Set<() => void>();
-  let closed = false;
-  async function refresh() {
-    const response = await callEngine(method, payload);
-    if (closed) return;
-    snapshot = (response?.result ?? snapshot) as QuerySnapshot<T>;
-    for (const listener of listeners) listener();
-  }
-  const timer = setInterval(() => {
-    refresh().catch(() => undefined);
-  }, 750);
-  refresh().catch(() => undefined);
-  return {
-    getSnapshot: () => snapshot,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    close: () => {
-      closed = true;
-      clearInterval(timer);
-      listeners.clear();
-    },
-  };
-}
-
-type DesktopMailClient = MailClient & {
-  inspect(): Promise<{ accounts?: Array<{ accountId: string }> } | null>;
-};
-
-const client: DesktopMailClient = {
+const mailEngine = ipc.mailEngine;
+const client: MailClient = {
   observeMailbox: (query) => observeSnapshot("observeMailbox", query),
   observeConversation: (key, page) =>
     observeSnapshot("observeConversation", {
@@ -81,43 +39,32 @@ const client: DesktopMailClient = {
       close: () => undefined,
     };
   },
-  async submitMetadata(payload) {
-    return (await callEngine("submitMetadata", payload)).result;
-  },
-  async submitConversations(payload) {
-    return (await callEngine("submitConversations", payload)).result;
-  },
-  async saveDraft(payload) {
-    return (await callEngine("saveDraft", payload)).result;
-  },
-  async readDraft(payload) {
-    return (await callEngine("readDraft", payload)).result;
-  },
-  async submitSend(payload) {
-    return (await callEngine("submitSend", payload)).result;
-  },
-  async cancelOperation(payload) {
-    return (await callEngine("cancelOperation", payload)).result;
-  },
-  async requestSync(accountIds) {
-    return (await callEngine("requestSync", { accountIds })).result;
-  },
-  async ensureMessageContent(key) {
-    return (await callEngine("ensureMessageContent", key)).result;
-  },
-  async getDiagnostics(accountId) {
-    return (await callEngine("getDiagnostics", { accountId })).result;
-  },
-  async inspect() {
-    return (await callEngine("inspect", {})).result;
-  },
+  submitMetadata: (payload) => callEngine("submitMetadata", payload),
+  submitConversations: (payload) => callEngine("submitConversations", payload),
+  saveDraft: (payload) => callEngine("saveDraft", payload),
+  readDraft: (payload) => callEngine("readDraft", payload),
+  submitSend: (payload) => callEngine("submitSend", payload),
+  cancelOperation: (payload) => callEngine("cancelOperation", payload),
+  requestSync: (accountIds) => callEngine("requestSync", { accountIds }),
+  ensureMessageContent: (key) => callEngine("ensureMessageContent", key),
+  getDiagnostics: (accountId) => callEngine("getDiagnostics", { accountId }),
 };
 
 const root = document.getElementById("root");
 if (root) {
-  const accountIds = await resolveDesktopAccountIds(client);
-  createRoot(root).render(
-    <MailEngineProvider client={client}>
+  startLocalMailApp(root, client).catch((error: unknown) => {
+    root.textContent =
+      error instanceof Error ? error.message : "Mail failed to start";
+  });
+}
+
+async function startLocalMailApp(
+  container: HTMLElement,
+  mailClient: MailClient,
+) {
+  const accountIds = await resolveDesktopAccountIds();
+  createRoot(container).render(
+    <MailEngineProvider client={mailClient}>
       <MailApp
         accountIds={accountIds}
         host={{
@@ -130,16 +77,66 @@ if (root) {
   );
 }
 
-async function resolveDesktopAccountIds(mailClient: DesktopMailClient) {
+async function callEngine(method: string, payload: unknown) {
+  const response = (await mailEngine({
+    protocolVersion: 1,
+    requestId: crypto.randomUUID(),
+    method,
+    payload,
+  })) as { status?: string; result?: unknown };
+  if (response?.status !== "ok") {
+    throw new Error(`Mail engine ${method} failed`);
+  }
+  return response.result as never;
+}
+
+function observeSnapshot<T>(
+  method: "observeMailbox" | "observeConversation",
+  payload: unknown,
+): QueryHandle<T> {
+  let snapshot: QuerySnapshot<T> = {
+    status: "loading",
+    revision: null,
+    data: null,
+    refreshing: true,
+    error: null,
+  };
+  const listeners = new Set<() => void>();
+  let closed = false;
+  async function refresh() {
+    const next = (await callEngine(method, payload)) as QuerySnapshot<T>;
+    if (closed) return;
+    snapshot = next;
+    for (const listener of listeners) listener();
+  }
+  const timer = setInterval(() => {
+    refresh().catch(() => undefined);
+  }, 750);
+  refresh().catch(() => undefined);
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    close: () => {
+      closed = true;
+      clearInterval(timer);
+      listeners.clear();
+    },
+  };
+}
+
+async function resolveDesktopAccountIds() {
   const fromQuery = new URLSearchParams(window.location.search).getAll(
     "accountId",
   );
   if (fromQuery.length > 0) return fromQuery;
-  const inspection = await mailClient.inspect().catch(() => ({
+  const inspection = (await callEngine("inspect", {}).catch(() => ({
     accounts: [] as Array<{ accountId: string }>,
-  }));
+  }))) as { accounts?: Array<{ accountId: string }> };
   return (
-    inspection?.accounts?.map((account) => account.accountId).filter(Boolean) ??
+    inspection.accounts?.map((account) => account.accountId).filter(Boolean) ??
     []
   );
 }
