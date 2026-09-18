@@ -82,6 +82,7 @@ describe("sqlite mail store", () => {
       pending.view.conversations.map((row) => row.key.conversationId),
     ).toEqual(["c2"]);
     expect(pending.view.conversations[0]?.to).toBe("me@example.com");
+    expect(pending.view.conversations[0]?.senders).toEqual(["ada@example.com"]);
 
     await store.close();
 

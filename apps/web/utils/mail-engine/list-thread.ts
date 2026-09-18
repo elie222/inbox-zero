@@ -20,32 +20,34 @@ export function conversationSummaryToListThread(
 ): ListThread {
   const date = new Date(conversation.latestMessageAtMs).toISOString();
   const labelIds = conversationLabelIds(conversation);
-  const messageId = `${conversation.key.conversationId}:latest`;
+  const senders =
+    conversation.senders.length > 0
+      ? conversation.senders
+      : [conversation.from];
+  const messages = senders.map((from, index) => ({
+    id: `${conversation.key.conversationId}:p:${index}`,
+    threadId: conversation.key.conversationId,
+    snippet: conversation.preview,
+    subject: conversation.subject,
+    date,
+    internalDate: String(conversation.latestMessageAtMs),
+    labelIds,
+    parentFolderId: undefined,
+    headers: {
+      from,
+      to: conversation.to,
+      date,
+      subject: conversation.subject,
+    },
+  }));
   const thread = {
     id: conversation.key.conversationId,
-    messageIds: [messageId],
+    messageIds: messages.map((message) => message.id),
     snippet: conversation.preview,
     plan: undefined,
     plans: [],
     participantMessages: undefined,
-    messages: [
-      {
-        id: messageId,
-        threadId: conversation.key.conversationId,
-        snippet: conversation.preview,
-        subject: conversation.subject,
-        date,
-        internalDate: String(conversation.latestMessageAtMs),
-        labelIds,
-        parentFolderId: undefined,
-        headers: {
-          from: conversation.from,
-          to: conversation.to,
-          date,
-          subject: conversation.subject,
-        },
-      },
-    ],
+    messages,
   };
   return account ? { ...thread, account } : thread;
 }

@@ -20,6 +20,7 @@ describe("conversationSummaryToListThread", () => {
       summary({
         from: "me@example.com",
         to: "Jordan Example <jordan@example.com>",
+        senders: ["me@example.com"],
         roles: ["draft"],
       }),
     );
@@ -28,6 +29,21 @@ describe("conversationSummaryToListThread", () => {
       to: "Jordan Example <jordan@example.com>",
     });
     expect(thread.messages[0]?.labelIds).toContain("DRAFT");
+  });
+
+  it("projects every conversation sender so mixed threads can name both sides", () => {
+    const thread = conversationSummaryToListThread(
+      summary({
+        from: "me@example.com",
+        to: "Dana Example <dana@example.com>",
+        senders: ["Dana Example <dana@example.com>", "me@example.com"],
+      }),
+    );
+    expect(thread.messages.map((message) => message.headers.from)).toEqual([
+      "Dana Example <dana@example.com>",
+      "me@example.com",
+    ]);
+    expect(thread.messages).toHaveLength(2);
   });
 
   it("attaches combined-account identity when provided", () => {
@@ -61,6 +77,7 @@ function summary(
     preview: "Hi",
     from: "Ada <ada@example.com>",
     to: "me@example.com",
+    senders: ["Ada <ada@example.com>"],
     latestMessageAtMs: 1_700_000_000_000,
     unread: true,
     starred: false,

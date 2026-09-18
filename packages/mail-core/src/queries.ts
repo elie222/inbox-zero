@@ -101,6 +101,7 @@ export const conversationSummarySchema = z.object({
   preview: z.string(),
   from: z.string(),
   to: z.string(),
+  senders: z.array(z.string()).max(500),
   latestMessageAtMs: z.number().int(),
   unread: z.boolean(),
   starred: z.boolean(),
