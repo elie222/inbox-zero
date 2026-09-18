@@ -1,0 +1,1367 @@
+import { hashCanonical } from "@inboxzero/mail-core/canonical";
+import type {
+  Admission,
+  SubmitConversationCommand,
+  SubmitMetadataCommand,
+} from "@inboxzero/mail-core/commands";
+import type { DraftSaveResult, SaveDraft } from "@inboxzero/mail-core/drafts";
+import {
+  applyMetadataChange,
+  applyMetadataPatch,
+  deriveEffectiveMessage,
+  type ConfirmedMessage,
+} from "@inboxzero/mail-core/effective-state";
+import type {
+  ConversationKey,
+  LocalRevision,
+  MessageKey,
+} from "@inboxzero/mail-core/identities";
+import type { MessageMetadata } from "@inboxzero/mail-core/messages";
+import {
+  isPendingEffectStatus,
+  type OperationState,
+  type PreparedOperation,
+} from "@inboxzero/mail-core/operations";
+import type {
+  MailStore,
+  MailStoreInspection,
+} from "@inboxzero/mail-core/ports/mail-store";
+import type {
+  ConversationQuery,
+  Coverage,
+  MailboxView,
+} from "@inboxzero/mail-core/queries";
+import type { ProviderChange, SyncPage } from "@inboxzero/mail-core/sync";
+import type { SqlTransaction, SqliteDriver } from "./driver";
+import { migrateMailbox } from "./migrations";
+import { compilePredicate } from "./queries";
+
+const MAX_QUEUE = 5000;
+const PENDING_STATUSES = [
+  "queued",
+  "executing",
+  "verifying",
+  "retry_wait",
+  "blocked_auth",
+  "uncertain",
+  "needs_attention",
+];
+
+export async function createSqliteMailStore(
+  driver: SqliteDriver,
+): Promise<MailStore> {
+  await driver.write(async (tx) => {
+    await migrateMailbox(tx, crypto.randomUUID());
+  });
+
+  const store: MailStore = {
+    async ensureAccount(input) {
+      return driver.write(async (tx) => {
+        const existing = await tx.query(
+          "SELECT generation FROM accounts WHERE account_id = ?",
+          [input.accountId],
+        );
+        if (existing.length === 0) {
+          await tx.execute(
+            "INSERT INTO accounts(account_id, provider, generation) VALUES (?, ?, ?)",
+            [input.accountId, input.provider, input.generation],
+          );
+        } else if (existing[0].generation !== input.generation) {
+          await tx.execute(
+            "UPDATE accounts SET generation = ? WHERE account_id = ?",
+            [input.generation, input.accountId],
+          );
+        }
+        return bumpRevision(tx);
+      });
+    },
+    async admitMetadata(input) {
+      return driver.write((tx) => admitExact(tx, input));
+    },
+    async admitConversations(input) {
+      return driver.write((tx) => admitConversations(tx, input));
+    },
+    async applyPreparationPage(input) {
+      return driver.write(async (tx) => {
+        const operation = await loadOperation(
+          tx,
+          input.accountId,
+          input.commandId,
+        );
+        if (operation?.status !== "preparing") return { status: "stale" };
+        if (input.page.conversation.accountId !== input.accountId) {
+          return { status: "stale" };
+        }
+        for (const change of input.page.changes) {
+          await applyChange(tx, change);
+        }
+        for (const key of input.page.keys) {
+          if (key.accountId !== input.accountId) continue;
+          await tx.execute(
+            `INSERT OR IGNORE INTO operation_targets(account_id, command_id, message_id, conversation_id)
+             VALUES (?, ?, ?, ?)`,
+            [
+              input.accountId,
+              input.commandId,
+              key.messageId,
+              input.page.conversation.conversationId,
+            ],
+          );
+        }
+        await tx.execute(
+          `UPDATE operation_conversations
+           SET next_page = ?, complete = ?
+           WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
+          [
+            input.page.nextPage,
+            input.page.nextPage ? 0 : 1,
+            input.accountId,
+            input.commandId,
+            input.page.conversation.conversationId,
+          ],
+        );
+        if (!input.page.nextPage) {
+          await tx.execute(
+            `INSERT INTO conversation_completeness(account_id, conversation_id, complete)
+             VALUES (?, ?, 1)
+             ON CONFLICT(account_id, conversation_id) DO UPDATE SET complete = 1`,
+            [input.accountId, input.page.conversation.conversationId],
+          );
+        }
+        const revision = await bumpRevision(tx);
+        return {
+          status: "preparing",
+          operation: {
+            accountId: input.accountId,
+            operationId: input.commandId,
+          },
+          revision,
+        };
+      });
+    },
+    async finishPreparation(input) {
+      return driver.write(async (tx) => {
+        const remaining = await tx.query(
+          `SELECT conversation_id FROM operation_conversations
+           WHERE account_id = ? AND command_id = ? AND complete = 0`,
+          [input.accountId, input.commandId],
+        );
+        if (remaining.length > 0) return { status: "stale" };
+        const operation = await loadOperation(
+          tx,
+          input.accountId,
+          input.commandId,
+        );
+        if (operation?.status !== "preparing") return { status: "stale" };
+        const payload = JSON.parse(String(operation.payload_json)) as {
+          change: SubmitMetadataCommand["change"];
+        };
+        const targets = await tx.query(
+          `SELECT message_id, conversation_id FROM operation_targets
+           WHERE account_id = ? AND command_id = ?`,
+          [input.accountId, input.commandId],
+        );
+        const messageTargets = targets.map((row) => ({
+          accountId: input.accountId,
+          messageId: String(row.message_id),
+        }));
+        const executable = {
+          kind: "metadata" as const,
+          targets: messageTargets,
+          change: payload.change,
+        };
+        const executableHash = await hashCanonical(executable);
+        await tx.execute(
+          `UPDATE operations SET status = 'queued', executable_hash = ?, executable_payload_json = ?
+           WHERE account_id = ? AND command_id = ?`,
+          [
+            executableHash,
+            JSON.stringify(executable),
+            input.accountId,
+            input.commandId,
+          ],
+        );
+        await recomputeTargets(tx, messageTargets);
+        const revision = await bumpRevision(tx);
+        return {
+          status: "queued" as const,
+          operation: {
+            accountId: input.accountId,
+            operationId: input.commandId,
+          },
+          revision,
+        };
+      });
+    },
+    async claimWork(input) {
+      return driver.write(async (tx) => {
+        const preparing = await tx.query(
+          `SELECT o.account_id, o.command_id, c.conversation_id, c.resolution_id, c.next_page
+           FROM operations o
+           JOIN operation_conversations c
+             ON c.account_id = o.account_id AND c.command_id = o.command_id
+           WHERE o.status = 'preparing' AND c.complete = 0
+           LIMIT 1`,
+        );
+        if (preparing[0]) {
+          return {
+            kind: "prepare" as const,
+            commandId: String(preparing[0].command_id),
+            accountId: String(preparing[0].account_id),
+            conversation: {
+              accountId: String(preparing[0].account_id),
+              conversationId: String(preparing[0].conversation_id),
+            },
+            resolutionId: String(preparing[0].resolution_id),
+            page: preparing[0].next_page
+              ? String(preparing[0].next_page)
+              : null,
+          };
+        }
+        const queued = await tx.query(
+          `SELECT * FROM operations
+           WHERE status IN ('queued', 'retry_wait')
+             AND executable_hash IS NOT NULL
+             AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+           ORDER BY created_at_ms
+           LIMIT 1`,
+          [input.nowMs],
+        );
+        if (queued[0]) {
+          const attemptId = crypto.randomUUID();
+          await tx.execute(
+            `UPDATE operations
+             SET status = 'executing', attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.ownerId,
+              input.nowMs + input.leaseMs,
+              attemptId,
+              queued[0].account_id,
+              queued[0].command_id,
+            ],
+          );
+          const prepared = await toPrepared(tx, queued[0]);
+          if (!prepared) return null;
+          return { kind: "command" as const, attemptId, operation: prepared };
+        }
+        const hydrate = await tx.query(
+          `SELECT * FROM sync_jobs WHERE kind = 'hydrate' AND (claimed_by IS NULL OR claimed_until_ms < ?) LIMIT 1`,
+          [input.nowMs],
+        );
+        if (hydrate[0]) {
+          await tx.execute(
+            "UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ? WHERE job_id = ?",
+            [input.ownerId, input.nowMs + input.leaseMs, hydrate[0].job_id],
+          );
+          const payload = JSON.parse(String(hydrate[0].payload_json)) as {
+            keys: MessageKey[];
+            purpose: "metadata" | "body";
+          };
+          return {
+            kind: "hydrate" as const,
+            jobId: String(hydrate[0].job_id),
+            keys: payload.keys,
+            purpose: payload.purpose,
+          };
+        }
+        return null;
+      });
+    },
+    async applySyncPage(input) {
+      return driver.write(async (tx) => {
+        const account = await tx.query(
+          "SELECT generation FROM accounts WHERE account_id = ?",
+          [input.page.session.accountId],
+        );
+        if (
+          account[0] &&
+          account[0].generation !== input.page.session.generation
+        ) {
+          return { status: "stale" };
+        }
+        for (const change of input.page.changes) {
+          await applyChange(tx, change);
+        }
+        for (const key of input.page.requiredHydration) {
+          await tx.execute(
+            `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
+             VALUES (?, ?, 'hydrate', ?)`,
+            [
+              `${input.page.requestId}:${key.messageId}`,
+              key.accountId,
+              JSON.stringify({ keys: [key], purpose: "body" }),
+            ],
+          );
+        }
+        await tx.execute(
+          `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(account_id, stream_id) DO UPDATE SET generation = excluded.generation, checkpoint = excluded.checkpoint`,
+          [
+            input.page.session.accountId,
+            input.page.to.streamId,
+            input.page.to.generation,
+            input.page.to.checkpoint,
+          ],
+        );
+        if (input.page.roundComplete) {
+          await tx.execute(
+            `INSERT INTO coverage(account_id, scope_id, metadata, content, indexed_content, last_completed_sync_at_ms)
+             VALUES (?, ?, 'complete', 'partial', 'partial', ?)
+             ON CONFLICT(account_id, scope_id) DO UPDATE SET
+               metadata = 'complete',
+               last_completed_sync_at_ms = excluded.last_completed_sync_at_ms`,
+            [input.page.session.accountId, input.page.to.streamId, Date.now()],
+          );
+        }
+        const revision = await bumpRevision(tx);
+        return { status: "committed", revision };
+      });
+    },
+    async applyHydration(input) {
+      return driver.write(async (tx) => {
+        for (const change of input.changes) await applyChange(tx, change);
+        for (const body of input.bodies) {
+          await tx.execute(
+            `INSERT INTO message_content(account_id, message_id, version, html, text)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(account_id, message_id) DO UPDATE SET
+               version = excluded.version, html = excluded.html, text = excluded.text`,
+            [
+              body.key.accountId,
+              body.key.messageId,
+              body.version,
+              body.html,
+              body.text,
+            ],
+          );
+          try {
+            await tx.execute(
+              "DELETE FROM message_fts WHERE account_id = ? AND message_id = ?",
+              [body.key.accountId, body.key.messageId],
+            );
+            await tx.execute(
+              `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
+               SELECT account_id, message_id, subject, preview, from_address, ?
+               FROM messages WHERE account_id = ? AND message_id = ?`,
+              [
+                body.text ?? body.html ?? "",
+                body.key.accountId,
+                body.key.messageId,
+              ],
+            );
+          } catch {
+            // FTS is optional when the runtime SQLite build omits it.
+          }
+        }
+        const revision = await bumpRevision(tx);
+        return { status: "committed", revision };
+      });
+    },
+    async settleAttempt(input) {
+      return driver.write(async (tx) => {
+        const current = await tx.query(
+          "SELECT * FROM operations WHERE account_id = ? AND command_id = ? AND attempt_id = ?",
+          [
+            input.operation.key.accountId,
+            input.operation.key.operationId,
+            input.attemptId,
+          ],
+        );
+        if (!current[0]) return { status: "stale" };
+        if (input.result.status === "confirmed") {
+          for (const change of input.result.observations)
+            await applyChange(tx, change);
+          if (
+            input.result.observations.length === 0 &&
+            input.operation.intent.kind === "metadata"
+          ) {
+            for (const target of input.operation.intent.targets) {
+              const confirmed = await loadConfirmed(tx, target);
+              if (!confirmed) continue;
+              const next = applyMetadataChange(
+                confirmed,
+                input.operation.intent.change,
+              );
+              await upsertConfirmed(tx, { ...confirmed, ...next });
+            }
+          }
+          await tx.execute(
+            `UPDATE operations SET status = 'succeeded', receipt_id = ?, claimed_by = NULL, attempt_id = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.result.receiptId,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else if (input.result.status === "rejected") {
+          await tx.execute(
+            `UPDATE operations SET status = 'failed', error_code = ?, error_retryable = 0, claimed_by = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.result.code,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else if (input.result.status === "uncertain") {
+          await tx.execute(
+            `UPDATE operations SET status = 'uncertain', receipt_id = ?, claimed_by = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.result.receiptId,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else if (input.result.status === "accepted") {
+          await tx.execute(
+            `UPDATE operations SET status = 'verifying', receipt_id = ?, next_attempt_at_ms = ?, claimed_by = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.result.receiptId,
+              Date.now() + input.result.retryAfterMs,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else if (input.result.reason === "blocked_auth") {
+          await tx.execute(
+            `UPDATE operations SET status = 'blocked_auth', next_attempt_at_ms = ?, claimed_by = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              input.result.retryAfterMs,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else {
+          await tx.execute(
+            `UPDATE operations SET status = 'retry_wait', next_attempt_at_ms = ?, claimed_by = NULL
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              Date.now() + (input.result.retryAfterMs ?? 1000),
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        }
+        if (input.operation.intent.kind === "metadata") {
+          await recomputeTargets(tx, input.operation.intent.targets);
+        }
+        const revision = await bumpRevision(tx);
+        return { status: "committed", revision };
+      });
+    },
+    async cancelOperation(key) {
+      return driver.write(async (tx) => {
+        const current = await loadOperation(tx, key.accountId, key.operationId);
+        if (!current) return { status: "not_found" };
+        if (current.status !== "preparing" && current.status !== "queued") {
+          return { status: "too_late" };
+        }
+        await tx.execute(
+          `UPDATE operations SET status = 'cancelled' WHERE account_id = ? AND command_id = ?`,
+          [key.accountId, key.operationId],
+        );
+        const targets = await tx.query(
+          "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
+          [key.accountId, key.operationId],
+        );
+        await recomputeTargets(
+          tx,
+          targets.map((row) => ({
+            accountId: key.accountId,
+            messageId: String(row.message_id),
+          })),
+        );
+        return { status: "cancelled", revision: await bumpRevision(tx) };
+      });
+    },
+    async saveDraft(input) {
+      return driver.write((tx) => saveDraftRow(tx, input));
+    },
+    async admitSend(input) {
+      return driver.write(async (tx) => {
+        const draft = await tx.query(
+          "SELECT revision FROM drafts WHERE account_id = ? AND draft_id = ?",
+          [input.draft.accountId, input.draft.draftId],
+        );
+        if (!draft[0] || Number(draft[0].revision) !== input.draftRevision) {
+          return { status: "rejected", code: "invalid" };
+        }
+        await tx.execute(
+          "UPDATE drafts SET frozen = 1 WHERE account_id = ? AND draft_id = ?",
+          [input.draft.accountId, input.draft.draftId],
+        );
+        const payload = { kind: "send", ...input };
+        const hash = await hashCanonical(payload);
+        await tx.execute(
+          `INSERT INTO operations(
+             account_id, command_id, status, authority, intent_hash, executable_hash,
+             payload_json, executable_payload_json, attempts, created_at_ms
+           ) VALUES (?, ?, 'queued', 'backend', ?, ?, ?, ?, 0, ?)`,
+          [
+            input.draft.accountId,
+            input.commandId,
+            hash,
+            hash,
+            JSON.stringify(payload),
+            JSON.stringify(payload),
+            Date.now(),
+          ],
+        );
+        return {
+          status: "queued" as const,
+          operation: {
+            accountId: input.draft.accountId,
+            operationId: input.commandId,
+          },
+          revision: await bumpRevision(tx),
+        };
+      });
+    },
+    async readMailboxView(query) {
+      return driver.read((tx) => readView(tx, query));
+    },
+    async readConversation(key, page) {
+      return driver.read(async (tx) => {
+        const revision = await readRevision(tx);
+        const rows = await tx.query(
+          `SELECT * FROM effective_messages
+           WHERE account_id = ? AND conversation_id = ?
+           ORDER BY received_at_ms ASC, message_id ASC`,
+          [key.accountId, key.conversationId],
+        );
+        const start = page.after
+          ? rows.findIndex((row) => String(row.message_id) === page.after) + 1
+          : 0;
+        const slice = rows.slice(
+          Math.max(start, 0),
+          Math.max(start, 0) + page.pageSize,
+        );
+        const contents = await tx.query(
+          `SELECT message_id, html, text FROM message_content WHERE account_id = ? AND message_id IN (${slice.map(() => "?").join(",") || "NULL"})`,
+          [key.accountId, ...slice.map((row) => String(row.message_id))],
+        );
+        const contentById = new Map(
+          contents.map((row) => [String(row.message_id), row]),
+        );
+        return {
+          revision,
+          view: {
+            key,
+            messages: slice.map((row) => {
+              const content = contentById.get(String(row.message_id));
+              return {
+                key: {
+                  accountId: String(row.account_id),
+                  messageId: String(row.message_id),
+                },
+                metadata: metadataFromEffective(row),
+                content: content
+                  ? {
+                      status: "available" as const,
+                      html: content.html === null ? null : String(content.html),
+                      text: content.text === null ? null : String(content.text),
+                    }
+                  : { status: "not_requested" as const },
+                pendingOperationIds: JSON.parse(
+                  String(row.pending_operation_ids_json),
+                ) as string[],
+              };
+            }),
+            nextPage:
+              start + page.pageSize < rows.length
+                ? String(slice.at(-1)?.message_id ?? "")
+                : null,
+            coverage: await readCoverage(tx, [key.accountId]),
+          },
+        };
+      });
+    },
+    async readOperation(key) {
+      return driver.read(async (tx) => {
+        const revision = await readRevision(tx);
+        const row = await loadOperation(tx, key.accountId, key.operationId);
+        return {
+          revision,
+          operation: row ? toOperationState(row) : null,
+        };
+      });
+    },
+    async getDiagnostics(accountId) {
+      return driver.read(async (tx) => {
+        const revision = await readRevision(tx);
+        const pending = await tx.query(
+          `SELECT COUNT(*) AS n, MIN(created_at_ms) AS oldest FROM operations
+           WHERE account_id = ? AND status IN (${PENDING_STATUSES.map(() => "?").join(",")})`,
+          [accountId, ...PENDING_STATUSES],
+        );
+        const uncertain = await tx.query(
+          `SELECT COUNT(*) AS n FROM operations WHERE account_id = ? AND status = 'uncertain'`,
+          [accountId],
+        );
+        const jobs = await tx.query(
+          "SELECT COUNT(*) AS n FROM sync_jobs WHERE account_id = ?",
+          [accountId],
+        );
+        return {
+          accountId,
+          revision,
+          connection: "ready" as const,
+          coverage: await readCoverage(tx, [accountId]),
+          pendingOperations: Number(pending[0]?.n ?? 0),
+          uncertainOperations: Number(uncertain[0]?.n ?? 0),
+          pendingJobs: Number(jobs[0]?.n ?? 0),
+          oldestPendingAtMs:
+            pending[0]?.oldest == null ? null : Number(pending[0].oldest),
+        };
+      });
+    },
+    async inspect() {
+      return driver.read(inspectState);
+    },
+    async enqueueHydration(input) {
+      return driver.write(async (tx) => {
+        const accountId = input.keys[0]?.accountId;
+        if (!accountId) return readRevision(tx);
+        await tx.execute(
+          `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
+           VALUES (?, ?, 'hydrate', ?)`,
+          [
+            `hydrate:${input.purpose}:${input.keys.map((key) => key.messageId).join(",")}`,
+            accountId,
+            JSON.stringify({ keys: input.keys, purpose: input.purpose }),
+          ],
+        );
+        return bumpRevision(tx);
+      });
+    },
+    async applyAssistantEntries(input) {
+      return driver.write(async (tx) => {
+        for (const entry of input.entries) {
+          if (entry.draftId) {
+            const draft = await tx.query(
+              "SELECT revision, frozen FROM drafts WHERE account_id = ? AND draft_id = ?",
+              [input.accountId, entry.draftId],
+            );
+            if (
+              draft[0] &&
+              (Number(draft[0].frozen) === 1 ||
+                (entry.draftRevision != null &&
+                  Number(draft[0].revision) > entry.draftRevision))
+            ) {
+              continue;
+            }
+          }
+          if (entry.change) await applyChange(tx, entry.change);
+        }
+        return bumpRevision(tx);
+      });
+    },
+    close: () => driver.close(),
+  };
+  return store;
+}
+
+async function admitExact(
+  tx: SqlTransaction,
+  input: SubmitMetadataCommand,
+): Promise<Admission> {
+  for (const target of input.targets) {
+    if (target.accountId !== input.accountId) {
+      return { status: "rejected", code: "invalid" };
+    }
+  }
+  const payload = {
+    kind: "metadata",
+    targets: input.targets,
+    change: input.change,
+  };
+  const hash = await hashCanonical(payload);
+  const existing = await loadOperation(tx, input.accountId, input.commandId);
+  if (existing) {
+    if (String(existing.intent_hash) === hash) {
+      return {
+        status: "already_recorded",
+        operation: { accountId: input.accountId, operationId: input.commandId },
+        revision: await readRevision(tx),
+      };
+    }
+    return { status: "rejected", code: "invalid" };
+  }
+  const queued = await tx.query(
+    `SELECT COUNT(*) AS n FROM operations WHERE account_id = ? AND status IN (${PENDING_STATUSES.map(() => "?").join(",")})`,
+    [input.accountId, ...PENDING_STATUSES],
+  );
+  if (Number(queued[0]?.n ?? 0) >= MAX_QUEUE) {
+    return { status: "rejected", code: "queue_full" };
+  }
+  await tx.execute(
+    `INSERT INTO operations(
+       account_id, command_id, status, authority, intent_hash, executable_hash,
+       payload_json, executable_payload_json, attempts, created_at_ms
+     ) VALUES (?, ?, 'queued', 'backend', ?, ?, ?, ?, 0, ?)`,
+    [
+      input.accountId,
+      input.commandId,
+      hash,
+      hash,
+      JSON.stringify(payload),
+      JSON.stringify(payload),
+      Date.now(),
+    ],
+  );
+  for (const target of input.targets) {
+    await tx.execute(
+      "INSERT INTO operation_targets(account_id, command_id, message_id) VALUES (?, ?, ?)",
+      [input.accountId, input.commandId, target.messageId],
+    );
+  }
+  await recomputeTargets(tx, input.targets);
+  return {
+    status: "queued",
+    operation: { accountId: input.accountId, operationId: input.commandId },
+    revision: await bumpRevision(tx),
+  };
+}
+
+async function admitConversations(
+  tx: SqlTransaction,
+  input: SubmitConversationCommand,
+): Promise<Admission> {
+  const revision = await readRevision(tx);
+  if (revision.databaseEpoch !== input.observedRevision.databaseEpoch) {
+    return { status: "rejected", code: "stale_selection" };
+  }
+  const existing = await loadOperation(tx, input.accountId, input.commandId);
+  const payload = {
+    kind: "conversations",
+    conversations: input.conversations,
+    change: input.change,
+  };
+  const hash = await hashCanonical(payload);
+  if (existing) {
+    if (String(existing.intent_hash) === hash) {
+      return {
+        status: "already_recorded",
+        operation: { accountId: input.accountId, operationId: input.commandId },
+        revision,
+      };
+    }
+    return { status: "rejected", code: "invalid" };
+  }
+  let complete = true;
+  const knownTargets: MessageKey[] = [];
+  for (const conversation of input.conversations) {
+    if (conversation.accountId !== input.accountId) {
+      return { status: "rejected", code: "invalid" };
+    }
+    const flag = await tx.query(
+      "SELECT complete FROM conversation_completeness WHERE account_id = ? AND conversation_id = ?",
+      [conversation.accountId, conversation.conversationId],
+    );
+    if (!flag[0] || Number(flag[0].complete) !== 1) complete = false;
+    const messages = await tx.query(
+      "SELECT message_id FROM messages WHERE account_id = ? AND conversation_id = ? AND deleted = 0",
+      [conversation.accountId, conversation.conversationId],
+    );
+    knownTargets.push(
+      ...messages.map((row) => ({
+        accountId: conversation.accountId,
+        messageId: String(row.message_id),
+      })),
+    );
+  }
+  if (complete && knownTargets.length > 0) {
+    return admitExact(tx, {
+      accountId: input.accountId,
+      commandId: input.commandId,
+      targets: knownTargets,
+      change: input.change,
+    });
+  }
+  await tx.execute(
+    `INSERT INTO operations(
+       account_id, command_id, status, authority, intent_hash, payload_json, attempts, created_at_ms
+     ) VALUES (?, ?, 'preparing', 'backend', ?, ?, 0, ?)`,
+    [
+      input.accountId,
+      input.commandId,
+      hash,
+      JSON.stringify(payload),
+      Date.now(),
+    ],
+  );
+  for (const conversation of input.conversations) {
+    await tx.execute(
+      `INSERT INTO operation_conversations(account_id, command_id, conversation_id, resolution_id, next_page, complete)
+       VALUES (?, ?, ?, ?, NULL, 0)`,
+      [
+        input.accountId,
+        input.commandId,
+        conversation.conversationId,
+        crypto.randomUUID(),
+      ],
+    );
+  }
+  return {
+    status: "preparing",
+    operation: { accountId: input.accountId, operationId: input.commandId },
+    revision: await bumpRevision(tx),
+  };
+}
+
+async function saveDraftRow(
+  tx: SqlTransaction,
+  input: SaveDraft,
+): Promise<DraftSaveResult> {
+  const current = await tx.query(
+    "SELECT revision, frozen FROM drafts WHERE account_id = ? AND draft_id = ?",
+    [input.key.accountId, input.key.draftId],
+  );
+  const currentRevision = current[0] ? Number(current[0].revision) : null;
+  if (current[0] && Number(current[0].frozen) === 1) {
+    return { status: "conflict", currentDraftRevision: currentRevision };
+  }
+  if (input.expectedRevision !== currentRevision) {
+    return { status: "conflict", currentDraftRevision: currentRevision };
+  }
+  const next = (currentRevision ?? 0) + 1;
+  await tx.execute(
+    `INSERT INTO drafts(account_id, draft_id, revision, content_json, frozen)
+     VALUES (?, ?, ?, ?, 0)
+     ON CONFLICT(account_id, draft_id) DO UPDATE SET
+       revision = excluded.revision,
+       content_json = excluded.content_json
+     WHERE frozen = 0`,
+    [
+      input.key.accountId,
+      input.key.draftId,
+      next,
+      JSON.stringify(input.content),
+    ],
+  );
+  return {
+    status: "saved",
+    draftRevision: next,
+    revision: await bumpRevision(tx),
+  };
+}
+
+async function readView(
+  tx: SqlTransaction,
+  query: ConversationQuery,
+): Promise<{ revision: LocalRevision; view: MailboxView }> {
+  const revision = await readRevision(tx);
+  const compiled = compilePredicate(query.predicate);
+  const accountPlaceholders = query.accountIds.map(() => "?").join(",");
+  const where = `e.account_id IN (${accountPlaceholders}) AND ${compiled.sql}`;
+  const bindings = [...query.accountIds, ...compiled.bindings];
+  const grouped = await tx.query(
+    `SELECT e.account_id, e.conversation_id, MAX(e.received_at_ms) AS latest,
+            MAX(CASE WHEN e.read = 0 THEN 1 ELSE 0 END) AS unread,
+            MAX(e.starred) AS starred
+     FROM effective_messages e
+     WHERE ${where}
+     GROUP BY e.account_id, e.conversation_id
+     ORDER BY latest DESC, e.account_id ASC, e.conversation_id ASC`,
+    bindings,
+  );
+  let rows = grouped;
+  if (query.after) {
+    const [latest, accountId, conversationId] = query.after.split("\t");
+    const index = grouped.findIndex(
+      (row) =>
+        String(row.latest) === latest &&
+        String(row.account_id) === accountId &&
+        String(row.conversation_id) === conversationId,
+    );
+    rows = index >= 0 ? grouped.slice(index + 1) : grouped;
+  }
+  const page = rows.slice(0, query.pageSize);
+  const summaries = [];
+  for (const row of page) {
+    const latest = await tx.query(
+      `SELECT * FROM effective_messages
+       WHERE account_id = ? AND conversation_id = ?
+       ORDER BY received_at_ms DESC, message_id DESC LIMIT 1`,
+      [row.account_id, row.conversation_id],
+    );
+    const message = latest[0];
+    summaries.push({
+      key: {
+        accountId: String(row.account_id),
+        conversationId: String(row.conversation_id),
+      },
+      subject: message ? String(message.subject) : "",
+      preview: message ? String(message.preview) : "",
+      from: message ? String(message.from_address) : "",
+      latestMessageAtMs: Number(row.latest),
+      unread: Number(row.unread) === 1,
+      starred: Number(row.starred) === 1,
+      pendingOperationIds: message
+        ? (JSON.parse(String(message.pending_operation_ids_json)) as string[])
+        : [],
+    });
+  }
+  const matching = await tx.query(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT 1 FROM effective_messages e WHERE ${where} GROUP BY e.account_id, e.conversation_id
+     )`,
+    bindings,
+  );
+  const unread = await tx.query(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT 1 FROM effective_messages e
+       WHERE ${where} AND e.read = 0
+       GROUP BY e.account_id, e.conversation_id
+     )`,
+    bindings,
+  );
+  const coverage = await readCoverage(tx, query.accountIds);
+  const complete = coverage.every((item) => item.metadata === "complete");
+  return {
+    revision,
+    view: {
+      conversations: summaries,
+      counts: {
+        matchingConversations: Number(matching[0]?.n ?? 0),
+        unreadConversations: Number(unread[0]?.n ?? 0),
+        extent: complete ? "complete_scope" : "local_coverage",
+      },
+      nextPage:
+        rows.length > query.pageSize
+          ? `${page.at(-1)?.latest}\t${page.at(-1)?.account_id}\t${page.at(-1)?.conversation_id}`
+          : null,
+      coverage,
+    },
+  };
+}
+
+async function inspectState(tx: SqlTransaction): Promise<MailStoreInspection> {
+  const revision = await readRevision(tx);
+  const accounts = await tx.query("SELECT * FROM accounts");
+  const confirmedRows = await tx.query("SELECT * FROM messages");
+  const effectiveRows = await tx.query("SELECT * FROM effective_messages");
+  const effectiveById = new Map(
+    effectiveRows.map((row) => [`${row.account_id}:${row.message_id}`, row]),
+  );
+  const operations = await tx.query("SELECT * FROM operations");
+  return {
+    revision,
+    accounts: accounts.map((row) => ({
+      accountId: String(row.account_id),
+      provider: String(row.provider) as "google" | "microsoft",
+      generation: String(row.generation),
+    })),
+    messages: confirmedRows.map((row) => {
+      const confirmed = confirmedFromRow(row);
+      const effective = effectiveById.get(
+        `${row.account_id}:${row.message_id}`,
+      );
+      return {
+        accountId: confirmed.accountId,
+        messageId: confirmed.messageId,
+        conversationId: confirmed.conversationId,
+        confirmed,
+        effective: effective
+          ? {
+              ...metadataFromEffective(effective),
+              pendingOperationIds: JSON.parse(
+                String(effective.pending_operation_ids_json),
+              ) as string[],
+            }
+          : { ...confirmed, pendingOperationIds: [] },
+        deleted: confirmed.deleted,
+      };
+    }),
+    operations: operations.map(toOperationState),
+    coverage: await readCoverage(
+      tx,
+      accounts.map((row) => String(row.account_id)),
+    ),
+    streams: (await tx.query("SELECT * FROM sync_streams")).map((row) => ({
+      accountId: String(row.account_id),
+      streamId: String(row.stream_id),
+      generation: String(row.generation),
+      checkpoint: row.checkpoint === null ? null : String(row.checkpoint),
+    })),
+  };
+}
+
+async function applyChange(tx: SqlTransaction, change: ProviderChange) {
+  if (change.kind === "message_patch") {
+    const current = await loadConfirmed(tx, change.key);
+    const base: MessageMetadata = current ?? {
+      subject: "",
+      preview: "",
+      from: "",
+      to: [],
+      cc: [],
+      receivedAtMs: 0,
+      read: true,
+      starred: false,
+      folderId: null,
+      labelIds: [],
+      categoryIds: [],
+      roles: [],
+      hasAttachments: false,
+    };
+    const metadata = applyMetadataPatch(base, change.fields);
+    await upsertConfirmed(tx, {
+      ...metadata,
+      accountId: change.key.accountId,
+      messageId: change.key.messageId,
+      conversationId: change.reference.conversationId,
+      version: change.reference.version,
+      deleted: false,
+    });
+    await recomputeTargets(tx, [change.key]);
+    return;
+  }
+  if (change.kind === "message_deleted") {
+    await tx.execute(
+      "UPDATE messages SET deleted = 1 WHERE account_id = ? AND message_id = ?",
+      [change.key.accountId, change.key.messageId],
+    );
+    await tx.execute(
+      "DELETE FROM effective_messages WHERE account_id = ? AND message_id = ?",
+      [change.key.accountId, change.key.messageId],
+    );
+  }
+  if (change.kind === "removed_from_scope") {
+    const current = await loadConfirmed(tx, change.key);
+    if (!current) return;
+    if (change.scopeId === "inbox" || change.scopeId.endsWith(":inbox")) {
+      const next = applyMetadataChange(current, { kind: "archive" });
+      await upsertConfirmed(tx, { ...current, ...next });
+      await recomputeTargets(tx, [change.key]);
+    }
+  }
+}
+
+async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
+  const flags = roleFlags(message.roles);
+  await tx.execute(
+    `INSERT INTO messages(
+       account_id, message_id, conversation_id, provider, version, subject, preview, from_address,
+       to_json, cc_json, received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json,
+       roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, deleted
+     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, message_id) DO UPDATE SET
+       conversation_id = excluded.conversation_id,
+       version = excluded.version,
+       subject = excluded.subject,
+       preview = excluded.preview,
+       from_address = excluded.from_address,
+       to_json = excluded.to_json,
+       cc_json = excluded.cc_json,
+       received_at_ms = excluded.received_at_ms,
+       read = excluded.read,
+       starred = excluded.starred,
+       folder_id = excluded.folder_id,
+       label_ids_json = excluded.label_ids_json,
+       category_ids_json = excluded.category_ids_json,
+       roles_json = excluded.roles_json,
+       in_inbox = excluded.in_inbox,
+       in_sent = excluded.in_sent,
+       in_draft = excluded.in_draft,
+       in_trash = excluded.in_trash,
+       in_spam = excluded.in_spam,
+       has_attachments = excluded.has_attachments,
+       deleted = excluded.deleted`,
+    [
+      message.accountId,
+      message.messageId,
+      message.conversationId,
+      message.accountId,
+      message.version,
+      message.subject,
+      message.preview,
+      message.from,
+      JSON.stringify(message.to),
+      JSON.stringify(message.cc),
+      message.receivedAtMs,
+      message.read ? 1 : 0,
+      message.starred ? 1 : 0,
+      message.folderId,
+      JSON.stringify(message.labelIds),
+      JSON.stringify(message.categoryIds),
+      JSON.stringify(message.roles),
+      flags.inbox,
+      flags.sent,
+      flags.draft,
+      flags.trash,
+      flags.spam,
+      message.hasAttachments ? 1 : 0,
+      message.deleted ? 1 : 0,
+    ],
+  );
+}
+
+async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
+  for (const target of targets) {
+    const confirmed = await loadConfirmed(tx, target);
+    if (!confirmed || confirmed.deleted) {
+      await tx.execute(
+        "DELETE FROM effective_messages WHERE account_id = ? AND message_id = ?",
+        [target.accountId, target.messageId],
+      );
+      continue;
+    }
+    const pendingRows = await tx.query(
+      `SELECT o.command_id, o.executable_payload_json, o.status
+       FROM operations o
+       JOIN operation_targets t
+         ON t.account_id = o.account_id AND t.command_id = o.command_id
+       WHERE t.account_id = ? AND t.message_id = ? AND o.executable_hash IS NOT NULL`,
+      [target.accountId, target.messageId],
+    );
+    const pending = pendingRows
+      .filter((row) =>
+        isPendingEffectStatus(String(row.status) as OperationState["status"]),
+      )
+      .map((row) => {
+        const payload = JSON.parse(String(row.executable_payload_json)) as {
+          change: SubmitMetadataCommand["change"];
+          targets: MessageKey[];
+        };
+        return {
+          operationId: String(row.command_id),
+          change: payload.change,
+          targets: payload.targets,
+        };
+      });
+    const effective = deriveEffectiveMessage(confirmed, pending);
+    const flags = roleFlags(effective.roles);
+    await tx.execute(
+      `INSERT INTO effective_messages(
+         account_id, message_id, conversation_id, subject, preview, from_address, to_json,
+         received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
+         in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(account_id, message_id) DO UPDATE SET
+         conversation_id = excluded.conversation_id,
+         subject = excluded.subject,
+         preview = excluded.preview,
+         from_address = excluded.from_address,
+         to_json = excluded.to_json,
+         received_at_ms = excluded.received_at_ms,
+         read = excluded.read,
+         starred = excluded.starred,
+         folder_id = excluded.folder_id,
+         label_ids_json = excluded.label_ids_json,
+         category_ids_json = excluded.category_ids_json,
+         roles_json = excluded.roles_json,
+         in_inbox = excluded.in_inbox,
+         in_sent = excluded.in_sent,
+         in_draft = excluded.in_draft,
+         in_trash = excluded.in_trash,
+         in_spam = excluded.in_spam,
+         has_attachments = excluded.has_attachments,
+         pending_operation_ids_json = excluded.pending_operation_ids_json`,
+      [
+        effective.accountId,
+        effective.messageId,
+        effective.conversationId,
+        effective.subject,
+        effective.preview,
+        effective.from,
+        JSON.stringify(effective.to),
+        effective.receivedAtMs,
+        effective.read ? 1 : 0,
+        effective.starred ? 1 : 0,
+        effective.folderId,
+        JSON.stringify(effective.labelIds),
+        JSON.stringify(effective.categoryIds),
+        JSON.stringify(effective.roles),
+        flags.inbox,
+        flags.sent,
+        flags.draft,
+        flags.trash,
+        flags.spam,
+        effective.hasAttachments ? 1 : 0,
+        JSON.stringify(effective.pendingOperationIds),
+      ],
+    );
+  }
+}
+
+async function loadConfirmed(tx: SqlTransaction, key: MessageKey) {
+  const rows = await tx.query(
+    "SELECT * FROM messages WHERE account_id = ? AND message_id = ?",
+    [key.accountId, key.messageId],
+  );
+  return rows[0] ? confirmedFromRow(rows[0]) : null;
+}
+
+async function loadOperation(
+  tx: SqlTransaction,
+  accountId: string,
+  commandId: string,
+) {
+  const rows = await tx.query(
+    "SELECT * FROM operations WHERE account_id = ? AND command_id = ?",
+    [accountId, commandId],
+  );
+  return rows[0] ?? null;
+}
+
+async function toPrepared(
+  tx: SqlTransaction,
+  row: Record<string, import("./driver").SqlValue>,
+): Promise<PreparedOperation | null> {
+  if (!row.executable_payload_json) return null;
+  const payload = JSON.parse(
+    String(row.executable_payload_json),
+  ) as PreparedOperation["intent"];
+  const account = await tx.query(
+    "SELECT generation FROM accounts WHERE account_id = ?",
+    [row.account_id],
+  );
+  return {
+    key: {
+      accountId: String(row.account_id),
+      operationId: String(row.command_id),
+    },
+    session: {
+      accountId: String(row.account_id),
+      generation: String(account[0]?.generation ?? ""),
+    },
+    authority: "backend",
+    payloadHash: String(row.executable_hash),
+    intent: payload,
+  };
+}
+
+async function bumpRevision(tx: SqlTransaction): Promise<LocalRevision> {
+  await tx.execute(
+    "UPDATE profile_state SET sequence = sequence + 1 WHERE id = 1",
+  );
+  return readRevision(tx);
+}
+
+async function readRevision(tx: SqlTransaction): Promise<LocalRevision> {
+  const rows = await tx.query(
+    "SELECT database_epoch, sequence FROM profile_state WHERE id = 1",
+  );
+  return {
+    databaseEpoch: String(rows[0]?.database_epoch ?? ""),
+    sequence: Number(rows[0]?.sequence ?? 0),
+  };
+}
+
+async function readCoverage(
+  tx: SqlTransaction,
+  accountIds: string[],
+): Promise<Coverage[]> {
+  if (accountIds.length === 0) return [];
+  const rows = await tx.query(
+    `SELECT * FROM coverage WHERE account_id IN (${accountIds.map(() => "?").join(",")})`,
+    accountIds,
+  );
+  if (rows.length === 0) {
+    return accountIds.map((accountId) => ({
+      accountId,
+      scopeId: "primary",
+      metadata: "partial",
+      content: "not_requested",
+      indexedContent: "not_requested",
+      lastCompletedSyncAtMs: null,
+    }));
+  }
+  return rows.map((row) => ({
+    accountId: String(row.account_id),
+    scopeId: String(row.scope_id),
+    metadata: String(row.metadata) as Coverage["metadata"],
+    content: String(row.content) as Coverage["content"],
+    indexedContent: String(row.indexed_content) as Coverage["indexedContent"],
+    lastCompletedSyncAtMs:
+      row.last_completed_sync_at_ms == null
+        ? null
+        : Number(row.last_completed_sync_at_ms),
+  }));
+}
+
+function confirmedFromRow(
+  row: Record<string, import("./driver").SqlValue>,
+): ConfirmedMessage {
+  return {
+    accountId: String(row.account_id),
+    messageId: String(row.message_id),
+    conversationId: String(row.conversation_id),
+    version: row.version === null ? null : String(row.version),
+    deleted: Number(row.deleted) === 1,
+    subject: String(row.subject),
+    preview: String(row.preview),
+    from: String(row.from_address),
+    to: JSON.parse(String(row.to_json)) as string[],
+    cc: JSON.parse(String(row.cc_json)) as string[],
+    receivedAtMs: Number(row.received_at_ms),
+    read: Number(row.read) === 1,
+    starred: Number(row.starred) === 1,
+    folderId: row.folder_id === null ? null : String(row.folder_id),
+    labelIds: JSON.parse(String(row.label_ids_json)) as string[],
+    categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
+    roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],
+    hasAttachments: Number(row.has_attachments) === 1,
+  };
+}
+
+function metadataFromEffective(
+  row: Record<string, import("./driver").SqlValue>,
+): MessageMetadata {
+  return {
+    subject: String(row.subject),
+    preview: String(row.preview),
+    from: String(row.from_address),
+    to: JSON.parse(String(row.to_json)) as string[],
+    cc: [],
+    receivedAtMs: Number(row.received_at_ms),
+    read: Number(row.read) === 1,
+    starred: Number(row.starred) === 1,
+    folderId: row.folder_id === null ? null : String(row.folder_id),
+    labelIds: JSON.parse(String(row.label_ids_json)) as string[],
+    categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
+    roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],
+    hasAttachments: Number(row.has_attachments) === 1,
+  };
+}
+
+function toOperationState(
+  row: Record<string, import("./driver").SqlValue>,
+): OperationState {
+  return {
+    key: {
+      accountId: String(row.account_id),
+      operationId: String(row.command_id),
+    },
+    status: String(row.status) as OperationState["status"],
+    authority: String(row.authority) as OperationState["authority"],
+    attempts: Number(row.attempts),
+    nextAttemptAtMs:
+      row.next_attempt_at_ms == null ? null : Number(row.next_attempt_at_ms),
+    error: row.error_code
+      ? {
+          code: String(row.error_code),
+          retryable: Number(row.error_retryable) === 1,
+        }
+      : null,
+  };
+}
+
+function roleFlags(roles: MessageMetadata["roles"]) {
+  return {
+    inbox: roles.includes("inbox") ? 1 : 0,
+    sent: roles.includes("sent") ? 1 : 0,
+    draft: roles.includes("draft") ? 1 : 0,
+    trash: roles.includes("trash") ? 1 : 0,
+    spam: roles.includes("spam") ? 1 : 0,
+  };
+}
+
+export type { SyncPage, ConversationKey };

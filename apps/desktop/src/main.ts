@@ -40,6 +40,7 @@ import {
   parseDesktopAuthCallback,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
+import { parseMailIpcRequest } from "./mail-engine/ipc";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -126,6 +127,12 @@ function startDesktopApp() {
     const url = new URL(callbackPath, appOrigin).toString();
     if (!isAllowedDesktopNavigation(url, appOrigin)) return;
     openAppWindow(url, { navigate: true });
+  });
+  ipcMain.handle("mail-engine", (event, payload: unknown) => {
+    if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
+    return parseMailIpcRequest(payload).success
+      ? { status: "accepted" }
+      : { status: "invalid" };
   });
 
   app.on("second-instance", (_event, argv) => {

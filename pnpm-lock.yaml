@@ -73,6 +73,12 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9(supports-color@10.2.2)
@@ -254,6 +260,18 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
       '@inboxzero/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -963,6 +981,82 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+
+  packages/mail-core:
+    dependencies:
+      zod:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-react:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-sqlite:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-ui:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../mail-react
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/scheduling:
     dependencies:

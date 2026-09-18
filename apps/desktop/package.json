@@ -25,6 +25,8 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
+    "@inboxzero/mail-core": "workspace:*",
+    "@inboxzero/mail-sqlite": "workspace:*",
     "electron-updater": "6.8.9"
   }
 }

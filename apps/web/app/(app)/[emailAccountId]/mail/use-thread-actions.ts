@@ -18,6 +18,8 @@ import {
   getListThreadMessageIds,
   type ListThread,
 } from "./types";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import type { MetadataChange } from "@inboxzero/mail-core/commands";
 
 type UndoableAction = "archive" | "trash";
 
@@ -50,6 +52,7 @@ export function useThreadActions({
   const retainedEmailAccountId = useRef(emailAccountId);
   const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
   const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
+  const client = useOptionalMailClient();
   useEffect(() => {
     if (retainedEmailAccountId.current !== emailAccountId) {
       retainedEmailAccountId.current = emailAccountId;
@@ -92,6 +95,32 @@ export function useThreadActions({
       payload: MailMutationPayload,
     ) => {
       if (!targets.length) return [];
+      if (client) {
+        const change = mutationPayloadToChange(payload);
+        if (!change) return [];
+        const results = [];
+        for (const target of targets) {
+          const diagnostics = await client.getDiagnostics(
+            target.emailAccountId,
+          );
+          const commandId = randomUuid();
+          const admission = await client.submitConversations({
+            accountId: target.emailAccountId,
+            commandId,
+            conversations: [
+              {
+                accountId: target.emailAccountId,
+                conversationId: target.threadId,
+              },
+            ],
+            change,
+            observedRevision: diagnostics.revision,
+          });
+          if (admission.status === "rejected") continue;
+          results.push({ ...target, mutationId: commandId });
+        }
+        return results;
+      }
       try {
         const mutations = await enqueueMailMutationBatch(
           targets.map((target) => ({
@@ -111,53 +140,63 @@ export function useThreadActions({
         return [];
       }
     },
-    [],
+    [client],
   );
 
-  const undoBatch = useCallback(async (batch: UndoableBatch) => {
-    if (batch.undone) return [];
-    batch.undone = true;
-    if (lastAction.current === batch) lastAction.current = null;
+  const undoBatch = useCallback(
+    async (batch: UndoableBatch) => {
+      if (batch.undone) return [];
+      batch.undone = true;
+      if (lastAction.current === batch) lastAction.current = null;
 
-    const compensationKind =
-      batch.action === "archive" ? "unarchive" : "untrash";
-    const batchId = randomUuid();
-    const results = await Promise.allSettled(
-      batch.snapshots.map(async (snapshot) => {
-        const cancelled = await cancelPendingMailMutation(snapshot.mutationId);
-        if (!cancelled) {
-          await enqueueMailMutation({
-            batchId,
-            emailAccountId: snapshot.emailAccountId,
-            kind: compensationKind,
-            messageIds: snapshot.messageIds,
-            threadId: snapshot.threadId,
-          });
-        }
-        return snapshot.key;
-      }),
-    );
-    const restoredKeys = results.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : [],
-    );
-    const failedCount = results.length - restoredKeys.length;
-
-    if (restoredKeys.length) {
-      toast.success(summarise("Restored", restoredKeys.length));
-    }
-    if (failedCount) {
-      toast.error(
-        failedCount === results.length
-          ? "Couldn't restore"
-          : `Couldn't restore ${failedCount} of ${results.length}`,
+      const compensationKind =
+        batch.action === "archive" ? "unarchive" : "untrash";
+      const batchId = randomUuid();
+      const results = await Promise.allSettled(
+        batch.snapshots.map(async (snapshot) => {
+          const cancelled = client
+            ? (
+                await client.cancelOperation({
+                  accountId: snapshot.emailAccountId,
+                  operationId: snapshot.mutationId,
+                })
+              ).status === "cancelled"
+            : await cancelPendingMailMutation(snapshot.mutationId);
+          if (!cancelled) {
+            await enqueueMailMutation({
+              batchId,
+              emailAccountId: snapshot.emailAccountId,
+              kind: compensationKind,
+              messageIds: snapshot.messageIds,
+              threadId: snapshot.threadId,
+            });
+          }
+          return snapshot.key;
+        }),
       );
-    }
-    if (!restoredKeys.length) {
-      batch.undone = false;
-      lastAction.current = batch;
-    }
-    return restoredKeys;
-  }, []);
+      const restoredKeys = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
+      const failedCount = results.length - restoredKeys.length;
+
+      if (restoredKeys.length) {
+        toast.success(summarise("Restored", restoredKeys.length));
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === results.length
+            ? "Couldn't restore"
+            : `Couldn't restore ${failedCount} of ${results.length}`,
+        );
+      }
+      if (!restoredKeys.length) {
+        batch.undone = false;
+        lastAction.current = batch;
+      }
+      return restoredKeys;
+    },
+    [client],
+  );
 
   const undo = useCallback(async () => {
     const batch = lastAction.current;
@@ -320,4 +359,27 @@ export function useThreadActions({
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;
+}
+
+function mutationPayloadToChange(
+  payload: MailMutationPayload,
+): MetadataChange | null {
+  switch (payload.kind) {
+    case "archive":
+      return { kind: "archive" };
+    case "unarchive":
+      return { kind: "unarchive" };
+    case "trash":
+      return { kind: "trash" };
+    case "untrash":
+      return { kind: "restore_from_trash" };
+    case "spam":
+      return { kind: "set_spam", spam: true };
+    case "set_read_state":
+      return { kind: "set_read", read: payload.read };
+    case "set_starred_state":
+      return { kind: "set_starred", starred: payload.starred };
+    default:
+      return null;
+  }
 }

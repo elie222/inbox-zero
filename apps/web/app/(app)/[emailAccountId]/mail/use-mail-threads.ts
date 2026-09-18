@@ -45,6 +45,8 @@ import {
   mailMutationOverlayHidesAnyThread,
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
+import { useEngineMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-engine-mail-threads";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 
 export type OptimisticThreadUpdate = {
   threadIds: string[];
@@ -71,6 +73,29 @@ type SyncedView = {
 };
 
 export function useMailThreads({
+  emailAccountId,
+  query,
+  enabled = true,
+}: {
+  emailAccountId: string;
+  query: ThreadsQuery;
+  enabled?: boolean;
+}) {
+  const client = useOptionalMailClient();
+  const engineState = useEngineMailThreads({
+    emailAccountId,
+    query,
+    enabled: Boolean(client) && enabled,
+  });
+  const legacyState = useLegacyMailThreads({
+    emailAccountId,
+    query,
+    enabled: !client && enabled,
+  });
+  return client ? engineState : legacyState;
+}
+
+function useLegacyMailThreads({
   emailAccountId,
   query,
   enabled = true,

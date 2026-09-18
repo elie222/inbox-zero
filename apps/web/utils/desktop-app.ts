@@ -16,6 +16,7 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  mailEngine?: (payload: unknown) => Promise<unknown>;
 };
 
 declare global {
