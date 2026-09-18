@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("bounds opened attachment previews and reuses them offline", async ({
@@ -28,7 +29,7 @@ test("bounds opened attachment previews and reuses them offline", async ({
   ).toBeVisible();
   await page.getByPlaceholder("Search mail").fill("");
   await page.evaluate(
-    async ({ size, emailAccountId }) => {
+    async ({ size, emailAccountId, sourceVersion }) => {
       const response = await fetch(
         "/api/threads/thr_playwright_reader_visual",
         { headers: { "X-Email-Account-ID": emailAccountId } },
@@ -54,7 +55,7 @@ test("bounds opened attachment previews and reuses them offline", async ({
           accounts.put({
             emailAccountId,
             generation: crypto.randomUUID(),
-            sourceVersion: 2,
+            sourceVersion,
           });
       };
       const store = tx.objectStore("localMailMessages");
@@ -117,7 +118,7 @@ test("bounds opened attachment previews and reuses them offline", async ({
       });
       database.close();
     },
-    { size: png.length, emailAccountId },
+    { size: png.length, emailAccountId, sourceVersion: SOURCE_VERSION },
   );
   const row = conversationWithSubject(
     page,

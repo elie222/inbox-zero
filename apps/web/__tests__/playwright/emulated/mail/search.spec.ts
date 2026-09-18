@@ -190,5 +190,7 @@ test("search suggests contacts and recent searches", async ({
 
   await searchInput.fill("exa");
   await recent.click();
-  expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("alice@example.com");
 });

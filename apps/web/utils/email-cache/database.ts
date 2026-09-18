@@ -169,7 +169,9 @@ export interface EmailCacheSchema extends DBSchema {
       emailAccountId: string;
       messageId: string;
       threadId: string;
-      data: ParsedMessage;
+      // Outlook reports attachment presence without the metadata Gmail keeps,
+      // so the flag rides alongside the message rather than inside it.
+      data: ParsedMessage & { hasAttachment?: boolean };
       fetchedAt: number;
       bodyFetchedAt?: number;
       receivedAt: number;

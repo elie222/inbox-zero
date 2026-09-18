@@ -1,5 +1,6 @@
 import { build } from "esbuild";
 import { localMailSyncBody } from "@/utils/actions/local-mail-sync.validation";
+import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";
@@ -244,7 +245,7 @@ async function seedSearchCache(
   messageCount = 0,
 ) {
   return page.evaluate(
-    async ({ accountId, messageCount }) =>
+    async ({ accountId, messageCount, sourceVersion }) =>
       new Promise<ThreadListItem>((resolve, reject) => {
         const request = indexedDB.open("inbox-zero-email-cache");
         request.onerror = () => reject(request.error);
@@ -287,7 +288,7 @@ async function seedSearchCache(
               tx.objectStore("searchIndexAccounts").put({
                 emailAccountId: accountId,
                 generation: crypto.randomUUID(),
-                sourceVersion: 2,
+                sourceVersion,
               });
             tx.objectStore("localMailMessages").put({
               emailAccountId: accountId,
@@ -355,7 +356,7 @@ async function seedSearchCache(
           tx.onerror = () => reject(tx.error);
         };
       }),
-    { accountId: emailAccountId, messageCount },
+    { accountId: emailAccountId, messageCount, sourceVersion: SOURCE_VERSION },
   );
 }
 
@@ -386,25 +387,30 @@ test("uses the persistent index offline after reopening and pages beyond the fir
     const { emailAccountId } = await openMail(page);
     await expect
       .poll(() =>
-        page.evaluate(async (emailAccountId) => {
-          const database = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open("inbox-zero-email-cache");
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-          const account = await new Promise<
-            { sourceVersion?: number; seed?: unknown } | undefined
-          >((resolve, reject) => {
-            const request = database
-              .transaction("searchIndexAccounts")
-              .objectStore("searchIndexAccounts")
-              .get(emailAccountId);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-          database.close();
-          return account?.sourceVersion === 2 && !account.seed;
-        }, emailAccountId),
+        page.evaluate(
+          async ({ emailAccountId, sourceVersion }) => {
+            const database = await new Promise<IDBDatabase>(
+              (resolve, reject) => {
+                const request = indexedDB.open("inbox-zero-email-cache");
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+              },
+            );
+            const account = await new Promise<
+              { sourceVersion?: number; seed?: unknown } | undefined
+            >((resolve, reject) => {
+              const request = database
+                .transaction("searchIndexAccounts")
+                .objectStore("searchIndexAccounts")
+                .get(emailAccountId);
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            database.close();
+            return account?.sourceVersion === sourceVersion && !account.seed;
+          },
+          { emailAccountId, sourceVersion: SOURCE_VERSION },
+        ),
       )
       .toBe(true);
 
