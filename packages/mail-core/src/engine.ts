@@ -14,10 +14,12 @@ import type { OperationState } from "./operations";
 import type { MailboxSource } from "./ports/mailbox-source";
 import type { MailStore } from "./ports/mail-store";
 import type { OperationExecutor } from "./ports/operation-executor";
+import type { AssistantStateSource } from "./ports/assistant-source";
 import type { HostRuntime } from "./ports/runtime";
 import type { ConversationQuery, MailboxView, QueryHandle } from "./queries";
 import { createQueryRegistry, mailboxQueryKey } from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
+import type { ProviderChange } from "./sync";
 
 export type WorkAdmission =
   | { status: "scheduled" | "already_satisfied" }
@@ -67,9 +69,11 @@ export function createMailEngine(input: {
   executor: OperationExecutor;
   runtime: HostRuntime;
   ownerId?: string;
+  assistant?: AssistantStateSource;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const ownerId = input.ownerId ?? "local-owner";
+  const assistant = input.assistant;
   const queries = createQueryRegistry();
   const generations = new Map<string, string>();
 
@@ -190,6 +194,27 @@ export function createMailEngine(input: {
             pageSize: 100,
           });
           if (membership.status !== "ok") continue;
+          if (membership.value.status === "not_found") {
+            await store.failOperation(
+              { accountId: work.accountId, operationId: work.commandId },
+              "conversation_not_found",
+            );
+            await refreshViews();
+            continue;
+          }
+          if (
+            membership.value.status === "unsupported" ||
+            membership.value.status === "restart_required"
+          ) {
+            if (membership.value.status === "unsupported") {
+              await store.failOperation(
+                { accountId: work.accountId, operationId: work.commandId },
+                "membership_unsupported",
+              );
+              await refreshViews();
+            }
+            continue;
+          }
           if (membership.value.status === "page") {
             await store.applyPreparationPage({
               accountId: work.accountId,
@@ -339,6 +364,7 @@ export function createMailEngine(input: {
           signal,
           requestId: runtime.randomId(),
         });
+        await catchUpAssistant(session, signal);
         continue;
       }
       const changes = await source.readChanges({
@@ -361,7 +387,50 @@ export function createMailEngine(input: {
           scopeId: changes.scopeId,
         });
       }
+      await catchUpAssistant(session, signal);
     }
+  }
+
+  async function catchUpAssistant(
+    session: { accountId: string; generation: string },
+    signal?: AbortSignal,
+  ) {
+    if (!assistant) return;
+    const inspection = await store.inspect();
+    const account = inspection.accounts.find(
+      (item) => item.accountId === session.accountId,
+    );
+    const page = await assistant.read({
+      session,
+      cursor: account?.assistantCursor ?? null,
+      signal: signal ?? new AbortController().signal,
+    });
+    if (page.status !== "ok") return;
+    await store.applyAssistantEntries({
+      accountId: session.accountId,
+      cursor: page.page.nextCursor,
+      entries: page.page.entries.map((entry) => ({
+        cursor: entry.id,
+        draftId:
+          entry.kind === "draft_proposal" &&
+          entry.payload &&
+          typeof entry.payload === "object" &&
+          "draftId" in entry.payload &&
+          typeof entry.payload.draftId === "string"
+            ? entry.payload.draftId
+            : undefined,
+        draftRevision:
+          entry.kind === "draft_proposal" &&
+          entry.payload &&
+          typeof entry.payload === "object" &&
+          "draftRevision" in entry.payload &&
+          typeof entry.payload.draftRevision === "number"
+            ? entry.payload.draftRevision
+            : undefined,
+        change: assistantEntryChange(session.accountId, entry),
+      })),
+    });
+    await refreshViews();
   }
 }
 
@@ -372,4 +441,32 @@ export function createHostRuntime(
     nowMs: overrides?.nowMs ?? (() => Date.now()),
     randomId: overrides?.randomId ?? (() => crypto.randomUUID()),
   };
+}
+
+function assistantEntryChange(
+  accountId: string,
+  entry: {
+    id: string;
+    messageId: string | null;
+    conversationId: string | null;
+    kind: string;
+    payload: unknown;
+  },
+): ProviderChange | undefined {
+  if (
+    entry.payload &&
+    typeof entry.payload === "object" &&
+    "change" in entry.payload
+  ) {
+    return entry.payload.change as ProviderChange;
+  }
+  if (!entry.messageId || !entry.conversationId) return;
+  if (entry.kind === "archive" || entry.kind === "ARCHIVE") {
+    return {
+      kind: "removed_from_scope",
+      key: { accountId, messageId: entry.messageId },
+      scopeId: "inbox",
+    };
+  }
+  return;
 }

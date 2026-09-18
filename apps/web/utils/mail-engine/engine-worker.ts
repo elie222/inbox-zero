@@ -16,6 +16,7 @@ const handles = new Map<string, { close: () => void }>();
 let engine: MailEngine | undefined;
 let loop: Promise<void> | undefined;
 let stopped = false;
+let startedAccount: string | undefined;
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   handle(event.data).catch((error) => {
@@ -30,7 +31,20 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 async function handle(message: WorkerRequest) {
   try {
     if (message.type === "start") {
+      if (engine) {
+        if (startedAccount !== message.input.accountId) {
+          post({
+            id: message.id,
+            type: "error",
+            message: "account_mismatch",
+          });
+          return;
+        }
+        post({ id: message.id, type: "ok" });
+        return;
+      }
       engine = await createWorkerEngine(message.input);
+      startedAccount = message.input.accountId;
       post({ id: message.id, type: "ok" });
       return;
     }
@@ -44,6 +58,7 @@ async function handle(message: WorkerRequest) {
       handles.clear();
       await engine.close();
       engine = undefined;
+      startedAccount = undefined;
       await loop;
       post({ id: message.id, type: "ok" });
       return;

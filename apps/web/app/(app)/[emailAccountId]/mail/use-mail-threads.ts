@@ -92,7 +92,9 @@ export function useMailThreads({
     query,
     enabled: !client && enabled,
   });
-  return client ? engineState : legacyState;
+  const engineReady =
+    Boolean(client) && engineState.coverageComplete && !engineState.isLoading;
+  return engineReady ? engineState : legacyState;
 }
 
 function useLegacyMailThreads({

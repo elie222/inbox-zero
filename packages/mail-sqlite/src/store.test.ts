@@ -532,6 +532,368 @@ describe("sqlite crash recovery", () => {
   });
 });
 
+describe("per-target outcomes, dependencies, pagination, and stale hydration", () => {
+  it("keeps applied and rejected bulk targets independently", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "bulk-archive",
+      targets: [
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+      ],
+      change: { kind: "archive" },
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: work.attemptId,
+      operation: work.operation,
+      result: {
+        status: "confirmed",
+        receiptId: "partial",
+        observations: [],
+        targets: [
+          {
+            key: { accountId: "acc-1", messageId: "m1" },
+            outcome: "applied",
+            code: null,
+          },
+          {
+            key: { accountId: "acc-1", messageId: "m2" },
+            outcome: "rejected",
+            code: "not_found",
+          },
+        ],
+      },
+    });
+    const inspection = await store.inspect();
+    expect(
+      inspection.operations.find(
+        (item) => item.key.operationId === "bulk-archive",
+      )?.status,
+    ).toBe("needs_attention");
+    const m1 = inspection.messages.find((item) => item.messageId === "m1");
+    const m2 = inspection.messages.find((item) => item.messageId === "m2");
+    expect(m1?.confirmed.roles.includes("inbox")).toBe(false);
+    expect(m2?.confirmed.roles.includes("inbox")).toBe(true);
+    expect(
+      inspection.operationTargets
+        .filter((target) => target.operationId === "bulk-archive")
+        .map((target) => `${target.messageId}:${target.outcome}`)
+        .sort(),
+    ).toEqual(["m1:applied", "m2:rejected"]);
+    await store.close();
+  });
+
+  it("does not claim a later overlapping command until the earlier one settles", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "star-first",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "set_starred", starred: true },
+    });
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-second",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    const first = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(first?.kind).toBe("command");
+    if (first?.kind !== "command") throw new Error("expected command");
+    expect(first.operation.key.operationId).toBe("star-first");
+    const blocked = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(blocked).toBeNull();
+    await store.settleAttempt({
+      attemptId: first.attemptId,
+      operation: first.operation,
+      result: {
+        status: "confirmed",
+        receiptId: "starred",
+        observations: [],
+        targets: [
+          {
+            key: { accountId: "acc-1", messageId: "m1" },
+            outcome: "applied",
+            code: null,
+          },
+        ],
+      },
+    });
+    const second = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(second?.kind).toBe("command");
+    if (second?.kind !== "command") throw new Error("expected command");
+    expect(second.operation.key.operationId).toBe("archive-second");
+    await store.close();
+  });
+
+  it("pages conversation membership before freezing targets", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const revision = (await store.readMailboxView(inboxQuery)).revision;
+    const admission = await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-pages",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: { kind: "archive" },
+      observedRevision: revision,
+    });
+    expect(admission.status).toBe("preparing");
+    const firstPage = await store.applyPreparationPage({
+      accountId: "acc-1",
+      commandId: "archive-pages",
+      page: {
+        conversation: { accountId: "acc-1", conversationId: "c1" },
+        resolutionId: "res-pages",
+        keys: [{ accountId: "acc-1", messageId: "m1" }],
+        changes: [],
+        nextPage: "1",
+        evidence: null,
+      },
+    });
+    expect(firstPage.status).toBe("preparing");
+    const tooSoon = await store.finishPreparation({
+      accountId: "acc-1",
+      commandId: "archive-pages",
+    });
+    expect(tooSoon.status).toBe("stale");
+    const secondPage = await store.applyPreparationPage({
+      accountId: "acc-1",
+      commandId: "archive-pages",
+      page: {
+        conversation: { accountId: "acc-1", conversationId: "c1" },
+        resolutionId: "res-pages",
+        keys: [{ accountId: "acc-1", messageId: "m2" }],
+        changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
+        nextPage: null,
+        evidence: null,
+      },
+    });
+    expect(secondPage.status).toBe("preparing");
+    const frozen = await store.finishPreparation({
+      accountId: "acc-1",
+      commandId: "archive-pages",
+    });
+    expect(frozen.status).toBe("queued");
+    const inspection = await store.inspect();
+    expect(
+      inspection.operationTargets
+        .filter((target) => target.operationId === "archive-pages")
+        .map((target) => target.messageId)
+        .sort(),
+    ).toEqual(["m1", "m2"]);
+    await store.close();
+  });
+
+  it("rejects a stale hydration body that is older than the committed version", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const freshPatch = messagePatch("m1", "c1", 1000, ["inbox"]);
+    const fresh = await store.applyHydration({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "body-2",
+      changes: [
+        {
+          ...freshPatch,
+          reference: {
+            provider: "google",
+            messageId: "m1",
+            conversationId: "c1",
+            version: "2",
+          },
+          fields: { ...freshPatch.fields, preview: "new" },
+        },
+      ],
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "2",
+          html: "<p>new</p>",
+          text: "new",
+        },
+      ],
+    });
+    expect(fresh.status).toBe("committed");
+    const stale = await store.applyHydration({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "body-1",
+      changes: [
+        {
+          ...freshPatch,
+          reference: {
+            provider: "google",
+            messageId: "m1",
+            conversationId: "c1",
+            version: "1",
+          },
+          fields: { ...freshPatch.fields, preview: "old" },
+        },
+      ],
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "1",
+          html: "<p>old</p>",
+          text: "old",
+        },
+      ],
+    });
+    expect(stale.status).toBe("stale");
+    const conversation = await store.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { after: null, pageSize: 10 },
+    );
+    expect(conversation.view.messages[0]?.metadata.preview).toBe("new");
+    await store.close();
+  });
+
+  it("applies assistant archive catch-up without replacing a newer local draft", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Local",
+        editableHtml: "<p>Local</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    await store.applyAssistantEntries({
+      accountId: "acc-1",
+      cursor: "a2",
+      entries: [
+        {
+          cursor: "a1",
+          draftId: "d1",
+          draftRevision: 0,
+        },
+        {
+          cursor: "a2",
+          change: messagePatch("m9", "c9", 4000, ["inbox"]),
+        },
+      ],
+    });
+    const inspection = await store.inspect();
+    expect(inspection.accounts[0]?.assistantCursor).toBe("a2");
+    expect(inspection.messages.some((item) => item.messageId === "m9")).toBe(
+      true,
+    );
+    const later = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: 1,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Still local",
+        editableHtml: "<p>Still local</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(later.status).toBe("saved");
+    await store.close();
+  });
+});
+
 describe("sqlite and reference model parity", () => {
   it("matches the archive-then-new-mail reference mailbox", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -642,7 +1004,7 @@ function messagePatch(
   conversationId: string,
   receivedAtMs: number,
   roles: Array<"inbox" | "sent" | "draft" | "trash" | "spam">,
-): ProviderChange {
+): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
     key: { accountId: "acc-1", messageId },

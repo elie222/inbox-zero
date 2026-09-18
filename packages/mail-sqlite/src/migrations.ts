@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS profile_state (
 CREATE TABLE IF NOT EXISTS accounts (
   account_id TEXT PRIMARY KEY,
   provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
-  generation TEXT NOT NULL
+  generation TEXT NOT NULL,
+  assistant_cursor TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -220,4 +221,9 @@ export async function migrateMailbox(
   await tx.execute(
     "INSERT OR IGNORE INTO schema_migrations(id, name) VALUES (1, '0001-mailbox')",
   );
+  try {
+    await tx.exec("ALTER TABLE accounts ADD COLUMN assistant_cursor TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
 }

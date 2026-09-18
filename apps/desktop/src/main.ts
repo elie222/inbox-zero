@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   app,
   BrowserWindow,
@@ -10,6 +11,7 @@ import {
   screen,
   session,
   shell,
+  utilityProcess,
   type Session,
   type WebContents,
   type IpcMainEvent,
@@ -42,6 +44,7 @@ import {
 import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
+import { createChildDesktopMailOwner } from "./mail-engine/utility-host";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
@@ -582,11 +585,27 @@ function showSignInError(error: unknown) {
 let desktopMailOwner: ReturnType<typeof createDesktopMailOwner> | undefined;
 
 function getDesktopMailOwner() {
-  desktopMailOwner ??= createDesktopMailOwner({
-    databasePath: path.join(app.getPath("userData"), "mailbox.sqlite"),
-    ...createRoutedBackendPorts(createDesktopMailRequest()),
-  });
+  desktopMailOwner ??= createDesktopMailProcess();
   return desktopMailOwner;
+}
+
+function createDesktopMailProcess() {
+  const databasePath = path.join(app.getPath("userData"), "mailbox.sqlite");
+  const ports = createRoutedBackendPorts(createDesktopMailRequest());
+  if (typeof utilityProcess?.fork === "function") {
+    return createChildDesktopMailOwner({
+      databasePath,
+      origin: appOrigin,
+      modulePath: path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "mail-engine-child.js",
+      ),
+    });
+  }
+  return createDesktopMailOwner({
+    databasePath,
+    ...ports,
+  });
 }
 
 function createDesktopMailRequest(): MailHttpRequestFn {

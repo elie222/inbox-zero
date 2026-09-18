@@ -48,6 +48,9 @@ describe("applyMetadataChange", () => {
     expect(
       applyMetadataChange(confirmed, { kind: "set_spam", spam: true }).roles,
     ).toEqual(["spam"]);
+    expect(
+      applyMetadataChange(confirmed, { kind: "snooze", untilMs: 1 }).roles,
+    ).toEqual([]);
   });
 });
 

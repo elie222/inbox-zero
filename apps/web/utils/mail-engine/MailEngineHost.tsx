@@ -6,8 +6,10 @@ import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createBrowserMailEngine } from "@/utils/mail-engine/create-browser-engine";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 
 const OWNER_LOCK = "inbox-zero:mail-engine-owner";
+const SNAPSHOT_CHANNEL = "inbox-zero:mail-engine-snapshots";
 
 export function MailEngineHost({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
@@ -15,8 +17,14 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!emailAccountId) return;
+    const capabilities = browserMailEngineCapabilities();
+    if (!capabilities.opfs) return;
     let engine: Awaited<ReturnType<typeof createBrowserMailEngine>> | undefined;
     const abort = new AbortController();
+    const channel =
+      typeof BroadcastChannel !== "undefined"
+        ? new BroadcastChannel(SNAPSHOT_CHANNEL)
+        : null;
 
     async function hold(create: () => Promise<void>) {
       await create();
@@ -39,6 +47,10 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
           await engine.close();
           return;
         }
+        channel?.postMessage({
+          type: "owner",
+          accountId: emailAccountId,
+        });
         setClient(engine);
       };
       if (typeof navigator !== "undefined" && navigator.locks?.request) {
@@ -56,6 +68,7 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
 
     return () => {
       abort.abort();
+      channel?.close();
       engine?.close().catch(() => undefined);
       setClient(null);
     };

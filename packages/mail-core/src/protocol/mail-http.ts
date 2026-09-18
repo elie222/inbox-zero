@@ -56,6 +56,7 @@ export const capabilitiesResultSchema = z.object({
       "set_spam",
       "move",
       "set_membership",
+      "snooze",
     ]),
   ),
   maxPageSize: z.number().int(),

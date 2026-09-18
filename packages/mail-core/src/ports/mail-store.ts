@@ -81,6 +81,7 @@ export type MailStoreInspection = {
     accountId: string;
     provider: "google" | "microsoft";
     generation: string;
+    assistantCursor: string | null;
   }>;
   messages: Array<{
     accountId: string;
@@ -95,6 +96,8 @@ export type MailStoreInspection = {
     accountId: string;
     operationId: string;
     messageId: string;
+    outcome: "applied" | "rejected" | "uncertain" | null;
+    code: string | null;
   }>;
   coverage: Coverage[];
   streams: Array<{
@@ -111,6 +114,7 @@ export interface MailStore {
   admitSend(input: SubmitSend): Promise<Admission>;
   applyAssistantEntries(input: {
     accountId: string;
+    cursor?: string | null;
     entries: Array<{
       cursor: string;
       draftId?: string;
@@ -163,6 +167,12 @@ export interface MailStore {
     provider: "google" | "microsoft";
     generation: string;
   }): Promise<LocalRevision>;
+  failOperation(
+    key: OperationKey,
+    code: string,
+  ): Promise<
+    { status: "committed"; revision: LocalRevision } | { status: "stale" }
+  >;
   finishPreparation(input: {
     accountId: string;
     commandId: string;

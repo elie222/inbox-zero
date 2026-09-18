@@ -20,3 +20,10 @@ await esbuild.build({
   outfile: "dist/preload.cjs",
   format: "cjs",
 });
+
+await esbuild.build({
+  ...desktopEsbuildShared,
+  entryPoints: ["src/mail-engine/utility-child.ts"],
+  outfile: "dist/mail-engine-child.js",
+  format: "esm",
+});

@@ -66,6 +66,8 @@ export function applyMetadataChange(
           change.present,
         ),
       };
+    case "snooze":
+      return withRoles(metadata, withoutRole(metadata.roles, "inbox"));
     default: {
       const exhaustive: never = change;
       return exhaustive;

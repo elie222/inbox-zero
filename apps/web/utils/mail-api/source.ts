@@ -15,6 +15,7 @@ const SUPPORTED_CHANGES = [
   "set_spam",
   "move",
   "set_membership",
+  "snooze",
 ] as const;
 
 export function createEmailProviderMailboxSource(input: {
@@ -225,7 +226,12 @@ export function createEmailProviderMailboxSource(input: {
         return mapProviderError(error);
       }
     },
-    async readConversationMembership({ conversation, resolutionId, pageSize }) {
+    async readConversationMembership({
+      conversation,
+      resolutionId,
+      page,
+      pageSize,
+    }) {
       try {
         const thread = await provider.getThread(conversation.conversationId, {
           complete: true,
@@ -234,6 +240,8 @@ export function createEmailProviderMailboxSource(input: {
           thread.messages.length > 0
             ? thread.messages
             : await provider.getThreadMessages(conversation.conversationId);
+        const start = page ? Number(page) || 0 : 0;
+        const slice = messages.slice(start, start + pageSize);
         return {
           status: "ok",
           value: {
@@ -241,14 +249,17 @@ export function createEmailProviderMailboxSource(input: {
             page: {
               conversation,
               resolutionId,
-              keys: messages.slice(0, pageSize).map((message) => ({
+              keys: slice.map((message) => ({
                 accountId,
                 messageId: message.id,
               })),
-              changes: messages.map((message) =>
+              changes: slice.map((message) =>
                 parsedMessagePatch(accountId, providerName, message),
               ),
-              nextPage: null,
+              nextPage:
+                start + pageSize < messages.length
+                  ? String(start + pageSize)
+                  : null,
               evidence: thread.historyId ?? null,
             },
           },

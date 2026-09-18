@@ -21,6 +21,7 @@ import {
   isPendingEffectStatus,
   type OperationState,
   type PreparedOperation,
+  type TargetOutcome,
 } from "@inboxzero/mail-core/operations";
 import type {
   MailStore,
@@ -63,7 +64,7 @@ export async function createSqliteMailStore(
         );
         if (existing.length === 0) {
           await tx.execute(
-            "INSERT INTO accounts(account_id, provider, generation) VALUES (?, ?, ?)",
+            "INSERT INTO accounts(account_id, provider, generation, assistant_cursor) VALUES (?, ?, ?, NULL)",
             [input.accountId, input.provider, input.generation],
           );
         } else if (existing[0].generation !== input.generation) {
@@ -223,11 +224,11 @@ export async function createSqliteMailStore(
            WHERE status IN ('queued', 'retry_wait')
              AND executable_hash IS NOT NULL
              AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
-           ORDER BY created_at_ms
-           LIMIT 1`,
+           ORDER BY created_at_ms`,
           [input.nowMs],
         );
-        if (queued[0]) {
+        for (const row of queued) {
+          if (await hasUnsatisfiedDependency(tx, row)) continue;
           const attemptId = crypto.randomUUID();
           await tx.execute(
             `UPDATE operations
@@ -237,11 +238,11 @@ export async function createSqliteMailStore(
               input.ownerId,
               input.nowMs + input.leaseMs,
               attemptId,
-              queued[0].account_id,
-              queued[0].command_id,
+              row.account_id,
+              row.command_id,
             ],
           );
-          const prepared = await toPrepared(tx, queued[0]);
+          const prepared = await toPrepared(tx, row);
           if (!prepared) return null;
           return { kind: "command" as const, attemptId, operation: prepared };
         }
@@ -321,8 +322,24 @@ export async function createSqliteMailStore(
     },
     async applyHydration(input) {
       return driver.write(async (tx) => {
-        for (const change of input.changes) await applyChange(tx, change);
+        let applied = 0;
+        for (const change of input.changes) {
+          if (
+            change.kind === "message_patch" &&
+            (await isStaleMessageVersion(
+              tx,
+              change.key,
+              change.reference.version,
+            ))
+          ) {
+            continue;
+          }
+          await applyChange(tx, change);
+          applied += 1;
+        }
         for (const body of input.bodies) {
+          if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
+          applied += 1;
           await tx.execute(
             `INSERT INTO message_content(account_id, message_id, version, html, text)
              VALUES (?, ?, ?, ?, ?)
@@ -355,6 +372,12 @@ export async function createSqliteMailStore(
             // FTS is optional when the runtime SQLite build omits it.
           }
         }
+        if (
+          applied === 0 &&
+          (input.changes.length > 0 || input.bodies.length > 0)
+        ) {
+          return { status: "stale" as const };
+        }
         const revision = await bumpRevision(tx);
         return { status: "committed", revision };
       });
@@ -371,14 +394,22 @@ export async function createSqliteMailStore(
         );
         if (!current[0]) return { status: "stale" };
         if (input.result.status === "confirmed") {
+          const targets = resolveTargetOutcomes(
+            input.operation,
+            input.result.targets,
+            "applied",
+          );
+          await persistTargetOutcomes(tx, input.operation.key, targets);
           for (const change of input.result.observations)
             await applyChange(tx, change);
           if (
             input.result.observations.length === 0 &&
             input.operation.intent.kind === "metadata"
           ) {
-            for (const target of input.operation.intent.targets) {
-              const confirmed = await loadConfirmed(tx, target);
+            for (const target of targets.filter(
+              (item) => item.outcome === "applied",
+            )) {
+              const confirmed = await loadConfirmed(tx, target.key);
               if (!confirmed) continue;
               const next = applyMetadataChange(
                 confirmed,
@@ -388,19 +419,28 @@ export async function createSqliteMailStore(
             }
           }
           await tx.execute(
-            `UPDATE operations SET status = 'succeeded', receipt_id = ?, claimed_by = NULL, attempt_id = NULL
+            `UPDATE operations SET status = ?, receipt_id = ?, claimed_by = NULL, attempt_id = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
+              operationStatusFromTargets(targets, "succeeded"),
               input.result.receiptId,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
           );
         } else if (input.result.status === "rejected") {
+          const targets = resolveTargetOutcomes(
+            input.operation,
+            input.result.targets,
+            "rejected",
+            input.result.code,
+          );
+          await persistTargetOutcomes(tx, input.operation.key, targets);
           await tx.execute(
-            `UPDATE operations SET status = 'failed', error_code = ?, error_retryable = 0, claimed_by = NULL
+            `UPDATE operations SET status = ?, error_code = ?, error_retryable = 0, claimed_by = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
+              operationStatusFromTargets(targets, "failed"),
               input.result.code,
               input.operation.key.accountId,
               input.operation.key.operationId,
@@ -640,6 +680,41 @@ export async function createSqliteMailStore(
         return bumpRevision(tx);
       });
     },
+    async failOperation(key, code) {
+      return driver.write(async (tx) => {
+        const current = await loadOperation(tx, key.accountId, key.operationId);
+        if (!current) return { status: "stale" as const };
+        if (
+          current.status === "succeeded" ||
+          current.status === "failed" ||
+          current.status === "cancelled" ||
+          current.status === "superseded"
+        ) {
+          return { status: "stale" as const };
+        }
+        await tx.execute(
+          `UPDATE operations
+           SET status = 'failed', error_code = ?, error_retryable = 0, claimed_by = NULL
+           WHERE account_id = ? AND command_id = ?`,
+          [code, key.accountId, key.operationId],
+        );
+        const targets = await tx.query(
+          "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
+          [key.accountId, key.operationId],
+        );
+        await recomputeTargets(
+          tx,
+          targets.map((row) => ({
+            accountId: key.accountId,
+            messageId: String(row.message_id),
+          })),
+        );
+        return {
+          status: "committed" as const,
+          revision: await bumpRevision(tx),
+        };
+      });
+    },
     async applyAssistantEntries(input) {
       return driver.write(async (tx) => {
         for (const entry of input.entries) {
@@ -658,6 +733,12 @@ export async function createSqliteMailStore(
             }
           }
           if (entry.change) await applyChange(tx, entry.change);
+        }
+        if (input.cursor !== undefined) {
+          await tx.execute(
+            "UPDATE accounts SET assistant_cursor = ? WHERE account_id = ?",
+            [input.cursor, input.accountId],
+          );
         }
         return bumpRevision(tx);
       });
@@ -957,6 +1038,8 @@ async function inspectState(tx: SqlTransaction): Promise<MailStoreInspection> {
       accountId: String(row.account_id),
       provider: String(row.provider) as "google" | "microsoft",
       generation: String(row.generation),
+      assistantCursor:
+        row.assistant_cursor == null ? null : String(row.assistant_cursor),
     })),
     messages: confirmedRows.map((row) => {
       const confirmed = confirmedFromRow(row);
@@ -982,12 +1065,17 @@ async function inspectState(tx: SqlTransaction): Promise<MailStoreInspection> {
     operations: operations.map(toOperationState),
     operationTargets: (
       await tx.query(
-        "SELECT account_id, command_id, message_id FROM operation_targets",
+        "SELECT account_id, command_id, message_id, outcome, code FROM operation_targets",
       )
     ).map((row) => ({
       accountId: String(row.account_id),
       operationId: String(row.command_id),
       messageId: String(row.message_id),
+      outcome:
+        row.outcome == null
+          ? null
+          : (String(row.outcome) as "applied" | "rejected" | "uncertain"),
+      code: row.code == null ? null : String(row.code),
     })),
     coverage: await readCoverage(
       tx,
@@ -1123,7 +1211,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
       continue;
     }
     const pendingRows = await tx.query(
-      `SELECT o.command_id, o.executable_payload_json, o.status
+      `SELECT o.command_id, o.executable_payload_json, o.status, t.outcome
        FROM operations o
        JOIN operation_targets t
          ON t.account_id = o.account_id AND t.command_id = o.command_id
@@ -1131,9 +1219,13 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
       [target.accountId, target.messageId],
     );
     const pending = pendingRows
-      .filter((row) =>
-        isPendingEffectStatus(String(row.status) as OperationState["status"]),
-      )
+      .filter((row) => {
+        const outcome = row.outcome == null ? null : String(row.outcome);
+        if (outcome === "applied" || outcome === "rejected") return false;
+        return isPendingEffectStatus(
+          String(row.status) as OperationState["status"],
+        );
+      })
       .map((row) => {
         const payload = JSON.parse(String(row.executable_payload_json)) as {
           change: SubmitMetadataCommand["change"];
@@ -1371,6 +1463,113 @@ function roleFlags(roles: MessageMetadata["roles"]) {
     trash: roles.includes("trash") ? 1 : 0,
     spam: roles.includes("spam") ? 1 : 0,
   };
+}
+
+async function hasUnsatisfiedDependency(
+  tx: SqlTransaction,
+  row: Record<string, import("./driver").SqlValue>,
+) {
+  const blockers = await tx.query(
+    `SELECT 1
+     FROM operation_targets mine
+     JOIN operation_targets other
+       ON other.account_id = mine.account_id
+      AND other.message_id = mine.message_id
+      AND other.command_id != mine.command_id
+     JOIN operations o
+       ON o.account_id = other.account_id AND o.command_id = other.command_id
+     WHERE mine.account_id = ? AND mine.command_id = ?
+       AND (
+         o.status IN ('executing', 'verifying', 'uncertain', 'blocked_auth', 'needs_attention')
+         OR (
+           o.status IN ('queued', 'retry_wait')
+           AND o.rowid < (
+             SELECT rowid FROM operations
+             WHERE account_id = mine.account_id AND command_id = mine.command_id
+           )
+         )
+       )
+     LIMIT 1`,
+    [row.account_id, row.command_id],
+  );
+  return blockers.length > 0;
+}
+
+async function isStaleMessageVersion(
+  tx: SqlTransaction,
+  key: MessageKey,
+  incomingVersion: string | null,
+) {
+  if (!incomingVersion) return false;
+  const current = await loadConfirmed(tx, key);
+  if (!current?.version) return false;
+  const currentNumber = Number(current.version);
+  const incomingNumber = Number(incomingVersion);
+  if (Number.isFinite(currentNumber) && Number.isFinite(incomingNumber)) {
+    return currentNumber > incomingNumber;
+  }
+  return current.version > incomingVersion;
+}
+
+function resolveTargetOutcomes(
+  operation: PreparedOperation,
+  reported: TargetOutcome[],
+  fallback: TargetOutcome["outcome"],
+  fallbackCode: string | null = null,
+): TargetOutcome[] {
+  const keys =
+    operation.intent.kind === "metadata" ? operation.intent.targets : [];
+  if (keys.length === 0) return reported;
+  const byId = new Map(
+    reported.map((target) => [
+      `${target.key.accountId}:${target.key.messageId}`,
+      target,
+    ]),
+  );
+  return keys.map(
+    (key) =>
+      byId.get(`${key.accountId}:${key.messageId}`) ?? {
+        key,
+        outcome: fallback,
+        code: fallbackCode,
+      },
+  );
+}
+
+async function persistTargetOutcomes(
+  tx: SqlTransaction,
+  key: { accountId: string; operationId: string },
+  targets: TargetOutcome[],
+) {
+  for (const target of targets) {
+    await tx.execute(
+      `UPDATE operation_targets
+       SET outcome = ?, code = ?
+       WHERE account_id = ? AND command_id = ? AND message_id = ?`,
+      [
+        target.outcome,
+        target.code,
+        key.accountId,
+        key.operationId,
+        target.key.messageId,
+      ],
+    );
+  }
+}
+
+function operationStatusFromTargets(
+  targets: TargetOutcome[],
+  completeStatus: "succeeded" | "failed",
+) {
+  if (targets.length === 0) return completeStatus;
+  const applied = targets.some((target) => target.outcome === "applied");
+  const rejected = targets.some((target) => target.outcome === "rejected");
+  const uncertain = targets.some((target) => target.outcome === "uncertain");
+  if (uncertain) return "uncertain";
+  if (applied && rejected) return "needs_attention";
+  if (rejected && !applied) return "failed";
+  if (applied && !rejected) return "succeeded";
+  return completeStatus;
 }
 
 export type { SyncPage, ConversationKey };

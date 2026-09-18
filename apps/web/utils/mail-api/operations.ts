@@ -13,44 +13,78 @@ export function createEmailProviderOperationExecutor(input: {
       if (operation.intent.kind !== "metadata") {
         return { status: "rejected", code: "unsupported", targets: [] };
       }
-      const messageIds = operation.intent.targets.map(
-        (target) => target.messageId,
-      );
-      try {
-        await applyChange(provider, operation.intent.change, messageIds);
-        const observations = [];
+      if (operation.intent.change.kind === "snooze") {
+        return executeSnooze(provider, accountId, {
+          key: operation.key,
+          intent: {
+            kind: "metadata",
+            targets: operation.intent.targets,
+            change: operation.intent.change,
+          },
+        });
+      }
+      const targets = [];
+      const observations = [];
+      for (const target of operation.intent.targets) {
         try {
-          for (const messageId of messageIds) {
-            const message = await provider.getMessage(messageId);
+          await applyChange(provider, operation.intent.change, [
+            target.messageId,
+          ]);
+          try {
+            const message = await provider.getMessage(target.messageId);
             observations.push(
               parsedMessagePatch(accountId, providerName, message),
             );
+          } catch {
+            // Mutation applied; catch-up can fill the observation.
           }
-        } catch {
-          // Provider applied the mutation; observations can arrive via catch-up.
-        }
-        return {
-          status: "confirmed",
-          receiptId: operation.key.operationId,
-          observations,
-          targets: operation.intent.targets.map((key) => ({
-            key,
+          targets.push({
+            key: target,
             outcome: "applied" as const,
             code: null,
-          })),
-        };
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "provider_error";
-        if (/auth|unauthorized|401/i.test(message)) {
-          return {
-            status: "not_dispatched",
-            reason: "blocked_auth",
-            retryAfterMs: null,
-          };
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "provider_error";
+          if (/auth|unauthorized|401/i.test(message) && targets.length === 0) {
+            return {
+              status: "not_dispatched",
+              reason: "blocked_auth",
+              retryAfterMs: null,
+            };
+          }
+          targets.push({
+            key: target,
+            outcome: /not.?found|404/i.test(message)
+              ? ("rejected" as const)
+              : ("uncertain" as const),
+            code: /not.?found|404/i.test(message)
+              ? "not_found"
+              : "provider_error",
+          });
         }
-        return { status: "uncertain", receiptId: operation.key.operationId };
       }
+      const applied = targets.some((target) => target.outcome === "applied");
+      const rejected = targets.every((target) => target.outcome === "rejected");
+      if (rejected && !applied) {
+        return {
+          status: "rejected",
+          code: targets[0]?.code ?? "provider_error",
+          targets,
+        };
+      }
+      if (!applied) {
+        return {
+          status: "uncertain",
+          receiptId: operation.key.operationId,
+        };
+      }
+      return {
+        status: "confirmed",
+        receiptId: operation.key.operationId,
+        observations,
+        targets,
+      };
     },
     async inspect({ operation }) {
       if (operation.intent.kind !== "metadata") {
@@ -156,7 +190,71 @@ async function applyChange(
       }
       return;
     }
+    case "snooze": {
+      await provider.archiveMessages(messageIds);
+      return;
+    }
     default:
       throw new Error(`unsupported:${change.kind}`);
   }
+}
+
+async function executeSnooze(
+  provider: EmailProvider,
+  accountId: string,
+  operation: {
+    key: { operationId: string };
+    intent: {
+      kind: "metadata";
+      targets: Array<{ accountId: string; messageId: string }>;
+      change: { kind: "snooze"; untilMs: number };
+    };
+  },
+) {
+  const targets = [];
+  const observations = [];
+  const providerName = provider.name === "microsoft" ? "microsoft" : "google";
+  for (const target of operation.intent.targets) {
+    try {
+      const message = await provider.getMessage(target.messageId);
+      await provider.archiveThreadWithLabel(message.threadId, "");
+      observations.push(parsedMessagePatch(accountId, providerName, message));
+      targets.push({
+        key: target,
+        outcome: "applied" as const,
+        code: null,
+      });
+    } catch {
+      try {
+        await provider.archiveMessages([target.messageId]);
+        targets.push({
+          key: target,
+          outcome: "applied" as const,
+          code: null,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "provider_error";
+        targets.push({
+          key: target,
+          outcome: "rejected" as const,
+          code: message,
+        });
+      }
+    }
+  }
+  const applied = targets.some((target) => target.outcome === "applied");
+  if (!applied) {
+    return {
+      status: "rejected" as const,
+      code: "snooze_failed",
+      targets,
+    };
+  }
+  return {
+    status: "confirmed" as const,
+    receiptId: operation.key.operationId,
+    observations,
+    targets,
+  };
 }

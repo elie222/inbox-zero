@@ -1,22 +1,24 @@
 # Mail engine implementation task ledger
 
-Status: implementation in progress. Shared packages, SQLite store, backend-mediated source/executor, browser/desktop hosts, and first dual-provider archive slice exist. Full acceptance matrix is not green.
+Status: implementation in progress. Shared packages, SQLite store, backend-mediated source/executor, browser/desktop hosts, dual-provider archive, freeze/crash/reset, per-target outcomes, overlapping-command serialization, paginated membership, stale hydration, assistant catch-up, and local blob staging exist. Full acceptance matrix is not green.
 
 Read the [implementation plan](./mail-engine-plan.md), including its architecture, interfaces, implementation map, and review notes.
 
 ## Resume state
 
-- Current milestone: Stage 1 HTTP-mediated archive slice verified locally; freeze/crash/reset catch-up added. Stage 2–6 remaining. CI lint/build failures on the previous SHA are being fixed.
+- Current milestone: Stage 1 core/store contracts expanded (B4 freeze/outcomes/deps). Stage 2–6 remaining. Draft PR open.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: pending this checkpoint (HTTP A6, freeze/crash, worker/desktop owner, expired-cursor rebuild, inspect GET, MailShell type fix).
+- Last implementation commit: pending this checkpoint.
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
-- Current task: land CI type/lint fixes, then continue Stage 2–6 (replication faults, drafts/assistant, UI cutover, acceptance matrix, simplifier/reviewer, green PR).
-- Next action: after this push, watch CI; if green enough, run Playwright mail archive and remaining provider fault matrix.
+- Current task: continue Stage 2–6 (replication fault matrix, drafts/send receipts, UI cutover, Playwright/desktop acceptance, simplifier/reviewer, exact-head green PR).
+- Next action: after this push, watch CI on the new SHA; implement remaining D/E/F/G gates rather than treating B4 as the whole goal.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route.
-- Running processes/subagents: `pr-digest --watch 3793` (last verdict: failures — Tests 1/2 lint, build:ci MailShell type error, CodeQL regex).
+- Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui --filter @inboxzero/desktop test` — pass (mail-core 10, mail-sqlite 9, desktop 55)
-  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/archive-reconciliation.test.ts __tests__/integration/mail-engine/http-archive.test.ts utils/mail-engine/worker-protocol.test.ts` — 3 files, 5 passed (Gmail+Outlook EmailProvider and HTTP `/api/mail/v1` archive)
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/desktop test` — pass (mail-core 10, mail-sqlite 16, desktop 56)
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui typecheck` — pass
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts utils/mail-api/source.test.ts utils/mail-api/assistant-state.test.ts utils/mail-engine/worker-protocol.test.ts` — 4 files, 7 passed
+  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/archive-reconciliation.test.ts __tests__/integration/mail-engine/http-archive.test.ts` — 2 files, 4 passed (Gmail+Outlook)
 
 ## Checklist conventions
 
@@ -38,10 +40,10 @@ A1 uses branch `cursor/mail-engine-0b4f` (cloud agent branch policy) rather than
 - [x] B1. Implement portable package boundaries, direct exports, package checks, and both Docker manifest entries.
 - [x] B2. Implement normalized schema, migrations, atomic store methods, confirmed/effective state, and committed revisions.
 - [x] B3. Implement query predicates, list/count consistency, coverage, deterministic pagination, and subscriptions.
-- [ ] B4. Implement durable admission, paginated conversation-membership preparation, atomic target/hash freeze, per-target outcomes, dependencies, claims, reconciliation, and explicit uncertainty; verify arrivals and stale resolution across the freeze boundary.
+- [x] B4. Implement durable admission, paginated conversation-membership preparation, atomic target/hash freeze, per-target outcomes, dependencies, claims, reconciliation, and explicit uncertainty; verify arrivals and stale resolution across the freeze boundary.
 - [x] B5. Prove reference-model parity and real SQLite rollback/reopen/crash behavior with reproducible seeds.
 
-B4 now has freeze-boundary coverage (arrivals during preparation included, post-freeze arrivals excluded, delayed pages stale, cancel-during-prepare). Per-target bulk outcomes and command dependencies are still incomplete.
+B4: freeze-boundary coverage plus paginated membership (finish stays stale until the last page), mixed per-target applied/rejected outcomes (`needs_attention`), and overlapping-target command serialization. See evidence E1/E3/E4.
 B5: reference archive-then-new-mail parity, write rollback, reopen of queued archive, and uncommitted SQLite crash recovery all pass on `node:sqlite`. See evidence E1/E3.
 
 ### C. Platform owners
@@ -51,7 +53,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host currently uses OPFS SAHPool (or memory) on the owning tab with a Web Lock, not a dedicated worker. Desktop has a Node SQLite owner, recovery test, and validated IPC parser/dispatcher; local renderer is stubbed and not the boot path. Expo pack smoke script exists but has not been run to completion.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner announcement. Lists stay on the legacy path until engine coverage is complete. Desktop has an in-process owner plus a utility-child runtime used by the packaged child entry; Electron `utilityProcess.fork` is selected at runtime when present. Packed portable packages have a Node pack-smoke script, not a completed Expo harness.
 
 ### D. Provider replication and repair
 
@@ -61,7 +63,7 @@ Browser host currently uses OPFS SAHPool (or memory) on the owning tab with a We
 - [ ] D4. Implement wake/hint/periodic catch-up and repair; verify missing/duplicate notifications and auth/throttle recovery.
 - [ ] D5. Pass the required dual-provider replication fault scenarios with independent provider/local-state inspection.
 
-Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. History/delta fault matrix is not evidenced.
+Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. The dual-provider history/delta/move/missed-hint matrix is not fully evidenced.
 
 ### E. Complete operations, drafts, and assistant coexistence
 
@@ -72,7 +74,7 @@ Source adapters try `getMailboxSyncPage` then fall back to pagination for emulat
 - [ ] E5. Implement separate assistant metadata ingestion and protect newer draft edits.
 - [ ] E6. Prove assistant processing with client stopped, later client catch-up, and no regression in affected live assistant flows.
 
-Metadata commands and frozen-draft/uncertain-send store paths exist. Uploads return unsupported. Assistant HTTP is an empty page. No Prisma receipt ledger yet.
+Metadata commands include snooze-as-archive. Frozen-draft/uncertain-send store paths exist. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging exists; HTTP uploads accept a checksummed payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. No Prisma send-receipt ledger yet.
 
 ### F. Product UI and local desktop shell
 
@@ -82,7 +84,7 @@ Metadata commands and frozen-draft/uncertain-send store paths exist. Uploads ret
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [ ] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page mounts `MailEngineHost`; list/actions use the engine when the provider is present and keep the previous path otherwise. Shared `MailApp` has list/archive/read/search/reader. Old IndexedDB owners are not removed.
+Mail page mounts `MailEngineHost` only when OPFS is available. List/actions use the engine after coverage is complete and keep the previous path otherwise. Shared `MailApp` has list/archive/read/search/reader. Old IndexedDB owners are not removed.
 
 ### G. Scale, preservation, and release readiness
 
@@ -122,11 +124,11 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Login/bootstrap/body/search/reopen | Not run | Not run | Not run | Not run | Partial store reopen |
 | Cross-view archive/counts/new mail | Not run | Not run | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests |
-| Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Not run |
+| Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Expired/reset cursor + stale hydration unit/integration |
 | Before-dispatch failure/response loss/restart | Not run | Not run | Not run | Not run | Uncertain send reopen |
-| Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen draft conflict |
-| Account/owner/session isolation | Not run | Not run | Not run | Not run | Not run |
-| Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Not run |
+| Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen draft conflict + blob stage/finalize + assistant draft protection |
+| Account/owner/session isolation | Not run | Not run | Not run | Not run | Worker account fence + Web Lock owner |
+| Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Not run | Not run | Not run | Not run | Not run |
 | Large-mailbox performance/offline boot | Not run | Not run | Not run | Not run | Not run |
 
@@ -165,6 +167,17 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite test`
 - Result: mail-core 4 files / 10 passed; mail-sqlite 1 file / 9 passed
 - What it proved: conversation preparation includes arrivals observed before freeze and rejects delayed pages after freeze or cancel; uncommitted `node:sqlite` writes roll back after connection close; idle catch-up rebuilds from bootstrap when `readChanges` returns `reset_required`.
+
+### E4. Per-target outcomes, dependencies, pagination, stale hydration, assistant, blobs (2026-09-18)
+
+- Tasks: B4, partial C1/C2, partial D1/D2/D4, partial E1/E3/E4/E5/E6
+- Commands:
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/desktop test` — mail-core 10, mail-sqlite 16, desktop 56
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui typecheck` — pass
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts utils/mail-api/source.test.ts utils/mail-api/assistant-state.test.ts utils/mail-engine/worker-protocol.test.ts` — 4 files, 7 passed
+  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/archive-reconciliation.test.ts __tests__/integration/mail-engine/http-archive.test.ts` — 2 files, 4 passed
+- What it proved: mixed bulk archive keeps applied vs rejected targets; overlapping commands serialize; conversation membership pages before freeze; older hydration versions are stale; assistant catch-up archives while protecting newer drafts; filesystem blobs stage/finalize; Gmail/Outlook HTTP archive still converges; membership pagination and throttle/reset mapping on the EmailProvider source; desktop utility-child runtime deduplicates commands for multiple windows.
+- Limitations: Playwright/UI cells still not run; Electron `utilityProcess.fork` is runtime-selected but not launched in this environment; Expo harness not run; send receipts and IndexedDB importer remain open.
 
 ## Decision and deviation log
 

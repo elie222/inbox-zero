@@ -19,7 +19,8 @@
     "./driver": "./src/driver.ts",
     "./store": "./src/store.ts",
     "./migrations": "./src/migrations.ts",
-    "./node": "./src/node-sqlite.ts"
+    "./node": "./src/node-sqlite.ts",
+    "./blob-store": "./src/blob-store.ts"
   },
   "scripts": {
     "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",

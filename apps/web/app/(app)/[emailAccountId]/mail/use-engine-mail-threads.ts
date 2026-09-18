@@ -28,15 +28,17 @@ export function useEngineMailThreads({
   );
   const [threads, setThreads] = useState<ListThread[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [coverageComplete, setCoverageComplete] = useState(false);
 
   useEffect(() => {
     if (!client || !enabled) {
       setThreads([]);
       setIsLoading(false);
+      setCoverageComplete(false);
       return;
     }
     const handle = client.observeMailbox(conversationQuery);
-    const unsubscribe = handle.subscribe(() => {
+    const applySnapshot = () => {
       const snapshot = handle.getSnapshot();
       setIsLoading(snapshot.status === "loading");
       setThreads(
@@ -44,12 +46,14 @@ export function useEngineMailThreads({
           conversationSummaryToListThread,
         ),
       );
-    });
-    const snapshot = handle.getSnapshot();
-    setIsLoading(snapshot.status === "loading");
-    setThreads(
-      (snapshot.data?.conversations ?? []).map(conversationSummaryToListThread),
-    );
+      setCoverageComplete(
+        (snapshot.data?.coverage ?? []).some(
+          (item) => item.metadata === "complete",
+        ),
+      );
+    };
+    const unsubscribe = handle.subscribe(applySnapshot);
+    applySnapshot();
     client.requestSync([emailAccountId]).catch(() => undefined);
     return () => {
       unsubscribe();
@@ -66,6 +70,7 @@ export function useEngineMailThreads({
     hasMore: false,
     isLoadingMore: false,
     loadMore: () => {},
+    coverageComplete,
     optimisticallyUpdateThreads: (
       threadIds: string[],
       _updater: (thread: ListThread) => ListThread,

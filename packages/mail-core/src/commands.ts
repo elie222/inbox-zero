@@ -22,6 +22,10 @@ export const metadataChangeSchema = z.discriminatedUnion("kind", [
     id: z.string().min(1).max(256),
     present: z.boolean(),
   }),
+  z.object({
+    kind: z.literal("snooze"),
+    untilMs: z.number().int().nonnegative(),
+  }),
 ]);
 export type MetadataChange = z.infer<typeof metadataChangeSchema>;
 

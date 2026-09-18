@@ -6,6 +6,7 @@ import {
   mailRequestId,
   MAIL_PROTOCOL_VERSION,
 } from "@/utils/mail-api/authorization";
+import { readAssistantStatePage } from "@/utils/mail-api/assistant-state";
 
 export const GET = withEmailProvider(
   "mail/v1/assistant-state",
@@ -18,14 +19,18 @@ export const GET = withEmailProvider(
       requestId,
     );
     if (mismatch) return mismatch;
+    const page = await readAssistantStatePage({
+      emailAccountId: request.auth.emailAccountId,
+      cursor: request.nextUrl.searchParams.get("cursor"),
+    });
     return NextResponse.json(
       assistantStateResultSchema.parse({
         protocolVersion: MAIL_PROTOCOL_VERSION,
         requestId,
-        cursor: request.nextUrl.searchParams.get("cursor"),
-        nextCursor: null,
-        reset: false,
-        entries: [],
+        cursor: page.cursor,
+        nextCursor: page.nextCursor,
+        reset: page.reset,
+        entries: page.entries,
       }),
     );
   },
