@@ -162,4 +162,32 @@ describe("createEmailProviderMailboxSource", () => {
       },
     });
   });
+
+  it("blocks catch-up when provider authentication fails", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getMailboxSyncPage() {
+          throw new Error("401 unauthorized");
+        },
+        async getMessagesWithPagination() {
+          throw new Error("401 unauthorized");
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      position: {
+        streamId: "primary",
+        generation: "g1",
+        checkpoint: "1",
+      },
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+    expect(result).toEqual({ status: "blocked_auth" });
+  });
 });

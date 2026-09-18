@@ -311,6 +311,15 @@ function mapProviderError(error: unknown) {
       reason: "throttled" as const,
     };
   }
+  const message = error instanceof Error ? error.message : "";
+  const lowered = message.toLowerCase();
+  if (
+    message.includes("401") ||
+    lowered.includes("unauthorized") ||
+    lowered.includes("invalid_grant")
+  ) {
+    return { status: "blocked_auth" as const };
+  }
   return {
     status: "paused" as const,
     retryAfterMs: 1000,

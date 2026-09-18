@@ -7,9 +7,13 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { createBrowserMailEngine } from "@/utils/mail-engine/create-browser-engine";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
-
-const OWNER_LOCK = "inbox-zero:mail-engine-owner";
-const SNAPSHOT_CHANNEL = "inbox-zero:mail-engine-snapshots";
+import {
+  MAIL_ENGINE_OWNER_LOCK,
+  MAIL_ENGINE_TAB_CHANNEL,
+  bindTabMailOwner,
+  createBroadcastTabBus,
+  createTabFollowerClient,
+} from "@/utils/mail-engine/tab-channel";
 
 export function MailEngineHost({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
@@ -20,11 +24,17 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     const capabilities = browserMailEngineCapabilities();
     if (!capabilities.opfs) return;
     let engine: Awaited<ReturnType<typeof createBrowserMailEngine>> | undefined;
+    let unbindOwner: (() => void) | undefined;
     const abort = new AbortController();
     const channel =
       typeof BroadcastChannel !== "undefined"
-        ? new BroadcastChannel(SNAPSHOT_CHANNEL)
+        ? new BroadcastChannel(MAIL_ENGINE_TAB_CHANNEL)
         : null;
+    const bus = channel ? createBroadcastTabBus(channel) : null;
+    if (bus) {
+      setClient(createTabFollowerClient({ accountId: emailAccountId, bus }));
+      bus.post({ type: "hello", accountId: emailAccountId });
+    }
 
     async function hold(create: () => Promise<void>) {
       await create();
@@ -47,15 +57,19 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
           await engine.close();
           return;
         }
-        channel?.postMessage({
-          type: "owner",
-          accountId: emailAccountId,
-        });
+        if (bus) {
+          unbindOwner = bindTabMailOwner({
+            accountId: emailAccountId,
+            client: engine,
+            bus,
+          });
+          bus.post({ type: "owner", accountId: emailAccountId });
+        }
         setClient(engine);
       };
       if (typeof navigator !== "undefined" && navigator.locks?.request) {
         await navigator.locks.request(
-          OWNER_LOCK,
+          MAIL_ENGINE_OWNER_LOCK,
           { signal: abort.signal },
           () => hold(create),
         );
@@ -68,6 +82,7 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
 
     return () => {
       abort.abort();
+      unbindOwner?.();
       channel?.close();
       engine?.close().catch(() => undefined);
       setClient(null);
