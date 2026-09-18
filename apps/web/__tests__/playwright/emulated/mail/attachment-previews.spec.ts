@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
+import { SEARCH_INDEX_VERSION } from "@/utils/email-cache/search-index-version";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("bounds opened attachment previews and reuses them offline", async ({
@@ -118,7 +118,7 @@ test("bounds opened attachment previews and reuses them offline", async ({
       });
       database.close();
     },
-    { size: png.length, emailAccountId, sourceVersion: SOURCE_VERSION },
+    { size: png.length, emailAccountId, sourceVersion: SEARCH_INDEX_VERSION },
   );
   const row = conversationWithSubject(
     page,

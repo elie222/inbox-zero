@@ -11,7 +11,7 @@ import {
 } from "./database";
 import { isMailSyncActivated } from "./mail-activation";
 import { storeLocalMailMessages } from "./local-mail-messages";
-import { SOURCE_VERSION } from "./search-index-source-version";
+import { SEARCH_INDEX_VERSION } from "./search-index-version";
 import { markSearchThreadsDirty } from "./search-index-work";
 import type { SearchMessage } from "./search-query";
 import {
@@ -30,7 +30,7 @@ export async function initializeSearchIndexAccount(emailAccountId: string) {
     !isEmailCacheEpochCurrent(emailAccountId, epoch)
   )
     return;
-  if (current?.sourceVersion === SOURCE_VERSION) return current;
+  if (current?.sourceVersion === SEARCH_INDEX_VERSION) return current;
   const transaction = await createAccountedMailTransaction(database, [
     "searchIndexAccounts",
     "searchIndexWork",
@@ -56,12 +56,12 @@ export async function initializeSearchIndexAccount(emailAccountId: string) {
     return;
   }
   const account =
-    existing?.sourceVersion === SOURCE_VERSION
+    existing?.sourceVersion === SEARCH_INDEX_VERSION
       ? existing
       : {
           emailAccountId,
           generation: randomUuid(),
-          sourceVersion: SOURCE_VERSION,
+          sourceVersion: SEARCH_INDEX_VERSION,
           messageBytes: existing?.messageBytes ?? 0,
           attachmentBytes: existing?.attachmentBytes ?? 0,
           retentionRevision: policy?.revision,

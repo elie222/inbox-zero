@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { localMailSyncBody } from "@/utils/actions/local-mail-sync.validation";
-import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
+import { SEARCH_INDEX_VERSION } from "@/utils/email-cache/search-index-version";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";
@@ -183,7 +183,7 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
   await expect(
     page.getByText("No matches yet.", { exact: true }),
   ).toBeVisible();
-  await input.fill("has:attachment");
+  await input.fill("larger:1M");
   await expect(
     page.getByText("Connect to search this query with your email provider.", {
       exact: true,
@@ -356,7 +356,11 @@ async function seedSearchCache(
           tx.onerror = () => reject(tx.error);
         };
       }),
-    { accountId: emailAccountId, messageCount, sourceVersion: SOURCE_VERSION },
+    {
+      accountId: emailAccountId,
+      messageCount,
+      sourceVersion: SEARCH_INDEX_VERSION,
+    },
   );
 }
 
@@ -409,7 +413,7 @@ test("uses the persistent index offline after reopening and pages beyond the fir
             database.close();
             return account?.sourceVersion === sourceVersion && !account.seed;
           },
-          { emailAccountId, sourceVersion: SOURCE_VERSION },
+          { emailAccountId, sourceVersion: SEARCH_INDEX_VERSION },
         ),
       )
       .toBe(true);
