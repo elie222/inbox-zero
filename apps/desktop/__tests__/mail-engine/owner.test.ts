@@ -69,6 +69,40 @@ describe("desktop mail owner", () => {
     await owner.close();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("returns mailbox snapshots over validated IPC", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "desktop-owner-view-"));
+    const owner = await createDesktopMailOwner({
+      databasePath: join(directory, "mailbox.sqlite"),
+      source: emptySource(),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+    });
+    const snapshot = await owner.handleIpc({
+      protocolVersion: 1,
+      requestId: "obs",
+      method: "observeMailbox",
+      payload: {
+        accountIds: ["acc-1"],
+        predicate: { kind: "role", role: "inbox" },
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      },
+    });
+    expect(snapshot).toMatchObject({
+      status: "ok",
+      result: { status: "ready" },
+    });
+    await owner.close();
+    await rm(directory, { recursive: true, force: true });
+  });
 });
 
 function emptySource(): MailboxSource {
