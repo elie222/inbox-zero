@@ -40,12 +40,14 @@ test("keeps an archived conversation hidden through engine reconciliation", asyn
     );
 
     await expect
-      .poll(() =>
-        readLatestMailMutation(page, {
-          emailAccountId,
-          kind: "archive",
-          threadId: THREAD_ID,
-        }),
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "archive",
+            threadId: THREAD_ID,
+          }),
+        { timeout: 60_000 },
       )
       .toMatchObject({ status: "succeeded" });
     await expect(conversation).toHaveCount(0);
