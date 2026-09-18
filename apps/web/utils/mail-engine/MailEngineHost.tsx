@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
@@ -55,6 +56,13 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
   const { emailAccountId } = useAccount();
   const status = useContext(MailEngineRuntimeStatusContext);
   const [ready, setReady] = useState(false);
+  // SSR has no OPFS; checking capabilities before hydration paints the
+  // storage-error shell instead of the shared loading state.
+  const isClient = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     setReady(false);
@@ -68,6 +76,9 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
     return () => abort.abort();
   }, [emailAccountId, status.client]);
 
+  if (!isClient) {
+    return <LoadingContent loading>{null}</LoadingContent>;
+  }
   if (status.unavailable || !browserMailEngineCapabilities().opfs) {
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
@@ -226,6 +237,10 @@ function publishMailEngineInspect(
 function clearMailEngineInspect() {
   if (typeof window === "undefined") return;
   window.__inboxZeroMailInspect = undefined;
+}
+
+function subscribeNever() {
+  return () => undefined;
 }
 
 declare global {
