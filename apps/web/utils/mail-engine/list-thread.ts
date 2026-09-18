@@ -26,6 +26,7 @@ export function conversationSummaryToListThread(
         date,
         internalDate: String(conversation.latestMessageAtMs),
         labelIds,
+        parentFolderId: undefined,
         headers: {
           from: conversation.from,
           to: "",
