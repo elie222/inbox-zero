@@ -1,15 +1,18 @@
-import { z } from "zod";
-import { env } from "@/env";
 import type { Rule } from "@/generated/prisma/client";
+import { shouldSelectMultipleRules } from "@/utils/ai/choose-rule/ai-choose-rule";
+import {
+  type ClassifierConfig,
+  type ClassifierQuestion,
+  classify,
+} from "@/utils/classifier/classify";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { enforceSensitiveDataPolicy } from "@/utils/llms/sensitive-content";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 import type { ParsedMessage } from "@/utils/types";
 
-const MODULE = "jev-choose-rule";
+const MODULE = "classifier-choose-rule";
 
 const COLD_EMAIL_KEY = "Cold Email";
 const NONE_KEY = "None";
@@ -23,39 +26,15 @@ const RULE_APPLIES_QUESTION = "Does this rule apply to this email?";
 const RULE_APPLIES_THRESHOLD = 0.5;
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
 
-const JEV_API_URL = "https://api.typesafe.ai/v1/systemone";
-const JEV_MODEL = "jev-latest";
-const JEV_TIMEOUT_MS = 30_000;
-
-const jevResponseSchema = z.object({
-  model: z.string(),
-  usage: z.object({ input_tokens: z.number() }),
-  answers: z.record(
-    z.string(),
-    z.discriminatedUnion("type", [
-      z.object({
-        type: z.literal("choice"),
-        choice: z.string(),
-        confidence: z.number(),
-        probabilities: z.record(z.string(), z.number()),
-      }),
-      z.object({ type: z.literal("noul"), noul: z.number() }),
-    ]),
-  ),
-});
-
-export function isJevRuleSelectionEnabled() {
-  return !!env.JEV_RULE_SELECTION_ENABLED && !!env.TYPESAFE_API_KEY;
-}
-
-type JevRuleCandidate = {
+type RuleCandidate = {
   id: string;
   name: string;
   instructions: string;
   systemType?: string | null;
 };
 
-export async function jevChooseRule<T extends JevRuleCandidate>({
+export async function classifierChooseRule<T extends RuleCandidate>({
+  classifier,
   message,
   emailAccount,
   rules,
@@ -63,10 +42,11 @@ export async function jevChooseRule<T extends JevRuleCandidate>({
   classificationFeedback,
   logger: parentLogger,
 }: {
+  classifier: ClassifierConfig;
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   rules: T[];
-  // Pass when the cold-email decision is still open so Jev makes it too.
+  // Pass when the cold-email decision is still open so the classifier makes it too.
   coldEmailRule: Pick<Rule, "instructions"> | null;
   classificationFeedback: ClassificationFeedbackItem[] | null;
   logger: Logger;
@@ -79,73 +59,63 @@ export async function jevChooseRule<T extends JevRuleCandidate>({
 
   const { criteria, rulesByKey } = buildCriteria({ rules, coldEmailRule });
 
-  // Same condition as the LLM chooser: the choice picks the primary rule and a
-  // yes/no per rule, in the same request, adds any others that also apply.
-  const selectMultiple =
-    emailAccount.multiRuleSelectionEnabled &&
-    rules.some((rule) => !rule.systemType);
-  const ruleAppliesQuestions = selectMultiple
-    ? Object.fromEntries(
-        [...rulesByKey.keys()].map((key) => [
-          key,
-          {
-            type: "noul",
-            instructions: {
-              question: RULE_APPLIES_QUESTION,
-              rule: criteria[key],
+  // For multi-rule accounts, the choice picks the primary rule and a yes/no per
+  // rule, in the same request, adds any others that also apply.
+  const selectMultiple = shouldSelectMultipleRules({ rules, emailAccount });
+  const ruleAppliesQuestions: Record<string, ClassifierQuestion> =
+    selectMultiple
+      ? Object.fromEntries(
+          [...rulesByKey.keys()].map((key) => [
+            key,
+            {
+              type: "yesNo",
+              instructions: {
+                question: RULE_APPLIES_QUESTION,
+                rule: criteria[key],
+              },
             },
-          },
-        ]),
-      )
-    : {};
+          ]),
+        )
+      : {};
 
-  // Throws under a BLOCK policy, which sends the caller to its LLM fallback.
-  const request = enforceSensitiveDataPolicy({
-    options: {
-      prompt: buildState({ message, emailAccount, classificationFeedback }),
-      instructions: {
-        ...ruleAppliesQuestions,
-        [CHOICE_QUESTION_KEY]: {
-          type: "choice",
-          instructions: QUESTION,
-          criteria,
-        },
+  const res = await classify({
+    config: classifier,
+    emailAccount,
+    state: buildState({ message, emailAccount, classificationFeedback }),
+    questions: {
+      ...ruleAppliesQuestions,
+      [CHOICE_QUESTION_KEY]: {
+        type: "choice",
+        instructions: QUESTION,
+        criteria,
       },
     },
-    policy: emailAccount.sensitiveDataPolicy,
-    label: "Jev rule selection",
+    label: "Classifier rule selection",
     logger,
-    userId: emailAccount.userId,
-    emailAccountId: emailAccount.id,
-  });
-
-  const res = await requestJev({
-    state: request.prompt,
-    questions: request.instructions,
   });
 
   const answer = res.answers[CHOICE_QUESTION_KEY];
   if (answer?.type !== "choice") {
-    throw new Error("Jev response is missing the rule choice");
+    throw new Error("Classifier response is missing the rule choice");
   }
 
   const ruleApplies = Object.fromEntries(
     Object.keys(ruleAppliesQuestions).map((key) => {
       const ruleAnswer = res.answers[key];
-      return [key, ruleAnswer?.type === "noul" ? ruleAnswer.noul : 0];
+      return [key, ruleAnswer?.type === "yesNo" ? ruleAnswer.probability : 0];
     }),
   );
 
-  logger.info("Jev chose rule", {
+  logger.info("Classifier chose rule", {
     choice: answer.choice,
     confidence: answer.confidence,
     probabilities: answer.probabilities,
     ruleApplies,
     model: res.model,
-    inputTokens: res.usage.input_tokens,
+    inputTokens: res.inputTokens,
   });
 
-  const reason = `Jev chose "${answer.choice}" (confidence ${answer.confidence.toFixed(2)})`;
+  const reason = `Classifier chose "${answer.choice}" (confidence ${answer.confidence.toFixed(2)})`;
 
   if (answer.choice === NONE_KEY)
     return { rules: [], reason, isColdEmail: false };
@@ -155,15 +125,13 @@ export async function jevChooseRule<T extends JevRuleCandidate>({
 
   const primaryRule = rulesByKey.get(answer.choice);
   if (!primaryRule) {
-    logger.warn("Jev returned an unknown key", { choice: answer.choice });
-    return { rules: [], reason, isColdEmail: false };
+    throw new Error("Classifier chose a rule that was not offered");
   }
 
   const additionalRules = [...rulesByKey]
     .filter(
       ([key, rule]) =>
-        rule !== primaryRule &&
-        (ruleApplies[key] ?? 0) >= RULE_APPLIES_THRESHOLD,
+        rule !== primaryRule && ruleApplies[key] >= RULE_APPLIES_THRESHOLD,
     )
     .map(([, rule]) => ({ rule, isPrimary: false }));
 
@@ -174,25 +142,7 @@ export async function jevChooseRule<T extends JevRuleCandidate>({
   };
 }
 
-async function requestJev(body: { state: unknown; questions: unknown }) {
-  const response = await fetch(JEV_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.TYPESAFE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: JEV_MODEL, ...body }),
-    signal: AbortSignal.timeout(JEV_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Jev request failed with status ${response.status}`);
-  }
-
-  return jevResponseSchema.parse(await response.json());
-}
-
-function buildCriteria<T extends JevRuleCandidate>({
+function buildCriteria<T extends RuleCandidate>({
   rules,
   coldEmailRule,
 }: {
@@ -208,13 +158,13 @@ function buildCriteria<T extends JevRuleCandidate>({
   ]);
 
   for (const rule of rules) {
-    const baseKey = rule.name.trim() || rule.id;
+    const baseKey = rule.name;
     let key = baseKey;
     for (let n = 2; usedKeys.has(key.toLowerCase()); n++) {
       key = `${baseKey} (${n})`;
     }
     usedKeys.add(key.toLowerCase());
-    criteria[key] = rule.instructions?.trim() || rule.name;
+    criteria[key] = rule.instructions.trim() || rule.name;
     rulesByKey.set(key, rule);
   }
 

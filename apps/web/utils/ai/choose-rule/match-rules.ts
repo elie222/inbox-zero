@@ -41,13 +41,12 @@ import {
 } from "@/utils/cold-email/cold-email-rule";
 import {
   checkColdEmailGuards,
+  checkColdEmailWithAi,
   type ColdEmailPatternMatch,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
-import {
-  isJevRuleSelectionEnabled,
-  jevChooseRule,
-} from "@/utils/ai/choose-rule/jev-choose-rule";
+import { classifierChooseRule } from "@/utils/ai/choose-rule/classifier-choose-rule";
+import { getClassifierConfig } from "@/utils/classifier/classify";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 import {
@@ -98,11 +97,11 @@ export async function findMatchingRules({
   const logger = log.with({ module: MODULE });
   const isThread = provider.isReplyInThread(message);
   const email = getEmailForLLM(message);
-  const useJev = isJevRuleSelectionEnabled();
+  const classifier = await getClassifierConfig(emailAccount);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // With Jev, only the deterministic cold-email guards run here. When they
-  // can't decide, the cold-email question is folded into the Jev rule choice.
+  // With a classifier, only the deterministic cold-email guards run here. When
+  // they can't decide, the cold-email question is folded into the rule choice.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -113,7 +112,7 @@ export async function findMatchingRules({
       coldEmailRule,
       logger,
     };
-    const coldEmailResult = useJev
+    const coldEmailResult = classifier
       ? await checkColdEmailGuards(coldEmailInput)
       : await isColdEmail({ ...coldEmailInput, modelType });
 
@@ -129,7 +128,7 @@ export async function findMatchingRules({
     if (!coldEmailResult) pendingColdEmailRule = coldEmailRule;
   }
 
-  // Filter out cold email rule which was already checked above
+  // The cold email rule is decided separately above
   const rulesWithoutColdEmail = rules.filter(
     (rule) => rule.systemType !== SystemType.COLD_EMAIL,
   );
@@ -155,8 +154,9 @@ export async function findMatchingRules({
         })
       : null;
 
-  if (useJev && (potentialAiMatches.length || pendingColdEmailRule)) {
-    const jevResult = await jevChooseRule({
+  if (classifier && (potentialAiMatches.length || pendingColdEmailRule)) {
+    const classifierResult = await classifierChooseRule({
+      classifier,
       message,
       emailAccount,
       rules: potentialAiMatches,
@@ -164,36 +164,38 @@ export async function findMatchingRules({
       classificationFeedback,
       logger,
     }).catch((error) => {
-      logger.warn("Jev rule selection failed, falling back to LLM path", {
-        error,
-      });
+      logger.warn(
+        "Classifier rule selection failed, falling back to LLM path",
+        {
+          error,
+        },
+      );
       return null;
     });
 
-    if (jevResult?.isColdEmail && pendingColdEmailRule) {
+    if (classifierResult?.isColdEmail && pendingColdEmailRule) {
       return buildColdEmailMatch({
         coldEmailRuleId: pendingColdEmailRule.id,
         matchReasons: [{ type: ConditionType.AI }],
-        reasoning: jevResult.reason,
+        reasoning: classifierResult.reason,
         selectionMetadata,
       });
     }
 
-    if (jevResult) {
+    if (classifierResult) {
       return mergeAiResultsIntoMatches({
         matches,
-        aiResult: jevResult,
+        aiResult: classifierResult,
         selectionMetadata,
       });
     }
   }
 
-  // Only reached with a pending cold-email rule when Jev failed.
+  // Only reached with a pending cold-email rule when the classifier failed.
   if (pendingColdEmailRule) {
-    const coldEmailResult = await isColdEmail({
+    const coldEmailResult = await checkColdEmailWithAi({
       email,
       emailAccount,
-      provider,
       modelType,
       coldEmailRule: pendingColdEmailRule,
       logger,
@@ -311,7 +313,7 @@ async function findPotentialMatchingRules({
     rule: RuleWithActions;
     matchReasons: MatchReason[];
   }[] = [];
-  const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
+  const potentialAiMatches: AiRuleCandidate[] = [];
   const skippedThreadRuleNames: string[] = [];
   const continuedThreadRuleNames: string[] = [];
   const learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"] =

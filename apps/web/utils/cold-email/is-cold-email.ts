@@ -152,7 +152,25 @@ export async function isColdEmail({
 
   if (guardResult) return guardResult;
 
-  // run through ai to see if it's a cold email
+  return checkColdEmailWithAi({
+    email,
+    emailAccount,
+    coldEmailRule,
+    modelType,
+    logger,
+  });
+}
+
+/** The AI step of `isColdEmail`, for callers that already ran the guards. */
+export async function checkColdEmailWithAi({
+  email,
+  emailAccount,
+  coldEmailRule,
+  modelType,
+  logger,
+}: Omit<ColdEmailGuardsInput, "provider"> & {
+  modelType?: ModelType;
+}): Promise<ColdEmailResult> {
   const res = await aiIsColdEmail(
     email,
     emailAccount,

@@ -7,19 +7,19 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 
-const envMock = vi.hoisted(() => ({
-  TYPESAFE_API_KEY: "typesafe-key",
-  JEV_RULE_SELECTION_ENABLED: true,
-}));
-const fetchMock = vi.fn();
+const classifyMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/env", () => ({ env: envMock }));
-vi.stubGlobal("fetch", fetchMock);
+vi.mock("@/utils/classifier/classify", () => ({ classify: classifyMock }));
 
-import { isJevRuleSelectionEnabled, jevChooseRule } from "./jev-choose-rule";
+import { classifierChooseRule } from "./classifier-choose-rule";
 
 const logger = createTestLogger();
 const CHOICE_KEY = "__rule_choice__";
+const classifier = {
+  provider: "typesafe" as const,
+  model: "test-model",
+  apiKey: "test-key",
+};
 
 function getMessage(overrides: Parameters<typeof getMockMessage>[0] = {}) {
   return getMockMessage(overrides) as unknown as ParsedMessage;
@@ -29,30 +29,28 @@ function mockAnswer(
   choice: string,
   { confidence = 0.9, ruleApplies = {} as Record<string, number> } = {},
 ) {
-  fetchMock.mockImplementation(async () =>
-    Response.json({
-      model: "jev-test",
-      usage: { input_tokens: 10, output_tokens: 1 },
-      answers: {
-        [CHOICE_KEY]: {
-          type: "choice",
-          choice,
-          confidence,
-          probabilities: { [choice]: confidence },
-        },
-        ...Object.fromEntries(
-          Object.entries(ruleApplies).map(([key, value]) => [
-            key,
-            { type: "noul", noul: value },
-          ]),
-        ),
+  classifyMock.mockResolvedValue({
+    model: "test-model",
+    inputTokens: 10,
+    answers: {
+      [CHOICE_KEY]: {
+        type: "choice",
+        choice,
+        confidence,
+        probabilities: { [choice]: confidence },
       },
-    }),
-  );
+      ...Object.fromEntries(
+        Object.entries(ruleApplies).map(([key, probability]) => [
+          key,
+          { type: "yesNo", probability },
+        ]),
+      ),
+    },
+  });
 }
 
 function getRequest(callIndex = 0) {
-  return JSON.parse(fetchMock.mock.calls[callIndex]?.[1].body);
+  return classifyMock.mock.calls[callIndex]?.[0];
 }
 
 const newsletterRule = {
@@ -67,9 +65,10 @@ const receiptRule = {
 };
 
 function chooseRule(
-  overrides: Partial<Parameters<typeof jevChooseRule>[0]> = {},
+  overrides: Partial<Parameters<typeof classifierChooseRule>[0]> = {},
 ) {
-  return jevChooseRule({
+  return classifierChooseRule({
+    classifier,
     message: getMessage(),
     emailAccount: getEmailAccount(),
     rules: [newsletterRule, receiptRule],
@@ -80,12 +79,9 @@ function chooseRule(
   });
 }
 
-describe("jevChooseRule", () => {
+describe("classifierChooseRule", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    fetchMock.mockReset();
-    envMock.TYPESAFE_API_KEY = "typesafe-key";
-    envMock.JEV_RULE_SELECTION_ENABLED = true;
   });
 
   it("maps the chosen key back to the rule", async () => {
@@ -95,7 +91,7 @@ describe("jevChooseRule", () => {
 
     expect(result).toEqual({
       rules: [{ rule: receiptRule, isPrimary: true }],
-      reason: 'Jev chose "Receipts" (confidence 0.80)',
+      reason: 'Classifier chose "Receipts" (confidence 0.80)',
       isColdEmail: false,
     });
     expect(Object.keys(getRequest().questions)).toEqual([CHOICE_KEY]);
@@ -148,6 +144,12 @@ describe("jevChooseRule", () => {
     ]);
   });
 
+  it("throws on a choice that was not offered, so the caller falls back", async () => {
+    mockAnswer("Invented rule");
+
+    await expect(chooseRule()).rejects.toThrow("not offered");
+  });
+
   it("disambiguates duplicate rule names", async () => {
     const first = { id: "a", name: "Follow up", instructions: "First" };
     const second = { id: "b", name: "follow up", instructions: "Second" };
@@ -161,30 +163,6 @@ describe("jevChooseRule", () => {
       "None",
     ]);
     expect(result.rules[0]?.rule).toBe(second);
-  });
-
-  it("does not call Jev when the sensitive data policy blocks the email", async () => {
-    const secret = "c".repeat(24);
-
-    await expect(
-      chooseRule({
-        emailAccount: {
-          ...getEmailAccount(),
-          sensitiveDataPolicy: "BLOCK",
-        },
-        message: getMessage({
-          textPlain: `client_secret=${secret}`,
-          textHtml: `<p>client_secret=${secret}</p>`,
-        }),
-      }),
-    ).rejects.toThrow("blocked by your account settings");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("throws when Jev returns an error status", async () => {
-    fetchMock.mockResolvedValue(new Response("rate limited", { status: 429 }));
-
-    await expect(chooseRule()).rejects.toThrow("status 429");
   });
 
   it("sends the latest message, account owner, and sender corrections", async () => {
@@ -242,6 +220,7 @@ describe("jevChooseRule", () => {
         "Receipts",
         CHOICE_KEY,
       ]);
+      expect(getRequest().questions.Newsletter.type).toBe("yesNo");
       expect(result.rules).toEqual([
         { rule: receiptRule, isPrimary: true },
         { rule: newsletterRule, isPrimary: false },
@@ -282,20 +261,5 @@ describe("jevChooseRule", () => {
 
       expect(Object.keys(getRequest().questions)).toEqual([CHOICE_KEY]);
     });
-  });
-});
-
-describe("isJevRuleSelectionEnabled", () => {
-  it("requires both the flag and the key", () => {
-    envMock.JEV_RULE_SELECTION_ENABLED = true;
-    envMock.TYPESAFE_API_KEY = "typesafe-key";
-    expect(isJevRuleSelectionEnabled()).toBe(true);
-
-    envMock.JEV_RULE_SELECTION_ENABLED = false;
-    expect(isJevRuleSelectionEnabled()).toBe(false);
-
-    envMock.JEV_RULE_SELECTION_ENABLED = true;
-    envMock.TYPESAFE_API_KEY = "";
-    expect(isJevRuleSelectionEnabled()).toBe(false);
   });
 });

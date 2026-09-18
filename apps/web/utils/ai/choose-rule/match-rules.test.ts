@@ -28,12 +28,11 @@ import {
 } from "@/utils/cold-email/cold-email-rule";
 import {
   checkColdEmailGuards,
+  checkColdEmailWithAi,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
-import {
-  isJevRuleSelectionEnabled,
-  jevChooseRule,
-} from "@/utils/ai/choose-rule/jev-choose-rule";
+import { classifierChooseRule } from "@/utils/ai/choose-rule/classifier-choose-rule";
+import { getClassifierConfig } from "@/utils/classifier/classify";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 
@@ -55,13 +54,16 @@ vi.mock("@/utils/cold-email/cold-email-rule", () => ({
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
   isColdEmail: vi.fn(),
   checkColdEmailGuards: vi.fn(),
+  checkColdEmailWithAi: vi.fn(),
 }));
 vi.mock("@/utils/rule/classification-feedback", () => ({
   getClassificationFeedback: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("@/utils/ai/choose-rule/jev-choose-rule", () => ({
-  isJevRuleSelectionEnabled: vi.fn().mockReturnValue(false),
-  jevChooseRule: vi.fn(),
+vi.mock("@/utils/classifier/classify", () => ({
+  getClassifierConfig: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("@/utils/ai/choose-rule/classifier-choose-rule", () => ({
+  classifierChooseRule: vi.fn(),
 }));
 
 describe("matchesStaticRule", () => {
@@ -3022,31 +3024,38 @@ describe("findMatchingRules - Integration Tests", () => {
   });
 });
 
-describe("findMatchingRules - Jev rule selection", () => {
+describe("findMatchingRules - classifier rule selection", () => {
+  const classifier = {
+    provider: "typesafe" as const,
+    model: "test-model",
+    apiKey: "test-key",
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(isJevRuleSelectionEnabled).mockReturnValue(true);
+    vi.mocked(getClassifierConfig).mockResolvedValue(classifier);
     vi.mocked(getColdEmailRule).mockResolvedValue(null);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(false);
   });
 
   afterEach(() => {
-    vi.mocked(isJevRuleSelectionEnabled).mockReturnValue(false);
+    vi.mocked(getClassifierConfig).mockResolvedValue(null);
   });
 
-  function getAiRule(overrides: Partial<RuleWithActions> = {}) {
-    return getRule({
-      id: "ai-rule",
+  function getAiRule() {
+    return {
+      ...getRule({
+        id: "ai-rule",
+        from: null,
+        to: null,
+        subject: null,
+        body: null,
+      }),
       instructions: "Archive promotional emails",
-      from: null,
-      to: null,
-      subject: null,
-      body: null,
-      ...overrides,
-    });
+    };
   }
 
-  it("merges the Jev-chosen rule with an AI match reason", async () => {
+  it("merges the classifier-chosen rule with an AI match reason", async () => {
     const aiRule = getAiRule();
     const classificationFeedback = [
       {
@@ -3058,9 +3067,9 @@ describe("findMatchingRules - Jev rule selection", () => {
     vi.mocked(getClassificationFeedback).mockResolvedValue(
       classificationFeedback,
     );
-    vi.mocked(jevChooseRule).mockResolvedValue({
-      rules: [{ rule: aiRule as any, isPrimary: true }],
-      reason: "Jev reason",
+    vi.mocked(classifierChooseRule).mockResolvedValue({
+      rules: [{ rule: aiRule, isPrimary: true }],
+      reason: "Classifier reason",
       isColdEmail: false,
     });
 
@@ -3073,8 +3082,9 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(jevChooseRule).toHaveBeenCalledWith(
+    expect(classifierChooseRule).toHaveBeenCalledWith(
       expect.objectContaining({
+        classifier,
         rules: [expect.objectContaining({ id: "ai-rule" })],
         coldEmailRule: null,
         classificationFeedback,
@@ -3085,10 +3095,10 @@ describe("findMatchingRules - Jev rule selection", () => {
     expect(result.matches).toEqual([
       { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
     ]);
-    expect(result.reasoning).toBe("Jev reason");
+    expect(result.reasoning).toBe("Classifier reason");
   });
 
-  it("returns the cold email rule when Jev picks Cold Email", async () => {
+  it("returns the cold email rule when the classifier picks Cold Email", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
@@ -3098,9 +3108,9 @@ describe("findMatchingRules - Jev rule selection", () => {
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
     vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
-    vi.mocked(jevChooseRule).mockResolvedValue({
+    vi.mocked(classifierChooseRule).mockResolvedValue({
       rules: [],
-      reason: "Jev cold",
+      reason: "Classifier cold",
       isColdEmail: true,
     });
 
@@ -3113,7 +3123,7 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(jevChooseRule).toHaveBeenCalledWith(
+    expect(classifierChooseRule).toHaveBeenCalledWith(
       expect.objectContaining({
         rules: [expect.objectContaining({ id: "ai-rule" })],
         coldEmailRule,
@@ -3123,10 +3133,10 @@ describe("findMatchingRules - Jev rule selection", () => {
     expect(result.matches).toEqual([
       { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
     ]);
-    expect(result.reasoning).toBe("Jev cold");
+    expect(result.reasoning).toBe("Classifier cold");
   });
 
-  it("returns the cold email rule from the guards without calling Jev", async () => {
+  it("returns the cold email rule from the guards without calling the classifier", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
@@ -3148,12 +3158,12 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(jevChooseRule).not.toHaveBeenCalled();
+    expect(classifierChooseRule).not.toHaveBeenCalled();
     expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
     expect(result.reasoning).toBe("ai-already-labeled");
   });
 
-  it("does not call Jev when there are no candidates and cold email is decided", async () => {
+  it("does not call the classifier when there are no candidates and cold email is decided", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
@@ -3174,16 +3184,16 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(jevChooseRule).not.toHaveBeenCalled();
+    expect(classifierChooseRule).not.toHaveBeenCalled();
     expect(aiChooseRule).not.toHaveBeenCalled();
     expect(result.matches).toEqual([]);
   });
 
-  it("never calls Jev when the flag is off", async () => {
-    vi.mocked(isJevRuleSelectionEnabled).mockReturnValue(false);
+  it("never calls the classifier when none is configured", async () => {
+    vi.mocked(getClassifierConfig).mockResolvedValue(null);
     const aiRule = getAiRule();
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [{ rule: aiRule as any }],
+      rules: [{ rule: aiRule }],
       reason: "LLM reason",
     });
 
@@ -3196,13 +3206,13 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(jevChooseRule).not.toHaveBeenCalled();
+    expect(classifierChooseRule).not.toHaveBeenCalled();
     expect(checkColdEmailGuards).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
     expect(result.reasoning).toBe("LLM reason");
   });
 
-  it("falls back to the LLM path when Jev throws", async () => {
+  it("falls back to the LLM path when the classifier throws", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
@@ -3211,13 +3221,15 @@ describe("findMatchingRules - Jev rule selection", () => {
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
     vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
-    vi.mocked(jevChooseRule).mockRejectedValue(new Error("Jev down"));
-    vi.mocked(isColdEmail).mockResolvedValue({
+    vi.mocked(classifierChooseRule).mockRejectedValue(
+      new Error("Classifier down"),
+    );
+    vi.mocked(checkColdEmailWithAi).mockResolvedValue({
       isColdEmail: false,
       reason: "ai",
     });
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [{ rule: aiRule as any }],
+      rules: [{ rule: aiRule }],
       reason: "LLM reason",
     });
 
@@ -3230,7 +3242,8 @@ describe("findMatchingRules - Jev rule selection", () => {
       logger,
     });
 
-    expect(isColdEmail).toHaveBeenCalledTimes(1);
+    expect(checkColdEmailWithAi).toHaveBeenCalledTimes(1);
+    expect(isColdEmail).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
     expect(result.matches).toEqual([
       { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
