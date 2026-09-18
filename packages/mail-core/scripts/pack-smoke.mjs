@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
+const packagesRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const packages = ["mail-core", "mail-sqlite", "mail-react", "mail-ui"];
 const forbidden = ["prisma", "next/", "electron", "@prisma"];
 
@@ -16,7 +18,8 @@ try {
       "pnpm",
       ["pack", "--pack-destination", directory],
       {
-        cwd: join(process.cwd(), "packages", name),
+        cwd: join(packagesRoot, name),
+        env: process.env,
       },
     );
     const packed = stdout.trim().split("\n").at(-1) ?? "";
