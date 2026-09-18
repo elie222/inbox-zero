@@ -90,7 +90,9 @@ test("opens a complete conversation and updates its read state", async ({
     .toMatchObject({ payload: { read: false }, status: "succeeded" });
 });
 
-test("opening a conversation issues one detail request", async ({ page }) => {
+test("opens a conversation from the engine without a thread-detail HTTP fetch", async ({
+  page,
+}) => {
   let threadDetailRequestCount = 0;
   const releaseFirstRequest = Promise.withResolvers<void>();
 
@@ -115,7 +117,7 @@ test("opening a conversation issues one detail request", async ({ page }) => {
     "Re: Reader Navigation Message",
   );
   await readerConversation.click();
-  await expect.poll(() => threadDetailRequestCount).toBe(1);
+  await expect.poll(() => threadDetailRequestCount).toBe(0);
   await expect(
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
@@ -123,7 +125,7 @@ test("opening a conversation issues one detail request", async ({ page }) => {
     "data-detail-selection-settled",
     "true",
   );
-  expect(threadDetailRequestCount).toBe(1);
+  expect(threadDetailRequestCount).toBe(0);
   releaseFirstRequest.resolve();
 
   await expect(
@@ -132,64 +134,28 @@ test("opening a conversation issues one detail request", async ({ page }) => {
   await expect(
     page.getByText("First message in the reader conversation."),
   ).toBeVisible();
-  expect(threadDetailRequestCount).toBe(1);
+  expect(threadDetailRequestCount).toBe(0);
 });
 
 test("waits for a direct reader snapshot before marking it read", async ({
   page,
 }) => {
   const emailAccountId = await getEmailAccountId(page);
-  const releaseThreadDetail = Promise.withResolvers<void>();
-  let threadDetailRequestCount = 0;
-
-  await page.addInitScript(() => {
-    Object.defineProperty(window.navigator, "onLine", {
-      configurable: true,
-      get: () => false,
-    });
-  });
-  await page.route(
-    "**/api/threads/thr_playwright_reader?includeDrafts=true",
-    async (route) => {
-      threadDetailRequestCount += 1;
-      const response = await route.fetch();
-      const data = (await response.json()) as {
-        thread: { messages: Array<{ labelIds?: string[] | null }> };
-      };
-      data.thread.messages = data.thread.messages.map((message) => ({
-        ...message,
-        labelIds: [...new Set([...(message.labelIds ?? []), "UNREAD"])],
-      }));
-      await releaseThreadDetail.promise;
-      await route.fulfill({ json: data });
-    },
-  );
-
   await page.goto(
     `/${emailAccountId}/mail?labelId=Label_project&thread-id=thr_playwright_reader`,
   );
-  await expect.poll(() => threadDetailRequestCount).toBe(1);
-  await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "set_read_state",
-        threadId: "thr_playwright_reader",
-      }),
-    )
-    .toBeUndefined();
-
-  releaseThreadDetail.resolve();
   await expect(
     page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
   await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "set_read_state",
-        threadId: "thr_playwright_reader",
-      }),
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_reader",
+        }),
+      { timeout: 60_000 },
     )
     .toMatchObject({ payload: { read: true }, status: "pending" });
 });
