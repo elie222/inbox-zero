@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `5fb86553f`
+- Last implementation commit: `9e57a7123`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; packaged Electron (C2) and remaining UI matrix; answer remaining review comments.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m; archived "Archive Action Message" stays hidden through succeeded
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 4.0m: live OPFS owner inspect, owner reload, follower second tab, blocked_auth reconnect click
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/tab-channel.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/stage-attachments.test.ts` — 3 files, 10 passed including closed-channel post, follower dispose, hung-coverage abort, and SHA-256 byte copy
   - `pnpm exec ultracite check` on tab-channel, MailEngineHost, coverage, and stage-attachments — pass
@@ -141,15 +142,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Not run | Not run | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
-| Cross-view archive/counts/new mail | Not run | Not run | Not run | Not run | SQLite archive + reference parity |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14) | Not run | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Cross-view archive/counts/new mail | Partial: archive hide + succeeded command (E15) | Not run | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
-| Before-dispatch failure/response loss/restart | Not run | Not run | Not run | Not run | Uncertain send reopen |
+| Before-dispatch failure/response loss/restart | Partial: owner reload (E14) | Not run | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen send payload + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection |
-| Account/owner/session isolation | Not run | Not run | Not run | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
+| Account/owner/session isolation | Partial: follower tab + owner reload (E14) | Not run | Not run | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Not run | Not run | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
+| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Not run | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Not run | Not run | Not run | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
@@ -281,7 +282,15 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/tab-channel.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/stage-attachments.test.ts` — 3 files, 10 passed
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 4.0m (reload added on `54b863172`)
 - What it proved: a second Chromium tab first-paints the conversations list as `follower` while the original tab stays `owner`. A full reload first-paints again as `owner`. `BroadcastChannel.postMessage` after unmount no longer throws into the ErrorBoundary. Disposing a follower rejects in-flight `getDiagnostics`. Coverage wait aborts when diagnostics hang. Intercepted `/changes` `blocked_auth` shows Reconnect and navigates to the stubbed linking URL. SHA-256 hashing copies `Uint8Array` bytes so `build:ci` accepts `crypto.subtle.digest`.
-- Limitations: live account-fencing and packaged Electron remain open; UI matrix other than inspect is still Not run.
+- Limitations: live account-fencing and packaged Electron remain open.
+
+### E15. Gmail web archive reconciliation (2026-09-18)
+
+- Tasks: partial G5, partial F2
+- Tree: `cursor/mail-engine-0b4f` at `9e57a7123`
+- Commands: `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m
+- What it proved: selecting Archive Action Message and Archive hides it immediately; diagnostics reach `succeeded`; a later page still omits that conversation. A 20s succeeded poll was too short when mail/v1 membership/execute each paid Redis-less middleware; the spec now waits 60s. Local Redis on 8079 made this run finish in 86s.
+- Limitations: Outlook web and both desktop archive cells are unrun; sidebar count/new-mail cells in the same family are unrun.
 
 ## Decision and deviation log
 
