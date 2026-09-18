@@ -88,7 +88,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [ ] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page mounts `MailEngineHost` only when OPFS is available. Follower tabs subscribe through the owner channel; the owning tab runs the engine. `MailEngineProvider` is installed only after metadata coverage is complete, so lists and actions stay on the IndexedDB path until then. Shared `MailApp` has list/archive/read/search/reader plus `blocked_auth` reconnect and offline status. Desktop renderer resolves account ids from the query string or an inspect snapshot and polls mailbox views over IPC. Old IndexedDB owners are not removed.
+Mail page mounts `MailEngineHost` only when OPFS is available. Follower tabs subscribe through the owner channel; the owning tab runs the engine. `MailEngineProvider` is not installed around MailShell yet: IndexedDB still owns lists/actions because a post-paint swap failed emulated archive/search/split/draft specs. Shared `MailApp` has list/archive/read/search/reader plus `blocked_auth` reconnect and offline status. Desktop renderer resolves account ids from the query string or an inspect snapshot and polls mailbox views over IPC. Old IndexedDB owners are not removed.
 
 ### G. Scale, preservation, and release readiness
 
@@ -238,6 +238,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 - Provider message caches and the search index are disposable and can be resynced.
 - Pending `mailMutations` and unsynced `replyDrafts` (plus their local attachments) are irreplaceable until acknowledged. `importLocalUserWork` maps those records into SQLite drafts/operations with source identity and per-item dedup. Attachment file import and cutover marker persistence in IndexedDB remain before F5 removal.
+
+### D5. MailShell list provider cutover
+
+- Requirement: replace MailShell lists after metadata coverage without a mid-session swap.
+- Chosen: boot the OPFS engine and expose `__inboxZeroMailInspect` after the engine starts, but do not install `MailEngineProvider` around MailShell yet (`MAIL_ENGINE_LISTS_ENABLED = false`).
+- Rationale: CI emulated mail specs failed when the provider swapped IndexedDB archive/search/split/draft overlays after first paint. Engine SQLite ingest still runs; list cutover waits for those overlays to have engine replacements.
+- Approval: implementation evidence from Playwright on `bf471d5f5`; not a product-semantic waiver of F2.
+- Affected contracts: `MailEngineHost`, `useMailThreads`, `mail-engine-inspect.spec.ts`.
 
 ## PR observation log
 
