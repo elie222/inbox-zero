@@ -21,6 +21,7 @@ import {
   bindTabMailOwner,
   createBroadcastTabBus,
   createTabFollowerClient,
+  disposeTabFollowerClient,
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
 import { setActiveMailClient } from "@/utils/mail-engine/active-client";
@@ -105,6 +106,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       return;
     }
     let engine: Awaited<ReturnType<typeof createBrowserMailEngine>> | undefined;
+    let published: MailClient | undefined;
     let unbindOwner: (() => void) | undefined;
     let unbindHello: (() => void) | undefined;
     const abort = new AbortController();
@@ -116,6 +118,8 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
     async function publishClient(next: MailClient, role: "owner" | "follower") {
       if (abort.signal.aborted) return;
+      if (published && published !== next) disposeTabFollowerClient(published);
+      published = next;
       publishMailEngineInspect(next, emailAccountId, role);
       setActiveMailClient(next);
       setClient(next);
@@ -126,7 +130,8 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         if (
           message.type !== "owner" ||
           message.accountId !== emailAccountId ||
-          engine
+          engine ||
+          published
         ) {
           return;
         }
@@ -188,6 +193,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       abort.abort();
       unbindOwner?.();
       unbindHello?.();
+      if (published) disposeTabFollowerClient(published);
       clearMailEngineInspect();
       setActiveMailClient(null);
       channel?.close();

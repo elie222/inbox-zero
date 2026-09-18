@@ -72,4 +72,14 @@ describe("waitForMetadataCoverage", () => {
     abort.abort();
     await expect(waiting).resolves.toBe(false);
   });
+
+  it("returns false when aborted while diagnostics hang", async () => {
+    const client = {
+      getDiagnostics: () => new Promise(() => undefined),
+    } as Pick<MailClient, "getDiagnostics"> as MailClient;
+    const abort = new AbortController();
+    const waiting = waitForMetadataCoverage(client, "acc-1", abort.signal);
+    abort.abort();
+    await expect(waiting).resolves.toBe(false);
+  });
 });

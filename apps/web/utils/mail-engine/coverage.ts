@@ -13,14 +13,34 @@ export async function waitForMetadataCoverage(
   accountId: string,
   abort: AbortSignal,
 ) {
+  // Follower getDiagnostics can hang after a closed BroadcastChannel.
+  // Abort must win that race so Strict Mode remounts can first-paint.
+  const aborted = waitForAbort(abort);
   while (!abort.aborted) {
     try {
-      const diagnostics = await client.getDiagnostics(accountId);
+      const diagnostics = await Promise.race([
+        client.getDiagnostics(accountId),
+        aborted,
+      ]);
+      if (!diagnostics) return false;
       if (isMetadataCoverageComplete(diagnostics.coverage)) return true;
     } catch {
-      // Coverage is observed; transient owner/follower errors keep waiting.
+      if (abort.aborted) return false;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await Promise.race([
+      new Promise<void>((resolve) => setTimeout(resolve, 100)),
+      aborted,
+    ]);
   }
   return false;
+}
+
+function waitForAbort(signal: AbortSignal) {
+  return new Promise<null>((resolve) => {
+    if (signal.aborted) {
+      resolve(null);
+      return;
+    }
+    signal.addEventListener("abort", () => resolve(null), { once: true });
+  });
 }

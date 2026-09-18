@@ -51,7 +51,7 @@ export function bindTabMailOwner(input: {
   bus: TabMailBus;
 }): () => void {
   const handles = new Map<string, { close: () => void }>();
-  return input.bus.subscribe((message) => {
+  const unsubscribe = input.bus.subscribe((message) => {
     if (message.type === "hello" && message.accountId === input.accountId) {
       input.bus.post({ type: "owner", accountId: input.accountId });
       return;
@@ -117,6 +117,17 @@ export function bindTabMailOwner(input: {
         }),
       );
   });
+  return () => {
+    unsubscribe();
+    for (const handle of handles.values()) handle.close();
+    handles.clear();
+  };
+}
+
+const followerDisposers = new WeakMap<MailClient, () => void>();
+
+export function disposeTabFollowerClient(client: MailClient) {
+  followerDisposers.get(client)?.();
 }
 
 export function createTabFollowerClient(input: {
@@ -134,7 +145,7 @@ export function createTabFollowerClient(input: {
       listeners: Set<() => void>;
     }
   >();
-  input.bus.subscribe((message) => {
+  const unsubscribe = input.bus.subscribe((message) => {
     if (message.type === "snapshot") {
       const observation = observations.get(message.handleId);
       if (!observation) return;
@@ -149,6 +160,15 @@ export function createTabFollowerClient(input: {
     if (message.type === "ok") waiter.resolve(message.value);
     else waiter.reject(new Error(message.message));
   });
+
+  function dispose() {
+    unsubscribe();
+    for (const waiter of pending.values()) {
+      waiter.reject(new Error("channel_closed"));
+    }
+    pending.clear();
+    observations.clear();
+  }
 
   function call(method: string, args: unknown[]) {
     const id = crypto.randomUUID();
@@ -210,7 +230,7 @@ export function createTabFollowerClient(input: {
     };
   }
 
-  return {
+  const client: MailClient = {
     observeMailbox: (query) => observeRemote("mailbox", [query]),
     observeConversation: (key, page) =>
       observeRemote("conversation", [key, page]),
@@ -225,12 +245,22 @@ export function createTabFollowerClient(input: {
     ensureMessageContent: (key) => call("ensureMessageContent", [key]) as never,
     getDiagnostics: (accountId) => call("getDiagnostics", [accountId]) as never,
   };
+  followerDisposers.set(client, () => {
+    dispose();
+    followerDisposers.delete(client);
+  });
+  return client;
 }
 
 export function createBroadcastTabBus(channel: BroadcastChannel): TabMailBus {
   return {
     post(message) {
-      channel.postMessage(message);
+      try {
+        channel.postMessage(message);
+      } catch {
+        // Owner/follower effects close the channel on unmount; pending
+        // hello/observe replies must not throw into React.
+      }
     },
     subscribe(listener) {
       const handler = (event: MessageEvent<TabMailMessage>) => {

@@ -3,8 +3,10 @@ import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { QueryHandle, QuerySnapshot } from "@inboxzero/mail-core/queries";
 import {
   bindTabMailOwner,
+  createBroadcastTabBus,
   createMemoryTabBus,
   createTabFollowerClient,
+  disposeTabFollowerClient,
 } from "./tab-channel";
 
 describe("mail engine tab channel", () => {
@@ -36,6 +38,26 @@ describe("mail engine tab channel", () => {
     expect(admission.status).toBe("queued");
     expect(submitted).toEqual(["archive-tab"]);
     handle.close();
+  });
+
+  it("does not throw when posting to a closed BroadcastChannel", () => {
+    const channel = {
+      postMessage() {
+        throw new DOMException("Channel is closed", "InvalidStateError");
+      },
+      addEventListener() {},
+      removeEventListener() {},
+    } as unknown as BroadcastChannel;
+    const bus = createBroadcastTabBus(channel);
+    expect(() => bus.post({ type: "hello", accountId: "acc-1" })).not.toThrow();
+  });
+
+  it("rejects in-flight follower calls after dispose", async () => {
+    const bus = createMemoryTabBus();
+    const follower = createTabFollowerClient({ accountId: "acc-1", bus });
+    const pending = follower.getDiagnostics("acc-1");
+    disposeTabFollowerClient(follower);
+    await expect(pending).rejects.toThrow("channel_closed");
   });
 });
 
