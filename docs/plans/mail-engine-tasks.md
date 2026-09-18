@@ -8,13 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `1f8a8b2e9`
+- Last implementation commit: `2c2307742`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: watch CI on the exact head; packaged Electron (C2) and remaining UI matrix; answer remaining review comments.
+- Next action: Outlook compose/inspect Playwright, packaged Electron (C2), watch CI on `2c2307742`.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/search.spec.ts` — 8 passed, 1 skipped (Gmail operators) in 2.1m
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m; provider `microsoft`
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/threads-query.test.ts` — 1 file, 3 passed including subject/from/has:attachment operators
+  - `cd apps/web && pnpm exec vitest --run utils/playwright/emulated-suite-selection.test.mjs` — 1 file, 32 passed
   - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m on `1f8a8b2e9`; log contains 0 `Invalid mailbox sync cursor` lines (was 33 on the previous compose-drafts run)
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts` — 1 file, 8 passed including last-page provider history cursor
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts` — 1 file, 6 passed
@@ -114,7 +118,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18).
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive and search Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20).
 
 ### G. Scale, preservation, and release readiness
 
@@ -336,6 +340,16 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m; `Invalid mailbox sync cursor` count 0 (33 on the prior compose-drafts log)
 - What it proved: finishing enumeration stores a decodeable Gmail history cursor from `getMailboxSyncPage`, or the newest numeric message `historyId` if that call fails. Live compose-drafts catch-up no longer logs invalid cursors.
 - Limitations: Outlook folder-delta catch-up after bootstrap still uses a single primary stream; expired-history 404 still rebuilds via `reset_required`.
+
+### E20. Outlook web archive and search Playwright (2026-09-18)
+
+- Tasks: partial F4, partial G5
+- Tree: `cursor/mail-engine-0b4f` at `2c2307742`
+- Commands:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft ... pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft ... pnpm -F inbox-zero-ai test:playwright:emulated mail/search.spec.ts` — 8 passed, 1 skipped in 2.1m
+- What it proved: the browser harness starts the Microsoft emulator, signs in through `/oauth2/v2.0/authorize`, and first-paints MailShell from Outlook-shaped SQLite. Archiving "Archive Action Message" stays hidden through succeeded. Inbox search and Outlook Keywords advanced search keep that conversation and hide Keyboard Navigation Message. Gmail operator search remains skipped on Outlook.
+- Limitations: Outlook compose-drafts and inspect Playwright not run in this checkpoint; desktop UI still unrun.
 
 ## Decision and deviation log
 
