@@ -3,8 +3,11 @@ import { mutationPayloadToChange } from "./mutation-change";
 
 describe("mutationPayloadToChange", () => {
   it("maps list mutation kinds onto engine changes", () => {
-    expect(mutationPayloadToChange({ kind: "archive" })).toEqual({
-      kind: "archive",
+    expect(mutationPayloadToChange({ kind: "unarchive" })).toEqual({
+      kind: "unarchive",
+    });
+    expect(mutationPayloadToChange({ kind: "untrash" })).toEqual({
+      kind: "restore_from_trash",
     });
     expect(
       mutationPayloadToChange({ kind: "set_read_state", read: true }),

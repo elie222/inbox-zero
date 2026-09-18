@@ -117,10 +117,12 @@ export function useThreadActions({
       batch.undone = true;
       if (lastAction.current === batch) lastAction.current = null;
 
-      const compensation: MetadataChange =
+      const compensation = mutationPayloadToChange(
         batch.action === "archive"
           ? { kind: "unarchive" }
-          : { kind: "restore_from_trash" };
+          : { kind: "untrash" },
+      );
+      if (!compensation) return [];
       const results = await Promise.allSettled(
         batch.snapshots.map(async (snapshot) => {
           const cancelled =
