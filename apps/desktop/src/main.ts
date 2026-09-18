@@ -40,7 +40,9 @@ import {
   parseDesktopAuthCallback,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
-import { parseMailIpcRequest } from "./mail-engine/ipc";
+import { createDesktopMailOwner } from "./mail-engine/owner";
+import { createRoutedBackendPorts } from "./mail-engine/backend";
+import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -128,11 +130,10 @@ function startDesktopApp() {
     if (!isAllowedDesktopNavigation(url, appOrigin)) return;
     openAppWindow(url, { navigate: true });
   });
-  ipcMain.handle("mail-engine", (event, payload: unknown) => {
+  ipcMain.handle("mail-engine", async (event, payload: unknown) => {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
-    return parseMailIpcRequest(payload).success
-      ? { status: "accepted" }
-      : { status: "invalid" };
+    const owner = await getDesktopMailOwner();
+    return owner.handleIpc(payload);
   });
 
   app.on("second-instance", (_event, argv) => {
@@ -576,4 +577,32 @@ function showSignInError(error: unknown) {
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
   );
+}
+
+let desktopMailOwner: ReturnType<typeof createDesktopMailOwner> | undefined;
+
+function getDesktopMailOwner() {
+  desktopMailOwner ??= createDesktopMailOwner({
+    databasePath: path.join(app.getPath("userData"), "mailbox.sqlite"),
+    ...createRoutedBackendPorts(createDesktopMailRequest()),
+  });
+  return desktopMailOwner;
+}
+
+function createDesktopMailRequest(): MailHttpRequestFn {
+  return async ({ method, path, body, signal }) => {
+    const response = await session
+      .fromPartition(PARTITION)
+      .fetch(new URL(path, appOrigin).toString(), {
+        method,
+        headers: {
+          accept: "application/json",
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal,
+      });
+    const json = await response.json().catch(() => null);
+    return { status: response.status, json };
+  };
 }

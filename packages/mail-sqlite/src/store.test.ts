@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import {
   createMailEngine,
@@ -309,6 +310,134 @@ describe("drafts, freeze, and uncertain settlement", () => {
     });
     expect(work?.kind).toBe("prepare");
     await store.close();
+  });
+
+  it("includes arrivals observed during preparation and excludes messages after freeze", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const revision = (await store.readMailboxView(inboxQuery)).revision;
+    const admission = await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: { kind: "archive" },
+      observedRevision: revision,
+    });
+    expect(admission.status).toBe("preparing");
+    const duringPrep = await store.applyPreparationPage({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      page: {
+        conversation: { accountId: "acc-1", conversationId: "c1" },
+        resolutionId: "res-1",
+        keys: [
+          { accountId: "acc-1", messageId: "m1" },
+          { accountId: "acc-1", messageId: "m2" },
+        ],
+        changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
+        nextPage: null,
+        evidence: null,
+      },
+    });
+    expect(duringPrep.status).toBe("preparing");
+    const frozen = await store.finishPreparation({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+    });
+    expect(frozen.status).toBe("queued");
+    const afterArrival = await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "late-mail",
+        from: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        to: { streamId: "primary", generation: "g1", checkpoint: "2" },
+        changes: [messagePatch("m3", "c1", 3000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    expect(afterArrival.status).toBe("committed");
+    const delayed = await store.applyPreparationPage({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      page: {
+        conversation: { accountId: "acc-1", conversationId: "c1" },
+        resolutionId: "res-late",
+        keys: [{ accountId: "acc-1", messageId: "m3" }],
+        changes: [],
+        nextPage: null,
+        evidence: null,
+      },
+    });
+    expect(delayed.status).toBe("stale");
+    const inspection = await store.inspect();
+    const frozenIds = inspection.operationTargets
+      .filter((target) => target.operationId === "archive-c1")
+      .map((target) => target.messageId)
+      .sort();
+    expect(frozenIds).toEqual(["m1", "m2"]);
+    const inbox = await store.readMailboxView(inboxQuery);
+    expect(
+      inbox.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+});
+
+describe("sqlite crash recovery", () => {
+  it("discards an uncommitted write after the connection closes", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-crash-"));
+    const path = join(directory, "mailbox.sqlite");
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const before = await store.inspect();
+    await store.close();
+
+    const crashed = new DatabaseSync(path);
+    crashed.exec("BEGIN IMMEDIATE");
+    crashed.exec("UPDATE profile_state SET sequence = sequence + 100");
+    crashed.close();
+
+    const reopened = await createSqliteMailStore(createNodeSqliteDriver(path));
+    const after = await reopened.inspect();
+    expect(after.revision.sequence).toBe(before.revision.sequence);
+    expect(after.messages).toHaveLength(1);
+    expect(after.messages[0]?.messageId).toBe("m1");
+    await reopened.close();
+    await rm(directory, { recursive: true, force: true });
   });
 });
 

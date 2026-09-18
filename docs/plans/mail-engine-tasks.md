@@ -6,15 +6,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 ## Resume state
 
-- Current milestone: Stage 1 vertical slice in tree; Stage 2–6 remaining. Draft PR is the next packaging/CI gate.
+- Current milestone: Stage 1 HTTP-mediated slice and freeze/crash coverage in progress; Stage 2–6 remaining.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: pending at handoff (working tree has the implementation).
-- Pull request: none yet; create/update the implementation PR on this branch.
-- Current task: keep package/integration evidence current, then watch CI and continue remaining gates.
-- Next action: run `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui test` (already passing locally) and `pnpm -F inbox-zero-ai test-integration __tests__/integration/mail-engine/archive-reconciliation.test.ts`; then Playwright mail archive and remaining Stage 2–6 work.
-- Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. Remaining product gates (snooze/scheduling semantics, support matrix, performance budgets) are recorded below and are not blocking the first slice.
+- Last implementation commit: `fbed53b4877b119ab102b99fd69b931445dc2022` (this checkpoint adds HTTP route mediation, freeze-boundary tests, crash reopen, browser worker owner, and desktop shared owner).
+- Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
+- Current task: verify HTTP `/api/mail/v1` archive against both emulators, package unit tests, and desktop owner tests; then continue remaining Stage 2–6 gates.
+- Next action: run `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/desktop test` and `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/http-archive.test.ts __tests__/integration/mail-engine/archive-reconciliation.test.ts`.
+- Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route.
 - Running processes/subagents: none.
-- Last validation: package unit tests passing; dual-provider emulator archive integration spec exists and must be re-run after this commit.
+- Last validation: dual-provider EmailProvider archive integration passed locally (`archive-reconciliation.test.ts`, 2/2). HTTP route mediation and freeze/crash tests are newly added and not yet recorded as passing.
 
 ## Checklist conventions
 
@@ -180,7 +180,11 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 ## PR observation log
 
-No PR yet. Record exact head, observation result, review signals, fix rounds, relevant replies, and pending items. A skill/tool/session time limit is a checkpoint with incomplete work, not successful completion.
+- PR: https://github.com/elie222/inbox-zero/pull/3793
+- Head at previous handoff: `fbed53b4877b119ab102b99fd69b931445dc2022`
+- Observed CI on that SHA: Tests 1/2 failed; Build Check and Playwright still in progress; CodeQL analyze jobs passed; license/cla pending. Not a green gate.
+- Fix rounds: 0 on the new HTTP/freeze/worker/desktop-owner revision.
+- Review comments: not yet answered on this revision.
 
 ## Feature inventory (A2)
 

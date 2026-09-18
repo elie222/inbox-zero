@@ -33,6 +33,22 @@ describe("applyMetadataChange", () => {
     const restored = applyMetadataChange(archived, { kind: "unarchive" });
     expect(restored.roles).toEqual(["inbox"]);
   });
+
+  it("applies read, star, trash, and spam changes", () => {
+    expect(
+      applyMetadataChange(confirmed, { kind: "set_read", read: true }).read,
+    ).toBe(true);
+    expect(
+      applyMetadataChange(confirmed, { kind: "set_starred", starred: true })
+        .starred,
+    ).toBe(true);
+    expect(applyMetadataChange(confirmed, { kind: "trash" }).roles).toEqual([
+      "trash",
+    ]);
+    expect(
+      applyMetadataChange(confirmed, { kind: "set_spam", spam: true }).roles,
+    ).toEqual(["spam"]);
+  });
 });
 
 describe("deriveEffectiveMessage", () => {

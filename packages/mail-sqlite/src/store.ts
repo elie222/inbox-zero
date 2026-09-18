@@ -980,6 +980,15 @@ async function inspectState(tx: SqlTransaction): Promise<MailStoreInspection> {
       };
     }),
     operations: operations.map(toOperationState),
+    operationTargets: (
+      await tx.query(
+        "SELECT account_id, command_id, message_id FROM operation_targets",
+      )
+    ).map((row) => ({
+      accountId: String(row.account_id),
+      operationId: String(row.command_id),
+      messageId: String(row.message_id),
+    })),
     coverage: await readCoverage(
       tx,
       accounts.map((row) => String(row.account_id)),

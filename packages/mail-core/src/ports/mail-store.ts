@@ -91,6 +91,11 @@ export type MailStoreInspection = {
     deleted: boolean;
   }>;
   operations: OperationState[];
+  operationTargets: Array<{
+    accountId: string;
+    operationId: string;
+    messageId: string;
+  }>;
   coverage: Coverage[];
   streams: Array<{
     accountId: string;

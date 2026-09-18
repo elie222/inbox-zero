@@ -1,0 +1,39 @@
+import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
+
+export type BrowserEngineStart = {
+  accountId: string;
+  provider: "google" | "microsoft";
+  generation?: string;
+  persist?: boolean;
+};
+
+export type WorkerRequest =
+  | { id: string; type: "start"; input: BrowserEngineStart }
+  | { id: string; type: "call"; method: string; args: unknown[] }
+  | {
+      id: string;
+      type: "observe";
+      kind: "mailbox" | "conversation" | "operation";
+      handleId: string;
+      args: unknown[];
+    }
+  | { id: string; type: "unobserve"; handleId: string }
+  | { id: string; type: "close" };
+
+export type WorkerResponse =
+  | { id: string; type: "ok"; value?: unknown }
+  | { id: string; type: "error"; message: string }
+  | { type: "snapshot"; handleId: string; snapshot: QuerySnapshot<unknown> };
+
+export function browserMailEngineCapabilities() {
+  return {
+    worker: typeof Worker !== "undefined",
+    locks:
+      typeof navigator !== "undefined" &&
+      Boolean((navigator as Navigator & { locks?: unknown }).locks),
+    opfs:
+      typeof navigator !== "undefined" &&
+      "storage" in navigator &&
+      "getDirectory" in navigator.storage,
+  };
+}

@@ -124,6 +124,8 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
+      const reset = parseReset(response);
+      if (reset) return reset;
       const error = parseError(response);
       if (error) {
         if (error.error.code === "expired_position") {
@@ -173,6 +175,8 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
+      const reset = parseReset(response);
+      if (reset) return reset;
       const error = parseError(response);
       if (error) {
         if (error.error.code === "expired_position") {
@@ -362,6 +366,22 @@ function parseError(response: { status: number; json: unknown }) {
   if (response.status < 400) return null;
   const parsed = mailHttpErrorSchema.safeParse(response.json);
   return parsed.success ? parsed.data : null;
+}
+
+function parseReset(response: { status: number; json: unknown }) {
+  if (
+    response.json &&
+    typeof response.json === "object" &&
+    "status" in response.json &&
+    response.json.status === "reset_required"
+  ) {
+    const scopeId =
+      "scopeId" in response.json && typeof response.json.scopeId === "string"
+        ? response.json.scopeId
+        : "account";
+    return { status: "reset_required" as const, scopeId };
+  }
+  return null;
 }
 
 function mapReadError(error: NonNullable<ReturnType<typeof parseError>>) {
