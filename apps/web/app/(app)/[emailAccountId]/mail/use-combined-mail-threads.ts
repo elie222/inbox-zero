@@ -27,11 +27,11 @@ export function useCombinedMailThreads({
     () => Object.fromEntries(accounts.map((account) => [account.id, account])),
     [accounts],
   );
-  const query: ThreadsQuery = searchQuery
-    ? { q: searchQuery }
-    : isUnread
-      ? { type: "unread" }
-      : { type: "inbox" };
+  const query = useMemo<ThreadsQuery>(() => {
+    if (searchQuery) return { q: searchQuery };
+    if (isUnread) return { type: "unread" };
+    return { type: "inbox" };
+  }, [isUnread, searchQuery]);
   return useEngineMailThreads({
     emailAccountId,
     accountIds: accountIds.length ? accountIds : [emailAccountId],
