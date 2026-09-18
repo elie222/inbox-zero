@@ -26,7 +26,7 @@ import {
   UserIcon,
   Users2Icon,
 } from "lucide-react";
-import type { LabelCount } from "@/app/api/labels/counts/route";
+import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
 import { Kbd } from "@/components/Kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ export type MailSidebarProps = {
   labels: EmailLabel[];
   folders: OutlookFolder[];
   /** Keyed by provider label/folder id. Arrives after first paint; may be empty. */
-  countsById: Map<string, LabelCount>;
+  countsById: Map<string, MailboxLabelCount>;
   categories: MailCategory[];
   categoryHeading: string;
   labelsHeading: string;
@@ -835,7 +835,7 @@ export function RailTooltip({
  * Drafts are never unread, so the only number worth showing there is the total.
  * A zero is noise, so it renders as nothing at all.
  */
-function displayCount(count: LabelCount | undefined): number | null {
+function displayCount(count: MailboxLabelCount | undefined): number | null {
   if (!count) return null;
   const value = count.id === "DRAFT" ? count.total : count.unread;
   return value > 0 ? value : null;

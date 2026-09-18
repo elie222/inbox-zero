@@ -76,7 +76,6 @@ import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-a
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
 import {
   MailLayout,
   MailSplitFilterKind,
@@ -141,7 +140,7 @@ import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingContent } from "@/components/LoadingContent";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
-import type { LabelCount } from "@/app/api/labels/counts/route";
+import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
 import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
@@ -155,7 +154,7 @@ const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   backgroundColor: option.value,
   textColor: "#000000",
 }));
-const NO_COUNTS = new Map<string, LabelCount>();
+const NO_COUNTS = new Map<string, MailboxLabelCount>();
 
 export function MailShell() {
   const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
@@ -167,11 +166,11 @@ export function MailShell() {
   const { userLabels } = useEmail();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
-  const {
-    adjustInboxUnread,
-    countsById,
-    mutate: mutateCounts,
-  } = useLabelCounts({ emailAccountId });
+  const { countsById, mutate: mutateCounts } = useLabelCounts({
+    emailAccountId,
+    labels: allLabels,
+    folders,
+  });
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
@@ -616,7 +615,7 @@ export function MailShell() {
     archive,
     trash,
     markSpam,
-    setReadState: queueReadState,
+    setReadState,
     setStarredState,
     snooze,
     undo,
@@ -625,38 +624,6 @@ export function MailShell() {
     readerTarget,
     threads,
   });
-  const inboxFolderId = folders.find(
-    (folder) => folder.systemType === "INBOX",
-  )?.id;
-  // Behind a ref so setReadState stays referentially stable across thread-list
-  // refreshes, matching useThreadActions.
-  const threadsRef = useRef(threads);
-  threadsRef.current = threads;
-  const setReadState = useCallback(
-    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
-      const threadsBeforeQueue = threadsRef.current;
-      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
-      if (!isAllAccounts) {
-        adjustInboxUnread(
-          getInboxUnreadDelta({
-            countByMessage: isOutlook,
-            inboxFolderId,
-            read,
-            threadKeys: queuedKeys,
-            threads: threadsBeforeQueue,
-          }),
-        );
-      }
-      return queuedKeys;
-    },
-    [
-      adjustInboxUnread,
-      inboxFolderId,
-      isAllAccounts,
-      isOutlook,
-      queueReadState,
-    ],
-  );
   const markRead = useCallback(
     (threadKeys: string[]) => setReadState(threadKeys, true, false),
     [setReadState],
