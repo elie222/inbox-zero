@@ -329,6 +329,7 @@ export function createMailEngine(input: {
           generations.set(work.session.accountId, work.session.generation);
           await store.applySyncPage({ page: changes.page, ownerId });
           await refreshViews();
+          await noteConnection(work.session.accountId, "ok");
         } else if (changes.status === "reset_required") {
           await ingestBootstrap({
             session: work.session,
@@ -338,6 +339,8 @@ export function createMailEngine(input: {
             requestId: `${work.jobId}-reset`,
             scopeId: changes.scopeId,
           });
+        } else {
+          await noteConnection(work.session.accountId, changes.status);
         }
       }
     },
@@ -370,7 +373,11 @@ export function createMailEngine(input: {
       },
       afterMs: null,
     });
-    if (bootstrap.status !== "ok") return;
+    if (bootstrap.status !== "ok") {
+      await noteConnection(input.session.accountId, bootstrap.status);
+      return;
+    }
+    await noteConnection(input.session.accountId, "ok");
     let page: string | null = bootstrap.value.enumerationToken;
     while (page && runtime.nowMs() < input.deadlineMs) {
       const enumerated = await source.enumerate({
@@ -381,7 +388,10 @@ export function createMailEngine(input: {
         page,
         pageSize: 50,
       });
-      if (enumerated.status !== "ok") break;
+      if (enumerated.status !== "ok") {
+        await noteConnection(input.session.accountId, enumerated.status);
+        break;
+      }
       await store.applySyncPage({
         page: {
           session: input.session,
@@ -437,6 +447,7 @@ export function createMailEngine(input: {
       if (changes.status === "page") {
         await store.applySyncPage({ page: changes.page, ownerId });
         await refreshViews();
+        await noteConnection(account.accountId, "ok");
       } else if (changes.status === "reset_required") {
         await ingestBootstrap({
           session,
@@ -446,6 +457,8 @@ export function createMailEngine(input: {
           requestId: runtime.randomId(),
           scopeId: changes.scopeId,
         });
+      } else {
+        await noteConnection(account.accountId, changes.status);
       }
       await catchUpAssistant(session, signal);
     }
@@ -491,6 +504,32 @@ export function createMailEngine(input: {
       })),
     });
     await refreshViews();
+  }
+
+  async function noteConnection(accountId: string, status: string) {
+    if (status === "blocked_auth") {
+      await store.recordConnection({
+        accountId,
+        connection: "blocked_auth",
+      });
+      await refreshViews();
+      return;
+    }
+    if (status === "paused") {
+      await store.recordConnection({
+        accountId,
+        connection: "offline",
+      });
+      await refreshViews();
+      return;
+    }
+    if (status === "ok" || status === "page") {
+      await store.recordConnection({
+        accountId,
+        connection: "ready",
+      });
+      await refreshViews();
+    }
   }
 }
 

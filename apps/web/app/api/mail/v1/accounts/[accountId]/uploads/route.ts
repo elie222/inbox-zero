@@ -13,7 +13,10 @@ import {
   mailRequestId,
   unsupportedVersionResponse,
 } from "@/utils/mail-api/authorization";
-import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
+import {
+  createFileBlobStore,
+  writeBlobMetadata,
+} from "@inboxzero/mail-sqlite/blob-store";
 
 export const POST = withEmailProvider(
   "mail/v1/uploads",
@@ -46,9 +49,12 @@ export const POST = withEmailProvider(
         { status: 400 },
       );
     }
-    const store = createFileBlobStore(
-      join(tmpdir(), "inbox-zero-mail-uploads", request.auth.emailAccountId),
+    const directory = join(
+      tmpdir(),
+      "inbox-zero-mail-uploads",
+      request.auth.emailAccountId,
     );
+    const store = createFileBlobStore(directory);
     const staged = await store.stage({
       blobId: parsed.data.uploadId,
       bytes: (async function* () {
@@ -78,6 +84,10 @@ export const POST = withEmailProvider(
         { status: 503 },
       );
     }
+    await writeBlobMetadata(directory, finalized.blobId, {
+      filename: parsed.data.filename ?? parsed.data.uploadId,
+      contentType: parsed.data.contentType,
+    });
     return NextResponse.json({
       protocolVersion: MAIL_PROTOCOL_VERSION,
       requestId,

@@ -76,9 +76,39 @@ function createOriginRequest(origin: string): MailHttpRequestFn {
   };
 }
 
-const runtime = createUtilityChildRuntime();
-if (process.send) {
-  process.on("message", (message: UtilityChildMessage) => {
-    runtime.handle(message).then((reply) => process.send?.(reply));
+export function bindUtilityChildTransport(
+  childRuntime: ReturnType<typeof createUtilityChildRuntime>,
+  processLike: {
+    send?: (message: unknown) => boolean;
+    on?(event: "message", listener: (message: unknown) => void): unknown;
+    parentPort?: {
+      on(
+        event: "message",
+        listener: (event: { data: unknown } | unknown) => void,
+      ): unknown;
+      postMessage(message: unknown): void;
+    };
+  },
+) {
+  if (typeof processLike.send === "function" && processLike.on) {
+    processLike.on("message", (message) => {
+      childRuntime
+        .handle(message as UtilityChildMessage)
+        .then((reply) => processLike.send?.(reply));
+    });
+    return;
+  }
+  if (!processLike.parentPort) return;
+  processLike.parentPort.on("message", (event) => {
+    const message =
+      event && typeof event === "object" && "data" in event
+        ? event.data
+        : event;
+    childRuntime
+      .handle(message as UtilityChildMessage)
+      .then((reply) => processLike.parentPort?.postMessage(reply));
   });
 }
+
+const runtime = createUtilityChildRuntime();
+bindUtilityChildTransport(runtime, process);

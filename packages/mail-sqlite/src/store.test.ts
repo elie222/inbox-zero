@@ -277,6 +277,86 @@ describe("engine plus sqlite archive slice", () => {
     expect(inspection.streams[0]?.checkpoint).toBe("rebuilt");
     await engine.close();
   });
+
+  it("records blocked_auth then recovers, and idle catch-up applies missed and duplicate hints", async () => {
+    const messages = new Map([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["m2", messagePatch("m2", "c2", 2000, ["inbox"])],
+    ]);
+    let changeStatus: "blocked_auth" | "page" = "blocked_auth";
+    const source = fixtureSource(messages);
+    const gated: MailboxSource = {
+      ...source,
+      async readChanges(input) {
+        if (changeStatus === "blocked_auth") {
+          return { status: "blocked_auth" };
+        }
+        return source.readChanges(input);
+      },
+    };
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [...messages.values()],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const engine = createMailEngine({
+      store,
+      source: gated,
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime(),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(Date.now() + 2000);
+    expect((await engine.getDiagnostics("acc-1")).connection).toBe(
+      "blocked_auth",
+    );
+    expect((await store.readMailboxView(inboxQuery)).view.connection).toBe(
+      "blocked_auth",
+    );
+
+    changeStatus = "page";
+    await engine.runUntil(Date.now() + 2000);
+    expect((await engine.getDiagnostics("acc-1")).connection).toBe("ready");
+    expect(
+      (await store.readMailboxView(inboxQuery)).view.counts
+        .matchingConversations,
+    ).toBe(2);
+
+    messages.set("m1", messagePatch("m1", "c1", 1000, []));
+    await engine.runUntil(Date.now() + 2000);
+    expect(
+      (await store.readMailboxView(inboxQuery)).view.counts
+        .matchingConversations,
+    ).toBe(1);
+    await engine.runUntil(Date.now() + 2000);
+    const inspection = await store.inspect();
+    expect(inspection.accounts[0]?.connection).toBe("ready");
+    expect(
+      (await store.readMailboxView(inboxQuery)).view.counts
+        .matchingConversations,
+    ).toBe(1);
+    await engine.close();
+  });
 });
 
 describe("drafts, freeze, and uncertain settlement", () => {

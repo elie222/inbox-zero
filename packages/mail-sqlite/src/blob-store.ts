@@ -53,6 +53,38 @@ export function createFileBlobStore(directory: string): BlobStore {
     async delete(blobId) {
       await rm(join(directory, blobId), { force: true });
       await rm(join(directory, `${blobId}.staging`), { force: true });
+      await rm(join(directory, `${blobId}.meta.json`), { force: true });
     },
   };
+}
+
+export async function writeBlobMetadata(
+  directory: string,
+  blobId: string,
+  metadata: { filename: string; contentType: string },
+) {
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, `${blobId}.meta.json`),
+    JSON.stringify(metadata),
+  );
+}
+
+export async function readBlobMetadata(
+  directory: string,
+  blobId: string,
+): Promise<{ filename: string; contentType: string } | null> {
+  try {
+    const raw = await readFile(join(directory, `${blobId}.meta.json`), "utf8");
+    const parsed = JSON.parse(raw) as {
+      filename?: string;
+      contentType?: string;
+    };
+    return {
+      filename: parsed.filename ?? blobId,
+      contentType: parsed.contentType ?? "application/octet-stream",
+    };
+  } catch {
+    return null;
+  }
 }

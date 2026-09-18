@@ -600,6 +600,7 @@ function createDesktopMailProcess() {
         path.dirname(fileURLToPath(import.meta.url)),
         "mail-engine-child.js",
       ),
+      fork: (modulePath) => utilityProcess.fork(modulePath),
     });
   }
   return createDesktopMailOwner({

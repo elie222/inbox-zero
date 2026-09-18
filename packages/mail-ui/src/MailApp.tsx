@@ -59,6 +59,22 @@ export function MailApp({
           ? `${snapshot.data?.counts.matchingConversations ?? 0} conversations`
           : snapshot.status}
       </p>
+      {snapshot.data?.connection === "blocked_auth" ? (
+        <p role="status">
+          Reconnect this account to continue syncing.
+          <button
+            type="button"
+            onClick={() => {
+              client.requestSync(accountIds).catch(() => undefined);
+            }}
+          >
+            Reconnect
+          </button>
+        </p>
+      ) : null}
+      {snapshot.data?.connection === "offline" ? (
+        <p role="status">Waiting to sync. Catch-up will retry automatically.</p>
+      ) : null}
       <ul aria-label="Conversations">
         {conversations.map((item) => (
           <li key={`${item.key.accountId}:${item.key.conversationId}`}>

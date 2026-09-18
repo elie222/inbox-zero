@@ -90,6 +90,7 @@ export type MailStoreInspection = {
     provider: "google" | "microsoft";
     generation: string;
     assistantCursor: string | null;
+    connection: "ready" | "offline" | "blocked_auth";
   }>;
   messages: Array<{
     accountId: string;
@@ -222,6 +223,10 @@ export interface MailStore {
     revision: LocalRevision;
     operation: OperationState | null;
   }>;
+  recordConnection(input: {
+    accountId: string;
+    connection: "ready" | "offline" | "blocked_auth";
+  }): Promise<void>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   settleAttempt(input: {
     attemptId: string;

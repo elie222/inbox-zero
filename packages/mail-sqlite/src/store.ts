@@ -714,10 +714,14 @@ export async function createSqliteMailStore(
           "SELECT command_id, conversation_id FROM operation_conversations WHERE account_id = ?",
           [accountId],
         );
+        const account = await tx.query(
+          "SELECT connection FROM accounts WHERE account_id = ?",
+          [accountId],
+        );
         return {
           accountId,
           revision,
-          connection: "ready" as const,
+          connection: connectionStatus(account[0]?.connection),
           coverage: await readCoverage(tx, [accountId]),
           pendingOperations: Number(pending[0]?.n ?? 0),
           uncertainOperations: Number(uncertain[0]?.n ?? 0),
@@ -800,6 +804,15 @@ export async function createSqliteMailStore(
     async completeJob(jobId) {
       await driver.write(async (tx) => {
         await tx.execute("DELETE FROM sync_jobs WHERE job_id = ?", [jobId]);
+      });
+    },
+    async recordConnection(input) {
+      await driver.write(async (tx) => {
+        await tx.execute(
+          "UPDATE accounts SET connection = ? WHERE account_id = ?",
+          [input.connection, input.accountId],
+        );
+        await bumpRevision(tx);
       });
     },
     async failOperation(key, code) {
@@ -1127,6 +1140,10 @@ async function readView(
   );
   const coverage = await readCoverage(tx, query.accountIds);
   const complete = coverage.every((item) => item.metadata === "complete");
+  const accountConnections = await tx.query(
+    `SELECT connection FROM accounts WHERE account_id IN (${query.accountIds.map(() => "?").join(",")})`,
+    query.accountIds,
+  );
   return {
     revision,
     view: {
@@ -1141,6 +1158,9 @@ async function readView(
           ? `${page.at(-1)?.latest}\t${page.at(-1)?.account_id}\t${page.at(-1)?.conversation_id}`
           : null,
       coverage,
+      connection: worstConnection(
+        accountConnections.map((row) => connectionStatus(row.connection)),
+      ),
     },
   };
 }
@@ -1162,6 +1182,7 @@ async function inspectState(tx: SqlTransaction): Promise<MailStoreInspection> {
       generation: String(row.generation),
       assistantCursor:
         row.assistant_cursor == null ? null : String(row.assistant_cursor),
+      connection: connectionStatus(row.connection),
     })),
     messages: confirmedRows.map((row) => {
       const confirmed = confirmedFromRow(row);
@@ -1466,6 +1487,23 @@ async function bumpRevision(tx: SqlTransaction): Promise<LocalRevision> {
     "UPDATE profile_state SET sequence = sequence + 1 WHERE id = 1",
   );
   return readRevision(tx);
+}
+
+function connectionStatus(
+  value: unknown,
+): "ready" | "offline" | "blocked_auth" {
+  const connection = String(value ?? "ready");
+  return connection === "blocked_auth" || connection === "offline"
+    ? connection
+    : "ready";
+}
+
+function worstConnection(
+  values: Array<"ready" | "offline" | "blocked_auth">,
+): "ready" | "offline" | "blocked_auth" {
+  if (values.includes("blocked_auth")) return "blocked_auth";
+  if (values.includes("offline")) return "offline";
+  return "ready";
 }
 
 async function readRevision(tx: SqlTransaction): Promise<LocalRevision> {

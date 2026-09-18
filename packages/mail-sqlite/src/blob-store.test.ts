@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createFileBlobStore } from "./blob-store";
+import {
+  createFileBlobStore,
+  readBlobMetadata,
+  writeBlobMetadata,
+} from "./blob-store";
 
 describe("file blob store", () => {
   it("stages, finalizes, and refuses a checksum mismatch", async () => {
@@ -39,6 +43,34 @@ describe("file blob store", () => {
     expect(Buffer.concat(chunks)).toEqual(Buffer.from(bytes));
     await store.delete("b1");
     expect(await store.read("b1")).toBeNull();
+    expect(await readBlobMetadata(directory, "b1")).toBeNull();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("persists filename and content type beside the blob bytes", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    const store = createFileBlobStore(directory);
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    await store.stage({
+      blobId: "invoice",
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+      checksum,
+      sizeBytes: 4,
+    });
+    await store.finalize("invoice");
+    await writeBlobMetadata(directory, "invoice", {
+      filename: "invoice.pdf",
+      contentType: "application/pdf",
+    });
+    expect(await readBlobMetadata(directory, "invoice")).toEqual({
+      filename: "invoice.pdf",
+      contentType: "application/pdf",
+    });
+    await store.delete("invoice");
+    expect(await readBlobMetadata(directory, "invoice")).toBeNull();
     await rm(directory, { recursive: true, force: true });
   });
 });

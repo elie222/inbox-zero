@@ -96,6 +96,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         );
         expect(archived?.effective.roles.includes("inbox")).toBe(false);
         expect(after.view.counts.matchingConversations).toBe(1);
+        await engine.runUntil(Date.now() + 4000);
+        const duplicate = await store.readMailboxView(
+          inboxQuery("gmail-catchup"),
+        );
+        expect(duplicate.view.counts.matchingConversations).toBe(1);
         await engine.close();
       } finally {
         await harness.emulator.close();

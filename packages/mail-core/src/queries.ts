@@ -115,6 +115,7 @@ export const mailboxViewSchema = z.object({
   }),
   nextPage: z.string().nullable(),
   coverage: z.array(coverageSchema),
+  connection: z.enum(["ready", "offline", "blocked_auth"]).optional(),
 });
 export type MailboxView = z.infer<typeof mailboxViewSchema>;
 

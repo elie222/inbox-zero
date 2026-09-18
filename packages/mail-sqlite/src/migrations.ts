@@ -226,4 +226,9 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  try {
+    await tx.exec("ALTER TABLE accounts ADD COLUMN connection TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
 }

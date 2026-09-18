@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { createEmailProviderOperationExecutor } from "./operations";
 import type { EmailProvider } from "@/utils/email/types";
 import type { PreparedOperation } from "@inboxzero/mail-core/operations";
@@ -8,6 +12,10 @@ import {
   activatePreparedSnoozedThread,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
+import {
+  createFileBlobStore,
+  writeBlobMetadata,
+} from "@inboxzero/mail-sqlite/blob-store";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -83,6 +91,59 @@ describe("createEmailProviderOperationExecutor", () => {
           email: expect.objectContaining({
             to: "ada@example.com",
             subject: "Hi",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("loads staged blob attachments into the durable send payload", async () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    );
+    const directory = join(tmpdir(), "inbox-zero-mail-uploads", "acc-1");
+    await mkdir(directory, { recursive: true });
+    const store = createFileBlobStore(directory);
+    const checksum = createHash("sha256").update(png).digest("hex");
+    await store.stage({
+      blobId: "blob-1",
+      bytes: (async function* () {
+        yield png;
+      })(),
+      checksum,
+      sizeBytes: png.byteLength,
+    });
+    await store.finalize("blob-1");
+    await writeBlobMetadata(directory, "blob-1", {
+      filename: "dot.png",
+      contentType: "image/png",
+    });
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-2", threadId: "t-2" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(["blob-1"]),
+      attemptId: "a-send-attach",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          email: expect.objectContaining({
+            attachments: [
+              expect.objectContaining({
+                filename: "dot.png",
+                contentType: "image/png",
+                content: png.toString("base64"),
+              }),
+            ],
           }),
         }),
       }),
@@ -167,7 +228,7 @@ function metadataOperation(
   };
 }
 
-function sendOperation(): PreparedOperation {
+function sendOperation(attachmentIds: string[] = []): PreparedOperation {
   return {
     key: {
       accountId: "acc-1",
@@ -186,7 +247,7 @@ function sendOperation(): PreparedOperation {
       subject: "Hi",
       html: "<p>Hi</p>",
       quotedHtml: "",
-      attachmentIds: [],
+      attachmentIds,
       replyToMessageId: null,
       replyToConversationId: null,
       queuedAtMs: Date.now(),

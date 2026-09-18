@@ -321,6 +321,7 @@ export const uploadAdmitRequestSchema = z.object({
   sizeBytes: z.number().int().nonnegative().max(25_000_000),
   checksum: z.string().min(1).max(128),
   contentType: z.string().max(256),
+  filename: z.string().max(1024).optional(),
 });
 
 export function mailHttpErrorResponse(input: {

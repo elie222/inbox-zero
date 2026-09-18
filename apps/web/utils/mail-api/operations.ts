@@ -1,6 +1,8 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import type { PreparedOperation } from "@inboxzero/mail-core/operations";
-import { createHash } from "node:crypto";
 import type { EmailProvider } from "@/utils/email/types";
 import { parsedMessagePatch } from "@/utils/mail-api/observations";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
@@ -12,6 +14,10 @@ import {
 } from "@/utils/snooze/scheduler";
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
+import {
+  createFileBlobStore,
+  readBlobMetadata,
+} from "@inboxzero/mail-sqlite/blob-store";
 
 const logger = createScopedLogger("mail-api/operations");
 
@@ -308,6 +314,10 @@ async function executeSend(
   if (operation.intent.kind !== "send") {
     return { status: "rejected" as const, code: "unsupported", targets: [] };
   }
+  const attachments = await loadSendAttachments(
+    accountId,
+    operation.intent.attachmentIds,
+  );
   const outcome = await executeDurableEmailSend({
     logger,
     emailAccountId: accountId,
@@ -332,6 +342,7 @@ async function executeSend(
               messageId: operation.intent.replyToMessageId ?? undefined,
             }
           : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       },
     },
   });
@@ -416,6 +427,28 @@ function sendMutationId(operationId: string) {
 
 function isHexChar(value: string) {
   return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
+}
+
+async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
+  if (attachmentIds.length === 0) return [];
+  const directory = join(tmpdir(), "inbox-zero-mail-uploads", accountId);
+  const store = createFileBlobStore(directory);
+  const attachments = [];
+  for (const blobId of attachmentIds) {
+    const stream = await store.read(blobId);
+    if (!stream) continue;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const bytes = Buffer.concat(chunks);
+    const metadata = await readBlobMetadata(directory, blobId);
+    attachments.push({
+      filename: metadata?.filename ?? blobId,
+      content: bytes.toString("base64"),
+      contentType: metadata?.contentType ?? "application/octet-stream",
+      size: bytes.byteLength,
+    });
+  }
+  return attachments;
 }
 
 async function threadIdForSnooze(
