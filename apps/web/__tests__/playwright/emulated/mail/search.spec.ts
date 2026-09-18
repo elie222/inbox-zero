@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
@@ -64,6 +65,10 @@ for (const accountScope of ["single", "all"] as const) {
 test("advanced search composes Gmail operators and restores them", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Advanced search operators are Gmail query syntax.",
+  );
   await openMail(page);
 
   await page.getByRole("button", { name: "Show search options" }).click();

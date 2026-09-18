@@ -168,13 +168,21 @@ test("opens account reconnect from blocked_auth catch-up", async ({
     .toBe("blocked_auth");
 
   const reconnectPath = `/${emailAccountId}/mail?reconnect=blocked`;
-  await page.route("**/api/google/linking/auth-url**", async (route) => {
+  const fulfillReconnect = async (route: {
+    fulfill: (response: {
+      status: number;
+      contentType: string;
+      json: { url: string };
+    }) => Promise<unknown>;
+  }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       json: { url: reconnectPath },
     });
-  });
+  };
+  await page.route("**/api/google/linking/auth-url**", fulfillReconnect);
+  await page.route("**/api/outlook/linking/auth-url**", fulfillReconnect);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-engine-blocked-auth");
   await page.getByRole("button", { name: "Reconnect" }).click();
   await expect(page).toHaveURL(

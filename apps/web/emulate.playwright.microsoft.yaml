@@ -1,0 +1,80 @@
+microsoft:
+  users:
+    - email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Smoke Test User
+  oauth_clients:
+    - client_id: emulate-microsoft-client-id
+      client_secret: emulate-microsoft-secret
+      name: Inbox Zero Smoke
+      redirect_uris:
+        - __PLAYWRIGHT_TEST_REDIRECT_URI__
+        - __PLAYWRIGHT_TEST_LINKING_URI__
+  messages:
+    - id: msg_playwright_1
+      conversation_id: thr_playwright_1
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: alice@example.com
+        name: Alice Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Playwright Test Message
+      body_content: Emulator message body.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-04T12:00:00.000Z"
+    - id: msg_playwright_archive
+      conversation_id: thr_playwright_archive
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: erin@example.com
+        name: Erin Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Archive Action Message
+      body_content: This conversation is reserved for archive and undo coverage.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-03T12:00:00.000Z"
+    - id: msg_playwright_keyboard
+      conversation_id: thr_playwright_keyboard
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: grace@example.com
+        name: Grace Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Keyboard Navigation Message
+      body_content: This conversation is reserved for keyboard navigation coverage.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T12:00:00.000Z"
+    - id: msg_playwright_draft
+      conversation_id: thr_playwright_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: jordan@example.com
+          name: Jordan Example
+      subject: Seeded Draft Message
+      body_content: This unsent draft is visible in the Drafts view.
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T12:00:00.000Z"
+    - id: msg_playwright_sent
+      conversation_id: thr_playwright_sent
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: kai@example.com
+          name: Kai Example
+      subject: Seeded Sent Message
+      body_content: This sent conversation is visible in the Sent view.
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T12:00:00.000Z"
