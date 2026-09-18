@@ -6,15 +6,18 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 ## Resume state
 
-- Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts, and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
+- Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `29676df4d`
+- Last implementation commit: pending engine-owned counts
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; answer remaining review comments; run Playwright inspect (C1).
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `pnpm exec ultracite check` on label-count cutover files — pass
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/label-count-targets.test.ts utils/swr-persistence.test.ts app/(app)/[emailAccountId]/mail/label-visibility.test.ts` — 3 files, 18 passed
+  - Previous checkpoint:
   - `pnpm --filter @inboxzero/mail-sqlite test src/blob-store.test.ts` — 1 file, 3 passed including path-escaping blob ids
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/stage-attachments.test.ts` — 1 file, 3 passed
   - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite typecheck` — pass
@@ -95,7 +98,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
 
 ### G. Scale, preservation, and release readiness
 
@@ -240,6 +243,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - What it proved: filesystem blob ids must be a single `[A-Za-z0-9._-]` segment; paths are resolved and rejected if they leave the store directory; HTTP `uploadId` uses the same schema. Parameter’s path-traversal note on `createFileBlobStore` is addressed.
 - Limitations: none for this finding.
 
+### E11. Engine-owned sidebar and desktop counts (2026-09-18)
+
+- Tasks: partial F2
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: see Resume state last validation.
+- What it proved: sidebar label/folder counts and the desktop unread badge subscribe to `observeMailbox` on the same effective predicates as the lists. Pending read/archive no longer patches a separate SWR `/api/labels/counts` overlay. That HTTP route remains for other clients; the mail UI does not fetch it.
+- Limitations: Playwright inspect and packaged Electron sessions still unrun; composer restore is still in-memory.
+
 ## Decision and deviation log
 
 ### D0. Launch ingestion/command route
@@ -273,7 +284,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### D5. MailShell list provider cutover
 
 - Requirement: replace MailShell lists after metadata coverage without a mid-session swap. Do not keep an IndexedDB mailbox fallback.
-- Chosen: `MailEngineRuntime` starts in the authenticated app layout and provides the client as soon as the engine starts. The mail page still waits for metadata coverage before first-painting MailShell. Reader, EmailList, CommandK, sender-queue batches, label counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
+- Chosen: `MailEngineRuntime` starts in the authenticated app layout and provides the client as soon as the engine starts. The mail page still waits for metadata coverage before first-painting MailShell. Reader, EmailList, CommandK, sender-queue batches, label counts via `observeMailbox`, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
 - Rationale: the original plan builds the engine as if the IndexedDB cache did not exist (opening line, browser “no IndexedDB mailbox fallback”, F2/F5, Stage 6 “no indefinite dual-write layer”). The previous `MAIL_ENGINE_LISTS_ENABLED = false` path was a CI workaround, not a product decision.
 - Approval: implementation prompt; product owner confirmed IndexedDB should not remain.
 - Affected contracts: `MailEngineHost`, `MailEngineRuntime`, `useThread`, `useMailThreads`, `EmailList`, `CommandK`, `useLabelCounts`, `layout.tsx`, `queueReaderEmail`, `submitSend`.
