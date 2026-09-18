@@ -55,47 +55,54 @@ export const POST = withEmailProvider(
       request.auth.emailAccountId,
     );
     const store = createFileBlobStore(directory);
-    const staged = await store.stage({
-      blobId: parsed.data.uploadId,
-      bytes: (async function* () {
-        yield bytes;
-      })(),
-      checksum: parsed.data.checksum,
-      sizeBytes: parsed.data.sizeBytes,
-    });
-    if (staged.status !== "staged") {
+    try {
+      const staged = await store.stage({
+        blobId: parsed.data.uploadId,
+        bytes: (async function* () {
+          yield bytes;
+        })(),
+        checksum: parsed.data.checksum,
+        sizeBytes: parsed.data.sizeBytes,
+      });
+      if (staged.status !== "staged") {
+        return NextResponse.json(
+          mailHttpErrorResponse({
+            requestId,
+            code: "invalid",
+            retryable: false,
+          }),
+          { status: 400 },
+        );
+      }
+      const finalized = await store.finalize(parsed.data.uploadId);
+      if (!finalized) {
+        return NextResponse.json(
+          mailHttpErrorResponse({
+            requestId,
+            code: "unavailable",
+            retryable: true,
+          }),
+          { status: 503 },
+        );
+      }
+      await writeBlobMetadata(directory, finalized.blobId, {
+        filename: parsed.data.filename ?? parsed.data.uploadId,
+        contentType: parsed.data.contentType,
+      });
+      return NextResponse.json({
+        protocolVersion: MAIL_PROTOCOL_VERSION,
+        requestId,
+        status: "staged",
+        blobId: finalized.blobId,
+        sizeBytes: finalized.sizeBytes,
+        checksum: finalized.checksum,
+      });
+    } catch {
       return NextResponse.json(
-        mailHttpErrorResponse({
-          requestId,
-          code: "invalid",
-          retryable: false,
-        }),
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
         { status: 400 },
       );
     }
-    const finalized = await store.finalize(parsed.data.uploadId);
-    if (!finalized) {
-      return NextResponse.json(
-        mailHttpErrorResponse({
-          requestId,
-          code: "unavailable",
-          retryable: true,
-        }),
-        { status: 503 },
-      );
-    }
-    await writeBlobMetadata(directory, finalized.blobId, {
-      filename: parsed.data.filename ?? parsed.data.uploadId,
-      contentType: parsed.data.contentType,
-    });
-    return NextResponse.json({
-      protocolVersion: MAIL_PROTOCOL_VERSION,
-      requestId,
-      status: "staged",
-      blobId: finalized.blobId,
-      sizeBytes: finalized.sizeBytes,
-      checksum: finalized.checksum,
-    });
   },
 );
 

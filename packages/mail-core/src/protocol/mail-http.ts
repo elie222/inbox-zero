@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   accountSessionSchema,
+  blobIdSchema,
   conversationKeySchema,
   MAIL_PROTOCOL_VERSION,
   messageKeySchema,
@@ -317,7 +318,7 @@ export const uploadAdmitRequestSchema = z.object({
   protocolVersion: mailProtocolVersionSchema,
   requestId: z.string().min(1).max(128),
   session: accountSessionSchema,
-  uploadId: z.string().min(1).max(128),
+  uploadId: blobIdSchema,
   sizeBytes: z.number().int().nonnegative().max(25_000_000),
   checksum: z.string().min(1).max(128),
   contentType: z.string().max(256),

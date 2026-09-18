@@ -1,11 +1,13 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
+import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 
 export function createFileBlobStore(directory: string): BlobStore {
   return {
     async stage(input) {
+      const stagingPath = blobFile(directory, input.blobId, ".staging");
       await mkdir(directory, { recursive: true });
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -21,12 +23,12 @@ export function createFileBlobStore(directory: string): BlobStore {
       if (checksum !== input.checksum) {
         return { status: "rejected", code: "checksum_mismatch" };
       }
-      await writeFile(join(directory, `${input.blobId}.staging`), bytes);
+      await writeFile(stagingPath, bytes);
       return { status: "staged" };
     },
     async finalize(blobId) {
-      const staged = join(directory, `${blobId}.staging`);
-      const finalPath = join(directory, blobId);
+      const staged = blobFile(directory, blobId, ".staging");
+      const finalPath = blobFile(directory, blobId);
       try {
         const bytes = await readFile(staged);
         await writeFile(finalPath, bytes);
@@ -41,8 +43,9 @@ export function createFileBlobStore(directory: string): BlobStore {
       }
     },
     async read(blobId) {
+      const path = blobFile(directory, blobId);
       try {
-        const bytes = await readFile(join(directory, blobId));
+        const bytes = await readFile(path);
         return (async function* () {
           yield new Uint8Array(bytes);
         })();
@@ -51,9 +54,9 @@ export function createFileBlobStore(directory: string): BlobStore {
       }
     },
     async delete(blobId) {
-      await rm(join(directory, blobId), { force: true });
-      await rm(join(directory, `${blobId}.staging`), { force: true });
-      await rm(join(directory, `${blobId}.meta.json`), { force: true });
+      await rm(blobFile(directory, blobId), { force: true });
+      await rm(blobFile(directory, blobId, ".staging"), { force: true });
+      await rm(blobFile(directory, blobId, ".meta.json"), { force: true });
     },
   };
 }
@@ -65,7 +68,7 @@ export async function writeBlobMetadata(
 ) {
   await mkdir(directory, { recursive: true });
   await writeFile(
-    join(directory, `${blobId}.meta.json`),
+    blobFile(directory, blobId, ".meta.json"),
     JSON.stringify(metadata),
   );
 }
@@ -74,8 +77,9 @@ export async function readBlobMetadata(
   directory: string,
   blobId: string,
 ): Promise<{ filename: string; contentType: string } | null> {
+  const path = blobFile(directory, blobId, ".meta.json");
   try {
-    const raw = await readFile(join(directory, `${blobId}.meta.json`), "utf8");
+    const raw = await readFile(path, "utf8");
     const parsed = JSON.parse(raw) as {
       filename?: string;
       contentType?: string;
@@ -87,4 +91,15 @@ export async function readBlobMetadata(
   } catch {
     return null;
   }
+}
+
+function blobFile(directory: string, blobId: string, suffix = "") {
+  const parsed = blobIdSchema.safeParse(blobId);
+  if (!parsed.success) throw new Error("invalid blob id");
+  const root = resolve(directory);
+  const path = resolve(root, `${parsed.data}${suffix}`);
+  if (path !== root && !path.startsWith(`${root}${sep}`)) {
+    throw new Error("invalid blob id");
+  }
+  return path;
 }

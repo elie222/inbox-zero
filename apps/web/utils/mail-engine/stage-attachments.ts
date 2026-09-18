@@ -1,4 +1,7 @@
-import { MAIL_PROTOCOL_VERSION } from "@inboxzero/mail-core/identities";
+import {
+  blobIdSchema,
+  MAIL_PROTOCOL_VERSION,
+} from "@inboxzero/mail-core/identities";
 import { createMailHttpRequest } from "@/utils/mail-engine/http";
 import type { Attachment } from "@/utils/types/mail";
 import { randomUuid } from "@/utils/uuid";
@@ -13,7 +16,9 @@ export async function stageSendAttachments(
   for (const attachment of attachments) {
     const bytes = decodeBase64(attachment.content);
     const checksum = await sha256Hex(bytes);
-    const uploadId = attachment.id?.slice(0, 128) || randomUuid();
+    const uploadId = blobIdSchema.safeParse(attachment.id).success
+      ? attachment.id
+      : randomUuid();
     const response = await request({
       method: "POST",
       path: `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`,

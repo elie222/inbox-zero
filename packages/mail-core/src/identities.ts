@@ -7,6 +7,11 @@ export const messageIdSchema = z.string().min(1).max(256);
 export const conversationIdSchema = z.string().min(1).max(256);
 export const operationIdSchema = z.string().min(1).max(128);
 export const draftIdSchema = z.string().min(1).max(128);
+export const blobIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
 
 export const providerSchema = z.enum(["google", "microsoft"]);
 export type Provider = z.infer<typeof providerSchema>;

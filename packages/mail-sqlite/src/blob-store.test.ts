@@ -73,4 +73,32 @@ describe("file blob store", () => {
     expect(await readBlobMetadata(directory, "invoice")).toBeNull();
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("refuses blob ids that would leave the store directory", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    const store = createFileBlobStore(directory);
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    const bytesFor = () => ({
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+      checksum,
+      sizeBytes: 4,
+    });
+    await expect(
+      store.stage({ blobId: "../escape", ...bytesFor() }),
+    ).rejects.toThrow("invalid blob id");
+    await expect(
+      store.stage({ blobId: "nested/id", ...bytesFor() }),
+    ).rejects.toThrow("invalid blob id");
+    await expect(store.read("../escape")).rejects.toThrow("invalid blob id");
+    await expect(
+      writeBlobMetadata(directory, "../../other-account", {
+        filename: "secret.pdf",
+        contentType: "application/pdf",
+      }),
+    ).rejects.toThrow("invalid blob id");
+    await rm(directory, { recursive: true, force: true });
+  });
 });
