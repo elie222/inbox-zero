@@ -23,6 +23,7 @@ import {
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
 import { setActiveMailClient } from "@/utils/mail-engine/active-client";
+import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 
 type MailEngineRuntimeStatus = {
   client: MailClient | null;
@@ -102,20 +103,25 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         : null;
     const bus = channel ? createBroadcastTabBus(channel) : null;
 
-    async function publishClient(next: MailClient) {
+    async function publishClient(next: MailClient, role: "owner" | "follower") {
       if (abort.signal.aborted) return;
-      publishMailEngineInspect(next, emailAccountId);
+      publishMailEngineInspect(next, emailAccountId, role);
       setActiveMailClient(next);
       setClient(next);
     }
 
     if (bus) {
       unbindHello = bus.subscribe((message) => {
-        if (message.type !== "owner" || message.accountId !== emailAccountId) {
+        if (
+          message.type !== "owner" ||
+          message.accountId !== emailAccountId ||
+          engine
+        ) {
           return;
         }
         publishClient(
           createTabFollowerClient({ accountId: emailAccountId, bus }),
+          "follower",
         ).catch(() => undefined);
       });
       bus.post({ type: "hello", accountId: emailAccountId });
@@ -150,7 +156,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           });
           bus.post({ type: "owner", accountId: emailAccountId });
         }
-        await publishClient(engine);
+        await publishClient(engine, "owner");
       };
       if (typeof navigator !== "undefined" && navigator.locks?.request) {
         await navigator.locks.request(
@@ -184,7 +190,10 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       value={{ client, mounted: true, unavailable }}
     >
       {client ? (
-        <MailEngineProvider client={client}>{children}</MailEngineProvider>
+        <MailEngineProvider client={client}>
+          <MailEngineConnectionBanner />
+          {children}
+        </MailEngineProvider>
       ) : (
         children
       )}
@@ -192,10 +201,16 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
   );
 }
 
-function publishMailEngineInspect(client: MailClient, accountId: string) {
+function publishMailEngineInspect(
+  client: MailClient,
+  accountId: string,
+  role: "owner" | "follower",
+) {
   if (typeof window === "undefined") return;
   window.__inboxZeroMailInspect = {
     accountId,
+    role,
+    capabilities: browserMailEngineCapabilities(),
     read: () => client.getDiagnostics(accountId),
     inspect: () =>
       "inspect" in client && typeof client.inspect === "function"
@@ -217,6 +232,8 @@ declare global {
   interface Window {
     __inboxZeroMailInspect?: {
       accountId: string;
+      role: "owner" | "follower";
+      capabilities: ReturnType<typeof browserMailEngineCapabilities>;
       read: () => Promise<unknown>;
       inspect: () => Promise<unknown>;
     };

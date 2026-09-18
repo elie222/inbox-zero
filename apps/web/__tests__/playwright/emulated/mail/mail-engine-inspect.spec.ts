@@ -36,12 +36,16 @@ test("exposes engine diagnostics after metadata coverage", async ({
     if (!seam) return { present: false as const };
     const diagnostics = (await seam.read()) as {
       accountId?: string;
+      connection?: string;
       coverage?: Array<{ metadata: string }>;
       commands?: unknown[];
     };
     return {
       present: true as const,
       accountId: diagnostics.accountId ?? seam.accountId,
+      role: seam.role,
+      capabilities: seam.capabilities,
+      connection: diagnostics.connection,
       coverageComplete:
         (diagnostics.coverage?.length ?? 0) > 0 &&
         diagnostics.coverage?.every((item) => item.metadata === "complete"),
@@ -52,5 +56,17 @@ test("exposes engine diagnostics after metadata coverage", async ({
   expect(await conversations.getByRole("option").count()).toBeGreaterThan(0);
   expect(inspect.present).toBe(true);
   expect(inspect.accountId).toBe(emailAccountId);
+  expect(inspect.role).toBe("owner");
+  expect(inspect.capabilities).toEqual({
+    worker: true,
+    locks: true,
+    opfs: true,
+  });
+  expect(inspect.connection).toBe("ready");
   expect(inspect.coverageComplete).toBe(true);
+  await expect(
+    page.getByRole("heading", {
+      name: "Reconnect this account to continue syncing.",
+    }),
+  ).toHaveCount(0);
 });

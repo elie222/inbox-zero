@@ -47,6 +47,8 @@
   ],
   "mail-engine-inspect.spec.ts": [
     "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/MailEngineConnectionBanner.tsx",
+    "utils/mail-engine/connection-notice.ts",
     "utils/mail-engine/coverage.ts",
     "app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts"
   ],
