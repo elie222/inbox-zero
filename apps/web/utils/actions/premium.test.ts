@@ -283,8 +283,9 @@ describe("getBillingPortalUrlAction", () => {
     prisma.user.findUnique.mockResolvedValue(billingPortalUser());
     mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
     mocks.createBillingPortalSession.mockRejectedValue(
-      new Error(
+      stripeInvalidRequestError(
         "The customer portal cannot update this subscription to a price with a different billing interval.",
+        "flow_data[subscription_update_confirm][items][0][price]",
       ),
     );
     mocks.updateSubscription.mockResolvedValue({
@@ -324,7 +325,9 @@ describe("getBillingPortalUrlAction", () => {
     prisma.user.findUnique.mockResolvedValue(billingPortalUser());
     mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
     mocks.createBillingPortalSession.mockRejectedValue(
-      new Error("The specified price is not available in the customer portal."),
+      stripeInvalidRequestError(
+        "The specified price is not available in the customer portal.",
+      ),
     );
     mocks.updateSubscription.mockResolvedValue({
       id: "sub_test",
@@ -337,6 +340,52 @@ describe("getBillingPortalUrlAction", () => {
     });
 
     expect(result?.data).toEqual({ url: "http://localhost:3000/premium" });
+  });
+
+  it("does not change the subscription when the portal fails for an unrelated reason", async () => {
+    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
+    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
+    mocks.createBillingPortalSession.mockRejectedValue(
+      Object.assign(new Error("Stripe is temporarily unavailable"), {
+        type: "api_error",
+      }),
+    );
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(mocks.updateSubscription).not.toHaveBeenCalled();
+  });
+
+  it("does not guess a subscription item when the stored item is missing from a multi-item subscription", async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      billingPortalUser({ stripeSubscriptionItemId: "si_stale" }),
+    );
+    mocks.retrieveSubscription.mockResolvedValue({
+      id: "sub_test",
+      status: "active",
+      items: {
+        data: [
+          { id: "si_addon", quantity: 1 },
+          { id: "si_live", quantity: 1 },
+        ],
+      },
+    });
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.serverError).toBe(
+      "We couldn't change your plan. Your subscription has not been changed.",
+    );
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+    expect(mocks.updateSubscription).not.toHaveBeenCalled();
   });
 });
 
@@ -564,4 +613,11 @@ function stripeSubscription({
       data: [{ id: itemId, quantity }],
     },
   };
+}
+
+function stripeInvalidRequestError(message: string, param?: string) {
+  return Object.assign(new Error(message), {
+    type: "invalid_request_error",
+    ...(param ? { param } : {}),
+  });
 }

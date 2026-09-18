@@ -476,6 +476,11 @@ export const getBillingPortalUrlAction = actionClientUser
       subscription,
       storedSubscriptionItemId: user.premium.stripeSubscriptionItemId,
     });
+    if (priceId && subscription && !planChangeItem) {
+      throw new SafeError(
+        "We couldn't change your plan. Your subscription has not been changed.",
+      );
+    }
     const confirmFlow =
       subscription &&
       user.premium.stripeSubscriptionId &&
@@ -509,7 +514,8 @@ export const getBillingPortalUrlAction = actionClientUser
         !confirmFlow ||
         !planChangeItem ||
         !priceId ||
-        !user.premium.stripeSubscriptionId
+        !user.premium.stripeSubscriptionId ||
+        !isUnsupportedStripePortalPlanChange(error)
       ) {
         throw error;
       }
@@ -752,7 +758,39 @@ function getStripePlanChangeItem({
   storedSubscriptionItemId: string | null | undefined;
 }) {
   const items = subscription?.items.data ?? [];
-  return items.find((item) => item.id === storedSubscriptionItemId) ?? items[0];
+  const storedItem = items.find((item) => item.id === storedSubscriptionItemId);
+  if (storedItem) return storedItem;
+  if (items.length === 1) return items[0];
+}
+
+const UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES = [
+  "different billing interval",
+  "not available in the customer portal",
+  "not updatable",
+  "must belong to the same product",
+];
+
+function isUnsupportedStripePortalPlanChange(error: unknown): boolean {
+  if (!isStripeInvalidRequestError(error)) return false;
+  if (error.param?.startsWith("flow_data")) return true;
+
+  const message = error.message.toLowerCase();
+  return UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES.some((fragment) =>
+    message.includes(fragment),
+  );
+}
+
+function isStripeInvalidRequestError(
+  error: unknown,
+): error is { type: string; message: string; param?: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    (error as { type: unknown }).type === "invalid_request_error" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  );
 }
 
 function getStripePlanChangeRedirectUrl(subscription: Stripe.Subscription) {
