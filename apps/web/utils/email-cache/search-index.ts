@@ -54,6 +54,8 @@ const MIN_ROW_ID = -(BigInt("1") << BigInt("63"));
 const MAX_BATCH_SIZE = 100;
 const MAX_PAGE_SIZE = 100;
 const MAX_MESSAGE_CHARACTERS = 2_000_000;
+// Changing this discards every existing index, and nothing refills it unless
+// SOURCE_VERSION in search-index-source-version.ts is bumped in the same change.
 const SCHEMA_VERSION = 2;
 
 export class SearchIndexCapacityError extends Error {
