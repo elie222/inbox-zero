@@ -15,7 +15,7 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 4 passed in 3.2m: live OPFS owner inspect, follower second tab, blocked_auth reconnect click
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 4.0m: live OPFS owner inspect, owner reload, follower second tab, blocked_auth reconnect click
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/tab-channel.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/stage-attachments.test.ts` — 3 files, 10 passed including closed-channel post, follower dispose, hung-coverage abort, and SHA-256 byte copy
   - `pnpm exec ultracite check` on tab-channel, MailEngineHost, coverage, and stage-attachments — pass
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed including unarchive/restore_from_trash
@@ -73,7 +73,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Playwright inspect on a live Chromium session reports owner + OPFS + ready connection, a second tab first-paints as `follower`, and `blocked_auth` shows a working Reconnect control. Closed BroadcastChannel posts no longer throw into the tab ErrorBoundary; disposing a follower rejects hung `getDiagnostics` calls. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Playwright inspect on a live Chromium session reports owner + OPFS + ready connection, a full reload stays `owner`, a second tab first-paints as `follower`, and `blocked_auth` shows a working Reconnect control. Closed BroadcastChannel posts no longer throw into the tab ErrorBoundary; disposing a follower rejects hung `getDiagnostics` calls. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
 
 ### D. Provider replication and repair
 
@@ -276,12 +276,12 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E14. Follower tabs, blocked_auth reconnect, and closed-channel recovery (2026-09-18)
 
 - Tasks: partial C1, partial D4
-- Tree: `cursor/mail-engine-0b4f` at `5fb86553f`
+- Tree: `cursor/mail-engine-0b4f` at `c0646b685`
 - Commands:
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/tab-channel.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/stage-attachments.test.ts` — 3 files, 10 passed
-  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 4 passed in 3.2m
-- What it proved: a second Chromium tab first-paints the conversations list as `follower` while the original tab stays `owner`. `BroadcastChannel.postMessage` after unmount no longer throws into the ErrorBoundary. Disposing a follower rejects in-flight `getDiagnostics`. Coverage wait aborts when diagnostics hang. Intercepted `/changes` `blocked_auth` shows Reconnect and navigates to the stubbed linking URL. SHA-256 hashing copies `Uint8Array` bytes so `build:ci` accepts `crypto.subtle.digest`.
-- Limitations: reload/account-fencing live cells and packaged Electron remain open; UI matrix other than inspect is still Not run.
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 4.0m (reload added on `54b863172`)
+- What it proved: a second Chromium tab first-paints the conversations list as `follower` while the original tab stays `owner`. A full reload first-paints again as `owner`. `BroadcastChannel.postMessage` after unmount no longer throws into the ErrorBoundary. Disposing a follower rejects in-flight `getDiagnostics`. Coverage wait aborts when diagnostics hang. Intercepted `/changes` `blocked_auth` shows Reconnect and navigates to the stubbed linking URL. SHA-256 hashing copies `Uint8Array` bytes so `build:ci` accepts `crypto.subtle.digest`.
+- Limitations: live account-fencing and packaged Electron remain open; UI matrix other than inspect is still Not run.
 
 ## Decision and deviation log
 
