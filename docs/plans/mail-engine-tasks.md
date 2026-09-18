@@ -8,17 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts, and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `635e5ef6d`
+- Last implementation commit: `29676df4d`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: push OPFS inspect + connection banner; watch CI on the exact head; run Playwright inspect (C1).
+- Next action: watch CI on the exact head; answer remaining review comments; run Playwright inspect (C1).
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/connection-notice.test.ts hooks/useThread.test.tsx utils/mail-engine/worker-protocol.test.ts` — 3 files, 8 passed
-  - `cd apps/web && pnpm exec vitest --run utils/playwright/emulated-suite-selection.test.mjs utils/playwright/emulated-suite-targets.test.mjs` — 2 files, 38 passed
-  - `pnpm --filter @inboxzero/mail-core pack:expo-smoke` — pass
-  - `pnpm exec ultracite check` on inspect seam, connection banner, and notice tests — pass
+  - `pnpm --filter @inboxzero/mail-sqlite test src/blob-store.test.ts` — 1 file, 3 passed including path-escaping blob ids
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/stage-attachments.test.ts` — 1 file, 3 passed
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite typecheck` — pass
+  - `pnpm exec ultracite check` on blob-store, upload route, and blobId schema — pass
   - Previous checkpoint:
   - `cd apps/web && pnpm exec vitest --run store/sender-queue.test.ts store/archive-sender-queue.test.tsx app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.test.ts utils/mail-engine/reply-drafts.test.ts utils/mail-engine/thread-mail-mutations.test.ts utils/attachments/opened-conversation.test.ts app/(app)/[emailAccountId]/compose/send-draft-reference.test.ts utils/email-send-operation-retention.test.ts hooks/useReplyDraftPersistence.test.ts utils/playwright/emulated-suite-targets.test.mjs utils/playwright/emulated-suite-selection.test.mjs` — 11 files, 79 passed
   - `pnpm exec ultracite check` on F5-changed files — pass
@@ -85,7 +85,7 @@ Source adapters try `getMailboxSyncPage` then fall back to pagination for emulat
 - [ ] E5. Implement separate assistant metadata ingestion and protect newer draft edits.
 - [ ] E6. Prove assistant processing with client stopped, later client catch-up, and no regression in affected live assistant flows.
 
-Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging writes filename/content-type sidecars; HTTP uploads reject checksum mismatches; send execute loads those blobs into the durable send attachment payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Live assistant UI flows remain open.
+Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging writes filename/content-type sidecars; blob ids must be a single `[A-Za-z0-9._-]` path segment and are resolved inside the account directory. HTTP uploads reject checksum mismatches and invalid blob ids; send execute loads those blobs into the durable send attachment payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Live assistant UI flows remain open.
 
 ### F. Product UI and local desktop shell
 
@@ -231,6 +231,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: see Resume state last validation.
 - What it proved: `__inboxZeroMailInspect` now reports owner/follower role plus worker/locks/OPFS capabilities; owner tabs do not demote themselves to followers on their own owner broadcast; web UI surfaces `blocked_auth` reconnect and `offline` retry copy from mailbox `connection`; Expo pack-smoke still passes. Playwright inspect spec asserts owner+OPFS+ready connection on a live mail page (not run in this checkpoint).
 - Limitations: Playwright inspect and packaged Electron sessions still unrun; Expo harness is not a Metro runtime.
+
+### E10. Blob id path containment (2026-09-18)
+
+- Tasks: partial E3, partial H3
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: see Resume state last validation.
+- What it proved: filesystem blob ids must be a single `[A-Za-z0-9._-]` segment; paths are resolved and rejected if they leave the store directory; HTTP `uploadId` uses the same schema. Parameter’s path-traversal note on `createFileBlobStore` is addressed.
+- Limitations: none for this finding.
 
 ## Decision and deviation log
 
