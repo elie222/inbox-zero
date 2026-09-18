@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
-import { getConversationStatusDefinitions } from "./determine-thread-status";
+import {
+  buildThreadStatusSystemPrompt,
+  getConversationStatusDefinitions,
+} from "./determine-thread-status";
 import { getRuleConfig } from "@/utils/rule/consts";
 import type { RuleWithActions } from "@/utils/types";
 
@@ -69,5 +72,45 @@ describe("getConversationStatusDefinitions", () => {
       [SystemType.TO_REPLY, SystemType.AWAITING_REPLY, SystemType.ACTIONED],
     );
     expect(definitions.map((d) => d.systemType)).not.toContain(SystemType.FYI);
+  });
+});
+
+describe("buildThreadStatusSystemPrompt", () => {
+  it("states the default FYI boundary when FYI is on the default definition", () => {
+    const prompt = buildThreadStatusSystemPrompt({
+      definitions: getConversationStatusDefinitions([]),
+      userSentLastEmail: false,
+    });
+    expect(prompt).toContain("FYI is only when nothing was ever asked");
+    expect(prompt).toContain(
+      "status: One of TO_REPLY, AWAITING_REPLY, FYI, ACTIONED",
+    );
+  });
+
+  it("defers to a custom FYI definition instead of redefining it", () => {
+    const prompt = buildThreadStatusSystemPrompt({
+      definitions: getConversationStatusDefinitions([
+        rule(SystemType.FYI, "Anything from my accountant"),
+      ]),
+      userSentLastEmail: false,
+    });
+    expect(prompt).toContain("* FYI - Anything from my accountant");
+    expect(prompt).toContain("FYI follows the user's definition");
+    expect(prompt).not.toContain("nothing was ever asked");
+  });
+
+  it("removes FYI entirely when the user sent the last email", () => {
+    const prompt = buildThreadStatusSystemPrompt({
+      definitions: getConversationStatusDefinitions(
+        [],
+        [SystemType.TO_REPLY, SystemType.AWAITING_REPLY, SystemType.ACTIONED],
+      ),
+      userSentLastEmail: true,
+    });
+    expect(prompt).not.toContain("* FYI");
+    expect(prompt).toContain("FYI is NOT an option");
+    expect(prompt).toContain(
+      "status: One of TO_REPLY, AWAITING_REPLY, ACTIONED",
+    );
   });
 });
