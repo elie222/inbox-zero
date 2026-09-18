@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isColdEmail } from "./is-cold-email";
+import {
+  checkColdEmailGuards,
+  getColdEmailDefinition,
+  isColdEmail,
+} from "./is-cold-email";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
@@ -32,6 +37,10 @@ vi.mock("@/utils/email", async () => {
 
 vi.mock("@/utils/llms", () => ({
   createGenerateObject: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@/utils/llms/model", () => ({
+  getModel: vi.fn(() => ({})),
 }));
 
 const mockProvider = {
@@ -406,5 +415,78 @@ describe("isColdEmail", () => {
         },
       });
     }
+  });
+
+  it("checkColdEmailGuards is undecided when every guard passes", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await checkColdEmailGuards({
+      email: {
+        id: "msg-undecided",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result).toEqual({ decided: false });
+    expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it("isColdEmail runs the AI check when the guards are undecided", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+    const generateObject = vi
+      .fn()
+      .mockResolvedValue({ object: { coldEmail: true, reason: "pitch" } });
+    vi.mocked(createGenerateObject).mockReturnValue(generateObject as never);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-ai",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(createGenerateObject).toHaveBeenCalledTimes(1);
+    expect(generateObject).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      isColdEmail: true,
+      reason: "ai",
+      aiReason: "pitch",
+    });
+  });
+});
+
+describe("getColdEmailDefinition", () => {
+  const firstParagraph = DEFAULT_COLD_EMAIL_PROMPT.split(/\n\s*\n/)[0];
+
+  it("uses the first paragraph of the default prompt when instructions are empty", () => {
+    expect(getColdEmailDefinition(null)).toBe(firstParagraph);
+    expect(getColdEmailDefinition({ instructions: "" })).toBe(firstParagraph);
+    expect(getColdEmailDefinition({ instructions: null })).toBe(firstParagraph);
+  });
+
+  it("uses the first paragraph when instructions equal the default prompt", () => {
+    expect(
+      getColdEmailDefinition({ instructions: DEFAULT_COLD_EMAIL_PROMPT }),
+    ).toBe(firstParagraph);
+  });
+
+  it("returns custom instructions verbatim", () => {
+    expect(getColdEmailDefinition({ instructions: "Only vendors" })).toBe(
+      "Only vendors",
+    );
   });
 });

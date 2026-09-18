@@ -39,7 +39,16 @@ import {
   getColdEmailRule,
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
-import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import {
+  checkColdEmailGuards,
+  type ColdEmailPatternMatch,
+  getColdEmailDefinition,
+  isColdEmail,
+} from "@/utils/cold-email/is-cold-email";
+import {
+  isJevRuleSelectionEnabled,
+  jevChooseRule,
+} from "@/utils/ai/choose-rule/jev-choose-rule";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 import {
@@ -60,6 +69,8 @@ const NO_REPLY_PREFIXES = [
   "updates@",
   "account@",
 ];
+
+type AiRuleCandidate = RuleWithActions & { instructions: string };
 
 type MatchingRulesResult = {
   matches: {
@@ -87,44 +98,41 @@ export async function findMatchingRules({
 }): Promise<MatchingRulesResult> {
   const logger = log.with({ module: MODULE });
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
+  const activeColdEmailRule =
+    coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)
+      ? coldEmailRule
+      : null;
 
-  if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
+  if (isJevRuleSelectionEnabled()) {
+    return findMatchingRulesWithJev({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType,
+      logger,
+      coldEmailRule: activeColdEmailRule,
+    });
+  }
+
+  if (activeColdEmailRule) {
     const coldEmailResult = await isColdEmail({
       email: getEmailForLLM(message),
       emailAccount,
       provider,
       modelType,
-      coldEmailRule,
+      coldEmailRule: activeColdEmailRule,
     });
 
     if (coldEmailResult.isColdEmail) {
-      const coldRule = await prisma.rule.findUniqueOrThrow({
-        where: { id: coldEmailRule.id },
-        include: {
-          actions: true,
-        },
-      });
-
-      return {
-        matches: [
-          {
-            rule: coldRule,
-            matchReasons: coldEmailResult.patternMatch
-              ? [
-                  {
-                    type: ConditionType.LEARNED_PATTERN,
-                    group: coldEmailResult.patternMatch.group,
-                    groupItem: coldEmailResult.patternMatch.groupItem,
-                  },
-                ]
-              : [{ type: ConditionType.AI }],
-          },
-        ],
+      return buildColdEmailMatch({
+        coldEmailRuleId: activeColdEmailRule.id,
+        matchReasons: getColdEmailMatchReasons(coldEmailResult),
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
         selectionMetadata: createRuleSelectionMetadata({
           isThread: provider.isReplyInThread(message),
         }),
-      };
+      });
     }
   }
 
@@ -143,6 +151,175 @@ export async function findMatchingRules({
   );
 
   return results;
+}
+
+function getColdEmailMatchReasons(result: {
+  patternMatch?: ColdEmailPatternMatch;
+}): MatchReason[] {
+  return result.patternMatch
+    ? [
+        {
+          type: ConditionType.LEARNED_PATTERN,
+          group: result.patternMatch.group,
+          groupItem: result.patternMatch.groupItem,
+        },
+      ]
+    : [{ type: ConditionType.AI }];
+}
+
+async function buildColdEmailMatch({
+  coldEmailRuleId,
+  matchReasons,
+  reasoning,
+  selectionMetadata,
+}: {
+  coldEmailRuleId: string;
+  matchReasons: MatchReason[];
+  reasoning: string;
+  selectionMetadata: RuleSelectionMetadata;
+}): Promise<MatchingRulesResult> {
+  const coldRule = await prisma.rule.findUniqueOrThrow({
+    where: { id: coldEmailRuleId },
+    include: {
+      actions: true,
+    },
+  });
+
+  return {
+    matches: [{ rule: coldRule, matchReasons }],
+    reasoning,
+    selectionMetadata,
+  };
+}
+
+// One Jev call replaces the cold-email AI check and the rule chooser. The
+// deterministic cold-email guards still run first, and any Jev failure falls
+// back to the LLM path so labels never depend on Jev being up.
+async function findMatchingRulesWithJev({
+  rules,
+  message,
+  emailAccount,
+  provider,
+  modelType,
+  logger,
+  coldEmailRule,
+}: {
+  rules: RuleWithActions[];
+  message: ParsedMessage;
+  emailAccount: EmailAccountWithAI;
+  provider: EmailProvider;
+  modelType: ModelType;
+  logger: Logger;
+  coldEmailRule: Awaited<ReturnType<typeof getColdEmailRule>>;
+}): Promise<MatchingRulesResult> {
+  const isThread = provider.isReplyInThread(message);
+  const email = getEmailForLLM(message);
+
+  let coldEmailOption: { instructions: string } | null = null;
+
+  if (coldEmailRule) {
+    const guards = await checkColdEmailGuards({
+      email,
+      emailAccount,
+      provider,
+      coldEmailRule,
+    });
+
+    if (guards.decided) {
+      if (guards.result.isColdEmail) {
+        return buildColdEmailMatch({
+          coldEmailRuleId: coldEmailRule.id,
+          matchReasons: getColdEmailMatchReasons(guards.result),
+          reasoning: guards.result.aiReason || guards.result.reason,
+          selectionMetadata: createRuleSelectionMetadata({ isThread }),
+        });
+      }
+    } else {
+      coldEmailOption = { instructions: getColdEmailDefinition(coldEmailRule) };
+    }
+  }
+
+  const rulesWithoutColdEmail = rules.filter(
+    (rule) => rule.systemType !== SystemType.COLD_EMAIL,
+  );
+
+  const { matches, potentialAiMatches, selectionMetadata } =
+    await findPotentialMatchingRules({
+      rules: rulesWithoutColdEmail,
+      message,
+      isThread,
+      provider,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
+
+  if (!potentialAiMatches.length && !coldEmailOption) {
+    return {
+      matches,
+      reasoning: getMatchesReasoning(matches),
+      selectionMetadata,
+    };
+  }
+
+  try {
+    const jevResult = await jevChooseRule({
+      message,
+      provider,
+      emailAccount,
+      rules: potentialAiMatches,
+      coldEmailOption,
+      logger,
+    });
+
+    if (jevResult.isColdEmail && coldEmailRule) {
+      return buildColdEmailMatch({
+        coldEmailRuleId: coldEmailRule.id,
+        matchReasons: [{ type: ConditionType.AI }],
+        reasoning: jevResult.reason,
+        selectionMetadata,
+      });
+    }
+
+    return mergeAiResultsIntoMatches({
+      matches,
+      aiResult: jevResult,
+      selectionMetadata,
+    });
+  } catch (error) {
+    logger.warn("Jev rule selection failed, falling back to LLM path", {
+      error,
+    });
+  }
+
+  if (coldEmailOption && coldEmailRule) {
+    const coldEmailResult = await isColdEmail({
+      email,
+      emailAccount,
+      provider,
+      modelType,
+      coldEmailRule,
+    });
+
+    if (coldEmailResult.isColdEmail) {
+      return buildColdEmailMatch({
+        coldEmailRuleId: coldEmailRule.id,
+        matchReasons: getColdEmailMatchReasons(coldEmailResult),
+        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        selectionMetadata: createRuleSelectionMetadata({ isThread }),
+      });
+    }
+  }
+
+  return chooseRulesWithLlm({
+    matches,
+    potentialAiMatches,
+    selectionMetadata,
+    message,
+    emailAccount,
+    provider,
+    modelType,
+    logger,
+  });
 }
 
 /**
@@ -533,6 +710,37 @@ async function findMatchingRulesWithReasons(
       logger,
     });
 
+  return chooseRulesWithLlm({
+    matches,
+    potentialAiMatches,
+    selectionMetadata,
+    message,
+    emailAccount,
+    provider,
+    modelType,
+    logger,
+  });
+}
+
+async function chooseRulesWithLlm({
+  matches,
+  potentialAiMatches,
+  selectionMetadata,
+  message,
+  emailAccount,
+  provider,
+  modelType,
+  logger,
+}: {
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+  potentialAiMatches: AiRuleCandidate[];
+  selectionMetadata: RuleSelectionMetadata;
+  message: ParsedMessage;
+  emailAccount: EmailAccountWithAI;
+  provider: EmailProvider;
+  modelType: ModelType;
+  logger: Logger;
+}): Promise<MatchingRulesResult> {
   if (potentialAiMatches.length) {
     const senderEmail = extractEmailAddress(message.headers.from);
     const classificationFeedback = senderEmail
@@ -553,21 +761,37 @@ async function findMatchingRulesWithReasons(
       classificationFeedback,
     });
 
-    const aiRules = filterMultipleSystemRules(fullResult.rules);
-
-    return {
-      matches: mergeMatchesWithAiResults(matches, aiRules),
-      reasoning: combineReasoning(
-        getMatchesReasoning(matches),
-        fullResult.reason,
-      ),
+    return mergeAiResultsIntoMatches({
+      matches,
+      aiResult: fullResult,
       selectionMetadata,
-    };
+    });
   }
 
   return {
     matches,
     reasoning: getMatchesReasoning(matches),
+    selectionMetadata,
+  };
+}
+
+function mergeAiResultsIntoMatches({
+  matches,
+  aiResult,
+  selectionMetadata,
+}: {
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+  aiResult: {
+    rules: { rule: AiRuleCandidate; isPrimary?: boolean }[];
+    reason: string;
+  };
+  selectionMetadata: RuleSelectionMetadata;
+}): MatchingRulesResult {
+  const aiRules = filterMultipleSystemRules(aiResult.rules);
+
+  return {
+    matches: mergeMatchesWithAiResults(matches, aiRules),
+    reasoning: combineReasoning(getMatchesReasoning(matches), aiResult.reason),
     selectionMetadata,
   };
 }

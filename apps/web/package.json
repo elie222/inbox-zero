@@ -137,6 +137,7 @@
     "@tiptap/react": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
     "@tiptap/suggestion": "3.30.2",
+    "@typesafe-ai/sdk": "0.6.0",
     "@upstash/qstash": "2.11.3",
     "@upstash/redis": "1.38.4",
     "@vercel/analytics": "2.0.1",

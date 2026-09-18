@@ -29,30 +29,48 @@ export type ColdEmailPatternMatch = {
   groupItem: Pick<GroupItem, "id" | "type" | "value" | "exclude">;
 };
 
-export async function isColdEmail({
-  email,
-  emailAccount,
-  provider,
-  modelType,
-  coldEmailRule,
-}: {
-  email: EmailForLLM & { threadId?: string };
-  emailAccount: EmailAccountWithAI;
-  provider: EmailProvider;
-  modelType?: ModelType;
-  coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
-}): Promise<{
+type ColdEmailResult = {
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
   patternMatch?: ColdEmailPatternMatch;
-}> {
-  const logger = createScopedLogger("ai-cold-email").with({
+};
+
+type ColdEmailGuardsInput = {
+  email: EmailForLLM & { threadId?: string };
+  emailAccount: EmailAccountWithAI;
+  provider: EmailProvider;
+  coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
+};
+
+export type ColdEmailGuardsResult =
+  | { decided: true; result: ColdEmailResult }
+  | { decided: false };
+
+function getColdEmailLogger({
+  email,
+  emailAccount,
+}: Pick<ColdEmailGuardsInput, "email" | "emailAccount">) {
+  return createScopedLogger("ai-cold-email").with({
     emailAccountId: emailAccount.id,
     email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
   });
+}
+
+/**
+ * Runs the deterministic cold-email checks (whitelist, same org, learned
+ * patterns, prior contact). Returns `decided: false` when only the AI check
+ * remains, so a caller can run that check itself.
+ */
+export async function checkColdEmailGuards({
+  email,
+  emailAccount,
+  provider,
+  coldEmailRule,
+}: ColdEmailGuardsInput): Promise<ColdEmailGuardsResult> {
+  const logger = getColdEmailLogger({ email, emailAccount });
 
   logger.info("Checking is cold email");
 
@@ -61,14 +79,20 @@ export async function isColdEmail({
     isWhitelistedSender(email.from, env.WHITELIST_FROM)
   ) {
     logger.info("Sender is an application sender");
-    return { isColdEmail: false, reason: "applicationSender" };
+    return {
+      decided: true,
+      result: { isColdEmail: false, reason: "applicationSender" },
+    };
   }
 
   // Nobody at your own company is a cold emailer. Checked here rather than only at the
   // actions, so a colleague is never labelled or archived either.
   if (isSameOrganization(email.from, emailAccount.email)) {
     logger.info("Sender is internal");
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
+    return {
+      decided: true,
+      result: { isColdEmail: false, reason: "hasPreviousEmail" },
+    };
   }
 
   // Check if we marked it as a cold email already
@@ -101,9 +125,12 @@ export async function isColdEmail({
     logger.info("Known cold email sender", { from: email.from });
     const { group, ...groupItem } = patternMatch;
     return {
-      isColdEmail: true,
-      reason: "ai-already-labeled",
-      ...(group ? { patternMatch: { group, groupItem } } : {}),
+      decided: true,
+      result: {
+        isColdEmail: true,
+        reason: "ai-already-labeled",
+        ...(group ? { patternMatch: { group, groupItem } } : {}),
+      },
     };
   }
 
@@ -111,7 +138,10 @@ export async function isColdEmail({
     logger.info("Sender explicitly excluded from cold email blocker", {
       from: email.from,
     });
-    return { isColdEmail: false, reason: "excluded" };
+    return {
+      decided: true,
+      result: { isColdEmail: false, reason: "excluded" },
+    };
   }
 
   const hasPreviousEmail = await hasPriorContactOrAssumeYes({
@@ -124,8 +154,34 @@ export async function isColdEmail({
 
   if (hasPreviousEmail) {
     logger.info("Has previous email");
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
+    return {
+      decided: true,
+      result: { isColdEmail: false, reason: "hasPreviousEmail" },
+    };
   }
+
+  return { decided: false };
+}
+
+export async function isColdEmail({
+  email,
+  emailAccount,
+  provider,
+  modelType,
+  coldEmailRule,
+}: ColdEmailGuardsInput & {
+  modelType?: ModelType;
+}): Promise<ColdEmailResult> {
+  const guards = await checkColdEmailGuards({
+    email,
+    emailAccount,
+    provider,
+    coldEmailRule,
+  });
+
+  if (guards.decided) return guards.result;
+
+  const logger = getColdEmailLogger({ email, emailAccount });
 
   // run through ai to see if it's a cold email
   const res = await aiIsColdEmail(
@@ -144,6 +200,20 @@ export async function isColdEmail({
     reason: "ai",
     aiReason: res.reason,
   };
+}
+
+/**
+ * Short cold-email definition for classifiers that take a one-line criterion.
+ * Custom instructions are passed through verbatim.
+ */
+export function getColdEmailDefinition(
+  coldEmailRule: Pick<Rule, "instructions"> | null,
+): string {
+  const instructions = coldEmailRule?.instructions?.trim();
+  if (!instructions || instructions === DEFAULT_COLD_EMAIL_PROMPT.trim()) {
+    return DEFAULT_COLD_EMAIL_PROMPT.split(/\n\s*\n/)[0] ?? "";
+  }
+  return instructions;
 }
 
 async function aiIsColdEmail(

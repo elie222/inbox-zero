@@ -323,6 +323,8 @@ const parsedEnv = createEnv({
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     MCP_SERVER_ENABLED: booleanString.optional().default(false),
+    TYPESAFE_API_KEY: z.string().optional(),
+    JEV_RULE_SELECTION_ENABLED: booleanString.optional().default(false),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
@@ -600,6 +602,12 @@ if (
 ) {
   throw new Error(
     "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
+  );
+}
+
+if (parsedEnv.JEV_RULE_SELECTION_ENABLED && !process.env.TYPESAFE_API_KEY) {
+  throw new Error(
+    "TYPESAFE_API_KEY is required when JEV_RULE_SELECTION_ENABLED is set.",
   );
 }
 
