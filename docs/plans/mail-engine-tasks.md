@@ -15,6 +15,7 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/search.spec.ts` — 9 passed in 2.2m
   - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m; archived "Archive Action Message" stays hidden through succeeded
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 4.0m: live OPFS owner inspect, owner reload, follower second tab, blocked_auth reconnect click
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/tab-channel.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/stage-attachments.test.ts` — 3 files, 10 passed including closed-channel post, follower dispose, hung-coverage abort, and SHA-256 byte copy
@@ -142,7 +143,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14) | Not run | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16) | Not run | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded command (E15) | Not run | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
@@ -291,6 +292,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/archive-reconciliation.spec.ts` — 2 passed in 1.4m
 - What it proved: selecting Archive Action Message and Archive hides it immediately; diagnostics reach `succeeded`; a later page still omits that conversation. A 20s succeeded poll was too short when mail/v1 membership/execute each paid Redis-less middleware; the spec now waits 60s. Local Redis on 8079 made this run finish in 86s.
 - Limitations: Outlook web and both desktop archive cells are unrun; sidebar count/new-mail cells in the same family are unrun.
+
+### E16. Gmail web mailbox search (2026-09-18)
+
+- Tasks: partial G5, partial F2, partial D3
+- Tree: `cursor/mail-engine-0b4f` at `ec90b86d7`
+- Commands: `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/search.spec.ts` — 9 passed in 2.2m
+- What it proved: single-account and all-account search filters the engine list and clears back to inbox; slash focuses search; advanced Gmail operators restore; Has the words still filters; contact and recent-search suggestions appear.
+- Limitations: body/reopen UI cells and Outlook/desktop search remain unrun.
 
 ## Decision and deviation log
 
