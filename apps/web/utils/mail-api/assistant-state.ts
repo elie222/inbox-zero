@@ -25,14 +25,14 @@ export async function readAssistantStatePage(input: {
       },
     },
   });
-  const entries = rows.flatMap((row) =>
+  const entries: AssistantStatePage["entries"] = rows.flatMap((row) =>
     row.actionItems.length > 0
       ? row.actionItems.map((action) => ({
           id: `${row.id}:${action.id}`,
           revision: row.createdAt.toISOString(),
           messageId: row.messageId,
           conversationId: row.threadId,
-          kind: action.type,
+          kind: String(action.type),
           payload: {
             executedRuleId: row.id,
             status: row.status,
@@ -45,7 +45,7 @@ export async function readAssistantStatePage(input: {
             revision: row.createdAt.toISOString(),
             messageId: row.messageId,
             conversationId: row.threadId,
-            kind: row.status,
+            kind: String(row.status),
             payload: { executedRuleId: row.id, status: row.status },
           },
         ],
