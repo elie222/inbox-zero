@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `5e3704a65`
+- Last implementation commit: `a5a5d635c`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: packaged Electron, remaining UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; packaged Electron (C2) and remaining UI matrix; answer remaining review comments.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m; closed compose appears in Drafts, discard after reload removes it, send consumes the Gmail draft
+  - `pnpm --filter @inboxzero/mail-sqlite test src/engine-bootstrap.test.ts src/store.test.ts src/engine-assistant.test.ts src/engine-search.test.ts` — 4 files, 25 passed including bootstrap tombstone of unseen messages
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/draft-content.test.ts utils/mail-api/operations.test.ts utils/mail-engine/reply-drafts.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 4 files, 24 passed including frozen provider draft ids
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/worker-protocol.test.ts utils/mail-engine/wasm-sqlite.test.ts` — 2 files, 5 passed including account fence and wasm archive/new-mail
   - `pnpm --filter @inboxzero/desktop exec vitest run __tests__/mail-engine/electron-session.test.ts` — 1 file, 1 passed (real Electron + native SQLite)
   - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/search.spec.ts` — 9 passed in 2.2m
@@ -108,7 +111,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session.
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18).
 
 ### G. Scale, preservation, and release readiness
 
@@ -150,7 +153,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14) | Not run | Not run | Not run | Uncertain send reopen |
-| Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen send payload + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection |
+| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Not run | Not run | Not run | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14) | Not run | Partial: Electron process owns SQLite (E17) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Not run | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
@@ -312,6 +315,14 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `pnpm --filter @inboxzero/desktop exec vitest run __tests__/mail-engine/electron-session.test.ts` — 1 file, 1 passed
 - What it proved: `workerStartFence` allows the first account and the same account again, and returns `account_mismatch` for a second account. sqlite-wasm keeps inbox counts aligned across archive and a later inbound message. A real Electron 43 binary under Xvfb admits archive through desktop IPC and returns `getDiagnostics` from native `node:sqlite`.
 - Limitations: packaged installer/offline desktop boot and live multi-account tab fencing remain unrun.
+
+### E18. Gmail web compose drafts discard and send (2026-09-18)
+
+- Tasks: partial F2, partial E3, partial G5
+- Tree: `cursor/mail-engine-0b4f` at `a5a5d635c`
+- Commands: `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/compose-drafts.spec.ts` — 3 passed in 1.9m
+- What it proved: closing a new message with an attachment creates a Drafts row; reload restores the composer; discard deletes the Gmail draft and leaves Drafts without that conversation; send converts the provider draft so `/api/threads?type=draft` is empty for that subject.
+- Limitations: Outlook web and both desktop compose cells remain unrun; `/changes` still logs invalid mailbox sync cursor and recovers by bootstrap.
 
 ## Decision and deviation log
 
