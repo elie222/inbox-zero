@@ -40,7 +40,7 @@ export function conversationSummaryToListThread(
         parentFolderId: undefined,
         headers: {
           from: conversation.from,
-          to: "",
+          to: conversation.to,
           date,
           subject: conversation.subject,
         },

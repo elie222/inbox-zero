@@ -1191,6 +1191,7 @@ async function readView(
       subject: message ? String(message.subject) : "",
       preview: message ? String(message.preview) : "",
       from: message ? String(message.from_address) : "",
+      to: message ? jsonStringArray(message.to_json).join(", ") : "",
       latestMessageAtMs: Number(row.latest),
       unread: Number(row.unread) === 1,
       starred: Number(row.starred) === 1,

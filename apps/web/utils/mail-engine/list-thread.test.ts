@@ -15,6 +15,21 @@ describe("conversationSummaryToListThread", () => {
     expect(thread.messages[0]?.headers.from).toBe("Ada <ada@example.com>");
   });
 
+  it("keeps recipients so draft and sent rows can name the other party", () => {
+    const thread = conversationSummaryToListThread(
+      summary({
+        from: "me@example.com",
+        to: "Jordan Example <jordan@example.com>",
+        roles: ["draft"],
+      }),
+    );
+    expect(thread.messages[0]?.headers).toMatchObject({
+      from: "me@example.com",
+      to: "Jordan Example <jordan@example.com>",
+    });
+    expect(thread.messages[0]?.labelIds).toContain("DRAFT");
+  });
+
   it("attaches combined-account identity when provided", () => {
     const account = {
       id: "acc-2",
@@ -45,6 +60,7 @@ function summary(
     subject: "Hello",
     preview: "Hi",
     from: "Ada <ada@example.com>",
+    to: "me@example.com",
     latestMessageAtMs: 1_700_000_000_000,
     unread: true,
     starred: false,
