@@ -1,3 +1,73 @@
+diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..4d26c844431c9a379f333e4f46e57c51b9ad7a65 100644
+--- a/dist/dist-JYOXR3UP.js
++++ b/dist/dist-JYOXR3UP.js
+@@ -890,6 +890,26 @@ function resolveMessage(ctx, userEmail, messageId) {
+ function resolveFolder(ctx, userEmail, folderId) {
+   return getFolderByIdOrWellKnownName(getMicrosoftStore(ctx.store), userEmail, folderId);
+ }
++function encodeFolderDeltaToken(messageIds) {
++  return Buffer.from(JSON.stringify(messageIds)).toString("base64url");
++}
++function decodeFolderDeltaToken(token) {
++  try {
++    const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
++    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
++  } catch {
++    return [];
++  }
++}
++function folderMessagesDeltaLink(folderId, token) {
++  return `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages/delta?$deltatoken=${encodeURIComponent(token)}`;
++}
++function listFolderDeltaMessages(ms, userEmail, folder, filterExpression) {
++  return filterMessages(
++    ms.messages.findBy("user_email", userEmail).filter((message) => message.parent_folder_id === folder.microsoft_id),
++    filterExpression
++  );
++}
+ function resolveCalendar(ctx, userEmail, calendarId) {
+   const ms = getMicrosoftStore(ctx.store);
+   if (calendarId === "primary") {
+@@ -973,6 +993,38 @@ function graphRoutes(ctx) {
+       ...nextSkip != null ? { "@odata.nextLink": buildNextLink(c.req.url, nextSkip) } : {}
+     });
+   });
++  app.get("/v1.0/me/mailFolders/:folderId/messages/delta", (c) => {
++    const authEmail = requireAuthEmail(ctx, c);
++    if (authEmail instanceof Response) return authEmail;
++    const folderId = c.req.param("folderId");
++    const folder = resolveFolder(ctx, authEmail, folderId);
++    if (!folder) return microsoftGraphError(c, 404, "ErrorFolderNotFound", "Folder not found.");
++    const ms = getMicrosoftStore(ctx.store);
++    const current = listFolderDeltaMessages(ms, authEmail, folder, c.req.query("$filter"));
++    const currentIds = current.map((message) => message.microsoft_id);
++    const deltaLink = folderMessagesDeltaLink(folder.microsoft_id, encodeFolderDeltaToken(currentIds));
++    const deltaToken = c.req.query("$deltatoken") ?? c.req.query("%24deltatoken");
++    if (deltaToken) {
++      const previousIds = decodeFolderDeltaToken(deltaToken);
++      const currentIdSet = new Set(currentIds);
++      const leftIds = previousIds.filter((id) => !currentIdSet.has(id));
++      const value = [
++        ...current.map((message) => formatMessageResource(ms, message)),
++        ...leftIds.map((id) => {
++          const message = resolveMessage(ctx, authEmail, id);
++          return message ? formatMessageResource(ms, message) : { id, "@removed": { reason: "deleted" } };
++        })
++      ];
++      return c.json({
++        value,
++        "@odata.deltaLink": deltaLink
++      });
++    }
++    return c.json({
++      value: current.map((message) => formatMessageResource(ms, message)),
++      "@odata.deltaLink": deltaLink
++    });
++  });
+   app.get("/v1.0/me/mailFolders/:folderId/messages", (c) => {
+     const authEmail = requireAuthEmail(ctx, c);
+     if (authEmail instanceof Response) return authEmail;
 diff --git a/dist/dist-ZHFKHW5R.js b/dist/dist-ZHFKHW5R.js
 index b601480e5db77d6c86200023af4352aa9d49f3e3..66d9ec63db4bdb23a4a1fa39d67f614c17797ef0 100644
 --- a/dist/dist-ZHFKHW5R.js
