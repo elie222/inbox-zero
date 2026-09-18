@@ -13,11 +13,13 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/llms/model-usage-guard", () => ({
   assertTrialAiUsageAllowed: vi.fn(),
 }));
+vi.mock("@/utils/usage", () => ({ saveAiUsage: vi.fn() }));
 vi.mock("@/utils/classifier/typesafe", () => ({
   classifyWithTypeSafe: classifyWithTypeSafeMock,
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
+import { saveAiUsage } from "@/utils/usage";
 import { classify, getClassifierConfig } from "./classify";
 
 const logger = createTestLogger();
@@ -138,5 +140,34 @@ describe("classify", () => {
 
     const sent = JSON.stringify(classifyWithTypeSafeMock.mock.calls[0]?.[0]);
     expect(sent).not.toContain(secret);
+  });
+
+  it("records usage for the configured model", async () => {
+    classifyWithTypeSafeMock.mockResolvedValue({
+      model: "test-model",
+      inputTokens: 1200,
+      answers: {},
+    });
+
+    await classify({
+      config,
+      emailAccount: getEmailAccount(),
+      state: {},
+      questions: {},
+      label: "test",
+      logger,
+    });
+
+    expect(saveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "typesafe",
+        model: "test-model",
+        label: "test",
+        usage: expect.objectContaining({
+          inputTokens: 1200,
+          outputTokens: 0,
+        }),
+      }),
+    );
   });
 });

@@ -6,6 +6,7 @@ import { enforceSensitiveDataPolicy } from "@/utils/llms/sensitive-content";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { saveAiUsage } from "@/utils/usage";
 
 // Classifiers are models that answer structured questions (pick one of these
 // labels, yes or no) with probabilities, rather than generating text.
@@ -74,7 +75,8 @@ export function isClassifierAvailable() {
 
 /**
  * Sends email-derived state to an external classifier. Trial usage limits and
- * the account's sensitive data policy apply first; either can throw.
+ * the account's sensitive data policy apply first; either can throw. Usage is
+ * recorded like LLM calls so it counts toward cost tracking and trial limits.
  */
 export async function classify({
   config,
@@ -108,13 +110,43 @@ export async function classify({
     emailAccountId: emailAccount.id,
   });
 
-  switch (config.provider) {
+  const response = await sendToProvider({
+    config,
+    state: request.prompt,
+    questions: request.instructions,
+  });
+
+  await saveAiUsage({
+    userId: emailAccount.userId,
+    email: emailAccount.email,
+    emailAccountId: emailAccount.id,
+    provider: config.provider,
+    model: config.model,
+    usage: {
+      inputTokens: response.inputTokens,
+      outputTokens: 0,
+      totalTokens: response.inputTokens,
+      inputTokenDetails: {
+        noCacheTokens: undefined,
+        cacheReadTokens: undefined,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+    },
+    label,
+  });
+
+  return response;
+}
+
+function sendToProvider(options: {
+  config: ClassifierConfig;
+  state: Record<string, unknown>;
+  questions: Record<string, ClassifierQuestion>;
+}): Promise<ClassifierResponse> {
+  switch (options.config.provider) {
     case "typesafe":
-      return classifyWithTypeSafe({
-        config,
-        state: request.prompt,
-        questions: request.instructions,
-      });
+      return classifyWithTypeSafe(options);
   }
 }
 
