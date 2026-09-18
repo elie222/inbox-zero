@@ -1,26 +1,28 @@
 # Mail engine implementation task ledger
 
-Status: implementation in progress. Shared packages, SQLite store, backend-mediated source/executor, browser/desktop hosts, dual-provider archive/catch-up/search/body/read, freeze/crash/reset, per-target outcomes, overlapping-command serialization, paginated membership, stale hydration, assistant catch-up, durable send receipts, snooze scheduler transfer, follower-tab subscriptions, IndexedDB user-work import, local blob staging, coverage-gated UI cutover, child-process owner fork, and 10k/100k/1M list smoke exist. Full acceptance matrix is not green.
+Status: implementation in progress. Shared packages, SQLite store, backend-mediated source/executor, browser/desktop hosts, dual-provider archive/catch-up/search/body/read, freeze/crash/reset, per-target outcomes, overlapping-command serialization, paginated membership, stale hydration, assistant catch-up, durable send receipts, attachment-backed durable send, snooze scheduler transfer, follower-tab subscriptions, IndexedDB user-work import, local blob staging, coverage-gated UI cutover, child-process owner fork with Electron `utilityProcess.fork`/`parentPort` wiring, persisted `blocked_auth`/`offline` diagnostics, and 10k/100k/1M list smoke exist. Full acceptance matrix is not green.
 
 Read the [implementation plan](./mail-engine-plan.md), including its architecture, interfaces, implementation map, and review notes.
 
 ## Resume state
 
-- Current milestone: Stage 2–3 coverage-gated UI cutover, dual-provider search/body/read, scale smoke, and child-process owner fork landed. Stage 3–6 remaining. Draft PR open.
+- Current milestone: Stage 2–4 attachment send, connection diagnostics, and Electron parentPort wiring landed. Stage 3–6 remaining. Draft PR open.
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: pending this checkpoint.
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
-- Current task: run Playwright/desktop UI matrix, live OPFS/Electron utilityProcess session, live assistant flows, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: after this push, watch CI on the exact head (`build:ci` previously failed on missing `parentFolderId` in engine list threads); run the new Playwright inspect spec; continue live assistant/attachment send and IndexedDB removal.
+- Current task: run Playwright/desktop UI matrix, live OPFS/Electron session, live assistant flows, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: after this push, watch CI on the exact head; run the Playwright inspect spec; continue live OPFS/Electron session evidence and IndexedDB removal.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-react --filter @inboxzero/mail-ui typecheck` — pass
+  - `pnpm --filter @inboxzero/mail-core --filter @inboxzero/mail-sqlite --filter @inboxzero/mail-ui --filter @inboxzero/desktop typecheck` — pass
   - `pnpm --filter @inboxzero/mail-core test` — 4 files, 11 passed
-  - `pnpm --filter @inboxzero/mail-sqlite test` — 4 files, 20 passed including 10k/100k/1M list smoke and search/body hydration (179s)
-  - `pnpm --filter @inboxzero/desktop test` — 12 files, 58 passed including bundled `child_process.fork` of the utility-child entry
-  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/coverage.test.ts utils/mail-engine/threads-query.test.ts utils/mail-engine/tab-channel.test.ts utils/mail-engine/worker-protocol.test.ts` — 4 files, 7 passed
-  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/http-archive.test.ts __tests__/integration/mail-engine/catch-up.test.ts __tests__/integration/mail-engine/search-body.test.ts` — 3 files, 6 passed (Gmail+Outlook search/body/read/reopen, archive, catch-up)
+  - `pnpm --filter @inboxzero/mail-sqlite test` — 4 files, 22 passed including blocked_auth recover + missed/duplicate idle catch-up, blob metadata, and 10k/100k/1M list smoke (184s)
+  - `pnpm --filter @inboxzero/desktop test` — 13 files, 60 passed including injected `postMessage` child and Electron `parentPort` transport
+  - `pnpm --filter @inboxzero/mail-ui test` — 1 file, 1 passed
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts utils/mail-engine/coverage.test.ts utils/mail-engine/threads-query.test.ts utils/mail-engine/tab-channel.test.ts utils/mail-engine/worker-protocol.test.ts` — 5 files, 12 passed including staged-blob durable send
+  - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/http-archive.test.ts __tests__/integration/mail-engine/catch-up.test.ts __tests__/integration/mail-engine/search-body.test.ts` — 3 files, 6 passed
+  - `pnpm exec biome check` on the files changed in this checkpoint — pass
 
 ## Checklist conventions
 
@@ -55,7 +57,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. Lists stay on the legacy path until engine coverage is complete. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is still selected at runtime when present but was not launched as a packaged Electron session. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. Lists stay on the legacy path until engine coverage is complete. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
 
 ### D. Provider replication and repair
 
@@ -65,7 +67,7 @@ Browser host uses a dedicated module worker when available, OPFS SAHPool when pe
 - [ ] D4. Implement wake/hint/periodic catch-up and repair; verify missing/duplicate notifications and auth/throttle recovery.
 - [ ] D5. Pass the required dual-provider replication fault scenarios with independent provider/local-state inspection.
 
-Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to `blocked_auth`. Dual-provider integration now inspects Gmail/Outlook archive, catch-up, search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Missed-notification/hint and live auth recovery UI cells are not evidenced.
+Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Live Playwright auth-recovery UI is not evidenced.
 
 ### E. Complete operations, drafts, and assistant coexistence
 
@@ -76,7 +78,7 @@ Source adapters try `getMailboxSyncPage` then fall back to pagination for emulat
 - [ ] E5. Implement separate assistant metadata ingestion and protect newer draft edits.
 - [ ] E6. Prove assistant processing with client stopped, later client catch-up, and no regression in affected live assistant flows.
 
-Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging exists; HTTP uploads reject checksum mismatches. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Live assistant flows and attachment-backed sends remain open.
+Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging writes filename/content-type sidecars; HTTP uploads reject checksum mismatches; send execute loads those blobs into the durable send attachment payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Live assistant UI flows remain open.
 
 ### F. Product UI and local desktop shell
 
@@ -86,7 +88,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [ ] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page mounts `MailEngineHost` only when OPFS is available. Follower tabs subscribe through the owner channel; the owning tab runs the engine. `MailEngineProvider` is installed only after metadata coverage is complete, so lists and actions stay on the IndexedDB path until then. Shared `MailApp` has list/archive/read/search/reader. Desktop renderer resolves account ids from the query string or an inspect snapshot and polls mailbox views over IPC. Old IndexedDB owners are not removed.
+Mail page mounts `MailEngineHost` only when OPFS is available. Follower tabs subscribe through the owner channel; the owning tab runs the engine. `MailEngineProvider` is installed only after metadata coverage is complete, so lists and actions stay on the IndexedDB path until then. Shared `MailApp` has list/archive/read/search/reader plus `blocked_auth` reconnect and offline status. Desktop renderer resolves account ids from the query string or an inspect snapshot and polls mailbox views over IPC. Old IndexedDB owners are not removed.
 
 ### G. Scale, preservation, and release readiness
 
@@ -126,9 +128,9 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Login/bootstrap/body/search/reopen | Not run | Not run | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Not run | Not run | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
-| Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); expired/reset cursor + stale hydration |
+| Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Not run | Not run | Not run | Not run | Uncertain send reopen |
-| Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen send payload + durable send receipts + blob checksum reject + assistant draft protection |
+| Drafts/blobs/send uncertainty/late edits | Not run | Not run | Not run | Not run | Frozen send payload + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection |
 | Account/owner/session isolation | Not run | Not run | Not run | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Not run | Not run | Not run | Not run | Restartable IndexedDB draft/mutation import + coverage-gated UI cutover |
@@ -199,6 +201,13 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: see Resume state last validation.
 - What it proved: lists/actions stay on the legacy path until metadata coverage is complete; engine list threads include `parentFolderId` for `build:ci`; provider search candidates hydrate into SQLite and become locally queryable; Gmail and Outlook HTTP search/body/mark-read/reopen inspect provider unread/read state and committed SQLite; diagnostics expose privacy-safe command summaries; a bundled `child_process.fork` of the desktop utility-child owns SQLite and deduplicates commands; 10k/100k/1M conversation list/count smokes stay under 5s query time on `node:sqlite`.
 - Limitations: Playwright inspect spec is written but not run in this checkpoint; Electron `utilityProcess.fork` and live OPFS still unverified; IndexedDB owners remain until F5; live assistant UI and attachment-backed sends remain open.
+
+### E7. Attachment send, connection diagnostics, Electron parentPort (2026-09-18)
+
+- Tasks: partial C2, partial D4, partial E3, partial F1
+- Commands: see Resume state last validation.
+- What it proved: staged blob filename/content-type metadata is written beside bytes and loaded into `executeDurableEmailSend`; `accounts.connection` persists `blocked_auth` then recovers to `ready`; idle catch-up applies a missed archive and a duplicate hint without duplicating conversations; MailApp surfaces reconnect/offline from mailbox `connection`; desktop owner injects Electron-shaped `postMessage` children and the utility child replies on `parentPort`.
+- Limitations: Playwright inspect spec and packaged Electron/OPFS sessions still unrun; IndexedDB owners remain; live assistant UI remains open.
 
 ## Decision and deviation log
 
