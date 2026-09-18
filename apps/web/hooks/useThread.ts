@@ -94,7 +94,7 @@ export function useThread(
 
   return {
     data,
-    error: snapshot.error ? new Error(snapshot.error.code) : undefined,
+    error: conversationQueryError(snapshot.error),
     isLoading,
     isValidating: snapshot.refreshing,
     mutate,
@@ -117,4 +117,15 @@ export function useThread(
           }
         : undefined,
   };
+}
+
+function conversationQueryError(
+  error: { code: string } | null,
+): { error: string; info: { error: string } } | undefined {
+  if (!error) return;
+  const message =
+    error.code === "not_found"
+      ? "This conversation isn't available yet."
+      : "Couldn't open this conversation.";
+  return { error: message, info: { error: message } };
 }

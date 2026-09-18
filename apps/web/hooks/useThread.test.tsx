@@ -69,6 +69,26 @@ describe("useThread", () => {
     expect(result.current.isLoading).toBe(false);
     expect(mail.client.observeConversation).not.toHaveBeenCalled();
   });
+
+  it("surfaces a reader error the thread view can display", async () => {
+    mail.client.observeConversation.mockReturnValue(
+      handle({
+        status: "error",
+        revision: null,
+        data: null,
+        refreshing: false,
+        error: { code: "not_found", retryable: false },
+      }),
+    );
+    const { result } = renderHook(() => useThread({ id: "c-missing" }));
+    await waitFor(() =>
+      expect(result.current.error).toEqual({
+        error: "This conversation isn't available yet.",
+        info: { error: "This conversation isn't available yet." },
+      }),
+    );
+    expect(result.current.isLoading).toBe(false);
+  });
 });
 
 function handle(snapshot: QuerySnapshot<ConversationView>) {

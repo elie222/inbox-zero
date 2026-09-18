@@ -45,6 +45,9 @@ export function useEngineMailThreads({
   );
   const [threads, setThreads] = useState<ListThread[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<
+    { error: string; info: { error: string } } | undefined
+  >();
   const [coverageComplete, setCoverageComplete] = useState(false);
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -53,6 +56,7 @@ export function useEngineMailThreads({
     if (!client || !enabled) {
       setThreads([]);
       setIsLoading(false);
+      setError(undefined);
       setCoverageComplete(false);
       setNextPage(null);
       return;
@@ -61,6 +65,7 @@ export function useEngineMailThreads({
     const applySnapshot = () => {
       const snapshot = handle.getSnapshot();
       setIsLoading(snapshot.status === "loading");
+      setError(mailboxQueryError(snapshot.error));
       setThreads(
         (snapshot.data?.conversations ?? []).map((conversation) =>
           conversationSummaryToListThread(
@@ -117,7 +122,7 @@ export function useEngineMailThreads({
     hasRemoteResponse: !isLoading,
     searchError: undefined,
     isLoading: enabled && isLoading,
-    error: undefined,
+    error,
     hasMore: Boolean(nextPage),
     isLoadingMore,
     loadMore,
@@ -140,4 +145,14 @@ export function useEngineMailThreads({
 
 export function useEngineMailClient(): MailClient | null {
   return useOptionalMailClient();
+}
+
+function mailboxQueryError(
+  error: { code: string } | null,
+): { error: string; info: { error: string } } | undefined {
+  if (!error) return;
+  return {
+    error: "Couldn't load this mailbox.",
+    info: { error: "Couldn't load this mailbox." },
+  };
 }
