@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createWasmSqliteDriver } from "./wasm-sqlite";
+import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
+import { createWasmSqliteDriver } from "./wasm-sqlite";
+
+const inboxQuery = {
+  accountIds: ["acc-1"],
+  predicate: { kind: "role" as const, role: "inbox" as const },
+  order: "newest_first" as const,
+  pageSize: 10,
+  after: null,
+};
 
 describe("browser wasm sqlite driver", () => {
   it("runs the shared store on an in-memory sqlite-wasm database", async () => {
@@ -11,14 +20,99 @@ describe("browser wasm sqlite driver", () => {
       provider: "google",
       generation: "g1",
     });
-    const view = await store.readMailboxView({
-      accountIds: ["acc-1"],
-      predicate: { kind: "role", role: "inbox" },
-      order: "newest_first",
-      pageSize: 10,
-      after: null,
-    });
+    const view = await store.readMailboxView(inboxQuery);
     expect(view.view.counts.matchingConversations).toBe(0);
     await store.close();
   });
+
+  it("keeps archive and new-mail counts aligned on the wasm driver", async () => {
+    const driver = await createWasmSqliteDriver({ persist: false });
+    const store = await createSqliteMailStore(driver);
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const before = await store.readMailboxView(inboxQuery);
+    expect(before.view.counts.matchingConversations).toBe(2);
+
+    const admission = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(admission.status).toBe("queued");
+    const pending = await store.readMailboxView(inboxQuery);
+    expect(pending.view.counts.matchingConversations).toBe(1);
+    expect(
+      pending.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c2"]);
+
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "new-mail",
+        from: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        to: { streamId: "primary", generation: "g1", checkpoint: "2" },
+        changes: [messagePatch("m3", "c1", 3000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const returned = await store.readMailboxView(inboxQuery);
+    expect(
+      returned.view.conversations.map((row) => row.key.conversationId).sort(),
+    ).toEqual(["c1", "c2"]);
+    await store.close();
+  });
 });
+
+function messagePatch(
+  messageId: string,
+  conversationId: string,
+  receivedAtMs: number,
+  roles: Array<"inbox" | "sent" | "draft" | "trash" | "spam">,
+): Extract<ProviderChange, { kind: "message_patch" }> {
+  return {
+    kind: "message_patch",
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google",
+      messageId,
+      conversationId,
+      version: "1",
+    },
+    fields: {
+      subject: conversationId,
+      preview: messageId,
+      from: "ada@example.com",
+      to: ["me@example.com"],
+      cc: [],
+      receivedAtMs,
+      read: false,
+      starred: false,
+      folderId: roles.includes("inbox") ? "inbox" : "archive",
+      labelIds: roles.includes("inbox") ? ["INBOX"] : [],
+      categoryIds: [],
+      roles,
+      hasAttachments: false,
+    },
+  };
+}
