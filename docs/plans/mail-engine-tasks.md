@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `7930085ab`
+- Last implementation commit: `13978e827`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; answer remaining review comments; run Playwright inspect (C1).
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed including unarchive/restore_from_trash
+  - `pnpm exec ultracite check` on use-thread-actions and mutation-change test — pass
+  - Previous checkpoint:
   - `pnpm exec ultracite check` on label-count cutover files — pass
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/label-count-targets.test.ts utils/swr-persistence.test.ts app/(app)/[emailAccountId]/mail/label-visibility.test.ts` — 3 files, 18 passed
   - Previous checkpoint:
@@ -250,6 +253,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: see Resume state last validation.
 - What it proved: sidebar label/folder counts and the desktop unread badge subscribe to `observeMailbox` on the same effective predicates as the lists. Pending read/archive no longer patches a separate SWR `/api/labels/counts` overlay. That HTTP route remains for other clients; the mail UI does not fetch it.
 - Limitations: Playwright inspect and packaged Electron sessions still unrun; composer restore is still in-memory.
+
+### E12. MetadataChange build:ci fix (2026-09-18)
+
+- Tasks: partial I2
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed; `pnpm exec ultracite check` on `use-thread-actions.ts`.
+- What it proved: undo compensation uses `mutationPayloadToChange` (`unarchive` / `restore_from_trash`) instead of an undeclared `MetadataChange` name that failed `build:ci`.
+- Limitations: `build:ci` itself is not run locally (repo instruction).
 
 ## Decision and deviation log
 
