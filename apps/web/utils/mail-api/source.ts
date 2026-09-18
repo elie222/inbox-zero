@@ -1,9 +1,13 @@
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { Provider } from "@inboxzero/mail-core/identities";
-import { InvalidMailboxSyncCursorError } from "@/utils/email/mailbox-sync";
+import {
+  encodeMailboxSyncCursor,
+  InvalidMailboxSyncCursorError,
+} from "@/utils/email/mailbox-sync";
 import type { EmailProvider } from "@/utils/email/types";
 import { parsedMessagePatch } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import type { ParsedMessage } from "@/utils/types";
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -86,34 +90,38 @@ export function createEmailProviderMailboxSource(input: {
         const changes = syncPage.messages.map((message) =>
           parsedMessagePatch(accountId, providerName, message),
         );
+        if (syncPage.nextPageToken) {
+          return {
+            status: "ok" as const,
+            value: {
+              bootstrapId: "mailbox",
+              scopeId: "primary",
+              changes,
+              requiredHydration: syncPage.messages
+                .filter((message) => !message.textPlain && !message.textHtml)
+                .map((message) => ({
+                  accountId,
+                  messageId: message.id,
+                })),
+              nextPage: JSON.stringify({ pageToken: syncPage.nextPageToken }),
+              catchUpFrom: null,
+            },
+          };
+        }
         return {
           status: "ok" as const,
-          value: syncPage.nextPageToken
-            ? {
-                bootstrapId: "mailbox",
-                scopeId: "primary",
-                changes,
-                requiredHydration: syncPage.messages
-                  .filter((message) => !message.textPlain && !message.textHtml)
-                  .map((message) => ({
-                    accountId,
-                    messageId: message.id,
-                  })),
-                nextPage: JSON.stringify({ pageToken: syncPage.nextPageToken }),
-                catchUpFrom: null,
-              }
-            : {
-                bootstrapId: "mailbox",
-                scopeId: "primary",
-                changes,
-                requiredHydration: [],
-                nextPage: null,
-                catchUpFrom: {
-                  streamId: "primary",
-                  generation: session.generation,
-                  checkpoint: token.pageToken ?? "enumerated",
-                },
-              },
+          value: {
+            bootstrapId: "mailbox",
+            scopeId: "primary",
+            changes,
+            requiredHydration: [],
+            nextPage: null,
+            catchUpFrom: {
+              streamId: "primary",
+              generation: session.generation,
+              checkpoint: await catchUpCheckpoint(provider, syncPage.messages),
+            },
+          },
         };
       } catch (error) {
         if (error instanceof InvalidMailboxSyncCursorError) {
@@ -303,6 +311,39 @@ export function createEmailProviderMailboxSource(input: {
       };
     },
   };
+}
+
+async function catchUpCheckpoint(
+  provider: EmailProvider,
+  messages: ParsedMessage[],
+): Promise<string | null> {
+  try {
+    const page = await provider.getMailboxSyncPage({
+      after: new Date(0),
+      limit: 1,
+    });
+    if (page.cursor) return page.cursor;
+  } catch {
+    // Fall back to the newest numeric Gmail history id we already fetched.
+  }
+  return encodedGmailCursorFromMessages(messages);
+}
+
+function encodedGmailCursorFromMessages(
+  messages: ParsedMessage[],
+): string | null {
+  const historyId = messages
+    .map((message) => message.historyId)
+    .filter((id): id is string => Boolean(id && /^\d+$/.test(id)))
+    .reduce((latest, id) => (BigInt(id) > BigInt(latest) ? id : latest), "0");
+  if (historyId === "0") return null;
+  return encodeMailboxSyncCursor({
+    version: 1,
+    provider: "google",
+    phase: "delta",
+    historyId,
+    after: "1970-01-01T00:00:00.000Z",
+  });
 }
 
 function mapProviderError(error: unknown) {

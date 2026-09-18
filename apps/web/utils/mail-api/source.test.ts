@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { InvalidMailboxSyncCursorError } from "@/utils/email/mailbox-sync";
+import {
+  decodeMailboxSyncCursor,
+  encodeMailboxSyncCursor,
+  InvalidMailboxSyncCursorError,
+} from "@/utils/email/mailbox-sync";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
@@ -172,6 +176,15 @@ describe("createEmailProviderMailboxSource", () => {
       provider: {
         name: "google",
         getMessagesWithPagination,
+        async getMailboxSyncPage() {
+          return {
+            cursor: "gmail-cursor",
+            reset: true,
+            upsertedMessages: [],
+            deletedMessageIds: [],
+            hasMore: false,
+          };
+        },
       } as unknown as EmailProvider,
     });
     await source.enumerate({
@@ -186,6 +199,123 @@ describe("createEmailProviderMailboxSource", () => {
       maxResults: 50,
       pageToken: undefined,
       includeDrafts: true,
+    });
+  });
+
+  it("stores a provider history cursor when enumeration finishes", async () => {
+    const cursor = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "42",
+      after: "1970-01-01T00:00:00.000Z",
+    });
+    const getMailboxSyncPage = vi.fn().mockResolvedValue({
+      cursor,
+      reset: true,
+      upsertedMessages: [],
+      deletedMessageIds: [],
+      hasMore: false,
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMailboxSyncPage,
+        async getMessagesWithPagination() {
+          return {
+            messages: [
+              {
+                id: "m1",
+                threadId: "t1",
+                historyId: "9",
+                headers: { from: "ada@example.com" },
+                labelIds: ["INBOX"],
+                snippet: "Hi",
+              },
+            ],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: "{}",
+      pageSize: 50,
+    });
+    expect(result).toMatchObject({
+      status: "ok",
+      value: {
+        nextPage: null,
+        catchUpFrom: {
+          streamId: "primary",
+          generation: "g1",
+          checkpoint: cursor,
+        },
+      },
+    });
+    expect(getMailboxSyncPage).toHaveBeenCalledWith({
+      after: new Date(0),
+      limit: 1,
+    });
+  });
+
+  it("encodes the newest Gmail history id when the provider cursor is unavailable", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMailboxSyncPage() {
+          throw new Error("profile unavailable");
+        },
+        async getMessagesWithPagination() {
+          return {
+            messages: [
+              {
+                id: "old",
+                threadId: "t1",
+                historyId: "10",
+                headers: { from: "ada@example.com" },
+                labelIds: ["INBOX"],
+                snippet: "Old",
+              },
+              {
+                id: "new",
+                threadId: "t2",
+                historyId: "99",
+                headers: { from: "ada@example.com" },
+                labelIds: ["INBOX"],
+                snippet: "New",
+              },
+            ],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: "{}",
+      pageSize: 50,
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.value.nextPage).toBeNull();
+    if (result.value.nextPage !== null) throw new Error("expected last page");
+    expect(
+      decodeMailboxSyncCursor(
+        result.value.catchUpFrom.checkpoint ?? "",
+        "google",
+      ),
+    ).toMatchObject({
+      historyId: "99",
+      phase: "delta",
+      provider: "google",
     });
   });
 
