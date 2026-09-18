@@ -8,18 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts, and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: pending this checkpoint.
+- Last implementation commit: `635e5ef6d`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: live OPFS/Electron/UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: watch CI on the exact head; run Playwright inspect (C1); continue remaining C/D/G gates.
+- Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: push OPFS inspect + connection banner; watch CI on the exact head; run Playwright inspect (C1).
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - `cd apps/web && pnpm exec vitest --run hooks/useThread.test.tsx utils/mail-engine/wasm-sqlite.test.ts` — 2 files, 5 passed
-  - `pnpm exec ultracite check` on reader/list error, inspect spec, and offline cache comment — pass
-  - Reader/list engine errors map to the LoadingContent shape used by MailShell (`useThread` / `useEngineMailThreads`)
-  - Inspect spec no longer mentions a legacy IndexedDB list
-  - No remaining `email-cache`, `indexeddb-import`, `MailboxSyncManager`, or `MailMutationOutboxManager` TypeScript imports
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/connection-notice.test.ts hooks/useThread.test.tsx utils/mail-engine/worker-protocol.test.ts` — 3 files, 8 passed
+  - `cd apps/web && pnpm exec vitest --run utils/playwright/emulated-suite-selection.test.mjs utils/playwright/emulated-suite-targets.test.mjs` — 2 files, 38 passed
+  - `pnpm --filter @inboxzero/mail-core pack:expo-smoke` — pass
+  - `pnpm exec ultracite check` on inspect seam, connection banner, and notice tests — pass
   - Previous checkpoint:
   - `cd apps/web && pnpm exec vitest --run store/sender-queue.test.ts store/archive-sender-queue.test.tsx app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.test.ts utils/mail-engine/reply-drafts.test.ts utils/mail-engine/thread-mail-mutations.test.ts utils/attachments/opened-conversation.test.ts app/(app)/[emailAccountId]/compose/send-draft-reference.test.ts utils/email-send-operation-retention.test.ts hooks/useReplyDraftPersistence.test.ts utils/playwright/emulated-suite-targets.test.mjs utils/playwright/emulated-suite-selection.test.mjs` — 11 files, 79 passed
   - `pnpm exec ultracite check` on F5-changed files — pass
@@ -65,7 +64,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker, and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. `MailEngineConnectionBanner` surfaces `blocked_auth` (reconnect) and `offline` (automatic retry) from the mailbox snapshot. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A packaged Electron session was not launched. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched.
 
 ### D. Provider replication and repair
 
@@ -75,7 +74,7 @@ Browser host uses a dedicated module worker when available, OPFS SAHPool when pe
 - [ ] D4. Implement wake/hint/periodic catch-up and repair; verify missing/duplicate notifications and auth/throttle recovery.
 - [ ] D5. Pass the required dual-provider replication fault scenarios with independent provider/local-state inspection.
 
-Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Live Playwright auth-recovery UI is not evidenced.
+Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Web `MailEngineConnectionBanner` renders reconnect/offline from mailbox `connection`; live Playwright of a blocked_auth recovery click is not evidenced.
 
 ### E. Complete operations, drafts, and assistant coexistence
 
@@ -224,6 +223,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands: see Resume state last validation and the F5 deletion commit `a12cdbab7`.
 - What it proved: IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session. G3 importer is skipped because the mail client is not live (decision D3). MailShell reader/list errors use the LoadingContent shape instead of a generic `Error`. There is no remaining TypeScript import of `email-cache`, `indexeddb-import`, `MailboxSyncManager`, or `MailMutationOutboxManager`.
 - Limitations: Playwright inspect and packaged Electron/OPFS sessions still unrun; live assistant UI remains open; UI matrix cells remain Not run.
+
+### E9. OPFS inspect contract and connection banner (2026-09-18)
+
+- Tasks: partial C1, partial D4, partial C4
+- Tree: `cursor/mail-engine-0b4f`
+- Commands: see Resume state last validation.
+- What it proved: `__inboxZeroMailInspect` now reports owner/follower role plus worker/locks/OPFS capabilities; owner tabs do not demote themselves to followers on their own owner broadcast; web UI surfaces `blocked_auth` reconnect and `offline` retry copy from mailbox `connection`; Expo pack-smoke still passes. Playwright inspect spec asserts owner+OPFS+ready connection on a live mail page (not run in this checkpoint).
+- Limitations: Playwright inspect and packaged Electron sessions still unrun; Expo harness is not a Metro runtime.
 
 ## Decision and deviation log
 
