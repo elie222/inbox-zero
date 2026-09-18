@@ -8,7 +8,7 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: pending engine-owned counts
+- Last implementation commit: `7930085ab`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: live OPFS Playwright inspect, packaged Electron, UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: watch CI on the exact head; answer remaining review comments; run Playwright inspect (C1).
