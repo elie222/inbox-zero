@@ -10,6 +10,27 @@ test("exposes engine diagnostics after metadata coverage or keeps the legacy lis
   await expect(conversations.getByRole("option").first()).toBeVisible({
     timeout: 60_000,
   });
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async () => {
+          const seam = window.__inboxZeroMailInspect;
+          if (!seam) return { present: false, coverageComplete: false };
+          const diagnostics = (await seam.read()) as {
+            coverage?: Array<{ metadata: string }>;
+          };
+          return {
+            present: true,
+            coverageComplete:
+              (diagnostics.coverage?.length ?? 0) > 0 &&
+              diagnostics.coverage?.every(
+                (item) => item.metadata === "complete",
+              ),
+          };
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ present: true, coverageComplete: true });
   const inspect = await page.evaluate(async () => {
     const seam = window.__inboxZeroMailInspect;
     if (!seam) return { present: false as const };
@@ -29,8 +50,7 @@ test("exposes engine diagnostics after metadata coverage or keeps the legacy lis
   });
   await capturePlaywrightCheckpoint(page, testInfo, "mail-engine-inspect");
   expect(await conversations.getByRole("option").count()).toBeGreaterThan(0);
-  if (inspect.present) {
-    expect(inspect.accountId).toBe(emailAccountId);
-    expect(inspect.coverageComplete).toBe(true);
-  }
+  expect(inspect.present).toBe(true);
+  expect(inspect.accountId).toBe(emailAccountId);
+  expect(inspect.coverageComplete).toBe(true);
 });

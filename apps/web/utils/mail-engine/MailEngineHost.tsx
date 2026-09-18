@@ -16,6 +16,8 @@ import {
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
 
+const MAIL_ENGINE_LISTS_ENABLED = false;
+
 export function MailEngineHost({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
   const [client, setClient] = useState<MailClient | null>(null);
@@ -35,14 +37,17 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     const bus = channel ? createBroadcastTabBus(channel) : null;
 
     async function publishClient(next: MailClient) {
+      publishMailEngineInspect(next, emailAccountId);
       const ready = await waitForMetadataCoverage(
         next,
         emailAccountId,
         abort.signal,
       );
       if (!ready || abort.signal.aborted) return;
-      publishMailEngineInspect(next, emailAccountId);
-      setClient(next);
+      // MailShell still uses IndexedDB overlays for archive pagination, splits,
+      // local search, and drafts. Installing the provider after first paint
+      // swaps those lists mid-session and fails the emulated mail specs.
+      if (MAIL_ENGINE_LISTS_ENABLED) setClient(next);
     }
 
     if (bus) {
