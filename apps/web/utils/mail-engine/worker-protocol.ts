@@ -37,3 +37,13 @@ export function browserMailEngineCapabilities() {
       "getDirectory" in navigator.storage,
   };
 }
+
+export function workerStartFence(
+  startedAccount: string | undefined,
+  nextAccountId: string,
+) {
+  if (startedAccount !== undefined && startedAccount !== nextAccountId) {
+    return "account_mismatch";
+  }
+  return null;
+}

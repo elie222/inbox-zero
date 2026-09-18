@@ -10,7 +10,11 @@ import {
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createMailHttpRequest } from "./http";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
-import type { WorkerRequest, WorkerResponse } from "./worker-protocol";
+import {
+  workerStartFence,
+  type WorkerRequest,
+  type WorkerResponse,
+} from "./worker-protocol";
 
 const handles = new Map<string, { close: () => void }>();
 let engine: MailEngine | undefined;
@@ -31,12 +35,13 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 async function handle(message: WorkerRequest) {
   try {
     if (message.type === "start") {
+      const fence = workerStartFence(startedAccount, message.input.accountId);
       if (engine) {
-        if (startedAccount !== message.input.accountId) {
+        if (fence) {
           post({
             id: message.id,
             type: "error",
-            message: "account_mismatch",
+            message: fence,
           });
           return;
         }

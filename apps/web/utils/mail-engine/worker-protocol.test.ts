@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { browserMailEngineCapabilities } from "./worker-protocol";
+import {
+  browserMailEngineCapabilities,
+  workerStartFence,
+} from "./worker-protocol";
 
 describe("browser mail engine capabilities", () => {
   it("reports worker and OPFS support from the current runtime", () => {
@@ -14,5 +17,16 @@ describe("browser mail engine capabilities", () => {
         "storage" in navigator &&
         "getDirectory" in navigator.storage,
     });
+  });
+});
+
+describe("worker account fencing", () => {
+  it("allows the first account and the same account again", () => {
+    expect(workerStartFence(undefined, "acc-1")).toBeNull();
+    expect(workerStartFence("acc-1", "acc-1")).toBeNull();
+  });
+
+  it("rejects a second account on an already started worker", () => {
+    expect(workerStartFence("acc-1", "acc-2")).toBe("account_mismatch");
   });
 });
