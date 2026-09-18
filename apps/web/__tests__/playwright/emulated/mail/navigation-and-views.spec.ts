@@ -234,6 +234,7 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   );
   await expect(draft).toBeVisible();
   await expect(draft.getByText("Draft", { exact: true })).toBeVisible();
+  await expect(draft.getByText("Jordan Example")).toBeVisible();
 
   await openMailboxFromSidebar(page, "Sent");
   await expect(
