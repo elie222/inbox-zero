@@ -1167,6 +1167,7 @@ function ComposeEmailFormContent({
           );
           if (!result?.data)
             throw new Error(getActionErrorMessage(result ?? {}));
+          await client?.requestSync([selectedEmailAccountId]);
         }
         if (
           !providerDraftId.current &&
@@ -1193,6 +1194,7 @@ function ComposeEmailFormContent({
     }
   }, [
     clearLocalDraft,
+    client,
     isSubmitting,
     isNewCompose,
     selectedEmailAccountId,

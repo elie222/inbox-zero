@@ -51,37 +51,63 @@ describe("engine bootstrap coverage", () => {
     ]);
     await engine.close();
   });
+
+  it("removes local messages omitted from a completed bootstrap", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "prior",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "old" },
+        changes: [messagePatch("gone", "c-gone", ["draft"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => {},
+        onEnumerate: () => {},
+        readChangesOnce: { status: "reset_required", scopeId: "primary" },
+      }),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(5000);
+    const inspection = await engine.inspect();
+    expect(
+      inspection.messages.find((row) => row.messageId === "gone")?.deleted,
+    ).toBe(true);
+    expect(
+      inspection.messages.find((row) => row.messageId === "m1")?.deleted,
+    ).toBe(false);
+    await engine.close();
+  });
 });
 
 function slowBootstrapSource(hooks: {
   onBootstrap: () => void;
   onEnumerate: () => void;
+  readChangesOnce?: { status: "reset_required"; scopeId: string };
 }): MailboxSource {
-  const change: Extract<ProviderChange, { kind: "message_patch" }> = {
-    kind: "message_patch",
-    key: { accountId: "acc-1", messageId: "m1" },
-    reference: {
-      provider: "google",
-      messageId: "m1",
-      conversationId: "c1",
-      version: "1",
-    },
-    fields: {
-      subject: "Hello",
-      preview: "Hi",
-      from: "ada@example.com",
-      to: ["me@example.com"],
-      cc: [],
-      receivedAtMs: 1000,
-      read: false,
-      starred: false,
-      folderId: "inbox",
-      labelIds: ["INBOX"],
-      categoryIds: [],
-      roles: ["inbox"],
-      hasAttachments: false,
-    },
-  };
+  const change = messagePatch("m1", "c1", ["inbox"]);
+  let resetConsumed = false;
   return {
     async describe() {
       return {
@@ -133,6 +159,10 @@ function slowBootstrapSource(hooks: {
       };
     },
     async readChanges() {
+      if (hooks.readChangesOnce && !resetConsumed) {
+        resetConsumed = true;
+        return hooks.readChangesOnce;
+      }
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
     async hydrate() {
@@ -162,6 +192,38 @@ function slowBootstrapSource(hooks: {
     },
     async readAttachment() {
       return { status: "unavailable" };
+    },
+  };
+}
+
+function messagePatch(
+  messageId: string,
+  conversationId: string,
+  roles: Array<"inbox" | "draft">,
+): Extract<ProviderChange, { kind: "message_patch" }> {
+  return {
+    kind: "message_patch",
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google",
+      messageId,
+      conversationId,
+      version: "1",
+    },
+    fields: {
+      subject: messageId,
+      preview: messageId,
+      from: "ada@example.com",
+      to: ["me@example.com"],
+      cc: [],
+      receivedAtMs: 1000,
+      read: false,
+      starred: false,
+      folderId: roles.includes("inbox") ? "inbox" : null,
+      labelIds: roles.includes("inbox") ? ["INBOX"] : ["DRAFT"],
+      categoryIds: [],
+      roles,
+      hasAttachments: false,
     },
   };
 }

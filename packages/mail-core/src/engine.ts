@@ -389,6 +389,8 @@ export function createMailEngine(input: {
       return;
     }
     await noteConnection(input.session.accountId, "ok");
+    const seenMessageIds = new Set<string>();
+    let completed = false;
     let page: string | null = bootstrap.value.enumerationToken;
     // Coverage-gated first paint needs this round to finish. A slice
     // deadline that expires during beginBootstrap must not skip enumerate.
@@ -406,6 +408,11 @@ export function createMailEngine(input: {
         await noteConnection(input.session.accountId, enumerated.status);
         break;
       }
+      for (const change of enumerated.value.changes) {
+        if (change.kind === "message_patch") {
+          seenMessageIds.add(change.key.messageId);
+        }
+      }
       await store.applySyncPage({
         page: {
           session: input.session,
@@ -419,6 +426,13 @@ export function createMailEngine(input: {
         ownerId,
       });
       page = enumerated.value.nextPage;
+      if (!page) completed = true;
+    }
+    if (completed) {
+      await store.tombstoneUnseen({
+        accountId: input.session.accountId,
+        seenMessageIds: [...seenMessageIds],
+      });
     }
     await refreshViews();
   }

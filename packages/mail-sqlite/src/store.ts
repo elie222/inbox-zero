@@ -520,6 +520,27 @@ export async function createSqliteMailStore(
         return { status: "committed", revision };
       });
     },
+    async tombstoneUnseen(input) {
+      return driver.write(async (tx) => {
+        const rows = await tx.query(
+          "SELECT message_id FROM messages WHERE account_id = ? AND deleted = 0",
+          [input.accountId],
+        );
+        const seen = new Set(input.seenMessageIds);
+        const missing = rows.filter((row) => !seen.has(String(row.message_id)));
+        for (const row of missing) {
+          await applyChange(tx, {
+            kind: "message_deleted",
+            key: {
+              accountId: input.accountId,
+              messageId: String(row.message_id),
+            },
+            evidence: "bootstrap_unseen",
+          });
+        }
+        return missing.length > 0 ? bumpRevision(tx) : readRevision(tx);
+      });
+    },
     async cancelOperation(key) {
       return driver.write(async (tx) => {
         const current = await loadOperation(tx, key.accountId, key.operationId);

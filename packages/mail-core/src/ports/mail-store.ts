@@ -257,6 +257,10 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
+  tombstoneUnseen(input: {
+    accountId: string;
+    seenMessageIds: string[];
+  }): Promise<LocalRevision>;
 }
 
 export type { QuerySnapshot };

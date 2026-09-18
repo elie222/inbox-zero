@@ -485,6 +485,42 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("tombstones local messages that a completed bootstrap did not see", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("kept", "c-kept", 1000, ["inbox"]),
+          messagePatch("gone", "c-gone", 2000, ["draft"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.tombstoneUnseen({
+      accountId: "acc-1",
+      seenMessageIds: ["kept"],
+    });
+    const inspection = await store.inspect();
+    expect(
+      inspection.messages.find((row) => row.messageId === "kept")?.deleted,
+    ).toBe(false);
+    expect(
+      inspection.messages.find((row) => row.messageId === "gone")?.deleted,
+    ).toBe(true);
+    await store.close();
+  });
+
   it("holds a send until notBeforeMs and records the conversation on diagnostics", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
