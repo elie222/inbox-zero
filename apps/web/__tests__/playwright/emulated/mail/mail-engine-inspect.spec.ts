@@ -71,6 +71,31 @@ test("exposes engine diagnostics after metadata coverage", async ({
   ).toHaveCount(0);
 });
 
+test("keeps the owner engine after a full reload", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  await expect
+    .poll(async () => page.evaluate(() => window.__inboxZeroMailInspect?.role))
+    .toBe("owner");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(conversations.getByRole("option").first()).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect
+    .poll(
+      async () => page.evaluate(() => window.__inboxZeroMailInspect?.role),
+      {
+        timeout: 60_000,
+      },
+    )
+    .toBe("owner");
+  expect(
+    await page.evaluate(() => window.__inboxZeroMailInspect?.accountId),
+  ).toBe(emailAccountId);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-engine-reload");
+});
+
 test("serves a second tab as a follower of the owner engine", async ({
   page,
 }, testInfo) => {
