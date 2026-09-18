@@ -68,6 +68,11 @@
     "app/(app)/[emailAccountId]/mail/use-mail-sync-activation.ts",
     "utils/email-cache/mail-activation.ts"
   ],
+  "mail-engine-inspect.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/coverage.ts",
+    "app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts"
+  ],
   "mail-queue.spec.ts": [
     "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
     "app/(app)/[emailAccountId]/debug/page.tsx"
