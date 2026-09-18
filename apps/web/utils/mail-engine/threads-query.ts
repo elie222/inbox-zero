@@ -22,12 +22,7 @@ export function threadsQueryToConversationQuery(input: {
 export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
   const clauses: MailPredicate[] = [];
   if (query.q) {
-    clauses.push({
-      kind: "text",
-      field: "any",
-      value: query.q,
-      match: "phrase",
-    });
+    clauses.push(...textQueryPredicates(query.q));
   }
   if (query.type === "unread") {
     clauses.push({ kind: "role", role: "inbox" });
@@ -128,4 +123,83 @@ function leafToPredicate(leaf: {
     };
   }
   return { kind: "read", value: false };
+}
+
+function textQueryPredicates(query: string): MailPredicate[] {
+  const clauses: MailPredicate[] = [];
+  let remaining = query.trim();
+  remaining = takePrefixedValue(remaining, "subject:", (value) => {
+    clauses.push({
+      kind: "text",
+      field: "subject",
+      value,
+      match: "phrase",
+    });
+  });
+  remaining = takePrefixedValue(remaining, "from:", (value) => {
+    clauses.push({
+      kind: "address",
+      field: "from",
+      value,
+      match: "address",
+    });
+  });
+  remaining = takeToken(remaining, "has:attachment", () => {
+    clauses.push({ kind: "has_attachment", value: true });
+  });
+  remaining = remaining.replaceAll(/\s+/g, " ").trim();
+  if (remaining) {
+    clauses.push({
+      kind: "text",
+      field: "any",
+      value: remaining,
+      match: "phrase",
+    });
+  }
+  return clauses;
+}
+
+function takePrefixedValue(
+  input: string,
+  prefix: string,
+  onValue: (value: string) => void,
+) {
+  const at = findStandaloneToken(input, prefix);
+  if (at === -1) return input;
+  const valueStart = at + prefix.length;
+  if (input[valueStart] === '"') {
+    const closing = input.indexOf('"', valueStart + 1);
+    if (closing === -1) return input;
+    const value = input.slice(valueStart + 1, closing);
+    if (!value) return input;
+    onValue(value);
+    return `${input.slice(0, at)} ${input.slice(closing + 1)}`;
+  }
+  const space = input.indexOf(" ", valueStart);
+  const valueEnd = space === -1 ? input.length : space;
+  const value = input.slice(valueStart, valueEnd);
+  if (!value) return input;
+  onValue(value);
+  return `${input.slice(0, at)} ${input.slice(valueEnd)}`;
+}
+
+function takeToken(input: string, token: string, onMatch: () => void) {
+  const at = findStandaloneToken(input, token);
+  if (at === -1) return input;
+  onMatch();
+  return `${input.slice(0, at)} ${input.slice(at + token.length)}`;
+}
+
+function findStandaloneToken(input: string, token: string) {
+  const haystack = input.toLowerCase();
+  const needle = token.toLowerCase();
+  let start = 0;
+  while (start <= haystack.length - needle.length) {
+    const at = haystack.indexOf(needle, start);
+    if (at === -1) return -1;
+    const before = at === 0 ? " " : input[at - 1];
+    if (before === " " || before === "(") return at;
+    start = at + 1;
+  }
+  return -1;
 }

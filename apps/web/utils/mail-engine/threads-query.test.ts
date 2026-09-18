@@ -20,4 +20,29 @@ describe("threadsQueryToPredicate", () => {
       match: "phrase",
     });
   });
+
+  it("maps subject and from operators onto structured predicates", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: 'from:alice@example.com subject:"Archive Action Message" has:attachment',
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "text",
+          field: "subject",
+          value: "Archive Action Message",
+          match: "phrase",
+        },
+        {
+          kind: "address",
+          field: "from",
+          value: "alice@example.com",
+          match: "address",
+        },
+        { kind: "has_attachment", value: true },
+      ],
+    });
+  });
 });
