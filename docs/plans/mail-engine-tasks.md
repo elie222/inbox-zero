@@ -6,12 +6,12 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 ## Resume state
 
-- Current milestone: Stage 3–4 MailShell first-paints on the engine; IndexedDB mailbox sync is unmounted. Compose/outbox and remaining F5 deletions are open. Draft PR open.
+- Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, and label counts. Compose/outbox still IndexedDB. Draft PR open.
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: pending this checkpoint.
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793 (draft)
-- Current task: verify engine list/action/search cutover, continue F5 IndexedDB removal (compose/outbox/search-index), run Playwright/desktop UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: run unit tests for the engine list cutover; watch CI on the exact head; rewrite remaining IndexedDB-backed Playwright specs (local-search cache seed, draft outbox) onto engine contracts.
+- Current task: wire compose/drafts/send through `saveDraft`/`submitSend`, unmount the mutation outbox, delete remaining email-cache modules, rewrite IndexedDB Playwright specs, run UI matrix, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: run unit tests for the reader/mutation cutover; watch CI on the exact head; implement engine compose/send and remove `MailMutationOutboxManager`.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
@@ -88,7 +88,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [ ] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. Lists, search, archive/read/star/snooze, and labels use the engine. IndexedDB mailbox sync is unmounted. Shared `MailApp` has list/archive/read/search/reader plus `blocked_auth` reconnect and offline status. Desktop renderer resolves account ids from the query string or an inspect snapshot and polls mailbox views over IPC. Compose/reply still uses the mutation outbox; remaining IndexedDB owners are not fully deleted.
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, and CommandK use the engine. IndexedDB mailbox sync is unmounted. Compose/reply still uses the mutation outbox; remaining IndexedDB owners are not fully deleted.
 
 ### G. Scale, preservation, and release readiness
 
@@ -242,10 +242,10 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### D5. MailShell list provider cutover
 
 - Requirement: replace MailShell lists after metadata coverage without a mid-session swap. Do not keep an IndexedDB mailbox fallback.
-- Chosen: `MailEngineHost` waits for metadata coverage, then first-paints MailShell inside `MailEngineProvider`. Lists, search, archive/read/star/snooze, and labels go through the engine. IndexedDB mailbox sync is unmounted. Compose/reply still uses the mutation outbox until engine drafts/send are wired.
-- Rationale: the plan builds the engine as if the IndexedDB cache did not exist (F2/F5). The previous `MAIL_ENGINE_LISTS_ENABLED = false` path was a CI workaround, not a product decision.
+- Chosen: `MailEngineRuntime` starts in the authenticated app layout and provides the client as soon as the engine starts. The mail page still waits for metadata coverage before first-painting MailShell. Reader, EmailList, CommandK, sender-queue batches, and label counts use the engine. IndexedDB mailbox sync remains unmounted. Compose/reply still uses the mutation outbox until engine drafts/send are wired.
+- Rationale: the original plan builds the engine as if the IndexedDB cache did not exist (opening line, browser “no IndexedDB mailbox fallback”, F2/F5, Stage 6 “no indefinite dual-write layer”). The previous `MAIL_ENGINE_LISTS_ENABLED = false` path was a CI workaround, not a product decision.
 - Approval: implementation prompt; product owner confirmed IndexedDB should not remain.
-- Affected contracts: `MailEngineHost`, `useMailThreads`, `useCombinedMailThreads`, `useThreadActions`, `LabelPickerDialog`, `layout.tsx`.
+- Affected contracts: `MailEngineHost`, `MailEngineRuntime`, `useThread`, `useMailThreads`, `EmailList`, `CommandK`, `useLabelCounts`, `layout.tsx`.
 
 ## PR observation log
 

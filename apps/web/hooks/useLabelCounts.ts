@@ -7,7 +7,6 @@ import {
 } from "react";
 import useSWR from "swr";
 import type { LabelCountsResponse } from "@/app/api/labels/counts/route";
-import { subscribeToMailboxStore } from "@/utils/email-cache/mailbox";
 import { GmailLabel } from "@/utils/gmail/label";
 
 /**
@@ -26,18 +25,6 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
   useLayoutEffect(() => {
     pendingInboxUnread.current = { emailAccountId, delta: 0 };
   }, [emailAccountId]);
-
-  useEffect(
-    () =>
-      subscribeToMailboxStore((changedAccountId, options) => {
-        if (
-          changedAccountId === emailAccountId &&
-          options?.refreshCounts !== false
-        )
-          mutate();
-      }),
-    [emailAccountId, mutate],
-  );
 
   const applyPendingInboxUnreadDelta = useCallback(() => {
     mutate(

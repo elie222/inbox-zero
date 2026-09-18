@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { CommandK } from "./CommandK";
 
@@ -19,12 +18,15 @@ const thread = vi.hoisted(() => ({
   } as { thread: { id: string; messages: { id: string }[] } } | undefined,
   isLoading: false,
 }));
-const overlay = vi.hoisted(() => ({ mutations: [] as MailMutation[] }));
-vi.mock("@/hooks/useMailMutationOverlay", () => ({
-  useRetainedMailMutationOverlay: () => overlay,
+const mail = vi.hoisted(() => ({
+  client: {
+    getDiagnostics: vi.fn(),
+    submitConversations: vi.fn(),
+  },
 }));
-
-const outbox = vi.hoisted(() => ({ enqueue: vi.fn() }));
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => mail.client,
+}));
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
 const shortcuts = vi.hoisted(() => ({
   handlers: undefined as ShortcutHandlers | undefined,
@@ -47,9 +49,6 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 }));
 vi.mock("@/providers/ComposeModalProvider", () => ({
   useComposeModal: () => ({ onOpen: vi.fn() }),
-}));
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
-  enqueueThreadMailMutationBatch: outbox.enqueue,
 }));
 vi.mock("@/components/Toast", () => ({ toastError: notifications.error }));
 vi.mock("@/hooks/useCommandPaletteCommands", () => ({
@@ -91,7 +90,6 @@ vi.mock("@/components/ui/command", () => ({
 describe("CommandK side-panel actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    overlay.mutations = [];
     displayedEmail.threadId = "thread-1";
     thread.data = {
       thread: {
@@ -100,18 +98,16 @@ describe("CommandK side-panel actions", () => {
       },
     };
     thread.isLoading = false;
-    outbox.enqueue.mockResolvedValue({ batchId: "batch", mutations: [] });
+    mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
+    mail.client.submitConversations.mockResolvedValue({ status: "queued" });
     shortcuts.handlers = undefined;
   });
 
   afterEach(cleanup);
 
-  it("persists the complete thread snapshot before closing the viewer", async () => {
-    const persisted = Promise.withResolvers<{
-      batchId: string;
-      mutations: never[];
-    }>();
-    outbox.enqueue.mockReturnValue(persisted.promise);
+  it("queues archive through the engine before closing the viewer", async () => {
+    const persisted = Promise.withResolvers<{ status: string }>();
+    mail.client.submitConversations.mockReturnValue(persisted.promise);
     render(<CommandK />);
 
     let archive: Promise<void> | undefined;
@@ -119,20 +115,28 @@ describe("CommandK side-panel actions", () => {
       archive = shortcuts.handlers?.archive?.() as Promise<void> | undefined;
     });
 
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-      payload: { kind: "archive" },
-      threads: [thread.data?.thread],
-    });
+    await waitFor(() =>
+      expect(mail.client.submitConversations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: "account-1",
+          conversations: [
+            { accountId: "account-1", conversationId: "thread-1" },
+          ],
+          change: { kind: "archive" },
+        }),
+      ),
+    );
     expect(displayedEmail.showEmail).not.toHaveBeenCalled();
 
-    persisted.resolve({ batchId: "batch", mutations: [] });
+    persisted.resolve({ status: "queued" });
     await act(async () => archive);
     expect(displayedEmail.showEmail).toHaveBeenCalledWith(null);
   });
 
   it("keeps the viewer open when durable storage fails", async () => {
-    outbox.enqueue.mockRejectedValue(new Error("storage unavailable"));
+    mail.client.submitConversations.mockRejectedValue(
+      new Error("storage unavailable"),
+    );
     render(<CommandK />);
 
     await act(async () => shortcuts.handlers?.archive?.());
@@ -148,41 +152,18 @@ describe("CommandK side-panel actions", () => {
     thread.isLoading = true;
     render(<CommandK />);
     await act(async () => shortcuts.handlers?.star?.());
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith({
       description: "Email is still loading",
     });
   });
 
-  it("toggles from the queued star state before provider reconciliation", async () => {
-    const view = render(<CommandK />);
+  it("stars the displayed thread through the engine", async () => {
+    render(<CommandK />);
     await act(async () => shortcuts.handlers?.star?.());
-    expect(outbox.enqueue).toHaveBeenLastCalledWith(
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: { kind: "set_starred_state", starred: true },
-      }),
-    );
-    overlay.mutations = [
-      {
-        id: "star",
-        batchId: "batch",
-        emailAccountId: "account-1",
-        threadId: "thread-1",
-        messageIds: ["message-1", "message-2"],
-        kind: "set_starred_state",
-        starred: true,
-        status: "pending",
-        attempts: 0,
-        nextAttemptAt: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
-    view.rerender(<CommandK />);
-    await act(async () => shortcuts.handlers?.star?.());
-    expect(outbox.enqueue).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        payload: { kind: "set_starred_state", starred: false },
+        change: { kind: "set_starred", starred: true },
       }),
     );
   });
@@ -196,7 +177,7 @@ describe("CommandK side-panel actions", () => {
 
     await act(async () => shortcuts.handlers?.archive?.());
 
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(displayedEmail.showEmail).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith({
       description: "Email is still loading",

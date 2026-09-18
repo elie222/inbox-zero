@@ -27,11 +27,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import {
-  applyMailMutationOverlayToThreads,
-  useRetainedMailMutationOverlay,
-} from "@/hooks/useMailMutationOverlay";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+  mutationPayloadToChange,
+  type ThreadMutationPayload,
+} from "@/utils/mail-engine/mutation-change";
+import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 
 export function List({
   emails,
@@ -163,26 +164,8 @@ export function EmailList({
   handleLoadMore?: () => void;
 }) {
   const { emailAccountId, userEmail, provider } = useAccount();
-  const reconcile = useCallback(() => refetch(), [refetch]);
-  const {
-    isReady: mutationOverlayReady,
-    mutations,
-    retainMutations,
-  } = useRetainedMailMutationOverlay({
-    emailAccountId,
-    onReconcile: reconcile,
-  });
-  const threads = useMemo(
-    () =>
-      mutationOverlayReady
-        ? applyMailMutationOverlayToThreads({
-            getEmailAccountId: () => emailAccountId,
-            mutations,
-            threads: sourceThreads,
-          })
-        : [],
-    [emailAccountId, mutationOverlayReady, mutations, sourceThreads],
-  );
+  const client = useOptionalMailClient();
+  const threads = sourceThreads;
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
@@ -226,16 +209,30 @@ export function EmailList({
     [emailAccountId],
   );
 
+  const submitThreads = useCallback(
+    async (selected: Thread[], payload: ThreadMutationPayload) => {
+      if (!client) throw new Error("Mail engine is unavailable");
+      const change = mutationPayloadToChange(payload);
+      if (!change) throw new Error("Unsupported mail mutation");
+      const accepted = await submitConversationChanges({
+        accountId: emailAccountId,
+        change,
+        client,
+        conversationIds: selected.map((thread) => thread.id),
+      });
+      if (accepted.length !== selected.length) {
+        throw new Error("Couldn't queue all conversations");
+      }
+    },
+    [client, emailAccountId],
+  );
+
   const onArchive = useCallback(
     (thread: Thread) => {
       toast.promise(
         async () => {
-          const queued = await enqueueThreadMailMutationBatch({
-            emailAccountId,
-            payload: { kind: "archive" },
-            threads: [thread],
-          });
-          retainMutations(queued.mutations);
+          await submitThreads([thread], { kind: "archive" });
+          await refetch({ removedThreadIds: [thread.id] });
         },
         {
           loading: "Archiving...",
@@ -244,7 +241,7 @@ export function EmailList({
         },
       );
     },
-    [emailAccountId, retainMutations],
+    [refetch, submitThreads],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -301,12 +298,10 @@ export function EmailList({
         const selectedThreads = threads.filter(
           (thread) => selectedRows[thread.id],
         );
-        const queued = await enqueueThreadMailMutationBatch({
-          emailAccountId,
-          payload: { kind: "archive" },
-          threads: selectedThreads,
+        await submitThreads(selectedThreads, { kind: "archive" });
+        await refetch({
+          removedThreadIds: selectedThreads.map((thread) => thread.id),
         });
-        retainMutations(queued.mutations);
         setSelectedRows({});
       },
       {
@@ -315,7 +310,7 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [emailAccountId, retainMutations, selectedRows, threads]);
+  }, [refetch, selectedRows, submitThreads, threads]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
@@ -323,12 +318,10 @@ export function EmailList({
         const selectedThreads = threads.filter(
           (thread) => selectedRows[thread.id],
         );
-        const queued = await enqueueThreadMailMutationBatch({
-          emailAccountId,
-          payload: { kind: "trash" },
-          threads: selectedThreads,
+        await submitThreads(selectedThreads, { kind: "trash" });
+        await refetch({
+          removedThreadIds: selectedThreads.map((thread) => thread.id),
         });
-        retainMutations(queued.mutations);
         setSelectedRows({});
       },
       {
@@ -337,7 +330,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [emailAccountId, retainMutations, selectedRows, threads]);
+  }, [refetch, selectedRows, submitThreads, threads]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -356,8 +349,6 @@ export function EmailList({
   }, [emailAccountId, selectedRows, threads]);
 
   const isEmpty = threads.length === 0;
-
-  if (!mutationOverlayReady) return null;
 
   return (
     <>
@@ -429,17 +420,12 @@ export function EmailList({
                   if (!alreadyOpen) scrollToId(thread.id);
 
                   if (isThreadUnread(thread.messages)) {
-                    enqueueThreadMailMutationBatch({
-                      emailAccountId,
-                      payload: { kind: "set_read_state", read: true },
-                      threads: [thread],
-                    })
-                      .then((queued) => retainMutations(queued.mutations))
-                      .catch(() => {
-                        toast.error(
-                          "Couldn't queue marking this email as read",
-                        );
-                      });
+                    submitThreads([thread], {
+                      kind: "set_read_state",
+                      read: true,
+                    }).catch(() => {
+                      toast.error("Couldn't queue marking this email as read");
+                    });
                   }
                 };
 

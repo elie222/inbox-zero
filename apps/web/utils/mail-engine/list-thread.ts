@@ -1,5 +1,8 @@
 import type { ConversationSummary } from "@inboxzero/mail-core/queries";
-import type { MailboxRole } from "@inboxzero/mail-core/messages";
+import type {
+  MailboxRole,
+  MessageMetadata,
+} from "@inboxzero/mail-core/messages";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
 
@@ -48,10 +51,21 @@ export function conversationSummaryToListThread(
 }
 
 export function conversationLabelIds(conversation: ConversationSummary) {
+  return messageLabelIds({
+    labelIds: conversation.labelIds,
+    read: !conversation.unread,
+    roles: conversation.roles,
+    starred: conversation.starred,
+  });
+}
+
+export function messageLabelIds(
+  metadata: Pick<MessageMetadata, "labelIds" | "read" | "roles" | "starred">,
+) {
   return [
-    ...conversation.roles.map((role) => ROLE_LABEL[role]),
-    ...(conversation.unread ? ["UNREAD"] : []),
-    ...(conversation.starred ? ["STARRED"] : []),
-    ...conversation.labelIds,
+    ...metadata.roles.map((role) => ROLE_LABEL[role]),
+    ...(!metadata.read ? ["UNREAD"] : []),
+    ...(metadata.starred ? ["STARRED"] : []),
+    ...metadata.labelIds,
   ];
 }

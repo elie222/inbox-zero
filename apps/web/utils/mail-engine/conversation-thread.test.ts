@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
+import { conversationViewToThreadResponse } from "./conversation-thread";
+
+describe("conversationViewToThreadResponse", () => {
+  it("projects engine messages onto the reader thread shape", () => {
+    const thread = conversationViewToThreadResponse(view());
+    expect(thread.thread.id).toBe("c-1");
+    expect(thread.thread.messages[0]).toMatchObject({
+      id: "m-1",
+      threadId: "c-1",
+      subject: "Hello",
+      textPlain: "Hi there",
+      labelIds: ["INBOX", "UNREAD"],
+      headers: { from: "Ada <ada@example.com>" },
+    });
+  });
+
+  it("hides draft messages unless includeDrafts is set", () => {
+    const draftView = view({
+      messages: [
+        message({
+          messageId: "m-draft",
+          roles: ["draft"],
+          read: true,
+        }),
+        message(),
+      ],
+    });
+    expect(
+      conversationViewToThreadResponse(draftView).thread.messages.map(
+        (item) => item.id,
+      ),
+    ).toEqual(["m-1"]);
+    expect(
+      conversationViewToThreadResponse(draftView, {
+        includeDrafts: true,
+      }).thread.messages.map((item) => item.id),
+    ).toEqual(["m-draft", "m-1"]);
+  });
+});
+
+function view(overrides: Partial<ConversationView> = {}): ConversationView {
+  return {
+    key: { accountId: "acc-1", conversationId: "c-1" },
+    messages: [message()],
+    nextPage: null,
+    coverage: [],
+    ...overrides,
+  };
+}
+
+function message(
+  overrides: {
+    messageId?: string;
+    roles?: Array<"inbox" | "sent" | "draft" | "trash" | "spam">;
+    read?: boolean;
+  } = {},
+): ConversationView["messages"][number] {
+  return {
+    key: {
+      accountId: "acc-1",
+      messageId: overrides.messageId ?? "m-1",
+    },
+    metadata: {
+      subject: "Hello",
+      preview: "Hi there",
+      from: "Ada <ada@example.com>",
+      to: ["user@example.com"],
+      cc: [],
+      receivedAtMs: 1_700_000_000_000,
+      read: overrides.read ?? false,
+      starred: false,
+      folderId: null,
+      labelIds: [],
+      categoryIds: [],
+      roles: overrides.roles ?? ["inbox"],
+      hasAttachments: false,
+    },
+    content: { status: "available", html: null, text: "Hi there" },
+    pendingOperationIds: [],
+  };
+}

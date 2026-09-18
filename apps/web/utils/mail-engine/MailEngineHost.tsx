@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -16,8 +22,65 @@ import {
   createTabFollowerClient,
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
+import { setActiveMailClient } from "@/utils/mail-engine/active-client";
+
+type MailEngineRuntimeStatus = {
+  client: MailClient | null;
+  mounted: boolean;
+  unavailable: boolean;
+};
+
+const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
+  client: null,
+  mounted: false,
+  unavailable: false,
+});
+
+export function MailEngineRuntime({ children }: { children: ReactNode }) {
+  const status = useContext(MailEngineRuntimeStatusContext);
+  if (status.mounted) return children;
+  return <MailEngineRuntimeInner>{children}</MailEngineRuntimeInner>;
+}
 
 export function MailEngineHost({ children }: { children: ReactNode }) {
+  return (
+    <MailEngineRuntime>
+      <MailCoverageGate>{children}</MailCoverageGate>
+    </MailEngineRuntime>
+  );
+}
+
+export function MailCoverageGate({ children }: { children: ReactNode }) {
+  const { emailAccountId } = useAccount();
+  const status = useContext(MailEngineRuntimeStatusContext);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+    if (!status.client || !emailAccountId) return;
+    const abort = new AbortController();
+    waitForMetadataCoverage(status.client, emailAccountId, abort.signal).then(
+      (complete) => {
+        if (complete) setReady(true);
+      },
+    );
+    return () => abort.abort();
+  }, [emailAccountId, status.client]);
+
+  if (status.unavailable || !browserMailEngineCapabilities().opfs) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
+        Mail needs persistent browser storage.
+      </div>
+    );
+  }
+  if (!status.client || !ready) {
+    return <LoadingContent loading>{null}</LoadingContent>;
+  }
+  return children;
+}
+
+function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
   const [client, setClient] = useState<MailClient | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -40,13 +103,9 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     const bus = channel ? createBroadcastTabBus(channel) : null;
 
     async function publishClient(next: MailClient) {
-      const ready = await waitForMetadataCoverage(
-        next,
-        emailAccountId,
-        abort.signal,
-      );
-      if (!ready || abort.signal.aborted) return;
+      if (abort.signal.aborted) return;
       publishMailEngineInspect(next, emailAccountId);
+      setActiveMailClient(next);
       setClient(next);
     }
 
@@ -113,23 +172,24 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
       unbindOwner?.();
       unbindHello?.();
       clearMailEngineInspect();
+      setActiveMailClient(null);
       channel?.close();
       engine?.close().catch(() => undefined);
       setClient(null);
     };
   }, [emailAccountId, provider]);
 
-  if (unavailable) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
-        Mail needs persistent browser storage.
-      </div>
-    );
-  }
-  if (!client) {
-    return <LoadingContent loading>{null}</LoadingContent>;
-  }
-  return <MailEngineProvider client={client}>{children}</MailEngineProvider>;
+  return (
+    <MailEngineRuntimeStatusContext.Provider
+      value={{ client, mounted: true, unavailable }}
+    >
+      {client ? (
+        <MailEngineProvider client={client}>{children}</MailEngineProvider>
+      ) : (
+        children
+      )}
+    </MailEngineRuntimeStatusContext.Provider>
+  );
 }
 
 function publishMailEngineInspect(client: MailClient, accountId: string) {

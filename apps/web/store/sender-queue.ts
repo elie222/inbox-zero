@@ -1,12 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import {
-  getMailMutationsForAccount,
   isActiveMailMutationStatus,
   type MailMutation,
-  type MailMutationPayload,
-  subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
 import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import type { ThreadMutationPayload } from "@/utils/mail-engine/mutation-change";
 import { fetchAllSenderThreads } from "./fetch-sender-threads";
 
 type QueueStatus = "pending" | "processing" | "completed" | "failed";
@@ -26,7 +24,7 @@ type QueueProgress = {
   totalItems: number;
 };
 
-type CreatePayload = (params: { labelId?: string }) => MailMutationPayload;
+type CreatePayload = (params: { labelId?: string }) => ThreadMutationPayload;
 
 export function createSenderQueue(createPayload: CreatePayload) {
   let durableQueue = new Map<string, QueueItem>();
@@ -36,10 +34,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
   const stateListeners = new Set<() => void>();
   const mutationPayload = createPayload({});
   const inFlightKeys = new Set<string>();
-  const observedAccounts = new Map<string, number>();
-  const refreshes = new Map<string, Promise<void>>();
   const trackedBatchByQueueKey = new Map<string, string>();
-  let unsubscribeFromMutations: (() => void) | undefined;
 
   async function addToQueue({
     sender,
@@ -67,13 +62,6 @@ export function createSenderQueue(createPayload: CreatePayload) {
     });
 
     try {
-      const accountMutations = await getMailMutationsForAccount(emailAccountId);
-      replaceDurableAccountItems({
-        emailAccountId,
-        mutationPayload,
-        mutations: accountMutations,
-        trackedBatchByQueueKey,
-      });
       const existingItem = durableQueue.get(queueKey);
       if (existingItem?.status === "processing") {
         removeTransientQueueItem(queueKey);
@@ -157,95 +145,8 @@ export function createSenderQueue(createPayload: CreatePayload) {
     notifyStateListeners();
   }
 
-  function observeAccount(emailAccountId: string) {
-    observedAccounts.set(
-      emailAccountId,
-      (observedAccounts.get(emailAccountId) ?? 0) + 1,
-    );
-    refreshAccount(emailAccountId).catch(() => {});
-
-    unsubscribeFromMutations ??= subscribeToMailMutations(() => {
-      for (const observedAccountId of observedAccounts.keys()) {
-        refreshAccount(observedAccountId).catch(() => {});
-      }
-    });
-
-    return () => {
-      const observerCount = (observedAccounts.get(emailAccountId) ?? 1) - 1;
-      if (observerCount > 0) {
-        observedAccounts.set(emailAccountId, observerCount);
-      } else {
-        observedAccounts.delete(emailAccountId);
-      }
-
-      if (!observedAccounts.size) {
-        unsubscribeFromMutations?.();
-        unsubscribeFromMutations = undefined;
-      }
-    };
-  }
-
-  function refreshAccount(emailAccountId: string) {
-    const previousRefresh = refreshes.get(emailAccountId) ?? Promise.resolve();
-    const refresh = previousRefresh
-      .catch(() => {})
-      .then(async () => {
-        const mutations = await getMailMutationsForAccount(emailAccountId);
-        replaceDurableAccountItems({
-          emailAccountId,
-          mutationPayload,
-          mutations,
-          trackedBatchByQueueKey,
-        });
-      });
-    refreshes.set(emailAccountId, refresh);
-    const removeCompletedRefresh = () => {
-      if (refreshes.get(emailAccountId) === refresh) {
-        refreshes.delete(emailAccountId);
-      }
-    };
-    refresh.then(removeCompletedRefresh, removeCompletedRefresh);
-    return refresh;
-  }
-
-  function replaceDurableAccountItems({
-    emailAccountId,
-    mutationPayload,
-    mutations,
-    trackedBatchByQueueKey,
-  }: {
-    emailAccountId: string;
-    mutationPayload: MailMutationPayload;
-    mutations: MailMutation[];
-    trackedBatchByQueueKey: Map<string, string>;
-  }) {
-    const batchItems = getSenderBatchItems({
-      emailAccountId,
-      mutationPayload,
-      mutations,
-    });
-    const accountItems = getLatestSenderItems(batchItems);
-    for (const [queueKey, latest] of accountItems) {
-      if (latest.item.status === "processing" && latest.item.batchId) {
-        trackedBatchByQueueKey.set(queueKey, latest.item.batchId);
-      }
-    }
-    durableQueue = clearAccountItems(durableQueue, emailAccountId);
-    for (const [queueKey, latest] of accountItems) {
-      if (
-        latest.item.status !== "completed" ||
-        trackedBatchByQueueKey.get(queueKey) === latest.item.batchId
-      ) {
-        durableQueue.set(queueKey, latest.item);
-      }
-    }
-    progressQueue = clearAccountItems(progressQueue, emailAccountId);
-    for (const [queueKey, batchId] of trackedBatchByQueueKey) {
-      if (!isAccountQueueKey(queueKey, emailAccountId)) continue;
-      const item = batchItems.get(batchId)?.item;
-      if (item) progressQueue.set(queueKey, item);
-    }
-    notifyStateListeners();
+  function observeAccount(_emailAccountId: string) {
+    return () => {};
   }
 
   function upsertDurableItems({
@@ -255,7 +156,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
     trackedBatchByQueueKey,
   }: {
     emailAccountId: string;
-    mutationPayload: MailMutationPayload;
+    mutationPayload: ThreadMutationPayload;
     mutations: MailMutation[];
     trackedBatchByQueueKey: Map<string, string>;
   }) {
@@ -339,7 +240,7 @@ function getSenderBatchItems({
   mutations,
 }: {
   emailAccountId: string;
-  mutationPayload: MailMutationPayload;
+  mutationPayload: ThreadMutationPayload;
   mutations: MailMutation[];
 }) {
   const batches = new Map<string, MailMutation[]>();
@@ -437,7 +338,7 @@ function getBatchQueueItem(
 
 function matchesMutationPayload(
   mutation: MailMutation,
-  payload: MailMutationPayload,
+  payload: ThreadMutationPayload,
 ) {
   if (mutation.kind !== payload.kind) return false;
   if (mutation.kind === "set_read_state" && payload.kind === "set_read_state") {

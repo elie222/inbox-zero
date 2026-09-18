@@ -13,13 +13,11 @@ import {
   type ListThread,
 } from "./types";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
-import type { MetadataChange } from "@inboxzero/mail-core/commands";
-
-type ThreadActionPayload =
-  | { kind: "archive" | "unarchive" | "trash" | "untrash" | "spam" }
-  | { kind: "set_read_state"; read: boolean }
-  | { kind: "set_starred_state"; starred: boolean }
-  | { kind: "snooze"; scheduledFor: string };
+import {
+  mutationPayloadToChange,
+  type ThreadMutationPayload,
+} from "@/utils/mail-engine/mutation-change";
+import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
 
 type UndoableAction = "archive" | "trash";
 
@@ -92,26 +90,18 @@ export function useThreadActions({
   const enqueueTargets = useCallback(
     async (
       targets: ReturnType<typeof resolveTargets>,
-      payload: ThreadActionPayload,
+      payload: ThreadMutationPayload,
     ) => {
       if (!targets.length || !client) return [];
       const change = mutationPayloadToChange(payload);
       if (!change) return [];
       const results = [];
       for (const target of targets) {
-        const diagnostics = await client.getDiagnostics(target.emailAccountId);
-        const commandId = randomUuid();
-        const admission = await client.submitConversations({
+        const { admission, commandId } = await submitConversationChange({
           accountId: target.emailAccountId,
-          commandId,
-          conversations: [
-            {
-              accountId: target.emailAccountId,
-              conversationId: target.threadId,
-            },
-          ],
           change,
-          observedRevision: diagnostics.revision,
+          client,
+          conversationId: target.threadId,
         });
         if (admission.status === "rejected") continue;
         results.push({ ...target, mutationId: commandId });
@@ -345,32 +335,4 @@ export function useThreadActions({
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;
-}
-
-function mutationPayloadToChange(
-  payload: ThreadActionPayload,
-): MetadataChange | null {
-  switch (payload.kind) {
-    case "archive":
-      return { kind: "archive" };
-    case "unarchive":
-      return { kind: "unarchive" };
-    case "trash":
-      return { kind: "trash" };
-    case "untrash":
-      return { kind: "restore_from_trash" };
-    case "spam":
-      return { kind: "set_spam", spam: true };
-    case "set_read_state":
-      return { kind: "set_read", read: payload.read };
-    case "set_starred_state":
-      return { kind: "set_starred", starred: payload.starred };
-    case "snooze":
-      return {
-        kind: "snooze",
-        untilMs: Date.parse(payload.scheduledFor),
-      };
-    default:
-      return null;
-  }
 }
