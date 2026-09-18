@@ -102,7 +102,7 @@ function decodeUploadBytes(body: unknown) {
     expected &&
     createHash("sha256").update(bytes).digest("hex") !== expected
   ) {
-    return bytes;
+    return null;
   }
   return bytes;
 }

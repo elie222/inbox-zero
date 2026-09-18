@@ -526,17 +526,50 @@ export async function createSqliteMailStore(
     async admitSend(input) {
       return driver.write(async (tx) => {
         const draft = await tx.query(
-          "SELECT revision FROM drafts WHERE account_id = ? AND draft_id = ?",
+          "SELECT revision, content_json FROM drafts WHERE account_id = ? AND draft_id = ?",
           [input.draft.accountId, input.draft.draftId],
         );
         if (!draft[0] || Number(draft[0].revision) !== input.draftRevision) {
           return { status: "rejected", code: "invalid" };
         }
+        const content = JSON.parse(String(draft[0].content_json)) as {
+          to: string[];
+          cc: string[];
+          bcc: string[];
+          subject: string;
+          editableHtml: string;
+          quotedHtml: string;
+          attachmentIds: string[];
+        };
+        let replyToConversationId: string | null = null;
+        if (input.replyTo) {
+          const replied = await tx.query(
+            "SELECT conversation_id FROM messages WHERE account_id = ? AND message_id = ?",
+            [input.replyTo.accountId, input.replyTo.messageId],
+          );
+          replyToConversationId = replied[0]
+            ? String(replied[0].conversation_id)
+            : null;
+        }
         await tx.execute(
           "UPDATE drafts SET frozen = 1 WHERE account_id = ? AND draft_id = ?",
           [input.draft.accountId, input.draft.draftId],
         );
-        const payload = { kind: "send", ...input };
+        const payload = {
+          kind: "send" as const,
+          frozenDraftId: input.draft.draftId,
+          frozenDraftRevision: input.draftRevision,
+          to: content.to,
+          cc: content.cc,
+          bcc: content.bcc,
+          subject: content.subject,
+          html: content.editableHtml,
+          quotedHtml: content.quotedHtml,
+          attachmentIds: content.attachmentIds,
+          replyToMessageId: input.replyTo?.messageId ?? null,
+          replyToConversationId,
+          queuedAtMs: Date.now(),
+        };
         const hash = await hashCanonical(payload);
         await tx.execute(
           `INSERT INTO operations(

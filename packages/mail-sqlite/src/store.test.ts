@@ -332,6 +332,12 @@ describe("drafts, freeze, and uncertain settlement", () => {
     });
     expect(work?.kind).toBe("command");
     if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent.kind).toBe("send");
+    if (work.operation.intent.kind === "send") {
+      expect(work.operation.intent.frozenDraftId).toBe("d1");
+      expect(work.operation.intent.to).toEqual(["ada@example.com"]);
+      expect(work.operation.intent.html).toBe("<p>Hi</p>");
+    }
     await store.settleAttempt({
       attemptId: work.attemptId,
       operation: work.operation,
@@ -995,6 +1001,39 @@ describe("sqlite and reference model parity", () => {
         (row) => `${row.key.accountId}:${row.key.conversationId}`,
       ),
     ).toEqual(expected.conversations);
+    await store.close();
+  });
+});
+
+describe("sqlite scale smoke", () => {
+  it("lists and counts a 10k-conversation mailbox", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const changes = Array.from({ length: 10_000 }, (_, index) =>
+      messagePatch(`m${index}`, `c${index}`, index, ["inbox"]),
+    );
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "scale",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "10k" },
+        changes,
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const started = Date.now();
+    const view = await store.readMailboxView(inboxQuery);
+    const elapsedMs = Date.now() - started;
+    expect(view.view.counts.matchingConversations).toBe(10_000);
+    expect(view.view.conversations).toHaveLength(25);
+    expect(elapsedMs).toBeLessThan(5000);
     await store.close();
   });
 });

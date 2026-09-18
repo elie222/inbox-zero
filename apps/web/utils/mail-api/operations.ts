@@ -1,6 +1,19 @@
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
+import type { PreparedOperation } from "@inboxzero/mail-core/operations";
+import { createHash } from "node:crypto";
 import type { EmailProvider } from "@/utils/email/types";
 import { parsedMessagePatch } from "@/utils/mail-api/observations";
+import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { createScopedLogger } from "@/utils/logger";
+import {
+  activatePreparedSnoozedThread,
+  cancelSnoozedThreadByClientMutationId,
+  prepareSnoozedThread,
+} from "@/utils/snooze/scheduler";
+import prisma from "@/utils/prisma";
+import { EmailSendOperationStatus } from "@/generated/prisma/enums";
+
+const logger = createScopedLogger("mail-api/operations");
 
 export function createEmailProviderOperationExecutor(input: {
   provider: EmailProvider;
@@ -10,6 +23,9 @@ export function createEmailProviderOperationExecutor(input: {
   const providerName = provider.name === "microsoft" ? "microsoft" : "google";
   return {
     async execute({ operation }) {
+      if (operation.intent.kind === "send") {
+        return executeSend(provider, accountId, operation);
+      }
       if (operation.intent.kind !== "metadata") {
         return { status: "rejected", code: "unsupported", targets: [] };
       }
@@ -87,6 +103,9 @@ export function createEmailProviderOperationExecutor(input: {
       };
     },
     async inspect({ operation }) {
+      if (operation.intent.kind === "send") {
+        return inspectSend(accountId, operation);
+      }
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
       }
@@ -245,11 +264,33 @@ async function executeSnooze(
   }
   const applied = targets.some((target) => target.outcome === "applied");
   if (!applied) {
+    await cancelSnoozedThreadByClientMutationId({
+      clientMutationId: operation.key.operationId,
+      emailAccountId: accountId,
+    }).catch(() => undefined);
     return {
       status: "rejected" as const,
       code: "snooze_failed",
       targets,
     };
+  }
+  const threadId = await threadIdForSnooze(provider, operation.intent.targets);
+  if (threadId) {
+    const scheduledFor = new Date(operation.intent.change.untilMs);
+    const prepared = await prepareSnoozedThread({
+      clientMutationId: operation.key.operationId,
+      emailAccountId: accountId,
+      scheduledFor,
+      threadId,
+    });
+    if (prepared.created || prepared.snoozedThread.status === "PREPARING") {
+      await activatePreparedSnoozedThread({
+        clientMutationId: operation.key.operationId,
+        emailAccountId: accountId,
+        scheduledFor,
+        threadId,
+      });
+    }
   }
   return {
     status: "confirmed" as const,
@@ -257,4 +298,136 @@ async function executeSnooze(
     observations,
     targets,
   };
+}
+
+async function executeSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+) {
+  if (operation.intent.kind !== "send") {
+    return { status: "rejected" as const, code: "unsupported", targets: [] };
+  }
+  const outcome = await executeDurableEmailSend({
+    logger,
+    emailAccountId: accountId,
+    getEmailProvider: async () => provider,
+    provider: provider.name === "microsoft" ? "microsoft" : "google",
+    input: {
+      mutationId: sendMutationId(operation.key.operationId),
+      queuedAt: operation.intent.queuedAtMs,
+      threadId: operation.intent.replyToConversationId,
+      messageIds: operation.intent.replyToMessageId
+        ? [operation.intent.replyToMessageId]
+        : [operation.intent.frozenDraftId],
+      email: {
+        to: operation.intent.to.join(", "),
+        cc: operation.intent.cc.join(", ") || undefined,
+        bcc: operation.intent.bcc.join(", ") || undefined,
+        subject: operation.intent.subject,
+        messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
+        replyToEmail: operation.intent.replyToConversationId
+          ? {
+              threadId: operation.intent.replyToConversationId,
+              messageId: operation.intent.replyToMessageId ?? undefined,
+            }
+          : undefined,
+      },
+    },
+  });
+  return mapSendOutcome(operation.key.operationId, outcome);
+}
+
+async function inspectSend(accountId: string, operation: PreparedOperation) {
+  const mutationId = sendMutationId(operation.key.operationId);
+  const found = await prisma.emailSendOperation.findUnique({
+    where: {
+      emailAccountId_clientMutationId: {
+        emailAccountId: accountId,
+        clientMutationId: mutationId,
+      },
+    },
+  });
+  if (!found) {
+    return { status: "uncertain" as const, receiptId: mutationId };
+  }
+  if (found.status === EmailSendOperationStatus.SENT) {
+    return {
+      status: "confirmed" as const,
+      receiptId: mutationId,
+      observations: [],
+      targets: [],
+    };
+  }
+  if (found.status === EmailSendOperationStatus.UNCERTAIN) {
+    return { status: "uncertain" as const, receiptId: mutationId };
+  }
+  return { status: "uncertain" as const, receiptId: mutationId };
+}
+
+function mapSendOutcome(
+  operationId: string,
+  outcome: Awaited<ReturnType<typeof executeDurableEmailSend>>,
+) {
+  const receiptId = sendMutationId(operationId);
+  if (outcome.status === "applied" || outcome.status === "already_applied") {
+    return {
+      status: "confirmed" as const,
+      receiptId,
+      observations: [],
+      targets: [],
+    };
+  }
+  if (outcome.status === "rejected") {
+    return {
+      status: "rejected" as const,
+      code: outcome.error,
+      targets: [],
+    };
+  }
+  if (outcome.status === "blocked_auth") {
+    return {
+      status: "not_dispatched" as const,
+      reason: "blocked_auth" as const,
+      retryAfterMs: null,
+    };
+  }
+  if (outcome.status === "retry") {
+    return {
+      status: "not_dispatched" as const,
+      reason: "unavailable" as const,
+      retryAfterMs: 1000,
+    };
+  }
+  return { status: "uncertain" as const, receiptId };
+}
+
+function sendMutationId(operationId: string) {
+  const compact = operationId.toLowerCase().replace(/-/g, "");
+  if (compact.length === 32 && [...compact].every(isHexChar)) {
+    return `${compact.slice(0, 8)}-${compact.slice(8, 12)}-${compact.slice(12, 16)}-${compact.slice(16, 20)}-${compact.slice(20, 32)}`;
+  }
+  const hex = createHash("sha1")
+    .update(`mail-engine-send:${operationId}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+function isHexChar(value: string) {
+  return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
+}
+
+async function threadIdForSnooze(
+  provider: EmailProvider,
+  targets: Array<{ messageId: string }>,
+) {
+  const first = targets[0];
+  if (!first) return null;
+  try {
+    const message = await provider.getMessage(first.messageId);
+    return message.threadId;
+  } catch {
+    return first.messageId;
+  }
 }
