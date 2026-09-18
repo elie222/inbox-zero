@@ -89,27 +89,13 @@ function runElectron(binary: string, extraArgs: string[], userData: string) {
     );
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    const timer = setTimeout(() => {
+    let settled = false;
+    const settle = (ok: boolean, code: number | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       child.kill();
-      reject(
-        new Error(
-          `electron packaged local mail timed out\n${stdout}\n${stderr}`,
-        ),
-      );
-    }, 70_000);
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0 && stdout.includes("ELECTRON_PACKAGED_LOCAL_MAIL")) {
+      if (ok) {
         resolve(stdout);
         return;
       }
@@ -118,6 +104,30 @@ function runElectron(binary: string, extraArgs: string[], userData: string) {
           `electron packaged local mail exited ${code}\n${stdout}\n${stderr}`,
         ),
       );
+    };
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+      if (stdout.includes("ELECTRON_PACKAGED_LOCAL_MAIL")) settle(true, 0);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    const timer = setTimeout(() => {
+      settle(false, null);
+    }, 70_000);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+    child.on("close", (code) => {
+      if (stdout.includes("ELECTRON_PACKAGED_LOCAL_MAIL")) {
+        settle(true, code);
+        return;
+      }
+      settle(false, code);
     });
   });
 }

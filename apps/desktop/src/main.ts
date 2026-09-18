@@ -660,7 +660,7 @@ function installLocalMailSmoke(window: BrowserWindow) {
       url: window.isDestroyed() ? "" : window.webContents.getURL(),
       compose: false,
     });
-    app.exit(1);
+    finishLocalMailSmoke(1);
   }, 20_000);
 
   const onFinish = () => {
@@ -672,12 +672,12 @@ function installLocalMailSmoke(window: BrowserWindow) {
       .then((compose) => {
         clearTimeout(deadline);
         writeLocalMailSmoke({ url, compose });
-        app.exit(compose ? 0 : 1);
+        finishLocalMailSmoke(compose ? 0 : 1);
       })
       .catch(() => {
         clearTimeout(deadline);
         writeLocalMailSmoke({ url, compose: false });
-        app.exit(1);
+        finishLocalMailSmoke(1);
       });
   };
   window.webContents.on("did-finish-load", onFinish);
@@ -701,4 +701,12 @@ function writeLocalMailSmoke(payload: { url: string; compose: boolean }) {
   process.stdout.write(
     `ELECTRON_PACKAGED_LOCAL_MAIL ${JSON.stringify(payload)}\n`,
   );
+}
+
+function finishLocalMailSmoke(code: number) {
+  isQuitting = true;
+  app.exit(code);
+  setTimeout(() => {
+    process.exit(code);
+  }, 250);
 }
