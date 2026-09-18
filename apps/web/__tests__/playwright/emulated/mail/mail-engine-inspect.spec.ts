@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Route } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail } from "./mail-test-helpers";
@@ -137,7 +137,7 @@ test("opens account reconnect from blocked_auth catch-up", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
-  await page.route("**/api/mail/v1/accounts/**/changes", async (route) => {
+  const fulfillBlockedAuth = async (route: Route) => {
     await route.fulfill({
       status: 401,
       contentType: "application/json",
@@ -151,7 +151,14 @@ test("opens account reconnect from blocked_auth catch-up", async ({
         },
       },
     });
-  });
+  };
+  // Gmail idle catch-up reads /changes. Outlook without a folder-delta
+  // cursor re-enumerates instead, so both resources must surface blocked_auth.
+  await page.route("**/api/mail/v1/accounts/**/changes", fulfillBlockedAuth);
+  await page.route(
+    "**/api/mail/v1/accounts/**/enumeration",
+    fulfillBlockedAuth,
+  );
   await expect(
     page.getByRole("heading", {
       name: "Reconnect this account to continue syncing.",
