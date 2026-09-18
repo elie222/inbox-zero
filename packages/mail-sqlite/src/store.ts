@@ -1180,7 +1180,8 @@ async function readView(
     const message = latest[0];
     const members = await tx.query(
       `SELECT from_address, to_json, label_ids_json, roles_json FROM effective_messages
-       WHERE account_id = ? AND conversation_id = ?`,
+       WHERE account_id = ? AND conversation_id = ?
+       ORDER BY received_at_ms ASC, message_id ASC`,
       [row.account_id, row.conversation_id],
     );
     summaries.push({

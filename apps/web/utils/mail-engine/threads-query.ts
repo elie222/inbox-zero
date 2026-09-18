@@ -35,6 +35,12 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
     query.type === "spam"
   ) {
     clauses.push({ kind: "role", role: query.type });
+  } else if (query.type?.startsWith("CATEGORY_")) {
+    clauses.push({
+      kind: "membership",
+      membership: "category",
+      id: query.type,
+    });
   } else if (!query.q && !query.labelId && !query.folderId) {
     clauses.push({ kind: "role", role: "inbox" });
   }

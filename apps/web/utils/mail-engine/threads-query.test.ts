@@ -12,6 +12,14 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
+  it("maps Gmail category types onto category membership", () => {
+    expect(threadsQueryToPredicate({ type: "CATEGORY_PROMOTIONS" })).toEqual({
+      kind: "membership",
+      membership: "category",
+      id: "CATEGORY_PROMOTIONS",
+    });
+  });
+
   it("maps free-text search to a text predicate", () => {
     expect(threadsQueryToPredicate({ q: "invoice" })).toEqual({
       kind: "text",
