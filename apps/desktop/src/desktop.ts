@@ -145,6 +145,30 @@ export function shouldUseLocalMailRenderer(
   return env.INBOX_ZERO_LOCAL_MAIL === "1";
 }
 
+export function shouldSmokeLocalMail(
+  env: NodeJS.Dict<string> = process.env,
+): boolean {
+  return env.INBOX_ZERO_LOCAL_MAIL_SMOKE === "1";
+}
+
+export function resolveDesktopStartUrl({
+  requestedUrl,
+  localMailUrl,
+  homeUrl,
+  rendererFile,
+}: {
+  requestedUrl?: string;
+  localMailUrl: string | null;
+  homeUrl: string;
+  rendererFile: string;
+}): string {
+  if (!localMailUrl) return requestedUrl ?? homeUrl;
+  if (requestedUrl && isDesktopLocalMailUrl(requestedUrl, rendererFile)) {
+    return requestedUrl;
+  }
+  return localMailUrl;
+}
+
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set([
   "http:",
   "https:",

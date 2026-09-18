@@ -18,7 +18,9 @@ import {
   isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  resolveDesktopStartUrl,
   shouldPersistDesktopUrl,
+  shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
 
@@ -132,6 +134,26 @@ describe("desktop shell helpers", () => {
       true,
     );
     expect(shouldUseLocalMailRenderer({})).toBe(false);
+    expect(shouldSmokeLocalMail({ INBOX_ZERO_LOCAL_MAIL_SMOKE: "1" })).toBe(
+      true,
+    );
+    expect(shouldSmokeLocalMail({})).toBe(false);
+    expect(
+      resolveDesktopStartUrl({
+        requestedUrl: "https://www.getinboxzero.com/account-1/mail",
+        localMailUrl: url,
+        homeUrl: "https://www.getinboxzero.com/welcome-redirect?mode=mail",
+        rendererFile,
+      }),
+    ).toBe(url);
+    expect(
+      resolveDesktopStartUrl({
+        requestedUrl: "https://www.getinboxzero.com/account-1/mail",
+        localMailUrl: null,
+        homeUrl: "https://www.getinboxzero.com/welcome-redirect?mode=mail",
+        rendererFile,
+      }),
+    ).toBe("https://www.getinboxzero.com/account-1/mail");
   });
 
   it("finds the protocol URL in process arguments", () => {
