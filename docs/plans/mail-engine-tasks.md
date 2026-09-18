@@ -199,10 +199,9 @@ Expand this table from architecture section 13 before broad implementation. Link
 ## PR observation log
 
 - PR: https://github.com/elie222/inbox-zero/pull/3793
-- Head at previous handoff: `fbed53b4877b119ab102b99fd69b931445dc2022`
-- Observed CI on that SHA: Tests 1/2 failed; Build Check and Playwright still in progress; CodeQL analyze jobs passed; license/cla pending. Not a green gate.
-- Fix rounds: 0 on the new HTTP/freeze/worker/desktop-owner revision.
-- Review comments: not yet answered on this revision.
+- Observed SHA `c07a12588`: VERDICT failures. Tests 1/2 failed at `pnpm check` (repo-wide biome, including pre-existing `console.error` in desktop auto-update plus mail package script format). `build:ci` failed on `MailShell.tsx` calling `.commit()` on engine `optimisticallyUpdateThreads()` which returned `Promise<void>`. CodeQL flagged `extractEmail` regex in `query-semantics.ts`.
+- Fix in this checkpoint: engine thread hook returns a synchronous `{ commit, rollback }` object; `extractEmail` no longer uses a regular expression; pack-smoke/check-imports formatted.
+- Review comments awaiting reply: CodeQL polynomial regex (will reply after push); CLA assistant (cannot sign; draft PR).
 
 ## Feature inventory (A2)
 
