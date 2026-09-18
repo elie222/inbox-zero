@@ -497,6 +497,12 @@ export function MailShell() {
     !!searchQuery &&
     (!hasProviderResponse || hasPartialProviderResponse) &&
     localSearch.status === "ready";
+  // Until local search answers it may still find matches, so it is too early to
+  // say the query needs the provider or that the search failed.
+  const localSearchPending =
+    !!searchQuery &&
+    (!hasProviderResponse || hasPartialProviderResponse) &&
+    !localSearch.status;
   const threads = useMemo(() => {
     if (showLocalSearch) {
       if (!hasProviderResponse) return localSearch.threads;
@@ -537,11 +543,13 @@ export function MailShell() {
   let emptySearchMessage: string | undefined;
   if (showLocalSearch) {
     emptySearchMessage = "No matches yet.";
-  } else if (searchQuery && !localSearch.online && !hasProviderResponse) {
-    emptySearchMessage =
-      "Connect to search this query with your email provider.";
-  } else if (searchQuery && providerState.searchError && !hasProviderResponse) {
-    emptySearchMessage = "Search could not complete. Try again when connected.";
+  } else if (searchQuery && !hasProviderResponse && !localSearchPending) {
+    if (!localSearch.online)
+      emptySearchMessage =
+        "Connect to search this query with your email provider.";
+    else if (providerState.searchError)
+      emptySearchMessage =
+        "Search could not complete. Try again when connected.";
   }
   const searchStatus = getSearchStatus({
     query: searchQuery,
@@ -1770,11 +1778,12 @@ export function MailShell() {
               ) : (
                 <LoadingContent
                   loading={
-                    !showLocalSearch &&
-                    (isLoading || (!!searchQuery && !searchSettled)) &&
                     !threads.length &&
-                    (!searchQuery ||
-                      (localSearch.online && !providerState.searchError))
+                    (localSearchPending ||
+                      (!showLocalSearch &&
+                        (isLoading || (!!searchQuery && !searchSettled)) &&
+                        (!searchQuery ||
+                          (localSearch.online && !providerState.searchError))))
                   }
                   error={searchQuery ? undefined : error}
                 >

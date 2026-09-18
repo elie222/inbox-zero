@@ -17,6 +17,9 @@ import {
   openMailboxFromSidebar,
 } from "./mail-test-helpers";
 
+const PROVIDER_PROMPT =
+  "Connect to search this query with your email provider.";
+
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
 }) => {
@@ -162,6 +165,20 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
     conversationWithSubject(page, conversations, "Cached body search result"),
   ).toBeVisible();
   await context.setOffline(true);
+  // Local search may still find matches while it runs, so the provider prompt
+  // must not appear for a query it can answer, not even for a frame.
+  await page.evaluate((prompt) => {
+    const state = window as unknown as { sawProviderPrompt?: boolean };
+    state.sawProviderPrompt = false;
+    new MutationObserver(() => {
+      if (document.body.textContent?.includes(prompt))
+        state.sawProviderPrompt = true;
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }, PROVIDER_PROMPT);
   const input = page.getByPlaceholder("Search mail");
   await input.fill("subject:Cached");
   await expect(
@@ -183,12 +200,19 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
   await expect(
     page.getByText("No matches yet.", { exact: true }),
   ).toBeVisible();
-  await input.fill("has:attachment");
+  await input.fill("needle -has:attachment");
   await expect(
-    page.getByText("Connect to search this query with your email provider.", {
-      exact: true,
-    }),
+    conversationWithSubject(page, conversations, "Cached body search result"),
   ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { sawProviderPrompt?: boolean })
+          .sawProviderPrompt,
+    ),
+  ).toBe(false);
+  await input.fill("larger:1M");
+  await expect(page.getByText(PROVIDER_PROMPT, { exact: true })).toBeVisible();
   await context.setOffline(false);
 });
 
