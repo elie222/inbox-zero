@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `c24b7d8ad`
+- Last implementation commit: `9ff948edb`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining desktop provider UI, packaged `INBOX_ZERO_LOCAL_MAIL` launch, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining desktop UI matrix cells and watch CI on the exact head after this ledger commit.
+- Current task: remaining desktop provider UI, mark-unread inspect mismatch, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: remaining desktop UI matrix cells, Outlook folder-delta, and watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `pnpm --filter @inboxzero/desktop exec vitest run src/desktop.test.ts __tests__/mail-engine/electron-packaged-renderer.test.ts` — 2 files, 18 passed including linux-unpacked `file:` Compose smoke that ignores a restored hosted window (E23)
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 5 passed, 2 failed on `9ff948edb`: Drafts names Jordan Example, mixed threads show `Dana Example, me`, Promotions/label filters, engine reader without `/api/threads`; mark-unread inspect still returns the earlier mark-read (E24)
   - `pnpm --filter @inboxzero/desktop exec vitest run src/desktop.test.ts __tests__/mail-engine/owner.test.ts __tests__/mail-engine/electron-session.test.ts __tests__/mail-engine/electron-local-renderer.test.ts` — 4 files, 20 passed including local `file:` MailApp archive
   - `pnpm --filter @inboxzero/desktop build` — `apps/desktop/dist/renderer/index.html` + `main.js` (717062 bytes)
   - `pnpm --filter @inboxzero/desktop dist:linux` — `release/linux-unpacked/resources/app.asar` contains `/dist/renderer/index.html`
@@ -93,7 +95,7 @@ B5: reference archive-then-new-mail parity, write rollback, reopen of queued arc
 - [ ] C3. Run shared contract scenarios on actual browser and desktop drivers; verify driver packaging on the declared runtime matrix.
 - [ ] C4. Validate packed portable packages in a minimal Expo harness; do not migrate the existing mobile application.
 
-Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker (`workerStartFence` rejects a second accountId), and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Playwright inspect on a live Chromium session reports owner + OPFS + ready connection, a full reload stays `owner`, a second tab first-paints as `follower`, and `blocked_auth` shows a working Reconnect control. Closed BroadcastChannel posts no longer throw into the tab ErrorBoundary; disposing a follower rejects hung `getDiagnostics` calls. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A real Electron binary now starts under Xvfb, admits archive through desktop IPC, and returns diagnostics from native `node:sqlite`. The owner pumps `runUntil` so conversation archive can leave preparing. Bundled `MailApp` boots from a `file:` renderer when `INBOX_ZERO_LOCAL_MAIL=1`; a live Electron session archived a seeded inbox conversation from that UI without loading Next. `electron-builder --linux dir` packages `/dist/renderer/index.html` into `app.asar`. The packaged linux-unpacked binary was not launched as a returning-user offline session. Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched. The shared archive/new-mail list-count contract now runs on sqlite-wasm as well as `node:sqlite`.
+Browser host uses a dedicated module worker when available, OPFS SAHPool when persistent, a Web Lock owner, account fencing in the worker (`workerStartFence` rejects a second accountId), and a BroadcastChannel owner that serves follower-tab subscriptions. The inspect seam reports `role`, worker/locks/OPFS capabilities, and mailbox `connection`. Owner tabs ignore their own owner broadcast so they do not replace the live engine with a follower proxy. MailShell first-paints on the engine after metadata coverage; there is no IndexedDB mailbox list. Playwright inspect on a live Chromium session reports owner + OPFS + ready connection, a full reload stays `owner`, a second tab first-paints as `follower`, and `blocked_auth` shows a working Reconnect control. Closed BroadcastChannel posts no longer throw into the tab ErrorBoundary; disposing a follower rejects hung `getDiagnostics` calls. Desktop has an in-process owner plus a utility-child runtime; a bundled `child_process.fork` of that entry now owns SQLite and deduplicates commands. Electron `utilityProcess.fork` is injected when present, the child speaks `parentPort`/`postMessage`, and an injected-fork unit test covers that shape. A real Electron binary now starts under Xvfb, admits archive through desktop IPC, and returns diagnostics from native `node:sqlite`. The owner pumps `runUntil` so conversation archive can leave preparing. Bundled `MailApp` boots from a `file:` renderer when `INBOX_ZERO_LOCAL_MAIL=1`; a live Electron session archived a seeded inbox conversation from that UI without loading Next. `electron-builder --linux dir` packages `/dist/renderer/index.html` into `app.asar`. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and a restored hosted `windows.json`, boots bundled `MailApp` over `file:`, and shows Compose (E23). Packed portable packages have a Node pack-smoke script and an Expo/Metro-shaped import harness; a real Expo/Metro runtime was not launched. The shared archive/new-mail list-count contract now runs on sqlite-wasm as well as `node:sqlite`.
 
 ### D. Provider replication and repair
 
@@ -124,7 +126,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, and inspect Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The packaged linux-unpacked binary was not launched with `INBOX_ZERO_LOCAL_MAIL=1`.
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, and inspect Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and ignores a restored hosted window (E23). Gmail web Drafts names Jordan Example; mixed threads show `Dana Example, me`; category filters use engine membership (E24).
 
 ### G. Scale, preservation, and release readiness
 
@@ -161,16 +163,16 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16) | Partial: Outlook search (E20); inspect coverage (E21) | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded command (E15) | Partial: Outlook archive hide + succeeded (E20) | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Not run | Not run | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
-| Account/owner/session isolation | Partial: follower tab + owner reload (E14) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
+| Account/owner/session isolation | Partial: follower tab + owner reload (E14) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
-| Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
+| Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
 
@@ -377,7 +379,27 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `pnpm --filter @inboxzero/desktop build` — `dist/renderer/index.html` and `dist/renderer/main.js`
   - `pnpm --filter @inboxzero/desktop dist:linux` — `release/linux-unpacked/resources/app.asar` contains `/dist/renderer/index.html`
 - What it proved: Electron 43 under Xvfb loads bundled `MailApp` from a `file:` URL (not a hosted Next document), shows seeded "Local Mail Example", and Archive clears that inbox conversation in native SQLite. File-URL navigation is allowed only for the bundled renderer path. The desktop owner pumps `runUntil` so conversation membership/archive can finish. Linux dir packaging includes the renderer assets.
-- Limitations: `INBOX_ZERO_LOCAL_MAIL=1` was not launched from the linux-unpacked product binary; Gmail/Outlook desktop UI cells remain unrun; compose/search/reconnect desktop UI remain unrun.
+- Limitations: Gmail/Outlook desktop UI cells remain unrun; compose/search/reconnect desktop UI remain unrun.
+
+### E23. Packaged linux-unpacked local MailApp (2026-09-18)
+
+- Tasks: partial C2, partial F3
+- Tree: `cursor/mail-engine-0b4f` at `a7ddd6963`
+- Commands:
+  - `pnpm --filter @inboxzero/desktop dist:linux`
+  - `pnpm --filter @inboxzero/desktop exec vitest run src/desktop.test.ts __tests__/mail-engine/electron-packaged-renderer.test.ts` — 2 files, 18 passed in 1.59s
+- What it proved: Product `main` and the linux-unpacked `@inboxzerodesktop` binary, given `INBOX_ZERO_LOCAL_MAIL=1` plus a restored `https://www.getinboxzero.com/.../mail` `windows.json`, load bundled `MailApp` from a `file:` renderer URL (not hosted Next) and show Compose. Smoke prints `ELECTRON_PACKAGED_LOCAL_MAIL` and exits.
+- Limitations: Gmail/Outlook desktop UI cells remain unrun; this smoke does not exercise archive/search/compose against a live mailbox.
+
+### E24. Drafts names, mixed-thread senders, and category filters (2026-09-18)
+
+- Tasks: partial F2, partial F4
+- Tree: `cursor/mail-engine-0b4f` at `9ff948edb`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/list-thread.test.ts utils/mail-engine/threads-query.test.ts` — 2 files, 14 passed
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 5 passed, 2 failed in 4.3m
+- What it proved: Drafts shows Jordan Example next to the Draft marker. Mixed inbox threads show `Dana Example, me`. Promotions/category and Project Alpha label filters return the matching conversation. Opening a thread uses the engine reader (`/api/threads` count stays 0).
+- Limitations: mark-unread Keyboard U still leaves inspect's latest `set_read` as `read: true` (open-thread mark-read); deep-link mark-read did not appear as pending. Not used as unread-command evidence.
 
 ## Decision and deviation log
 
