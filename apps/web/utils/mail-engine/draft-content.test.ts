@@ -24,4 +24,18 @@ describe("sendEmailToDraftContent", () => {
       to: ["Ada <ada@example.com>", "lin@example.com"],
     });
   });
+
+  it("freezes the provider draft id used to send", () => {
+    expect(
+      sendEmailToDraftContent(
+        {
+          to: "ada@example.com",
+          subject: "Hello",
+          messageHtml: "<p>Hi</p>",
+          providerDraftId: "gmail-draft-1",
+        },
+        [],
+      ).providerDraftId,
+    ).toBe("gmail-draft-1");
+  });
 });

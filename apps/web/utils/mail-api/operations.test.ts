@@ -98,6 +98,32 @@ describe("createEmailProviderOperationExecutor", () => {
     );
   });
 
+  it("sends by converting the frozen provider draft", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-1", threadId: "t-1" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation([], "gmail-draft-1"),
+      attemptId: "a-send-draft",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          email: expect.objectContaining({
+            providerDraftId: "gmail-draft-1",
+          }),
+        }),
+      }),
+    );
+  });
+
   it("loads staged blob attachments into the durable send payload", async () => {
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -229,7 +255,10 @@ function metadataOperation(
   };
 }
 
-function sendOperation(attachmentIds: string[] = []): PreparedOperation {
+function sendOperation(
+  attachmentIds: string[] = [],
+  providerDraftId?: string,
+): PreparedOperation {
   return {
     key: {
       accountId: "acc-1",
@@ -249,6 +278,7 @@ function sendOperation(attachmentIds: string[] = []): PreparedOperation {
       html: "<p>Hi</p>",
       quotedHtml: "",
       attachmentIds,
+      ...(providerDraftId ? { providerDraftId } : {}),
       replyToMessageId: null,
       replyToConversationId: null,
       queuedAtMs: Date.now(),

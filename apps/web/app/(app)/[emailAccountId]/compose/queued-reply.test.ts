@@ -59,6 +59,25 @@ describe("queueReaderEmail", () => {
     );
   });
 
+  it("freezes the provider draft id into the sendable engine draft", async () => {
+    const client = createClient();
+    await queueReaderEmail({
+      client,
+      email: { ...createEmail(), providerDraftId: "gmail-draft-1" },
+      emailAccountId: "account-two",
+      messageIds: [],
+      online: false,
+      threadId: "compose:new-message",
+    });
+    expect(client.saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          providerDraftId: "gmail-draft-1",
+        }),
+      }),
+    );
+  });
+
   it("reuses a draft identity and refuses a conflicting send payload", async () => {
     const client = createClient();
     client.submitSend.mockResolvedValue({

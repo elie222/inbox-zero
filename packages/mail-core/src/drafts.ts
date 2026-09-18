@@ -3,6 +3,7 @@ import {
   conversationIdSchema,
   draftKeySchema,
   localRevisionSchema,
+  messageIdSchema,
   messageKeySchema,
 } from "./identities";
 
@@ -15,6 +16,7 @@ export const draftContentSchema = z.object({
   quotedHtml: z.string().max(1_000_000),
   attachmentIds: z.array(z.string().min(1).max(128)).max(20),
   clientState: z.string().max(1_000_000).optional(),
+  providerDraftId: messageIdSchema.optional(),
 });
 export type DraftContent = z.infer<typeof draftContentSchema>;
 

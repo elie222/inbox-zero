@@ -345,6 +345,9 @@ async function executeSend(
             }
           : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
+        ...(operation.intent.providerDraftId
+          ? { providerDraftId: operation.intent.providerDraftId }
+          : {}),
       },
     },
   });

@@ -14,5 +14,8 @@ export function sendEmailToDraftContent(
     editableHtml: email.messageHtml,
     quotedHtml: "",
     attachmentIds: attachmentIds.slice(0, 20),
+    ...(email.providerDraftId
+      ? { providerDraftId: email.providerDraftId }
+      : {}),
   };
 }

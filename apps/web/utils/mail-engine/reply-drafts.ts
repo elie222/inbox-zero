@@ -134,14 +134,16 @@ export async function updateReplyDraftProviderState(
       "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
     );
   }
+  const nextContent = {
+    ...current.content,
+    providerDraftId: draftId,
+    providerDraftCreationUnconfirmed: !draftId,
+  };
   drafts.set(draftKey(identity), {
     ...current,
-    content: {
-      ...current.content,
-      providerDraftId: draftId,
-      providerDraftCreationUnconfirmed: !draftId,
-    },
+    content: nextContent,
   });
+  await persistEngineReplyDraft(identity, nextContent).catch(() => {});
   return draftId;
 }
 
@@ -326,6 +328,9 @@ async function persistEngineReplyDraft(
         quotedHtml: content.draft.quotedHtml,
         attachmentIds: [],
         clientState: JSON.stringify(content).slice(0, 1_000_000),
+        ...(content.providerDraftId
+          ? { providerDraftId: content.providerDraftId }
+          : {}),
       },
     });
     if (saved.status === "saved") return;

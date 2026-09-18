@@ -579,15 +579,13 @@ export async function createSqliteMailStore(
         if (!draft[0] || Number(draft[0].revision) !== input.draftRevision) {
           return { status: "rejected", code: "invalid" };
         }
-        const content = JSON.parse(String(draft[0].content_json)) as {
-          to: string[];
-          cc: string[];
-          bcc: string[];
-          subject: string;
-          editableHtml: string;
-          quotedHtml: string;
-          attachmentIds: string[];
-        };
+        const parsed = draftContentSchema.safeParse(
+          JSON.parse(String(draft[0].content_json)),
+        );
+        if (!parsed.success) {
+          return { status: "rejected", code: "invalid" };
+        }
+        const content = parsed.data;
         let replyToConversationId: string | null = input.conversationId ?? null;
         if (input.replyTo) {
           const replied = await tx.query(
@@ -609,6 +607,9 @@ export async function createSqliteMailStore(
           html: content.editableHtml,
           quotedHtml: content.quotedHtml,
           attachmentIds: content.attachmentIds,
+          ...(content.providerDraftId
+            ? { providerDraftId: content.providerDraftId }
+            : {}),
           replyToMessageId: input.replyTo?.messageId ?? null,
           replyToConversationId,
           queuedAtMs: Date.now(),

@@ -778,6 +778,7 @@ type DraftContent = {
   editableHtml: string;
   quotedHtml: string;
   attachmentIds: string[];
+  providerDraftId?: string;
 };
 
 type SaveDraft = {

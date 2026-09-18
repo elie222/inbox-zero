@@ -60,6 +60,48 @@ describe("local reply drafts", () => {
     });
   });
 
+  it("persists the provider draft id so reload can discard or send it", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const drafts = new Map<
+      string,
+      { revision: number; content: Record<string, unknown> }
+    >();
+    setActiveMailClient({
+      async saveDraft(input) {
+        const next = (drafts.get(input.key.draftId)?.revision ?? 0) + 1;
+        drafts.set(input.key.draftId, {
+          revision: next,
+          content: input.content,
+        });
+        return {
+          status: "saved" as const,
+          draftRevision: next,
+          revision: { databaseEpoch: "e", sequence: next },
+        };
+      },
+      async readDraft(key) {
+        const stored = drafts.get(key.draftId);
+        if (!stored) return { status: "missing" as const };
+        return {
+          status: "found" as const,
+          draftRevision: stored.revision,
+          content: stored.content as never,
+        };
+      },
+    } as never);
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      requestId: "compose-1",
+    });
+    await updateReplyDraftProviderState(identity, "compose-1", "provider-1");
+    expect(drafts.get("parent")?.content.providerDraftId).toBe("provider-1");
+    expect(
+      JSON.parse(String(drafts.get("parent")?.content.clientState))
+        .providerDraftId,
+    ).toBe("provider-1");
+    setActiveMailClient(null);
+  });
+
   it("does not repeat an uncertain creation or revive a discarded compose", async () => {
     const writer = createReplyDraftWriter(identity);
     await writer.save({ ...content, requestId: "compose-1" });

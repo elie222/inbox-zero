@@ -441,6 +441,50 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("freezes the provider draft id into the send command", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-provider" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+        providerDraftId: "gmail-draft-1",
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    const send = await store.admitSend({
+      commandId: "send-provider",
+      draft: { accountId: "acc-1", draftId: "d-provider" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    expect(send.status).toBe("queued");
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent.kind).toBe("send");
+    if (work.operation.intent.kind === "send") {
+      expect(work.operation.intent.providerDraftId).toBe("gmail-draft-1");
+    }
+    await store.close();
+  });
+
   it("holds a send until notBeforeMs and records the conversation on diagnostics", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
