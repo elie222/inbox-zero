@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMailboxView } from "@inboxzero/mail-react/use-mailbox-view";
 import { useConversation } from "@inboxzero/mail-react/use-conversation";
 import { useMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ConversationQuery } from "@inboxzero/mail-core/queries";
 import type { MailUiHost } from "./host";
+
+const EMPTY_CONVERSATION = { accountId: "", conversationId: "" };
+const CONVERSATION_PAGE = { after: null, pageSize: 50 };
 
 export function MailApp({
   accountIds,
@@ -17,26 +20,29 @@ export function MailApp({
     conversationId: string;
   } | null>(null);
   const [search, setSearch] = useState("");
-  const query: ConversationQuery = {
-    accountIds,
-    predicate: search
-      ? {
-          kind: "text",
-          field: "any",
-          value: search,
-          match: "phrase",
-        }
-      : { kind: "role", role: "inbox" },
-    order: "newest_first",
-    pageSize: 50,
-    after: null,
-  };
+  const query: ConversationQuery = useMemo(
+    () => ({
+      accountIds,
+      predicate: search
+        ? {
+            kind: "text",
+            field: "any",
+            value: search,
+            match: "phrase",
+          }
+        : { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 50,
+      after: null,
+    }),
+    [accountIds, search],
+  );
   const snapshot = useMailboxView(query);
   const client = useMailClient();
   const conversations = snapshot.data?.conversations ?? [];
   const conversation = useConversation(
-    selected ?? { accountId: accountIds[0] ?? "", conversationId: "" },
-    { after: null, pageSize: 50 },
+    selected ?? EMPTY_CONVERSATION,
+    CONVERSATION_PAGE,
   );
 
   return (
