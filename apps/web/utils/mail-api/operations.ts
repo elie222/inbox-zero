@@ -338,12 +338,14 @@ async function executeSend(
         bcc: operation.intent.bcc.join(", ") || undefined,
         subject: operation.intent.subject,
         messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
-        replyToEmail: operation.intent.replyToMessageId
-          ? {
-              threadId: operation.intent.replyToConversationId ?? undefined,
-              messageId: operation.intent.replyToMessageId,
-            }
-          : undefined,
+        replyToEmail:
+          operation.intent.replyToMessageId &&
+          operation.intent.replyToConversationId
+            ? {
+                threadId: operation.intent.replyToConversationId,
+                messageId: operation.intent.replyToMessageId,
+              }
+            : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
         ...(operation.intent.providerDraftId
           ? { providerDraftId: operation.intent.providerDraftId }

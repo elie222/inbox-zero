@@ -98,6 +98,39 @@ describe("createEmailProviderOperationExecutor", () => {
     );
   });
 
+  it("replies with a provider thread id, not an optional conversation id", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-reply", threadId: "thread-1" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation([], undefined, {
+        replyToMessageId: "msg-1",
+        replyToConversationId: "thread-1",
+      }),
+      attemptId: "a-send-reply",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          threadId: "thread-1",
+          email: expect.objectContaining({
+            replyToEmail: {
+              threadId: "thread-1",
+              messageId: "msg-1",
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("sends by converting the frozen provider draft", async () => {
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
@@ -258,6 +291,7 @@ function metadataOperation(
 function sendOperation(
   attachmentIds: string[] = [],
   providerDraftId?: string,
+  reply?: { replyToMessageId: string; replyToConversationId: string },
 ): PreparedOperation {
   return {
     key: {
@@ -279,8 +313,8 @@ function sendOperation(
       quotedHtml: "",
       attachmentIds,
       ...(providerDraftId ? { providerDraftId } : {}),
-      replyToMessageId: null,
-      replyToConversationId: null,
+      replyToMessageId: reply?.replyToMessageId ?? null,
+      replyToConversationId: reply?.replyToConversationId ?? null,
       queuedAtMs: Date.now(),
     },
   };
