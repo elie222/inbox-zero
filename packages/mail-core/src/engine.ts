@@ -40,6 +40,7 @@ export type MailDiagnostics = {
     status: OperationState["status"];
     kind: string;
     changeKind: string | null;
+    change: Record<string, unknown> | null;
     messageIds: string[];
     conversationIds: string[];
   }>;

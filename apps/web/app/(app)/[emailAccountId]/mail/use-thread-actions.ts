@@ -5,12 +5,6 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import {
-  cancelPendingMailMutation,
-  enqueueMailMutation,
-  enqueueMailMutationBatch,
-  type MailMutationPayload,
-} from "@/utils/email-cache/mail-mutations";
 import { randomUuid } from "@/utils/uuid";
 import {
   getListThreadEmailAccountId,
@@ -20,6 +14,12 @@ import {
 } from "./types";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
+
+type ThreadActionPayload =
+  | { kind: "archive" | "unarchive" | "trash" | "untrash" | "spam" }
+  | { kind: "set_read_state"; read: boolean }
+  | { kind: "set_starred_state"; starred: boolean }
+  | { kind: "snooze"; scheduledFor: string };
 
 type UndoableAction = "archive" | "trash";
 
@@ -92,83 +92,69 @@ export function useThreadActions({
   const enqueueTargets = useCallback(
     async (
       targets: ReturnType<typeof resolveTargets>,
-      payload: MailMutationPayload,
+      payload: ThreadActionPayload,
     ) => {
-      if (!targets.length) return [];
-      if (client) {
-        const change = mutationPayloadToChange(payload);
-        if (!change) return [];
-        const results = [];
-        for (const target of targets) {
-          const diagnostics = await client.getDiagnostics(
-            target.emailAccountId,
-          );
-          const commandId = randomUuid();
-          const admission = await client.submitConversations({
-            accountId: target.emailAccountId,
-            commandId,
-            conversations: [
-              {
-                accountId: target.emailAccountId,
-                conversationId: target.threadId,
-              },
-            ],
-            change,
-            observedRevision: diagnostics.revision,
-          });
-          if (admission.status === "rejected") continue;
-          results.push({ ...target, mutationId: commandId });
-        }
-        return results;
-      }
-      try {
-        const mutations = await enqueueMailMutationBatch(
-          targets.map((target) => ({
-            ...payload,
-            emailAccountId: target.emailAccountId,
-            messageIds: target.messageIds,
-            threadId: target.threadId,
-          })),
-        );
-
-        return targets.map((target, index) => {
-          const mutation = mutations.at(index);
-          if (!mutation) throw new Error("Missing queued mail mutation");
-          return { ...target, mutationId: mutation.id };
+      if (!targets.length || !client) return [];
+      const change = mutationPayloadToChange(payload);
+      if (!change) return [];
+      const results = [];
+      for (const target of targets) {
+        const diagnostics = await client.getDiagnostics(target.emailAccountId);
+        const commandId = randomUuid();
+        const admission = await client.submitConversations({
+          accountId: target.emailAccountId,
+          commandId,
+          conversations: [
+            {
+              accountId: target.emailAccountId,
+              conversationId: target.threadId,
+            },
+          ],
+          change,
+          observedRevision: diagnostics.revision,
         });
-      } catch {
-        return [];
+        if (admission.status === "rejected") continue;
+        results.push({ ...target, mutationId: commandId });
       }
+      return results;
     },
     [client],
   );
 
   const undoBatch = useCallback(
     async (batch: UndoableBatch) => {
-      if (batch.undone) return [];
+      if (batch.undone || !client) return [];
       batch.undone = true;
       if (lastAction.current === batch) lastAction.current = null;
 
-      const compensationKind =
-        batch.action === "archive" ? "unarchive" : "untrash";
-      const batchId = randomUuid();
+      const compensation: MetadataChange =
+        batch.action === "archive"
+          ? { kind: "unarchive" }
+          : { kind: "restore_from_trash" };
       const results = await Promise.allSettled(
         batch.snapshots.map(async (snapshot) => {
-          const cancelled = client
-            ? (
-                await client.cancelOperation({
-                  accountId: snapshot.emailAccountId,
-                  operationId: snapshot.mutationId,
-                })
-              ).status === "cancelled"
-            : await cancelPendingMailMutation(snapshot.mutationId);
+          const cancelled =
+            (
+              await client.cancelOperation({
+                accountId: snapshot.emailAccountId,
+                operationId: snapshot.mutationId,
+              })
+            ).status === "cancelled";
           if (!cancelled) {
-            await enqueueMailMutation({
-              batchId,
-              emailAccountId: snapshot.emailAccountId,
-              kind: compensationKind,
-              messageIds: snapshot.messageIds,
-              threadId: snapshot.threadId,
+            const diagnostics = await client.getDiagnostics(
+              snapshot.emailAccountId,
+            );
+            await client.submitConversations({
+              accountId: snapshot.emailAccountId,
+              commandId: randomUuid(),
+              conversations: [
+                {
+                  accountId: snapshot.emailAccountId,
+                  conversationId: snapshot.threadId,
+                },
+              ],
+              change: compensation,
+              observedRevision: diagnostics.revision,
             });
           }
           return snapshot.key;
@@ -362,7 +348,7 @@ function summarise(verb: string, count: number) {
 }
 
 function mutationPayloadToChange(
-  payload: MailMutationPayload,
+  payload: ThreadActionPayload,
 ): MetadataChange | null {
   switch (payload.kind) {
     case "archive":
@@ -379,6 +365,11 @@ function mutationPayloadToChange(
       return { kind: "set_read", read: payload.read };
     case "set_starred_state":
       return { kind: "set_starred", starred: payload.starred };
+    case "snooze":
+      return {
+        kind: "snooze",
+        untilMs: Date.parse(payload.scheduledFor),
+      };
     default:
       return null;
   }

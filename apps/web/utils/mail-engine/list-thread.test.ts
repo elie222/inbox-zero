@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import {
+  conversationLabelIds,
+  conversationSummaryToListThread,
+} from "./list-thread";
+
+describe("conversationSummaryToListThread", () => {
+  it("projects inbox unread labels from roles and flags", () => {
+    const thread = conversationSummaryToListThread(summary());
+    expect(thread.messages[0]?.labelIds).toEqual([
+      "INBOX",
+      "UNREAD",
+      "Label_project",
+    ]);
+    expect(thread.messages[0]?.headers.from).toBe("Ada <ada@example.com>");
+  });
+
+  it("attaches combined-account identity when provided", () => {
+    const account = {
+      id: "acc-2",
+      email: "two@example.com",
+      name: null,
+      image: null,
+    };
+    const thread = conversationSummaryToListThread(summary(), account);
+    expect(thread).toMatchObject({ account });
+  });
+});
+
+describe("conversationLabelIds", () => {
+  it("does not invent unread or starred labels", () => {
+    expect(
+      conversationLabelIds(
+        summary({ unread: false, starred: false, labelIds: [] }),
+      ),
+    ).toEqual(["INBOX"]);
+  });
+});
+
+function summary(
+  overrides: Partial<Parameters<typeof conversationLabelIds>[0]> = {},
+) {
+  return {
+    key: { accountId: "acc-1", conversationId: "c-1" },
+    subject: "Hello",
+    preview: "Hi",
+    from: "Ada <ada@example.com>",
+    latestMessageAtMs: 1_700_000_000_000,
+    unread: true,
+    starred: false,
+    labelIds: ["Label_project"],
+    roles: ["inbox" as const],
+    pendingOperationIds: [],
+    ...overrides,
+  };
+}

@@ -4,6 +4,7 @@ import {
   conversationKeySchema,
   localRevisionSchema,
 } from "./identities";
+import { mailboxRoleSchema } from "./messages";
 
 export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
   z.discriminatedUnion("kind", [
@@ -102,6 +103,8 @@ export const conversationSummarySchema = z.object({
   latestMessageAtMs: z.number().int(),
   unread: z.boolean(),
   starred: z.boolean(),
+  labelIds: z.array(z.string().max(256)).max(500),
+  roles: z.array(mailboxRoleSchema).max(8),
   pendingOperationIds: z.array(z.string()),
 });
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>;

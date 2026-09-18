@@ -1,25 +1,33 @@
 import type { ConversationSummary } from "@inboxzero/mail-core/queries";
-import { GmailLabel } from "@/utils/gmail/label";
+import type { MailboxRole } from "@inboxzero/mail-core/messages";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import type { CombinedListThread } from "@/utils/threads/load-combined";
+
+const ROLE_LABEL: Record<MailboxRole, string> = {
+  inbox: "INBOX",
+  sent: "SENT",
+  draft: "DRAFT",
+  trash: "TRASH",
+  spam: "SPAM",
+};
 
 export function conversationSummaryToListThread(
   conversation: ConversationSummary,
+  account?: CombinedListThread["account"],
 ): ListThread {
-  const labelIds = [
-    ...(conversation.unread ? [GmailLabel.UNREAD] : []),
-    ...(conversation.starred ? [GmailLabel.STARRED] : []),
-  ];
   const date = new Date(conversation.latestMessageAtMs).toISOString();
-  return {
+  const labelIds = conversationLabelIds(conversation);
+  const messageId = `${conversation.key.conversationId}:latest`;
+  const thread = {
     id: conversation.key.conversationId,
-    messageIds: [`${conversation.key.conversationId}:latest`],
+    messageIds: [messageId],
     snippet: conversation.preview,
     plan: undefined,
     plans: [],
     participantMessages: undefined,
     messages: [
       {
-        id: `${conversation.key.conversationId}:latest`,
+        id: messageId,
         threadId: conversation.key.conversationId,
         snippet: conversation.preview,
         subject: conversation.subject,
@@ -36,4 +44,14 @@ export function conversationSummaryToListThread(
       },
     ],
   };
+  return account ? { ...thread, account } : thread;
+}
+
+export function conversationLabelIds(conversation: ConversationSummary) {
+  return [
+    ...conversation.roles.map((role) => ROLE_LABEL[role]),
+    ...(conversation.unread ? ["UNREAD"] : []),
+    ...(conversation.starred ? ["STARRED"] : []),
+    ...conversation.labelIds,
+  ];
 }

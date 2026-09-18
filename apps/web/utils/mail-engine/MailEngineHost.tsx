@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
+import { LoadingContent } from "@/components/LoadingContent";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createBrowserMailEngine } from "@/utils/mail-engine/create-browser-engine";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -16,16 +17,18 @@ import {
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
 
-const MAIL_ENGINE_LISTS_ENABLED = false;
-
 export function MailEngineHost({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
   const [client, setClient] = useState<MailClient | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (!emailAccountId) return;
     const capabilities = browserMailEngineCapabilities();
-    if (!capabilities.opfs) return;
+    if (!capabilities.opfs) {
+      setUnavailable(true);
+      return;
+    }
     let engine: Awaited<ReturnType<typeof createBrowserMailEngine>> | undefined;
     let unbindOwner: (() => void) | undefined;
     let unbindHello: (() => void) | undefined;
@@ -37,17 +40,14 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     const bus = channel ? createBroadcastTabBus(channel) : null;
 
     async function publishClient(next: MailClient) {
-      publishMailEngineInspect(next, emailAccountId);
       const ready = await waitForMetadataCoverage(
         next,
         emailAccountId,
         abort.signal,
       );
       if (!ready || abort.signal.aborted) return;
-      // MailShell still uses IndexedDB overlays for archive pagination, splits,
-      // local search, and drafts. Installing the provider after first paint
-      // swaps those lists mid-session and fails the emulated mail specs.
-      if (MAIL_ENGINE_LISTS_ENABLED) setClient(next);
+      publishMailEngineInspect(next, emailAccountId);
+      setClient(next);
     }
 
     if (bus) {
@@ -104,7 +104,9 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
       await hold(create);
     }
 
-    start().catch(() => setClient(null));
+    start().catch(() => {
+      if (!abort.signal.aborted) setUnavailable(true);
+    });
 
     return () => {
       abort.abort();
@@ -117,7 +119,16 @@ export function MailEngineHost({ children }: { children: ReactNode }) {
     };
   }, [emailAccountId, provider]);
 
-  if (!client) return children;
+  if (unavailable) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
+        Mail needs persistent browser storage.
+      </div>
+    );
+  }
+  if (!client) {
+    return <LoadingContent loading>{null}</LoadingContent>;
+  }
   return <MailEngineProvider client={client}>{children}</MailEngineProvider>;
 }
 

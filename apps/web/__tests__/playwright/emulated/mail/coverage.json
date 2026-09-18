@@ -3,7 +3,10 @@
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
   ],
-  "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
+  "archive-reconciliation.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "utils/mail-engine/MailEngineHost.tsx"
+  ],
   "attachment-previews.spec.ts": [
     "components/email-list/EmailAttachments.tsx",
     "utils/email-cache/local-mail-attachments.ts",

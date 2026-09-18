@@ -736,6 +736,7 @@ export async function createSqliteMailStore(
               status: String(row.status) as OperationState["status"],
               kind: payload.kind,
               changeKind: payload.changeKind,
+              change: payload.change,
               messageIds: targets
                 .filter((target) => String(target.command_id) === operationId)
                 .map((target) => String(target.message_id)),
@@ -1108,6 +1109,11 @@ async function readView(
       [row.account_id, row.conversation_id],
     );
     const message = latest[0];
+    const members = await tx.query(
+      `SELECT label_ids_json, roles_json FROM effective_messages
+       WHERE account_id = ? AND conversation_id = ?`,
+      [row.account_id, row.conversation_id],
+    );
     summaries.push({
       key: {
         accountId: String(row.account_id),
@@ -1119,6 +1125,12 @@ async function readView(
       latestMessageAtMs: Number(row.latest),
       unread: Number(row.unread) === 1,
       starred: Number(row.starred) === 1,
+      labelIds: uniqueStrings(
+        members.flatMap((member) => jsonStringArray(member.label_ids_json)),
+      ),
+      roles: uniqueStrings(
+        members.flatMap((member) => jsonStringArray(member.roles_json)),
+      ) as MessageMetadata["roles"],
       pendingOperationIds: message
         ? (JSON.parse(String(message.pending_operation_ids_json)) as string[])
         : [],
@@ -1736,15 +1748,31 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
   try {
     const payload = JSON.parse(String(value)) as {
       kind?: string;
-      change?: { kind?: string };
+      change?: Record<string, unknown> & { kind?: string };
     };
     return {
       kind: payload.kind ?? "unknown",
       changeKind: payload.change?.kind ?? null,
+      change: payload.change ?? null,
     };
   } catch {
-    return { kind: "unknown", changeKind: null };
+    return { kind: "unknown", changeKind: null, change: null };
   }
+}
+
+function jsonStringArray(value: import("./driver").SqlValue) {
+  try {
+    const parsed = JSON.parse(String(value)) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
 export type { SyncPage, ConversationKey };
