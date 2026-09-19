@@ -269,7 +269,7 @@ async function proveStar(
   await waitForSubject(window, STAR_SUBJECT);
   await clickConversation(window, STAR_SUBJECT);
   await waitForThreadReader(window);
-  await pressStarKey(window);
+  await clickMoreActionsStar(window);
   const readerStarred = await waitForStarredReader(window);
   const starSucceeded = await waitForStarSucceeded(window, STAR_THREAD_ID);
   const nativeStarred = await waitForNativeStarredSubject(
@@ -831,30 +831,82 @@ async function waitForThreadReader(window: BrowserWindow) {
   throw new Error("thread reader never opened");
 }
 
-async function pressStarKey(window: BrowserWindow) {
-  const sent = (await window.webContents.executeJavaScript(`
-    (() => {
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      const reader = document.querySelector('[data-testid="thread-reader"]');
-      if (!(reader instanceof HTMLElement)) return false;
-      reader.focus();
-      document.body.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "s",
-          code: "KeyS",
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-      return true;
-    })()
-  `)) as boolean;
-  if (!sent) {
-    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-    throw new Error("thread reader missing for star shortcut");
+async function clickMoreActionsStar(window: BrowserWindow) {
+  const moreRect = await waitForElementRect(
+    window,
+    'button[aria-label="More actions"]',
+  );
+  await pointerClickAt(window, moreRect);
+  await delay(50);
+  const starRect = await waitForStarMenuItemRect(window);
+  await pointerClickAt(window, starRect);
+}
+
+async function waitForElementRect(window: BrowserWindow, selector: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const rect = (await window.webContents.executeJavaScript(`
+      (() => {
+        const element = document.querySelector(${JSON.stringify(selector)});
+        if (!(element instanceof HTMLElement)) return null;
+        const box = element.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })()
+    `)) as DomRect | null;
+    if (rect && rect.width > 0 && rect.height > 0) return rect;
+    await delay(250);
   }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`${selector} missing`);
+}
+
+async function waitForStarMenuItemRect(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const rect = (await window.webContents.executeJavaScript(`
+      (() => {
+        const menu = [...document.querySelectorAll('[role="menu"]')].find(
+          (item) =>
+            [...item.querySelectorAll('[role="menuitem"]')].some((entry) => {
+              const label = (entry.textContent ?? "").replace(/\\s+/g, " ").trim();
+              return label.startsWith("Star") || label.startsWith("Unstar");
+            }),
+        );
+        const star = [...(menu?.querySelectorAll('[role="menuitem"]') ?? [])].find(
+          (item) => {
+            const label = (item.textContent ?? "").replace(/\\s+/g, " ").trim();
+            return label.startsWith("Star") && !label.startsWith("Starred");
+          },
+        );
+        if (!(star instanceof HTMLElement)) return null;
+        const box = star.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })()
+    `)) as DomRect | null;
+    if (rect && rect.width > 0 && rect.height > 0) return rect;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Star control missing: ${body.slice(0, 2000)}`);
+}
+
+function pointerClickAt(window: BrowserWindow, rect: DomRect) {
+  const x = Math.round(rect.x + rect.width / 2);
+  const y = Math.round(rect.y + rect.height / 2);
+  window.webContents.sendInputEvent({ type: "mouseMove", x, y });
+  window.webContents.sendInputEvent({
+    type: "mouseDown",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  window.webContents.sendInputEvent({
+    type: "mouseUp",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
 }
 
 async function clickDiscardDraft(window: BrowserWindow) {
@@ -947,7 +999,7 @@ async function waitForStarredReader(window: BrowserWindow) {
     const visible = (await window.webContents.executeJavaScript(`
       Boolean(
         document.querySelector(
-          '[data-testid="thread-reader"] img[aria-label="Starred conversation"]',
+          '[data-testid="thread-reader"] [aria-label="Starred conversation"]',
         ),
       )
     `)) as boolean;
@@ -1220,6 +1272,13 @@ function requiredEnv(name: string) {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+type DomRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 type BlockedAuthGate = {
   enabled: boolean;
