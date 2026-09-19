@@ -16,6 +16,7 @@ export async function processHistoryItem(
       | gmail_v1.Schema$HistoryMessageAdded
       | gmail_v1.Schema$HistoryLabelAdded
       | gmail_v1.Schema$HistoryLabelRemoved;
+    bulkRemovedLabelIds?: Set<string>;
   },
   options: ProcessHistoryOptions,
   logger: Logger,
@@ -27,7 +28,7 @@ export async function processHistoryItem(
     rules,
     spamLearnedThreadIds,
   } = options;
-  const { type, item } = historyItem;
+  const { type, item, bulkRemovedLabelIds } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
   const emailAccountId = emailAccount.id;
@@ -83,6 +84,7 @@ export async function processHistoryItem(
       {
         emailAccount,
         provider,
+        bulkRemovedLabelIds,
       },
       logger,
     );
