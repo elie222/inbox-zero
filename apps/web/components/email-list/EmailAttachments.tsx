@@ -15,6 +15,7 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isPreviewableImageType } from "@/utils/attachments/image-preview";
 import { getAttachmentUrl } from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
@@ -68,7 +69,9 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         downloadUrl.searchParams.set("emailAccountId", emailAccountId);
         link.href = downloadUrl.toString();
       } else if (result.status === "ready") {
-        objectUrl = URL.createObjectURL(result.blob);
+        objectUrl = URL.createObjectURL(
+          result.blob.slice(0, result.blob.size, "application/octet-stream"),
+        );
         link.href = objectUrl;
       } else {
         throw new Error("Attachment unavailable");
@@ -104,7 +107,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
             key={attachment.attachmentId}
             className="overflow-hidden p-0"
           >
-            {attachment.mimeType.startsWith("image/") && emailAccountId ? (
+            {isPreviewableImageType(attachment.mimeType) && emailAccountId ? (
               <AttachmentImagePreview
                 key={`${emailAccountId}:${url}`}
                 emailAccountId={emailAccountId}

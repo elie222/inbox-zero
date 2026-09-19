@@ -1,20 +1,33 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { z } from "zod";
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
+import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import {
-  isMobileAuthReturnUrlMode,
-  type MobileAuthReturnUrlMode,
-} from "@/utils/mobile-auth/url";
+  getMobileAuthCodeChallenge,
+  mobileAuthCodeChallengeSchema,
+  mobileAuthCodeVerifierSchema,
+} from "@/utils/mobile-auth/pkce";
+import { MOBILE_AUTH_RETURN_URL_MODES } from "@/utils/mobile-auth/url";
 import prisma from "@/utils/prisma";
-import { isNotFoundError } from "@/utils/prisma-helpers";
 
 const logger = createScopedLogger("mobile-auth/oauth-code");
-
-const MOBILE_AUTH_IDENTIFIER_PREFIX = "mobile-auth";
-const MOBILE_AUTH_STATE_IDENTIFIER_PREFIX = "mobile-auth-state";
-const MOBILE_AUTH_CODE_TTL_MS = 5 * 60 * 1000;
+const MOBILE_AUTH_TOKEN_TTL_MS = 5 * 60 * 1000;
 const MOBILE_AUTH_STATE_REGEX = /^[A-Za-z0-9._~-]{16,256}$/u;
+const stateSchema = z.object({
+  returnUrlMode: z.enum(MOBILE_AUTH_RETURN_URL_MODES),
+  codeChallenge: mobileAuthCodeChallengeSchema,
+  provider: mobileAuthProviderSchema,
+  completionHash: z.string().min(1),
+  sessionHash: z.string().optional(),
+});
+const codeSchema = z.object({
+  state: z.string(),
+  userId: z.string().min(1),
+  codeChallenge: mobileAuthCodeChallengeSchema,
+});
 
 export function createMobileAuthState(): string {
   return randomBytes(32).toString("base64url");
@@ -24,142 +37,201 @@ export function isValidMobileAuthState(state: string): boolean {
   return MOBILE_AUTH_STATE_REGEX.test(state);
 }
 
-export async function createMobileAuthCode(input: {
-  state: string;
-  userId: string;
-}): Promise<string> {
-  if (!isValidMobileAuthState(input.state)) {
-    throw new SafeError("Invalid authentication state", 400);
-  }
-
-  deleteExpiredMobileAuthCodes().catch(() => undefined);
-
-  const code = randomBytes(32).toString("base64url");
-  await prisma.verificationToken.create({
-    data: {
-      expires: new Date(Date.now() + MOBILE_AUTH_CODE_TTL_MS),
-      identifier: createIdentifier({
-        state: input.state,
-        userId: input.userId,
-      }),
-      token: hashMobileAuthCode(code),
-    },
+export async function storeMobileAuthState(
+  input: Omit<z.infer<typeof stateSchema>, "completionHash" | "sessionHash"> & {
+    state: string;
+    completionToken: string;
+  },
+): Promise<void> {
+  assertState(input.state);
+  const data = stateSchema.parse({
+    ...input,
+    completionHash: hashToken("completion", input.completionToken),
   });
-
-  return code;
+  await storeToken("state", input.state, data);
 }
 
-export async function storeMobileAuthState(input: {
-  returnUrlMode: MobileAuthReturnUrlMode;
+// Called only from the successful provider callback hook, never from a browser session lookup.
+export async function completeMobileAuthState(input: {
   state: string;
+  provider: string;
+  completionToken: string;
+  sessionToken: string;
 }): Promise<void> {
-  if (!isValidMobileAuthState(input.state)) {
-    throw new SafeError("Invalid authentication state", 400);
+  assertState(input.state);
+  const token = hashToken("state", input.state);
+  const record = await prisma.verificationToken.findUnique({
+    where: { token },
+  });
+  const data = parseRecord(record?.identifier, "state", stateSchema);
+  if (
+    !record ||
+    !data ||
+    record.expires <= new Date() ||
+    data.sessionHash ||
+    data.provider !== input.provider ||
+    !secureCompare(
+      data.completionHash,
+      hashToken("completion", input.completionToken),
+    )
+  ) {
+    throw new SafeError("Invalid authentication state", 401);
   }
-
-  deleteExpiredMobileAuthTokens().catch(() => undefined);
-
-  await prisma.verificationToken.create({
+  const updated = await prisma.verificationToken.updateMany({
+    where: {
+      token,
+      identifier: record.identifier,
+      expires: { gt: new Date() },
+    },
     data: {
-      expires: new Date(Date.now() + MOBILE_AUTH_CODE_TTL_MS),
-      identifier: createStateIdentifier(input.returnUrlMode),
-      token: hashMobileAuthState(input.state),
+      identifier: identifier("state", {
+        ...data,
+        sessionHash: hashToken("session", input.sessionToken),
+      }),
     },
   });
+  if (updated.count !== 1)
+    throw new SafeError("Invalid authentication state", 401);
 }
 
 export async function consumeMobileAuthState(input: {
   state: string;
-}): Promise<{ returnUrlMode: MobileAuthReturnUrlMode }> {
-  if (!isValidMobileAuthState(input.state)) {
-    throw new SafeError("Invalid authentication state", 400);
-  }
-
-  const token = hashMobileAuthState(input.state);
+  sessionToken: string;
+}) {
+  assertState(input.state);
+  const token = hashToken("state", input.state);
   const record = await prisma.verificationToken.findUnique({
     where: { token },
-    select: { identifier: true, expires: true },
   });
-  if (!record) {
-    return { returnUrlMode: "app-link" };
-  }
-
-  const returnUrlMode = parseStateIdentifier(record.identifier);
-  if (!returnUrlMode) {
+  const data = parseRecord(record?.identifier, "state", stateSchema);
+  if (
+    !record ||
+    !data ||
+    record.expires <= new Date() ||
+    !data.sessionHash ||
+    !input.sessionToken ||
+    !secureCompare(data.sessionHash, hashToken("session", input.sessionToken))
+  ) {
     throw new SafeError("Invalid authentication state", 401);
   }
+  await consumeToken(token, record.identifier, "Invalid authentication state");
+  return {
+    returnUrlMode: data.returnUrlMode,
+    codeChallenge: data.codeChallenge,
+  };
+}
 
-  if (record.expires <= new Date()) {
+export async function consumeMobileAuthFailureState(input: { state: string }) {
+  assertState(input.state);
+  const token = hashToken("state", input.state);
+  const record = await prisma.verificationToken.findUnique({
+    where: { token },
+  });
+  const data = parseRecord(record?.identifier, "state", stateSchema);
+  if (!record || !data || record.expires <= new Date() || data.sessionHash) {
     throw new SafeError("Invalid authentication state", 401);
   }
+  await consumeToken(token, record.identifier, "Invalid authentication state");
+  return { returnUrlMode: data.returnUrlMode };
+}
 
-  try {
-    await prisma.verificationToken.delete({ where: { token } });
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      throw new SafeError("Invalid authentication state", 401);
-    }
-    throw error;
-  }
-
-  return { returnUrlMode };
+export async function createMobileAuthCode(
+  input: z.infer<typeof codeSchema>,
+): Promise<string> {
+  assertState(input.state);
+  const data = codeSchema.parse(input);
+  const code = randomBytes(32).toString("base64url");
+  await storeToken("code", code, data);
+  return code;
 }
 
 export async function consumeMobileAuthCode(input: {
   code: string;
   state: string;
+  codeVerifier: string;
 }): Promise<{ userId: string }> {
-  if (!isValidMobileAuthState(input.state)) {
-    throw new SafeError("Invalid authentication state", 400);
-  }
-
-  const token = hashMobileAuthCode(input.code);
-
+  assertState(input.state);
+  const token = hashToken("code", input.code);
   const record = await prisma.verificationToken.findUnique({
     where: { token },
-    select: { identifier: true, expires: true },
   });
-  if (!record) {
+  const data = parseRecord(record?.identifier, "code", codeSchema);
+  if (
+    !record ||
+    !data ||
+    record.expires <= new Date() ||
+    data.state !== input.state ||
+    !mobileAuthCodeVerifierSchema.safeParse(input.codeVerifier).success ||
+    !secureCompare(
+      getMobileAuthCodeChallenge(input.codeVerifier),
+      data.codeChallenge,
+    )
+  ) {
     throw new SafeError("Invalid or expired authentication code", 401);
   }
+  await consumeToken(
+    token,
+    record.identifier,
+    "Invalid or expired authentication code",
+  );
+  return { userId: data.userId };
+}
 
-  const parsedIdentifier = parseIdentifier(record.identifier);
-  if (!parsedIdentifier || parsedIdentifier.state !== input.state) {
-    throw new SafeError("Invalid authentication state", 401);
-  }
+function assertState(state: string) {
+  if (!isValidMobileAuthState(state))
+    throw new SafeError("Invalid authentication state", 400);
+}
 
-  if (record.expires <= new Date()) {
-    throw new SafeError("Invalid or expired authentication code", 401);
-  }
+function identifier(scope: "state" | "code", data: unknown) {
+  return `mobile-auth-${scope}:${JSON.stringify(data)}`;
+}
 
+function parseRecord<T>(
+  value: string | undefined,
+  scope: "state" | "code",
+  schema: z.ZodType<T>,
+): T | null {
+  const prefix = `mobile-auth-${scope}:`;
+  if (!value?.startsWith(prefix)) return null;
   try {
-    await prisma.verificationToken.delete({ where: { token } });
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      throw new SafeError("Invalid or expired authentication code", 401);
-    }
-    throw error;
+    const parsed = schema.safeParse(JSON.parse(value.slice(prefix.length)));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
   }
-
-  return { userId: parsedIdentifier.userId };
 }
 
-async function deleteExpiredMobileAuthCodes() {
-  return deleteExpiredMobileAuthTokens();
+async function storeToken(
+  scope: "state" | "code",
+  value: string,
+  data: unknown,
+) {
+  deleteExpiredTokens().catch(() => undefined);
+  await prisma.verificationToken.create({
+    data: {
+      token: hashToken(scope, value),
+      identifier: identifier(scope, data),
+      expires: new Date(Date.now() + MOBILE_AUTH_TOKEN_TTL_MS),
+    },
+  });
 }
 
-async function deleteExpiredMobileAuthTokens() {
+async function consumeToken(token: string, value: string, message: string) {
+  const deleted = await prisma.verificationToken.deleteMany({
+    where: { token, identifier: value, expires: { gt: new Date() } },
+  });
+  if (deleted.count !== 1) throw new SafeError(message, 401);
+}
+
+async function deleteExpiredTokens() {
   try {
     await prisma.verificationToken.deleteMany({
       where: {
-        expires: { lt: new Date() },
+        expires: { lte: new Date() },
         OR: [
-          { identifier: { startsWith: `${MOBILE_AUTH_IDENTIFIER_PREFIX}:` } },
-          {
-            identifier: {
-              startsWith: `${MOBILE_AUTH_STATE_IDENTIFIER_PREFIX}:`,
-            },
-          },
+          { identifier: { startsWith: "mobile-auth-state:" } },
+          { identifier: { startsWith: "mobile-auth-code:" } },
+          { identifier: { startsWith: "mobile-auth:" } },
         ],
       },
     });
@@ -168,51 +240,12 @@ async function deleteExpiredMobileAuthTokens() {
   }
 }
 
-function createIdentifier(input: { state: string; userId: string }): string {
-  return `${MOBILE_AUTH_IDENTIFIER_PREFIX}:${input.state}:${input.userId}`;
-}
-
-function createStateIdentifier(returnUrlMode: MobileAuthReturnUrlMode): string {
-  return `${MOBILE_AUTH_STATE_IDENTIFIER_PREFIX}:${returnUrlMode}`;
-}
-
-function parseStateIdentifier(
-  identifier: string,
-): MobileAuthReturnUrlMode | null {
-  const parts = identifier.split(":");
-  if (parts.length !== 2) return null;
-  const [prefix, returnUrlMode] = parts;
-  if (prefix !== MOBILE_AUTH_STATE_IDENTIFIER_PREFIX || !returnUrlMode) {
-    return null;
-  }
-  if (!isMobileAuthReturnUrlMode(returnUrlMode)) return null;
-  return returnUrlMode;
-}
-
-function parseIdentifier(
-  identifier: string,
-): { state: string; userId: string } | null {
-  const parts = identifier.split(":");
-  if (parts.length !== 3) return null;
-  const [prefix, state, userId] = parts;
-  if (prefix !== MOBILE_AUTH_IDENTIFIER_PREFIX || !state || !userId) {
-    return null;
-  }
-  return { state, userId };
-}
-
-function hashMobileAuthCode(code: string): string {
-  return hashMobileAuthToken("code", code);
-}
-
-function hashMobileAuthState(state: string): string {
-  return hashMobileAuthToken("state", state);
-}
-
-function hashMobileAuthToken(scope: "code" | "state", value: string): string {
+function hashToken(
+  scope: "code" | "state" | "session" | "completion",
+  value: string,
+): string {
   const secret = env.AUTH_SECRET || env.NEXTAUTH_SECRET;
   if (!secret) throw new Error("Auth secret is required");
-
   return createHmac("sha256", secret)
     .update(`${scope}:${value}`)
     .digest("base64url");

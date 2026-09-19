@@ -55,7 +55,7 @@ describe("startMobileSocialAuth", () => {
     handlerMock.mockResolvedValue(
       new Response(
         JSON.stringify({
-          url: "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client",
+          url: "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client&state=provider-state",
         }),
         {
           headers: {
@@ -72,11 +72,12 @@ describe("startMobileSocialAuth", () => {
   it("starts Google through social sign-in when the emulator is off", async () => {
     const started = await startMobileSocialAuth({
       provider: "google",
+      codeChallenge: "a".repeat(43),
       returnUrlMode: "desktop-scheme",
     });
 
     expect(started.authorizationURL).toBe(
-      "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client",
+      "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client&state=provider-state",
     );
     const [signInRequest] = handlerMock.mock.calls[0] as [Request];
     expect(signInRequest.url).toBe(
@@ -93,11 +94,12 @@ describe("startMobileSocialAuth", () => {
 
     const started = await startMobileSocialAuth({
       provider: "google",
+      codeChallenge: "a".repeat(43),
       returnUrlMode: "desktop-scheme",
     });
 
     expect(started.authorizationURL).toBe(
-      "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client",
+      "http://127.0.0.1:3003/o/oauth2/v2/auth?client_id=client&state=provider-state",
     );
     const [signInRequest] = handlerMock.mock.calls[0] as [Request];
     expect(signInRequest.url).toBe(

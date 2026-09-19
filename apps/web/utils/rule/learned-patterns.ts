@@ -2,7 +2,10 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { saveGroupItem } from "@/utils/group/group-item";
+import {
+  normalizeGroupItemValue,
+  saveGroupItem,
+} from "@/utils/group/group-item";
 
 /**
  * Saves a learned pattern for a rule
@@ -58,6 +61,32 @@ export async function saveLearnedPattern({
     messageId,
     source,
   });
+}
+
+/**
+ * Removes an AI-inferred sender inclusion from a rule, so the rule goes back to
+ * judging each email from that sender on its own. User-authored patterns and
+ * exclusions are kept.
+ */
+export async function removeAiLearnedPattern({
+  emailAccountId,
+  from,
+  ruleId,
+}: {
+  emailAccountId: string;
+  from: string;
+  ruleId: string;
+}) {
+  const { count } = await prisma.groupItem.deleteMany({
+    where: {
+      group: { emailAccountId, rule: { is: { id: ruleId } } },
+      type: GroupItemType.FROM,
+      value: normalizeGroupItemValue(from),
+      source: GroupItemSource.AI,
+      exclude: false,
+    },
+  });
+  return count;
 }
 
 /**

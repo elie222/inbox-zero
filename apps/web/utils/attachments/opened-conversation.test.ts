@@ -38,7 +38,10 @@ beforeEach(() => {
   vi.mocked(downloadLocalMailAttachment).mockResolvedValue({
     status: "ready",
     cached: true,
-    blob: new Blob([new Uint8Array(MiB)]),
+    blob: new Blob([
+      new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+      new Uint8Array(MiB - 8),
+    ]),
   });
 });
 it("shares a three MiB allowance across messages and CID/preview consumers", async () => {
@@ -64,7 +67,7 @@ it.each([
     });
   const session = createOpenedConversationAttachments("account", "thread");
   expect(await session.load("a", "file")).toBeUndefined();
-  vi.mocked(readLocalMailAttachment).mockResolvedValue(new Blob(["cached"]));
+  vi.mocked(readLocalMailAttachment).mockResolvedValue(rasterBlob());
   expect(await session.load("a", "file")).toBeInstanceOf(Blob);
   expect(downloadLocalMailAttachment).not.toHaveBeenCalled();
 });
@@ -144,7 +147,7 @@ it("does not fetch an unregistered assistant message unless its foreground sessi
 
 it("bounds foreground assistant fallback without starting canonical downloads", async () => {
   vi.mocked(getLocalMailAttachmentReference).mockResolvedValue(undefined);
-  vi.mocked(fetchAttachment).mockResolvedValue(new Blob(["image"]));
+  vi.mocked(fetchAttachment).mockResolvedValue(rasterBlob());
   vi.stubGlobal("navigator", {
     onLine: true,
     locks: {
@@ -172,7 +175,7 @@ it("bounds foreground assistant fallback without starting canonical downloads", 
     "thread",
     true,
   ).load("a", "file", undefined, attachment);
-  expect(await blob?.text()).toBe("image");
+  expect(blob?.type).toBe("image/png");
   expect(fetchAttachment).toHaveBeenCalledWith(
     expect.objectContaining({ maxBytes: 128, signal: expect.any(AbortSignal) }),
   );
@@ -185,7 +188,7 @@ it("keeps a transfer running when its consumer is replaced and shares the result
     async ({ signal }) => {
       started.resolve(signal!);
       await finish.promise;
-      return { status: "ready", cached: true, blob: new Blob(["shared"]) };
+      return { status: "ready", cached: true, blob: rasterBlob() };
     },
   );
   const session = createOpenedConversationAttachments("account", "thread");
@@ -198,6 +201,79 @@ it("keeps a transfer running when its consumer is replaced and shares the result
   expect(signal.aborted).toBe(false);
   const second = session.load("a", "file", new AbortController().signal);
   finish.resolve();
-  expect(await (await second)?.text()).toBe("shared");
+  expect((await second)?.type).toBe("image/png");
   expect(downloadLocalMailAttachment).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  "cache",
+  "download",
+  "fallback",
+])("does not expose active or MIME-spoofed documents from %s as image previews", async (source) => {
+  vi.stubGlobal("navigator", {
+    onLine: true,
+    locks: {
+      request: async (
+        _name: string,
+        _options: unknown,
+        run: () => Promise<unknown>,
+      ) => run(),
+    },
+  });
+  const attachment = {
+    attachmentId: "file",
+    filename: "picture.png",
+    mimeType: "image/png",
+    size: 128,
+    headers: {
+      "content-description": "",
+      "content-id": "",
+      "content-type": "image/png",
+      "content-transfer-encoding": "",
+    },
+  };
+  for (const type of [
+    "image/svg+xml",
+    "text/html",
+    "application/xhtml+xml",
+    "application/pdf",
+    "image/png",
+    "",
+  ]) {
+    const blob = new Blob(
+      [
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>document.title="changed"</script></svg>',
+      ],
+      { type },
+    );
+    vi.mocked(readLocalMailAttachment).mockResolvedValue(
+      source === "cache" ? blob : undefined,
+    );
+    vi.mocked(downloadLocalMailAttachment).mockResolvedValue({
+      status: "ready",
+      cached: false,
+      blob,
+    });
+    vi.mocked(fetchAttachment).mockResolvedValue(blob);
+    if (source === "fallback")
+      vi.mocked(getLocalMailAttachmentReference).mockResolvedValue(undefined);
+    const session = createOpenedConversationAttachments(
+      "account",
+      "thread",
+      true,
+    );
+    expect(
+      await session.load("a", "file", undefined, attachment),
+    ).toBeUndefined();
+    session.close();
+  }
+});
+
+function rasterBlob() {
+  return new Blob([
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  ]);
+}
