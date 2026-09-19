@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `f271f69a4`
+- Last implementation commit: `36e1ab9ec`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: remaining desktop provider UI, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining desktop UI matrix cells and watch CI on the exact head after this ledger commit.
+- Next action: remaining desktop UI matrix cells, C1 live fencing / C3 OPFS archive fixture, and watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 1.8m on `36e1ab9ec`, reconnect 12.8s; after coverage, `/changes` is intercepted and `/enumeration` stays 0 (E27)
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 1.8m, Gmail reconnect 10.7s on the same `/changes`-only intercept
   - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed: metadata `msg_*` ids match `thr_*` seeds; payload `{ read: false }` selects unread over an earlier mark-read
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 7 passed in 2.1m on `f271f69a4` plus the deep-link spec tweak (E26)
   - `cd apps/web && pnpm exec vitest --run utils/outlook/mailbox-sync.test.ts` — 1 file, 3 passed including archive folder mapping on delta pages
@@ -110,7 +112,7 @@ Browser host uses a dedicated module worker when available, OPFS SAHPool when pe
 - [ ] D4. Implement wake/hint/periodic catch-up and repair; verify missing/duplicate notifications and auth/throttle recovery.
 - [ ] D5. Pass the required dual-provider replication fault scenarios with independent provider/local-state inspection.
 
-Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. The last bootstrap enumeration page records the provider mailbox cursor (`getMailboxSyncPage` or the newest numeric Gmail `historyId`), not a list page token. The Microsoft emulator now serves `GET /v1.0/me/mailFolders/:folderId/messages/delta` and returns a `https://graph.microsoft.com` `$deltatoken` cursor; later pages report folder moves with real well-known folder ids. Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Web `MailEngineConnectionBanner` renders reconnect/offline from mailbox `connection`. Live Playwright intercepts `/changes` with `blocked_auth`, shows the reconnect heading, and follows Reconnect to the stubbed linking URL.
+Source adapters try `getMailboxSyncPage` then fall back to pagination for emulator 401s. The last bootstrap enumeration page records the provider mailbox cursor (`getMailboxSyncPage` or the newest numeric Gmail `historyId`), not a list page token. The Microsoft emulator now serves `GET /v1.0/me/mailFolders/:folderId/messages/delta` and returns a `https://graph.microsoft.com` `$deltatoken` cursor; later pages report folder moves with real well-known folder ids. After metadata coverage, Outlook idle catch-up posts `/changes` rather than re-enumerating (E27). Expired/reset cursors rebuild from bootstrap. Membership is paginated. Stale hydration versions are rejected. Throttle maps to paused catch-up. Auth failures map to persisted `blocked_auth` diagnostics and recover to `ready`. Dual-provider integration inspects Gmail/Outlook archive, catch-up (including a duplicate idle pass), search, on-demand body, read, and SQLite reopen against provider state and committed SQLite. Shared-store idle catch-up applies a missed external archive and ignores a duplicate hint. Web `MailEngineConnectionBanner` renders reconnect/offline from mailbox `connection`. Live Playwright intercepts `/changes` with `blocked_auth`, shows the reconnect heading, and follows Reconnect to the stubbed linking URL.
 
 ### E. Complete operations, drafts, and assistant coexistence
 
@@ -171,7 +173,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded command (E15) | Partial: Outlook archive hide + succeeded (E20) | Not run | Not run | SQLite archive + reference parity |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
-| Missed hints/reset/moves/stale reads | Not run | Not run | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
+| Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Not run | Not run | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
@@ -416,6 +418,17 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/catch-up.test.ts __tests__/integration/google-emulator-oauth.test.ts` — 2 files, 4 passed
 - What it proved: the patched Microsoft emulator serves `GET /v1.0/me/mailFolders/:folderId/messages/delta`. The first page returns a `https://graph.microsoft.com` `$deltatoken` cursor. Later pages keep that host. Archiving a message is visible on the next delta as ARCHIVE, not INBOX. Engine catch-up still applies Outlook folder moves. Google RS256 identity tokens still verify.
 - Limitations: still a single primary inbox stream; expired-delta 410 rebuild and per-folder discovery UI remain unproven. Live Outlook inspect Playwright was not rerun on this head.
+
+### E27. Outlook idle catch-up hits `/changes` after folder-delta (2026-09-19)
+
+- Tasks: partial D2, partial D4
+- Tree: `cursor/mail-engine-0b4f` at `36e1ab9ec`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 1.8m; reconnect 12.8s
+  - `UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 5 passed in 1.8m; Gmail reconnect 10.7s
+- What it proved: after metadata coverage, Outlook idle catch-up uses the stored folder-delta cursor and POSTs `/changes`. Reconnect intercepts only that path with `blocked_auth`; `/enumeration` stays 0. Gmail reconnect stays on `/changes` with the same spec. `build:ci` inspect payload matching no longer indexes a union with `string`.
+- Limitations: still a single primary inbox stream; expired-delta 410 rebuild and per-folder discovery UI remain unproven.
 
 ### E26. Navigation inspect matches metadata message ids (2026-09-18)
 
