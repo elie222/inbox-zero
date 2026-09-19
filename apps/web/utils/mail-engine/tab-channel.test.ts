@@ -59,6 +59,19 @@ describe("mail engine tab channel", () => {
     disposeTabFollowerClient(follower);
     await expect(pending).rejects.toThrow("channel_closed");
   });
+
+  it("rejects a follower bound to a different account", async () => {
+    const bus = createMemoryTabBus();
+    bindTabMailOwner({
+      accountId: "acc-1",
+      client: stubClient({ onSubmit() {} }),
+      bus,
+    });
+    const follower = createTabFollowerClient({ accountId: "acc-2", bus });
+    await expect(follower.getDiagnostics("acc-2")).rejects.toThrow(
+      "account_mismatch",
+    );
+  });
 });
 
 function stubClient(input: {

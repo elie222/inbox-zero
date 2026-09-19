@@ -10,21 +10,19 @@ import {
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createMailHttpRequest } from "./http";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
-import {
-  workerStartFence,
-  type WorkerRequest,
-  type WorkerResponse,
-} from "./worker-protocol";
+import type { WorkerRequest } from "./worker-protocol";
+import { createMailWorkerHost } from "./worker-session";
 
-const handles = new Map<string, { close: () => void }>();
-let engine: MailEngine | undefined;
-let loop: Promise<void> | undefined;
-let stopped = false;
-let startedAccount: string | undefined;
+const host = createMailWorkerHost({
+  createEngine: createWorkerEngine,
+  post: (message) => {
+    self.postMessage(message);
+  },
+});
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  handle(event.data).catch((error) => {
-    post({
+  host.handle(event.data).catch((error) => {
+    self.postMessage({
       id: "worker",
       type: "error",
       message: error instanceof Error ? error.message : "worker_error",
@@ -32,108 +30,12 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   });
 };
 
-async function handle(message: WorkerRequest) {
-  try {
-    if (message.type === "start") {
-      const fence = workerStartFence(startedAccount, message.input.accountId);
-      if (engine) {
-        if (fence) {
-          post({
-            id: message.id,
-            type: "error",
-            message: fence,
-          });
-          return;
-        }
-        post({ id: message.id, type: "ok" });
-        return;
-      }
-      engine = await createWorkerEngine(message.input);
-      startedAccount = message.input.accountId;
-      post({ id: message.id, type: "ok" });
-      return;
-    }
-    if (!engine) {
-      post({ id: message.id, type: "error", message: "engine not started" });
-      return;
-    }
-    if (message.type === "close") {
-      stopped = true;
-      for (const handle of handles.values()) handle.close();
-      handles.clear();
-      await engine.close();
-      engine = undefined;
-      startedAccount = undefined;
-      await loop;
-      post({ id: message.id, type: "ok" });
-      return;
-    }
-    if (message.type === "unobserve") {
-      handles.get(message.handleId)?.close();
-      handles.delete(message.handleId);
-      post({ id: message.id, type: "ok" });
-      return;
-    }
-    if (message.type === "observe") {
-      const observed = observe(engine, message.kind, message.args);
-      handles.set(message.handleId, observed);
-      observed.subscribe(() => {
-        post({
-          type: "snapshot",
-          handleId: message.handleId,
-          snapshot: observed.getSnapshot(),
-        });
-      });
-      post({
-        type: "snapshot",
-        handleId: message.handleId,
-        snapshot: observed.getSnapshot(),
-      });
-      post({ id: message.id, type: "ok" });
-      return;
-    }
-    const method = engine[message.method as keyof MailEngine];
-    if (typeof method !== "function") {
-      post({
-        id: message.id,
-        type: "error",
-        message: `unsupported method ${message.method}`,
-      });
-      return;
-    }
-    const value = await (
-      method as (...args: unknown[]) => Promise<unknown>
-    ).apply(engine, message.args);
-    post({ id: message.id, type: "ok", value });
-  } catch (error) {
-    post({
-      id: "id" in message ? message.id : "worker",
-      type: "error",
-      message: error instanceof Error ? error.message : "worker_error",
-    });
-  }
-}
-
-function observe(
-  client: MailEngine,
-  kind: "mailbox" | "conversation" | "operation",
-  args: unknown[],
-) {
-  if (kind === "mailbox") {
-    return client.observeMailbox(args[0] as never);
-  }
-  if (kind === "conversation") {
-    return client.observeConversation(args[0] as never, args[1] as never);
-  }
-  return client.observeOperation(args[0] as never);
-}
-
 async function createWorkerEngine(input: {
   accountId: string;
   provider: "google" | "microsoft";
   generation?: string;
   persist?: boolean;
-}) {
+}): Promise<MailEngine> {
   const request = createMailHttpRequest(input.accountId);
   const driver = await createWasmSqliteDriver({ persist: input.persist });
   const store = await createSqliteMailStore(driver);
@@ -156,8 +58,8 @@ async function createWorkerEngine(input: {
     ownerId: "browser-worker",
   });
   await created.requestSync([input.accountId]);
-  stopped = false;
-  loop = (async () => {
+  let stopped = false;
+  const loop = (async () => {
     while (!stopped) {
       try {
         await created.runUntil(Date.now() + 2000);
@@ -167,11 +69,15 @@ async function createWorkerEngine(input: {
       await delay(250);
     }
   })();
-  return created;
-}
-
-function post(message: WorkerResponse) {
-  self.postMessage(message);
+  const originalClose = created.close.bind(created);
+  return {
+    ...created,
+    async close() {
+      stopped = true;
+      await originalClose();
+      await loop;
+    },
+  };
 }
 
 function delay(ms: number) {
