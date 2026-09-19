@@ -605,6 +605,14 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(edited.status).toBe("saved");
     if (edited.status !== "saved") throw new Error("expected save");
     expect(
+      await store.admitSend({
+        commandId: "send-fail",
+        draft: { accountId: "acc-1", draftId: "d-fail" },
+        draftRevision: edited.draftRevision,
+        replyTo: null,
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
+    expect(
       (
         await store.admitSend({
           commandId: "send-fail-again",
@@ -2691,6 +2699,54 @@ describe("quota, retention, and recovery", () => {
       change: { kind: "archive" },
     });
     expect(retry.status).toBe("already_recorded");
+    await store.close();
+  });
+
+  it("rejects reusing a metadata command id with a different payload", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    expect(
+      (
+        await store.admitMetadata({
+          accountId: "acc-1",
+          commandId: "cmd-1",
+          targets: [{ accountId: "acc-1", messageId: "m1" }],
+          change: { kind: "archive" },
+        })
+      ).status,
+    ).toBe("queued");
+    expect(
+      await store.admitMetadata({
+        accountId: "acc-1",
+        commandId: "cmd-1",
+        targets: [{ accountId: "acc-1", messageId: "m1" }],
+        change: { kind: "archive" },
+      }),
+    ).toMatchObject({ status: "already_recorded" });
+    expect(
+      await store.admitMetadata({
+        accountId: "acc-1",
+        commandId: "cmd-1",
+        targets: [{ accountId: "acc-1", messageId: "m1" }],
+        change: { kind: "set_starred", starred: true },
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
     await store.close();
   });
 
