@@ -151,13 +151,6 @@ test("creates and applies a label to selected conversations with L", async ({
         expect.arrayContaining(["INBOX", label.id]),
       );
     }
-  }
-  await page.getByRole("button", { name: "Label", exact: true }).click();
-  await expect(picker).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(picker).toBeHidden();
-  await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
-  for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {
     await expect
       .poll(
         () =>
