@@ -289,6 +289,7 @@ function publishMailEngineInspect(
     transport,
     capabilities: browserMailEngineCapabilities(),
     read: () => client.getDiagnostics(accountId),
+    requestSync: () => client.requestSync([accountId]),
     inspect: () =>
       "inspect" in client && typeof client.inspect === "function"
         ? (
@@ -317,6 +318,7 @@ declare global {
       transport: MailEngineInspectTransport;
       capabilities: ReturnType<typeof browserMailEngineCapabilities>;
       read: () => Promise<unknown>;
+      requestSync: () => Promise<unknown>;
       inspect: () => Promise<unknown>;
     };
   }

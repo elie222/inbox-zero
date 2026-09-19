@@ -167,6 +167,9 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     });
     window.dispatchEvent(new Event("online"));
   });
+  await page.evaluate(async () => {
+    await window.__inboxZeroMailInspect?.requestSync?.();
+  });
   await expect(
     page.getByTestId("thread-reader").getByText(replyBody),
   ).toBeVisible({ timeout: 60_000 });
