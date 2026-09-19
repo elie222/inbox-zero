@@ -1,4 +1,11 @@
 import { describe, expect, it } from "vitest";
+import {
+  applyReferenceChange,
+  createReferenceModel,
+  referenceMailbox,
+  setReferencePending,
+} from "@inboxzero/mail-core/test-support/reference-model";
+import { archiveThenNewMailScenario } from "@inboxzero/mail-core/test-support/scenarios";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
@@ -80,6 +87,110 @@ describe("browser wasm sqlite driver", () => {
     expect(
       returned.view.conversations.map((row) => row.key.conversationId).sort(),
     ).toEqual(["c1", "c2"]);
+    await store.close();
+  });
+
+  it("matches the shared archive-then-new-mail fixture on sqlite-wasm", async () => {
+    const driver = await createWasmSqliteDriver({ persist: false });
+    const store = await createSqliteMailStore(driver);
+    await store.ensureAccount({
+      accountId: "a1",
+      provider: "google",
+      generation: "g1",
+    });
+    const reference = createReferenceModel();
+    for (const event of archiveThenNewMailScenario) {
+      if (event.kind === "observe") {
+        applyReferenceChange(reference, event.change);
+        const requestId =
+          "key" in event.change ? event.change.key.messageId : event.change.id;
+        await store.applySyncPage({
+          ownerId: "owner",
+          page: {
+            session: { accountId: "a1", generation: "g1" },
+            requestId,
+            from: { streamId: "primary", generation: "g1", checkpoint: null },
+            to: {
+              streamId: "primary",
+              generation: "g1",
+              checkpoint: requestId,
+            },
+            changes: [event.change],
+            requiredHydration: [],
+            roundComplete: true,
+          },
+        });
+      }
+      if (event.kind === "admit") {
+        setReferencePending(reference, [
+          ...reference.pending,
+          {
+            operationId: event.operationId,
+            change: event.change,
+            targets: event.targets,
+          },
+        ]);
+        await store.admitMetadata({
+          accountId: "a1",
+          commandId: event.operationId,
+          targets: event.targets,
+          change: event.change,
+        });
+      }
+      if (event.kind === "clearPending") {
+        setReferencePending(
+          reference,
+          reference.pending.filter(
+            (item) => item.operationId !== event.operationId,
+          ),
+        );
+        const operation = await store.readOperation({
+          accountId: "a1",
+          operationId: event.operationId,
+        });
+        if (operation.operation) {
+          await store.settleAttempt({
+            attemptId: "clear",
+            operation: {
+              key: { accountId: "a1", operationId: event.operationId },
+              session: { accountId: "a1", generation: "g1" },
+              authority: "backend",
+              payloadHash: "x",
+              intent: {
+                kind: "metadata",
+                targets: [{ accountId: "a1", messageId: "m1" }],
+                change: { kind: "archive" },
+              },
+            },
+            result: {
+              status: "confirmed",
+              receiptId: "done",
+              observations: [],
+              targets: [],
+            },
+          });
+        }
+      }
+    }
+    const view = await store.readMailboxView({
+      accountIds: ["a1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    const expected = referenceMailbox(reference, ["a1"], {
+      kind: "role",
+      role: "inbox",
+    });
+    expect(view.view.counts.matchingConversations).toBe(
+      expected.matchingConversations,
+    );
+    expect(
+      view.view.conversations.map(
+        (row) => `${row.key.accountId}:${row.key.conversationId}`,
+      ),
+    ).toEqual(expected.conversations);
     await store.close();
   });
 });

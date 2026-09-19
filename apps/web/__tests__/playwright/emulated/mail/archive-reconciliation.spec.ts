@@ -70,3 +70,75 @@ test("keeps an archived conversation hidden through engine reconciliation", asyn
   }
   expect(cleanupErrors).toEqual([]);
 });
+
+test("keeps a queued archive hidden after an OPFS reload", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(page, conversations, SUBJECT);
+  await expect(conversation).toHaveCount(1);
+
+  let releaseExecute = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseExecute = resolve;
+  });
+  await page.route(
+    "**/api/mail/v1/accounts/**/operations/**",
+    async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.continue();
+        return;
+      }
+      await held;
+      await route.continue();
+    },
+  );
+
+  const cleanupErrors: unknown[] = [];
+  try {
+    await conversation.getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(conversation).toHaveCount(0);
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "archive",
+          threadId: THREAD_ID,
+        }),
+      )
+      .toMatchObject({
+        status: "reconciling",
+      });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const reloaded = page.getByRole("listbox", { name: "Conversations" });
+    await expect(reloaded.getByRole("option").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(conversationWithSubject(page, reloaded, SUBJECT)).toHaveCount(
+      0,
+    );
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "archive-queued-after-opfs-reload",
+    );
+  } finally {
+    releaseExecute();
+    await page.request
+      .post(`/api/threads/${THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
