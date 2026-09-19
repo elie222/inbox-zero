@@ -8,105 +8,6 @@ import {
   readLatestMailMutation,
 } from "./mail-test-helpers";
 
-test("captures thread reading and reply states", async ({ page }, testInfo) => {
-  page.setDefaultTimeout(15_000);
-  page.setDefaultNavigationTimeout(30_000);
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "01-collapsed-history");
-  const collapsed = page
-    .locator('[role="button"][aria-expanded="false"]')
-    .filter({ hasText: "Dana Example" });
-  if (await collapsed.count()) await collapsed.click();
-  await expect(
-    page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "02-expanded-history");
-  await page
-    .getByRole("button", { name: "Show details", exact: true })
-    .last()
-    .click();
-  await expect(page.getByText("From", { exact: true })).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "03-header-details");
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
-  const replyMessage = page.locator(
-    '[data-thread-message-id="msg_playwright_reply"]',
-  );
-  const collapsedReply = replyMessage.locator(
-    '[role="button"][aria-expanded="false"]',
-  );
-  await expect(replyMessage).toBeVisible();
-  if (await collapsedReply.count()) await collapsedReply.click();
-  await expect(
-    replyMessage.getByText("Please reply to this seeded conversation."),
-  ).toBeVisible();
-  const toolbar = page.getByRole("group", { name: "Thread actions" });
-  await expect(
-    toolbar.getByRole("button", { name: "Reply", exact: true }),
-  ).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
-  await capturePlaywrightCheckpoint(page, testInfo, "04-single-message");
-  await toolbar.getByRole("button", { name: /^More actions/ }).click();
-  await expect(page.getByRole("menuitem", { name: /^Delete/ })).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "25-thread-actions-menu");
-  await page.keyboard.press("Escape");
-  await replyMessage
-    .getByRole("button", { name: "Reply", exact: true })
-    .click();
-  const editor = page.locator("[contenteditable='true']");
-  await expect(editor).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "05-empty-reply");
-  await editor.pressSequentially(
-    "Thanks Leslie, Thursday at 2 pm works for me. I will bring the updated proposal.",
-  );
-  await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
-  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
-  await expect(
-    page.getByRole("combobox", { name: "Cc", exact: true }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "07-reply-recipients");
-  await page
-    .getByRole("button", { name: "Hide recipients", exact: true })
-    .click();
-  await expect(editor).toContainText(
-    "Thanks Leslie, Thursday at 2 pm works for me.",
-  );
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Reply Workflow Message" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
-  await editor.fill("A reply that should survive navigation.");
-  await expect(editor).toContainText("A reply that should survive navigation.");
-  await page.goto(`/${emailAccountId}/mail`);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
-  await expect(
-    page.getByRole("heading", { name: "Reply Workflow Message" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "12-draft-after-navigation",
-  );
-  if (!(await editor.count()) || !(await editor.first().isVisible())) {
-    await page
-      .getByRole("button", { name: "Reply", exact: true })
-      .last()
-      .click();
-  }
-  await expect(editor).toBeVisible();
-  await editor.fill("Mobile reply: the proposed time works well.");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");
-});
-
 test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
@@ -216,40 +117,6 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "11-sent-reply");
 });
 
-test("captures a longer thread and draft collapse", async ({
-  page,
-}, testInfo) => {
-  page.setDefaultTimeout(15_000);
-  page.setDefaultNavigationTimeout(30_000);
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "14-long-thread");
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
-  const editor = page.locator("[contenteditable='true']");
-  await editor.fill("This reply should survive collapsing its parent message.");
-  const header = page
-    .locator('[role="button"][aria-expanded="true"]')
-    .filter({ hasText: "Me" })
-    .last();
-  await header.click();
-  await page
-    .locator('[role="button"][aria-expanded="false"]')
-    .filter({ hasText: "Me" })
-    .last()
-    .click();
-  await expect(editor).toBeVisible();
-  await expect(editor).toContainText(
-    "This reply should survive collapsing its parent message.",
-  );
-  await capturePlaywrightCheckpoint(page, testInfo, "15-draft-after-collapse");
-});
-
 test("restores a queued reply for editing without sending a duplicate", async ({
   page,
 }, testInfo) => {
@@ -308,4 +175,137 @@ test("restores a queued reply for editing without sending a duplicate", async ({
       }),
     )
     .toBeUndefined();
+});
+
+test("captures thread reading and reply states", async ({ page }, testInfo) => {
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
+  await expect(
+    page.getByText(
+      "A second message proves the complete conversation is rendered.",
+    ),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "01-collapsed-history");
+  const collapsed = page
+    .locator('[role="button"][aria-expanded="false"]')
+    .filter({ hasText: "Dana Example" });
+  if (await collapsed.count()) await collapsed.click();
+  await expect(
+    page.getByText("First message in the reader conversation."),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "02-expanded-history");
+  await page
+    .getByRole("button", { name: "Show details", exact: true })
+    .last()
+    .click();
+  await expect(page.getByText("From", { exact: true })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "03-header-details");
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const replyMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  const collapsedReply = replyMessage.locator(
+    '[role="button"][aria-expanded="false"]',
+  );
+  await expect(replyMessage).toBeVisible();
+  if (await collapsedReply.count()) await collapsedReply.click();
+  await expect(
+    replyMessage.getByText("Please reply to this seeded conversation."),
+  ).toBeVisible();
+  const toolbar = page.getByRole("group", { name: "Thread actions" });
+  await expect(
+    toolbar.getByRole("button", { name: "Reply", exact: true }),
+  ).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "04-single-message");
+  await toolbar.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menuitem", { name: /^Delete/ })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "25-thread-actions-menu");
+  await page.keyboard.press("Escape");
+  await replyMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const editor = page.locator("[contenteditable='true']");
+  await expect(editor).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "05-empty-reply");
+  await editor.pressSequentially(
+    "Thanks Leslie, Thursday at 2 pm works for me. I will bring the updated proposal.",
+  );
+  await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Cc", exact: true }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "07-reply-recipients");
+  await page
+    .getByRole("button", { name: "Hide recipients", exact: true })
+    .click();
+  await expect(editor).toContainText(
+    "Thanks Leslie, Thursday at 2 pm works for me.",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Reply Workflow Message" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+  await editor.fill("A reply that should survive navigation.");
+  await expect(editor).toContainText("A reply that should survive navigation.");
+  await page.goto(`/${emailAccountId}/mail`);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  await expect(
+    page.getByRole("heading", { name: "Reply Workflow Message" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "12-draft-after-navigation",
+  );
+  if (!(await editor.count()) || !(await editor.first().isVisible())) {
+    await page
+      .getByRole("button", { name: "Reply", exact: true })
+      .last()
+      .click();
+  }
+  await expect(editor).toBeVisible();
+  await editor.fill("Mobile reply: the proposed time works well.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");
+});
+
+test("captures a longer thread and draft collapse", async ({
+  page,
+}, testInfo) => {
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
+  await expect(
+    page.getByText(
+      "A second message proves the complete conversation is rendered.",
+    ),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "14-long-thread");
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+  const editor = page.locator("[contenteditable='true']");
+  await editor.fill("This reply should survive collapsing its parent message.");
+  const header = page
+    .locator('[role="button"][aria-expanded="true"]')
+    .filter({ hasText: "Me" })
+    .last();
+  await header.click();
+  await page
+    .locator('[role="button"][aria-expanded="false"]')
+    .filter({ hasText: "Me" })
+    .last()
+    .click();
+  await expect(editor).toBeVisible();
+  await expect(editor).toContainText(
+    "This reply should survive collapsing its parent message.",
+  );
+  await capturePlaywrightCheckpoint(page, testInfo, "15-draft-after-collapse");
 });
