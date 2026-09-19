@@ -73,13 +73,13 @@ export function createOpenedConversationAttachments(
       Number.isSafeInteger(reportedSize) && reportedSize > 0
         ? reportedSize
         : undefined;
+    const reserved = size ?? FILE_LIMIT;
     if (
-      (size !== undefined &&
-        (size > FILE_LIMIT || consumedBytes + size > CONVERSATION_LIMIT)) ||
+      reserved > FILE_LIMIT ||
+      consumedBytes + reserved > CONVERSATION_LIMIT ||
       !eligible()
     )
       return;
-    const reserved = size ?? 0;
     consumedBytes += reserved;
     let actualBytes = 0;
     try {

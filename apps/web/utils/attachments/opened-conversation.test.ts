@@ -70,6 +70,22 @@ it("fetches previewable images when the descriptor omits size", async () => {
   expect(fetchAttachment).toHaveBeenCalledTimes(1);
 });
 
+it("reserves a full file budget when an attachment omits size", async () => {
+  const session = createOpenedConversationAttachments(
+    "account",
+    "thread",
+    true,
+  );
+  const unknown = { ...image, size: 0 };
+  const results = await Promise.all(
+    ["a", "b", "c", "d"].map((id) =>
+      session.load(id, "file", undefined, unknown),
+    ),
+  );
+  expect(results.filter(Boolean)).toHaveLength(3);
+  expect(fetchAttachment).toHaveBeenCalledTimes(3);
+});
+
 it("does not expose MIME-spoofed documents as image previews", async () => {
   vi.mocked(fetchAttachment).mockResolvedValue(
     new Blob(

@@ -465,6 +465,45 @@ describe("createEmailProviderMailboxSource", () => {
     ]);
   });
 
+  it("emits an empty body observation when hydrate finds no text", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessage() {
+          return {
+            id: "empty-1",
+            threadId: "t2",
+            historyId: "10",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: "Hi",
+            inline: [],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.hydrate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      keys: [{ accountId: "acc-1", messageId: "empty-1" }],
+      purpose: "body",
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.value.bodies).toEqual([
+      {
+        key: { accountId: "acc-1", messageId: "empty-1" },
+        version: "10",
+        html: null,
+        text: null,
+        attachments: [],
+        isMeetingInvitation: false,
+      },
+    ]);
+  });
+
   it("blocks catch-up when provider authentication fails", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

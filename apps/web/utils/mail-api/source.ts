@@ -222,9 +222,7 @@ export function createEmailProviderMailboxSource(input: {
               parsedMessagePatch(accountId, providerName, message),
             ),
             bodies:
-              purpose === "body"
-                ? parsedMessageBodies(accountId, messages).bodies
-                : [],
+              purpose === "body" ? hydratedBodies(accountId, messages) : [],
             unresolved,
           },
         };
@@ -318,6 +316,23 @@ function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
     else requiredHydration.push({ accountId, messageId: message.id });
   }
   return { requiredHydration, bodies };
+}
+
+function hydratedBodies(
+  accountId: string,
+  messages: ParsedMessage[],
+): BodyObservation[] {
+  return messages.map(
+    (message) =>
+      parsedMessageBodyObservation(accountId, message) ?? {
+        key: { accountId, messageId: message.id },
+        version: message.historyId || null,
+        html: null,
+        text: null,
+        attachments: [],
+        isMeetingInvitation: false,
+      },
+  );
 }
 
 async function catchUpCheckpoint(

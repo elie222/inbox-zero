@@ -44,7 +44,8 @@ export function beginUndoSend({
     id: UNDO_SEND_TOAST_ID,
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
-    duration: Math.max(0, holdUntil - Date.now()),
+    // Keep the toast up even if submitSend already used the original hold.
+    duration: Math.max(UNDO_SEND_DELAY_MS, holdUntil - Date.now()),
     onUndo: async () => {
       await undoPendingSend();
     },
