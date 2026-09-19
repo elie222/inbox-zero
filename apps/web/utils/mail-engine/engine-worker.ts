@@ -36,12 +36,9 @@ async function createWorkerEngine(
 ): Promise<MailEngine> {
   const request = createMailHttpRequest(input.accountId);
   const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const store = await createSqliteMailStore(
-    driver,
-    input.maxPendingOperations === undefined
-      ? undefined
-      : { maxPendingOperations: input.maxPendingOperations },
-  );
+  const store = await createSqliteMailStore(driver, {
+    maxPendingOperations: input.maxPendingOperations,
+  });
   await store.ensureAccount({
     accountId: input.accountId,
     provider: input.provider,

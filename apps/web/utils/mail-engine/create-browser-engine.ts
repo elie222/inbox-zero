@@ -25,19 +25,19 @@ export { browserMailEngineCapabilities };
 export async function createBrowserMailEngine(
   input: BrowserEngineStart,
 ): Promise<MailEngine> {
-  const started: BrowserEngineStart = {
+  const start: BrowserEngineStart = {
     ...input,
     maxPendingOperations:
       input.maxPendingOperations ?? readPageMaxPendingOperations(),
   };
   if (browserMailEngineCapabilities().worker) {
     try {
-      return await createWorkerOwnedEngine(started);
+      return await createWorkerOwnedEngine(start);
     } catch {
       // Dedicated workers can fail in private mode or without module workers.
     }
   }
-  return createInTabEngine(started);
+  return createInTabEngine(start);
 }
 
 async function createInTabEngine(
@@ -45,12 +45,9 @@ async function createInTabEngine(
 ): Promise<MailEngine> {
   const request = createMailHttpRequest(input.accountId);
   const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const store = await createSqliteMailStore(
-    driver,
-    input.maxPendingOperations === undefined
-      ? undefined
-      : { maxPendingOperations: input.maxPendingOperations },
-  );
+  const store = await createSqliteMailStore(driver, {
+    maxPendingOperations: input.maxPendingOperations,
+  });
   await store.ensureAccount({
     accountId: input.accountId,
     provider: input.provider,
