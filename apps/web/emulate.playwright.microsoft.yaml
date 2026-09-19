@@ -36,6 +36,19 @@ microsoft:
       parent_folder_id: inbox
       is_read: true
       received_date_time: "2026-01-03T12:00:00.000Z"
+    - id: msg_playwright_3
+      conversation_id: thr_playwright_3
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: carol@example.com
+        name: Carol Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Second Unread Command Message
+      body_content: Another unread message for bulk-action checks.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T18:00:00.000Z"
     - id: msg_playwright_keyboard
       conversation_id: thr_playwright_keyboard
       user_email: __PLAYWRIGHT_TEST_EMAIL__
