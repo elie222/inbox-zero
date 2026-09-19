@@ -19,7 +19,8 @@ const managementPaths = new Set([
 
 export function adminSso(options: Parameters<typeof sso>[0]) {
   // The SSO declaration omits its runtime hooks; retain them through the plugin contract.
-  const plugin: ReturnType<typeof sso> & BetterAuthPlugin = sso(options);
+  const plugin: ReturnType<typeof sso> & Pick<BetterAuthPlugin, "hooks"> =
+    sso(options);
   return {
     ...plugin,
     hooks: {
