@@ -35,7 +35,7 @@ import type {
   ProviderChange,
   SyncPage,
 } from "../sync";
-import type { MessageMetadata } from "../messages";
+import type { MessageAttachmentDescriptor, MessageMetadata } from "../messages";
 
 export type ConversationView = {
   key: ConversationKey;
@@ -44,7 +44,13 @@ export type ConversationView = {
     metadata: MessageMetadata;
     content:
       | { status: "not_requested" | "queued" | "unavailable" }
-      | { status: "available"; html: string | null; text: string | null };
+      | {
+          status: "available";
+          html: string | null;
+          text: string | null;
+          attachments: MessageAttachmentDescriptor[];
+          isMeetingInvitation: boolean;
+        };
     pendingOperationIds: string[];
   }>;
   nextPage: string | null;

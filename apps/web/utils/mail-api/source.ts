@@ -1,11 +1,15 @@
-import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { Provider } from "@inboxzero/mail-core/identities";
+import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
+import type { BodyObservation } from "@inboxzero/mail-core/sync";
 import {
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
 import type { EmailProvider } from "@/utils/email/types";
-import { parsedMessagePatch } from "@/utils/mail-api/observations";
+import {
+  parsedMessageBodyObservation,
+  parsedMessagePatch,
+} from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import type { ParsedMessage } from "@/utils/types";
 
@@ -312,24 +316,11 @@ export function createEmailProviderMailboxSource(input: {
 
 function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
   const requiredHydration: Array<{ accountId: string; messageId: string }> = [];
-  const bodies: Array<{
-    key: { accountId: string; messageId: string };
-    version: string | null;
-    html: string | null;
-    text: string | null;
-  }> = [];
+  const bodies: BodyObservation[] = [];
   for (const message of messages) {
-    const key = { accountId, messageId: message.id };
-    if (message.textPlain || message.textHtml) {
-      bodies.push({
-        key,
-        version: message.historyId || null,
-        html: message.textHtml ?? null,
-        text: message.textPlain ?? null,
-      });
-    } else {
-      requiredHydration.push(key);
-    }
+    const body = parsedMessageBodyObservation(accountId, message);
+    if (body) bodies.push(body);
+    else requiredHydration.push({ accountId, messageId: message.id });
   }
   return { requiredHydration, bodies };
 }

@@ -29,7 +29,8 @@ export function engineCommandStatus(status: string): string {
     status === "uncertain" ||
     status === "queued" ||
     status === "preparing" ||
-    status === "retry_wait"
+    status === "retry_wait" ||
+    status === "blocked_auth"
   ) {
     return "reconciling";
   }
@@ -74,7 +75,8 @@ export function isReconcileStatus(status: OperationStatus) {
     status === "executing" ||
     status === "verifying" ||
     status === "uncertain" ||
-    status === "retry_wait"
+    status === "retry_wait" ||
+    status === "blocked_auth"
   );
 }
 

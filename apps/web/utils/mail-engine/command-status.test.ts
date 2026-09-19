@@ -11,6 +11,7 @@ describe("engineCommandStatus", () => {
     expect(engineCommandStatus("executing")).toBe("reconciling");
     expect(engineCommandStatus("verifying")).toBe("reconciling");
     expect(engineCommandStatus("uncertain")).toBe("reconciling");
+    expect(engineCommandStatus("blocked_auth")).toBe("reconciling");
     expect(engineCommandStatus("succeeded")).toBe("succeeded");
     expect(engineCommandStatus("failed")).toBe("failed");
   });

@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS message_content (
   version TEXT,
   html TEXT,
   text TEXT,
+  attachments_json TEXT,
+  is_meeting_invitation INTEGER NOT NULL DEFAULT 0 CHECK (is_meeting_invitation IN (0, 1)),
   PRIMARY KEY (account_id, message_id)
 );
 
@@ -228,6 +230,20 @@ export async function migrateMailbox(
   }
   try {
     await tx.exec("ALTER TABLE accounts ADD COLUMN connection TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE message_content ADD COLUMN attachments_json TEXT",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE message_content ADD COLUMN is_meeting_invitation INTEGER NOT NULL DEFAULT 0",
+    );
   } catch {
     // column already exists on freshly created databases
   }

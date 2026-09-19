@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parsedMessageMetadata } from "./observations";
+import {
+  parsedMessageBodyObservation,
+  parsedMessageMetadata,
+} from "./observations";
 import type { ParsedMessage } from "@/utils/types";
 
 describe("parsedMessageMetadata", () => {
@@ -38,5 +41,53 @@ describe("parsedMessageMetadata", () => {
     } as ParsedMessage);
     expect(metadata.roles).toEqual(["inbox"]);
     expect(metadata.read).toBe(false);
+  });
+});
+
+describe("parsedMessageBodyObservation", () => {
+  it("keeps attachment descriptors and meeting flags with enumerated bodies", () => {
+    expect(
+      parsedMessageBodyObservation("acc-1", {
+        id: "m3",
+        threadId: "t3",
+        historyId: "4",
+        date: "2026-01-01T00:00:00.000Z",
+        subject: "Invite",
+        snippet: "Meet",
+        textPlain: "Meet",
+        isMeetingInvitation: true,
+        attachments: [
+          {
+            attachmentId: "att-1",
+            filename: "invite.ics",
+            mimeType: "text/calendar",
+            size: 80,
+            headers: {
+              "content-description": "",
+              "content-id": "",
+              "content-transfer-encoding": "base64",
+              "content-type": "text/calendar",
+            },
+          },
+        ],
+        headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+        inline: [],
+      } as ParsedMessage),
+    ).toEqual({
+      key: { accountId: "acc-1", messageId: "m3" },
+      version: "4",
+      html: null,
+      text: "Meet",
+      attachments: [
+        {
+          attachmentId: "att-1",
+          filename: "invite.ics",
+          mimeType: "text/calendar",
+          size: 80,
+          inline: false,
+        },
+      ],
+      isMeetingInvitation: true,
+    });
   });
 });

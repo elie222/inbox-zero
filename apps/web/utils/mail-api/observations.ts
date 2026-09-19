@@ -1,6 +1,12 @@
-import type { MessageMetadata } from "@inboxzero/mail-core/messages";
+import type {
+  MessageAttachmentDescriptor,
+  MessageMetadata,
+} from "@inboxzero/mail-core/messages";
 import type { Provider } from "@inboxzero/mail-core/identities";
-import type { ProviderChange } from "@inboxzero/mail-core/sync";
+import type {
+  BodyObservation,
+  ProviderChange,
+} from "@inboxzero/mail-core/sync";
 import type { ParsedMessage } from "@/utils/types";
 
 const ROLE_LABELS = {
@@ -63,6 +69,61 @@ export function parsedMessagePatch(
       version: message.historyId || null,
     },
     fields: parsedMessageMetadata(message),
+  };
+}
+
+export function parsedMessageBodyObservation(
+  accountId: string,
+  message: ParsedMessage,
+): BodyObservation | null {
+  const attachments = parsedMessageAttachmentDescriptors(message);
+  const isMeetingInvitation = message.isMeetingInvitation === true;
+  if (
+    !message.textPlain &&
+    !message.textHtml &&
+    attachments.length === 0 &&
+    !isMeetingInvitation
+  ) {
+    return null;
+  }
+  return {
+    key: { accountId, messageId: message.id },
+    version: message.historyId || null,
+    html: message.textHtml ?? null,
+    text: message.textPlain ?? null,
+    attachments,
+    isMeetingInvitation,
+  };
+}
+
+function parsedMessageAttachmentDescriptors(
+  message: ParsedMessage,
+): MessageAttachmentDescriptor[] {
+  return [
+    ...(message.attachments ?? []).map((attachment) =>
+      descriptorFromParsed(attachment, false),
+    ),
+    ...(message.inline ?? []).map((attachment) =>
+      descriptorFromParsed(attachment, true),
+    ),
+  ];
+}
+
+function descriptorFromParsed(
+  attachment: {
+    attachmentId: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+  },
+  inline: boolean,
+): MessageAttachmentDescriptor {
+  return {
+    attachmentId: attachment.attachmentId,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: Number.isFinite(attachment.size) ? attachment.size : 0,
+    inline,
   };
 }
 

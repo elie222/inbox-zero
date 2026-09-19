@@ -336,6 +336,22 @@ describe("createEmailProviderMailboxSource", () => {
                 snippet: "First",
                 textPlain: "First saved reply",
                 textHtml: "<p>First saved reply</p>",
+                attachments: [
+                  {
+                    attachmentId: "att-1",
+                    filename: "reader-preview.png",
+                    mimeType: "image/png",
+                    size: 12,
+                    headers: {
+                      "content-description": "",
+                      "content-id": "",
+                      "content-transfer-encoding": "base64",
+                      "content-type": "image/png",
+                    },
+                  },
+                ],
+                isMeetingInvitation: true,
+                inline: [],
               },
               {
                 id: "empty-1",
@@ -369,6 +385,16 @@ describe("createEmailProviderMailboxSource", () => {
         version: "9",
         html: "<p>First saved reply</p>",
         text: "First saved reply",
+        attachments: [
+          {
+            attachmentId: "att-1",
+            filename: "reader-preview.png",
+            mimeType: "image/png",
+            size: 12,
+            inline: false,
+          },
+        ],
+        isMeetingInvitation: true,
       },
     ]);
     expect(result.value.requiredHydration).toEqual([

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
+import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
 import { conversationViewToThreadResponse } from "./conversation-thread";
 
 describe("conversationViewToThreadResponse", () => {
@@ -14,6 +15,36 @@ describe("conversationViewToThreadResponse", () => {
       labelIds: ["INBOX", "UNREAD"],
       headers: { from: "Ada <ada@example.com>" },
     });
+  });
+
+  it("projects stored attachments and meeting invitations onto the reader", () => {
+    const thread = conversationViewToThreadResponse(
+      view({
+        messages: [
+          message({
+            attachments: [
+              {
+                attachmentId: "att-1",
+                filename: "reader-preview.png",
+                mimeType: "image/png",
+                size: 12,
+                inline: false,
+              },
+            ],
+            isMeetingInvitation: true,
+          }),
+        ],
+      }),
+    );
+    expect(thread.thread.messages[0]?.attachments).toEqual([
+      expect.objectContaining({
+        attachmentId: "att-1",
+        filename: "reader-preview.png",
+        mimeType: "image/png",
+        size: 12,
+      }),
+    ]);
+    expect(thread.thread.messages[0]?.isMeetingInvitation).toBe(true);
   });
 
   it("hides draft messages unless includeDrafts is set", () => {
@@ -55,6 +86,8 @@ function message(
     messageId?: string;
     roles?: Array<"inbox" | "sent" | "draft" | "trash" | "spam">;
     read?: boolean;
+    attachments?: MessageAttachmentDescriptor[];
+    isMeetingInvitation?: boolean;
   } = {},
 ): ConversationView["messages"][number] {
   return {
@@ -75,9 +108,15 @@ function message(
       labelIds: [],
       categoryIds: [],
       roles: overrides.roles ?? ["inbox"],
-      hasAttachments: false,
+      hasAttachments: Boolean(overrides.attachments?.length),
     },
-    content: { status: "available", html: null, text: "Hi there" },
+    content: {
+      status: "available",
+      html: null,
+      text: "Hi there",
+      attachments: overrides.attachments ?? [],
+      isMeetingInvitation: overrides.isMeetingInvitation ?? false,
+    },
     pendingOperationIds: [],
   };
 }

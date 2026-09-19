@@ -20,7 +20,11 @@ import type {
   LocalRevision,
   MessageKey,
 } from "@inboxzero/mail-core/identities";
-import type { MessageMetadata } from "@inboxzero/mail-core/messages";
+import {
+  messageAttachmentDescriptorSchema,
+  type MessageAttachmentDescriptor,
+  type MessageMetadata,
+} from "@inboxzero/mail-core/messages";
 import {
   DEFERRED_DISPATCH_MIN_HOLD_MS,
   isPendingEffectStatus,
@@ -715,7 +719,7 @@ export async function createSqliteMailStore(
           Math.max(start, 0) + page.pageSize,
         );
         const contents = await tx.query(
-          `SELECT message_id, html, text FROM message_content WHERE account_id = ? AND message_id IN (${slice.map(() => "?").join(",") || "NULL"})`,
+          `SELECT message_id, html, text, attachments_json, is_meeting_invitation FROM message_content WHERE account_id = ? AND message_id IN (${slice.map(() => "?").join(",") || "NULL"})`,
           [key.accountId, ...slice.map((row) => String(row.message_id))],
         );
         const contentById = new Map(
@@ -738,6 +742,11 @@ export async function createSqliteMailStore(
                       status: "available" as const,
                       html: content.html === null ? null : String(content.html),
                       text: content.text === null ? null : String(content.text),
+                      attachments: parseStoredAttachments(
+                        content.attachments_json,
+                      ),
+                      isMeetingInvitation:
+                        Number(content.is_meeting_invitation) === 1,
                     }
                   : { status: "not_requested" as const },
                 pendingOperationIds: JSON.parse(
@@ -1779,16 +1788,20 @@ async function hasUnsatisfiedDependency(
 
 async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
   await tx.execute(
-    `INSERT INTO message_content(account_id, message_id, version, html, text)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO message_content(account_id, message_id, version, html, text, attachments_json, is_meeting_invitation)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(account_id, message_id) DO UPDATE SET
-       version = excluded.version, html = excluded.html, text = excluded.text`,
+       version = excluded.version, html = excluded.html, text = excluded.text,
+       attachments_json = excluded.attachments_json,
+       is_meeting_invitation = excluded.is_meeting_invitation`,
     [
       body.key.accountId,
       body.key.messageId,
       body.version,
       body.html,
       body.text,
+      JSON.stringify(body.attachments ?? []),
+      body.isMeetingInvitation ? 1 : 0,
     ],
   );
   try {
@@ -1906,6 +1919,22 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
       change: null,
       conversationIds: [],
     };
+  }
+}
+
+function parseStoredAttachments(
+  value: import("./driver").SqlValue,
+): MessageAttachmentDescriptor[] {
+  if (value === null || value === undefined) return [];
+  try {
+    const parsed = JSON.parse(String(value)) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      const result = messageAttachmentDescriptorSchema.safeParse(item);
+      return result.success ? [result.data] : [];
+    });
+  } catch {
+    return [];
   }
 }
 

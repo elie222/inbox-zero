@@ -86,6 +86,8 @@ describe("engine bootstrap coverage", () => {
       status: "available",
       html: "<p>First saved reply</p>",
       text: "First saved reply",
+      attachments: [],
+      isMeetingInvitation: false,
     });
     await engine.close();
   });

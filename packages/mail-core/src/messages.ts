@@ -9,6 +9,17 @@ export const mailboxRoleSchema = z.enum([
 ]);
 export type MailboxRole = z.infer<typeof mailboxRoleSchema>;
 
+export const messageAttachmentDescriptorSchema = z.object({
+  attachmentId: z.string().min(1).max(512),
+  filename: z.string().max(1024),
+  mimeType: z.string().max(256),
+  size: z.number().int().nonnegative(),
+  inline: z.boolean(),
+});
+export type MessageAttachmentDescriptor = z.infer<
+  typeof messageAttachmentDescriptorSchema
+>;
+
 export const messageMetadataSchema = z.object({
   subject: z.string().max(16_384),
   preview: z.string().max(16_384),

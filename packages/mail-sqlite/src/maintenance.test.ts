@@ -61,6 +61,8 @@ describe("replaceable body retention", () => {
       status: "available",
       html: "<p>replaceable</p>",
       text: "replaceable",
+      attachments: [],
+      isMeetingInvitation: false,
     });
 
     const result = await evictReplaceableMessageContent(driver);

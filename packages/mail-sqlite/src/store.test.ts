@@ -1190,6 +1190,16 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
           version: "1",
           html: "<p>First saved reply</p>",
           text: "First saved reply",
+          attachments: [
+            {
+              attachmentId: "att-1",
+              filename: "reader-preview.png",
+              mimeType: "image/png",
+              size: 12,
+              inline: false,
+            },
+          ],
+          isMeetingInvitation: true,
         },
       ],
     });
@@ -1201,6 +1211,16 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
       status: "available",
       html: "<p>First saved reply</p>",
       text: "First saved reply",
+      attachments: [
+        {
+          attachmentId: "att-1",
+          filename: "reader-preview.png",
+          mimeType: "image/png",
+          size: 12,
+          inline: false,
+        },
+      ],
+      isMeetingInvitation: true,
     });
     await store.close();
   });

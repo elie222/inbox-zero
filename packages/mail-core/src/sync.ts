@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { accountSessionSchema, messageKeySchema } from "./identities";
-import { messageMetadataPatchSchema } from "./messages";
+import {
+  messageAttachmentDescriptorSchema,
+  messageMetadataPatchSchema,
+} from "./messages";
 import { providerReferenceSchema } from "./identities";
 
 export const syncPositionSchema = z.object({
@@ -47,6 +50,8 @@ export const bodyObservationSchema = z.object({
   version: z.string().max(512).nullable(),
   html: z.string().max(5_000_000).nullable(),
   text: z.string().max(5_000_000).nullable(),
+  attachments: z.array(messageAttachmentDescriptorSchema).max(100).optional(),
+  isMeetingInvitation: z.boolean().optional(),
 });
 export type BodyObservation = z.infer<typeof bodyObservationSchema>;
 

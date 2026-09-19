@@ -153,7 +153,13 @@ function message(
       roles: ["inbox"],
       hasAttachments: false,
     },
-    content: { status: "available", html: null, text: "Hi there" },
+    content: {
+      status: "available",
+      html: null,
+      text: "Hi there",
+      attachments: [],
+      isMeetingInvitation: false,
+    },
     pendingOperationIds: [],
     ...overrides,
   };
