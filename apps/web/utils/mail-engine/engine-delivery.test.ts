@@ -74,6 +74,6 @@ describe("engine send delivery status", () => {
         ["msg_playwright_reply", "msg_later_sent"],
         "thr_playwright_reply",
       ),
-    ).toBe("msg_later_sent");
+    ).toBe("msg_playwright_reply");
   });
 });

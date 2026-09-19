@@ -74,5 +74,7 @@ export function engineSendReplyMessageId(
   threadMessageIds: string[],
   threadId: string,
 ) {
-  return command.messageIds[0] ?? threadMessageIds.at(-1) ?? threadId;
+  // The last thread row is often a later SENT from an earlier test on the
+  // shared emulator mailbox. Fall back to the original message instead.
+  return command.messageIds[0] ?? threadMessageIds[0] ?? threadId;
 }

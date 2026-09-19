@@ -151,7 +151,9 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     delivery.getByText("Waiting for connection", { exact: true }),
   ).toBeVisible();
   await delivery.getByRole("button", { name: "Edit reply" }).click();
-  const restored = page.locator("[contenteditable='true']");
+  const restored = page
+    .locator('[data-thread-message-id="msg_playwright_reply"]')
+    .locator("[contenteditable='true']");
   await expect(restored).toContainText(text);
   await expect(
     delivery.getByText("Waiting for connection", { exact: true }),
