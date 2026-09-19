@@ -6,7 +6,11 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { DriveConnection } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
-import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
+import {
+  createAndSaveFilingFolder,
+  type KnownFolder,
+  resolveFolderPathTarget,
+} from "@/utils/drive/folder-utils";
 import {
   aiParseFilingReply,
   type ParseFilingReplyResult,
@@ -79,12 +83,19 @@ export async function processFilingReply({
     { role: "user", content: replyContent },
   ];
 
+  const knownFolders = await getKnownFilingFolders(emailAccountId);
+
   const parseResult = await aiParseFilingReply({
     messages,
     filingContexts: filings.map((filing) => ({
       id: filing.id,
       filename: filing.filename,
       currentFolder: filing.folderPath || "root",
+      knownFolderPaths: knownFolders
+        .filter(
+          (folder) => folder.driveConnectionId === filing.driveConnectionId,
+        )
+        .map((folder) => folder.path),
     })),
     emailAccount,
   });
@@ -118,6 +129,7 @@ export async function processFilingReply({
         action,
         emailAccountId,
         filing,
+        knownFolders,
         logger: filingLogger,
       });
       hadActionFailure ||= !actionSucceeded;
@@ -224,6 +236,7 @@ async function handleMove({
   filingOriginalPath,
   driveConnection,
   folderPath,
+  knownFolders,
   emailAccountId,
   logger,
 }: {
@@ -235,6 +248,7 @@ async function handleMove({
   filingOriginalPath: string | null;
   driveConnection: DriveConnection;
   folderPath: string | null;
+  knownFolders: KnownFolder[];
   emailAccountId: string;
   logger: Logger;
 }): Promise<boolean> {
@@ -254,21 +268,61 @@ async function handleMove({
       logger,
     );
 
-    const targetFolder = await createAndSaveFilingFolder({
-      driveProvider,
+    // Resolve the requested path against the folders this drive already
+    // knows so "Receipts/Amazon" nests under the user's Receipts folder
+    // instead of creating a second Receipts tree at the drive root.
+    const target = resolveFolderPathTarget({
       folderPath,
-      emailAccountId,
-      driveConnectionId: driveConnection.id,
-      logger,
+      folders: knownFolders.filter(
+        (folder) => folder.driveConnectionId === driveConnection.id,
+      ),
     });
 
-    await driveProvider.moveFile(fileId, targetFolder.id);
+    if (target.kind === "create" && !target.parent) {
+      const otherDriveTarget = resolveFolderPathTarget({
+        folderPath,
+        folders: knownFolders.filter(
+          (folder) => folder.driveConnectionId !== driveConnection.id,
+        ),
+      });
+      if (otherDriveTarget.kind === "existing" || otherDriveTarget.parent) {
+        logger.warn("Move destination belongs to another drive connection");
+        return false;
+      }
+    }
+
+    let targetFolderId: string;
+    let targetFolderPath: string;
+
+    if (target.kind === "existing") {
+      targetFolderId = target.folder.id;
+      targetFolderPath = target.folder.path || target.folder.name;
+    } else {
+      const parent = target.parent
+        ? {
+            id: target.parent.id,
+            path: target.parent.path || target.parent.name,
+          }
+        : null;
+      const targetFolder = await createAndSaveFilingFolder({
+        driveProvider,
+        folderPath: target.relativePath,
+        parent,
+        emailAccountId,
+        driveConnectionId: driveConnection.id,
+        logger,
+      });
+      targetFolderId = targetFolder.id;
+      targetFolderPath = target.fullPath;
+    }
+
+    await driveProvider.moveFile(fileId, targetFolderId);
 
     await prisma.documentFiling.update({
       where: { id: filingId },
       data: {
-        folderId: targetFolder.id,
-        folderPath,
+        folderId: targetFolderId,
+        folderPath: targetFolderPath,
         status: "FILED",
         wasCorrected: filingStatus === "FILED",
         originalPath: filingWasCorrected
@@ -375,15 +429,40 @@ async function findNotificationAnchor({
   });
 }
 
+async function getKnownFilingFolders(
+  emailAccountId: string,
+): Promise<KnownFolder[]> {
+  const folders = await prisma.filingFolder.findMany({
+    where: { emailAccountId },
+    select: {
+      folderId: true,
+      folderName: true,
+      folderPath: true,
+      driveConnectionId: true,
+      driveConnection: { select: { provider: true } },
+    },
+  });
+
+  return folders.map((folder) => ({
+    id: folder.folderId,
+    name: folder.folderName,
+    path: folder.folderPath,
+    driveConnectionId: folder.driveConnectionId,
+    driveProvider: folder.driveConnection.provider,
+  }));
+}
+
 async function applyFilingReplyAction({
   action,
   emailAccountId,
   filing,
+  knownFolders,
   logger,
 }: {
   action: ParseFilingReplyResult["actions"][number];
   emailAccountId: string;
   filing: Awaited<ReturnType<typeof findFilingsFromThread>>[number];
+  knownFolders: KnownFolder[];
   logger: Logger;
 }): Promise<boolean> {
   switch (action.action) {
@@ -407,6 +486,7 @@ async function applyFilingReplyAction({
         filingOriginalPath: filing.originalPath,
         driveConnection: filing.driveConnection,
         folderPath: action.folderPath,
+        knownFolders,
         emailAccountId,
         logger,
       });

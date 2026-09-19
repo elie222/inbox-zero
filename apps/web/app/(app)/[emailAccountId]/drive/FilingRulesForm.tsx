@@ -89,7 +89,7 @@ function FilingRulesFormContent({
           <Input
             type="textarea"
             name="filingPrompt"
-            placeholder="Receipts go to Expenses by month. Contracts go to Legal."
+            placeholder="Receipts go to Expenses, in a subfolder per year and month. Contracts go to Legal, one subfolder per counterparty."
             registerProps={register("filingPrompt")}
             error={errors.filingPrompt}
             autosizeTextarea
