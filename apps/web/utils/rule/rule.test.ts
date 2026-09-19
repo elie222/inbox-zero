@@ -1072,6 +1072,30 @@ describe("full rule update enablement", () => {
     expect(rule.enabled).toBe(true);
   });
 
+  it.each([
+    false,
+    true,
+  ])("handles preserved webhook actions when recipientChanged=%s", async (recipientChanged) => {
+    mockEnv.webhookActionsEnabled = false;
+    mockStoredRule({
+      enabled: true,
+      actions: [
+        { type: ActionType.FORWARD, to: "forward@example.com" },
+        resolvedWebhookAction("https://example.com/webhook"),
+      ],
+    });
+    const action = forwardAction();
+    if (recipientChanged) action.fields!.to = "other@example.com";
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ name: "Renamed rule", actions: [action] }),
+    });
+    expect(rule.enabled).toBe(!recipientChanged);
+  });
+
   it("keeps a disabled rule disabled when outbound actions are introduced", async () => {
     mockStoredRule({ enabled: false, actions: [resolvedArchiveAction()] });
     const rule = await updateRule({

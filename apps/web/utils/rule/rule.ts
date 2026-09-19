@@ -1107,11 +1107,15 @@ function ruleDefinitionChanged(
     return true;
   }
 
-  if (actions.length !== existingRule.actions.length) return true;
+  const preservedActionTypes: ActionType[] =
+    getDisabledRuleActionTypesToPreserve();
+  const remainingActions = existingRule.actions.filter(
+    (action) => !preservedActionTypes.includes(action.type),
+  );
+  if (actions.length !== remainingActions.length) return true;
 
   // Action IDs and database ordering change during replacement; compare the
   // persisted action fields, treating omitted nullable fields as null.
-  const remainingActions = [...existingRule.actions];
   for (const action of actions) {
     const index = remainingActions.findIndex((existing) =>
       Object.entries(action).every(([key, value]) =>
