@@ -95,6 +95,7 @@ export function createMailEngine(input: {
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   const generations = new Map<string, string>();
+  let evictedForCurrentPressure = false;
 
   async function refreshViews() {
     await queries.refreshAll();
@@ -192,6 +193,15 @@ export function createMailEngine(input: {
       return store.inspect();
     },
     async runUntil(deadlineMs, signal) {
+      if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+      const pressure = await runtime.storagePressure();
+      if (!pressure) {
+        evictedForCurrentPressure = false;
+      } else if (!evictedForCurrentPressure) {
+        const { evictedBodies } = await store.evictReplaceableContent();
+        evictedForCurrentPressure = true;
+        if (evictedBodies > 0) await refreshViews();
+      }
       while (runtime.nowMs() < deadlineMs) {
         if (signal?.aborted) return;
         const work = await store.claimWork({
@@ -595,6 +605,7 @@ export function createHostRuntime(
   return {
     nowMs: overrides?.nowMs ?? (() => Date.now()),
     randomId: overrides?.randomId ?? (() => crypto.randomUUID()),
+    storagePressure: overrides?.storagePressure ?? (() => false),
   };
 }
 

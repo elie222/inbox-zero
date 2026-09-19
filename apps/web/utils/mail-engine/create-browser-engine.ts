@@ -20,6 +20,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
+import { browserStoragePressure } from "@/utils/mail-engine/storage-pressure";
 
 export { browserMailEngineCapabilities };
 
@@ -65,7 +66,7 @@ async function createInTabEngine(
       request,
       accountId: input.accountId,
     }),
-    runtime: createHostRuntime(),
+    runtime: createHostRuntime({ storagePressure: browserStoragePressure }),
     ownerId: "browser-owner",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {

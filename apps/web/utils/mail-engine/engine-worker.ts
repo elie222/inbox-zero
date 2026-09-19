@@ -16,6 +16,7 @@ import {
   type BrowserEngineStart,
   type WorkerRequest,
 } from "./worker-protocol";
+import { browserStoragePressure } from "./storage-pressure";
 import { createMailWorkerHost } from "./worker-session";
 
 const host = createMailWorkerHost({
@@ -62,7 +63,7 @@ async function createWorkerEngine(
       request,
       accountId: input.accountId,
     }),
-    runtime: createHostRuntime(),
+    runtime: createHostRuntime({ storagePressure: browserStoragePressure }),
     ownerId: "browser-worker",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {

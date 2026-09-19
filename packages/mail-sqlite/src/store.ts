@@ -47,6 +47,7 @@ import type {
   SyncPage,
 } from "@inboxzero/mail-core/sync";
 import type { SqlTransaction, SqliteDriver } from "./driver";
+import { evictReplaceableMessageContent } from "./maintenance";
 import { migrateMailbox } from "./migrations";
 import { compilePredicate } from "./queries";
 
@@ -97,6 +98,9 @@ export async function createSqliteMailStore(
         }
         return bumpRevision(tx);
       });
+    },
+    evictReplaceableContent() {
+      return evictReplaceableMessageContent(driver);
     },
     async admitMetadata(input) {
       return driver.write((tx) => admitExact(tx, input, maxPendingOperations));

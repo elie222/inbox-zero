@@ -118,6 +118,24 @@ describe("replaceable body retention", () => {
     ).toBe(0);
     await store.close();
   });
+
+  it("does not bump revision when there are no bodies to evict", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const before = await store.inspect();
+    expect(await evictReplaceableMessageContent(driver)).toEqual({
+      evictedBodies: 0,
+    });
+    expect(await store.inspect()).toMatchObject({
+      revision: before.revision,
+    });
+    await store.close();
+  });
 });
 
 function messagePatch(

@@ -202,6 +202,7 @@ export interface MailStore {
     provider: "google" | "microsoft";
     generation: string;
   }): Promise<LocalRevision>;
+  evictReplaceableContent(): Promise<{ evictedBodies: number }>;
   failOperation(
     key: OperationKey,
     code: string,
