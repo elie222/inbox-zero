@@ -14,56 +14,61 @@ export async function stageSendAttachments(
   if (!attachments?.length) return [];
   const request = createMailHttpRequest(accountId);
   const ids: string[] = [];
-  for (const attachment of attachments) {
-    const bytes = decodeBase64(attachment.content);
-    const checksum = await sha256Hex(bytes);
-    const uploadId = blobIdSchema.safeParse(attachment.id).success
-      ? attachment.id
-      : randomUuid();
-    const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
-    const admitted = await request({
-      method: "POST",
-      path: base,
-      body: {
-        protocolVersion: MAIL_PROTOCOL_VERSION,
-        requestId: randomUuid(),
-        session: { accountId, generation: "local" },
-        uploadId,
-        sizeBytes: bytes.byteLength,
-        checksum,
-        contentType: attachment.contentType,
-        filename: attachment.filename,
-      },
-      signal: AbortSignal.timeout(30_000),
-    });
-    const blobId =
-      admitted.json &&
-      typeof admitted.json === "object" &&
-      "blobId" in admitted.json &&
-      typeof admitted.json.blobId === "string"
-        ? admitted.json.blobId
-        : null;
-    if (admitted.status >= 400 || !blobId) {
-      throw new Error(
-        admissionRejectionCopy(httpErrorCode(admitted.json)) ??
-          `Could not stage ${attachment.filename} for sending.`,
-      );
+  const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
+  try {
+    for (const attachment of attachments) {
+      const bytes = decodeBase64(attachment.content);
+      const checksum = await sha256Hex(bytes);
+      const uploadId = blobIdSchema.safeParse(attachment.id).success
+        ? attachment.id
+        : randomUuid();
+      const admitted = await request({
+        method: "POST",
+        path: base,
+        body: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: randomUuid(),
+          session: { accountId, generation: "local" },
+          uploadId,
+          sizeBytes: bytes.byteLength,
+          checksum,
+          contentType: attachment.contentType,
+          filename: attachment.filename,
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
+      const blobId =
+        admitted.json &&
+        typeof admitted.json === "object" &&
+        "blobId" in admitted.json &&
+        typeof admitted.json.blobId === "string"
+          ? admitted.json.blobId
+          : null;
+      if (admitted.status >= 400 || !blobId) {
+        throw new Error(
+          admissionRejectionCopy(httpErrorCode(admitted.json)) ??
+            `Could not stage ${attachment.filename} for sending.`,
+        );
+      }
+      ids.push(blobId);
+      const staged = await request({
+        method: "PUT",
+        path: `${base}/${encodeURIComponent(blobId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: bytes,
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (staged.status >= 400) {
+        throw new Error(
+          admissionRejectionCopy(httpErrorCode(staged.json)) ??
+            `Could not stage ${attachment.filename} for sending.`,
+        );
+      }
     }
-    const staged = await request({
-      method: "PUT",
-      path: `${base}/${encodeURIComponent(blobId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
-      body: bytes,
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (staged.status >= 400) {
-      throw new Error(
-        admissionRejectionCopy(httpErrorCode(staged.json)) ??
-          `Could not stage ${attachment.filename} for sending.`,
-      );
-    }
-    ids.push(blobId);
+    return ids;
+  } catch (error) {
+    await cancelStagedUploads(request, base, ids);
+    throw error;
   }
-  return ids;
 }
 
 function decodeBase64(value: string) {
@@ -88,4 +93,22 @@ function httpErrorCode(json: unknown) {
   const error = json.error;
   if (!error || typeof error !== "object" || !("code" in error)) return;
   return typeof error.code === "string" ? error.code : undefined;
+}
+
+async function cancelStagedUploads(
+  request: ReturnType<typeof createMailHttpRequest>,
+  base: string,
+  blobIds: string[],
+) {
+  for (const blobId of blobIds) {
+    try {
+      await request({
+        method: "DELETE",
+        path: `${base}/${encodeURIComponent(blobId)}?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      // Best-effort cancel; tmpdir cleanup remains the backstop.
+    }
+  }
 }

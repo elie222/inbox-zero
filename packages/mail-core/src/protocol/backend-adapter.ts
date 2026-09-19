@@ -26,7 +26,7 @@ import {
 } from "./mail-http";
 
 export type MailHttpRequestFn = (input: {
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   body?: unknown;
   signal: AbortSignal;

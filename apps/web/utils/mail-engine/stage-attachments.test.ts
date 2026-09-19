@@ -112,7 +112,7 @@ describe("stageSendAttachments", () => {
         },
       ]),
     ).rejects.toThrow(admissionRejectionCopy("too_large"));
-    expect(http.request).toHaveBeenCalledTimes(2);
+    expect(http.request).toHaveBeenCalledTimes(3);
     expect(http.request).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -120,5 +120,104 @@ describe("stageSendAttachments", () => {
         path: "/api/mail/v1/accounts/account/uploads/file-1/content?protocolVersion=1",
       }),
     );
+    expect(http.request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        method: "DELETE",
+        path: "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      }),
+    );
+  });
+
+  it("cancels earlier staged uploads when a later PUT is rejected", async () => {
+    http.request
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-1" } })
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-1" } })
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-2" } })
+      .mockResolvedValueOnce({
+        status: 507,
+        json: { error: { code: "too_large" } },
+      })
+      .mockResolvedValue({ status: 200, json: { status: "deleted" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+        {
+          id: "file-2",
+          filename: "photo.jpg",
+          content: Buffer.from("world").toString("base64"),
+          contentType: "image/jpeg",
+        },
+      ]),
+    ).rejects.toThrow(admissionRejectionCopy("too_large"));
+    const deleted = http.request.mock.calls
+      .filter((call) => call[0].method === "DELETE")
+      .map((call) => call[0].path);
+    expect(deleted).toEqual([
+      "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      "/api/mail/v1/accounts/account/uploads/file-2?protocolVersion=1",
+    ]);
+  });
+
+  it("cancels an admitted upload when content PUT throws", async () => {
+    http.request
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-1" } })
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValue({ status: 200, json: { status: "deleted" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+      ]),
+    ).rejects.toThrow("network down");
+    expect(http.request).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        method: "DELETE",
+        path: "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      }),
+    );
+  });
+
+  it("cancels earlier staged uploads when a later admit is rejected", async () => {
+    http.request
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-1" } })
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "file-1" } })
+      .mockResolvedValueOnce({
+        status: 400,
+        json: { error: { code: "invalid" } },
+      })
+      .mockResolvedValue({ status: 200, json: { status: "deleted" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+        {
+          id: "file-2",
+          filename: "photo.jpg",
+          content: Buffer.from("world").toString("base64"),
+          contentType: "image/jpeg",
+        },
+      ]),
+    ).rejects.toThrow("Could not stage photo.jpg");
+    const deleted = http.request.mock.calls
+      .filter((call) => call[0].method === "DELETE")
+      .map((call) => call[0].path);
+    expect(deleted).toEqual([
+      "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+    ]);
   });
 });
