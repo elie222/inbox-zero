@@ -160,16 +160,21 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "09-queued-reply");
   await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
-  await page.evaluate(() => {
-    Object.defineProperty(navigator, "onLine", {
-      configurable: true,
-      get: () => true,
+  await page
+    .evaluate(() => {
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => true,
+      });
+      window.dispatchEvent(new Event("online"));
+    })
+    .catch((error) => {
+      if (!String(error).includes("Execution context was destroyed"))
+        throw error;
     });
-    window.dispatchEvent(new Event("online"));
-  });
-  await page.evaluate(async () => {
-    await window.__inboxZeroMailInspect?.requestSync?.();
-  });
+  await expect(
+    page.getByRole("heading", { name: /Reply Workflow Message/ }),
+  ).toBeVisible({ timeout: 60_000 });
   await expect(
     page.getByTestId("thread-reader").getByText(replyBody),
   ).toBeVisible({ timeout: 60_000 });
