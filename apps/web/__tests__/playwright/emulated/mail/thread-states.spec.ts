@@ -165,11 +165,12 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
   await page
-    .evaluate(() => {
+    .evaluate(async () => {
       Object.defineProperty(navigator, "onLine", {
         configurable: true,
         get: () => true,
       });
+      await window.__inboxZeroMailInspect?.requestSync?.();
       window.dispatchEvent(new Event("online"));
     })
     .catch((error) => {
@@ -179,6 +180,14 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("heading", { name: /Reply Workflow Message/ }),
   ).toBeVisible({ timeout: 60_000 });
+  await page
+    .evaluate(async () => {
+      await window.__inboxZeroMailInspect?.requestSync?.();
+    })
+    .catch((error) => {
+      if (!String(error).includes("Execution context was destroyed"))
+        throw error;
+    });
   await expect
     .poll(
       () =>
@@ -189,9 +198,7 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
         }),
       { timeout: 60_000 },
     )
-    .toMatchObject({
-      status: expect.stringMatching(/^(succeeded|reconciling)$/),
-    });
+    .toMatchObject({ status: "succeeded" });
   await expectThreadReaderBody(page, replyBody);
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
