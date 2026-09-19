@@ -26,8 +26,17 @@ The Apple client secret is generated at runtime from the team ID, key ID, privat
 
 Mobile browser OAuth must use the backend handoff flow:
 
-1. Better Auth redirects to `/api/mobile-auth/callback?state=...` after the provider callback.
-2. The callback route stores a short-lived one-time code and redirects to `/auth-callback?code=...&state=...`.
-3. The native app redeems the code with `POST /api/mobile-auth/exchange-code`.
+1. The native app generates a random PKCE verifier, retains it locally, and sends its S256 `codeChallenge` to `POST /api/mobile-auth/start`.
+2. Better Auth redirects to `/api/mobile-auth/callback?state=...` after the provider callback.
+3. The callback route stores a short-lived one-time code and redirects to `/auth-callback?code=...&state=...`.
+4. The native app redeems the code with `POST /api/mobile-auth/exchange-code`, sending `code`, `state`, and its retained `codeVerifier`.
 
 Session cookies must not be placed in mobile callback URLs.
+
+The server requires a matching, successful provider completion and the same newly issued browser session before creating a handoff code. Unissued, expired, pending, or already consumed state is rejected. Codes expire after five minutes and can be redeemed once with the initiating client's verifier.
+
+The S256 challenge is unpadded base64url of SHA-256 of the verifier. Generate a fresh verifier from at least 32 random bytes per attempt (43–128 RFC 7636 characters). Never send it in the authorization URL or app callback. Retain it alongside the expected state until exchange succeeds or the attempt is abandoned, and reject callbacks for a different state.
+
+Desktop clients send `codeChallenge` in the `/api/mobile-auth/browser-start` query and `codeVerifier` during exchange. The desktop process retains the verifier in memory; if it quits during sign-in, start a fresh attempt.
+
+Deploy this contract with updated native clients. Clients that omit the challenge or verifier are rejected; there is no legacy bearer-code fallback. In-progress flows from an older server version must restart. Direct native Apple ID-token sign-in does not use these handoff endpoints.

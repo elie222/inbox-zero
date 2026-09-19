@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("navigator", { onLine: true });
   vi.stubGlobal("document", { visibilityState: "visible" });
-  vi.mocked(fetchAttachment).mockResolvedValue(new Blob([new Uint8Array(MiB)]));
+  vi.mocked(fetchAttachment).mockResolvedValue(rasterBlob());
 });
 
 it("shares a three MiB allowance across messages", async () => {
@@ -57,3 +57,29 @@ it("does not fetch when the tab is hidden or offline", async () => {
   expect(await session.load("a", "file", undefined, image)).toBeUndefined();
   expect(fetchAttachment).not.toHaveBeenCalled();
 });
+
+it("does not expose MIME-spoofed documents as image previews", async () => {
+  vi.mocked(fetchAttachment).mockResolvedValue(
+    new Blob(
+      [
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>document.title="changed"</script></svg>',
+      ],
+      { type: "image/png" },
+    ),
+  );
+  const session = createOpenedConversationAttachments(
+    "account",
+    "thread",
+    true,
+  );
+  expect(await session.load("a", "file", undefined, image)).toBeUndefined();
+});
+
+function rasterBlob() {
+  return new Blob([
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  ]);
+}

@@ -33,9 +33,11 @@ export function getDesktopHomeUrl(appOrigin: string): string {
 export function getDesktopBrowserStartUrl(
   appOrigin: string,
   provider: DesktopAuthProvider,
+  codeChallenge: string,
 ): string {
   const url = new URL("/api/mobile-auth/browser-start", appOrigin);
   url.searchParams.set("provider", provider);
+  url.searchParams.set("codeChallenge", codeChallenge);
   return url.toString();
 }
 

@@ -50,8 +50,8 @@ describe("desktop shell helpers", () => {
     expect(getDesktopHomeUrl(origin)).toBe(
       `${origin}/welcome-redirect?mode=mail`,
     );
-    expect(getDesktopBrowserStartUrl(origin, "google")).toBe(
-      `${origin}/api/mobile-auth/browser-start?provider=google`,
+    expect(getDesktopBrowserStartUrl(origin, "google", "challenge")).toBe(
+      `${origin}/api/mobile-auth/browser-start?provider=google&codeChallenge=challenge`,
     );
     expect(isAllowedDesktopNavigation(`${origin}/acc-1/mail`, origin)).toBe(
       true,
@@ -90,9 +90,13 @@ describe("desktop shell helpers", () => {
 
   it("builds the system-browser OAuth start URL", () => {
     expect(
-      getDesktopBrowserStartUrl("https://www.getinboxzero.com", "google"),
+      getDesktopBrowserStartUrl(
+        "https://www.getinboxzero.com",
+        "google",
+        "challenge",
+      ),
     ).toBe(
-      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=challenge",
     );
   });
 

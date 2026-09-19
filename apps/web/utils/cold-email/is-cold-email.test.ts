@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isColdEmail } from "./is-cold-email";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { checkColdEmailGuards, isColdEmail } from "./is-cold-email";
+import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
+
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 
@@ -32,6 +34,10 @@ vi.mock("@/utils/email", async () => {
 
 vi.mock("@/utils/llms", () => ({
   createGenerateObject: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@/utils/llms/model", () => ({
+  getModel: vi.fn(() => ({})),
 }));
 
 const mockProvider = {
@@ -68,6 +74,7 @@ describe("isColdEmail", () => {
     };
 
     const result = await isColdEmail({
+      logger,
       email,
       emailAccount,
       provider: mockProvider as never,
@@ -127,6 +134,7 @@ describe("isColdEmail", () => {
     };
 
     const result = await isColdEmail({
+      logger,
       email,
       emailAccount,
       provider: mockProvider as never,
@@ -158,6 +166,7 @@ describe("isColdEmail", () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-internal",
         from: "ceo@company.com",
@@ -190,6 +199,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-internal",
         from: "ceo@company.com",
@@ -211,6 +221,7 @@ describe("isColdEmail", () => {
 
   it("should not classify the application notification sender as cold", async () => {
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-application-notification",
         from: env.RESEND_FROM_EMAIL,
@@ -252,6 +263,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-onboarding",
         from,
@@ -303,6 +315,7 @@ describe("isColdEmail", () => {
     } as any);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-untrusted",
         from,
@@ -325,6 +338,7 @@ describe("isColdEmail", () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
     const result = await isColdEmail({
+      logger,
       email: {
         id: "msg-no-date",
         from: "unknown@example.com",
@@ -380,6 +394,7 @@ describe("isColdEmail", () => {
       };
 
       const result = await isColdEmail({
+        logger,
         email,
         emailAccount,
         provider: mockProvider as never,
@@ -406,5 +421,58 @@ describe("isColdEmail", () => {
         },
       });
     }
+  });
+
+  it("checkColdEmailGuards returns null when every guard passes", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await checkColdEmailGuards({
+      logger,
+      email: {
+        id: "msg-undecided",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result).toBeNull();
+    expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it("isColdEmail runs the AI check when the guards are undecided", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+    const generateObject = vi
+      .fn()
+      .mockResolvedValue({ object: { coldEmail: true, reason: "pitch" } });
+    vi.mocked(createGenerateObject).mockReturnValue(generateObject as never);
+
+    const result = await isColdEmail({
+      logger,
+      email: {
+        id: "msg-ai",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(createGenerateObject).toHaveBeenCalledTimes(1);
+    expect(generateObject).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      isColdEmail: true,
+      reason: "ai",
+      aiReason: "pitch",
+    });
   });
 });

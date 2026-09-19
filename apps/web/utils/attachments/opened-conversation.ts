@@ -1,5 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import { fetchAttachment, getAttachmentUrl } from "./download";
+import { getAttachmentImagePreview } from "./image-preview";
 import { queueAttachmentDownload } from "./download-queue";
 
 const FILE_LIMIT = 1024 * 1024;
@@ -38,7 +39,16 @@ export function createOpenedConversationAttachments(
       const key = JSON.stringify([messageId, attachmentId]);
       let operation = pending.get(key);
       if (!operation) {
-        operation = load(messageId, attachmentId, attachment);
+        const transferSignal = controller.signal;
+        operation = load(messageId, attachmentId, attachment).then(
+          async (blob) => {
+            const preview = blob
+              ? await getAttachmentImagePreview(blob)
+              : undefined;
+            transferSignal.throwIfAborted();
+            return preview;
+          },
+        );
         pending.set(key, operation);
         operation
           .finally(() => {

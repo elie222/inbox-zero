@@ -45,6 +45,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/seats";
+import { mobileAuthProviderCompletion } from "@/utils/mobile-auth/provider-completion";
 import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
@@ -398,6 +399,7 @@ export const betterAuthConfig = betterAuth({
         await setSessionCookie(context, newSession);
       }
       await emailOtpAfterHook(context);
+      await mobileAuthProviderCompletion(context);
       try {
         const authenticatedSession = context.context.newSession;
         if (!authenticatedSession) return;

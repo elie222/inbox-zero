@@ -72,6 +72,7 @@ model User {
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
   onboardingAnswers       Json?
+  onboardingPaywallVariant String?
   lastLogin               DateTime?
   utms                    Json?
   errorMessages           Json? // eg. user set incorrect AI API key
@@ -87,14 +88,15 @@ model User {
   surveyImprovements String? // open text: what user wants to improve
 
   // settings
-  mcpServerEnabled Boolean @default(false)
-  mcpTokenVersion  Int     @default(0)
-  emailOtpEnabled  Boolean @default(false)
-  emailOtpVersion  Int     @default(0)
-  aiProvider       String?
-  aiModel          String?
-  aiApiKey         String?
-  webhookSecret    String?
+  mcpServerEnabled  Boolean  @default(false)
+  mcpTokenVersion   Int      @default(0)
+  emailOtpEnabled   Boolean  @default(false)
+  emailOtpVersion   Int      @default(0)
+  aiProvider        String?
+  aiModel           String?
+  aiApiKey          String?
+  classifierEnabled Boolean? // null follows DEFAULT_CLASSIFIER_ENABLED
+  webhookSecret     String?
 
   // referral system
   referralCode String? @unique // User's own referral code

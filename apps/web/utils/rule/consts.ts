@@ -34,11 +34,19 @@ const ruleConfig: Record<
     categoryActionMicrosoft?: "move_folder";
     tooltipText: string;
     shouldLearn: boolean;
+    /**
+     * Earlier default `instructions` for this rule. Rules store their
+     * instructions at creation, so a row holding one of these is still on the
+     * default, not customised.
+     */
+    previousInstructions?: readonly string[];
   }
 > = {
   [SystemType.TO_REPLY]: {
     name: "To Reply",
-    instructions: "Emails I need to respond to",
+    instructions:
+      "Emails I need to respond to: someone asked me a question or requested something from me, or I promised to send something and haven't yet",
+    previousInstructions: ["Emails I need to respond to"],
     label: "To Reply",
     draftReply: true,
     runOnThreads: true,
@@ -49,7 +57,11 @@ const ruleConfig: Record<
   },
   [SystemType.AWAITING_REPLY]: {
     name: "Awaiting Reply",
-    instructions: "Emails where I'm waiting for someone to get back to me",
+    instructions:
+      "Emails where I'm waiting for someone to get back to me: I asked for or requested something and the other person hasn't answered or delivered it yet",
+    previousInstructions: [
+      "Emails where I'm waiting for someone to get back to me",
+    ],
     label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
@@ -59,7 +71,10 @@ const ruleConfig: Record<
   [SystemType.FYI]: {
     name: "FYI",
     instructions:
+      "Important emails I should know about, but don't need to reply to: information, updates or announcements sent to me, with no question or request anywhere in the thread",
+    previousInstructions: [
       "Important emails I should know about, but don't need to reply to",
+    ],
     label: "FYI",
     runOnThreads: true,
     categoryAction: "label",
@@ -68,7 +83,9 @@ const ruleConfig: Record<
   },
   [SystemType.ACTIONED]: {
     name: "Actioned",
-    instructions: "Conversations that are done, nothing left to do",
+    instructions:
+      "Conversations that are done, nothing left to do: every question has been answered, every request fulfilled or taken care of, and nobody is waiting on anyone",
+    previousInstructions: ["Conversations that are done, nothing left to do"],
     label: "Actioned",
     runOnThreads: true,
     categoryAction: "label",
@@ -155,6 +172,22 @@ export function getRuleConfig(systemType: SystemType) {
   if (!ruleConfig[systemType])
     throw new Error(`Invalid system type: ${systemType}`);
   return ruleConfig[systemType];
+}
+
+/**
+ * Whether a rule's stored instructions are still a default, current or
+ * previous. Empty instructions count as default.
+ */
+export function isDefaultRuleInstructions(
+  systemType: SystemType,
+  instructions: string | null | undefined,
+) {
+  if (!instructions) return true;
+  const config = getRuleConfig(systemType);
+  return (
+    instructions === config.instructions ||
+    (config.previousInstructions?.includes(instructions) ?? false)
+  );
 }
 
 export function getRuleName(systemType: SystemType) {

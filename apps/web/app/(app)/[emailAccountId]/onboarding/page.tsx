@@ -52,7 +52,9 @@ export default async function OnboardingPage(props: {
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
         select: {
+          id: true,
           email: true,
+          onboardingPaywallVariant: true,
           premium: { select: premiumEntitlementSelect },
         },
       })
@@ -61,9 +63,11 @@ export default async function OnboardingPage(props: {
   if (
     user &&
     (await shouldShowPaywallFirst({
+      userId: user.id,
       email: user.email,
       isPremium: isPremiumRecord(user.premium),
       forced: paywallFirst,
+      storedVariant: user.onboardingPaywallVariant,
     }))
   ) {
     redirect(PAYWALL_FIRST_UPGRADE_PATH);
