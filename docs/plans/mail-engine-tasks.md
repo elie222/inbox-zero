@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `53fd1b733`
+- Last implementation commit: `bc3de9fd5`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (large-mailbox/offline web), simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: large-mailbox/offline web; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells (offline web), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: web offline-loading Playwright; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "10k-conversation|100k conversations"` — 2 passed, 19 skipped in 17.18s on `bc3de9fd5`; `readMailboxView` under 5s (E51)
+  - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "1M conversations"` — 1 passed, 20 skipped in 161.77s on `bc3de9fd5`; 1M list/count under 5s query budget (E51)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 8 passed in 2.4m on `53fd1b733`; assistant 10.8s; Archive Action Message gone; `assistantCursor` is `playwright-mail-assistant-archive-execution`; `assistantStateRequests` is 1 (E50)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 8 passed in 2.6m on `f4fa3c096`; assistant 14.2s; Archive Action Message gone after reopen; `assistantCursor` is `playwright-mail-assistant-archive-execution`; native inbox does not contain the subject (E49)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed, 1 failed in 3.2m on `8af2726da`; star 12.1s; `readerStarred`/`starSucceeded`/`nativeStarredHasSubject` true over Gmail `desktop-ipc` (E48). Search-then-archive timed out while Fast Refresh remounted; that path is already E36/E39.
@@ -209,9 +211,19 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
-| Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
+| Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E51. SQLite 10k/100k/1M list and count smoke (2026-09-19)
+
+- Tasks: partial G1
+- Tree: `cursor/mail-engine-0b4f` at `bc3de9fd5`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "10k-conversation|100k conversations"` — 2 passed, 19 skipped in 17.18s
+  - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "1M conversations"` — 1 passed, 20 skipped in 161.77s
+- What it proved: `readMailboxView` lists 25 conversations and counts 10k, 100k, and 1M matching conversations in under 5s on `node:sqlite`.
+- Limitations: no long-thread, multilingual, or multi-account corpora. Web/desktop UI offline cells remain Not run. Do not check G1.
 
 ### E50. Hosted Outlook assistant catch-up after Electron stop (2026-09-19)
 
@@ -220,7 +232,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 8 passed in 2.4m; assistant 10.8s; star 6.4s; archive 30.9s
 - What it proved: after the Outlook hosted owner closes, the spec seeds an APPLIED ARCHIVE ExecutedRule and archives via HTTP. A second launch with the same `ELECTRON_USER_DATA` hides Archive Action Message, native `role:inbox` does not contain the subject, inspect `assistantCursor` is `playwright-mail-assistant-archive-execution`, and GET `/assistant-state` ran once over `desktop-ipc`.
-- Limitations: live LLM assistant chat/tool flows remain Not run. Large-mailbox/offline web remain Not run. Do not check C2/F3/E5/E6 boxes.
+- Limitations: live LLM assistant chat/tool flows remain Not run. SQLite 10k/100k/1M list smoke is E51. Web offline remains Not run. Do not check C2/F3/E5/E6 boxes.
 
 ### E49. Hosted Gmail assistant catch-up after Electron stop (2026-09-19)
 
