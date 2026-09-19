@@ -10,7 +10,7 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: `6ecae3253`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (desktop reconnect, Outlook desktop compose, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Current task: remaining matrix cells (Outlook desktop compose, desktop reconnect, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
@@ -193,7 +193,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | --- | --- | --- | --- | --- | --- |
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36/E39) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
-| Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
+| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26) | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts + native SQLite (E41) | Not run | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
@@ -581,13 +581,13 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 ### E26. Navigation inspect matches metadata message ids (2026-09-18)
 
-- Tasks: partial F2, partial F4
+- Tasks: partial F2, partial F4, partial E1 Gmail-web metadata
 - Tree: `cursor/mail-engine-0b4f` at `f271f69a4`
 - Commands:
   - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 7 passed in 2.1m
 - What it proved: after prepare finishes, KeyU unread is an `admitExact` metadata command with `msg_*` ids and empty `conversationIds`. Inspect helpers map `thr_playwright_reader` onto those members and filter `{ read: false }`, so the toast path records succeeded unread. Deep-link reader waits for a settled snapshot and the Mark as unread control; auto mark-read is not required when the snapshot is already read. Engine in-flight statuses map to reconciling, not pending.
-- Limitations: desktop UI cells remain unrun.
+- Limitations: starring, label, undo, and partial-bulk UI remain unrecorded. Outlook web and desktop metadata cells remain Not run.
 
 ## Decision and deviation log
 
