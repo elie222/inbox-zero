@@ -1,4 +1,4 @@
-import type { setSessionCookie } from "better-auth/cookies";
+import type { createAuthMiddleware } from "better-auth/api";
 import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { completeMobileAuthState } from "@/utils/mobile-auth/oauth-code";
 import {
@@ -7,7 +7,7 @@ import {
 } from "@/utils/mobile-auth/url";
 
 export async function mobileAuthProviderCompletion(
-  context: Parameters<typeof setSessionCookie>[0],
+  context: Parameters<Parameters<typeof createAuthMiddleware>[0]>[0],
 ) {
   if (
     !["/callback/:id", "/callback/:id/oauth-proxy"].includes(context.path ?? "")
