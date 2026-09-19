@@ -259,6 +259,11 @@ async function executeSnooze(
     };
   }
   if (prepared.snoozedThread.status === "CANCELLED") {
+    const restored = await restoreSnoozeTargets(
+      provider,
+      operation.intent.targets,
+    );
+    if (!restored) return restoreFailed();
     return {
       status: "rejected" as const,
       code: "snooze_cancelled",
@@ -274,6 +279,11 @@ async function executeSnooze(
     };
   }
   if (scheduledFor.getTime() <= Date.now()) {
+    const restored = await restoreSnoozeTargets(
+      provider,
+      operation.intent.targets,
+    );
+    if (!restored) return restoreFailed();
     await cancelPreparedSnooze(accountId, operation.key.operationId);
     return {
       status: "confirmed" as const,
@@ -331,13 +341,11 @@ async function executeSnooze(
     threadId,
   });
   if (activated.status === "CANCELLED") {
-    try {
-      await provider.unarchiveMessages(
-        applied.map((target) => target.key.messageId),
-      );
-    } catch {
-      // Archive already happened; catch-up can restore if unarchive fails.
-    }
+    const restored = await restoreSnoozeTargets(
+      provider,
+      applied.map((target) => target.key),
+    );
+    if (!restored) return restoreFailed();
   }
   return {
     status: "confirmed" as const,
@@ -539,6 +547,28 @@ function appliedSnoozeTargets(
     outcome: "applied" as const,
     code: null,
   }));
+}
+
+async function restoreSnoozeTargets(
+  provider: EmailProvider,
+  targets: Array<{ messageId: string }>,
+) {
+  const messageIds = targets.map((target) => target.messageId);
+  if (messageIds.length === 0) return true;
+  try {
+    await provider.unarchiveMessages(messageIds);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function restoreFailed() {
+  return {
+    status: "not_dispatched" as const,
+    reason: "unavailable" as const,
+    retryAfterMs: 1000,
+  };
 }
 
 async function cancelPreparedSnooze(accountId: string, operationId: string) {

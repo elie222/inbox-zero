@@ -437,6 +437,80 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
   });
 
+  it("restores mail when replaying a preparing snooze after its wake time", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const unarchiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-preparing-expired",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
+    expect(unarchiveMessages).toHaveBeenCalledBefore(
+      cancelSnoozedThreadByClientMutationId,
+    );
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps a preparing snooze when restore after wake time fails", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {},
+        async unarchiveMessages() {
+          throw new Error("unavailable");
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-restore-fail",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "unavailable",
+    });
+    expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+  });
+
   it("restores mail when activate reports the snooze was cancelled", async () => {
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: true,
@@ -470,6 +544,44 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(result.status).toBe("confirmed");
     expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
+  });
+
+  it("does not confirm a cancelled snooze until restore succeeds", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({
+      status: "CANCELLED",
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {},
+        async unarchiveMessages() {
+          throw new Error("unavailable");
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-cancel-restore-fail",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "unavailable",
+    });
   });
 });
 
