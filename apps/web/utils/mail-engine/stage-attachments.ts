@@ -20,9 +20,8 @@ export async function stageSendAttachments(
     for (const attachment of attachments) {
       const bytes = decodeBase64(attachment.content);
       const checksum = await sha256Hex(bytes);
-      const uploadId = blobIdSchema.safeParse(attachment.id).success
-        ? attachment.id
-        : randomUuid();
+      const parsedId = blobIdSchema.safeParse(attachment.id);
+      const uploadId = parsedId.success ? parsedId.data : randomUuid();
       cancelIds.push(uploadId);
       const admitted = await request({
         method: "POST",
