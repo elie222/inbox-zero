@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `4a52864aa`
+- Last implementation commit: `a2d980c79`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (desktop compose/search/reconnect, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Current task: remaining matrix cells (desktop compose/reconnect, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m on `a2d980c79`; spec 25.6s; Outlook search hides Keyboard Navigation Message then archives (E40)
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m on `a2d980c79`; spec 24.8s; Gmail hosted search then archive (E39)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/assistant-catch-up.spec.ts` — 2 passed in 1.4m on `4a52864aa`; spec 36.2s; Archive Action Message hidden after reopen; `GET /assistant-state` 200 (E38)
   - `pnpm --filter @inboxzero/mail-core test src/protocol/backend-adapter.test.ts` — 3 passed including inspect POST
   - `pnpm --filter @inboxzero/desktop exec vitest run src/mail-engine/request.test.ts` — 3 passed including PUT JSON body + cookies
@@ -188,8 +190,8 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists Archive Action Message (E36) | Partial: hosted Next over desktop IPC lists Outlook Archive Action Message (E37) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
-| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36) | Partial: hosted Electron Outlook archive hide + native SQLite (E37) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36/E39) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
@@ -200,6 +202,24 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
+
+### E40. Hosted Electron Outlook search then archive (2026-09-19)
+
+- Tasks: partial C2/F3
+- Tree: `cursor/mail-engine-0b4f` at `a2d980c79`
+- Commands:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m; spec 25.6s
+- What it proved: the same hosted search+archive path against the Microsoft emulator. Search `Archive Action` leaves only Archive Action Message (Focused/Other, Follow Up). Clear restores Keyboard Navigation Message. Archive then removes Archive Action Message from MailShell and native SQLite.
+- Limitations: desktop compose/reconnect remain Not run. Do not check C2/F3 boxes.
+
+### E39. Hosted Electron Gmail search then archive (2026-09-19)
+
+- Tasks: partial C2/F3
+- Tree: `cursor/mail-engine-0b4f` at `a2d980c79`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m; spec 24.8s
+- What it proved: hosted Next over `desktop-ipc` searches `Archive Action`, hides Keyboard Navigation Message, clears back to the full inbox, then archives Archive Action Message. Native SQLite inbox no longer contains the subject.
+- Limitations: desktop compose/reconnect remain Not run. Do not check C2/F3 boxes.
 
 ### E38. Outlook assistant archive catch-up after a stopped MailShell (2026-09-19)
 
