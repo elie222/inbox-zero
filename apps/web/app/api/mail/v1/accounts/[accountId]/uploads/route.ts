@@ -1,5 +1,3 @@
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
@@ -17,6 +15,10 @@ import {
   createFileBlobStore,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
+import {
+  accountMailUploadDirectory,
+  collectStaleMailUploads,
+} from "@/utils/mail-api/upload-blobs";
 
 export const POST = withEmailProvider(
   "mail/v1/uploads",
@@ -49,11 +51,7 @@ export const POST = withEmailProvider(
         { status: 400 },
       );
     }
-    const directory = join(
-      tmpdir(),
-      "inbox-zero-mail-uploads",
-      request.auth.emailAccountId,
-    );
+    const directory = accountMailUploadDirectory(request.auth.emailAccountId);
     const store = createFileBlobStore(directory);
     try {
       const staged = await store.stage({
@@ -90,6 +88,10 @@ export const POST = withEmailProvider(
         filename: parsed.data.filename ?? parsed.data.uploadId,
         contentType: parsed.data.contentType,
       });
+      await collectStaleMailUploads({
+        accountId: request.auth.emailAccountId,
+        keepIds: [finalized.blobId],
+      }).catch(() => undefined);
       return NextResponse.json({
         protocolVersion: MAIL_PROTOCOL_VERSION,
         requestId,

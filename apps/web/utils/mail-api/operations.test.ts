@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createEmailProviderOperationExecutor } from "./operations";
@@ -16,6 +15,10 @@ import {
   createFileBlobStore,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
+import {
+  accountMailUploadDirectory,
+  UPLOAD_BLOB_GRACE_MS,
+} from "./upload-blobs";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -195,7 +198,7 @@ describe("createEmailProviderOperationExecutor", () => {
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
       "base64",
     );
-    const directory = join(tmpdir(), "inbox-zero-mail-uploads", "acc-1");
+    const directory = accountMailUploadDirectory("acc-1");
     await mkdir(directory, { recursive: true });
     const store = createFileBlobStore(directory);
     const checksum = createHash("sha256").update(png).digest("hex");
@@ -260,6 +263,33 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(result.status).toBe("uncertain");
     expect(await store.read("blob-hold")).not.toBeNull();
+  });
+
+  it("collects old unreferenced uploads after a confirmed send", async () => {
+    const store = await stageAccountBlob("acc-1", "blob-send");
+    await stageAccountBlob("acc-1", "orphan-old");
+    const nowMs = Date.now();
+    await utimes(
+      join(accountMailUploadDirectory("acc-1"), "orphan-old"),
+      new Date(nowMs - UPLOAD_BLOB_GRACE_MS - 1000),
+      new Date(nowMs - UPLOAD_BLOB_GRACE_MS - 1000),
+    );
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-gc", threadId: "t-gc" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(["blob-send"]),
+      attemptId: "a-send-gc",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(await store.read("blob-send")).toBeNull();
+    expect(await store.read("orphan-old")).toBeNull();
   });
 
   it("deletes staged blobs when inspect confirms a send", async () => {
@@ -394,7 +424,7 @@ function sendOperation(
 
 async function stageAccountBlob(accountId: string, blobId: string) {
   const png = Buffer.from("blob", "utf8");
-  const directory = join(tmpdir(), "inbox-zero-mail-uploads", accountId);
+  const directory = accountMailUploadDirectory(accountId);
   await mkdir(directory, { recursive: true });
   const store = createFileBlobStore(directory);
   const checksum = createHash("sha256").update(png).digest("hex");

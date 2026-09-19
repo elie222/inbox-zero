@@ -26,6 +26,8 @@ export async function evictReplaceableMessageContent(
 export async function listReferencedBlobIds(
   driver: SqliteDriver,
 ): Promise<string[]> {
+  // Terminal sends are omitted: grace is file mtime, and frozen drafts still
+  // name attachment ids after success. Server uploads collect by mtime instead.
   return driver.read(async (tx) => {
     const ids = new Set<string>();
     const drafts = await tx.query("SELECT content_json FROM drafts");
