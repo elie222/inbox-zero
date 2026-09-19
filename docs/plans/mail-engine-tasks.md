@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `4c764afc6`
+- Last implementation commit: `f3a07e453`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: remaining desktop provider UI, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining desktop Gmail/Outlook UI cells, assistant UI, and watch CI on the exact head after this ledger commit.
+- Next action: remaining desktop Gmail/Outlook UI cells and watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/assistant-catch-up.spec.ts` — 2 passed in 1.5m on `46cde218b`; spec 38.6s; Archive Action Message hidden after reopen; `GET /assistant-state` 200 (E35)
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/assistant-state.test.ts` — 1 file, 2 passed; partial pages persist last executed-rule id
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-engine-inspect.spec.ts` — 6 passed in 2.0m on `4c764afc6`; second signed-in account stays without owner/follower inspect while the first remains owner (E34)
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/gmail-mailbox-history.test.ts utils/gmail/mailbox-sync.test.ts` — 2 files, 11 passed; history 404 rebuilds and `readChanges` is `reset_required` (E33)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/mail-queue.spec.ts` — 2 passed in 1.1m; `Pending actions` heading is unique from the status combobox
@@ -130,7 +132,7 @@ Source adapters try `getMailboxSyncPage` then fall back to pagination for emulat
 - [ ] E5. Implement separate assistant metadata ingestion and protect newer draft edits.
 - [ ] E6. Prove assistant processing with client stopped, later client catch-up, and no regression in affected live assistant flows.
 
-Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging writes filename/content-type sidecars; blob ids must be a single `[A-Za-z0-9._-]` path segment and are resolved inside the account directory. HTTP uploads reject checksum mismatches and invalid blob ids; send execute loads those blobs into the durable send attachment payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Live assistant UI flows remain open.
+Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activatePreparedSnoozedThread` ownership transfer. Frozen send payloads include draft content; the executor calls `executeDurableEmailSend` and inspects `EmailSendOperation` receipts. Bulk execute records per-target applied/rejected outcomes. Local filesystem blob staging writes filename/content-type sidecars; blob ids must be a single `[A-Za-z0-9._-]` path segment and are resolved inside the account directory. HTTP uploads reject checksum mismatches and invalid blob ids; send execute loads those blobs into the durable send attachment payload. Assistant HTTP maps executed-rule actions; the engine applies catch-up archive metadata and refuses older draft proposals. Browser in-tab/worker and desktop hosts pass `createBackendAssistantSource`. Partial assistant pages persist the last executed-rule id. Gmail MailShell catch-up after a stopped client is proven (E35). Outlook web, desktop provider UI, and live assistant-flow regressions remain open.
 
 ### F. Product UI and local desktop shell
 
@@ -184,11 +186,21 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Not run | Not run | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
-| Assistant while client stopped/catch-up | Not run | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
+| Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Not run | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
+
+### E35. Assistant archive catch-up after a stopped MailShell (2026-09-19)
+
+- Tasks: partial E5/E6
+- Tree: `cursor/mail-engine-0b4f` at `46cde218b`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/assistant-state.test.ts` — 1 file, 2 passed
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/assistant-catch-up.spec.ts` — 2 passed in 1.5m; spec 38.6s
+- What it proved: in-tab and worker engines now receive `createBackendAssistantSource`. Desktop routed ports include the same assistant adapter. After MailShell unmounts, an APPLIED ARCHIVE executed rule plus provider archive is seeded. Reopen hides Archive Action Message, stores a non-empty assistant cursor, and hits `GET /api/mail/v1/accounts/.../assistant-state`.
+- Limitations: Outlook web and desktop provider UI cells are still Not run. This does not exercise live LLM assistant chat/tool flows. Do not check E5/E6 boxes.
 
 ### E34. Two signed-in Chromium accounts keep one owner (2026-09-19)
 
