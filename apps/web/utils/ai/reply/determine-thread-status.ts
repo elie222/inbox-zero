@@ -7,7 +7,7 @@ import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
 import { THREAD_STATUS_LATEST_MESSAGE_MAX_LENGTH } from "@/utils/reply-tracker/thread-status-context";
 import { SystemType } from "@/generated/prisma/enums";
-import { getRuleConfig, isDefaultRuleInstructions } from "@/utils/rule/consts";
+import { getEffectiveRuleInstructions } from "@/utils/rule/consts";
 
 const STATUS_ORDER = [
   SystemType.TO_REPLY,
@@ -31,11 +31,10 @@ export function getConversationStatusDefinitions(
     const rule = conversationRules.find(
       (r) => r.systemType === systemType && r.enabled,
     );
-    const instructions =
-      rule?.instructions &&
-      !isDefaultRuleInstructions(systemType, rule.instructions)
-        ? rule.instructions
-        : getRuleConfig(systemType).instructions;
+    const instructions = getEffectiveRuleInstructions({
+      systemType,
+      instructions: rule?.instructions,
+    });
     return { systemType, instructions };
   });
 }

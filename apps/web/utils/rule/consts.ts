@@ -193,6 +193,32 @@ export function isDefaultRuleInstructions(
   );
 }
 
+/**
+ * The instructions to give a model for a rule. A system rule still on a
+ * default, current or previous, gets the current default, so a wording change
+ * reaches existing rules without rewriting them. Customised text and rules
+ * without a system type are returned as stored.
+ */
+export function getEffectiveRuleInstructions(rule: {
+  systemType: SystemType;
+  instructions: string | null | undefined;
+}): string;
+export function getEffectiveRuleInstructions(rule: {
+  systemType: SystemType | null | undefined;
+  instructions: string | null | undefined;
+}): string | null;
+export function getEffectiveRuleInstructions({
+  systemType,
+  instructions,
+}: {
+  systemType: SystemType | null | undefined;
+  instructions: string | null | undefined;
+}): string | null {
+  if (systemType && isDefaultRuleInstructions(systemType, instructions))
+    return getRuleConfig(systemType).instructions;
+  return instructions ?? null;
+}
+
 export function getRuleName(systemType: SystemType) {
   return getRuleConfig(systemType).name;
 }
