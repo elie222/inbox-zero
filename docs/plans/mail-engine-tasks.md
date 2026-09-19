@@ -8,9 +8,9 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `5e6713b91`
+- Last implementation commit: `04a83215f`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E79 attachment projection; GitHub Playwright is the remaining mail-spec proof.
+- Current task: remaining matrix cells after E80 engine-path spec seeds; GitHub Playwright is the remaining mail-spec proof.
 - Next action: watch GitHub Playwright on the exact head; do not re-run emulated Playwright locally. CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
@@ -265,6 +265,14 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E80. Seed engine-path calendar, links, and unread-expand mail (2026-09-19)
+
+- Tasks: partial G5 reader; CI calendar/plain-text-links/thread-navigation/draft-deletion/triage intercepts
+- Tree: `cursor/mail-engine-0b4f` at `04a83215f`
+- Commands: none locally. GitHub Playwright is the remaining proof after E79.
+- What it proved: product-side intercepts were replaced with emulator seeds (`thr_playwright_calendar` ICS MIME, plain-text links, HTML reader, 4-message unread expand). Draft deletion waits on composer count instead of `GET /api/threads`. Split-reader archive no longer injects HTML through a dead thread GET. Calendar invitation stays Gmail-only.
+- Limitations: message-overflow, reader-visuals theme HTML, message-actions rule reasons, and collapse-via-intercept tests still inject `GET /api/threads`. Do not check G4/G5.
 
 ### E79. Persist attachment descriptors with enumerated bodies (2026-09-19)
 
