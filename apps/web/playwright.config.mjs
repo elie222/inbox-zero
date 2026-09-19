@@ -376,6 +376,11 @@ function writeEmulateSeed({
         start: meetingStart,
         end: meetingEnd,
       }),
+    )
+    .replaceAll("__PLAYWRIGHT_LONG_LINK__", createOverflowLongLink())
+    .replaceAll(
+      "__PLAYWRIGHT_DESIGNED_HTML__",
+      JSON.stringify(createDesignedThemeHtml()).slice(1, -1),
     );
 
   // Mailbox synchronization only covers recent mail. Preserve the fixture's
@@ -503,6 +508,23 @@ function toIcsUtc(value) {
     .replaceAll("-", "")
     .replaceAll(":", "")
     .replace(/\.\d{3}Z$/, "Z");
+}
+
+function createOverflowLongLink() {
+  return `https://example.com/account?reference=${"abcdef0123456789".repeat(24)}`;
+}
+
+function createDesignedThemeHtml() {
+  return `<html><head><style>
+          .card { background: #f8f9fa; color: #202124; }
+          @media (prefers-color-scheme: dark) {
+            .card { background: #202124 !important; color: #e8eaed !important; }
+          }
+        </style></head><body>
+          <div class="card" style="background:#f8f9fa;color:#202124;font-family:Arial,sans-serif;font-size:16px">
+            Finish setup
+          </div>
+        </body></html>`;
 }
 
 function getUrlPort(url) {

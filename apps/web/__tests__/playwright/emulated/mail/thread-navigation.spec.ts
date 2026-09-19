@@ -1,5 +1,4 @@
-import { expect, type Page } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail } from "./mail-test-helpers";
@@ -31,15 +30,15 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
 }, testInfo) => {
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
-  await makeReaderHistoryRead(page);
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_collapse`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
+    page.getByText("Latest read message stays expanded."),
   ).toBeVisible();
   const threadUrl = page.url();
   const messages = page.locator("li[data-thread-message-id]");
@@ -72,7 +71,7 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
   ).toHaveCount(1);
   await expand.click();
   await expect(
-    page.getByText("First message in the reader conversation."),
+    page.getByText("First collapsed history message."),
   ).toBeVisible();
   await toolbar
     .getByRole("button", { name: "Collapse all messages", exact: true })
@@ -148,11 +147,13 @@ test("navigates messages from inside a rich email body", async ({ page }) => {
 test("expands a collapsed message before Enter opens a reply", async ({
   page,
 }, testInfo) => {
-  await makeReaderHistoryRead(page);
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_collapse`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
 
   const message = page.locator("li[data-thread-message-id]").first();
   const header = message.locator('[role="button"][aria-expanded]');
@@ -178,15 +179,3 @@ test("expands a collapsed message before Enter opens a reply", async ({
     page.getByRole("textbox", { name: "Email message" }),
   ).toHaveCount(1);
 });
-
-async function makeReaderHistoryRead(page: Page) {
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    body.thread.messages = body.thread.messages.map((message) => ({
-      ...message,
-      labelIds: message.labelIds?.filter((labelId) => labelId !== "UNREAD"),
-    }));
-    await route.fulfill({ response, json: body });
-  });
-}
