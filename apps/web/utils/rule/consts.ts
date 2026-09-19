@@ -127,7 +127,10 @@ const ruleConfig: Record<
   [SystemType.RECEIPT]: {
     name: "Receipt",
     instructions:
+      "Receipts: Purchase confirmations, payment receipts, card charge notices, invoices or other records of money I paid",
+    previousInstructions: [
       "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
+    ],
     label: "Receipt",
     runOnThreads: false,
     categoryAction: "label",
