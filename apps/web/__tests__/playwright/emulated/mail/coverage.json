@@ -14,6 +14,11 @@
     "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
+  "hosted-electron-archive.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/desktop-ipc.ts",
+    "utils/mail-engine/runtime-mode.ts"
+  ],
   "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "calendar-invitation.spec.ts": [
