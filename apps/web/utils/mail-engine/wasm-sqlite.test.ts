@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyReferenceChange,
   createReferenceModel,
@@ -8,7 +8,11 @@ import {
 import { archiveThenNewMailScenario } from "@inboxzero/mail-core/test-support/scenarios";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
-import { createWasmSqliteDriver } from "./wasm-sqlite";
+import {
+  MAIL_ENGINE_OPFS_DIRECTORY,
+  createWasmSqliteDriver,
+  wipeOpfsMailEngine,
+} from "./wasm-sqlite";
 
 const inboxQuery = {
   accountIds: ["acc-1"],
@@ -227,3 +231,37 @@ function messagePatch(
     },
   };
 }
+
+describe("wipeOpfsMailEngine", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("removes the mail-engine OPFS directory", async () => {
+    const removeEntry = vi.fn();
+    vi.stubGlobal("navigator", {
+      storage: {
+        getDirectory: async () => ({ removeEntry }),
+      },
+    });
+    await wipeOpfsMailEngine();
+    expect(removeEntry).toHaveBeenCalledWith(MAIL_ENGINE_OPFS_DIRECTORY, {
+      recursive: true,
+    });
+  });
+
+  it("ignores a missing OPFS directory", async () => {
+    vi.stubGlobal("navigator", {
+      storage: {
+        getDirectory: async () => ({
+          removeEntry: async () => {
+            throw Object.assign(new Error("missing"), {
+              name: "NotFoundError",
+            });
+          },
+        }),
+      },
+    });
+    await expect(wipeOpfsMailEngine()).resolves.toBeUndefined();
+  });
+});

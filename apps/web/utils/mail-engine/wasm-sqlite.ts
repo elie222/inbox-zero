@@ -5,6 +5,8 @@ import type {
   SqliteDriver,
 } from "@inboxzero/mail-sqlite/driver";
 
+export const MAIL_ENGINE_OPFS_DIRECTORY = ".mail-engine";
+
 export async function createWasmSqliteDriver(input?: {
   name?: string;
   persist?: boolean;
@@ -20,7 +22,7 @@ export async function createWasmSqliteDriver(input?: {
   ) {
     const pool = await sqlite.installOpfsSAHPoolVfs({
       name: input?.name ?? "mail-engine",
-      directory: ".mail-engine",
+      directory: MAIL_ENGINE_OPFS_DIRECTORY,
       initialCapacity: 8,
     });
     await pool.unpauseVfs();
@@ -101,4 +103,20 @@ function createTransaction(database: Database): SqlTransaction {
       return { changedRows: changed };
     },
   };
+}
+
+export async function wipeOpfsMailEngine() {
+  if (
+    typeof navigator === "undefined" ||
+    !("storage" in navigator) ||
+    !("getDirectory" in navigator.storage)
+  ) {
+    return;
+  }
+  try {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(MAIL_ENGINE_OPFS_DIRECTORY, { recursive: true });
+  } catch {
+    // Private mode or a missing directory must not prevent logout.
+  }
 }

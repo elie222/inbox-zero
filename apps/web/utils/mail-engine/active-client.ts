@@ -9,3 +9,14 @@ export function setActiveMailClient(client: MailClient | null) {
 export function getActiveMailClient() {
   return activeMailClient;
 }
+
+export async function closeActiveMailEngine() {
+  const client = activeMailClient;
+  activeMailClient = null;
+  if (!client) return;
+  try {
+    await client.close();
+  } catch {
+    // Logout still proceeds if the worker is already gone.
+  }
+}
