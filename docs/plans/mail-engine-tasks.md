@@ -10,11 +10,12 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: `9497a1c19`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining hosted desktop Outlook UI, remaining matrix cells, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: Outlook hosted Electron archive against the Microsoft emulator; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells (compose/search/reconnect desktop, assistant Outlook, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m on `7b54d1856`; spec 26.2s; Microsoft emulator; Archive Action Message gone from hosted MailShell and native SQLite (E37)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.1m on `9497a1c19`; spec 25.0s; `transport: desktop-ipc`; Archive Action Message gone from hosted MailShell and native SQLite (E36)
   - `cd apps/web && pnpm exec vitest --run utils/playwright/emulated-suite-selection.test.mjs` — 1 file, 32 passed on `8ce7a46f7` after declaring `assistant-catch-up.spec.ts` in mail `coverage.json`
   - Real Electron vitest files skip when `node_modules/electron/dist/electron` is missing so CI package tests do not fail for an undownloaded binary
@@ -183,8 +184,8 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists Archive Action Message (E36) | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
-| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36) | Not run | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists Archive Action Message (E36) | Partial: hosted Next over desktop IPC lists Outlook Archive Action Message (E37) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36) | Partial: hosted Electron Outlook archive hide + native SQLite (E37) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
@@ -195,6 +196,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
+
+### E37. Hosted Electron archive against the Outlook emulator (2026-09-19)
+
+- Tasks: partial C2/F3
+- Tree: `cursor/mail-engine-0b4f` at `7b54d1856`
+- Commands:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.2m; spec 26.2s
+- What it proved: the same hosted Electron path against the Microsoft emulator (`emulate v0.11.1`). `transport: desktop-ipc`. Archive Action Message is in the Outlook MailShell list (Focused/Other, Follow Up), then gone after ListToolbar Archive. Native SQLite inbox no longer contains the subject. Screenshot taken after `window.show()`.
+- Limitations: desktop compose/search/reconnect and Outlook assistant UI are still Not run. The same empty-body operations PUT log appeared after archive. Do not check C2/F3 boxes.
 
 ### E36. Hosted Electron archive against the Gmail emulator (2026-09-19)
 
