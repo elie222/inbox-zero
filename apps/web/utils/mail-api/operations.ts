@@ -353,11 +353,15 @@ async function executeSend(
       },
     },
   });
-  return mapSendOutcome(
+  const result = mapSendOutcome(
     operation.key.operationId,
     outcome,
     await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
   );
+  if (result.status === "confirmed") {
+    await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+  }
+  return result;
 }
 
 async function inspectSend(
@@ -378,6 +382,9 @@ async function inspectSend(
     return { status: "uncertain" as const, receiptId: mutationId };
   }
   if (found.status === EmailSendOperationStatus.SENT) {
+    if (operation.intent.kind === "send") {
+      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+    }
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
@@ -447,6 +454,18 @@ function sendMutationId(operationId: string) {
 
 function isHexChar(value: string) {
   return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
+}
+
+async function releaseSendAttachments(
+  accountId: string,
+  attachmentIds: string[],
+) {
+  if (attachmentIds.length === 0) return;
+  const directory = join(tmpdir(), "inbox-zero-mail-uploads", accountId);
+  const store = createFileBlobStore(directory);
+  for (const blobId of attachmentIds) {
+    await store.delete(blobId).catch(() => undefined);
+  }
 }
 
 async function loadSendAttachments(accountId: string, attachmentIds: string[]) {

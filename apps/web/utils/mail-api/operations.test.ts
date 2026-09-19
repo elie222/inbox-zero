@@ -226,6 +226,7 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
+    expect(await store.read("blob-1")).toBeNull();
     expect(executeDurableEmailSend).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
@@ -241,6 +242,44 @@ describe("createEmailProviderOperationExecutor", () => {
         }),
       }),
     );
+  });
+
+  it("keeps staged blobs when send is still uncertain", async () => {
+    const store = await stageAccountBlob("acc-1", "blob-hold");
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "uncertain",
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(["blob-hold"]),
+      attemptId: "a-send-hold",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("uncertain");
+    expect(await store.read("blob-hold")).not.toBeNull();
+  });
+
+  it("deletes staged blobs when inspect confirms a send", async () => {
+    const store = await stageAccountBlob("acc-1", "blob-inspect");
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      status: "SENT",
+      result: { messageId: "sent-3" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.inspect({
+      operation: sendOperation(["blob-inspect"]),
+      receiptId: "receipt",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(await store.read("blob-inspect")).toBeNull();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 
   it("inspects a persisted send receipt without sending again", async () => {
@@ -351,4 +390,24 @@ function sendOperation(
       queuedAtMs: Date.now(),
     },
   };
+}
+
+async function stageAccountBlob(accountId: string, blobId: string) {
+  const png = Buffer.from("blob", "utf8");
+  const directory = join(tmpdir(), "inbox-zero-mail-uploads", accountId);
+  await mkdir(directory, { recursive: true });
+  const store = createFileBlobStore(directory);
+  const checksum = createHash("sha256").update(png).digest("hex");
+  expect(
+    await store.stage({
+      blobId,
+      bytes: (async function* () {
+        yield png;
+      })(),
+      checksum,
+      sizeBytes: png.byteLength,
+    }),
+  ).toEqual({ status: "staged" });
+  expect(await store.finalize(blobId)).toMatchObject({ blobId });
+  return store;
 }
