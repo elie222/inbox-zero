@@ -11,7 +11,6 @@ import {
   screen,
   session,
   shell,
-  utilityProcess,
   type Session,
   type WebContents,
   type IpcMainEvent,
@@ -49,7 +48,7 @@ import {
 import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
-import { createChildDesktopMailOwner } from "./mail-engine/utility-host";
+import { mailApiHeaders } from "./mail-engine/request";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
@@ -618,21 +617,10 @@ function getDesktopMailOwner() {
 
 function createDesktopMailProcess() {
   const databasePath = path.join(app.getPath("userData"), "mailbox.sqlite");
-  const ports = createRoutedBackendPorts(createDesktopMailRequest());
-  if (typeof utilityProcess?.fork === "function") {
-    return createChildDesktopMailOwner({
-      databasePath,
-      origin: appOrigin,
-      modulePath: path.join(
-        path.dirname(fileURLToPath(import.meta.url)),
-        "mail-engine-child.js",
-      ),
-      fork: (modulePath) => utilityProcess.fork(modulePath),
-    });
-  }
+  // Session cookies live on this process; the utility child cannot read them.
   return createDesktopMailOwner({
     databasePath,
-    ...ports,
+    ...createRoutedBackendPorts(createDesktopMailRequest()),
   });
 }
 
@@ -642,10 +630,7 @@ function createDesktopMailRequest(): MailHttpRequestFn {
       .fromPartition(PARTITION)
       .fetch(new URL(path, appOrigin).toString(), {
         method,
-        headers: {
-          accept: "application/json",
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
-        },
+        headers: mailApiHeaders(path, body !== undefined),
         body: body === undefined ? undefined : JSON.stringify(body),
         signal,
       });

@@ -1,5 +1,6 @@
 import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createRoutedBackendPorts } from "./backend";
+import { mailApiHeaders } from "./request";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 
 export type UtilityChildMessage =
@@ -64,10 +65,7 @@ function createOriginRequest(origin: string): MailHttpRequestFn {
   return async ({ method, path, body, signal }) => {
     const response = await fetch(new URL(path, origin), {
       method,
-      headers: {
-        accept: "application/json",
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
+      headers: mailApiHeaders(path, body !== undefined),
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });

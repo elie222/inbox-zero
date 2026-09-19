@@ -37,6 +37,7 @@
     "./protocol/mail-http": "./src/protocol/mail-http.ts",
     "./protocol/backend-adapter": "./src/protocol/backend-adapter.ts",
     "./protocol/mail-ipc": "./src/protocol/mail-ipc.ts",
+    "./protocol/mail-ipc-client": "./src/protocol/mail-ipc-client.ts",
     "./test-support/reference-model": "./test-support/reference-model.ts",
     "./test-support/scenarios": "./test-support/scenarios.ts"
   },
