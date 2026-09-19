@@ -60,6 +60,26 @@ describe("mobile auth exchange-code route", () => {
     });
   });
 
+  it("rejects clients that omit codeVerifier", async () => {
+    await expect(
+      POST(
+        new NextRequest(
+          "https://www.getinboxzero.com/api/mobile-auth/exchange-code",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              code: "intercepted-code",
+              state: "state-1234567890",
+            }),
+          },
+        ),
+        {} as never,
+      ),
+    ).rejects.toThrow();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
   it("exchanges a one-time code for a mobile session cookie", async () => {
     const response = await POST(
       new NextRequest(
@@ -67,6 +87,7 @@ describe("mobile auth exchange-code route", () => {
         {
           body: JSON.stringify({
             code: "one-time-code",
+            codeVerifier: "a".repeat(43),
             state: "state-1234567890",
           }),
           headers: {
@@ -81,6 +102,7 @@ describe("mobile auth exchange-code route", () => {
 
     expect(consumeMobileAuthCodeMock).toHaveBeenCalledWith({
       code: "one-time-code",
+      codeVerifier: "a".repeat(43),
       state: "state-1234567890",
     });
     expect(createSessionMock).toHaveBeenCalledWith("user-1", false, {});
@@ -117,6 +139,7 @@ describe("mobile auth exchange-code route", () => {
         {
           body: JSON.stringify({
             code: "one-time-code",
+            codeVerifier: "a".repeat(43),
             state: "state-1234567890",
           }),
           headers: {

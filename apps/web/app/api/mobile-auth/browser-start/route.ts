@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { mobileAuthCodeChallengeSchema } from "@/utils/mobile-auth/pkce";
 import { withError } from "@/utils/middleware";
-import {
-  MOBILE_AUTH_PROVIDERS,
-  startMobileSocialAuth,
-} from "@/utils/mobile-auth/start-social";
+import { startMobileSocialAuth } from "@/utils/mobile-auth/start-social";
+import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 
 const browserStartQuerySchema = z.object({
-  provider: z.enum(MOBILE_AUTH_PROVIDERS),
+  provider: mobileAuthProviderSchema,
+  codeChallenge: mobileAuthCodeChallengeSchema,
 });
 
 export const GET = withError("mobile-auth/browser-start", async (request) => {
   const query = browserStartQuerySchema.parse({
     provider: request.nextUrl.searchParams.get("provider"),
+    codeChallenge: request.nextUrl.searchParams.get("codeChallenge"),
   });
   const started = await startMobileSocialAuth({
     provider: query.provider,
+    codeChallenge: query.codeChallenge,
     returnUrlMode: "desktop-scheme",
   });
 
