@@ -258,6 +258,44 @@ function draftKey(identity: ReplyDraftIdentity) {
   ]);
 }
 
+export async function restoreCancelledSendDraft(input: {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  operationId: string;
+}) {
+  const client = getActiveMailClient();
+  if (!client) return;
+  const stored = await client.readDraft({
+    accountId: input.emailAccountId,
+    draftId: input.operationId,
+  });
+  if (stored.status !== "found") return;
+  const identity: ReplyDraftIdentity = {
+    emailAccountId: input.emailAccountId,
+    threadId: input.threadId,
+    messageId: getReplyDraftSessionId(input.messageId, "reply"),
+  };
+  await createReplyDraftWriter(identity).save({
+    composeMode: "reply",
+    values: {
+      to: stored.content.to.join(", "),
+      cc: stored.content.cc.join(", "),
+      bcc: stored.content.bcc.join(", "),
+      subject: stored.content.subject,
+    },
+    draft: {
+      editableHtml: stored.content.editableHtml,
+      mode: "rich",
+      quotedHtml: stored.content.quotedHtml,
+      signatureHtml: "",
+      unsupported: [],
+    },
+    preservedBlocks: [],
+    attachments: [],
+  });
+}
+
 function currentEpoch(emailAccountId: string) {
   return accountEpoch.get(emailAccountId) ?? 0;
 }

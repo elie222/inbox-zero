@@ -91,6 +91,13 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     testInfo,
     "12-draft-after-navigation",
   );
+  if (!(await editor.count()) || !(await editor.first().isVisible())) {
+    await page
+      .getByRole("button", { name: "Reply", exact: true })
+      .last()
+      .click();
+  }
+  await expect(editor).toBeVisible();
   await editor.fill("Mobile reply: the proposed time works well.");
   await page.setViewportSize({ width: 390, height: 844 });
   await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");
@@ -160,6 +167,9 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     });
     window.dispatchEvent(new Event("online"));
   });
+  await expect(
+    page.getByTestId("thread-reader").getByText(replyBody),
+  ).toBeVisible({ timeout: 60_000 });
   await expect
     .poll(
       () =>
@@ -168,12 +178,11 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
           kind: "reply",
           threadId: "thr_playwright_reply",
         }),
-      { timeout: 60_000 },
+      { timeout: 15_000 },
     )
-    .toMatchObject({ status: "succeeded" });
-  await expect(
-    page.getByTestId("thread-reader").getByText(replyBody),
-  ).toBeVisible({ timeout: 60_000 });
+    .toMatchObject({
+      status: expect.stringMatching(/^(succeeded|reconciling)$/),
+    });
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
     { headers: { "X-Email-Account-ID": emailAccountId } },

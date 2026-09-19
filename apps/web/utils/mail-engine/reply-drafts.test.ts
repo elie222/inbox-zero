@@ -6,6 +6,7 @@ import {
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
+  restoreCancelledSendDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
 } from "./reply-drafts";
@@ -196,6 +197,45 @@ describe("local reply drafts", () => {
         })
       )?.content?.values.subject,
     ).toBe("Mailbox draft example");
+    setActiveMailClient(null);
+  });
+
+  it("copies a cancelled send draft into the reply composer session", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    setActiveMailClient({
+      async readDraft() {
+        return {
+          status: "found" as const,
+          draftRevision: 1,
+          content: {
+            to: ["leslie@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Re: Reply Workflow Message",
+            editableHtml:
+              "<p>I can review the updated proposal on Thursday.</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        };
+      },
+      async saveDraft() {
+        return {
+          status: "saved" as const,
+          draftRevision: 1,
+          revision: { databaseEpoch: "e", sequence: 1 },
+        };
+      },
+    } as never);
+    await restoreCancelledSendDraft({
+      emailAccountId: "account",
+      threadId: "thread",
+      messageId: "parent",
+      operationId: "send-1",
+    });
+    expect(
+      (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
+    ).toBe("<p>I can review the updated proposal on Thursday.</p>");
     setActiveMailClient(null);
   });
 });

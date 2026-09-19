@@ -32,6 +32,7 @@ import {
   engineSendCommandsForThread,
   shouldShowEngineDeliveryStatus,
 } from "@/utils/mail-engine/engine-delivery";
+import { restoreCancelledSendDraft } from "@/utils/mail-engine/reply-drafts";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -226,6 +227,8 @@ export function ThreadDeliveryStatus({
                   disabled={busy}
                   onClick={() =>
                     act(async () => {
+                      const parentMessageId =
+                        row.messageIds[0] ?? messageIds.at(-1) ?? threadId;
                       if (
                         row.status === "queued" ||
                         row.status === "preparing"
@@ -239,11 +242,14 @@ export function ThreadDeliveryStatus({
                             "This reply's status changed. Refresh the thread and try again.",
                           );
                         }
+                        await restoreCancelledSendDraft({
+                          emailAccountId,
+                          threadId,
+                          messageId: parentMessageId,
+                          operationId: row.operationId,
+                        });
                       }
-                      onEditReply(
-                        row.messageIds[0] ?? messageIds.at(-1) ?? threadId,
-                        "reply",
-                      );
+                      onEditReply(parentMessageId, "reply");
                     })
                   }
                 >
