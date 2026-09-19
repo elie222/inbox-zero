@@ -771,7 +771,7 @@ export async function createSqliteMailStore(
           [accountId],
         );
         const operationRows = await tx.query(
-          "SELECT * FROM operations WHERE account_id = ?",
+          "SELECT * FROM operations WHERE account_id = ? ORDER BY created_at_ms ASC, rowid ASC",
           [accountId],
         );
         const targets = await tx.query(
