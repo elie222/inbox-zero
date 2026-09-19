@@ -29,6 +29,26 @@ describe("createMailIpcClient", () => {
     );
   });
 
+  it("includes the mailbox provider on requestSync", async () => {
+    const invoke = vi.fn(async () => ({
+      status: "ok",
+      result: { status: "scheduled" },
+    }));
+    const client = createMailIpcClient(invoke, {
+      requestId: () => "sync-1",
+      provider: "microsoft",
+    });
+    await expect(client.requestSync(["acc-1"])).resolves.toEqual({
+      status: "scheduled",
+    });
+    expect(invoke).toHaveBeenCalledWith({
+      protocolVersion: 1,
+      requestId: "sync-1",
+      method: "requestSync",
+      payload: { accountIds: ["acc-1"], provider: "microsoft" },
+    });
+  });
+
   it("polls observeMailbox until close", async () => {
     const invoke = vi.fn(async () => ({
       status: "ok",

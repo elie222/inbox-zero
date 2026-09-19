@@ -139,7 +139,10 @@ async function waitForSubject(window: BrowserWindow, subject: string) {
     if (subjects.includes(subject)) return subjects;
     await delay(500);
   }
-  throw new Error(`${subject} did not appear in the hosted inbox`);
+  const body = await readBodyText(window);
+  throw new Error(
+    `${subject} did not appear in the hosted inbox: ${body.slice(0, 500)}`,
+  );
 }
 
 async function waitForMissingSubject(window: BrowserWindow, subject: string) {
@@ -179,6 +182,14 @@ async function readTransport(window: BrowserWindow) {
   return (await window.webContents.executeJavaScript(`
     window.__inboxZeroMailInspect?.transport ?? null
   `)) as "browser" | "desktop-ipc" | null;
+}
+
+async function readBodyText(window: BrowserWindow) {
+  return String(
+    await window.webContents
+      .executeJavaScript('document.body ? document.body.innerText : ""')
+      .catch(() => ""),
+  );
 }
 
 async function readNativeInboxSubjects(

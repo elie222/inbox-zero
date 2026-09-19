@@ -5,10 +5,12 @@ export function hasDesktopMailEngineIpc() {
   return typeof getInboxZeroDesktopApp()?.mailEngine === "function";
 }
 
-export function createDesktopIpcMailClient() {
+export function createDesktopIpcMailClient(input?: {
+  provider?: "google" | "microsoft";
+}) {
   const invoke = getInboxZeroDesktopApp()?.mailEngine;
   if (typeof invoke !== "function") {
     throw new Error("Desktop mail engine IPC is unavailable");
   }
-  return createMailIpcClient(invoke);
+  return createMailIpcClient(invoke, { provider: input?.provider });
 }

@@ -63,7 +63,10 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
     requestId: z.string().min(1).max(128),
     method: z.literal("requestSync"),
-    payload: z.object({ accountIds: z.array(accountIdSchema).min(1) }),
+    payload: z.object({
+      accountIds: z.array(accountIdSchema).min(1),
+      provider: z.enum(["google", "microsoft"]).optional(),
+    }),
   }),
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),

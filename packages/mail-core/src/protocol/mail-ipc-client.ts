@@ -7,6 +7,7 @@ export function createMailIpcClient(
   options?: {
     requestId?: () => string;
     pollMs?: number;
+    provider?: "google" | "microsoft";
   },
 ): MailClient & { inspect(): Promise<unknown> } {
   const requestId = options?.requestId ?? defaultRequestId;
@@ -48,7 +49,11 @@ export function createMailIpcClient(
     readDraft: (payload) => call("readDraft", payload),
     submitSend: (payload) => call("submitSend", payload),
     cancelOperation: (payload) => call("cancelOperation", payload),
-    requestSync: (accountIds) => call("requestSync", { accountIds }),
+    requestSync: (accountIds) =>
+      call("requestSync", {
+        accountIds,
+        ...(options?.provider ? { provider: options.provider } : {}),
+      }),
     ensureMessageContent: (key) => call("ensureMessageContent", key),
     getDiagnostics: (accountId) => call("getDiagnostics", { accountId }),
     inspect: () => call("inspect", {}),

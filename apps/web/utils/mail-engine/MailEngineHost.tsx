@@ -136,11 +136,13 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     }
 
     if (mode === "desktop-ipc") {
-      publishClient(createDesktopIpcMailClient(), "owner", "desktop-ipc").catch(
-        () => {
-          if (!abort.signal.aborted) setUnavailable(true);
-        },
-      );
+      const client = createDesktopIpcMailClient({
+        provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+      });
+      publishClient(client, "owner", "desktop-ipc").catch(() => {
+        if (!abort.signal.aborted) setUnavailable(true);
+      });
+      client.requestSync([emailAccountId]).catch(() => undefined);
       return () => {
         abort.abort();
         if (published) disposeTabFollowerClient(published);

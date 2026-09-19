@@ -6,7 +6,7 @@ import {
 import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
-import { dispatchMailIpc } from "./ipc";
+import { dispatchMailIpc, parseMailIpcRequest } from "./ipc";
 import { createDesktopMailStore } from "./sqlite";
 
 export type DesktopMailOwner = {
@@ -24,7 +24,7 @@ export async function createDesktopMailOwner(input: {
   let owned = await createOwnedEngine(input);
   return {
     handleIpc(payload) {
-      return dispatchMailIpc(owned.engine, payload);
+      return handleOwnerIpc(owned, payload);
     },
     async recover() {
       await owned.stop();
@@ -41,7 +41,11 @@ async function createOwnedEngine(input: {
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
-}): Promise<{ engine: MailEngine; stop(): Promise<void> }> {
+}): Promise<{
+  engine: MailEngine;
+  store: Awaited<ReturnType<typeof createDesktopMailStore>>;
+  stop(): Promise<void>;
+}> {
   const store = await createDesktopMailStore(input.databasePath);
   const engine = createMailEngine({
     store,
@@ -55,6 +59,7 @@ async function createOwnedEngine(input: {
   const loop = pumpEngine(engine, abort.signal);
   return {
     engine,
+    store,
     async stop() {
       abort.abort();
       await loop;
@@ -90,4 +95,22 @@ function delay(ms: number, signal: AbortSignal) {
       { once: true },
     );
   });
+}
+
+async function handleOwnerIpc(
+  owned: Awaited<ReturnType<typeof createOwnedEngine>>,
+  payload: unknown,
+) {
+  const parsed = parseMailIpcRequest(payload);
+  if (parsed.success && parsed.data.method === "requestSync") {
+    const provider = parsed.data.payload.provider ?? "google";
+    for (const accountId of parsed.data.payload.accountIds) {
+      await owned.store.ensureAccount({
+        accountId,
+        provider,
+        generation: accountId,
+      });
+    }
+  }
+  return dispatchMailIpc(owned.engine, payload);
 }
