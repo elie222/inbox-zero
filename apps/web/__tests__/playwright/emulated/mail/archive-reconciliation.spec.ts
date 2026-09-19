@@ -3,6 +3,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
   conversationWithSubject,
+  insertInboxMailInConversation,
   openMail,
   readLatestMailMutation,
 } from "./mail-test-helpers";
@@ -199,6 +200,57 @@ test("drops Inbox and Unread counts when an unread conversation is archived", as
   } finally {
     await page.request
       .post(`/api/threads/${threadId}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
+test("returns an archived conversation when new mail arrives in it", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(page, conversations, SUBJECT);
+  await expect(conversation).toHaveCount(1);
+
+  const cleanupErrors: unknown[] = [];
+  try {
+    await conversation.getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(conversation).toHaveCount(0);
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "archive",
+            threadId: THREAD_ID,
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
+    await expect(conversation).toHaveCount(0);
+    await insertInboxMailInConversation(page, {
+      threadId: THREAD_ID,
+      messageId: "msg_playwright_archive",
+      subject: SUBJECT,
+      from: "Erin Example <erin@example.com>",
+    });
+    await expect(conversation).toBeVisible({ timeout: 60_000 });
+    await capturePlaywrightCheckpoint(page, testInfo, "archive-then-new-mail");
+  } finally {
+    await page.request
+      .post(`/api/threads/${THREAD_ID}/unarchive`, {
         headers: { "X-Email-Account-ID": emailAccountId },
       })
       .then((response) => expect(response.ok()).toBe(true))

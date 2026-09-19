@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import {
   inspectCommandMatches,
   inspectCommandToMutation,
@@ -145,4 +146,103 @@ export async function withClient<T>(callback: (client: Client) => Promise<T>) {
   } finally {
     await client.end();
   }
+}
+
+export async function insertInboxMailInConversation(
+  page: Page,
+  input: {
+    threadId: string;
+    messageId: string;
+    subject: string;
+    from: string;
+  },
+) {
+  const token = await readProviderAccessToken();
+  const email = process.env.PLAYWRIGHT_TEST_EMAIL;
+  if (!email) throw new Error("PLAYWRIGHT_TEST_EMAIL is missing");
+  if (isMicrosoftPlaywright()) {
+    await insertOutlookInboxReply(page, token, input);
+    return;
+  }
+  const baseUrl = process.env.GOOGLE_BASE_URL;
+  if (!baseUrl) throw new Error("GOOGLE_BASE_URL is missing");
+  const inserted = await page.request.post(
+    `${baseUrl}/gmail/v1/users/me/messages`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      data: {
+        threadId: input.threadId,
+        from: input.from,
+        to: email,
+        subject: input.subject,
+        body_text: "New mail in the archived conversation.",
+        labelIds: ["INBOX", "UNREAD"],
+        internalDate: String(Date.now()),
+      },
+    },
+  );
+  expect(inserted.ok(), await inserted.text()).toBe(true);
+}
+
+async function insertOutlookInboxReply(
+  page: Page,
+  token: string,
+  input: { messageId: string; subject: string },
+) {
+  const baseUrl = process.env.MICROSOFT_BASE_URL;
+  if (!baseUrl) throw new Error("MICROSOFT_BASE_URL is missing");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  const draft = await page.request.post(
+    `${baseUrl}/v1.0/me/messages/${input.messageId}/createReply`,
+    { headers },
+  );
+  expect(draft.ok(), await draft.text()).toBe(true);
+  const draftId = ((await draft.json()) as { id?: string }).id;
+  if (!draftId) throw new Error("Outlook createReply did not return an id");
+  const patched = await page.request.patch(
+    `${baseUrl}/v1.0/me/messages/${draftId}`,
+    {
+      headers,
+      data: {
+        subject: input.subject,
+        body: {
+          contentType: "text",
+          content: "New mail in the archived conversation.",
+        },
+        isRead: false,
+      },
+    },
+  );
+  expect(patched.ok(), await patched.text()).toBe(true);
+  const moved = await page.request.post(
+    `${baseUrl}/v1.0/me/messages/${draftId}/move`,
+    {
+      headers,
+      data: { destinationId: "inbox" },
+    },
+  );
+  expect(moved.ok(), await moved.text()).toBe(true);
+}
+
+async function readProviderAccessToken() {
+  const email = process.env.PLAYWRIGHT_TEST_EMAIL;
+  if (!email) throw new Error("PLAYWRIGHT_TEST_EMAIL is missing");
+  const token = await withClient(async (client) => {
+    const result = await client.query<{ access_token: string | null }>(
+      `SELECT account.access_token
+       FROM "EmailAccount" email_account
+       JOIN "Account" account ON account.id = email_account."accountId"
+       WHERE email_account.email = $1`,
+      [email],
+    );
+    return result.rows[0]?.access_token ?? null;
+  });
+  if (!token) throw new Error("Could not read the Playwright provider token");
+  return token;
 }
