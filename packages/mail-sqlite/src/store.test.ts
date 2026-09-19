@@ -1220,6 +1220,27 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(later?.kind).toBe("inspect");
     if (later?.kind !== "inspect") throw new Error("expected inspect");
     expect(later.receiptId).toBe("r-hold");
+    await store.settleAttempt({
+      attemptId: later.attemptId,
+      operation: later.operation,
+      result: { status: "uncertain", receiptId: "" },
+    });
+    const afterEmptyReceipt = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: afterEmptyReceipt,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const emptyReceipt = await store.claimWork({
+      ownerId: "owner",
+      nowMs: afterEmptyReceipt + 1000,
+      leaseMs: 30_000,
+    });
+    expect(emptyReceipt?.kind).toBe("inspect");
+    if (emptyReceipt?.kind !== "inspect") throw new Error("expected inspect");
+    expect(emptyReceipt.receiptId).toBe("r-hold");
     await store.close();
   });
 
@@ -1305,6 +1326,70 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(again?.kind).toBe("inspect");
     if (again?.kind !== "inspect") throw new Error("expected inspect");
     expect(again.receiptId).toBe("r-auth");
+    await store.close();
+  });
+
+  it("records execute blocked_auth instead of inspect", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-exec-auth" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-exec-auth",
+          draft: { accountId: "acc-1", draftId: "d-exec-auth" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(execute?.kind).toBe("command");
+    if (execute?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: 5000,
+      },
+    });
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-exec-auth",
+      }),
+    ).toMatchObject({ operation: { status: "blocked_auth" } });
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 5000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
     await store.close();
   });
 
@@ -1458,6 +1543,37 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(inspect?.kind).toBe("inspect");
     if (inspect?.kind !== "inspect") throw new Error("expected inspect");
     expect(inspect.receiptId).toBe("r-verify");
+    await store.settleAttempt({
+      attemptId: inspect.attemptId,
+      operation: inspect.operation,
+      result: {
+        status: "not_dispatched",
+        reason: "throttled",
+        retryAfterMs: 5000,
+      },
+    });
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-verify",
+      }),
+    ).toMatchObject({ operation: { status: "verifying" } });
+    const afterInspectHold = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: afterInspectHold,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const again = await store.claimWork({
+      ownerId: "owner",
+      nowMs: afterInspectHold + 5000,
+      leaseMs: 30_000,
+    });
+    expect(again?.kind).toBe("inspect");
+    if (again?.kind !== "inspect") throw new Error("expected inspect");
+    expect(again.receiptId).toBe("r-verify");
     await store.close();
   });
 

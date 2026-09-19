@@ -260,18 +260,29 @@ export async function createSqliteMailStore(
         for (const row of queued) {
           if (await hasUnsatisfiedDependency(tx, row)) continue;
           const attemptId = crypto.randomUUID();
-          await tx.execute(
+          const claimed = await tx.execute(
             `UPDATE operations
              SET status = 'executing', attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
-             WHERE account_id = ? AND command_id = ?`,
+             WHERE account_id = ? AND command_id = ?
+               AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+               AND (
+                 status IN ('queued', 'retry_wait')
+                 OR (
+                   status = 'executing'
+                   AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
+                 )
+               )`,
             [
               input.ownerId,
               input.nowMs + input.leaseMs,
               attemptId,
               row.account_id,
               row.command_id,
+              input.nowMs,
+              input.nowMs,
             ],
           );
+          if (claimed.changedRows === 0) continue;
           const prepared = await toPrepared(tx, row);
           if (!prepared) return null;
           return { kind: "command" as const, attemptId, operation: prepared };
@@ -538,7 +549,7 @@ export async function createSqliteMailStore(
             `UPDATE operations SET status = 'uncertain', receipt_id = COALESCE(?, receipt_id), claimed_by = NULL, claimed_until_ms = NULL, next_attempt_at_ms = ?
              WHERE account_id = ? AND command_id = ?`,
             [
-              input.result.receiptId,
+              boundReceiptId(input.result.receiptId),
               inspectable ? Date.now() + 1000 : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
@@ -1979,6 +1990,10 @@ function operationStatusFromTargets(
 
 function isInspectableOperationStatus(status: import("./driver").SqlValue) {
   return status === "uncertain" || status === "verifying";
+}
+
+function boundReceiptId(value: string | null | undefined) {
+  return value ? value : null;
 }
 
 function frozenDraftIdFromPayload(value: import("./driver").SqlValue) {
