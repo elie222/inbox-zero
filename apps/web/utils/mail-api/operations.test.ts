@@ -8,6 +8,7 @@ import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   activatePreparedSnoozedThread,
+  cancelSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
 import {
@@ -362,6 +363,114 @@ describe("createEmailProviderOperationExecutor", () => {
     );
     expect(activatePreparedSnoozedThread).toHaveBeenCalled();
   });
+
+  it("rejects a fresh expired snooze before archiving", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-expired",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "rejected",
+      code: "snooze_expired",
+    });
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientMutationId: "bulk-1",
+        emailAccountId: "acc-1",
+      }),
+    );
+  });
+
+  it("does not archive again when replaying an activated snooze", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PENDING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-replay",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+  });
+
+  it("restores mail when activate reports the snooze was cancelled", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({
+      status: "CANCELLED",
+    } as never);
+    const unarchiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {},
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-cancel",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
+  });
 });
 
 function metadataOperation(
@@ -376,6 +485,17 @@ function metadataOperation(
       kind: "metadata",
       targets,
       change: { kind: "archive" },
+    },
+  };
+}
+
+function snoozeOperation(untilMs: number): PreparedOperation {
+  return {
+    ...metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+    intent: {
+      kind: "metadata",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "snooze", untilMs },
     },
   };
 }

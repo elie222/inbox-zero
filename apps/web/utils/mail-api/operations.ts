@@ -235,6 +235,54 @@ async function executeSnooze(
     };
   },
 ) {
+  const scheduledFor = new Date(operation.intent.change.untilMs);
+  const threadId = await threadIdForSnooze(provider, operation.intent.targets);
+  if (!threadId) {
+    return {
+      status: "rejected" as const,
+      code: "snooze_failed",
+      targets: [],
+    };
+  }
+  const prepared = await prepareSnoozedThread({
+    clientMutationId: operation.key.operationId,
+    emailAccountId: accountId,
+    scheduledFor,
+    threadId,
+  });
+  if (prepared.created && scheduledFor.getTime() <= Date.now()) {
+    await cancelPreparedSnooze(accountId, operation.key.operationId);
+    return {
+      status: "rejected" as const,
+      code: "snooze_expired",
+      targets: [],
+    };
+  }
+  if (prepared.snoozedThread.status === "CANCELLED") {
+    return {
+      status: "rejected" as const,
+      code: "snooze_cancelled",
+      targets: [],
+    };
+  }
+  if (prepared.snoozedThread.status !== "PREPARING") {
+    return {
+      status: "confirmed" as const,
+      receiptId: operation.key.operationId,
+      observations: [],
+      targets: appliedSnoozeTargets(operation.intent.targets),
+    };
+  }
+  if (scheduledFor.getTime() <= Date.now()) {
+    await cancelPreparedSnooze(accountId, operation.key.operationId);
+    return {
+      status: "confirmed" as const,
+      receiptId: operation.key.operationId,
+      observations: [],
+      targets: appliedSnoozeTargets(operation.intent.targets),
+    };
+  }
+
   const targets = [];
   const observations = [];
   const providerName = provider.name === "microsoft" ? "microsoft" : "google";
@@ -267,34 +315,28 @@ async function executeSnooze(
       }
     }
   }
-  const applied = targets.some((target) => target.outcome === "applied");
-  if (!applied) {
-    await cancelSnoozedThreadByClientMutationId({
-      clientMutationId: operation.key.operationId,
-      emailAccountId: accountId,
-    }).catch(() => undefined);
+  const applied = targets.filter((target) => target.outcome === "applied");
+  if (applied.length === 0) {
+    await cancelPreparedSnooze(accountId, operation.key.operationId);
     return {
       status: "rejected" as const,
       code: "snooze_failed",
       targets,
     };
   }
-  const threadId = await threadIdForSnooze(provider, operation.intent.targets);
-  if (threadId) {
-    const scheduledFor = new Date(operation.intent.change.untilMs);
-    const prepared = await prepareSnoozedThread({
-      clientMutationId: operation.key.operationId,
-      emailAccountId: accountId,
-      scheduledFor,
-      threadId,
-    });
-    if (prepared.created || prepared.snoozedThread.status === "PREPARING") {
-      await activatePreparedSnoozedThread({
-        clientMutationId: operation.key.operationId,
-        emailAccountId: accountId,
-        scheduledFor,
-        threadId,
-      });
+  const activated = await activatePreparedSnoozedThread({
+    clientMutationId: operation.key.operationId,
+    emailAccountId: accountId,
+    scheduledFor,
+    threadId,
+  });
+  if (activated.status === "CANCELLED") {
+    try {
+      await provider.unarchiveMessages(
+        applied.map((target) => target.key.messageId),
+      );
+    } catch {
+      // Archive already happened; catch-up can restore if unarchive fails.
     }
   }
   return {
@@ -487,6 +529,27 @@ async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
     });
   }
   return attachments;
+}
+
+function appliedSnoozeTargets(
+  targets: Array<{ accountId: string; messageId: string }>,
+) {
+  return targets.map((target) => ({
+    key: target,
+    outcome: "applied" as const,
+    code: null,
+  }));
+}
+
+async function cancelPreparedSnooze(accountId: string, operationId: string) {
+  try {
+    await cancelSnoozedThreadByClientMutationId({
+      clientMutationId: operationId,
+      emailAccountId: accountId,
+    });
+  } catch {
+    // The prepare row is optional once we are already rejecting.
+  }
 }
 
 async function threadIdForSnooze(
