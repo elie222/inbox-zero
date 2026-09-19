@@ -634,6 +634,82 @@ test("archives two conversations, restores trash, and labels through desktop IPC
   expect(cleanupErrors).toEqual([]);
 });
 
+test("keeps a queued archive hidden after a hosted Electron UI restart", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath(
+    "hosted-electron-queued-restart.png",
+  );
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  const cleanupErrors: unknown[] = [];
+
+  try {
+    const payload = await launchHostedElectron({
+      appUrl: baseURL,
+      accountId: emailAccountId,
+      storageState: authFile,
+      screenshotPath,
+      proof: "queued-restart",
+    });
+    expect(payload.url).toMatch(/^https?:/);
+    expect(payload.url).not.toContain("file:");
+    expect(payload.transport).toBe("desktop-ipc");
+    expect(payload.sqliteExists).toBe(true);
+    expect(payload.proof).toBe("queued-restart");
+    expect(payload.heldOperations).toBeGreaterThan(0);
+    expect(payload.queuedBeforeReload).toMatch(
+      /^(queued|preparing|executing|verifying|uncertain|retry_wait)$/,
+    );
+    expect(payload.queuedAfterReload).toMatch(
+      /^(queued|preparing|executing|verifying|uncertain|retry_wait)$/,
+    );
+    expect(payload.succeededAfterRelease).toBe(true);
+    expect(payload.hiddenAfterReload).toBe(true);
+    expect(payload.nativeInboxHasArchiveSubject).toBe(false);
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: payload.url,
+        transport: payload.transport,
+        proof: payload.proof,
+        heldOperations: payload.heldOperations,
+        queuedBeforeReload: payload.queuedBeforeReload,
+        queuedAfterReload: payload.queuedAfterReload,
+        succeededAfterRelease: payload.succeededAfterRelease,
+        hiddenAfterReload: payload.hiddenAfterReload,
+        nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
+      }),
+    });
+    await copyCatchUpArtifact(
+      screenshotPath,
+      payload,
+      "hosted-electron-queued-restart",
+    );
+  } finally {
+    await page.request
+      .post(`/api/threads/${THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -651,7 +727,8 @@ function launchHostedElectron(input: {
     | "assistant-reopen"
     | "missed-hint"
     | "cursor-reset"
-    | "bulk";
+    | "bulk"
+    | "queued-restart";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
@@ -949,6 +1026,11 @@ type HostedElectronPayload = {
   labelSucceeded?: boolean;
   nativeInboxHasBulkSubjects?: boolean;
   nativeTrashHasDeleteSubject?: boolean;
+  heldOperations?: number;
+  queuedBeforeReload?: string;
+  queuedAfterReload?: string;
+  succeededAfterRelease?: boolean;
+  hiddenAfterReload?: boolean;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {

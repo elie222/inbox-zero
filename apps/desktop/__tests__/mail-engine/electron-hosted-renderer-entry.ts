@@ -157,6 +157,13 @@ async function runProof(input: {
       );
     case "bulk":
       return proveBulk(input.window, input.owner, input.accountId);
+    case "queued-restart":
+      return proveQueuedRestart(
+        input.window,
+        input.owner,
+        input.accountId,
+        input.gate,
+      );
     default:
       return proveSearchArchive(input.window, input.owner, input.accountId);
   }
@@ -591,6 +598,70 @@ async function proveBulk(
   };
 }
 
+async function proveQueuedRestart(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  gate: BlockedAuthGate,
+) {
+  await waitForSubject(window, ARCHIVE_SUBJECT);
+  await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
+  armOperationsHold(gate);
+  await clickArchive(window, ARCHIVE_SUBJECT);
+  await waitForMissingSubject(window, ARCHIVE_SUBJECT, SEARCH_HIDDEN_SUBJECT);
+  const queuedBeforeReload = await waitForInspectStatus(window, {
+    kind: "archive",
+    threadId: "thr_playwright_archive",
+    statuses: [
+      "queued",
+      "preparing",
+      "executing",
+      "verifying",
+      "uncertain",
+      "retry_wait",
+    ],
+  });
+  await waitForHeldOperations(gate);
+  const mailUrl = window.webContents.getURL();
+  await window.loadURL(mailUrl);
+  await waitForTransport(window, "desktop-ipc");
+  await waitForMissingSubject(window, ARCHIVE_SUBJECT, SEARCH_HIDDEN_SUBJECT);
+  const queuedAfterReload = await waitForInspectStatus(window, {
+    kind: "archive",
+    threadId: "thr_playwright_archive",
+    statuses: [
+      "queued",
+      "preparing",
+      "executing",
+      "verifying",
+      "uncertain",
+      "retry_wait",
+    ],
+  });
+  gate.releaseOperations();
+  const succeededAfterRelease = await waitForInspectSucceeded(window, {
+    kind: "archive",
+    threadId: "thr_playwright_archive",
+  });
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    false,
+  );
+  return {
+    queuedBeforeReload,
+    queuedAfterReload,
+    succeededAfterRelease,
+    heldOperations: gate.heldOperations,
+    hiddenAfterReload: true,
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+  };
+}
+
 async function proveReconnect(
   window: BrowserWindow,
   accountId: string,
@@ -635,11 +706,33 @@ function createBlockedAuthGate(): BlockedAuthGate {
     countCatchUp: false,
     resetOnce: false,
     resetFired: false,
+    holdingOperations: false,
+    heldOperations: 0,
+    operationsHold: Promise.resolve(),
+    releaseOperations: () => {},
     changes: 0,
     enumeration: 0,
     bootstrap: 0,
     assistantState: 0,
   };
+}
+
+function armOperationsHold(gate: BlockedAuthGate) {
+  gate.holdingOperations = true;
+  gate.operationsHold = new Promise<void>((resolve) => {
+    gate.releaseOperations = () => {
+      gate.holdingOperations = false;
+      resolve();
+    };
+  });
+}
+
+async function waitForHeldOperations(gate: BlockedAuthGate) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (gate.heldOperations > 0) return;
+    await delay(250);
+  }
+  throw new Error("operations PUT was never held");
 }
 
 function wrapBlockedAuthRequest(
@@ -689,6 +782,14 @@ function wrapBlockedAuthRequest(
       (gate.enabled || gate.countCatchUp)
     ) {
       gate.enumeration += 1;
+    }
+    if (
+      gate.holdingOperations &&
+      input.method === "PUT" &&
+      input.path.includes("/operations/")
+    ) {
+      gate.heldOperations += 1;
+      await gate.operationsHold;
     }
     return request(input);
   };
@@ -1179,6 +1280,63 @@ async function waitForInspectSucceeded(
     await delay(500);
   }
   throw new Error(`hosted ${expected.kind} never reached succeeded`);
+}
+
+async function waitForInspectStatus(
+  window: BrowserWindow,
+  expected: {
+    kind: string;
+    threadId: string;
+    statuses: string[];
+  },
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const result = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.read) return { status: "missing" };
+        const diagnostics = await inspect.read();
+        const expected = ${JSON.stringify(expected)};
+        const slug = expected.threadId.startsWith("thr_")
+          ? expected.threadId.slice(4)
+          : expected.threadId;
+        const match = diagnostics?.commands
+          ?.filter((command) => {
+            const changeKind = command.change?.kind ?? command.kind;
+            if (changeKind !== expected.kind && command.kind !== expected.kind) {
+              return false;
+            }
+            const ids = command.conversationIds ?? [];
+            const messages = command.messageIds ?? [];
+            return (
+              ids.includes(expected.threadId) ||
+              messages.some(
+                (messageId) =>
+                  messageId.includes(expected.threadId) ||
+                  messageId === "msg_" + slug ||
+                  messageId.startsWith("msg_" + slug + "_"),
+              )
+            );
+          })
+          .at(-1);
+        return match ? { status: match.status } : { status: "missing" };
+      })()
+    `)) as { status?: string };
+    if (result.status && expected.statuses.includes(result.status)) {
+      return result.status;
+    }
+    if (
+      result.status === "failed" ||
+      result.status === "cancelled" ||
+      result.status === "needs_attention"
+    ) {
+      throw new Error(`hosted ${expected.kind} ${result.status}`);
+    }
+    await delay(500);
+  }
+  throw new Error(
+    `hosted ${expected.kind} never reached ${expected.statuses.join("|")}`,
+  );
 }
 
 async function readSubjects(window: BrowserWindow) {
@@ -1939,6 +2097,10 @@ type BlockedAuthGate = {
   countCatchUp: boolean;
   resetOnce: boolean;
   resetFired: boolean;
+  holdingOperations: boolean;
+  heldOperations: number;
+  operationsHold: Promise<void>;
+  releaseOperations: () => void;
   changes: number;
   enumeration: number;
   bootstrap: number;
