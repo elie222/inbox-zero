@@ -108,6 +108,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
+import { useThreadPlans } from "@/hooks/useThreadPlans";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
@@ -536,6 +537,10 @@ export function MailShell() {
     },
     { includeDrafts: true, localMail: true },
   );
+  const { data: openThreadPlanData } = useThreadPlans({
+    threadId: deferredReaderSelection?.threadId,
+    emailAccountId: deferredReaderSelection?.emailAccountId,
+  });
   // Withheld until the deferred id catches up, so a fast J/K can't pair the new
   // thread's header with the previous thread's body.
   const openMessages = readerSelectionSettled
@@ -1748,7 +1753,7 @@ export function MailShell() {
                   renderMessageMenu={(message) => (
                     <MessageActionsMenu
                       message={message}
-                      plans={openThread?.plans ?? []}
+                      plans={openThreadPlanData?.plans ?? []}
                       setChatInput={setChatInput}
                       showFixWithChat={
                         !isAllAccounts ||

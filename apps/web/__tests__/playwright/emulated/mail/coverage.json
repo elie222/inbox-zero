@@ -81,7 +81,9 @@
   "message-actions.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
     "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/api/user/thread-plans/route.ts",
     "components/email-list/EmailMessage.tsx",
+    "hooks/useThreadPlans.ts",
     "utils/threads/load.ts"
   ],
   "message-overflow.spec.ts": ["components/email-list/EmailContents.tsx"],
