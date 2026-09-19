@@ -40,7 +40,7 @@ async function runHostedMail() {
     ...createRoutedBackendPorts(createSessionRequest(appOrigin)),
   });
   const window = new BrowserWindow({
-    show: false,
+    show: true,
     width: 1280,
     height: 800,
     webPreferences: {
@@ -64,6 +64,8 @@ async function runHostedMail() {
     await clickArchive(window, ARCHIVE_SUBJECT);
     await waitForMissingSubject(window, ARCHIVE_SUBJECT);
     const subjectsAfter = await readSubjects(window);
+    window.show();
+    await delay(250);
     await captureWindow(window);
     const nativeSubjects = await readNativeInboxSubjects(owner, accountId);
     process.stdout.write(

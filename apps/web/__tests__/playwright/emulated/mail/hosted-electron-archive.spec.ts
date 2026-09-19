@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
@@ -50,7 +50,22 @@ test("archives from hosted Next through desktop SQLite IPC", async ({
       false,
     );
     expect(payload.nativeInboxHasArchiveSubject).toBe(false);
-    await copyArtifact(screenshotPath);
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: payload.url,
+        transport: payload.transport,
+        sqliteExists: payload.sqliteExists,
+        nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
+        hadSubjectBefore: payload.subjectsBefore?.some((text) =>
+          text.includes(SUBJECT),
+        ),
+        hadSubjectAfter: payload.subjectsAfter?.some((text) =>
+          text.includes(SUBJECT),
+        ),
+      }),
+    });
+    await copyArtifact(screenshotPath, payload);
   } finally {
     await page.request
       .post(`/api/threads/${THREAD_ID}/unarchive`, {
@@ -118,12 +133,19 @@ function launchHostedElectron(input: {
   });
 }
 
-async function copyArtifact(screenshotPath: string) {
+async function copyArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
   try {
     await mkdir("/opt/cursor/artifacts", { recursive: true });
     await copyFile(
       screenshotPath,
       "/opt/cursor/artifacts/hosted-electron-archive.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-archive.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
     );
   } catch {
     // Evidence still lives on the Playwright output path.
