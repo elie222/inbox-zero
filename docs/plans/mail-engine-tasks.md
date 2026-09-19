@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `8ae2d6f1d`
+- Last implementation commit: `332f90c9b`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (desktop metadata/assistant, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: hosted Electron starring after conversation-click retry; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells (Gmail desktop metadata, desktop assistant, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: Gmail hosted Electron starring; desktop assistant two-launch catch-up; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 7 passed in 2.1m on `332f90c9b`; star 6.4s; `readerStarred`/`starSucceeded`/`nativeStarredHasSubject` true over `desktop-ipc` (E47)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed, 1 failed in 2.1m on `8ae2d6f1d`; discard 7.8s; send 14.3s; reconnect 6.8s; native draft gone after send; star failed on an empty conversation remount (E46)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed in 2.1m on `cf5499b94`; discard 10.2s; send 14.9s; native SQLite draft gone after discard; inspect send succeeded; Sent lists Hosted desktop send example (E45)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m on `33155a553`; spec 46.2s; keyboard S, CommandK Unstar, reader S, and More actions Star/Unstar all succeed (E43)
@@ -198,7 +199,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | --- | --- | --- | --- | --- | --- |
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36/E39) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
-| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26) | Partial: Outlook starring S/CommandK/menu (E43) | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
+| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26) | Partial: Outlook starring S/CommandK/menu (E43) | Not run | Partial: hosted Electron More actions Star + native starred inbox (E47) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
@@ -209,6 +210,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 ## Evidence log
 
+### E47. Hosted Outlook starring through desktop IPC (2026-09-19)
+
+- Tasks: partial C2/F3, partial E1 Outlook-desktop metadata
+- Tree: `cursor/mail-engine-0b4f` at `332f90c9b`
+- Commands:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 7 passed in 2.1m; star 6.4s; discard 9.0s; send 16.8s; reconnect 7.5s
+- What it proved: hosted Electron opens Second Unread Command Message over `desktop-ipc`, clicks More actions / Star with native `sendInputEvent` mouse events, the reader shows the starred marker, inspect `set_starred` succeeds, and native SQLite starred-inbox contains the subject.
+- Limitations: Gmail desktop starring and desktop assistant UI remain Not run. Bulk/container UI remain Not run. Do not check C2/F3/E1 boxes.
+
 ### E46. Hosted Outlook discard, send, and reconnect through desktop IPC (2026-09-19)
 
 - Tasks: partial C2/F3
@@ -216,7 +226,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed, 1 failed in 2.1m; discard 7.8s; send 14.3s; reconnect 6.8s
 - What it proved: Outlook hosted Electron discard removes Hosted desktop discard example from Drafts and native SQLite `role:draft`. Send observes the provider sent message so SQLite drops the draft role; inspect `kind:send` succeeds and Sent lists Hosted desktop send example over `desktop-ipc`. Reconnect still hits `/changes` without `/enumeration`.
-- Limitations: hosted Electron starring remounted an empty conversation list (options=0) before More actions. Desktop assistant UI remains Not run. Do not check C2/F3 boxes.
+- Limitations: hosted Electron starring remounted an empty conversation list (options=0) before More actions; starring is E47. Desktop assistant UI remains Not run. Do not check C2/F3 boxes.
 
 ### E45. Hosted Electron discard and send through desktop IPC (2026-09-19)
 
