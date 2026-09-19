@@ -230,6 +230,7 @@ describe("engine plus sqlite archive slice", () => {
             scopeId: "primary",
             changes: [...messages.values()],
             requiredHydration: [],
+            bodies: [],
             nextPage: null,
             catchUpFrom: {
               streamId: "primary",
@@ -1072,6 +1073,45 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
     await store.close();
   });
 
+  it("stores enumerated bodies so conversation content is available without hydrate", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["draft"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "1",
+          html: "<p>First saved reply</p>",
+          text: "First saved reply",
+        },
+      ],
+    });
+    const conversation = await store.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { after: null, pageSize: 10 },
+    );
+    expect(conversation.view.messages[0]?.content).toEqual({
+      status: "available",
+      html: "<p>First saved reply</p>",
+      text: "First saved reply",
+    });
+    await store.close();
+  });
+
   it("applies assistant archive catch-up without replacing a newer local draft", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -1596,6 +1636,7 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
           scopeId: "primary",
           changes: [...messages.values()],
           requiredHydration: [],
+          bodies: [],
           nextPage: null,
           catchUpFrom: {
             streamId: "primary",

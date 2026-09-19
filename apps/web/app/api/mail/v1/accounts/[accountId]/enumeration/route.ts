@@ -55,6 +55,7 @@ export const POST = withEmailProvider(
         scopeId: result.value.scopeId,
         changes: result.value.changes,
         requiredHydration: result.value.requiredHydration,
+        bodies: result.value.bodies,
         nextPage: result.value.nextPage,
         catchUpFrom: result.value.catchUpFrom,
       }),

@@ -36,7 +36,11 @@ import type {
   Coverage,
   MailboxView,
 } from "@inboxzero/mail-core/queries";
-import type { ProviderChange, SyncPage } from "@inboxzero/mail-core/sync";
+import type {
+  BodyObservation,
+  ProviderChange,
+  SyncPage,
+} from "@inboxzero/mail-core/sync";
 import type { SqlTransaction, SqliteDriver } from "./driver";
 import { migrateMailbox } from "./migrations";
 import { compilePredicate } from "./queries";
@@ -320,6 +324,10 @@ export async function createSqliteMailStore(
         for (const change of input.page.changes) {
           await applyChange(tx, change);
         }
+        for (const body of input.bodies ?? input.page.bodies ?? []) {
+          if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
+          await insertMessageContent(tx, body);
+        }
         for (const key of input.page.requiredHydration) {
           await tx.execute(
             `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
@@ -376,37 +384,7 @@ export async function createSqliteMailStore(
         for (const body of input.bodies) {
           if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
           applied += 1;
-          await tx.execute(
-            `INSERT INTO message_content(account_id, message_id, version, html, text)
-             VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(account_id, message_id) DO UPDATE SET
-               version = excluded.version, html = excluded.html, text = excluded.text`,
-            [
-              body.key.accountId,
-              body.key.messageId,
-              body.version,
-              body.html,
-              body.text,
-            ],
-          );
-          try {
-            await tx.execute(
-              "DELETE FROM message_fts WHERE account_id = ? AND message_id = ?",
-              [body.key.accountId, body.key.messageId],
-            );
-            await tx.execute(
-              `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
-               SELECT account_id, message_id, subject, preview, from_address, ?
-               FROM messages WHERE account_id = ? AND message_id = ?`,
-              [
-                body.text ?? body.html ?? "",
-                body.key.accountId,
-                body.key.messageId,
-              ],
-            );
-          } catch {
-            // FTS is optional when the runtime SQLite build omits it.
-          }
+          await insertMessageContent(tx, body);
         }
         if (
           applied === 0 &&
@@ -1782,6 +1760,36 @@ async function hasUnsatisfiedDependency(
     [row.account_id, row.command_id],
   );
   return blockers.length > 0;
+}
+
+async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
+  await tx.execute(
+    `INSERT INTO message_content(account_id, message_id, version, html, text)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, message_id) DO UPDATE SET
+       version = excluded.version, html = excluded.html, text = excluded.text`,
+    [
+      body.key.accountId,
+      body.key.messageId,
+      body.version,
+      body.html,
+      body.text,
+    ],
+  );
+  try {
+    await tx.execute(
+      "DELETE FROM message_fts WHERE account_id = ? AND message_id = ?",
+      [body.key.accountId, body.key.messageId],
+    );
+    await tx.execute(
+      `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
+       SELECT account_id, message_id, subject, preview, from_address, ?
+       FROM messages WHERE account_id = ? AND message_id = ?`,
+      [body.text ?? body.html ?? "", body.key.accountId, body.key.messageId],
+    );
+  } catch {
+    // FTS is optional when the runtime SQLite build omits it.
+  }
 }
 
 async function isStaleMessageVersion(

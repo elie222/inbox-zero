@@ -30,6 +30,7 @@ import type {
   QuerySnapshot,
 } from "../queries";
 import type {
+  BodyObservation,
   ConversationMembershipPage,
   ProviderChange,
   SyncPage,
@@ -158,6 +159,7 @@ export interface MailStore {
   applySyncPage(input: {
     page: SyncPage;
     ownerId: string;
+    bodies?: BodyObservation[];
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;

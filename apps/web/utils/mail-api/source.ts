@@ -90,6 +90,10 @@ export function createEmailProviderMailboxSource(input: {
         const changes = syncPage.messages.map((message) =>
           parsedMessagePatch(accountId, providerName, message),
         );
+        const { requiredHydration, bodies } = parsedMessageBodies(
+          accountId,
+          syncPage.messages,
+        );
         if (syncPage.nextPageToken) {
           return {
             status: "ok" as const,
@@ -97,12 +101,8 @@ export function createEmailProviderMailboxSource(input: {
               bootstrapId: "mailbox",
               scopeId: "primary",
               changes,
-              requiredHydration: syncPage.messages
-                .filter((message) => !message.textPlain && !message.textHtml)
-                .map((message) => ({
-                  accountId,
-                  messageId: message.id,
-                })),
+              requiredHydration,
+              bodies,
               nextPage: JSON.stringify({ pageToken: syncPage.nextPageToken }),
               catchUpFrom: null,
             },
@@ -114,7 +114,8 @@ export function createEmailProviderMailboxSource(input: {
             bootstrapId: "mailbox",
             scopeId: "primary",
             changes,
-            requiredHydration: [],
+            requiredHydration,
+            bodies,
             nextPage: null,
             catchUpFrom: {
               streamId: "primary",
@@ -160,9 +161,7 @@ export function createEmailProviderMailboxSource(input: {
                 evidence: page.cursor,
               })),
             ],
-            requiredHydration: page.upsertedMessages
-              .filter((message) => !message.textPlain && !message.textHtml)
-              .map((message) => ({ accountId, messageId: message.id })),
+            ...parsedMessageBodies(accountId, page.upsertedMessages),
             roundComplete: !page.hasMore,
           },
         };
@@ -189,9 +188,7 @@ export function createEmailProviderMailboxSource(input: {
               changes: result.messages.map((message) =>
                 parsedMessagePatch(accountId, providerName, message),
               ),
-              requiredHydration: result.messages
-                .filter((message) => !message.textPlain && !message.textHtml)
-                .map((message) => ({ accountId, messageId: message.id })),
+              ...parsedMessageBodies(accountId, result.messages),
               roundComplete: !result.nextPageToken,
             },
           };
@@ -311,6 +308,30 @@ export function createEmailProviderMailboxSource(input: {
       };
     },
   };
+}
+
+function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
+  const requiredHydration: Array<{ accountId: string; messageId: string }> = [];
+  const bodies: Array<{
+    key: { accountId: string; messageId: string };
+    version: string | null;
+    html: string | null;
+    text: string | null;
+  }> = [];
+  for (const message of messages) {
+    const key = { accountId, messageId: message.id };
+    if (message.textPlain || message.textHtml) {
+      bodies.push({
+        key,
+        version: message.historyId || null,
+        html: message.textHtml ?? null,
+        text: message.textPlain ?? null,
+      });
+    } else {
+      requiredHydration.push(key);
+    }
+  }
+  return { requiredHydration, bodies };
 }
 
 async function catchUpCheckpoint(

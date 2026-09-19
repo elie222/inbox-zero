@@ -38,6 +38,7 @@ export type EnumerationPage = {
   scopeId: string;
   changes: ProviderChange[];
   requiredHydration: MessageKey[];
+  bodies: BodyObservation[];
 } & (
   | { nextPage: string; catchUpFrom: null }
   | { nextPage: null; catchUpFrom: SyncPosition }

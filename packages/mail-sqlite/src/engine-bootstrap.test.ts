@@ -52,6 +52,44 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
+  it("stores enumerated bodies so bootstrap content is available without hydrate", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => {},
+        onEnumerate: () => {},
+        body: { html: "<p>First saved reply</p>", text: "First saved reply" },
+      }),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(5000);
+    const conversation = await store.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { after: null, pageSize: 10 },
+    );
+    expect(conversation.view.messages[0]?.content).toEqual({
+      status: "available",
+      html: "<p>First saved reply</p>",
+      text: "First saved reply",
+    });
+    await engine.close();
+  });
+
   it("removes local messages omitted from a completed bootstrap", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -105,6 +143,7 @@ function slowBootstrapSource(hooks: {
   onBootstrap: () => void;
   onEnumerate: () => void;
   readChangesOnce?: { status: "reset_required"; scopeId: string };
+  body?: { html: string | null; text: string | null };
 }): MailboxSource {
   const change = messagePatch("m1", "c1", ["inbox"]);
   let resetConsumed = false;
@@ -149,6 +188,16 @@ function slowBootstrapSource(hooks: {
           scopeId: "primary",
           changes: [change],
           requiredHydration: [],
+          bodies: hooks.body
+            ? [
+                {
+                  key: { accountId: "acc-1", messageId: "m1" },
+                  version: "1",
+                  html: hooks.body.html,
+                  text: hooks.body.text,
+                },
+              ]
+            : [],
           nextPage: null,
           catchUpFrom: {
             streamId: "primary",

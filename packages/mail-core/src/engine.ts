@@ -339,7 +339,11 @@ export function createMailEngine(input: {
         });
         if (changes.status === "page") {
           generations.set(work.session.accountId, work.session.generation);
-          await store.applySyncPage({ page: changes.page, ownerId });
+          await store.applySyncPage({
+            page: changes.page,
+            ownerId,
+            bodies: changes.page.bodies,
+          });
           await refreshViews();
           await noteConnection(work.session.accountId, "ok");
         } else if (changes.status === "reset_required") {
@@ -425,6 +429,7 @@ export function createMailEngine(input: {
           roundComplete: enumerated.value.nextPage === null,
         },
         ownerId,
+        bodies: enumerated.value.bodies,
       });
       page = enumerated.value.nextPage;
       if (!page) completed = true;
@@ -474,7 +479,11 @@ export function createMailEngine(input: {
         signal: signal ?? new AbortController().signal,
       });
       if (changes.status === "page") {
-        await store.applySyncPage({ page: changes.page, ownerId });
+        await store.applySyncPage({
+          page: changes.page,
+          ownerId,
+          bodies: changes.page.bodies,
+        });
         await refreshViews();
         await noteConnection(account.accountId, "ok");
       } else if (changes.status === "reset_required") {

@@ -122,6 +122,7 @@ export const enumerationResultSchema = z.object({
   scopeId: z.string(),
   changes: z.array(providerChangeSchema),
   requiredHydration: z.array(messageKeySchema),
+  bodies: z.array(bodyObservationSchema).max(1000).optional(),
   nextPage: z.string().max(16_384).nullable(),
   catchUpFrom: syncPositionSchema.nullable(),
 });

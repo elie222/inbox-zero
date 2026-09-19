@@ -42,17 +42,6 @@ export const providerChangeSchema = z.discriminatedUnion("kind", [
 ]);
 export type ProviderChange = z.infer<typeof providerChangeSchema>;
 
-export const syncPageSchema = z.object({
-  session: accountSessionSchema,
-  requestId: z.string().min(1).max(128),
-  from: syncPositionSchema,
-  to: syncPositionSchema,
-  changes: z.array(providerChangeSchema).max(1000),
-  requiredHydration: z.array(messageKeySchema).max(1000),
-  roundComplete: z.boolean(),
-});
-export type SyncPage = z.infer<typeof syncPageSchema>;
-
 export const bodyObservationSchema = z.object({
   key: messageKeySchema,
   version: z.string().max(512).nullable(),
@@ -60,6 +49,18 @@ export const bodyObservationSchema = z.object({
   text: z.string().max(5_000_000).nullable(),
 });
 export type BodyObservation = z.infer<typeof bodyObservationSchema>;
+
+export const syncPageSchema = z.object({
+  session: accountSessionSchema,
+  requestId: z.string().min(1).max(128),
+  from: syncPositionSchema,
+  to: syncPositionSchema,
+  changes: z.array(providerChangeSchema).max(1000),
+  requiredHydration: z.array(messageKeySchema).max(1000),
+  bodies: z.array(bodyObservationSchema).max(1000).optional(),
+  roundComplete: z.boolean(),
+});
+export type SyncPage = z.infer<typeof syncPageSchema>;
 
 export const conversationMembershipPageSchema = z.object({
   conversation: z.object({

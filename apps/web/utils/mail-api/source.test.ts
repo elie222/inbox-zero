@@ -319,6 +319,63 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("returns enumerated bodies when the provider already fetched them", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessagesWithPagination() {
+          return {
+            messages: [
+              {
+                id: "draft-1",
+                threadId: "t1",
+                historyId: "9",
+                headers: { from: "me@example.com" },
+                labelIds: ["DRAFT"],
+                snippet: "First",
+                textPlain: "First saved reply",
+                textHtml: "<p>First saved reply</p>",
+              },
+              {
+                id: "empty-1",
+                threadId: "t2",
+                historyId: "10",
+                headers: { from: "ada@example.com" },
+                labelIds: ["INBOX"],
+                snippet: "Hi",
+              },
+            ],
+          };
+        },
+        async getMailboxSyncPage() {
+          throw new Error("unused");
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: "{}",
+      pageSize: 50,
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.value.bodies).toEqual([
+      {
+        key: { accountId: "acc-1", messageId: "draft-1" },
+        version: "9",
+        html: "<p>First saved reply</p>",
+        text: "First saved reply",
+      },
+    ]);
+    expect(result.value.requiredHydration).toEqual([
+      { accountId: "acc-1", messageId: "empty-1" },
+    ]);
+  });
+
   it("blocks catch-up when provider authentication fails", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
