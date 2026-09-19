@@ -8,80 +8,136 @@ import { describe, expect, it } from "vitest";
 
 describe("desktop local mail renderer", () => {
   it("boots MailApp from bundled assets and archives without Next", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "electron-local-mail-"));
-    const rendererDir = join(directory, "renderer");
-    await mkdir(rendererDir, { recursive: true });
-    await esbuild.build({
-      entryPoints: [
-        join(
-          dirname(fileURLToPath(import.meta.url)),
-          "../../src/renderer/main.tsx",
-        ),
-      ],
-      outfile: join(rendererDir, "main.js"),
-      bundle: true,
-      platform: "browser",
-      format: "iife",
-      jsx: "automatic",
-      target: "chrome120",
-      define: { "process.env.NODE_ENV": '"production"' },
-    });
-    await writeFile(
-      join(rendererDir, "index.html"),
-      await readFile(
-        join(
-          dirname(fileURLToPath(import.meta.url)),
-          "../../src/renderer/index.html",
-        ),
-        "utf8",
-      ),
-    );
-    const preload = join(directory, "preload.cjs");
-    await esbuild.build({
-      entryPoints: [
-        join(dirname(fileURLToPath(import.meta.url)), "../../src/preload.ts"),
-      ],
-      outfile: preload,
-      bundle: true,
-      platform: "node",
-      format: "cjs",
-      external: ["electron"],
-    });
-    const outfile = join(directory, "electron-local-renderer.mjs");
-    await esbuild.build({
-      entryPoints: [
-        join(
-          dirname(fileURLToPath(import.meta.url)),
-          "electron-local-renderer-entry.ts",
-        ),
-      ],
-      outfile,
-      bundle: true,
-      platform: "node",
-      format: "esm",
-      external: ["electron"],
-    });
-    const electronBin = join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../node_modules/electron/dist/electron",
-    );
-    const output = await runElectron(electronBin, outfile, {
-      ELECTRON_PRELOAD: preload,
-      ELECTRON_RENDERER_HTML: join(rendererDir, "index.html"),
-    });
-    expect(output).toContain("ELECTRON_LOCAL_MAIL");
-    const line = output
-      .split("\n")
-      .find((item) => item.startsWith("ELECTRON_LOCAL_MAIL "));
-    const payload = JSON.parse(
-      line?.slice("ELECTRON_LOCAL_MAIL ".length) ?? "{}",
-    );
-    expect(payload.url).toContain("file:");
-    expect(payload.subjects).toContain("Local Mail Example");
-    expect(payload.inboxAfterArchive).toBe(0);
-    await rm(directory, { recursive: true, force: true });
+    const harness = await buildLocalMailHarness();
+    try {
+      const payload = await launchLocalMail(harness, {});
+      expect(payload.url).toContain("file:");
+      expect(payload.subjects).toContain("Local Mail Example");
+      expect(payload.inboxAfterArchive).toBe(0);
+    } finally {
+      await rm(harness.directory, { recursive: true, force: true });
+    }
+  }, 90_000);
+
+  it("reopens an archived mailbox offline from native SQLite", async () => {
+    const harness = await buildLocalMailHarness();
+    const mailboxDir = await mkdtemp(join(tmpdir(), "electron-offline-mail-"));
+    try {
+      const archived = await launchLocalMail(harness, {
+        ELECTRON_MAILBOX_DIR: mailboxDir,
+        ELECTRON_STAY_SUBJECT: "Stay Local",
+        ELECTRON_ARCHIVE_SUBJECT: "Archive Local",
+        ELECTRON_EXPECTED_SUBJECTS: "Stay Local|Archive Local",
+        ELECTRON_EXPECTED_INBOX: "1",
+      });
+      expect(archived.subjects).toEqual(
+        expect.arrayContaining(["Stay Local", "Archive Local"]),
+      );
+      expect(archived.inboxAfterArchive).toBe(1);
+
+      const reopened = await launchLocalMail(harness, {
+        ELECTRON_MAILBOX_DIR: mailboxDir,
+        ELECTRON_SKIP_SEED: "1",
+        ELECTRON_SKIP_ARCHIVE: "1",
+        ELECTRON_EXPECTED_SUBJECTS: "Stay Local",
+        ELECTRON_EXPECTED_INBOX: "1",
+      });
+      expect(reopened.url).toContain("file:");
+      expect(reopened.subjects).toContain("Stay Local");
+      expect(reopened.subjects).not.toContain("Archive Local");
+      expect(reopened.inboxCount).toBe(1);
+    } finally {
+      await rm(harness.directory, { recursive: true, force: true });
+      await rm(mailboxDir, { recursive: true, force: true });
+    }
   }, 90_000);
 });
+
+async function buildLocalMailHarness() {
+  const directory = await mkdtemp(join(tmpdir(), "electron-local-mail-"));
+  const rendererDir = join(directory, "renderer");
+  await mkdir(rendererDir, { recursive: true });
+  await esbuild.build({
+    entryPoints: [
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../src/renderer/main.tsx",
+      ),
+    ],
+    outfile: join(rendererDir, "main.js"),
+    bundle: true,
+    platform: "browser",
+    format: "iife",
+    jsx: "automatic",
+    target: "chrome120",
+    define: { "process.env.NODE_ENV": '"production"' },
+  });
+  await writeFile(
+    join(rendererDir, "index.html"),
+    await readFile(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../src/renderer/index.html",
+      ),
+      "utf8",
+    ),
+  );
+  const preload = join(directory, "preload.cjs");
+  await esbuild.build({
+    entryPoints: [
+      join(dirname(fileURLToPath(import.meta.url)), "../../src/preload.ts"),
+    ],
+    outfile: preload,
+    bundle: true,
+    platform: "node",
+    format: "cjs",
+    external: ["electron"],
+  });
+  const outfile = join(directory, "electron-local-renderer.mjs");
+  await esbuild.build({
+    entryPoints: [
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "electron-local-renderer-entry.ts",
+      ),
+    ],
+    outfile,
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    external: ["electron"],
+  });
+  return {
+    directory,
+    outfile,
+    preload,
+    rendererHtml: join(rendererDir, "index.html"),
+    electronBin: join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../node_modules/electron/dist/electron",
+    ),
+  };
+}
+
+async function launchLocalMail(
+  harness: Awaited<ReturnType<typeof buildLocalMailHarness>>,
+  extraEnv: Record<string, string>,
+) {
+  const output = await runElectron(harness.electronBin, harness.outfile, {
+    ELECTRON_PRELOAD: harness.preload,
+    ELECTRON_RENDERER_HTML: harness.rendererHtml,
+    ...extraEnv,
+  });
+  const line = output
+    .split("\n")
+    .find((item) => item.startsWith("ELECTRON_LOCAL_MAIL "));
+  return JSON.parse(line?.slice("ELECTRON_LOCAL_MAIL ".length) ?? "{}") as {
+    url?: string;
+    subjects?: string[];
+    inboxAfterArchive?: number;
+    inboxCount?: number;
+  };
+}
 
 function runElectron(
   binary: string,

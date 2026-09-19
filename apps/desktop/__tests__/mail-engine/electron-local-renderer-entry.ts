@@ -17,9 +17,13 @@ app.whenReady().then(() =>
 );
 
 async function runSmoke() {
-  const directory = await mkdtemp(join(tmpdir(), "electron-local-mail-"));
+  const directory = process.env.ELECTRON_MAILBOX_DIR
+    ? process.env.ELECTRON_MAILBOX_DIR
+    : await mkdtemp(join(tmpdir(), "electron-local-mail-"));
   const databasePath = join(directory, "mailbox.sqlite");
-  await seedMailbox(databasePath);
+  if (process.env.ELECTRON_SKIP_SEED !== "1") {
+    await seedMailbox(databasePath);
+  }
   const owner = await createDesktopMailOwner({
     databasePath,
     source: emptySource(),
@@ -46,21 +50,29 @@ async function runSmoke() {
     (_event: IpcMainInvokeEvent, payload: unknown) => owner.handleIpc(payload),
   );
   const renderer = requiredEnv("ELECTRON_RENDERER_HTML");
+  const expectedSubjects = process.env.ELECTRON_EXPECTED_SUBJECTS
+    ? process.env.ELECTRON_EXPECTED_SUBJECTS.split("|")
+    : ["Local Mail Example"];
   try {
     await window.loadFile(renderer, { query: { accountId: "acc-1" } });
-    const subjects = await waitForSubjects(window);
-    await window.webContents.executeJavaScript(`
-    [...document.querySelectorAll("ul[aria-label='Conversations'] button")]
-      .find((button) => button.textContent === "Archive")
-      ?.click();
-  `);
-    const afterArchive = await waitForEmptyInbox(owner);
+    const subjects = await waitForSubjects(window, expectedSubjects);
+    if (process.env.ELECTRON_SKIP_ARCHIVE !== "1") {
+      const archiveSubject =
+        process.env.ELECTRON_ARCHIVE_SUBJECT ?? "Local Mail Example";
+      await clickArchive(window, archiveSubject);
+      await waitForMissingSubject(window, archiveSubject);
+    }
+    const inboxCount = await waitForInboxCount(
+      owner,
+      Number(process.env.ELECTRON_EXPECTED_INBOX ?? "0"),
+    );
     process.stdout.write(
       `ELECTRON_LOCAL_MAIL ${JSON.stringify({
         electron: process.versions.electron,
         url: window.webContents.getURL(),
         subjects,
-        inboxAfterArchive: afterArchive,
+        inboxAfterArchive: inboxCount,
+        inboxCount,
       })}\n`,
     );
   } finally {
@@ -70,6 +82,27 @@ async function runSmoke() {
 }
 
 async function seedMailbox(databasePath: string) {
+  const staySubject = process.env.ELECTRON_STAY_SUBJECT;
+  const archiveSubject =
+    process.env.ELECTRON_ARCHIVE_SUBJECT ?? "Local Mail Example";
+  const changes = [
+    inboxMessage({
+      messageId: "m-local",
+      conversationId: "c-local",
+      subject: archiveSubject,
+      receivedAtMs: 1000,
+    }),
+  ];
+  if (staySubject) {
+    changes.push(
+      inboxMessage({
+        messageId: "m-stay",
+        conversationId: "c-stay",
+        subject: staySubject,
+        receivedAtMs: 2000,
+      }),
+    );
+  }
   const store = await createDesktopMailStore(databasePath);
   await store.ensureAccount({
     accountId: "acc-1",
@@ -92,7 +125,7 @@ async function seedMailbox(databasePath: string) {
         generation: "g1",
         checkpoint: "local",
       },
-      changes: [inboxMessage()],
+      changes,
       requiredHydration: [],
       roundComplete: true,
     },
@@ -101,61 +134,101 @@ async function seedMailbox(databasePath: string) {
   await store.close();
 }
 
-async function waitForSubjects(window: BrowserWindow) {
+async function waitForSubjects(window: BrowserWindow, expected: string[]) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const subjects = (await window.webContents.executeJavaScript(`
-      [...document.querySelectorAll("ul[aria-label='Conversations'] li button:first-of-type")]
-        .map((button) => button.textContent)
-    `)) as string[];
-    if (subjects.includes("Local Mail Example")) return subjects;
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    const subjects = await readSubjects(window);
+    if (expected.every((subject) => subjects.includes(subject))) {
+      return subjects;
+    }
+    await delay(250);
   }
   throw new Error("local mail renderer did not show the seeded conversation");
 }
 
-async function waitForEmptyInbox(
-  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
-) {
+async function waitForMissingSubject(window: BrowserWindow, subject: string) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const snapshot = (await owner.handleIpc({
-      protocolVersion: 1,
-      requestId: `obs-${attempt}`,
-      method: "observeMailbox",
-      payload: {
-        accountIds: ["acc-1"],
-        predicate: { kind: "role", role: "inbox" },
-        order: "newest_first",
-        pageSize: 25,
-        after: null,
-      },
-    })) as {
-      result?: { data?: { counts?: { matchingConversations?: number } } };
-    };
-    if (snapshot.result?.data?.counts?.matchingConversations === 0) {
-      return snapshot.result.data.counts.matchingConversations;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    const subjects = await readSubjects(window);
+    if (!subjects.includes(subject)) return;
+    await delay(250);
   }
-  throw new Error("archived conversation remained in the local inbox");
+  throw new Error(`${subject} remained in the local inbox`);
 }
 
-function inboxMessage(): Extract<ProviderChange, { kind: "message_patch" }> {
+async function clickArchive(window: BrowserWindow, subject: string) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const row = [...document.querySelectorAll("ul[aria-label='Conversations'] li")]
+        .find((item) => item.textContent.includes(${JSON.stringify(subject)}));
+      const button = [...(row?.querySelectorAll("button") ?? [])]
+        .find((item) => item.textContent === "Archive");
+      button?.click();
+      return Boolean(button);
+    })()
+  `)) as boolean;
+  if (!clicked) throw new Error(`Archive control missing for ${subject}`);
+}
+
+async function readSubjects(window: BrowserWindow) {
+  return (await window.webContents.executeJavaScript(`
+    [...document.querySelectorAll("ul[aria-label='Conversations'] li button:first-of-type")]
+      .map((button) => button.textContent)
+  `)) as string[];
+}
+
+async function waitForInboxCount(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  expected: number,
+) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const count = await readInboxCount(owner);
+    if (count === expected) return count;
+    await delay(250);
+  }
+  throw new Error(`inbox count did not become ${expected}`);
+}
+
+async function readInboxCount(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+) {
+  const snapshot = (await owner.handleIpc({
+    protocolVersion: 1,
+    requestId: "obs-count",
+    method: "observeMailbox",
+    payload: {
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    },
+  })) as {
+    result?: { data?: { counts?: { matchingConversations?: number } } };
+  };
+  return snapshot.result?.data?.counts?.matchingConversations ?? -1;
+}
+
+function inboxMessage(input: {
+  messageId: string;
+  conversationId: string;
+  subject: string;
+  receivedAtMs: number;
+}): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
-    key: { accountId: "acc-1", messageId: "m-local" },
+    key: { accountId: "acc-1", messageId: input.messageId },
     reference: {
       provider: "google",
-      messageId: "m-local",
-      conversationId: "c-local",
+      messageId: input.messageId,
+      conversationId: input.conversationId,
       version: "1",
     },
     fields: {
-      subject: "Local Mail Example",
+      subject: input.subject,
       preview: "Seeded for offline desktop boot",
       from: "ada@example.com",
       to: ["me@example.com"],
       cc: [],
-      receivedAtMs: 1000,
+      receivedAtMs: input.receivedAtMs,
       read: false,
       starred: false,
       folderId: "inbox",
@@ -168,6 +241,10 @@ function inboxMessage(): Extract<ProviderChange, { kind: "message_patch" }> {
 }
 
 function emptySource(): MailboxSource {
+  const members: Record<string, string> = {
+    "c-local": "m-local",
+    "c-stay": "m-stay",
+  };
   return {
     async describe() {
       return {
@@ -190,7 +267,7 @@ function emptySource(): MailboxSource {
       };
     },
     async enumerate() {
-      return { status: "reset_required", scopeId: "primary" };
+      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
     async readChanges() {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
@@ -199,10 +276,8 @@ function emptySource(): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
     async readConversationMembership({ conversation }) {
-      if (
-        conversation.accountId !== "acc-1" ||
-        conversation.conversationId !== "c-local"
-      ) {
+      const messageId = members[conversation.conversationId];
+      if (conversation.accountId !== "acc-1" || !messageId) {
         return { status: "ok", value: { status: "not_found" } };
       }
       return {
@@ -211,8 +286,8 @@ function emptySource(): MailboxSource {
           status: "page",
           page: {
             conversation,
-            resolutionId: "res-local",
-            keys: [{ accountId: "acc-1", messageId: "m-local" }],
+            resolutionId: `res-${conversation.conversationId}`,
+            keys: [{ accountId: "acc-1", messageId }],
             changes: [],
             nextPage: null,
             evidence: null,
@@ -233,4 +308,8 @@ function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
