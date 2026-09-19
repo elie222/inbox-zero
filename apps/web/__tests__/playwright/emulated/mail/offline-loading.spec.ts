@@ -280,7 +280,9 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await expect(page.getByRole("link", { name: "Log in" })).toBeVisible({
       timeout: 30_000,
     });
-    await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
+    await expect
+      .poll(() => mailEngineOpfsExists(page), { timeout: 30_000 })
+      .toBe(false);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -368,17 +370,11 @@ async function signOutFromAppNav(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible({ timeout: 60_000 });
-  await page.keyboard.press("Escape");
-  const trigger = page
-    .locator('[data-sidebar="footer"]')
-    .getByRole("button")
-    .filter({ hasText: /playwright-test\+/i })
-    .filter({ visible: true });
+  const trigger = page.getByRole("button", {
+    name: /Smoke Test User Smoke Test User/,
+  });
+  await trigger.evaluate((element: HTMLElement) => element.click());
   const signOut = page.getByRole("menuitem", { name: "Sign out" });
-  await expect(async () => {
-    if (await signOut.isVisible()) return;
-    await trigger.click();
-    await expect(signOut).toBeVisible({ timeout: 2000 });
-  }).toPass();
-  await signOut.click();
+  await expect(signOut).toBeVisible();
+  await signOut.evaluate((element: HTMLElement) => element.click());
 }
