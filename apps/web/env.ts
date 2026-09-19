@@ -355,6 +355,11 @@ const parsedEnv = createEnv({
       .default("inboxzero://"),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
     AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
+    // When false, skip writing new AI-source sender-pattern caches. Existing
+    // patterns still match, and user/label corrections still save. Defaults on
+    // so current deployments are unchanged. Also skipped per account when that
+    // account's decision model is Jev.
+    AI_SENDER_PATTERN_LEARNING_ENABLED: booleanString.optional().default(true),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),

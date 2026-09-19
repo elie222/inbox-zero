@@ -62,6 +62,10 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn(),
 }));
 
+vi.mock("@/utils/rule/ai-sender-pattern-learning", () => ({
+  shouldLearnAiSenderPatterns: vi.fn(() => true),
+}));
+
 vi.mock("@/utils/rule/check-sender-rule-history", () => ({
   checkSenderRuleHistory: vi.fn(),
 }));
@@ -73,12 +77,14 @@ vi.mock("@/utils/email/provider", () => ({
 import { POST } from "./route";
 import prisma from "@/utils/prisma";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
+import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
 
 describe("analyze sender pattern route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     headersMock.mockResolvedValue(new Headers());
     isValidInternalApiKeyMock.mockReturnValue(true);
+    vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -124,6 +130,24 @@ describe("analyze sender pattern route", () => {
         patternAnalyzed: true,
       },
     });
+    expect(aiDetectRecurringPattern).not.toHaveBeenCalled();
+  });
+
+  it("skips analysis when AI sender pattern learning is disabled", async () => {
+    vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(false);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      id: "email-account-1",
+      user: { aiProvider: null, aiModel: null },
+    } as any);
+
+    const response = await POST(createRequest() as never);
+
+    expect(response.status).toBe(200);
+    const processInBackground = afterMock.mock.calls[0]?.[0];
+    if (!processInBackground) throw new Error("Background process not queued");
+    await processInBackground();
+    expect(shouldLearnAiSenderPatterns).toHaveBeenCalled();
+    expect(prisma.newsletter.findFirst).not.toHaveBeenCalled();
     expect(aiDetectRecurringPattern).not.toHaveBeenCalled();
   });
 });
