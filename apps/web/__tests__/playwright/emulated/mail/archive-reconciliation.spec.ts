@@ -220,9 +220,7 @@ function inboxLink(page: Page) {
 }
 
 async function inboxUnreadBadge(page: Page) {
-  const name = (await inboxLink(page).textContent())
-    ?.replace(/\s+/g, " ")
-    .trim();
-  const match = name?.match(/^Inbox(?: (\d+))?$/);
+  const name = (await inboxLink(page).innerText()).replace(/\s+/g, " ").trim();
+  const match = name.match(/^Inbox(?: (\d+))?$/);
   return match?.[1] ? Number(match[1]) : 0;
 }
