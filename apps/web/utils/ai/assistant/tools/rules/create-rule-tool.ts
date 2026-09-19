@@ -80,7 +80,6 @@ export const createRuleTool = ({
           provider,
           runOnThreads: true,
           logger,
-          enablement: { source: "chat" },
         });
 
         const snapshot = await loadRuleSnapshotAfterWrite({

@@ -6,7 +6,6 @@ import { ActionType } from "@/generated/prisma/enums";
 import type { SystemType } from "@/generated/prisma/enums";
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
-import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
   createRuleHistory,
   ruleHistoryRuleInclude,
@@ -38,13 +37,8 @@ import {
   getOnlyIntegrationToolSpec,
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
-import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
-
-type CreateRuleEnablement =
-  | { source: "default" }
-  | { source: "chat"; chatRiskConfirmed?: boolean };
 
 export type RuleActionCreateData = Omit<
   Prisma.ActionCreateManyRuleInput,
@@ -361,7 +355,6 @@ export async function createRule({
   provider,
   runOnThreads,
   logger,
-  enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
@@ -369,7 +362,6 @@ export async function createRule({
   provider: string;
   runOnThreads: boolean;
   logger: Logger;
-  enablement?: CreateRuleEnablement;
 }) {
   try {
     logger.info("Creating rule", {
@@ -404,21 +396,7 @@ export async function createRule({
       data: {
         name: result.name,
         systemType,
-        enabled: shouldEnable(
-          result,
-          mappedActions.map((a) => ({
-            type: a.type,
-            subject: a.subject ?? null,
-            content: a.content ?? null,
-            to: a.to ?? null,
-            cc: a.cc ?? null,
-            bcc: a.bcc ?? null,
-            integrationName: a.integrationName ?? null,
-            integrationToolName: a.integrationToolName ?? null,
-            integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
-          })),
-          enablement,
-        ),
+        enabled: true,
         runOnThreads,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
@@ -665,43 +643,6 @@ export async function deleteRule({
   }
 
   await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
-}
-
-function shouldEnable(
-  rule: CreateOrUpdateRuleSchema,
-  actions: RiskAction[],
-  enablement: CreateRuleEnablement,
-) {
-  if (
-    hasExampleParams({
-      condition: rule.condition,
-      actions: rule.actions.map((a) => ({ content: a.fields?.content })),
-    })
-  )
-    return false;
-
-  if (enablement.source === "chat" && enablement.chatRiskConfirmed) {
-    return true;
-  }
-
-  if (enablement.source === "chat") {
-    if (hasWebhookAction(rule.actions)) {
-      return false;
-    }
-
-    const ruleCtx = ruleConditionsForRisk(rule);
-    return actions.every(
-      (action) => getActionRiskLevel(action, ruleCtx).level === "low",
-    );
-  }
-
-  if (rule.actions.find((a) => OUTBOUND_ACTION_TYPES.includes(a.type)))
-    return false;
-
-  const riskLevels = actions.map(
-    (action) => getActionRiskLevel(action, {}).level,
-  );
-  return riskLevels.every((level) => level === "low");
 }
 
 type RuleScopeKey =
@@ -1022,12 +963,6 @@ async function assertMessagingChannelsBelongToEmailAccount(
     throw new SafeError("Messaging channel not found");
   }
 }
-
-const OUTBOUND_ACTION_TYPES: ActionType[] = [
-  ActionType.REPLY,
-  ActionType.SEND_EMAIL,
-  ActionType.FORWARD,
-];
 
 function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
   return {
