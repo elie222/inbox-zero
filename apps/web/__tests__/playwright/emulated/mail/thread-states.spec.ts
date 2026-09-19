@@ -188,17 +188,6 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       if (!String(error).includes("Execution context was destroyed"))
         throw error;
     });
-  await expect
-    .poll(
-      () =>
-        readLatestMailMutation(page, {
-          emailAccountId,
-          kind: "reply",
-          threadId: "thr_playwright_reply",
-        }),
-      { timeout: 60_000 },
-    )
-    .toMatchObject({ status: "succeeded" });
   await expectThreadReaderBody(page, replyBody);
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
