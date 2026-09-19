@@ -9,8 +9,7 @@ import {
 } from "electron";
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
 import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
-import { mailApiHeaders } from "../../src/mail-engine/request";
-import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
+import { createOriginMailRequest } from "../../src/mail-engine/request";
 
 const PARTITION = "persist:inbox-zero";
 const ARCHIVE_SUBJECT =
@@ -88,19 +87,17 @@ async function runHostedMail() {
   }
 }
 
-function createSessionRequest(appOrigin: string): MailHttpRequestFn {
-  return async ({ method, path, body, signal }) => {
-    const response = await session
-      .fromPartition(PARTITION)
-      .fetch(new URL(path, appOrigin).toString(), {
-        method,
-        headers: mailApiHeaders(path, body !== undefined),
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal,
-      });
-    const json = await response.json().catch(() => null);
-    return { status: response.status, json };
-  };
+function createSessionRequest(appOrigin: string) {
+  const ses = session.fromPartition(PARTITION);
+  return createOriginMailRequest({
+    origin: appOrigin,
+    cookieHeader: async (url) => {
+      const cookies = await ses.cookies.get({ url });
+      return cookies
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join("; ");
+    },
+  });
 }
 
 async function injectAppCookies(appOrigin: string, storageStatePath: string) {

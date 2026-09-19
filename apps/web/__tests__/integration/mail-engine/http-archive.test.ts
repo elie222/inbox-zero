@@ -315,9 +315,10 @@ async function dispatchMailV1(request: NextRequest, accountId: string) {
     return postMembership(request, context);
   }
   if (resource.startsWith("operations/")) {
-    return request.method === "GET"
-      ? getOperation(request, context)
-      : putOperation(request, context);
+    if (request.method === "GET" || request.method === "POST") {
+      return getOperation(request, context);
+    }
+    return putOperation(request, context);
   }
   return new Response(JSON.stringify({ error: { code: "not_found" } }), {
     status: 404,

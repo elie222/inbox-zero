@@ -48,8 +48,7 @@ import {
 import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
-import { mailApiHeaders } from "./mail-engine/request";
-import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
+import { createOriginMailRequest } from "./mail-engine/request";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -624,19 +623,17 @@ function createDesktopMailProcess() {
   });
 }
 
-function createDesktopMailRequest(): MailHttpRequestFn {
-  return async ({ method, path, body, signal }) => {
-    const response = await session
-      .fromPartition(PARTITION)
-      .fetch(new URL(path, appOrigin).toString(), {
-        method,
-        headers: mailApiHeaders(path, body !== undefined),
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal,
-      });
-    const json = await response.json().catch(() => null);
-    return { status: response.status, json };
-  };
+function createDesktopMailRequest() {
+  const ses = session.fromPartition(PARTITION);
+  return createOriginMailRequest({
+    origin: appOrigin,
+    cookieHeader: async (url) => {
+      const cookies = await ses.cookies.get({ url });
+      return cookies
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join("; ");
+    },
+  });
 }
 
 function installLocalMailSmoke(window: BrowserWindow) {

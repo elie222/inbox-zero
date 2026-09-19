@@ -18,15 +18,27 @@ export const PUT = withEmailProvider(
   "mail/v1/operations",
   async (request, context) => {
     const params = await context.params;
-    const body = await request.json();
-    const requestId = mailRequestId(request, body);
+    const body = await request.json().catch(() => null);
+    const requestId = mailRequestId(
+      request,
+      body && typeof body === "object" ? body : undefined,
+    );
     const mismatch = accountMismatchResponse(
       request,
       params.accountId,
       requestId,
     );
     if (mismatch) return mismatch;
-    const version = unsupportedVersionResponse(requestId, body.protocolVersion);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 400 },
+      );
+    }
+    const version = unsupportedVersionResponse(
+      requestId,
+      (body as { protocolVersion?: unknown }).protocolVersion,
+    );
     if (version) return version;
     const parsed = operationAdmitRequestSchema.safeParse(body);
     if (!parsed.success) {
@@ -60,12 +72,15 @@ export const PUT = withEmailProvider(
   },
 );
 
-export const GET = withEmailProvider(
+const inspectOperation = withEmailProvider(
   "mail/v1/operations/inspect",
   async (request, context) => {
     const params = await context.params;
     const body = await request.json().catch(() => null);
-    const requestId = mailRequestId(request, body ?? undefined);
+    const requestId = mailRequestId(
+      request,
+      body && typeof body === "object" ? body : undefined,
+    );
     const mismatch = accountMismatchResponse(
       request,
       params.accountId,
@@ -101,3 +116,6 @@ export const GET = withEmailProvider(
     );
   },
 );
+
+export const POST = inspectOperation;
+export const GET = inspectOperation;

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MAIL_PROTOCOL_VERSION } from "../identities";
-import { createBackendMailboxSource } from "./backend-adapter";
+import {
+  createBackendMailboxSource,
+  createBackendOperationExecutor,
+} from "./backend-adapter";
 
 describe("backend mailbox source", () => {
   it("maps reset_required JSON without requiring the error envelope", async () => {
@@ -57,6 +60,54 @@ describe("backend mailbox source", () => {
     expect(body).toMatchObject({
       protocolVersion: MAIL_PROTOCOL_VERSION,
       requestId: "r1",
+    });
+  });
+});
+
+describe("backend operation executor", () => {
+  it("inspects over POST so Chromium can send the operation body", async () => {
+    let method: string | undefined;
+    let body: unknown;
+    const executor = createBackendOperationExecutor({
+      accountId: "acc-1",
+      request: async (input) => {
+        method = input.method;
+        body = input.body;
+        return {
+          status: 200,
+          json: {
+            status: "uncertain",
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: "inspect-op-1",
+            receiptId: null,
+          },
+        };
+      },
+    });
+    const result = await executor.inspect({
+      operation: {
+        key: { accountId: "acc-1", operationId: "op-1" },
+        session: { accountId: "acc-1", generation: "g1" },
+        authority: "backend",
+        payloadHash: "hash",
+        intent: {
+          kind: "metadata",
+          targets: [{ accountId: "acc-1", messageId: "m1" }],
+          change: { kind: "archive" },
+        },
+      },
+      receiptId: "receipt-1",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "uncertain",
+      receiptId: null,
+    });
+    expect(method).toBe("POST");
+    expect(body).toMatchObject({
+      protocolVersion: MAIL_PROTOCOL_VERSION,
+      requestId: "inspect-op-1",
+      receiptId: "receipt-1",
     });
   });
 });

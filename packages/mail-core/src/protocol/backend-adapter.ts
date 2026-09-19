@@ -306,7 +306,7 @@ export function createBackendOperationExecutor(input: {
     async inspect({ operation, receiptId, signal }) {
       const requestId = `inspect-${operation.key.operationId}`;
       const response = await request({
-        method: "GET",
+        method: "POST",
         path: `${base}/operations/${encodeURIComponent(operation.key.operationId)}`,
         body: operationInspectRequestSchema.parse({
           protocolVersion: MAIL_PROTOCOL_VERSION,

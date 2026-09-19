@@ -1,3 +1,5 @@
+import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
+
 export const EMAIL_ACCOUNT_HEADER = "X-Email-Account-ID";
 
 export function emailAccountIdFromMailApiPath(path: string): string | null {
@@ -19,6 +21,30 @@ export function mailApiHeaders(path: string, hasBody: boolean) {
     accept: "application/json",
     ...(accountId ? { [EMAIL_ACCOUNT_HEADER]: accountId } : {}),
     ...(hasBody ? { "content-type": "application/json" } : {}),
+  };
+}
+
+export function createOriginMailRequest(input: {
+  origin: string;
+  cookieHeader?: (url: string) => Promise<string> | string;
+}): MailHttpRequestFn {
+  return async ({ method, path, body, signal }) => {
+    const url = new URL(path, input.origin).toString();
+    const payload = body === undefined ? undefined : JSON.stringify(body);
+    const cookieHeader = input.cookieHeader
+      ? await input.cookieHeader(url)
+      : "";
+    const response = await fetch(url, {
+      method,
+      headers: {
+        ...mailApiHeaders(path, payload !== undefined),
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      },
+      body: payload,
+      signal,
+    });
+    const json = await response.json().catch(() => null);
+    return { status: response.status, json };
   };
 }
 
