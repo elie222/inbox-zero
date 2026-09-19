@@ -379,6 +379,7 @@ test("applies assistant archive after hosted Electron was stopped", async ({
     );
     expect(reopened.nativeInboxHasArchiveSubject).toBe(false);
     expect(reopened.assistantCursor).toMatch(/\S/);
+    expect(reopened.assistantStateRequests).toBeGreaterThan(0);
     testInfo.annotations.push({
       type: "hosted-electron-payload",
       description: JSON.stringify({
@@ -387,6 +388,7 @@ test("applies assistant archive after hosted Electron was stopped", async ({
         proof: reopened.proof,
         nativeInboxHasArchiveSubject: reopened.nativeInboxHasArchiveSubject,
         assistantCursor: reopened.assistantCursor,
+        assistantStateRequests: reopened.assistantStateRequests,
       }),
     });
     await copyAssistantArtifact(screenshotPath, reopened);
@@ -669,6 +671,7 @@ type HostedElectronPayload = {
   starSucceeded?: boolean;
   nativeStarredHasSubject?: boolean;
   assistantCursor?: string | null;
+  assistantStateRequests?: number;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {

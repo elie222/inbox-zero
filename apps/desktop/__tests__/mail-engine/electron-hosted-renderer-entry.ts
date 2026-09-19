@@ -93,7 +93,12 @@ async function runHostedMail() {
                 : PROOF === "assistant-baseline"
                   ? await proveAssistantBaseline(window, owner, accountId)
                   : PROOF === "assistant-reopen"
-                    ? await proveAssistantReopen(window, owner, accountId)
+                    ? await proveAssistantReopen(
+                        window,
+                        owner,
+                        accountId,
+                        authGate,
+                      )
                     : await proveSearchArchive(window, owner, accountId);
     if (PROOF !== "reconnect") {
       window.show();
@@ -319,6 +324,7 @@ async function proveAssistantReopen(
   window: BrowserWindow,
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
+  gate: BlockedAuthGate,
 ) {
   await waitForConversations(window);
   await waitForSubjectGone(window, ARCHIVE_SUBJECT);
@@ -336,6 +342,7 @@ async function proveAssistantReopen(
       item.includes(ARCHIVE_SUBJECT),
     ),
     assistantCursor,
+    assistantStateRequests: gate.assistantState,
   };
 }
 
@@ -378,7 +385,7 @@ function createSessionRequest(appOrigin: string): MailHttpRequestFn {
 }
 
 function createBlockedAuthGate(): BlockedAuthGate {
-  return { enabled: false, changes: 0, enumeration: 0 };
+  return { enabled: false, changes: 0, enumeration: 0, assistantState: 0 };
 }
 
 function wrapBlockedAuthRequest(
@@ -386,6 +393,9 @@ function wrapBlockedAuthRequest(
   gate: BlockedAuthGate,
 ): MailHttpRequestFn {
   return async (input) => {
+    if (input.path.includes("/assistant-state")) {
+      gate.assistantState += 1;
+    }
     if (input.path.includes("/changes") && gate.enabled) {
       gate.changes += 1;
       return {
@@ -1358,6 +1368,7 @@ type BlockedAuthGate = {
   enabled: boolean;
   changes: number;
   enumeration: number;
+  assistantState: number;
 };
 
 type StorageCookie = {
