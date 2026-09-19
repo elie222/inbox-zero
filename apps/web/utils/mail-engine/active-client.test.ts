@@ -3,6 +3,7 @@ import {
   closeActiveMailEngine,
   getActiveMailClient,
   setActiveMailClient,
+  subscribeMailEngineLogout,
 } from "./active-client";
 
 describe("closeActiveMailEngine", () => {
@@ -26,5 +27,13 @@ describe("closeActiveMailEngine", () => {
     } as never);
     await expect(closeActiveMailEngine()).resolves.toBeUndefined();
     expect(getActiveMailClient()).toBeNull();
+  });
+
+  it("notifies the runtime so it can drop the owner lock", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeMailEngineLogout(listener);
+    await closeActiveMailEngine();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });

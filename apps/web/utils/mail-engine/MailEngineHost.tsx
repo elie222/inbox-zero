@@ -29,7 +29,10 @@ import {
   disposeTabFollowerClient,
 } from "@/utils/mail-engine/tab-channel";
 import { waitForMetadataCoverage } from "@/utils/mail-engine/coverage";
-import { setActiveMailClient } from "@/utils/mail-engine/active-client";
+import {
+  setActiveMailClient,
+  subscribeMailEngineLogout,
+} from "@/utils/mail-engine/active-client";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 
 type MailEngineRuntimeStatus = {
@@ -143,7 +146,9 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         if (!abort.signal.aborted) setUnavailable(true);
       });
       client.requestSync([emailAccountId]).catch(() => undefined);
+      const unsubscribeLogout = subscribeMailEngineLogout(() => abort.abort());
       return () => {
+        unsubscribeLogout();
         abort.abort();
         if (published) disposeTabFollowerClient(published);
         clearMailEngineInspect();
@@ -226,7 +231,13 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       if (!abort.signal.aborted) setUnavailable(true);
     });
 
+    const unsubscribeLogout = subscribeMailEngineLogout(() => {
+      abort.abort();
+      engine?.close().catch(() => undefined);
+    });
+
     return () => {
+      unsubscribeLogout();
       abort.abort();
       unbindOwner?.();
       unbindHello?.();
