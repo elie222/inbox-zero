@@ -276,11 +276,9 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
-    await page
-      .locator('[data-sidebar="footer"]')
-      .locator("button")
-      .last()
-      .click();
+    // Mail renders a hidden mobile sidebar copy; click the visible user menu
+    // by name instead of `[data-sidebar="footer"] button`.last().
+    await page.getByRole("button", { name: /Smoke Test User/ }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
     await expect
