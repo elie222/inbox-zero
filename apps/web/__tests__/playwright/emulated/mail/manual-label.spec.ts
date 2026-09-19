@@ -176,9 +176,7 @@ test("L labels the open conversation after it leaves the unread list", async ({
   // Restore unread state through the UI so retries do not inherit the prior read.
   await conversation.click();
   await expect(
-    page.getByText("Another unread message for bulk-action checks.", {
-      exact: true,
-    }),
+    page.getByRole("heading", { name: "Second Unread Command Message" }),
   ).toBeVisible();
   await page
     .getByRole("group", { name: "Thread actions" })
