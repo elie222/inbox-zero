@@ -12,6 +12,7 @@ const HIDDEN_SUBJECT = "Keyboard Navigation Message";
 const DRAFT_SUBJECT = "Hosted desktop draft example";
 const DISCARD_SUBJECT = "Hosted desktop discard example";
 const SEND_SUBJECT = "Hosted desktop send example";
+const STAR_SUBJECT = "Second Unread Command Message";
 const electronBin = join(
   process.cwd(),
   "../desktop/node_modules/electron/dist/electron",
@@ -278,16 +279,66 @@ test("sends a compose draft from hosted Next through desktop SQLite IPC", async 
   await copySendArtifact(screenshotPath, payload);
 });
 
+test("stars a conversation from hosted Next through desktop SQLite IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-star.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "star",
+    starSubject: STAR_SUBJECT,
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.sqliteExists).toBe(true);
+  expect(payload.proof).toBe("star");
+  expect(payload.readerStarred).toBe(true);
+  expect(payload.starSucceeded).toBe(true);
+  expect(payload.nativeStarredHasSubject).toBe(true);
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      sqliteExists: payload.sqliteExists,
+      proof: payload.proof,
+      readerStarred: payload.readerStarred,
+      starSucceeded: payload.starSucceeded,
+      nativeStarredHasSubject: payload.nativeStarredHasSubject,
+    }),
+  });
+  await copyStarArtifact(screenshotPath, payload);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
   storageState: string;
   screenshotPath: string;
   searchScreenshotPath?: string;
-  proof?: "search-archive" | "compose" | "reconnect" | "discard" | "send";
+  proof?:
+    | "search-archive"
+    | "compose"
+    | "reconnect"
+    | "discard"
+    | "send"
+    | "star";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
+  starSubject?: string;
 }) {
   return new Promise<HostedElectronPayload>((resolve, reject) => {
     const child = spawn("node", [runner], {
@@ -312,6 +363,9 @@ function launchHostedElectron(input: {
           : {}),
         ...(input.sendSubject
           ? { ELECTRON_SEND_SUBJECT: input.sendSubject }
+          : {}),
+        ...(input.starSubject
+          ? { ELECTRON_STAR_SUBJECT: input.starSubject }
           : {}),
       },
     });
@@ -349,6 +403,25 @@ function launchHostedElectron(input: {
       }
     });
   });
+}
+
+async function copyStarArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(
+      screenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-star.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-star.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
 }
 
 async function copySendArtifact(
@@ -477,4 +550,8 @@ type HostedElectronPayload = {
   nativeDraftHasSendSubject?: boolean;
   nativeSentHasSendSubject?: boolean;
   sentSubjects?: string[];
+  starSubject?: string;
+  readerStarred?: boolean;
+  starSucceeded?: boolean;
+  nativeStarredHasSubject?: boolean;
 };

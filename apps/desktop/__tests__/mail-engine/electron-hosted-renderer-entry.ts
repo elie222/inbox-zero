@@ -25,6 +25,10 @@ const DISCARD_SUBJECT =
   process.env.ELECTRON_DISCARD_SUBJECT ?? "Hosted desktop discard example";
 const SEND_SUBJECT =
   process.env.ELECTRON_SEND_SUBJECT ?? "Hosted desktop send example";
+const STAR_SUBJECT =
+  process.env.ELECTRON_STAR_SUBJECT ?? "Second Unread Command Message";
+const STAR_THREAD_ID =
+  process.env.ELECTRON_STAR_THREAD_ID ?? "thr_playwright_3";
 const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
 const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
 
@@ -84,7 +88,9 @@ async function runHostedMail() {
             ? await proveDiscard(window, owner, accountId)
             : PROOF === "send"
               ? await proveSend(window, owner, accountId)
-              : await proveSearchArchive(window, owner, accountId);
+              : PROOF === "star"
+                ? await proveStar(window, owner, accountId)
+                : await proveSearchArchive(window, owner, accountId);
     if (PROOF !== "reconnect") {
       window.show();
       await delay(250);
@@ -251,6 +257,32 @@ async function proveSend(
       item.includes(SEND_SUBJECT),
     ),
     sentSubjects,
+  };
+}
+
+async function proveStar(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForSubject(window, STAR_SUBJECT);
+  await clickConversation(window, STAR_SUBJECT);
+  await clickMoreActionsStar(window);
+  const readerStarred = await waitForStarredReader(window);
+  const starSucceeded = await waitForStarSucceeded(window, STAR_THREAD_ID);
+  const nativeStarred = await waitForNativeStarredSubject(
+    owner,
+    accountId,
+    STAR_SUBJECT,
+    true,
+  );
+  return {
+    starSubject: STAR_SUBJECT,
+    readerStarred,
+    starSucceeded,
+    nativeStarredHasSubject: nativeStarred.some((item) =>
+      item.includes(STAR_SUBJECT),
+    ),
   };
 }
 
@@ -782,6 +814,37 @@ async function clickConversation(window: BrowserWindow, subject: string) {
   }
 }
 
+async function clickMoreActionsStar(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const clicked = (await window.webContents.executeJavaScript(`
+      (() => {
+        const more = [...document.querySelectorAll("button")].find((button) => {
+          const label = button.getAttribute("aria-label") ?? "";
+          const text = (button.textContent ?? "").trim();
+          return /^More actions/.test(label) || /^More actions/.test(text);
+        });
+        if (!(more instanceof HTMLElement)) return "missing-more";
+        const openMenu = document.querySelector('[role="menu"]');
+        if (!openMenu) {
+          more.click();
+          return "opened";
+        }
+        const star = [...openMenu.querySelectorAll('[role="menuitem"]')].find(
+          (item) => (item.textContent ?? "").trim() === "Star",
+        );
+        if (!(star instanceof HTMLElement)) return "missing-star";
+        star.click();
+        return "starred";
+      })()
+    `)) as "missing-more" | "opened" | "missing-star" | "starred";
+    if (clicked === "starred") return;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Star control missing: ${body.slice(0, 2000)}`);
+}
+
 async function clickDiscardDraft(window: BrowserWindow) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const clicked = (await window.webContents.executeJavaScript(`
@@ -867,6 +930,83 @@ async function waitForSendSucceeded(window: BrowserWindow) {
   throw new Error("hosted send never reached succeeded");
 }
 
+async function waitForStarredReader(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const visible = (await window.webContents.executeJavaScript(`
+      Boolean(
+        document.querySelector(
+          '[data-testid="thread-reader"] img[aria-label="Starred conversation"]',
+        ),
+      )
+    `)) as boolean;
+    if (visible) return true;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error("reader never showed Starred conversation");
+}
+
+async function waitForStarSucceeded(window: BrowserWindow, threadId: string) {
+  const slug = JSON.stringify(threadId.slice("thr_".length));
+  const expectedThreadId = JSON.stringify(threadId);
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const result = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.read) return { status: "missing" };
+        const diagnostics = await inspect.read();
+        const threadId = ${expectedThreadId};
+        const slug = ${slug};
+        const star = diagnostics?.commands
+          ?.filter((command) => {
+            const change = command.change;
+            if (change?.kind !== "set_starred" || change.starred !== true) {
+              return false;
+            }
+            if (command.conversationIds?.includes(threadId)) return true;
+            return (command.messageIds ?? []).some(
+              (messageId) =>
+                messageId === "msg_" + slug ||
+                messageId.startsWith("msg_" + slug + "_"),
+            );
+          })
+          .at(-1);
+        return star
+          ? { status: star.status, kind: star.change?.kind }
+          : { status: "missing" };
+      })()
+    `)) as { status?: string };
+    if (result.status === "succeeded") return true;
+    if (
+      result.status === "failed" ||
+      result.status === "cancelled" ||
+      result.status === "needs_attention"
+    ) {
+      throw new Error(`hosted star ${result.status}`);
+    }
+    await delay(500);
+  }
+  throw new Error("hosted star never reached succeeded");
+}
+
+async function waitForNativeStarredSubject(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  subject: string,
+  present: boolean,
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const subjects = await readNativeStarredSubjects(owner, accountId);
+    if (subjects.some((item) => item.includes(subject)) === present) {
+      return subjects;
+    }
+    await delay(500);
+  }
+  throw new Error(
+    `native starred ${present ? "never contained" : "still contained"} ${subject}`,
+  );
+}
+
 async function waitForNativeRoleSubject(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
@@ -898,6 +1038,39 @@ async function readNativeMailboxSubjects(
     payload: {
       accountIds: [accountId],
       predicate: { kind: "role", role },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    },
+  })) as {
+    result?: {
+      data?: { conversations?: Array<{ subject?: string }> };
+    };
+  };
+  return (
+    snapshot.result?.data?.conversations
+      ?.map((conversation) => conversation.subject)
+      .filter((subject): subject is string => Boolean(subject)) ?? []
+  );
+}
+
+async function readNativeStarredSubjects(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  const snapshot = (await owner.handleIpc({
+    protocolVersion: 1,
+    requestId: "hosted-starred",
+    method: "observeMailbox",
+    payload: {
+      accountIds: [accountId],
+      predicate: {
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          { kind: "starred", value: true },
+        ],
+      },
       order: "newest_first",
       pageSize: 25,
       after: null,

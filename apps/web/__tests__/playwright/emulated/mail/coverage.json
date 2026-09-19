@@ -19,7 +19,8 @@
     "utils/mail-engine/desktop-ipc.ts",
     "utils/mail-engine/runtime-mode.ts",
     "utils/mail-engine/MailEngineConnectionBanner.tsx",
-    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx"
   ],
   "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
