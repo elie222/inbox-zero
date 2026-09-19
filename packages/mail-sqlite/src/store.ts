@@ -560,6 +560,13 @@ export async function createSqliteMailStore(
           `UPDATE operations SET status = 'cancelled' WHERE account_id = ? AND command_id = ?`,
           [key.accountId, key.operationId],
         );
+        const frozenDraftId = frozenDraftIdFromPayload(current.payload_json);
+        if (frozenDraftId) {
+          await tx.execute(
+            "UPDATE drafts SET frozen = 0 WHERE account_id = ? AND draft_id = ?",
+            [key.accountId, frozenDraftId],
+          );
+        }
         const targets = await tx.query(
           "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
           [key.accountId, key.operationId],
@@ -1895,6 +1902,21 @@ function operationStatusFromTargets(
   if (rejected && !applied) return "failed";
   if (applied && !rejected) return "succeeded";
   return completeStatus;
+}
+
+function frozenDraftIdFromPayload(value: import("./driver").SqlValue) {
+  try {
+    const payload = JSON.parse(String(value)) as {
+      kind?: string;
+      frozenDraftId?: string;
+    };
+    if (payload.kind !== "send" || typeof payload.frozenDraftId !== "string") {
+      return null;
+    }
+    return payload.frozenDraftId || null;
+  } catch {
+    return null;
+  }
 }
 
 function parseOperationPayload(value: import("./driver").SqlValue) {

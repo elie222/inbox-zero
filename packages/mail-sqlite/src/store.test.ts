@@ -445,6 +445,80 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("unfreezes a draft when a queued send is cancelled", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-undo" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    const send = await store.admitSend({
+      commandId: "send-undo",
+      draft: { accountId: "acc-1", draftId: "d-undo" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    expect(send.status).toBe("queued");
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-undo" },
+          expectedRevision: saved.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    const cancelled = await store.cancelOperation({
+      accountId: "acc-1",
+      operationId: "send-undo",
+    });
+    expect(cancelled.status).toBe("cancelled");
+    const edited = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-undo" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi later",
+        editableHtml: "<p>Later</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(edited.status).toBe("saved");
+    expect(
+      await store.readDraft({ accountId: "acc-1", draftId: "d-undo" }),
+    ).toMatchObject({
+      status: "found",
+      content: { subject: "Hi later" },
+    });
+    await store.close();
+  });
+
   it("freezes the provider draft id into the send command", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
