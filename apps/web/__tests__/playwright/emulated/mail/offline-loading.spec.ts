@@ -80,6 +80,23 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
   context,
 }, testInfo) => {
+  const extraAssets = new Set<string>();
+  const onRequest = (request: { url(): string; resourceType(): string }) => {
+    const url = request.url();
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    if (
+      parsed.pathname.endsWith(".wasm") ||
+      request.resourceType() === "worker"
+    ) {
+      extraAssets.add(url);
+    }
+  };
+  context.on("request", onRequest);
   const { conversations } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
@@ -89,17 +106,42 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   const workerFile = path.resolve("public", workerName);
   try {
     // Dev mode has no precache manifest; production uses the worker built for CI.
+    // Dedicated workers fetch sqlite-wasm outside the page resource timeline.
     if (!production) {
-      const assets = await page.evaluate(() =>
+      const origin = new URL(page.url()).origin;
+      await expect
+        .poll(() =>
+          [...extraAssets].some((url) => {
+            try {
+              return new URL(url).pathname.endsWith(".wasm");
+            } catch {
+              return false;
+            }
+          }),
+        )
+        .toBe(true);
+      const pageAssets = await page.evaluate(() =>
         performance
           .getEntriesByType("resource")
           .map((entry) => entry.name)
-          .filter(
-            (url) =>
-              new URL(url).origin === location.origin &&
-              new URL(url).pathname.startsWith("/_next/static/"),
-          ),
+          .filter((url) => {
+            const parsed = new URL(url);
+            return (
+              parsed.origin === location.origin &&
+              parsed.pathname.startsWith("/_next/static/")
+            );
+          }),
       );
+      const assets = [
+        ...pageAssets,
+        ...[...extraAssets].filter((url) => {
+          try {
+            return new URL(url).origin === origin;
+          } catch {
+            return false;
+          }
+        }),
+      ];
       await build({
         entryPoints: ["app/sw.ts"],
         bundle: true,
@@ -246,6 +288,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       )
       .toBe(0);
   } finally {
+    context.off("request", onRequest);
     await context.setOffline(false);
     if (!production) await rm(workerFile, { force: true });
   }
