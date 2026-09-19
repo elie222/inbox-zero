@@ -65,13 +65,14 @@ export const POST = withEmailProvider(
         sizeBytes: parsed.data.sizeBytes,
       });
       if (staged.status !== "staged") {
+        const tooLarge = staged.code === "too_large";
         return NextResponse.json(
           mailHttpErrorResponse({
             requestId,
-            code: "invalid",
+            code: tooLarge ? "too_large" : "invalid",
             retryable: false,
           }),
-          { status: 400 },
+          { status: tooLarge ? 507 : 400 },
         );
       }
       const finalized = await store.finalize(parsed.data.uploadId);
@@ -97,10 +98,15 @@ export const POST = withEmailProvider(
         sizeBytes: finalized.sizeBytes,
         checksum: finalized.checksum,
       });
-    } catch {
+    } catch (error) {
+      const diskFull = isDiskFullError(error);
       return NextResponse.json(
-        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
-        { status: 400 },
+        mailHttpErrorResponse({
+          requestId,
+          code: diskFull ? "too_large" : "invalid",
+          retryable: false,
+        }),
+        { status: diskFull ? 507 : 400 },
       );
     }
   },
@@ -122,4 +128,9 @@ function decodeUploadBytes(body: unknown) {
     return null;
   }
   return bytes;
+}
+
+function isDiskFullError(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  return error.code === "ENOSPC" || error.code === "EDQUOT";
 }

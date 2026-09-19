@@ -4,6 +4,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { CommandK } from "./CommandK";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const displayedEmail = vi.hoisted(() => ({
   showEmail: vi.fn(),
@@ -144,6 +145,21 @@ describe("CommandK side-panel actions", () => {
     expect(displayedEmail.showEmail).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith({
       description: "Couldn't queue archiving this email",
+    });
+  });
+
+  it("explains a full command queue instead of a generic archive failure", async () => {
+    mail.client.submitConversations.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    render(<CommandK />);
+
+    await act(async () => shortcuts.handlers?.archive?.());
+
+    expect(displayedEmail.showEmail).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith({
+      description: admissionRejectionCopy("queue_full"),
     });
   });
 

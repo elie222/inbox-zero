@@ -29,6 +29,7 @@ export const mailHttpErrorCodeSchema = z.enum([
   "expired_position",
   "blocked_auth",
   "not_found",
+  "too_large",
 ]);
 
 export const mailHttpErrorSchema = z.object({

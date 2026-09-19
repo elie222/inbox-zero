@@ -4,6 +4,7 @@ import {
   type ThreadMutationPayload,
 } from "@/utils/mail-engine/mutation-change";
 import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { randomUuid } from "@/utils/uuid";
 
 type ThreadMailMutationTarget = {
@@ -72,7 +73,11 @@ export async function enqueueThreadMailMutationBatch(
       client,
       conversationId: target.threadId,
     });
-    if (admission.status === "rejected") continue;
+    if (admission.status === "rejected") {
+      const copy = admissionRejectionCopy(admission.code);
+      if (copy) throw new Error(copy);
+      continue;
+    }
     mutations.push({
       id: commandId,
       batchId,

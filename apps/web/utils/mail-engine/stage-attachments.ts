@@ -5,6 +5,7 @@ import {
 import { createMailHttpRequest } from "@/utils/mail-engine/http";
 import type { Attachment } from "@/utils/types/mail";
 import { randomUuid } from "@/utils/uuid";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 export async function stageSendAttachments(
   accountId: string,
@@ -43,7 +44,10 @@ export async function stageSendAttachments(
         ? response.json.blobId
         : null;
     if (response.status >= 400 || !blobId) {
-      throw new Error(`Could not stage ${attachment.filename} for sending.`);
+      throw new Error(
+        admissionRejectionCopy(httpErrorCode(response.json)) ??
+          `Could not stage ${attachment.filename} for sending.`,
+      );
     }
     ids.push(blobId);
   }
@@ -65,4 +69,11 @@ async function sha256Hex(bytes: Uint8Array) {
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function httpErrorCode(json: unknown) {
+  if (!json || typeof json !== "object" || !("error" in json)) return;
+  const error = json.error;
+  if (!error || typeof error !== "object" || !("code" in error)) return;
+  return typeof error.code === "string" ? error.code : undefined;
 }

@@ -4,6 +4,7 @@ import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { sendEmailToDraftContent } from "@/utils/mail-engine/draft-content";
 import { stageSendAttachments } from "@/utils/mail-engine/stage-attachments";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
 
@@ -72,9 +73,10 @@ export async function queueReaderEmail({
   });
   if (admission.status === "rejected") {
     throw new Error(
-      admission.code === "invalid"
-        ? "This reply is already queued with different content. Check the thread delivery status."
-        : "Could not queue this email. Try again.",
+      admissionRejectionCopy(admission.code) ??
+        (admission.code === "invalid"
+          ? "This reply is already queued with different content. Check the thread delivery status."
+          : "Could not queue this email. Try again."),
     );
   }
   await onQueued?.();

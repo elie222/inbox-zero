@@ -18,6 +18,7 @@ import {
   type ThreadMutationPayload,
 } from "@/utils/mail-engine/mutation-change";
 import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 type UndoableAction = "archive" | "trash";
 
@@ -92,10 +93,13 @@ export function useThreadActions({
       targets: ReturnType<typeof resolveTargets>,
       payload: ThreadMutationPayload,
     ) => {
-      if (!targets.length || !client) return [];
+      if (!targets.length || !client) {
+        return { snapshots: [], rejectionCodes: [] };
+      }
       const change = mutationPayloadToChange(payload);
-      if (!change) return [];
-      const results = [];
+      if (!change) return { snapshots: [], rejectionCodes: [] };
+      const snapshots = [];
+      const rejectionCodes: string[] = [];
       for (const target of targets) {
         const { admission, commandId } = await submitConversationChange({
           accountId: target.emailAccountId,
@@ -103,10 +107,13 @@ export function useThreadActions({
           client,
           conversationId: target.threadId,
         });
-        if (admission.status === "rejected") continue;
-        results.push({ ...target, mutationId: commandId });
+        if (admission.status === "rejected") {
+          rejectionCodes.push(admission.code);
+          continue;
+        }
+        snapshots.push({ ...target, mutationId: commandId });
       }
-      return results;
+      return { snapshots, rejectionCodes };
     },
     [client],
   );
@@ -184,13 +191,18 @@ export function useThreadActions({
   const runUndoable = useCallback(
     async (action: UndoableAction, threadKeys: string[]) => {
       const targets = resolveTargets(threadKeys);
-      const snapshots = await enqueueTargets(targets, { kind: action });
+      const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
+        kind: action,
+      });
       if (!snapshots.length) {
         if (threadKeys.length) {
           toast.error(
-            action === "archive"
-              ? "Couldn't queue archiving"
-              : "Couldn't queue deletion",
+            enqueueFailureCopy(
+              action === "archive"
+                ? "Couldn't queue archiving"
+                : "Couldn't queue deletion",
+              rejectionCodes,
+            ),
           );
         }
         return [];
@@ -211,9 +223,12 @@ export function useThreadActions({
       });
       if (failedCount) {
         toast.error(
-          action === "archive"
-            ? `Couldn't queue ${failedCount} of ${threadKeys.length} for archiving`
-            : `Couldn't queue ${failedCount} of ${threadKeys.length} for deletion`,
+          enqueueFailureCopy(
+            action === "archive"
+              ? `Couldn't queue ${failedCount} of ${threadKeys.length} for archiving`
+              : `Couldn't queue ${failedCount} of ${threadKeys.length} for deletion`,
+            rejectionCodes,
+          ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -224,7 +239,7 @@ export function useThreadActions({
   const setReadState = useCallback(
     async (threadKeys: string[], read: boolean, notifySuccess = true) => {
       const targets = resolveTargets(threadKeys);
-      const snapshots = await enqueueTargets(targets, {
+      const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
         kind: "set_read_state",
         read,
       });
@@ -238,9 +253,12 @@ export function useThreadActions({
       }
       if (failedCount) {
         toast.error(
-          failedCount === threadKeys.length
-            ? `Couldn't queue marking as ${read ? "read" : "unread"}`
-            : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
+          enqueueFailureCopy(
+            failedCount === threadKeys.length
+              ? `Couldn't queue marking as ${read ? "read" : "unread"}`
+              : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
+            rejectionCodes,
+          ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -250,12 +268,21 @@ export function useThreadActions({
 
   const setStarredState = useCallback(
     async (threadKeys: string[], starred: boolean) => {
-      const snapshots = await enqueueTargets(resolveTargets(threadKeys), {
-        kind: "set_starred_state",
-        starred,
-      });
-      if (snapshots.length < threadKeys.length)
-        toast.error("Couldn’t update stars for all conversations");
+      const { snapshots, rejectionCodes } = await enqueueTargets(
+        resolveTargets(threadKeys),
+        {
+          kind: "set_starred_state",
+          starred,
+        },
+      );
+      if (snapshots.length < threadKeys.length) {
+        toast.error(
+          enqueueFailureCopy(
+            "Couldn’t update stars for all conversations",
+            rejectionCodes,
+          ),
+        );
+      }
       return snapshots.map((snapshot) => snapshot.key);
     },
     [enqueueTargets, resolveTargets],
@@ -264,7 +291,7 @@ export function useThreadActions({
   const snooze = useCallback(
     async (threadKeys: string[], snoozedUntil: Date) => {
       const targets = resolveTargets(threadKeys);
-      const snapshots = await enqueueTargets(targets, {
+      const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
         kind: "snooze",
         scheduledFor: snoozedUntil.toISOString(),
       });
@@ -278,11 +305,14 @@ export function useThreadActions({
       }
       if (failedCount) {
         toast.error(
-          failedCount === threadKeys.length
-            ? threadKeys.length === 1
-              ? "Couldn't queue snoozing"
-              : "Couldn't queue snoozing conversations"
-            : `Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
+          enqueueFailureCopy(
+            failedCount === threadKeys.length
+              ? threadKeys.length === 1
+                ? "Couldn't queue snoozing"
+                : "Couldn't queue snoozing conversations"
+              : `Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
+            rejectionCodes,
+          ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -293,7 +323,9 @@ export function useThreadActions({
   const markSpam = useCallback(
     async (threadKeys: string[]) => {
       const targets = resolveTargets(threadKeys);
-      const snapshots = await enqueueTargets(targets, { kind: "spam" });
+      const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
+        kind: "spam",
+      });
       const failedCount = threadKeys.length - snapshots.length;
       if (snapshots.length) {
         toast.success(
@@ -304,9 +336,12 @@ export function useThreadActions({
       }
       if (failedCount) {
         toast.error(
-          failedCount === threadKeys.length
-            ? "Couldn't queue marking as spam"
-            : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+          enqueueFailureCopy(
+            failedCount === threadKeys.length
+              ? "Couldn't queue marking as spam"
+              : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+            rejectionCodes,
+          ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -337,4 +372,8 @@ export function useThreadActions({
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;
+}
+
+function enqueueFailureCopy(generic: string, rejectionCodes: string[]) {
+  return admissionRejectionCopy(rejectionCodes[0]) ?? generic;
 }

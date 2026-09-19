@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperationState } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import { queueReaderEmail } from "./queued-reply";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const staging = vi.hoisted(() => vi.fn());
 
@@ -95,6 +96,24 @@ describe("queueReaderEmail", () => {
         threadId: "thread",
       }),
     ).rejects.toThrow("different content");
+  });
+
+  it("explains a full command queue instead of a generic send failure", async () => {
+    const client = createClient();
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
+        emailAccountId: "account",
+        messageIds: ["message"],
+        online: false,
+        threadId: "thread",
+      }),
+    ).rejects.toThrow(admissionRejectionCopy("queue_full"));
   });
 
   it("observes the persisted provider result while online", async () => {

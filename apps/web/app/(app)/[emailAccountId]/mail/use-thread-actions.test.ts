@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListThread } from "./types";
 import { useThreadActions } from "./use-thread-actions";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const notifications = vi.hoisted(() => ({
   error: vi.fn(),
@@ -49,6 +50,18 @@ describe("useThreadActions", () => {
     expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith(
       "Couldn't queue archiving",
+    );
+  });
+
+  it("explains a full command queue instead of a generic archive failure", async () => {
+    mail.client.submitConversations.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    const { result } = renderActions();
+    await act(() => result.current.archive(["thread"]));
+    expect(notifications.error).toHaveBeenCalledWith(
+      admissionRejectionCopy("queue_full"),
     );
   });
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { enqueueThreadMailMutationBatch } from "./thread-mail-mutations";
+import { admissionRejectionCopy } from "./admission-notice";
 
 const mail = vi.hoisted(() => ({
   client: {
@@ -87,5 +88,19 @@ describe("thread mail mutation batches", () => {
 
     expect(result).toEqual({ batchId: "empty-batch", mutations: [] });
     expect(mail.client.submitConversations).not.toHaveBeenCalled();
+  });
+
+  it("throws when the local command queue is full", async () => {
+    mail.client.submitConversations.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    await expect(
+      enqueueThreadMailMutationBatch({
+        emailAccountId: "account",
+        threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
+        payload: { kind: "archive" },
+      }),
+    ).rejects.toThrow(admissionRejectionCopy("queue_full"));
   });
 });

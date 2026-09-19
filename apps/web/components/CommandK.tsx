@@ -51,6 +51,7 @@ import { useThread } from "@/hooks/useThread";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { mutationPayloadToChange } from "@/utils/mail-engine/mutation-change";
 import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
 
@@ -172,7 +173,12 @@ function CommandPaletteContent({
               conversationId: threadId,
             });
             if (admission.status === "rejected") {
-              throw new Error("rejected");
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn't queue archiving this email",
+              });
+              return;
             }
             showEmail(null);
           } catch {
@@ -207,7 +213,11 @@ function CommandPaletteContent({
               conversationId: threadId,
             });
             if (admission.status === "rejected") {
-              throw new Error("rejected");
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn’t update the star for this email",
+              });
             }
           } catch {
             toastError({
