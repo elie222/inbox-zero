@@ -14,6 +14,9 @@ import { createOriginMailRequest } from "../../src/mail-engine/request";
 const PARTITION = "persist:inbox-zero";
 const ARCHIVE_SUBJECT =
   process.env.ELECTRON_ARCHIVE_SUBJECT ?? "Archive Action Message";
+const SEARCH_QUERY = process.env.ELECTRON_SEARCH_QUERY ?? "Archive Action";
+const SEARCH_HIDDEN_SUBJECT =
+  process.env.ELECTRON_SEARCH_HIDDEN ?? "Keyboard Navigation Message";
 
 if (process.env.ELECTRON_USER_DATA) {
   app.setPath("userData", process.env.ELECTRON_USER_DATA);
@@ -60,12 +63,22 @@ async function runHostedMail() {
     await window.loadURL(mailUrl);
     const transport = await waitForTransport(window, "desktop-ipc");
     const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+    await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
+    await searchMailbox(window, SEARCH_QUERY);
+    const subjectsSearched = await waitForSearchResult(
+      window,
+      ARCHIVE_SUBJECT,
+      SEARCH_HIDDEN_SUBJECT,
+    );
+    await captureWindow(window, process.env.ELECTRON_SEARCH_SCREENSHOT_PATH);
+    await clearSearch(window);
+    await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
     await clickArchive(window, ARCHIVE_SUBJECT);
     await waitForMissingSubject(window, ARCHIVE_SUBJECT);
     const subjectsAfter = await readSubjects(window);
     window.show();
     await delay(250);
-    await captureWindow(window);
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
     const nativeSubjects = await readNativeInboxSubjects(owner, accountId);
     process.stdout.write(
       `ELECTRON_HOSTED_MAIL ${JSON.stringify({
@@ -75,6 +88,10 @@ async function runHostedMail() {
         sqlitePath,
         sqliteExists: existsSync(sqlitePath),
         subjectsBefore,
+        subjectsSearched,
+        searchHidHiddenSubject: !subjectsSearched.some((text) =>
+          text.includes(SEARCH_HIDDEN_SUBJECT),
+        ),
         subjectsAfter,
         nativeInboxHasArchiveSubject: nativeSubjects.some((item) =>
           item.includes(ARCHIVE_SUBJECT),
@@ -155,6 +172,67 @@ async function waitForMissingSubject(window: BrowserWindow, subject: string) {
   throw new Error(`${subject} remained in the hosted inbox`);
 }
 
+async function searchMailbox(window: BrowserWindow, query: string) {
+  const filled = (await window.webContents.executeJavaScript(`
+    (() => {
+      const input = document.querySelector('input[aria-label="Search mail"]');
+      if (!(input instanceof HTMLInputElement)) return false;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(input, ${JSON.stringify(query)});
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    })()
+  `)) as boolean;
+  if (!filled) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Search mail field missing");
+  }
+  await delay(50);
+  await window.webContents.executeJavaScript(`
+    document.querySelector('input[aria-label="Search mail"]')?.form?.requestSubmit()
+  `);
+}
+
+async function waitForSearchResult(
+  window: BrowserWindow,
+  visible: string,
+  hidden: string,
+) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const subjects = await readSubjects(window);
+    if (
+      subjects.some((text) => text.includes(visible)) &&
+      !subjects.some((text) => text.includes(hidden))
+    ) {
+      return subjects;
+    }
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SEARCH_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(
+    `hosted search ${JSON.stringify(SEARCH_QUERY)} did not hide ${hidden}: ${body.slice(0, 2000)}`,
+  );
+}
+
+async function clearSearch(window: BrowserWindow) {
+  const cleared = (await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('button[aria-label="Clear search"]');
+      if (!(button instanceof HTMLElement)) return false;
+      button.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (!cleared) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Clear search control missing");
+  }
+}
+
 async function clickArchive(window: BrowserWindow, subject: string) {
   const selection = (await window.webContents.executeJavaScript(`
     (() => {
@@ -174,7 +252,7 @@ async function clickArchive(window: BrowserWindow, subject: string) {
     })()
   `)) as { ok: boolean; optionCount?: number; checkboxCount?: number };
   if (!selection.ok) {
-    await captureWindow(window);
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
     throw new Error(
       `Selection checkbox missing for ${subject} (options=${selection.optionCount} checkboxes=${selection.checkboxCount})`,
     );
@@ -194,7 +272,7 @@ async function clickArchive(window: BrowserWindow, subject: string) {
     }
     await delay(50);
   }
-  await captureWindow(window);
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
   const body = await readBodyText(window);
   throw new Error(
     `Archive control missing for ${subject}: ${body.slice(0, 2000)}`,
@@ -250,8 +328,7 @@ async function readNativeInboxSubjects(
   );
 }
 
-async function captureWindow(window: BrowserWindow) {
-  const screenshotPath = process.env.ELECTRON_SCREENSHOT_PATH;
+async function captureWindow(window: BrowserWindow, screenshotPath?: string) {
   if (!screenshotPath) return;
   const image = await window.webContents.capturePage();
   writeFileSync(screenshotPath, image.toPNG());

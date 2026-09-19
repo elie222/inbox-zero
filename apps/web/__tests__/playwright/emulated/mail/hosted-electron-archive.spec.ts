@@ -8,6 +8,7 @@ import { getEmailAccountId } from "../account-test-helpers";
 
 const THREAD_ID = "thr_playwright_archive";
 const SUBJECT = "Archive Action Message";
+const HIDDEN_SUBJECT = "Keyboard Navigation Message";
 const electronBin = join(
   process.cwd(),
   "../desktop/node_modules/electron/dist/electron",
@@ -19,7 +20,7 @@ const runner = join(
 
 test.skip(!existsSync(electronBin), "Electron binary is not installed");
 
-test("archives from hosted Next through desktop SQLite IPC", async ({
+test("searches then archives from hosted Next through desktop SQLite IPC", async ({
   page,
   baseURL,
 }, testInfo) => {
@@ -29,6 +30,9 @@ test("archives from hosted Next through desktop SQLite IPC", async ({
   if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
 
   const screenshotPath = testInfo.outputPath("hosted-electron-archive.png");
+  const searchScreenshotPath = testInfo.outputPath(
+    "hosted-electron-search.png",
+  );
   await mkdir(dirname(screenshotPath), { recursive: true });
 
   const cleanupErrors: unknown[] = [];
@@ -38,6 +42,7 @@ test("archives from hosted Next through desktop SQLite IPC", async ({
       accountId: emailAccountId,
       storageState: authFile,
       screenshotPath,
+      searchScreenshotPath,
     });
     expect(payload.url).toMatch(/^https?:/);
     expect(payload.url).not.toContain("file:");
@@ -46,6 +51,13 @@ test("archives from hosted Next through desktop SQLite IPC", async ({
     expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
       true,
     );
+    expect(
+      payload.subjectsSearched?.some((text) => text.includes(SUBJECT)),
+    ).toBe(true);
+    expect(
+      payload.subjectsSearched?.some((text) => text.includes(HIDDEN_SUBJECT)),
+    ).toBe(false);
+    expect(payload.searchHidHiddenSubject).toBe(true);
     expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
       false,
     );
@@ -60,12 +72,16 @@ test("archives from hosted Next through desktop SQLite IPC", async ({
         hadSubjectBefore: payload.subjectsBefore?.some((text) =>
           text.includes(SUBJECT),
         ),
+        searchMatched: payload.subjectsSearched?.some((text) =>
+          text.includes(SUBJECT),
+        ),
+        searchHidHiddenSubject: payload.searchHidHiddenSubject,
         hadSubjectAfter: payload.subjectsAfter?.some((text) =>
           text.includes(SUBJECT),
         ),
       }),
     });
-    await copyArtifact(screenshotPath, payload);
+    await copyArtifact(screenshotPath, searchScreenshotPath, payload);
   } finally {
     await page.request
       .post(`/api/threads/${THREAD_ID}/unarchive`, {
@@ -84,6 +100,7 @@ function launchHostedElectron(input: {
   accountId: string;
   storageState: string;
   screenshotPath: string;
+  searchScreenshotPath: string;
 }) {
   return new Promise<HostedElectronPayload>((resolve, reject) => {
     const child = spawn("node", [runner], {
@@ -94,7 +111,9 @@ function launchHostedElectron(input: {
         ELECTRON_ACCOUNT_ID: input.accountId,
         ELECTRON_STORAGE_STATE: input.storageState,
         ELECTRON_SCREENSHOT_PATH: input.screenshotPath,
+        ELECTRON_SEARCH_SCREENSHOT_PATH: input.searchScreenshotPath,
         ELECTRON_ARCHIVE_SUBJECT: SUBJECT,
+        ELECTRON_SEARCH_HIDDEN: HIDDEN_SUBJECT,
       },
     });
     let stdout = "";
@@ -135,6 +154,7 @@ function launchHostedElectron(input: {
 
 async function copyArtifact(
   screenshotPath: string,
+  searchScreenshotPath: string,
   payload: HostedElectronPayload,
 ) {
   try {
@@ -142,6 +162,10 @@ async function copyArtifact(
     await copyFile(
       screenshotPath,
       "/opt/cursor/artifacts/hosted-electron-archive.png",
+    );
+    await copyFile(
+      searchScreenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-search.png",
     );
     await writeFile(
       "/opt/cursor/artifacts/hosted-electron-archive.json",
@@ -157,6 +181,8 @@ type HostedElectronPayload = {
   transport?: string | null;
   sqliteExists?: boolean;
   subjectsBefore?: string[];
+  subjectsSearched?: string[];
+  searchHidHiddenSubject?: boolean;
   subjectsAfter?: string[];
   nativeInboxHasArchiveSubject?: boolean;
 };
