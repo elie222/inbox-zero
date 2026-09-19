@@ -141,13 +141,58 @@ test("saves a compose draft from hosted Next through desktop SQLite IPC", async 
   await copyComposeArtifact(screenshotPath, payload);
 });
 
+test("reconnects hosted Next from blocked_auth catch-up through desktop IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-reconnect.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "reconnect",
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.url).toContain("reconnect=blocked");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.sqliteExists).toBe(true);
+  expect(payload.proof).toBe("reconnect");
+  expect(payload.connection).toBe("blocked_auth");
+  expect(payload.headingVisible).toBe(true);
+  expect(payload.changeRequests).toBeGreaterThan(0);
+  expect(payload.enumerationRequests).toBe(0);
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      sqliteExists: payload.sqliteExists,
+      proof: payload.proof,
+      connection: payload.connection,
+      headingVisible: payload.headingVisible,
+      changeRequests: payload.changeRequests,
+      enumerationRequests: payload.enumerationRequests,
+    }),
+  });
+  await copyReconnectArtifact(screenshotPath, payload);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
   storageState: string;
   screenshotPath: string;
   searchScreenshotPath?: string;
-  proof?: "search-archive" | "compose";
+  proof?: "search-archive" | "compose" | "reconnect";
   draftSubject?: string;
 }) {
   return new Promise<HostedElectronPayload>((resolve, reject) => {
@@ -206,6 +251,25 @@ function launchHostedElectron(input: {
   });
 }
 
+async function copyReconnectArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(
+      screenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-reconnect.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-reconnect.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
+}
+
 async function copyComposeArtifact(
   screenshotPath: string,
   payload: HostedElectronPayload,
@@ -261,4 +325,9 @@ type HostedElectronPayload = {
   nativeInboxHasArchiveSubject?: boolean;
   draftSubjects?: string[];
   nativeDraftHasSubject?: boolean;
+  connection?: string | null;
+  changeRequests?: number;
+  enumerationRequests?: number;
+  reconnectUrl?: string;
+  headingVisible?: boolean;
 };

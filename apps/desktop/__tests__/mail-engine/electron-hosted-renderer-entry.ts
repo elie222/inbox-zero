@@ -10,6 +10,7 @@ import {
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
 import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
+import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 
 const PARTITION = "persist:inbox-zero";
 const PROOF = process.env.ELECTRON_PROOF ?? "search-archive";
@@ -41,10 +42,13 @@ async function runHostedMail() {
   const appOrigin = getDesktopAppOrigin(requiredEnv("ELECTRON_APP_URL"));
   const accountId = requiredEnv("ELECTRON_ACCOUNT_ID");
   const sqlitePath = join(app.getPath("userData"), "mailbox.sqlite");
+  const authGate = createBlockedAuthGate();
   await injectAppCookies(appOrigin, requiredEnv("ELECTRON_STORAGE_STATE"));
   const owner = await createDesktopMailOwner({
     databasePath: sqlitePath,
-    ...createRoutedBackendPorts(createSessionRequest(appOrigin)),
+    ...createRoutedBackendPorts(
+      wrapBlockedAuthRequest(createSessionRequest(appOrigin), authGate),
+    ),
   });
   const window = new BrowserWindow({
     show: true,
@@ -70,10 +74,14 @@ async function runHostedMail() {
     const payload =
       PROOF === "compose"
         ? await proveCompose(window, owner, accountId)
-        : await proveSearchArchive(window, owner, accountId);
-    window.show();
-    await delay(250);
-    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+        : PROOF === "reconnect"
+          ? await proveReconnect(window, accountId, authGate)
+          : await proveSearchArchive(window, owner, accountId);
+    if (PROOF !== "reconnect") {
+      window.show();
+      await delay(250);
+      await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    }
     process.stdout.write(
       `ELECTRON_HOSTED_MAIL ${JSON.stringify({
         electron: process.versions.electron,
@@ -154,7 +162,32 @@ async function proveCompose(
   };
 }
 
-function createSessionRequest(appOrigin: string) {
+async function proveReconnect(
+  window: BrowserWindow,
+  accountId: string,
+  gate: BlockedAuthGate,
+) {
+  await waitForSubject(window, ARCHIVE_SUBJECT);
+  gate.enabled = true;
+  await waitForReconnectBanner(window);
+  window.show();
+  await delay(250);
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const connection = await readInspectConnection(window);
+  const reconnectPath = `/${accountId}/mail?reconnect=blocked`;
+  await stubLinkingAuthUrl(window, reconnectPath);
+  await clickReconnect(window);
+  await waitForReconnectUrl(window, reconnectPath);
+  return {
+    connection,
+    changeRequests: gate.changes,
+    enumerationRequests: gate.enumeration,
+    reconnectUrl: window.webContents.getURL(),
+    headingVisible: true,
+  };
+}
+
+function createSessionRequest(appOrigin: string): MailHttpRequestFn {
   const ses = session.fromPartition(PARTITION);
   return createOriginMailRequest({
     origin: appOrigin,
@@ -165,6 +198,37 @@ function createSessionRequest(appOrigin: string) {
         .join("; ");
     },
   });
+}
+
+function createBlockedAuthGate(): BlockedAuthGate {
+  return { enabled: false, changes: 0, enumeration: 0 };
+}
+
+function wrapBlockedAuthRequest(
+  request: MailHttpRequestFn,
+  gate: BlockedAuthGate,
+): MailHttpRequestFn {
+  return async (input) => {
+    if (input.path.includes("/changes") && gate.enabled) {
+      gate.changes += 1;
+      return {
+        status: 401,
+        json: {
+          protocolVersion: 1,
+          requestId: "hosted-electron-blocked-auth",
+          error: {
+            code: "blocked_auth",
+            retryable: true,
+            retryAfterMs: null,
+          },
+        },
+      };
+    }
+    if (gate.enabled && input.path.includes("/enumeration")) {
+      gate.enumeration += 1;
+    }
+    return request(input);
+  };
 }
 
 async function injectAppCookies(appOrigin: string, storageStatePath: string) {
@@ -603,6 +667,90 @@ function electronSameSite(
   return "lax";
 }
 
+async function waitForReconnectBanner(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const visible = (await window.webContents.executeJavaScript(`
+      [...document.querySelectorAll("h2")].some(
+        (heading) =>
+          heading.textContent === "Reconnect this account to continue syncing.",
+      )
+    `)) as boolean;
+    if (visible) return;
+    await delay(500);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(
+    `Reconnect banner missing after blocked_auth: ${body.slice(0, 2000)}`,
+  );
+}
+
+async function readInspectConnection(window: BrowserWindow) {
+  return (await window.webContents.executeJavaScript(`
+    (async () => {
+      const inspect = window.__inboxZeroMailInspect;
+      if (!inspect?.read) return null;
+      const diagnostics = await inspect.read();
+      return diagnostics?.connection ?? null;
+    })()
+  `)) as string | null;
+}
+
+async function stubLinkingAuthUrl(
+  window: BrowserWindow,
+  reconnectPath: string,
+) {
+  const patched = (await window.webContents.executeJavaScript(`
+    (() => {
+      const original = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = String(input);
+        if (url.includes("/linking/auth-url")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ url: ${JSON.stringify(reconnectPath)} }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            ),
+          );
+        }
+        return original(input, init);
+      };
+      return true;
+    })()
+  `)) as boolean;
+  if (!patched) throw new Error("Could not stub linking auth-url fetch");
+}
+
+async function clickReconnect(window: BrowserWindow) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find(
+        (item) => item.textContent?.trim() === "Reconnect",
+      );
+      if (!(button instanceof HTMLElement)) return false;
+      button.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (!clicked) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Reconnect control missing");
+  }
+}
+
+async function waitForReconnectUrl(
+  window: BrowserWindow,
+  reconnectPath: string,
+) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (window.webContents.getURL().includes("reconnect=blocked")) return;
+    await delay(250);
+  }
+  throw new Error(
+    `hosted mail did not open ${reconnectPath}: ${window.webContents.getURL()}`,
+  );
+}
+
 function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -612,6 +760,12 @@ function requiredEnv(name: string) {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+type BlockedAuthGate = {
+  enabled: boolean;
+  changes: number;
+  enumeration: number;
+};
 
 type StorageCookie = {
   name: string;
