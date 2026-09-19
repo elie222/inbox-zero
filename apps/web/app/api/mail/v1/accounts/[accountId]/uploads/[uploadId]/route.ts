@@ -7,6 +7,7 @@ import {
 import {
   accountMismatchResponse,
   mailRequestId,
+  protocolVersionFromRequest,
   unsupportedVersionResponse,
 } from "@/utils/mail-api/authorization";
 import {
@@ -93,10 +94,3 @@ export const DELETE = withEmailProvider(
     });
   },
 );
-
-function protocolVersionFromRequest(request: { nextUrl: URL }) {
-  const raw = request.nextUrl.searchParams.get("protocolVersion");
-  if (raw == null || raw === "") return;
-  const version = Number(raw);
-  return Number.isFinite(version) ? version : raw;
-}

@@ -4,6 +4,7 @@ import {
   blobIdSchema,
   conversationKeySchema,
   MAIL_PROTOCOL_VERSION,
+  messageIdSchema,
   messageKeySchema,
 } from "../identities";
 import { mailPredicateSchema } from "../queries";
@@ -314,6 +315,11 @@ export const assistantStateResultSchema = z.object({
       payload: z.unknown(),
     }),
   ),
+});
+
+export const attachmentContentQuerySchema = z.object({
+  messageId: messageIdSchema,
+  attachmentId: z.string().min(1).max(2048),
 });
 
 export const uploadAdmitRequestSchema = z.object({

@@ -62,6 +62,70 @@ describe("backend mailbox source", () => {
       requestId: "r1",
     });
   });
+
+  it("streams attachment-content bytes over GET", async () => {
+    let path: string | undefined;
+    let accept: string | undefined;
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async (input) => {
+        path = input.path;
+        accept = input.accept;
+        return {
+          status: 200,
+          json: null,
+          bytes: (async function* () {
+            yield new Uint8Array([1, 2, 3]);
+          })(),
+          sizeBytes: 3,
+        };
+      },
+    });
+    const result = await source.readAttachment({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      key: { accountId: "acc-1", messageId: "m1" },
+      attachmentId: "att-1",
+    });
+    expect(accept).toBe("bytes");
+    expect(path).toContain("/attachment-content?");
+    expect(path).toContain("messageId=m1");
+    expect(path).toContain("attachmentId=att-1");
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of result.value.bytes) chunks.push(chunk);
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from([1, 2, 3]));
+    expect(result.value.sizeBytes).toBe(3);
+  });
+
+  it("does not retry a missing attachment", async () => {
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async () => ({
+        status: 404,
+        json: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: "r1",
+          error: { code: "not_found", retryable: false },
+        },
+      }),
+    });
+    await expect(
+      source.readAttachment({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        signal: new AbortController().signal,
+        key: { accountId: "acc-1", messageId: "missing" },
+        attachmentId: "att-1",
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      retryAfterMs: 0,
+      reason: "unavailable",
+    });
+  });
 });
 
 describe("backend operation executor", () => {

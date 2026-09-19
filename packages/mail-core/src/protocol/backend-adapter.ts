@@ -30,7 +30,13 @@ export type MailHttpRequestFn = (input: {
   path: string;
   body?: unknown;
   signal: AbortSignal;
-}) => Promise<{ status: number; json: unknown }>;
+  accept?: "json" | "bytes";
+}) => Promise<{
+  status: number;
+  json: unknown;
+  bytes?: AsyncIterable<Uint8Array>;
+  sizeBytes?: number | null;
+}>;
 
 export function createBackendMailboxSource(input: {
   request: MailHttpRequestFn;
@@ -274,8 +280,39 @@ export function createBackendMailboxSource(input: {
         },
       };
     },
-    async readAttachment() {
-      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    async readAttachment({ requestId, key, attachmentId, signal }) {
+      if (key.accountId !== accountId) {
+        return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+      }
+      const params = new URLSearchParams({
+        messageId: key.messageId,
+        attachmentId,
+        requestId,
+        protocolVersion: String(MAIL_PROTOCOL_VERSION),
+      });
+      const response = await request({
+        method: "GET",
+        path: `${base}/attachment-content?${params}`,
+        signal,
+        accept: "bytes",
+      });
+      const error = parseError(response);
+      if (error) {
+        if (error.error.code === "not_found") {
+          return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+        }
+        return mapReadError(error);
+      }
+      if (response.status >= 400 || !response.bytes) {
+        return { status: "paused", retryAfterMs: 1000, reason: "unavailable" };
+      }
+      return {
+        status: "ok",
+        value: {
+          bytes: response.bytes,
+          sizeBytes: response.sizeBytes ?? null,
+        },
+      };
     },
   };
 }

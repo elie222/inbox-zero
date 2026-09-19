@@ -531,4 +531,64 @@ describe("createEmailProviderMailboxSource", () => {
     });
     expect(result).toEqual({ status: "blocked_auth" });
   });
+
+  it("streams attachment bytes from the provider", async () => {
+    const bytes = new Uint8Array([7, 8, 9]);
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getAttachmentStream(messageId, attachmentId, signal) {
+          expect(messageId).toBe("m1");
+          expect(attachmentId).toBe("att-1");
+          expect(signal).toBeDefined();
+          return new ReadableStream({
+            start(controller) {
+              controller.enqueue(bytes);
+              controller.close();
+            },
+          });
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.readAttachment({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      key: { accountId: "acc-1", messageId: "m1" },
+      attachmentId: "att-1",
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of result.value.bytes) chunks.push(chunk);
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from(bytes));
+  });
+
+  it("pauses attachment reads when the provider is unavailable", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getAttachmentStream() {
+          throw new Error("provider down");
+        },
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.readAttachment({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        signal: new AbortController().signal,
+        key: { accountId: "acc-1", messageId: "m1" },
+        attachmentId: "att-1",
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      retryAfterMs: 1000,
+      reason: "unavailable",
+    });
+  });
 });

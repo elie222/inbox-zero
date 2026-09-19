@@ -291,18 +291,22 @@ export function createEmailProviderMailboxSource(input: {
       };
     },
     async readAttachment({ key, attachmentId, signal }) {
-      const stream = await provider.getAttachmentStream(
-        key.messageId,
-        attachmentId,
-        signal,
-      );
-      return {
-        status: "ok",
-        value: {
-          bytes: streamToIterable(stream),
-          sizeBytes: null,
-        },
-      };
+      try {
+        const stream = await provider.getAttachmentStream(
+          key.messageId,
+          attachmentId,
+          signal,
+        );
+        return {
+          status: "ok" as const,
+          value: {
+            bytes: streamToIterable(stream),
+            sizeBytes: null,
+          },
+        };
+      } catch (error) {
+        return mapProviderError(error);
+      }
     },
   };
 }

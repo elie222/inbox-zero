@@ -49,4 +49,11 @@ export function unsupportedVersionResponse(
   );
 }
 
+export function protocolVersionFromRequest(request: { nextUrl: URL }) {
+  const raw = request.nextUrl.searchParams.get("protocolVersion");
+  if (raw == null || raw === "") return;
+  const version = Number(raw);
+  return Number.isFinite(version) ? version : raw;
+}
+
 export { MAIL_PROTOCOL_VERSION };
