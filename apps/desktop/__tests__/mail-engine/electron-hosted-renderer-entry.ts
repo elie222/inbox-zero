@@ -164,6 +164,8 @@ async function runProof(input: {
         input.accountId,
         input.gate,
       );
+    case "inbox-counts":
+      return proveInboxCounts(input.window, input.owner, input.accountId);
     default:
       return proveSearchArchive(input.window, input.owner, input.accountId);
   }
@@ -662,6 +664,54 @@ async function proveQueuedRestart(
   };
 }
 
+async function proveInboxCounts(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForConversations(window);
+  await waitForSubject(window, STAR_SUBJECT);
+  const inboxUnreadBefore = await waitForInboxUnreadBadge(
+    window,
+    (count) => count > 0,
+  );
+  await clickArchive(window, STAR_SUBJECT);
+  await waitForSubjectGone(window, STAR_SUBJECT);
+  const inboxUnreadAfterArchive = await waitForInboxUnreadBadge(
+    window,
+    (count) => count === inboxUnreadBefore - 1,
+  );
+  await clickExactButton(window, "Unread");
+  await waitForSubjectGone(window, STAR_SUBJECT);
+  await waitForInspectSucceeded(window, {
+    kind: "archive",
+    threadId: STAR_THREAD_ID,
+  });
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    STAR_SUBJECT,
+    false,
+  );
+  await clickExactButton(window, "All");
+  await providerUnarchive(window, accountId, STAR_THREAD_ID);
+  await waitForSubject(window, STAR_SUBJECT);
+  const inboxUnreadAfterRestore = await waitForInboxUnreadBadge(
+    window,
+    (count) => count === inboxUnreadBefore,
+  );
+  await clickExactButton(window, "Unread");
+  await waitForSubject(window, STAR_SUBJECT);
+  return {
+    inboxUnreadBefore,
+    inboxUnreadAfterArchive,
+    inboxUnreadAfterRestore,
+    unreadHiddenAfterArchive: true,
+    unreadVisibleAfterRestore: true,
+  };
+}
+
 async function proveReconnect(
   window: BrowserWindow,
   accountId: string,
@@ -1051,6 +1101,70 @@ async function selectConversation(window: BrowserWindow, subject: string) {
   }
   await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
   throw new Error(`Selection checkbox missing for ${subject}`);
+}
+
+async function clickExactButton(window: BrowserWindow, name: string) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const clicked = (await window.webContents.executeJavaScript(`
+      (() => {
+        const button = [...document.querySelectorAll("button")].find((item) => {
+          const label = (item.getAttribute("aria-label") ?? "").trim();
+          const text = (item.innerText ?? "").replace(/\\s+/g, " ").trim();
+          return label === ${JSON.stringify(name)} || text === ${JSON.stringify(name)};
+        });
+        if (!(button instanceof HTMLElement)) return false;
+        button.click();
+        return true;
+      })()
+    `)) as boolean;
+    if (clicked) return;
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`${name} button missing`);
+}
+
+async function readInboxUnreadBadge(window: BrowserWindow) {
+  return (await window.webContents.executeJavaScript(`
+    (() => {
+      const link = [...document.querySelectorAll("a")].find((item) => {
+        const text = (item.innerText ?? "").replace(/\\s+/g, " ").trim();
+        return /^Inbox(?: \\d+)?$/.test(text);
+      });
+      if (!link) return null;
+      const text = (link.innerText ?? "").replace(/\\s+/g, " ").trim();
+      const match = text.match(/^Inbox(?: (\\d+))?$/);
+      return match?.[1] ? Number(match[1]) : 0;
+    })()
+  `)) as number | null;
+}
+
+async function waitForInboxUnreadBadge(
+  window: BrowserWindow,
+  matches: (count: number) => boolean,
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const count = await readInboxUnreadBadge(window);
+    if (count != null && matches(count)) return count;
+    await delay(250);
+  }
+  const count = await readInboxUnreadBadge(window);
+  throw new Error(`Inbox unread badge stayed at ${count}`);
+}
+
+async function providerUnarchive(
+  window: BrowserWindow,
+  accountId: string,
+  threadId: string,
+) {
+  const ok = (await window.webContents.executeJavaScript(`
+    fetch(${JSON.stringify(`/api/threads/${threadId}/unarchive`)}, {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-Email-Account-ID": ${JSON.stringify(accountId)} },
+    }).then((response) => response.ok)
+  `)) as boolean;
+  if (!ok) throw new Error(`Provider unarchive failed for ${threadId}`);
 }
 
 async function clickToolbarButton(window: BrowserWindow, name: string) {

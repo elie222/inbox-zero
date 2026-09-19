@@ -16,6 +16,7 @@ const DRAFT_SUBJECT = "Hosted desktop draft example";
 const DISCARD_SUBJECT = "Hosted desktop discard example";
 const SEND_SUBJECT = "Hosted desktop send example";
 const STAR_SUBJECT = "Second Unread Command Message";
+const STAR_THREAD_ID = "thr_playwright_3";
 const ASSISTANT_THREAD_ID = "thr_playwright_archive";
 const ASSISTANT_RULE_ID = "playwright-mail-assistant-archive-rule";
 const ASSISTANT_EXECUTED_RULE_ID =
@@ -710,6 +711,76 @@ test("keeps a queued archive hidden after a hosted Electron UI restart", async (
   expect(cleanupErrors).toEqual([]);
 });
 
+test("drops Inbox and Unread counts when an unread conversation is archived through desktop IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath(
+    "hosted-electron-inbox-counts.png",
+  );
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  const cleanupErrors: unknown[] = [];
+
+  try {
+    const payload = await launchHostedElectron({
+      appUrl: baseURL,
+      accountId: emailAccountId,
+      storageState: authFile,
+      screenshotPath,
+      proof: "inbox-counts",
+    });
+    expect(payload.url).toMatch(/^https?:/);
+    expect(payload.url).not.toContain("file:");
+    expect(payload.transport).toBe("desktop-ipc");
+    expect(payload.sqliteExists).toBe(true);
+    expect(payload.proof).toBe("inbox-counts");
+    expect(payload.inboxUnreadBefore).toBeGreaterThan(0);
+    expect(payload.inboxUnreadAfterArchive).toBe(
+      (payload.inboxUnreadBefore ?? 0) - 1,
+    );
+    expect(payload.inboxUnreadAfterRestore).toBe(payload.inboxUnreadBefore);
+    expect(payload.unreadHiddenAfterArchive).toBe(true);
+    expect(payload.unreadVisibleAfterRestore).toBe(true);
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: payload.url,
+        transport: payload.transport,
+        proof: payload.proof,
+        inboxUnreadBefore: payload.inboxUnreadBefore,
+        inboxUnreadAfterArchive: payload.inboxUnreadAfterArchive,
+        inboxUnreadAfterRestore: payload.inboxUnreadAfterRestore,
+      }),
+    });
+    await copyCatchUpArtifact(
+      screenshotPath,
+      payload,
+      "hosted-electron-inbox-counts",
+    );
+  } finally {
+    await page.request
+      .post(`/api/threads/${STAR_THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -728,7 +799,8 @@ function launchHostedElectron(input: {
     | "missed-hint"
     | "cursor-reset"
     | "bulk"
-    | "queued-restart";
+    | "queued-restart"
+    | "inbox-counts";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
@@ -1031,6 +1103,11 @@ type HostedElectronPayload = {
   queuedAfterReload?: string;
   succeededAfterRelease?: boolean;
   hiddenAfterReload?: boolean;
+  inboxUnreadBefore?: number;
+  inboxUnreadAfterArchive?: number;
+  inboxUnreadAfterRestore?: number;
+  unreadHiddenAfterArchive?: boolean;
+  unreadVisibleAfterRestore?: boolean;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {
