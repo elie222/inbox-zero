@@ -7,6 +7,7 @@ import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import { createDesktopMailStore } from "./sqlite";
+import { desktopStoragePressure } from "./storage-pressure";
 
 export async function createDesktopMailEngine(input: {
   databasePath: string;
@@ -20,7 +21,9 @@ export async function createDesktopMailEngine(input: {
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
-    runtime: createHostRuntime(),
+    runtime: createHostRuntime({
+      storagePressure: () => desktopStoragePressure(input.databasePath),
+    }),
     ownerId: "desktop-owner",
   });
 }

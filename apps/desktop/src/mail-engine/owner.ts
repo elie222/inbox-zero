@@ -8,6 +8,7 @@ import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import { dispatchMailIpc, parseMailIpcRequest } from "./ipc";
 import { createDesktopMailStore } from "./sqlite";
+import { desktopStoragePressure } from "./storage-pressure";
 
 export type DesktopMailOwner = {
   handleIpc(payload: unknown): Promise<unknown>;
@@ -52,7 +53,9 @@ async function createOwnedEngine(input: {
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
-    runtime: createHostRuntime(),
+    runtime: createHostRuntime({
+      storagePressure: () => desktopStoragePressure(input.databasePath),
+    }),
     ownerId: "desktop-owner",
   });
   const abort = new AbortController();
