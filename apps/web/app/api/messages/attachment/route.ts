@@ -38,9 +38,8 @@ export const GET = withAuth("messages/attachment", async (request) => {
     logger: request.logger,
   });
   const headers = new Headers({
-    "Content-Type": /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+$/.test(query.mimeType)
-      ? query.mimeType
-      : "application/octet-stream",
+    // Download bytes are untrusted; previews determine raster types separately.
+    "Content-Type": "application/octet-stream",
     "Content-Disposition": `attachment; filename="attachment"; filename*=UTF-8''${encodeURIComponent(query.filename.toWellFormed()).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)}`,
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
