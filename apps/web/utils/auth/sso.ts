@@ -1,4 +1,5 @@
 import { sso } from "@better-auth/sso";
+import type { BetterAuthPlugin } from "better-auth";
 import {
   APIError,
   createAuthMiddleware,
@@ -17,7 +18,8 @@ const managementPaths = new Set([
 ]);
 
 export function adminSso(options: Parameters<typeof sso>[0]) {
-  const plugin = sso(options);
+  // The SSO declaration omits its runtime hooks; retain them through the plugin contract.
+  const plugin: ReturnType<typeof sso> & BetterAuthPlugin = sso(options);
   return {
     ...plugin,
     hooks: {
@@ -35,7 +37,7 @@ export function adminSso(options: Parameters<typeof sso>[0]) {
             }
           }),
         },
-        ...plugin.hooks.before,
+        ...(plugin.hooks?.before ?? []),
       ],
     },
   };
