@@ -1,6 +1,6 @@
 import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
-import { sso } from "@better-auth/sso";
+import { adminSso } from "@/utils/auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
@@ -45,6 +45,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/seats";
+import { mobileAuthProviderCompletion } from "@/utils/mobile-auth/provider-completion";
 import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
@@ -259,7 +260,7 @@ export const betterAuthConfig = betterAuth({
   }),
   plugins: [
     emailOtpPlugin,
-    sso({
+    adminSso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
@@ -398,6 +399,7 @@ export const betterAuthConfig = betterAuth({
         await setSessionCookie(context, newSession);
       }
       await emailOtpAfterHook(context);
+      await mobileAuthProviderCompletion(context);
       try {
         const authenticatedSession = context.context.newSession;
         if (!authenticatedSession) return;

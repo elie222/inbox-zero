@@ -358,6 +358,31 @@ export async function trackBillingTrialStarted(
   });
 }
 
+export async function trackBillingTrialConverted(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(email, "billing_trial_converted", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "active",
+    },
+  });
+}
+
+export async function trackBillingCancellationInitiated(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(
+    email,
+    "billing_cancellation_initiated",
+    attributes,
+  );
+}
+
 export async function trackSubscriptionCustom(
   email: string,
   status: string,

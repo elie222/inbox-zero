@@ -4,6 +4,7 @@ import {
   isEmailCacheEpochCurrent,
 } from "@/utils/email-cache/database";
 import { fetchAttachment, getAttachmentUrl } from "./download";
+import { getAttachmentImagePreview } from "./image-preview";
 import { queueAttachmentDownload } from "./download-queue";
 import { downloadLocalMailAttachment } from "@/utils/email-cache/local-mail-attachment-download";
 import {
@@ -51,7 +52,16 @@ export function createOpenedConversationAttachments(
       // flight instead of cancelling it and paying for the download again.
       let operation = pending.get(key);
       if (!operation) {
-        operation = load(messageId, attachmentId, attachment);
+        const transferSignal = controller.signal;
+        operation = load(messageId, attachmentId, attachment).then(
+          async (blob) => {
+            const preview = blob
+              ? await getAttachmentImagePreview(blob)
+              : undefined;
+            transferSignal.throwIfAborted();
+            return preview;
+          },
+        );
         pending.set(key, operation);
         operation
           .finally(() => {

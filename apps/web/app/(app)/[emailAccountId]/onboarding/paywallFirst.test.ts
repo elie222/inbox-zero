@@ -6,7 +6,10 @@ const { getServerFeatureFlagVariant } = vi.hoisted(() => ({
 }));
 vi.mock("@/utils/posthog", () => ({ getServerFeatureFlagVariant }));
 
-const user = { email: "user@example.com", isPremium: false };
+const user = {
+  email: "user@example.com",
+  isPremium: false,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,6 +50,7 @@ describe("shouldShowPaywallFirst", () => {
       distinctId: "user@example.com",
     });
 
+    vi.clearAllMocks();
     getServerFeatureFlagVariant.mockResolvedValue("control");
     expect(await shouldShowPaywallFirst(user)).toBe(false);
   });

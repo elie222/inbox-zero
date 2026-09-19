@@ -19,6 +19,8 @@ import {
 import { sendFacebookConversionEvent } from "@/utils/fb";
 import {
   getCheckoutSessionIdHash,
+  trackBillingCancellationInitiated,
+  trackBillingTrialConverted,
   trackBillingTrialStarted,
   trackStripeEvent,
   trackSubscriptionTrialStarted,
@@ -81,7 +83,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     trackTrialStartedConversion(event, customer, logger),
-    recordCancellationInitiated(customerId, event, logger),
+    recordCancellationInitiated(customerId, event, customer, logger),
   ];
 
   let paidTrialConversion: Promise<void> | undefined;
@@ -187,27 +189,57 @@ async function handlePaidTrialConversion(
       customer,
       logger,
     }),
+    ...(customer
+      ? [
+          trackBillingTrialConverted(customer.email, {
+            billingProvider: "stripe",
+            billingEventId: event.id,
+            billingEventType: event.type,
+            invoiceId: invoice.id,
+            subscriptionId: subscription.id,
+            convertedAt: convertedAt.toISOString(),
+            planId: conversion.properties.planId,
+            amount: invoice.amount_paid,
+            currency: invoice.currency.toUpperCase(),
+          }),
+        ]
+      : []),
   ]);
 }
 
 async function recordCancellationInitiated(
   customerId: string,
   event: Stripe.Event,
+  customer: StripeCustomerIdentity | undefined,
   logger: Logger,
 ) {
   const initiatedAt = getStripeCancellationInitiatedAt(event);
   if (!initiatedAt) return;
 
   const updateResult = await prisma.premium.updateMany({
-    where: { stripeCustomerId: customerId },
+    where: {
+      stripeCustomerId: customerId,
+      stripeCancellationInitiatedAt: null,
+    },
     data: { stripeCancellationInitiatedAt: initiatedAt },
   });
 
-  if (updateResult.count === 0) {
-    logger.warn("No premium found for customer during cancellation record", {
-      customerId,
+  if (updateResult.count === 0) return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+  if (customer) {
+    await trackBillingCancellationInitiated(customer.email, {
+      billingProvider: "stripe",
+      billingEventId: event.id,
+      billingEventType: event.type,
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+      cancellationInitiatedAt: initiatedAt.toISOString(),
+      cancelAt: subscription.cancel_at
+        ? new Date(subscription.cancel_at * 1000).toISOString()
+        : null,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
-    return;
   }
 
   logger.info("Recorded user-initiated cancellation timestamp", {
