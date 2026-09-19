@@ -5,50 +5,55 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { electronBinaryPath, hasElectronBinary } from "./electron-binary";
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const electronBin = join(desktopRoot, "node_modules/electron/dist/electron");
 const packagedBin = join(
   desktopRoot,
   "release/linux-unpacked/@inboxzerodesktop",
 );
 const hostedMailUrl = "https://www.getinboxzero.com/account-1/mail?type=inbox";
 
-describe("desktop packaged local mail renderer", () => {
-  beforeAll(() => {
-    const result = spawnSync(process.execPath, ["esbuild.config.mjs"], {
-      cwd: desktopRoot,
-      encoding: "utf8",
-    });
-    if (result.status !== 0) {
-      throw new Error(
-        `desktop build failed\n${result.stdout}\n${result.stderr}`,
-      );
-    }
-  }, 60_000);
-  it("boots product main from bundled assets and ignores a restored hosted window", async () => {
-    const payload = await launchLocalMailSmoke(electronBin, [
-      "--no-sandbox",
-      "dist/main.js",
-    ]);
-    expect(payload.url).toContain("file:");
-    expect(payload.url).toContain("renderer/index.html");
-    expect(payload.url).not.toContain("getinboxzero.com");
-    expect(payload.compose).toBe(true);
-  }, 90_000);
-
-  it.skipIf(!existsSync(packagedBin))(
-    "launches the linux-unpacked product binary without hosted Next",
-    async () => {
-      const payload = await launchLocalMailSmoke(packagedBin, ["--no-sandbox"]);
+describe.skipIf(!hasElectronBinary())(
+  "desktop packaged local mail renderer",
+  () => {
+    beforeAll(() => {
+      const result = spawnSync(process.execPath, ["esbuild.config.mjs"], {
+        cwd: desktopRoot,
+        encoding: "utf8",
+      });
+      if (result.status !== 0) {
+        throw new Error(
+          `desktop build failed\n${result.stdout}\n${result.stderr}`,
+        );
+      }
+    }, 60_000);
+    it("boots product main from bundled assets and ignores a restored hosted window", async () => {
+      const payload = await launchLocalMailSmoke(electronBinaryPath, [
+        "--no-sandbox",
+        "dist/main.js",
+      ]);
       expect(payload.url).toContain("file:");
       expect(payload.url).toContain("renderer/index.html");
       expect(payload.url).not.toContain("getinboxzero.com");
       expect(payload.compose).toBe(true);
-    },
-    90_000,
-  );
-});
+    }, 90_000);
+
+    it.skipIf(!existsSync(packagedBin))(
+      "launches the linux-unpacked product binary without hosted Next",
+      async () => {
+        const payload = await launchLocalMailSmoke(packagedBin, [
+          "--no-sandbox",
+        ]);
+        expect(payload.url).toContain("file:");
+        expect(payload.url).toContain("renderer/index.html");
+        expect(payload.url).not.toContain("getinboxzero.com");
+        expect(payload.compose).toBe(true);
+      },
+      90_000,
+    );
+  },
+);
 
 async function launchLocalMailSmoke(binary: string, extraArgs: string[]) {
   const userData = await mkdtemp(join(tmpdir(), "electron-local-mail-user-"));

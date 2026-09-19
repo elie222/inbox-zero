@@ -7,6 +7,13 @@
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
+  "assistant-catch-up.spec.ts": [
+    "utils/mail-engine/create-browser-engine.ts",
+    "utils/mail-engine/engine-worker.ts",
+    "utils/mail-api/assistant-state.ts",
+    "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts",
+    "utils/mail-engine/MailEngineHost.tsx"
+  ],
   "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "calendar-invitation.spec.ts": [

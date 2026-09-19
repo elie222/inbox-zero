@@ -54,17 +54,12 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             : input instanceof URL
               ? input.href
               : input.url;
-        if (url.startsWith("https://gmail.googleapis.com")) {
-          const rewritten = url.replace(
-            "https://gmail.googleapis.com",
-            emulatorOrigin,
-          );
-          if (input instanceof Request) {
-            return realFetch(new Request(rewritten, input), init);
-          }
-          return realFetch(rewritten, init);
+        const rewritten = rewriteGmailApiUrl(url, emulatorOrigin);
+        if (rewritten === url) return realFetch(input, init);
+        if (input instanceof Request) {
+          return realFetch(new Request(rewritten, input), init);
         }
-        return realFetch(input, init);
+        return realFetch(rewritten, init);
       }) as typeof fetch;
       restoreFetch = () => {
         globalThis.fetch = realFetch;
@@ -138,6 +133,20 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
   },
 );
+
+function rewriteGmailApiUrl(url: string, emulatorOrigin: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (parsed.hostname !== "gmail.googleapis.com") return url;
+  return new URL(
+    `${parsed.pathname}${parsed.search}${parsed.hash}`,
+    emulatorOrigin,
+  ).href;
+}
 
 function gmailHistoryNotFound() {
   return Object.assign(new Error("Requested entity was not found."), {

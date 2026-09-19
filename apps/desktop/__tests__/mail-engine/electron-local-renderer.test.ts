@@ -5,8 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { describe, expect, it } from "vitest";
+import { electronBinaryPath, hasElectronBinary } from "./electron-binary";
 
-describe("desktop local mail renderer", () => {
+describe.skipIf(!hasElectronBinary())("desktop local mail renderer", () => {
   it("boots MailApp from bundled assets and archives without Next", async () => {
     const harness = await buildLocalMailHarness();
     try {
@@ -112,10 +113,7 @@ async function buildLocalMailHarness() {
     outfile,
     preload,
     rendererHtml: join(rendererDir, "index.html"),
-    electronBin: join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../node_modules/electron/dist/electron",
-    ),
+    electronBin: electronBinaryPath,
   };
 }
 

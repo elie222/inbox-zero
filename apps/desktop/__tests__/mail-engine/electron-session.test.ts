@@ -5,8 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { describe, expect, it } from "vitest";
+import { electronBinaryPath, hasElectronBinary } from "./electron-binary";
 
-describe("desktop electron mail session", () => {
+describe.skipIf(!hasElectronBinary())("desktop electron mail session", () => {
   it("starts a real Electron process that owns native SQLite", async () => {
     const directory = await mkdtemp(join(tmpdir(), "electron-session-"));
     const entry = join(
@@ -22,11 +23,7 @@ describe("desktop electron mail session", () => {
       format: "esm",
       external: ["electron"],
     });
-    const electronBin = join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../node_modules/electron/dist/electron",
-    );
-    const output = await runElectron(electronBin, outfile);
+    const output = await runElectron(electronBinaryPath, outfile);
     expect(output).toContain("ELECTRON_MAIL_SMOKE");
     const line = output
       .split("\n")
