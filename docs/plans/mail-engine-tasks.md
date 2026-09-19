@@ -8,13 +8,18 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `5c9e66f5b`
+- Last implementation commit: `86e7673d1`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E109 upload-content. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
+- Current task: remaining matrix cells after E110 mail v1 download. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
 - Next action: watch GitHub checks on the exact head after this push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - GitHub Playwright `35460091432` on `31d39f667`: all E2E jobs passed, including mail-offline (E109 docs head)
+  - GitHub Run Tests `35460091454` on `31d39f667`: success
+  - GitHub Build Check `35460091406` on `31d39f667`: failed — `createMailHttpRequest` fetch typing for octet-stream PUT bodies
+  - `cd apps/web && pnpm exec vitest --run utils/attachments/download.test.ts utils/attachments/opened-conversation.test.ts` — 2 files, 14 passed (E110)
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/http.test.ts utils/attachments/download.test.ts` — 2 files, 11 passed (build:ci fetch typing)
   - GitHub Playwright `35458591054` on `bb16b6406`: all E2E jobs passed, including mail-offline (E108 docs head)
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/content/route.test.ts utils/mail-engine/http.test.ts utils/mail-engine/stage-attachments.test.ts` — 4 files, 16 passed (E109)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/blob-store.test.ts` — 1 file, 5 passed (E109)
@@ -476,7 +481,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - GitHub Build Check `35457999469` on `db0a8e813` — success
   - `3a6e983b8` — client abort cancels the provider stream; provider 404 is HTTP `not_found`
 - What it proved: `createEmailProviderMailboxSource.readAttachment` streams provider bytes. The client adapter GETs `/attachment-content` with `accept: "bytes"` instead of returning `paused`. A 404 maps to `paused` with `retryAfterMs: 0`. Browser and desktop HTTP clients return the octet-stream body without parsing it as JSON. Client abort cancels the provider stream. GitHub Playwright `35458591054` on `bb16b6406` passed every selected E2E area.
-- Limitations: MailShell download/preview still uses `/api/messages/attachment`. `MailboxSource.readAttachment` has no `not_found` status, so a missing attachment stays `paused`/`unavailable`. PUT `/uploads/[uploadId]/content` streaming is not this change. Do not check G4/G5.
+- Limitations: MailShell download/preview still used `/api/messages/attachment` until E110. `MailboxSource.readAttachment` has no `not_found` status, so a missing attachment stays `paused`/`unavailable`. PUT `/uploads/[uploadId]/content` streaming is not this change. Do not check G4/G5.
 
 ### E109. Stream staged upload bytes over PUT (2026-09-19)
 
@@ -486,9 +491,21 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/content/route.test.ts utils/mail-engine/http.test.ts utils/mail-engine/stage-attachments.test.ts` — 4 files, 16 passed
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/blob-store.test.ts` — 1 file, 5 passed
   - `cd apps/desktop && pnpm exec vitest run src/mail-engine/request.test.ts` — 1 file, 6 passed
+  - GitHub Playwright `35460091432` on `31d39f667` — all E2E jobs passed, including mail-offline
+  - GitHub Run Tests `35460091454` on `31d39f667` — success
   - GitHub Playwright `35458591054` on `bb16b6406` — all E2E jobs passed (E108 docs head, before this commit)
-- What it proved: POST `/uploads` admits metadata only. PUT `/uploads/[uploadId]/content` streams octet-stream bytes into that blob under the declared checksum and size. Missing admit is 404 and cancels an unread body. Checksum mismatch is 400 `invalid`. Oversized bodies are 507 `too_large`. Sidecar size caps above 25MB are ignored so PUT cannot use them as a buffer limit. Compose staging POSTs admit then PUTs bytes; it no longer ships JSON/base64 content.
-- Limitations: MailShell download/preview still uses `/api/messages/attachment`. Abandoned admit metadata is not auto-deleted when PUT fails. Do not check G4/G5.
+- What it proved: POST `/uploads` admits metadata only. PUT `/uploads/[uploadId]/content` streams octet-stream bytes into that blob under the declared checksum and size. Missing admit is 404 and cancels an unread body. Checksum mismatch is 400 `invalid`. Oversized bodies are 507 `too_large`. Sidecar size caps above 25MB are ignored so PUT cannot use them as a buffer limit. Compose staging POSTs admit then PUTs bytes; it no longer ships JSON/base64 content. GitHub Playwright `35460091432` on `31d39f667` passed every selected E2E area. Build Check `35460091406` failed on fetch typing for those PUT bodies.
+- Limitations: Reader download/preview still used `/api/messages/attachment` until E110. Abandoned admit metadata is not auto-deleted when PUT fails. Do not check G4/G5.
+
+### E110. Download attachments through mail v1 content (2026-09-19)
+
+- Tasks: partial E3 reader download/preview over `/attachment-content`
+- Tree: `cursor/mail-engine-0b4f` at `86e7673d1`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/attachments/download.test.ts utils/attachments/opened-conversation.test.ts` — 2 files, 14 passed
+  - GitHub Playwright `35460091432` on `31d39f667` — all E2E jobs passed (E109 docs head, before this commit)
+- What it proved: `getAttachmentUrl` builds `/api/mail/v1/accounts/{accountId}/attachment-content`. Reader Download fetches that URL with `X-Email-Account-ID` and saves a blob. Preview load uses the same helper. The attachment-previews spec waits for GET `/attachment-content` plus the account header instead of an `emailAccountId` query param.
+- Limitations: Blob URLs are revoked after 60s so Chromium can start the download. User downloads buffer the whole file. Do not check G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
