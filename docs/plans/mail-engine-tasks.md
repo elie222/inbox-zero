@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `121eccc10`
+- Last implementation commit: `5e20fd5f1`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E83 GitHub Playwright triage; GitHub Playwright is the remaining mail-spec proof.
-- Next action: watch GitHub Playwright on the exact head after E83. Do not re-run emulated Playwright locally. CLA human signature.
+- Current task: remaining matrix cells after E84 undo-hold alignment; GitHub Playwright is the remaining mail-spec proof.
+- Next action: watch GitHub Playwright on the exact head after E84. Do not re-run emulated Playwright locally. CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 16 passed (E84)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts utils/attachments/opened-conversation.test.ts utils/mail-api/source.test.ts` — 3 files, 20 passed (E83)
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/command-status.test.ts utils/mail-engine/conversation-thread.test.ts utils/mail-api/observations.test.ts utils/mail-api/source.test.ts hooks/useThread.test.tsx` — 5 files, 22 passed (E79)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='stores enumerated bodies so conversation'` — 1 passed (E79)
@@ -266,6 +267,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E84. Undo toast and send hold start together (2026-09-19)
+
+- Tasks: partial G5 send; follow-up to E83 Enter-send toast
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 16 passed
+- What it proved: Independent review of E83 found the toast could stay live after `notBeforeMs` had already expired. Admission now refreshes the undo hold to `Date.now() + UNDO_SEND_DELAY_MS`, returns that timestamp, and the toast duration is the remaining hold. An expired hold does not offer Undo.
+- Limitations: GitHub Playwright is the remaining proof. Do not check G4/G5.
 
 ### E83. GitHub Playwright cleanup reload and Enter-send toast (2026-09-19)
 
@@ -857,7 +867,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E8. IndexedDB mailbox deletion and G3 skip (2026-09-18)
 
 - Tasks: F5, G3
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: see Resume state last validation and the F5 deletion commit `a12cdbab7`.
 - What it proved: IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose drafts stay in memory for the current session. G3 importer is skipped because the mail client is not live (decision D3). MailShell reader/list errors use the LoadingContent shape instead of a generic `Error`. There is no remaining TypeScript import of `email-cache`, `indexeddb-import`, `MailboxSyncManager`, or `MailMutationOutboxManager`.
 - Limitations: Playwright inspect and packaged Electron/OPFS sessions still unrun; live assistant UI remains open; UI matrix cells remain Not run.
@@ -865,7 +875,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E9. OPFS inspect contract and connection banner (2026-09-18)
 
 - Tasks: partial C1, partial D4, partial C4
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: see Resume state last validation.
 - What it proved: `__inboxZeroMailInspect` now reports owner/follower role plus worker/locks/OPFS capabilities; owner tabs do not demote themselves to followers on their own owner broadcast; web UI surfaces `blocked_auth` reconnect and `offline` retry copy from mailbox `connection`; Expo pack-smoke still passes. Playwright inspect spec asserts owner+OPFS+ready connection on a live mail page (not run in this checkpoint).
 - Limitations: Playwright inspect and packaged Electron sessions still unrun; Expo harness is not a Metro runtime.
@@ -873,7 +883,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E10. Blob id path containment (2026-09-18)
 
 - Tasks: partial E3, partial H3
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: see Resume state last validation.
 - What it proved: filesystem blob ids must be a single `[A-Za-z0-9._-]` segment; paths are resolved and rejected if they leave the store directory; HTTP `uploadId` uses the same schema. Parameter’s path-traversal note on `createFileBlobStore` is addressed.
 - Limitations: none for this finding.
@@ -881,7 +891,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E11. Engine-owned sidebar and desktop counts (2026-09-18)
 
 - Tasks: partial F2
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: see Resume state last validation.
 - What it proved: sidebar label/folder counts and the desktop unread badge subscribe to `observeMailbox` on the same effective predicates as the lists. Pending read/archive no longer patches a separate SWR `/api/labels/counts` overlay. That HTTP route remains for other clients; the mail UI does not fetch it.
 - Limitations: Playwright inspect and packaged Electron sessions still unrun; composer restore is still in-memory.
@@ -889,7 +899,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E12. MetadataChange build:ci fix (2026-09-18)
 
 - Tasks: partial I2
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: `cd apps/web && pnpm exec vitest --run utils/mail-engine/mutation-change.test.ts` — 1 file, 1 passed; `pnpm exec ultracite check` on `use-thread-actions.ts`.
 - What it proved: undo compensation uses `mutationPayloadToChange` (`unarchive` / `restore_from_trash`) instead of an undeclared `MetadataChange` name that failed `build:ci`.
 - Limitations: `build:ci` itself is not run locally (repo instruction).
@@ -897,7 +907,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E13. Live OPFS inspect, hydration, and bootstrap coverage (2026-09-18)
 
 - Tasks: partial C1
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e20fd5f1`
 - Commands: see Resume state last validation.
 - What it proved: MailCoverageGate hydrates with the shared loading shell instead of the SSR storage-error copy. A `runUntil` slice that expires during `beginBootstrap` still enumerates and writes metadata coverage. Playwright `mail-engine-inspect.spec.ts` first-paints the conversations listbox and asserts owner + OPFS + ready connection. Combined-mail `ThreadsQuery` identity is memoized so the list does not hit a React maximum-update-depth overlay.
 - Limitations: packaged Electron remains unrun.
