@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `b0c7d8f13`
+- Last implementation commit: `50388c75c`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E76 server drafts, and take PR 3793 to exact-head green.
-- Next action: triage remaining Playwright CI failures on exact head; G4 packaging (macOS/Windows); CLA human signature.
+- Current task: remaining matrix cells after E77 Promos split, and take PR 3793 to exact-head green.
+- Next action: triage remaining Playwright CI failures (thread-states, compose, reader); G4 packaging (macOS/Windows); CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/split-tabs.spec.ts` — 8 passed in 2.4m on `50388c75c`; Promos lists only Promotion Category Message (E77)
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/threads-query.test.ts` — 1 file, 8 passed on `50388c75c`; split labelIds map to category/starred predicates (E77)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/server-drafts.spec.ts` — 3 passed in 1.5m on `b0c7d8f13`; multiple-drafts 31.6s; draft-only 9.4s; composers show First/Second saved reply (E76)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts src/engine-bootstrap.test.ts` — 2 files, 29 passed in 188.74s on `b0c7d8f13`; enumerated bodies available without hydrate (E76)
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts` — 1 file, 9 passed in 242ms on `b0c7d8f13`; enumerate returns bodies when the provider already fetched them (E76)
@@ -245,7 +247,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24); Promos split shows only matching mail (E77) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite); split `labelIds` map onto category/starred predicates (E77) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: Outlook archive hide + succeeded (E20); queued archive survives OPFS reload (E61); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: hosted Electron archive hide + native SQLite (E36/E39); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43); bulk archive/undo, labels, trash restore (E57) | Partial: hosted Electron More actions Star (E48); bulk archive/undo, labels, trash restore (E59) | Partial: hosted Electron More actions Star (E47); bulk archive/undo, labels, trash restore (E59) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
@@ -257,6 +259,16 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E77. Promos split lists only matching Gmail conversations (2026-09-19)
+
+- Tasks: partial G5 lists/splits; CI `split-tabs.spec.ts` on the engine path
+- Tree: `cursor/mail-engine-0b4f` at `50388c75c`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/threads-query.test.ts` — 1 file, 8 passed
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/split-tabs.spec.ts` — 8 passed in 2.4m; Promos 10.4s; Other exclusion 12.3s
+- What it proved: `threadsQueryToPredicate` maps split `labelIds` such as `INBOX` + `CATEGORY_PROMOTIONS` onto the same-message inbox role and category membership. Starred splits use the starred flag. Other excludes category splits. MailShell Promos shows only Promotion Category Message.
+- Limitations: remaining Playwright CI failures (thread-states, compose, reader) still need triage. Do not check G4/G5.
 
 ### E76. Gmail MailShell opens multiple hydrated server drafts (2026-09-19)
 
