@@ -8,24 +8,18 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `b44f80a72`
+- Last implementation commit: `c646ba249`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E90 query corpora and E91 draft-only Draft locator. CLA human signature.
-- Next action: watch GitHub Playwright on the exact head after E91. Do not re-run emulated Playwright locally.
+- Current task: remaining matrix cells after E91 GitHub Playwright green and E92 queued-send unfreeze. CLA human signature.
+- Next action: watch GitHub checks on the exact head after E92. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - GitHub Playwright `35450588031` on `044f83703`: mail-reader failed — draft-only `getByText("Draft")` matched the badge and the compose "Draft to" summary (E91); thread-states reconnect was flaky then passed on retry
+  - GitHub Playwright `35451339665` on `c1ffbd33e`: all E2E jobs passed, including mail-reader draft-only and cleanup (E91)
+  - GitHub Run Tests `35451339649` on `c1ffbd33e`: Tests 1/2 and Tests 2/2 passed
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='unfreezes a draft when a queued send is cancelled'` — 1 passed (E92)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/query-corpus.test.ts` — 1 file, 3 passed (E90)
-  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/engine-assistant.test.ts` — 1 file, 2 passed (E89 occupancy)
-  - GitHub Playwright run `35447369929` on `864ed7c08`: Web E2E, cleanup, mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, mail-preferences, settings, chat, onboarding passed (E88)
-- Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
-- Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
-- Last validation:
-  - GitHub Playwright run `35447369929` on `864ed7c08`: Web E2E, cleanup, mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, mail-preferences, settings, chat, onboarding, hosted-electron-in-mail all passed (E88)
-  - GitHub Run Tests `35447369980` on `864ed7c08`: Tests 1/2 and Tests 2/2 passed
-  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/engine-assistant.test.ts` — 1 file, 2 passed (E89)
-  - GitHub Playwright run `35446791346` on `5dcd08906`: cleanup failed because bulk-archive reconnect held Next `next-action` POSTs while engine archive uses PUT `/operations/` (E88)
+  - GitHub Playwright `35450588031` on `044f83703`: mail-reader failed — draft-only `getByText("Draft")` matched the badge and the compose "Draft to" summary (E91)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E87)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E86)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 18 passed (E85)
@@ -274,7 +268,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43); bulk archive/undo, labels, trash restore (E57) | Partial: hosted Electron More actions Star (E48); bulk archive/undo, labels, trash restore (E59) | Partial: hosted Electron More actions Star (E47); bulk archive/undo, labels, trash restore (E59) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21); queued archive hidden after OPFS reload (E61) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3) |
-| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18); multiple in-thread server drafts (E76); offline queued reply holds until reconnect (E78) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone; enumerate/catch-up persist fetched bodies (E76); offline `notBeforeMs` hold + start skips release while `navigator.onLine` is false (E78); body observations keep attachment descriptors and meeting flags (E79) |
+| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18); multiple in-thread server drafts (E76); offline queued reply holds until reconnect (E78) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone; enumerate/catch-up persist fetched bodies (E76); offline `notBeforeMs` hold + start skips release while `navigator.onLine` is false (E78); body observations keep attachment descriptors and meeting flags (E79); cancelling a queued send unfreezes the draft (E92) |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34); Sign out wipes OPFS `.mail-engine` (E62 unit, E63 Playwright) | Partial: follower tab + owner reload + reconnect (E21); Sign out wipes OPFS `.mail-engine` (E63 Playwright) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child; IPC protocolVersion 0 is invalid (E62); `wipeNodeMailbox` deletes sqlite/wal/shm (E65); desktop `logOut` closes then wipes (E66); hosted Electron Sign out UI wipes native sqlite (E71); quit leaves sqlite (E68); self-hosted `INBOX_ZERO_APP_URL` is the only allowed origin (E75) |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13); queue_full/too_large product copy (E67); live MailShell queue_full toast (E72) | Partial: coverage-gated first paint (E21); queue_full/too_large product copy (E67) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; store clamps maxPendingOperations at 5000 (E74); body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Uploads HTTP too_large 507 and MailShell/send copy (E67). Live MailShell queue_full toast with page pending-op cap (E72). Assistant catch-up still applies when user commands are queue_full (E89). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
@@ -282,14 +276,25 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 ## Evidence log
 
+### E92. Unfreeze the draft when a queued send is cancelled (2026-09-19)
+
+- Tasks: partial E3/G5 undo-send; frozen draft blocked a later edit
+- Tree: `cursor/mail-engine-0b4f` at `c646ba249`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='unfreezes a draft when a queued send is cancelled'` — 1 passed
+- What it proved: `admitSend` freezes the draft so in-flight payload cannot change. Undo-send cancels while still `queued`/`preparing` and then saves again. Cancel now sets `frozen = 0` for that send's `frozenDraftId`, so the later save succeeds. `too_late` still leaves the draft frozen.
+- Limitations: GitHub Playwright on the E92 head is the remaining proof. Do not check G4/G5.
+
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
 - Tasks: partial G5 reader; GitHub Playwright mail-reader on `044f83703`
-- Tree: `cursor/mail-engine-0b4f` at `185541708` (product still `b44f80a72`)
+- Tree: `cursor/mail-engine-0b4f` at `185541708` (product still `b44f80a72` until E92)
 - Commands:
   - GitHub Playwright `35450588031` on `044f83703` — mail-reader failed: `getByText("Draft", { exact: true })` matched both the message badge and ComposeEmailForm "Draft to" summary
-- What it proved: Engine draft-only threads render the inline compose summary. The spec now waits on `getByRole("button", { name: /^Draft to / })`, the same unique control compose-and-reply already uses.
-- Limitations: GitHub Playwright on the E91 head is the remaining proof. thread-states reconnect was flaky then passed on retry. Do not check G4/G5.
+  - GitHub Playwright `35451339665` on `c1ffbd33e` — all E2E jobs passed, including mail-reader
+  - GitHub Run Tests `35451339649` on `c1ffbd33e` — Tests 1/2 and Tests 2/2 passed
+- What it proved: Engine draft-only threads render the inline compose summary. The spec now waits on `getByRole("button", { name: /^Draft to / })`, the same unique control compose-and-reply already uses. GitHub Playwright on `c1ffbd33e` passed mail-reader, cleanup, and every other E2E area.
+- Limitations: CLA still needs a human signature. Do not check G4/G5.
 
 ### E90. Long-thread, multilingual, and two-account queries (2026-09-19)
 
