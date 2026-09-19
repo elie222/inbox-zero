@@ -40,6 +40,6 @@ async function* iterableFromStream(stream: ReadableStream<Uint8Array> | null) {
       if (value) yield value;
     }
   } finally {
-    reader.releaseLock();
+    await reader.cancel().catch(() => undefined);
   }
 }

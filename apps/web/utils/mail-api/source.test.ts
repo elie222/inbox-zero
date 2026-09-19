@@ -591,4 +591,32 @@ describe("createEmailProviderMailboxSource", () => {
       reason: "unavailable",
     });
   });
+
+  it("does not retry a missing provider attachment", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getAttachmentStream() {
+          throw Object.assign(new Error("Unable to stream attachment"), {
+            status: 404,
+          });
+        },
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.readAttachment({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        signal: new AbortController().signal,
+        key: { accountId: "acc-1", messageId: "missing" },
+        attachmentId: "att-1",
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      retryAfterMs: 0,
+      reason: "unavailable",
+    });
+  });
 });

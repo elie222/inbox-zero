@@ -11,6 +11,8 @@ import {
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
+import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/microsoft/retry";
 import type { ParsedMessage } from "@/utils/types";
 
 const SUPPORTED_CHANGES = [
@@ -305,6 +307,13 @@ export function createEmailProviderMailboxSource(input: {
           },
         };
       } catch (error) {
+        if (isMissingAttachmentError(error)) {
+          return {
+            status: "paused" as const,
+            retryAfterMs: 0,
+            reason: "unavailable" as const,
+          };
+        }
         return mapProviderError(error);
       }
     },
@@ -372,6 +381,13 @@ function encodedGmailCursorFromMessages(
   });
 }
 
+function isMissingAttachmentError(error: unknown) {
+  return (
+    extractGmailErrorInfo(error).status === 404 ||
+    extractOutlookErrorInfo(error).status === 404
+  );
+}
+
 function mapProviderError(error: unknown) {
   if (isProviderRateLimitModeError(error)) {
     return {
@@ -405,6 +421,6 @@ async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
       if (value) yield value;
     }
   } finally {
-    reader.releaseLock();
+    await reader.cancel().catch(() => undefined);
   }
 }

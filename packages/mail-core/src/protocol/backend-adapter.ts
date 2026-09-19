@@ -297,10 +297,10 @@ export function createBackendMailboxSource(input: {
         accept: "bytes",
       });
       const error = parseError(response);
+      if (error?.error.code === "not_found" || response.status === 404) {
+        return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+      }
       if (error) {
-        if (error.error.code === "not_found") {
-          return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
-        }
         return mapReadError(error);
       }
       if (response.status >= 400 || !response.bytes) {

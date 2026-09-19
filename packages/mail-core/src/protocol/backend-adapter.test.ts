@@ -126,6 +126,29 @@ describe("backend mailbox source", () => {
       reason: "unavailable",
     });
   });
+
+  it("treats a bare HTTP 404 as a missing attachment", async () => {
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async () => ({
+        status: 404,
+        json: null,
+      }),
+    });
+    await expect(
+      source.readAttachment({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        signal: new AbortController().signal,
+        key: { accountId: "acc-1", messageId: "missing" },
+        attachmentId: "att-1",
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      retryAfterMs: 0,
+      reason: "unavailable",
+    });
+  });
 });
 
 describe("backend operation executor", () => {

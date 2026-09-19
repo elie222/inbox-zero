@@ -68,6 +68,16 @@ export const GET = withEmailProvider(
       );
     }
     if (result.status !== "ok") {
+      if (result.reason === "unavailable" && result.retryAfterMs === 0) {
+        return NextResponse.json(
+          mailHttpErrorResponse({
+            requestId,
+            code: "not_found",
+            retryable: false,
+          }),
+          { status: 404 },
+        );
+      }
       const throttled = result.reason === "throttled";
       return NextResponse.json(
         mailHttpErrorResponse({
