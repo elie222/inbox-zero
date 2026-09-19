@@ -1,16 +1,21 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  openMailboxFromSidebar,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 
 test("archives a selected conversation and restores it with undo", async ({
   page,
 }) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const archiveConversation = conversationWithSubject(
     page,
     conversations,
@@ -35,13 +40,24 @@ test("archives a selected conversation and restores it with undo", async ({
   await expect(
     notifications.getByText("Archived", { exact: true }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "archive",
+        threadId: ARCHIVE_THREAD,
+      }),
+    )
+    .toMatchObject({
+      status: expect.stringMatching(/^(reconciling|succeeded)$/),
+    });
   await notifications.getByRole("button", { name: /^Undo/ }).click();
   await expect(archiveConversation).toBeVisible();
 });
 
-test("deletes an open conversation and returns to the list", async ({
+test("deletes an open conversation and restores it from Trash", async ({
   page,
-}) => {
+}, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
   const deletedConversation = conversationWithSubject(
     page,
@@ -59,12 +75,19 @@ test("deletes an open conversation and returns to the list", async ({
   await expect(conversations).toBeVisible();
   await expect(deletedConversation).toHaveCount(0);
   await expect(page.getByText("Deleted", { exact: true })).toBeVisible();
+  await expectEngineMutation(page, emailAccountId, "trash", DELETE_THREAD);
 
-  const restoreResponse = await page.request.post(
-    "/api/threads/thr_playwright_delete/untrash",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(restoreResponse.ok()).toBeTruthy();
+  await openMailboxFromSidebar(page, "Trash");
+  await expect(deletedConversation).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "trashed-in-trash-view");
+  await undoLastTriage(page);
+  await expect(deletedConversation).toHaveCount(0);
+  await expectEngineMutation(page, emailAccountId, "untrash", DELETE_THREAD);
+  await page.goto(`/${emailAccountId}/mail`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(conversations).toBeVisible({ timeout: 60_000 });
+  await expect(deletedConversation).toBeVisible();
 });
 
 test("advances the split reader after archiving an open conversation", async ({
@@ -164,6 +187,35 @@ test("advances the split reader after archiving an open conversation", async ({
   expect(restoreSucceeded).toBe(true);
 });
 
+test("archives two selected conversations and restores both with undo", async ({
+  page,
+}) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const first = conversationWithSubject(
+    page,
+    conversations,
+    "Playwright Test Message",
+  );
+  const second = conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  );
+  await first.getByRole("checkbox").click();
+  await second.getByRole("checkbox").click();
+  await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Archive", exact: true }).click();
+  await expect(first).toHaveCount(0);
+  await expect(second).toHaveCount(0);
+  await expectEngineMutation(page, emailAccountId, "archive", FIRST_THREAD);
+  await expectEngineMutation(page, emailAccountId, "archive", SECOND_THREAD);
+  await undoLastTriage(page);
+  await expect(first).toBeVisible();
+  await expect(second).toBeVisible();
+  await expectEngineMutation(page, emailAccountId, "unarchive", FIRST_THREAD);
+  await expectEngineMutation(page, emailAccountId, "unarchive", SECOND_THREAD);
+});
+
 test("selects ranges and opens conversations with the keyboard", async ({
   page,
 }) => {
@@ -261,6 +313,41 @@ test("selects every conversation with Command A", async ({ page }) => {
   await expect(options).toHaveCount(conversationCount);
   await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
 });
+
+const ARCHIVE_THREAD = "thr_playwright_archive";
+const DELETE_THREAD = "thr_playwright_delete";
+const FIRST_THREAD = "thr_playwright_1";
+const SECOND_THREAD = "thr_playwright_2";
+
+async function expectEngineMutation(
+  page: Page,
+  emailAccountId: string,
+  kind: string,
+  threadId: string,
+) {
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind,
+          threadId,
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+}
+
+async function undoLastTriage(page: Page) {
+  const undoButton = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  if (await undoButton.isVisible()) {
+    await undoButton.click();
+    return;
+  }
+  await page.keyboard.press("z");
+}
 
 function allRowsAreSelected(rows: Locator, selected: boolean) {
   return rows.evaluateAll(

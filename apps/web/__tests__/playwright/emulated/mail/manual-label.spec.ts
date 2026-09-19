@@ -58,6 +58,25 @@ test("applies an existing label from the reader menu and keeps the conversation 
       () =>
         readLatestMailMutation(page, {
           emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_reader",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({
+      status: "succeeded",
+      payload: { membership: "label", id: "Label_project", present: true },
+    });
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
           kind: "set_read_state",
           threadId: "thr_playwright_reader",
         }),
@@ -123,6 +142,18 @@ test("creates and applies a label to selected conversations with L", async ({
   );
   expect(label).toBeTruthy();
   for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "set_membership",
+            threadId,
+            payload: { membership: "label", id: label.id, present: true },
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
     const response = await page.request.get(`/api/threads/${threadId}`, {
       headers: { "X-Email-Account-ID": emailAccountId },
     });
