@@ -90,10 +90,9 @@ export function createOpenedConversationAttachments(
           if (!eligible()) return;
           return fetchAttachment({
             url: getAttachmentUrl({
+              accountId: emailAccountId,
               messageId,
               attachmentId,
-              mimeType: attachment.mimeType,
-              filename: attachment.filename,
             }),
             emailAccountId,
             maxBytes: size ?? FILE_LIMIT,

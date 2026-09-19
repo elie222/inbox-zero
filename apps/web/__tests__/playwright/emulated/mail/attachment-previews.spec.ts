@@ -16,6 +16,11 @@ test("downloads opened attachment previews over the network", async ({
   await expect(
     page.getByText("reader-preview.png", { exact: true }),
   ).toBeVisible();
+  const downloadRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "GET" &&
+      request.url().includes("/attachment-content"),
+  );
   const download = page.waitForEvent("download");
   await page
     .getByText("reader-preview.png", { exact: true })
@@ -25,9 +30,12 @@ test("downloads opened attachment previews over the network", async ({
   const savedFile = await download;
   expect(savedFile.suggestedFilename()).toBe("reader-preview.png");
   expect(await savedFile.failure()).toBeNull();
-  expect(new URL(savedFile.url()).searchParams.get("emailAccountId")).toBe(
-    emailAccountId,
+  const contentRequest = await downloadRequest;
+  expect(contentRequest.method()).toBe("GET");
+  expect(new URL(contentRequest.url()).pathname).toBe(
+    `/api/mail/v1/accounts/${emailAccountId}/attachment-content`,
   );
+  expect(contentRequest.headers()["x-email-account-id"]).toBe(emailAccountId);
   const savedPath = await savedFile.path();
   expect(savedPath).not.toBeNull();
   const savedBytes = await readFile(savedPath!);

@@ -10,7 +10,10 @@ import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isPreviewableImageType } from "@/utils/attachments/image-preview";
-import { getAttachmentUrl } from "@/utils/attachments/download";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
@@ -26,28 +29,31 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const downloadAttachment = async ({
     filename,
     url,
-    attachmentId,
-    size,
   }: {
     filename: string;
     url: string;
-    attachmentId: string;
-    size: number;
   }) => {
     const signal = controller.current.signal;
     setIsDownloading(true);
 
     try {
+      const blob = await fetchAttachment({
+        url,
+        emailAccountId,
+        signal,
+      });
+      signal.throwIfAborted();
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const downloadUrl = new URL(url, window.location.origin);
-      downloadUrl.searchParams.set("emailAccountId", emailAccountId);
-      link.href = downloadUrl.toString();
+      link.href = objectUrl;
       link.download = filename;
       document.body.appendChild(link);
       try {
         link.click();
       } finally {
         link.remove();
+        // click() can start the download after this turn; 0ms revoke drops the file.
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       }
       signal.throwIfAborted();
     } catch {
@@ -61,12 +67,13 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
-        const url = getAttachmentUrl({
-          messageId: message.id,
-          attachmentId: attachment.attachmentId,
-          mimeType: attachment.mimeType,
-          filename: attachment.filename,
-        });
+        const url = emailAccountId
+          ? getAttachmentUrl({
+              accountId: emailAccountId,
+              messageId: message.id,
+              attachmentId: attachment.attachmentId,
+            })
+          : "";
 
         return (
           <CardBasic
@@ -105,8 +112,6 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                     downloadAttachment({
                       filename: attachment.filename,
                       url,
-                      attachmentId: attachment.attachmentId,
-                      size: attachment.size,
                     })
                   }
                 >
