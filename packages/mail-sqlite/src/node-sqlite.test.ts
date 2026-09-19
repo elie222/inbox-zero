@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createNodeSqliteDriver,
   openOrQuarantineNodeMailbox,
+  wipeNodeMailbox,
 } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
@@ -79,3 +80,55 @@ describe("node mailbox quarantine", () => {
     await rm(directory, { recursive: true, force: true });
   });
 });
+
+describe("wipeNodeMailbox", () => {
+  it("removes sqlite, wal, and shm so a reopen has no drafts", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-wipe-"));
+    const path = join(directory, "mailbox.sqlite");
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Wipe me",
+        editableHtml: "<p>Wipe me</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    await store.close();
+    await wipeNodeMailbox(path);
+    expect(await mailboxFileExists(path)).toBe(false);
+    expect(await mailboxFileExists(`${path}-wal`)).toBe(false);
+    expect(await mailboxFileExists(`${path}-shm`)).toBe(false);
+    await expect(wipeNodeMailbox(path)).resolves.toBeUndefined();
+    const reopened = await createSqliteMailStore(createNodeSqliteDriver(path));
+    expect(
+      await reopened.readDraft({ accountId: "acc-1", draftId: "d1" }),
+    ).toEqual({ status: "missing" });
+    await reopened.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("does not throw for an in-memory path", async () => {
+    await expect(wipeNodeMailbox(":memory:")).resolves.toBeUndefined();
+  });
+});
+
+async function mailboxFileExists(path: string) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -1,4 +1,4 @@
-import { rename, stat } from "node:fs/promises";
+import { rename, rm, stat } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import type { SqlTransaction, SqlValue, SqliteDriver } from "./driver";
 
@@ -80,6 +80,13 @@ export async function openOrQuarantineNodeMailbox(path: string): Promise<{
       quarantinedPaths,
     };
   }
+}
+
+export async function wipeNodeMailbox(path: string): Promise<void> {
+  if (path === ":memory:") return;
+  await Promise.all(
+    mailboxSidecars(path).map((file) => rm(file, { force: true })),
+  );
 }
 
 function createTransaction(database: DatabaseSync): SqlTransaction {
