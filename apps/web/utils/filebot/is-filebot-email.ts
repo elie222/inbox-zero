@@ -163,11 +163,18 @@ export function isFilebotConversationMessage({
 
 /**
  * Build a regex pattern for filebot emails.
- * Domain is case-insensitive (per email standards), but the filebot suffix is case-sensitive for security.
+ * The user's local part and domain are case-insensitive, since providers deliver
+ * either casing to the same mailbox. The filebot suffix is case-sensitive for security.
  */
 function buildFilebotPattern(localPart: string, domain: string): RegExp {
-  // Make domain case-insensitive by matching either case for each letter
-  const caseInsensitiveDomain = domain
+  return new RegExp(
+    `^${caseInsensitivePattern(localPart)}\\+${FILEBOT_SUFFIX}@${caseInsensitivePattern(domain)}$`,
+  );
+}
+
+// Match either case for each letter, without making the whole pattern case-insensitive
+function caseInsensitivePattern(str: string): string {
+  return str
     .split("")
     .map((char) => {
       if (/[a-zA-Z]/.test(char)) {
@@ -176,9 +183,6 @@ function buildFilebotPattern(localPart: string, domain: string): RegExp {
       return escapeRegex(char);
     })
     .join("");
-  return new RegExp(
-    `^${escapeRegex(localPart)}\\+${FILEBOT_SUFFIX}@${caseInsensitiveDomain}$`,
-  );
 }
 
 function escapeRegex(str: string): string {

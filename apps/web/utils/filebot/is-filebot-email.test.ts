@@ -57,6 +57,18 @@ describe("isFilebotEmail", () => {
       expected: false,
     },
     {
+      name: "local part case insensitivity",
+      userEmail: "john@example.com",
+      emailToCheck: "John+ai@example.com",
+      expected: true,
+    },
+    {
+      name: "mixed-case user email",
+      userEmail: "John@example.com",
+      emailToCheck: "john+ai@example.com",
+      expected: true,
+    },
+    {
       name: "invalid userEmail format",
       userEmail: "notanemail",
       emailToCheck: "john+ai@example.com",
@@ -211,6 +223,15 @@ describe("isFilebotConversationMessage", () => {
       headers: {
         from: "John <john@example.com>",
         to: "Inbox Zero Assistant <john+ai@example.com>",
+        subject: "Re: Your receipt",
+      },
+      expected: true,
+    },
+    {
+      name: "user reply to a mixed-case filebot address",
+      headers: {
+        from: "John <john@example.com>",
+        to: "Inbox Zero Assistant <John+ai@example.com>",
         subject: "Re: Your receipt",
       },
       expected: true,
