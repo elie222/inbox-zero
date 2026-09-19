@@ -298,7 +298,7 @@ export function createBackendMailboxSource(input: {
       });
       const error = parseError(response);
       if (error?.error.code === "not_found" || response.status === 404) {
-        return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+        return { status: "not_found" };
       }
       if (error) {
         return mapReadError(error);

@@ -101,7 +101,8 @@ export interface MailboxSource {
   readAttachment(
     input: SourceContext & { key: MessageKey; attachmentId: string },
   ): Promise<
-    ReadResult<{ bytes: AsyncIterable<Uint8Array>; sizeBytes: number | null }>
+    | ReadResult<{ bytes: AsyncIterable<Uint8Array>; sizeBytes: number | null }>
+    | { status: "not_found" }
   >;
   readChanges(input: {
     session: AccountSession;

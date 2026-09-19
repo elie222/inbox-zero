@@ -614,9 +614,7 @@ describe("createEmailProviderMailboxSource", () => {
         attachmentId: "att-1",
       }),
     ).resolves.toEqual({
-      status: "paused",
-      retryAfterMs: 0,
-      reason: "unavailable",
+      status: "not_found",
     });
   });
 });

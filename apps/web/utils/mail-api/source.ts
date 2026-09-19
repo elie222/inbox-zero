@@ -308,11 +308,7 @@ export function createEmailProviderMailboxSource(input: {
         };
       } catch (error) {
         if (isMissingAttachmentError(error)) {
-          return {
-            status: "paused" as const,
-            retryAfterMs: 0,
-            reason: "unavailable" as const,
-          };
+          return { status: "not_found" as const };
         }
         return mapProviderError(error);
       }

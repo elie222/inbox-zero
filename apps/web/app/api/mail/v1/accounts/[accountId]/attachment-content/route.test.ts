@@ -79,4 +79,23 @@ describe("GET /attachment-content", () => {
       error: { code: "not_found", retryable: false },
     });
   });
+
+  it("returns throttled when the provider rate-limits the stream", async () => {
+    getAttachmentStream.mockRejectedValue(
+      Object.assign(new Error("rate limited"), {
+        name: "ProviderRateLimitModeError",
+        provider: "google",
+      }),
+    );
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/mail/v1/accounts/acc-1/attachment-content?messageId=m1&attachmentId=a1",
+      ),
+      { params: Promise.resolve({ accountId: "acc-1" }) } as never,
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "throttled", retryable: true },
+    });
+  });
 });

@@ -67,22 +67,21 @@ export const GET = withEmailProvider(
         { status: 401 },
       );
     }
-    if (result.status !== "ok") {
-      if (result.reason === "unavailable" && result.retryAfterMs === 0) {
-        return NextResponse.json(
-          mailHttpErrorResponse({
-            requestId,
-            code: "not_found",
-            retryable: false,
-          }),
-          { status: 404 },
-        );
-      }
-      const throttled = result.reason === "throttled";
+    if (result.status === "not_found") {
       return NextResponse.json(
         mailHttpErrorResponse({
           requestId,
-          code: throttled ? "throttled" : "unavailable",
+          code: "not_found",
+          retryable: false,
+        }),
+        { status: 404 },
+      );
+    }
+    if (result.status !== "ok") {
+      return NextResponse.json(
+        mailHttpErrorResponse({
+          requestId,
+          code: result.reason === "throttled" ? "throttled" : "unavailable",
           retryable: true,
           retryAfterMs: result.retryAfterMs,
         }),

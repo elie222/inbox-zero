@@ -121,9 +121,7 @@ describe("backend mailbox source", () => {
         attachmentId: "att-1",
       }),
     ).resolves.toEqual({
-      status: "paused",
-      retryAfterMs: 0,
-      reason: "unavailable",
+      status: "not_found",
     });
   });
 
@@ -144,9 +142,7 @@ describe("backend mailbox source", () => {
         attachmentId: "att-1",
       }),
     ).resolves.toEqual({
-      status: "paused",
-      retryAfterMs: 0,
-      reason: "unavailable",
+      status: "not_found",
     });
   });
 });
