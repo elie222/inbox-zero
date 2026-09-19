@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `1117e59b2`
+- Last implementation commit: `6a57090c5`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after web offline and Gmail starring, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining G matrix cells that are still Not run; H simplifier/reviewer; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells after store quota/retention/corruption proofs, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: remaining G matrix cells that are still Not run (desktop missed-hints/reset, before-dispatch restart, coverage/retention UI, bulk/container, packaging); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/maintenance.test.ts src/node-sqlite.test.ts src/blob-store.test.ts` — 3 files, 7 passed on `6a57090c5` (E55)
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='quota, retention'` — 3 passed (queue_full, preparing counts, unfrozen draft)
+  - `pnpm --filter @inboxzero/desktop exec vitest run __tests__/mail-engine/recovery.test.ts` — 4 passed including damaged native mailbox rename-not-delete
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m on `2f0102e9f`; spec 44.0s; keyboard S, CommandK Unstar, reader S, and More actions Star/Unstar on Gmail (E54)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.4m on `17e6a503e`; offline reload 39.8s; Outlook Conversations lists Archive Action Message after `setOffline` + reload (E53)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.3m on `1117e59b2`; offline reload 34.3s; Conversations list and Archive Action Message visible after `setOffline` + reload (E52)
@@ -214,10 +217,21 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
+| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Queue cap including preparing; body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E55. Mailbox quota, retention, disk pressure, and corruption quarantine (2026-09-19)
+
+- Tasks: partial G2 store proofs
+- Tree: `cursor/mail-engine-0b4f` at `6a57090c5`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/maintenance.test.ts src/node-sqlite.test.ts src/blob-store.test.ts` — 3 files, 7 passed
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='quota, retention'` — 3 passed, 21 skipped
+  - `pnpm --filter @inboxzero/desktop exec vitest run __tests__/mail-engine/recovery.test.ts` — 4 passed
+- What it proved: Pending metadata, conversation-prepare, and send admission reject with `queue_full` at a 1-slot cap; a duplicate command stays `already_recorded`; send does not freeze the draft when the queue is full. Evicting `message_content` removes the hydrated body, keeps conversation metadata and the draft, and still admits a later archive. A garbage `mailbox.sqlite` is renamed to `.corrupt-<ts>` with the original bytes intact; desktop open then admits into a fresh file. Blob staging maps `ENOSPC` to `too_large`.
+- Limitations: Browser OPFS quota UI, assistant fairness under live provider quota, and coverage/retention product UI remain Not run. Do not check G2.
 
 ### E54. Gmail web starring (2026-09-19)
 
