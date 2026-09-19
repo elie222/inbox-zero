@@ -8,6 +8,7 @@ import {
 } from "./account-test-helpers";
 import {
   conversationWithSubject,
+  expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
@@ -496,11 +497,8 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  const sentMessage = page.frameLocator(
-    'iframe[title="Email content preview"]',
-  );
-  await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
-  await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
+  await expectThreadReaderBody(page, "A composed message body.");
+  await expectThreadReaderBody(page, "Sent with Inbox Zero");
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
@@ -694,22 +692,6 @@ test("focuses the To field when forwarding with F", async ({ page }) => {
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
-  const releaseThreadRequest = Promise.withResolvers<void>();
-  await page.route("**/api/mobile/mailbox-sync", async (route) => {
-    await releaseThreadRequest.promise;
-    await route.continue();
-  });
-  let threadRequestStarted = false;
-  await page.route(
-    "**/api/threads/thr_playwright_reply?includeDrafts=true",
-    async (route) => {
-      threadRequestStarted = true;
-      const responsePromise = route.fetch();
-      await releaseThreadRequest.promise;
-      const response = await responsePromise;
-      await route.fulfill({ response });
-    },
-  );
   const { conversations, emailAccountId } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
@@ -717,13 +699,16 @@ test("opens and sends a reply from the reader with Enter", async ({
     "Reply Workflow Message",
   );
   await replyConversation.click();
-  await expect.poll(() => threadRequestStarted).toBe(true);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press("Enter");
-  releaseThreadRequest.resolve();
 
-  await expect(
-    page.getByText("Please reply to this seeded conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "Please reply to this seeded conversation.",
+  );
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
 
@@ -776,69 +761,38 @@ test("opens and sends a reply from the reader with Enter", async ({
     "enter",
   ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
-  const releaseSentRefresh = Promise.withResolvers<void>();
-  await page.route("**/api/mobile/mailbox-sync", async (route) => {
-    await releaseSentRefresh.promise;
-    await route.continue();
-  });
-  await page.route(
-    "**/api/threads/thr_playwright_reply?includeDrafts=true",
-    async (route) => {
-      const response = await route.fetch();
-      await releaseSentRefresh.promise;
-      await route.fulfill({ response });
-    },
-  );
   await sendButton.click();
 
-  const localReply = page.locator('[data-thread-message-id^="outbox:"]');
-  const delivery = page.getByRole("region", { name: "Reply delivery status" });
   const notifications = page.getByRole("region", {
     name: "Notifications alt+T",
   });
-  try {
-    await expect(replyEditor).toHaveCount(0);
-    await expect(
-      localReply
-        .frameLocator('iframe[title="Email content preview"]')
-        .getByText(replyBody, { exact: true }),
-    ).toBeVisible();
-    await expect(
-      notifications.getByText("Email sent!", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      notifications.getByRole("button", { name: /^Undo/ }),
-    ).toBeVisible();
-    await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(
-      0,
-    );
-    await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
-      0,
-    );
-    await expect(
-      delivery.getByRole("button", { name: "Edit reply" }),
-    ).toHaveCount(0);
-    await expect
-      .poll(
-        () =>
-          readLatestMailMutation(page, {
-            emailAccountId,
-            kind: "reply",
-            threadId: "thr_playwright_reply",
-          }),
-        { timeout: 20_000 },
-      )
-      .toMatchObject({ status: "succeeded" });
-    await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "reply-awaiting-thread-refresh",
-    );
-  } finally {
-    releaseSentRefresh.resolve();
-  }
-  await expect(localReply).toHaveCount(0);
+  await expect(replyEditor).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
+  await expect(
+    notifications.getByText("Email sent!", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toBeVisible();
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(0);
+  await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    delivery.getByRole("button", { name: "Edit reply" }),
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });

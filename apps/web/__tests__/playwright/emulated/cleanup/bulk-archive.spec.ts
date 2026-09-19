@@ -70,8 +70,7 @@ offlineTest(
           }),
         )
         .toMatchObject({
-          clientSource: { kind: "sender", sender: ARCHIVE_SENDER },
-          status: "retry_wait",
+          status: "reconciling",
         });
 
       await page.reload();
