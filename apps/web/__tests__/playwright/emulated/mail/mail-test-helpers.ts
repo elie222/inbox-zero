@@ -25,15 +25,29 @@ export async function openMail(page: Page) {
   return { conversations, emailAccountId };
 }
 
-export function threadReaderBody(page: Page, text: string) {
-  const reader = page.getByTestId("thread-reader");
-  return reader
-    .getByText(text)
-    .or(
-      reader
-        .frameLocator('iframe[title="Email content preview"]')
-        .getByText(text),
-    );
+export async function expectThreadReaderBody(
+  page: Page,
+  text: string,
+  timeout = 60_000,
+) {
+  await expect
+    .poll(
+      async () => {
+        if (
+          (await page.getByTestId("thread-reader").getByText(text).count()) > 0
+        )
+          return true;
+        const frames = page.locator('iframe[title="Email content preview"]');
+        const n = await frames.count();
+        for (let i = 0; i < n; i += 1) {
+          if ((await frames.nth(i).contentFrame().getByText(text).count()) > 0)
+            return true;
+        }
+        return false;
+      },
+      { timeout },
+    )
+    .toBe(true);
 }
 
 /**

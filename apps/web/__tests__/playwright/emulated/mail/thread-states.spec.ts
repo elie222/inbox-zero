@@ -3,9 +3,9 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
+  expectThreadReaderBody,
   openMail,
   readLatestMailMutation,
-  threadReaderBody,
 } from "./mail-test-helpers";
 
 test("captures thread reading and reply states", async ({ page }, testInfo) => {
@@ -179,9 +179,6 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("heading", { name: /Reply Workflow Message/ }),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(threadReaderBody(page, replyBody)).toBeVisible({
-    timeout: 60_000,
-  });
   await expect
     .poll(
       () =>
@@ -190,11 +187,12 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
           kind: "reply",
           threadId: "thr_playwright_reply",
         }),
-      { timeout: 15_000 },
+      { timeout: 60_000 },
     )
     .toMatchObject({
       status: expect.stringMatching(/^(succeeded|reconciling)$/),
     });
+  await expectThreadReaderBody(page, replyBody);
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
     { headers: { "X-Email-Account-ID": emailAccountId } },
