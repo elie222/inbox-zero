@@ -45,12 +45,16 @@ async function* iterableFromStream(stream: ReadableStream<Uint8Array> | null) {
   }
 }
 
-function encodeRequestBody(body: unknown) {
-  if (body === undefined) return { headers: {}, body: undefined };
+function encodeRequestBody(body: unknown): {
+  headers: Record<string, string>;
+  body?: BodyInit;
+} {
+  if (body === undefined) return { headers: {} };
   if (body instanceof Uint8Array) {
     return {
       headers: { "content-type": "application/octet-stream" },
-      body,
+      // TS 5.7 Uint8Array<ArrayBufferLike> is not inferred as BodyInit.
+      body: body as BodyInit,
     };
   }
   return {
