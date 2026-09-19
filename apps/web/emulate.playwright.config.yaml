@@ -204,6 +204,7 @@ google:
       to: recipient@example.com
       subject: Multiple Server Drafts
       body_text: First saved reply
+      body_html: "<p>First saved reply</p>"
       message_id: "<multi-draft-first@example.com>"
       label_ids:
         - DRAFT
@@ -215,6 +216,7 @@ google:
       to: recipient@example.com
       subject: Multiple Server Drafts
       body_text: Second saved reply
+      body_html: "<p>Second saved reply</p>"
       message_id: "<multi-draft-second@example.com>"
       label_ids:
         - DRAFT
@@ -226,6 +228,7 @@ google:
       to: recipient@example.com
       subject: Drafts Without Parent
       body_text: First saved reply
+      body_html: "<p>First saved reply</p>"
       message_id: "<draft-only-first@example.com>"
       label_ids:
         - DRAFT
@@ -237,6 +240,7 @@ google:
       to: recipient@example.com
       subject: Drafts Without Parent
       body_text: Second saved reply
+      body_html: "<p>Second saved reply</p>"
       message_id: "<draft-only-second@example.com>"
       label_ids:
         - DRAFT
