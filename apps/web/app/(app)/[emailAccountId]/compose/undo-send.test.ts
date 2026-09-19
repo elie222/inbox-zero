@@ -124,6 +124,44 @@ describe("undo send", () => {
     vi.useRealTimers();
   });
 
+  it("does not dismiss a later send's undo when an earlier hold elapses", async () => {
+    vi.useFakeTimers();
+    const now = 1_000_000;
+    vi.setSystemTime(now);
+    const first = createClient();
+    const second = createClient();
+    beginUndoSend({
+      client: first.client,
+      operationId: "first",
+      emailAccountId: "account",
+      holdUntil: now + UNDO_SEND_DELAY_MS,
+      restoreComposer: vi.fn(),
+    });
+
+    await vi.advanceTimersByTimeAsync(4000);
+    beginUndoSend({
+      client: second.client,
+      operationId: "second",
+      emailAccountId: "account",
+      holdUntil: now + 4000 + UNDO_SEND_DELAY_MS,
+      restoreComposer: vi.fn(),
+    });
+    expect(first.handle.close).toHaveBeenCalled();
+    notifications.dismiss.mockClear();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(notifications.dismiss).not.toHaveBeenCalled();
+    expect(second.handle.close).not.toHaveBeenCalled();
+
+    await expect(undoPendingSend()).resolves.toBe(true);
+    expect(second.client.cancelOperation).toHaveBeenCalledWith({
+      accountId: "account",
+      operationId: "second",
+    });
+    expect(first.client.cancelOperation).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("does not restore when the send has already started", async () => {
     const restoreComposer = vi.fn();
     const { client } = createClient({ cancelStatus: "too_late" });

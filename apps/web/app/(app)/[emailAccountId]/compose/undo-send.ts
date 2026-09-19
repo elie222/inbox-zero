@@ -37,12 +37,12 @@ export function beginUndoSend({
 }) {
   const duration = holdUntil - Date.now();
   if (duration <= 0) return;
+  releasePreviousOffer();
   const handle = client.observeOperation({
     accountId: emailAccountId,
     operationId,
   });
   let unsubscribe = () => {};
-  const timeout = setTimeout(clearUndoSendOffer, duration);
   const current: PendingUndoSend = {
     client,
     operationId,
@@ -55,11 +55,12 @@ export function beginUndoSend({
       handle.close();
     },
   };
+  const timeout = setTimeout(() => clearUndoSendOffer(current), duration);
   pending = current;
   const inspect = () => {
     if (pending !== current || current.undone) return;
     const status = handle.getSnapshot().data?.status;
-    if (status && !canCancelOperation(status)) clearUndoSendOffer();
+    if (status && !canCancelOperation(status)) clearUndoSendOffer(current);
   };
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
@@ -101,10 +102,17 @@ export async function undoPendingSend() {
   return true;
 }
 
-function clearUndoSendOffer() {
-  const current = pending;
-  if (!current || current.undone) return;
+function releasePreviousOffer() {
+  const previous = pending;
+  if (!previous) return;
+  previous.undone = true;
   pending = null;
-  current.release();
+  previous.release();
+}
+
+function clearUndoSendOffer(offer: PendingUndoSend) {
+  if (pending !== offer || offer.undone) return;
+  pending = null;
+  offer.release();
   toast.dismiss(UNDO_SEND_TOAST_ID);
 }
