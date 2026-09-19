@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `6a57090c5`
+- Last implementation commit: `e4be73a64`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after store quota/retention/corruption proofs, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining G matrix cells that are still Not run (desktop missed-hints/reset, before-dispatch restart, coverage/retention UI, bulk/container, packaging); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells after Gmail web bulk/label/trash proofs, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: remaining G matrix cells that are still Not run (desktop missed-hints/reset, before-dispatch UI restart, coverage/retention product UI, packaging); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/manual-label.spec.ts` — 5 passed in 2.1m on `e4be73a64`; create-label 12.4s; queued label while PUT held 10.7s (E56)
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/triage-actions.spec.ts` — 8 passed in 2.4m on `1c66548fd`; bulk two-archive+undo, trash restore from Trash, split-reader archive (E56)
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='sqlite crash recovery'` — 1 passed, 23 skipped
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/maintenance.test.ts src/node-sqlite.test.ts src/blob-store.test.ts` — 3 files, 7 passed on `6a57090c5` (E55)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='quota, retention'` — 3 passed (queue_full, preparing counts, unfrozen draft)
   - `pnpm --filter @inboxzero/desktop exec vitest run __tests__/mail-engine/recovery.test.ts` — 4 passed including damaged native mailbox rename-not-delete
@@ -211,16 +214,27 @@ Expand this table from architecture section 13 before broad implementation. Link
 | --- | --- | --- | --- | --- | --- |
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36/E39) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
-| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54) | Partial: Outlook starring S/CommandK/menu (E43) | Partial: hosted Electron More actions Star + native starred inbox (E48) | Partial: hosted Electron More actions Star + native starred inbox (E47) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
+| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43) | Partial: hosted Electron More actions Star + native starred inbox (E48) | Partial: hosted Electron More actions Star + native starred inbox (E47) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
-| Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
+| Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Partial: queued archive native reopen / uncertain execute (E55) | Partial: queued archive native reopen / uncertain execute (E55) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3) |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Queue cap including preparing; body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
-| Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
+| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
+| Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E56. Gmail web bulk archive, labels, and trash restore (2026-09-19)
+
+- Tasks: partial E1/F4 Gmail web metadata/bulk/container
+- Tree: `cursor/mail-engine-0b4f` at `e4be73a64` (labels); bulk/trash on `1c66548fd`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/triage-actions.spec.ts` — 8 passed in 2.4m on `1c66548fd`
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/manual-label.spec.ts` — 5 passed in 2.1m on `e4be73a64`; create-label 12.4s; queued-label 10.7s
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='sqlite crash recovery'` — 1 passed, 23 skipped
+- What it proved: two selected conversations archive then undo through inspect. Delete from More actions hides the thread, Trash lists it, undo restores it to inbox. Split-view text readers archive with `e`. Reader-menu Project Alpha is `set_membership` inspect succeeded. L creates Manual Projects on two selected conversations; chips, provider label ids, and inspect succeeded. L still labels an open conversation after it leaves Unread. A queued Project Alpha chip stays visible while operations PUT is held (`reconciling`) and then succeeds. Desktop before-dispatch/coverage cells now cite native reopen/quarantine (E31/E55); shared WAL crash recovery cites E3.
+- Limitations: Outlook web/desktop bulk/container UI remain starring-only. Overlay POST `/mail` retry toasts are not the engine path. Hosted Electron before-dispatch UI restart and coverage/retention product UI remain Not run. Do not check E1.
 
 ### E55. Mailbox quota, retention, disk pressure, and corruption quarantine (2026-09-19)
 
@@ -240,7 +254,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m; keyboard/CommandK spec 44.0s
 - What it proved: Gmail web stars Second Unread Command Message with S, CommandK Unstar, reader S, and More actions Star/Unstar. The unread blue dot stays next to the yellow star.
-- Limitations: bulk/container UI remain Not run. Do not check E1.
+- Limitations: Outlook web/desktop bulk/container UI remain Not run. Gmail web bulk/container is E56. Do not check E1.
 
 ### E53. Outlook web offline mail reload (2026-09-19)
 
@@ -737,7 +751,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 7 passed in 2.1m
 - What it proved: after prepare finishes, KeyU unread is an `admitExact` metadata command with `msg_*` ids and empty `conversationIds`. Inspect helpers map `thr_playwright_reader` onto those members and filter `{ read: false }`, so the toast path records succeeded unread. Deep-link reader waits for a settled snapshot and the Mark as unread control; auto mark-read is not required when the snapshot is already read. Engine in-flight statuses map to reconciling, not pending.
-- Limitations: starring, label, undo, and partial-bulk UI remain unrecorded. Outlook web and desktop metadata cells remain Not run.
+- Limitations: starring is E43/E47/E48/E54. Gmail web labels, undo, and partial-bulk UI are E56. Outlook web and desktop bulk/container remain Not run.
 
 ## Decision and deviation log
 
