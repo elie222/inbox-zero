@@ -9,6 +9,11 @@ microsoft:
       redirect_uris:
         - __PLAYWRIGHT_TEST_REDIRECT_URI__
         - __PLAYWRIGHT_TEST_LINKING_URI__
+  categories:
+    - id: Label_project
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      display_name: Project Alpha
+      color: preset1
   messages:
     - id: msg_playwright_1
       conversation_id: thr_playwright_1
@@ -23,6 +28,19 @@ microsoft:
       parent_folder_id: inbox
       is_read: false
       received_date_time: "2026-01-04T12:00:00.000Z"
+    - id: msg_playwright_2
+      conversation_id: thr_playwright_2
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: bob@example.com
+        name: Bob Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Read Command Message
+      body_content: A read message for mixed-selection checks.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-03T18:00:00.000Z"
     - id: msg_playwright_archive
       conversation_id: thr_playwright_archive
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -36,6 +54,19 @@ microsoft:
       parent_folder_id: inbox
       is_read: true
       received_date_time: "2026-01-03T12:00:00.000Z"
+    - id: msg_playwright_delete
+      conversation_id: thr_playwright_delete
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: frank@example.com
+        name: Frank Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Delete Action Message
+      body_content: This conversation is reserved for delete coverage.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T20:00:00.000Z"
     - id: msg_playwright_3
       conversation_id: thr_playwright_3
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -62,6 +93,48 @@ microsoft:
       parent_folder_id: inbox
       is_read: false
       received_date_time: "2026-01-02T12:00:00.000Z"
+    - id: msg_playwright_reader_1
+      conversation_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Navigation Message
+      body_content: First message in the reader conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T06:00:00.000Z"
+    - id: msg_playwright_reader_2
+      conversation_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: dana@example.com
+          name: Dana Example
+      subject: "Re: Reader Navigation Message"
+      body_content: A second message proves the complete conversation is rendered.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T07:00:00.000Z"
+    - id: msg_playwright_label
+      conversation_id: thr_playwright_label
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: harper@example.com
+        name: Harper Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Project Label Message
+      body_content: This conversation is visible in the seeded project label.
+      parent_folder_id: inbox
+      is_read: true
+      categories:
+        - Project Alpha
+      received_date_time: "2026-01-01T18:00:00.000Z"
     - id: msg_playwright_draft
       conversation_id: thr_playwright_draft
       user_email: __PLAYWRIGHT_TEST_EMAIL__
