@@ -186,6 +186,61 @@ google:
         - INBOX
         - UNREAD
       internal_date: "1735038000000"
+    - id: msg_playwright_multi_draft_parent
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Leslie Example <leslie@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Multiple Server Drafts
+      body_text: Parent of two saved replies.
+      message_id: "<multi-draft-parent@example.com>"
+      label_ids:
+        - INBOX
+      internal_date: "1735038100000"
+    - id: msg_playwright_multi_draft_first
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Multiple Server Drafts
+      body_text: First saved reply
+      message_id: "<multi-draft-first@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038200000"
+    - id: msg_playwright_multi_draft_second
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Multiple Server Drafts
+      body_text: Second saved reply
+      message_id: "<multi-draft-second@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038300000"
+    - id: msg_playwright_draft_only_first
+      thread_id: thr_playwright_draft_only
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Drafts Without Parent
+      body_text: First saved reply
+      message_id: "<draft-only-first@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038400000"
+    - id: msg_playwright_draft_only_second
+      thread_id: thr_playwright_draft_only
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Drafts Without Parent
+      body_text: Second saved reply
+      message_id: "<draft-only-second@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038500000"
     - id: msg_playwright_reader_visual_sent
       thread_id: thr_playwright_reader_visual
       user_email: __PLAYWRIGHT_TEST_EMAIL__
