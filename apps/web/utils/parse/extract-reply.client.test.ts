@@ -144,4 +144,14 @@ describe("extractDraftComposerContent", () => {
     expect(result.draftHtml).toBe("<p>First saved reply</p>");
     expect(result.originalHtml).toContain("gmail_quote");
   });
+
+  it("fills a quoted draft whose reply part is only a break or nbsp", () => {
+    const html = `
+      <div dir="ltr">&nbsp;<br></div>
+      <div class="gmail_quote">Original thread content</div>
+    `;
+    const result = extractDraftComposerContent(html, "First saved reply");
+    expect(result.draftHtml).toBe("<p>First saved reply</p>");
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
 });
