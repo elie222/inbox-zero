@@ -126,7 +126,7 @@ async function readAssistantCatchUp(page: Page) {
       );
       return {
         assistantCursor: snapshot.accounts?.[0]?.assistantCursor ?? null,
-        inboxRole: message?.confirmed.roles.includes("inbox") ?? null,
+        inboxRole: message?.confirmed.roles.includes("inbox") ?? false,
       };
     }, MESSAGE_ID);
   } catch (error) {
