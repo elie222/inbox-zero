@@ -265,6 +265,7 @@ async function proveStar(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
 ) {
+  await waitForConversations(window);
   await waitForSubject(window, STAR_SUBJECT);
   await clickConversation(window, STAR_SUBJECT);
   await clickMoreActionsStar(window);
@@ -791,27 +792,30 @@ async function openSentMailbox(window: BrowserWindow) {
 }
 
 async function clickConversation(window: BrowserWindow, subject: string) {
-  const clicked = (await window.webContents.executeJavaScript(`
-    (() => {
-      const list = document.querySelector('[role="listbox"][aria-label="Conversations"]');
-      const option = [...(list?.querySelectorAll('[role="option"]') ?? [])]
-        .find((item) => (item.textContent ?? "").includes(${JSON.stringify(subject)}));
-      if (!(option instanceof HTMLElement)) {
-        return {
-          ok: false,
-          optionCount: list?.querySelectorAll('[role="option"]').length ?? 0,
-        };
-      }
-      option.click();
-      return { ok: true };
-    })()
-  `)) as { ok: boolean; optionCount?: number };
-  if (!clicked.ok) {
-    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-    throw new Error(
-      `Conversation missing for ${subject} (options=${clicked.optionCount})`,
-    );
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const clicked = (await window.webContents.executeJavaScript(`
+      (() => {
+        const list = document.querySelector('[role="listbox"][aria-label="Conversations"]');
+        const option = [...(list?.querySelectorAll('[role="option"]') ?? [])]
+          .find((item) => (item.textContent ?? "").includes(${JSON.stringify(subject)}));
+        if (!(option instanceof HTMLElement)) {
+          return {
+            ok: false,
+            optionCount: list?.querySelectorAll('[role="option"]').length ?? 0,
+          };
+        }
+        option.click();
+        return { ok: true };
+      })()
+    `)) as { ok: boolean; optionCount?: number };
+    if (clicked.ok) return;
+    await delay(250);
   }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(
+    `Conversation missing for ${subject}: ${body.slice(0, 2000)}`,
+  );
 }
 
 async function clickMoreActionsStar(window: BrowserWindow) {
