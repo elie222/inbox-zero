@@ -54,6 +54,7 @@ type ComposeSession = { id: number; mode: ReplyDraftMode };
 export function EmailMessage({
   message,
   bodyAvailable = true,
+  missingBodyIds,
   menu,
   refetch,
   showReplyButton,
@@ -72,6 +73,7 @@ export function EmailMessage({
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
+  missingBodyIds?: Set<string>;
   menu?: React.ReactNode;
   draftMessages?: ThreadMessage[];
   refetch: () => void;
@@ -275,6 +277,7 @@ export function EmailMessage({
             <ReplyPanel
               key={draft.id}
               autoScroll={!composeMode && index === visibleDrafts.length - 1}
+              draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
               message={message}
               onCloseCompose={() => setDraftDismissed(draft.id, true)}
@@ -548,6 +551,7 @@ function ReplyPanel({
   onStartDiscard,
   composeMode,
   draftMessage,
+  draftBodyAvailable = true,
   autoScroll = false,
   bodyAvailable = true,
 }: {
@@ -561,6 +565,7 @@ function ReplyPanel({
   onStartDiscard: () => ComposeSession | undefined;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  draftBodyAvailable?: boolean;
   autoScroll?: boolean;
   bodyAvailable?: boolean;
 }) {
@@ -642,6 +647,14 @@ function ReplyPanel({
       refetch,
     ],
   );
+
+  if (draftMessage && !draftBodyAvailable) {
+    return (
+      <p className="mt-5 text-muted-foreground text-sm">
+        This message hasn’t loaded yet.
+      </p>
+    );
+  }
 
   if (!replyingToEmail)
     return (

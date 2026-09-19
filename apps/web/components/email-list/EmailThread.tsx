@@ -230,6 +230,7 @@ export function EmailThread({
             return (
               <EmailMessage
                 bodyAvailable={!missingBodyIds?.has(message.id)}
+                missingBodyIds={missingBodyIds}
                 onNavigateMessage={
                   enableMessageNavigation
                     ? (direction) =>
