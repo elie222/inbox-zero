@@ -1236,6 +1236,162 @@ describe("sqlite and reference model parity", () => {
   });
 });
 
+describe("quota, retention, and recovery", () => {
+  it("rejects new commands once the pending queue is full", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver(), {
+      maxPendingOperations: 1,
+    });
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const first = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(first.status).toBe("queued");
+    const second = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-2",
+      targets: [{ accountId: "acc-1", messageId: "m2" }],
+      change: { kind: "archive" },
+    });
+    expect(second).toEqual({ status: "rejected", code: "queue_full" });
+    const retry = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(retry.status).toBe("already_recorded");
+    await store.close();
+  });
+
+  it("counts preparing conversation commands toward the queue cap", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver(), {
+      maxPendingOperations: 1,
+    });
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const revision = (await store.readMailboxView(inboxQuery)).revision;
+    const preparing = await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-thread",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: { kind: "archive" },
+      observedRevision: revision,
+    });
+    expect(preparing.status).toBe("preparing");
+    const blocked = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-later",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(blocked).toEqual({ status: "rejected", code: "queue_full" });
+    await store.close();
+  });
+
+  it("does not freeze a draft when send admission is queue_full", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver(), {
+      maxPendingOperations: 1,
+    });
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    const send = await store.admitSend({
+      commandId: "send-1",
+      draft: { accountId: "acc-1", draftId: "d1" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    expect(send).toEqual({ status: "rejected", code: "queue_full" });
+    const edited = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi later",
+        editableHtml: "<p>Later</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(edited.status).toBe("saved");
+    await store.close();
+  });
+});
+
 describe("sqlite scale smoke", () => {
   it("lists and counts a 10k-conversation mailbox", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());

@@ -101,4 +101,29 @@ describe("file blob store", () => {
     ).rejects.toThrow("invalid blob id");
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("rejects staging when the filesystem is full", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    const store = createFileBlobStore(directory, {
+      writeFile: async () => {
+        const error = new Error(
+          "no space left on device",
+        ) as NodeJS.ErrnoException;
+        error.code = "ENOSPC";
+        throw error;
+      },
+    });
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    const staged = await store.stage({
+      blobId: "b1",
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+      checksum,
+      sizeBytes: 4,
+    });
+    expect(staged).toEqual({ status: "rejected", code: "too_large" });
+    await rm(directory, { recursive: true, force: true });
+  });
 });

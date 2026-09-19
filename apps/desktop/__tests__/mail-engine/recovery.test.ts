@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -52,6 +52,41 @@ describe("desktop mail engine", () => {
       operation.data?.status,
     );
     await reopened.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("quarantines a damaged native mailbox instead of deleting it", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "desktop-mail-corrupt-"));
+    const databasePath = join(directory, "mailbox.sqlite");
+    const garbage = Buffer.from("not a sqlite database\n");
+    await writeFile(databasePath, garbage);
+    const engine = await createDesktopMailEngine({
+      databasePath,
+      source: emptySource(),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+    });
+    const names = await readdir(directory);
+    const quarantined = names.find((name) =>
+      name.startsWith("mailbox.sqlite.corrupt-"),
+    );
+    expect(quarantined).toBeDefined();
+    expect(await readFile(join(directory, quarantined!))).toEqual(garbage);
+    expect(names).toContain("mailbox.sqlite");
+    const admitted = await engine.submitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(admitted.status).toBe("queued");
+    await engine.close();
     await rm(directory, { recursive: true, force: true });
   });
 

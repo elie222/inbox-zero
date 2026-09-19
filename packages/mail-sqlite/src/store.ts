@@ -43,6 +43,7 @@ import { compilePredicate } from "./queries";
 
 const MAX_QUEUE = 5000;
 const PENDING_STATUSES = [
+  "preparing",
   "queued",
   "executing",
   "verifying",
@@ -52,9 +53,15 @@ const PENDING_STATUSES = [
   "needs_attention",
 ];
 
+export type SqliteMailStoreOptions = {
+  maxPendingOperations?: number;
+};
+
 export async function createSqliteMailStore(
   driver: SqliteDriver,
+  options: SqliteMailStoreOptions = {},
 ): Promise<MailStore> {
+  const maxPendingOperations = options.maxPendingOperations ?? MAX_QUEUE;
   await driver.write(async (tx) => {
     await migrateMailbox(tx, crypto.randomUUID());
   });
@@ -81,10 +88,12 @@ export async function createSqliteMailStore(
       });
     },
     async admitMetadata(input) {
-      return driver.write((tx) => admitExact(tx, input));
+      return driver.write((tx) => admitExact(tx, input, maxPendingOperations));
     },
     async admitConversations(input) {
-      return driver.write((tx) => admitConversations(tx, input));
+      return driver.write((tx) =>
+        admitConversations(tx, input, maxPendingOperations),
+      );
     },
     async applyPreparationPage(input) {
       return driver.write(async (tx) => {
@@ -654,6 +663,12 @@ export async function createSqliteMailStore(
           }
           return { status: "rejected" as const, code: "invalid" as const };
         }
+        const full = await rejectIfQueueFull(
+          tx,
+          input.draft.accountId,
+          maxPendingOperations,
+        );
+        if (full) return full;
         await tx.execute(
           "UPDATE drafts SET frozen = 1 WHERE account_id = ? AND draft_id = ?",
           [input.draft.accountId, input.draft.draftId],
@@ -953,9 +968,25 @@ export async function createSqliteMailStore(
   return store;
 }
 
+async function rejectIfQueueFull(
+  tx: SqlTransaction,
+  accountId: string,
+  maxPendingOperations: number,
+): Promise<Admission | null> {
+  const queued = await tx.query(
+    `SELECT COUNT(*) AS n FROM operations WHERE account_id = ? AND status IN (${PENDING_STATUSES.map(() => "?").join(",")})`,
+    [accountId, ...PENDING_STATUSES],
+  );
+  if (Number(queued[0]?.n ?? 0) >= maxPendingOperations) {
+    return { status: "rejected", code: "queue_full" };
+  }
+  return null;
+}
+
 async function admitExact(
   tx: SqlTransaction,
   input: SubmitMetadataCommand,
+  maxPendingOperations: number,
 ): Promise<Admission> {
   for (const target of input.targets) {
     if (target.accountId !== input.accountId) {
@@ -979,13 +1010,12 @@ async function admitExact(
     }
     return { status: "rejected", code: "invalid" };
   }
-  const queued = await tx.query(
-    `SELECT COUNT(*) AS n FROM operations WHERE account_id = ? AND status IN (${PENDING_STATUSES.map(() => "?").join(",")})`,
-    [input.accountId, ...PENDING_STATUSES],
+  const full = await rejectIfQueueFull(
+    tx,
+    input.accountId,
+    maxPendingOperations,
   );
-  if (Number(queued[0]?.n ?? 0) >= MAX_QUEUE) {
-    return { status: "rejected", code: "queue_full" };
-  }
+  if (full) return full;
   await tx.execute(
     `INSERT INTO operations(
        account_id, command_id, status, authority, intent_hash, executable_hash,
@@ -1018,6 +1048,7 @@ async function admitExact(
 async function admitConversations(
   tx: SqlTransaction,
   input: SubmitConversationCommand,
+  maxPendingOperations: number,
 ): Promise<Admission> {
   const revision = await readRevision(tx);
   if (revision.databaseEpoch !== input.observedRevision.databaseEpoch) {
@@ -1063,13 +1094,23 @@ async function admitConversations(
     );
   }
   if (complete && knownTargets.length > 0) {
-    return admitExact(tx, {
-      accountId: input.accountId,
-      commandId: input.commandId,
-      targets: knownTargets,
-      change: input.change,
-    });
+    return admitExact(
+      tx,
+      {
+        accountId: input.accountId,
+        commandId: input.commandId,
+        targets: knownTargets,
+        change: input.change,
+      },
+      maxPendingOperations,
+    );
   }
+  const full = await rejectIfQueueFull(
+    tx,
+    input.accountId,
+    maxPendingOperations,
+  );
+  if (full) return full;
   await tx.execute(
     `INSERT INTO operations(
        account_id, command_id, status, authority, intent_hash, payload_json, attempts, created_at_ms

@@ -4,7 +4,13 @@ import { createHash } from "node:crypto";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 
-export function createFileBlobStore(directory: string): BlobStore {
+export function createFileBlobStore(
+  directory: string,
+  options: {
+    writeFile?: (path: string, bytes: Uint8Array) => Promise<void>;
+  } = {},
+): BlobStore {
+  const writeBytes = options.writeFile ?? writeFile;
   return {
     async stage(input) {
       const stagingPath = blobFile(directory, input.blobId, ".staging");
@@ -23,7 +29,15 @@ export function createFileBlobStore(directory: string): BlobStore {
       if (checksum !== input.checksum) {
         return { status: "rejected", code: "checksum_mismatch" };
       }
-      await writeFile(stagingPath, bytes);
+      try {
+        await writeBytes(stagingPath, bytes);
+      } catch (error) {
+        if (isDiskFullError(error)) {
+          await rm(stagingPath, { force: true });
+          return { status: "rejected", code: "too_large" };
+        }
+        throw error;
+      }
       return { status: "staged" };
     },
     async finalize(blobId) {
@@ -31,7 +45,7 @@ export function createFileBlobStore(directory: string): BlobStore {
       const finalPath = blobFile(directory, blobId);
       try {
         const bytes = await readFile(staged);
-        await writeFile(finalPath, bytes);
+        await writeBytes(finalPath, bytes);
         await rm(staged, { force: true });
         return {
           blobId,
@@ -91,6 +105,11 @@ export async function readBlobMetadata(
   } catch {
     return null;
   }
+}
+
+function isDiskFullError(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  return error.code === "ENOSPC" || error.code === "EDQUOT";
 }
 
 function blobFile(directory: string, blobId: string, suffix = "") {

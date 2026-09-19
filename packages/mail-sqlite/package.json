@@ -19,6 +19,7 @@
     "./driver": "./src/driver.ts",
     "./store": "./src/store.ts",
     "./migrations": "./src/migrations.ts",
+    "./maintenance": "./src/maintenance.ts",
     "./node": "./src/node-sqlite.ts",
     "./blob-store": "./src/blob-store.ts"
   },
