@@ -426,6 +426,14 @@ export async function createSqliteMailStore(
           ],
         );
         if (!current[0]) return { status: "stale" };
+        if (
+          current[0].status === "succeeded" ||
+          current[0].status === "failed" ||
+          current[0].status === "cancelled" ||
+          current[0].status === "superseded"
+        ) {
+          return { status: "stale" };
+        }
         if (input.result.status === "confirmed") {
           const targets = resolveTargetOutcomes(
             input.operation,
@@ -927,7 +935,7 @@ export async function createSqliteMailStore(
         }
         await tx.execute(
           `UPDATE operations
-           SET status = 'failed', error_code = ?, error_retryable = 0, claimed_by = NULL
+           SET status = 'failed', error_code = ?, error_retryable = 0, claimed_by = NULL, attempt_id = NULL
            WHERE account_id = ? AND command_id = ?`,
           [code, key.accountId, key.operationId],
         );

@@ -617,6 +617,105 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("ignores a late confirmed settle after the send has failed", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-late" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-late",
+          draft: { accountId: "acc-1", draftId: "d-late" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(
+      (
+        await store.failOperation(
+          { accountId: "acc-1", operationId: "send-late" },
+          "provider_error",
+        )
+      ).status,
+    ).toBe("committed");
+    const edited = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-late" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi later",
+        editableHtml: "<p>Later</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(edited.status).toBe("saved");
+    if (edited.status !== "saved") throw new Error("expected save");
+    expect(
+      await store.settleAttempt({
+        attemptId: work.attemptId,
+        operation: work.operation,
+        result: {
+          status: "confirmed",
+          receiptId: "r-late",
+          observations: [],
+          targets: [],
+        },
+      }),
+    ).toEqual({ status: "stale" });
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-late",
+      }),
+    ).toMatchObject({ operation: { status: "failed" } });
+    expect(
+      await store.readDraft({ accountId: "acc-1", draftId: "d-late" }),
+    ).toMatchObject({
+      status: "found",
+      content: { subject: "Hi later" },
+    });
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-late-again",
+          draft: { accountId: "acc-1", draftId: "d-late" },
+          draftRevision: edited.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    await store.close();
+  });
+
   it("unfreezes a draft when a send is rejected", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
