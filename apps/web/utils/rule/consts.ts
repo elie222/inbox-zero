@@ -127,7 +127,10 @@ const ruleConfig: Record<
   [SystemType.RECEIPT]: {
     name: "Receipt",
     instructions:
+      "Receipts: Purchase confirmations, payment receipts, card charge notices, invoices or other records of money I paid",
+    previousInstructions: [
       "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
+    ],
     label: "Receipt",
     runOnThreads: false,
     categoryAction: "label",
@@ -188,6 +191,32 @@ export function isDefaultRuleInstructions(
     instructions === config.instructions ||
     (config.previousInstructions?.includes(instructions) ?? false)
   );
+}
+
+/**
+ * The instructions to give a model for a rule. A system rule still on a
+ * default, current or previous, gets the current default, so a wording change
+ * reaches existing rules without rewriting them. Customised text and rules
+ * without a system type are returned as stored.
+ */
+export function getEffectiveRuleInstructions(rule: {
+  systemType: SystemType;
+  instructions: string | null | undefined;
+}): string;
+export function getEffectiveRuleInstructions(rule: {
+  systemType: SystemType | null | undefined;
+  instructions: string | null | undefined;
+}): string | null;
+export function getEffectiveRuleInstructions({
+  systemType,
+  instructions,
+}: {
+  systemType: SystemType | null | undefined;
+  instructions: string | null | undefined;
+}): string | null {
+  if (systemType && isDefaultRuleInstructions(systemType, instructions))
+    return getRuleConfig(systemType).instructions;
+  return instructions ?? null;
 }
 
 export function getRuleName(systemType: SystemType) {
