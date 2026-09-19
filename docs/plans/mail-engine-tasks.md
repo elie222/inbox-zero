@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `e2782993c`
+- Last implementation commit: `ebb940028`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E72 MailShell queue_full toast, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining G matrix cells (desktop archive-then-new-mail, G4 self-hosted/packaging); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells after E73 desktop archive-then-new-mail, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: G4 self-hosted/packaging; H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "new mail arrives through desktop IPC"` — 2 passed in 1.5m on `ebb940028`; spec 35.9s; archived conversation returns after Gmail insert (E73)
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "new mail arrives through desktop IPC"` — 2 passed in 1.3m on `ebb940028`; spec 32.2s; Outlook createReply moved to inbox returns the conversation (E73)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/triage-actions.spec.ts -g "queue_full toast"` — 2 passed in 1.3m on `e2782993c`; spec 30.8s; second archive stays visible and the queue_full toast is shown (E72)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "Sign out is used through desktop IPC"` — 2 passed in 1.3m on `45bc95f3d`; spec 32.9s; Sign out lands on Log in and native sqlite/wal/shm are gone (E71 Gmail)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "Sign out is used through desktop IPC"` — 2 passed in 1.2m on `45bc95f3d`; spec 22.9s; Sign out lands on Logged out and native sqlite/wal/shm are gone (E71 Outlook)
@@ -240,7 +242,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
-| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: Outlook archive hide + succeeded (E20); queued archive survives OPFS reload (E61); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: hosted Electron archive hide + native SQLite (E36/E39); Inbox unread badge + Unread list drop and restore (E69) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40); Inbox unread badge + Unread list drop and restore (E69) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
+| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: Outlook archive hide + succeeded (E20); queued archive survives OPFS reload (E61); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: hosted Electron archive hide + native SQLite (E36/E39); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43); bulk archive/undo, labels, trash restore (E57) | Partial: hosted Electron More actions Star (E48); bulk archive/undo, labels, trash restore (E59) | Partial: hosted Electron More actions Star (E47); bulk archive/undo, labels, trash restore (E59) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21); queued archive hidden after OPFS reload (E61) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3) |
@@ -252,6 +254,16 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 ## Evidence log
 
+### E73. Hosted Electron archived conversation returns when new mail arrives (2026-09-19)
+
+- Tasks: partial G5 cross-view new mail on Gmail and Outlook desktop
+- Tree: `cursor/mail-engine-0b4f` at `ebb940028`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "new mail arrives through desktop IPC"` — 2 passed in 1.5m; spec 35.9s
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "new mail arrives through desktop IPC"` — 2 passed in 1.3m; spec 32.2s
+- What it proved: hosted Electron archives Archive Action Message through desktop IPC and waits until inspect `archive` succeeded and native inbox no longer has the subject. Playwright then inserts a new inbox message into the same conversation (Gmail `messages.insert`; Outlook `createReply` then move). Idle `/changes` catch-up returns the conversation to the MailShell list and native sqlite inbox. Enumeration stays 0.
+- Limitations: self-hosted config and macOS/Windows packaging remain Not run. Do not check G4/G5.
+
 ### E72. MailShell shows queue_full when a second archive cannot be admitted (2026-09-19)
 
 - Tasks: partial G5 coverage/retention product UI
@@ -259,7 +271,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/triage-actions.spec.ts -g "queue_full toast"` — 2 passed in 1.3m; spec 30.8s
 - What it proved: Playwright sets `window.__inboxZeroMailMaxPendingOperations = 1` before engine start. Holding PUT `/operations/` keeps the first Archive Action Message archive pending. A second archive of Playwright Test Message is rejected; the conversation stays in the list and MailShell shows `admissionRejectionCopy("queue_full")`.
-- Limitations: desktop archive-then-new-mail UI, browser OPFS quota UI, and assistant fairness under live provider quota remain Not run. Do not check G5.
+- Limitations: browser OPFS quota UI and assistant fairness under live provider quota remain Not run. Desktop archive-then-new-mail is E73. Do not check G5.
 
 ### E71. Hosted Electron Sign out wipes native sqlite (2026-09-19)
 
@@ -269,7 +281,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "Sign out is used through desktop IPC"` — 2 passed in 1.3m; spec 32.9s
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/hosted-electron-archive.spec.ts -g "Sign out is used through desktop IPC"` — 2 passed in 1.2m; spec 22.9s
 - What it proved: hosted Electron `proveSignOut` opens `/settings`, clicks sidebar footer NavUser (not the settings account switcher), then Sign out. Native `mailbox.sqlite` plus `-wal`/`-shm` exist before Sign out and are gone after. Gmail lands on marketing Log in; Outlook emulator lands on Logged out. Hosted runner `mail-engine-wipe` uses `closeAndWipeDesktopMailbox`.
-- Limitations: desktop archive-then-new-mail UI, self-hosted config, and macOS/Windows packaging remain Not run. MailShell queue_full toast is E72. Do not check G4/G5.
+- Limitations: desktop archive-then-new-mail is E73. Self-hosted config and macOS/Windows packaging remain Not run. MailShell queue_full toast is E72. Do not check G4/G5.
 
 ### E70. Archived conversation returns when new mail arrives (2026-09-19)
 
@@ -279,7 +291,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "new mail arrives"` — 2 passed in 1.7m; spec 47.9s
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "new mail arrives"` — 2 passed in 1.6m; spec 39.9s
 - What it proved: after archive of Archive Action Message succeeds, inserting a new inbox message into the same conversation (Gmail `messages.insert` with `threadId`; Outlook `createReply` then move to inbox) brings the conversation back to the MailShell list through idle `/changes` catch-up.
-- Limitations: desktop archive-then-new-mail UI remains Not run. MailShell queue_full toast is E72. Hosted Electron Sign out is E71. Do not check G5.
+- Limitations: desktop archive-then-new-mail is E73. MailShell queue_full toast is E72. Hosted Electron Sign out is E71. Do not check G5.
 
 ### E69. Hosted Electron Inbox unread badge and Unread list move with archive (2026-09-19)
 
