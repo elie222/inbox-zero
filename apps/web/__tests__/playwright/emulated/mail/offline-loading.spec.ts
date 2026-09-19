@@ -276,9 +276,17 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
-    // Mail renders a hidden mobile sidebar copy; click the visible user menu
-    // by name instead of `[data-sidebar="footer"] button`.last().
-    await page.getByRole("button", { name: /Smoke Test User/ }).click();
+    // Mail ships its own sidebar and omits NavUser. Sign out lives on the
+    // app SideNav, which settings-dialog already opens from /settings.
+    await page.goto("/settings");
+    await expect(
+      page.getByRole("heading", { name: "Settings", exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    await page
+      .locator('[data-sidebar="footer"]')
+      .getByRole("button")
+      .filter({ hasText: /Smoke Test User|playwright-test\+/i })
+      .click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
     await expect
