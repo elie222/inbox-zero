@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `f3a07e453`
+- Last implementation commit: `9497a1c19`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining hosted desktop Gmail/Outlook UI against emulators, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: hosted Electron archive against the Gmail emulator (not `INBOX_ZERO_LOCAL_MAIL`); watch CI on the exact head after this ledger commit.
+- Current task: remaining hosted desktop Outlook UI, remaining matrix cells, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: Outlook hosted Electron archive against the Microsoft emulator; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.1m on `9497a1c19`; spec 25.0s; `transport: desktop-ipc`; Archive Action Message gone from hosted MailShell and native SQLite (E36)
   - `cd apps/web && pnpm exec vitest --run utils/playwright/emulated-suite-selection.test.mjs` — 1 file, 32 passed on `8ce7a46f7` after declaring `assistant-catch-up.spec.ts` in mail `coverage.json`
   - Real Electron vitest files skip when `node_modules/electron/dist/electron` is missing so CI package tests do not fail for an undownloaded binary
   - Gmail history integration rewrite uses `hostname === "gmail.googleapis.com"` (CodeQL incomplete URL sanitization)
@@ -182,8 +183,8 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Not run | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
-| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Not run | Not run | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists Archive Action Message (E36) | Not run | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
+| Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36) | Not run | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Not run | Not run | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
@@ -194,6 +195,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
+
+### E36. Hosted Electron archive against the Gmail emulator (2026-09-19)
+
+- Tasks: partial C2/F3
+- Tree: `cursor/mail-engine-0b4f` at `9497a1c19`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 2 passed in 1.1m; spec 25.0s
+- What it proved: hosted Next in Electron uses `inboxZeroDesktop.mailEngine` (`transport: desktop-ipc`, http URL not `file:`). After coverage, Archive Action Message is in the MailShell list. Selecting the row and clicking ListToolbar Archive removes it from the hosted list and from native SQLite `observeMailbox` inbox. Screenshot taken after `window.show()`.
+- Limitations: Outlook desktop UI is still Not run. Compose/search/reconnect were not exercised in this window. A PUT to `/operations/:id` logged `Unexpected end of JSON input` after archive (inspect GET with a body is dropped by Chromium fetch); archive still succeeded. CI skips the spec when the Electron binary is missing. Do not check C2/F3 boxes.
 
 ### E35. Assistant archive catch-up after a stopped MailShell (2026-09-19)
 
