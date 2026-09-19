@@ -10,11 +10,12 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: `1117e59b2`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after Gmail+Outlook web offline, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Current task: remaining matrix cells after web offline and Gmail starring, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: remaining G matrix cells that are still Not run; H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m on `2f0102e9f`; spec 44.0s; keyboard S, CommandK Unstar, reader S, and More actions Star/Unstar on Gmail (E54)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.4m on `17e6a503e`; offline reload 39.8s; Outlook Conversations lists Archive Action Message after `setOffline` + reload (E53)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.3m on `1117e59b2`; offline reload 34.3s; Conversations list and Archive Action Message visible after `setOffline` + reload (E52)
   - `cd apps/web && pnpm exec vitest --run utils/offline/mail-cache.test.ts utils/playwright/emulated-suite-selection.test.mjs` — 2 files, 53 passed including mail-engine static matcher
@@ -207,7 +208,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 | --- | --- | --- | --- | --- | --- |
 | Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29) | Partial: Outlook archive hide + succeeded (E20) | Partial: hosted Electron archive hide + native SQLite (E36/E39) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
-| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26) | Partial: Outlook starring S/CommandK/menu (E43) | Partial: hosted Electron More actions Star + native starred inbox (E48) | Partial: hosted Electron More actions Star + native starred inbox (E47) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
+| Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54) | Partial: Outlook starring S/CommandK/menu (E43) | Partial: hosted Electron More actions Star + native starred inbox (E48) | Partial: hosted Electron More actions Star + native starred inbox (E47) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
@@ -217,6 +218,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E54. Gmail web starring (2026-09-19)
+
+- Tasks: partial E1/F4 Gmail web metadata
+- Tree: `cursor/mail-engine-0b4f` at `2f0102e9f`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m; keyboard/CommandK spec 44.0s
+- What it proved: Gmail web stars Second Unread Command Message with S, CommandK Unstar, reader S, and More actions Star/Unstar. The unread blue dot stays next to the yellow star.
+- Limitations: bulk/container UI remain Not run. Do not check E1.
 
 ### E53. Outlook web offline mail reload (2026-09-19)
 
