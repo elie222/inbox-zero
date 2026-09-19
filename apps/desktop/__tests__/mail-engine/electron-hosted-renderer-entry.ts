@@ -832,7 +832,7 @@ async function waitForThreadReader(window: BrowserWindow) {
 }
 
 async function pressStarKey(window: BrowserWindow) {
-  const focused = (await window.webContents.executeJavaScript(`
+  const sent = (await window.webContents.executeJavaScript(`
     (() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -840,16 +840,21 @@ async function pressStarKey(window: BrowserWindow) {
       const reader = document.querySelector('[data-testid="thread-reader"]');
       if (!(reader instanceof HTMLElement)) return false;
       reader.focus();
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "s",
+          code: "KeyS",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
       return true;
     })()
   `)) as boolean;
-  if (!focused) {
+  if (!sent) {
     await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
     throw new Error("thread reader missing for star shortcut");
   }
-  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "S" });
-  window.webContents.sendInputEvent({ type: "char", keyCode: "s" });
-  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "S" });
 }
 
 async function clickDiscardDraft(window: BrowserWindow) {
