@@ -373,8 +373,11 @@ async function signOutFromAppNav(page: Page) {
   const trigger = page.getByRole("button", {
     name: /Smoke Test User Smoke Test User/,
   });
-  await trigger.evaluate((element: HTMLElement) => element.click());
+  await trigger.scrollIntoViewIfNeeded();
+  const box = await trigger.boundingBox();
+  if (!box) throw new Error("NavUser trigger is not visible");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const signOut = page.getByRole("menuitem", { name: "Sign out" });
   await expect(signOut).toBeVisible();
-  await signOut.evaluate((element: HTMLElement) => element.click());
+  await signOut.click();
 }
