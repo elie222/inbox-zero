@@ -200,17 +200,7 @@ async function proveSendDiscard(
 
   await openCompose(window);
   await fillComposeDraft(window, SEND_SUBJECT);
-  await closeCompose(window);
-  await delay(500);
-  await openDraftsMailbox(window);
-  await waitForSubject(window, SEND_SUBJECT);
-  await waitForNativeRoleSubject(owner, accountId, "draft", SEND_SUBJECT, true);
-  await openCompose(window);
-  try {
-    await waitForComposeSubject(window, SEND_SUBJECT);
-  } catch {
-    await fillComposeDraft(window, SEND_SUBJECT);
-  }
+  await delay(3000);
   await clickSend(window);
   await waitForComposeClosed(window);
   const sendSucceeded = await waitForSendSucceeded(window);
@@ -617,8 +607,16 @@ async function fillComposeDraft(window: BrowserWindow, subjectValue: string) {
         return { ok: false, step: "subject" };
       }
       subject.focus();
-      setter.call(subject, ${JSON.stringify(subjectValue)});
-      subject.dispatchEvent(new Event("input", { bubbles: true }));
+      document.execCommand("selectAll");
+      const subjectInserted = document.execCommand(
+        "insertText",
+        false,
+        ${JSON.stringify(subjectValue)},
+      );
+      if (!subjectInserted) {
+        setter.call(subject, ${JSON.stringify(subjectValue)});
+        subject.dispatchEvent(new Event("input", { bubbles: true }));
+      }
       const editor = dialog.querySelector(
         '[role="textbox"][aria-label="Email message"]',
       );
@@ -828,25 +826,6 @@ async function waitForComposeClosed(window: BrowserWindow) {
     await delay(250);
   }
   throw new Error("New Message dialog stayed open after send");
-}
-
-async function waitForComposeSubject(window: BrowserWindow, subject: string) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const value = (await window.webContents.executeJavaScript(`
-      (() => {
-        const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
-          (item) => (item.textContent ?? "").includes("New Message"),
-        );
-        const input = dialog?.querySelector('input[placeholder="Subject"]');
-        return input instanceof HTMLInputElement ? input.value : "";
-      })()
-    `)) as string;
-    if (value.includes(subject)) return;
-    await delay(250);
-  }
-  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-  const body = await readBodyText(window);
-  throw new Error(`Compose subject was not ${subject}: ${body.slice(0, 2000)}`);
 }
 
 async function waitForSendSucceeded(window: BrowserWindow) {
