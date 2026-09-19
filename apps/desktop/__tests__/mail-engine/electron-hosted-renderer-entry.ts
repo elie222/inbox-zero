@@ -79,27 +79,12 @@ async function runHostedMail() {
   try {
     await window.loadURL(mailUrl);
     const transport = await waitForTransport(window, "desktop-ipc");
-    const payload =
-      PROOF === "compose"
-        ? await proveCompose(window, owner, accountId)
-        : PROOF === "reconnect"
-          ? await proveReconnect(window, accountId, authGate)
-          : PROOF === "discard"
-            ? await proveDiscard(window, owner, accountId)
-            : PROOF === "send"
-              ? await proveSend(window, owner, accountId)
-              : PROOF === "star"
-                ? await proveStar(window, owner, accountId)
-                : PROOF === "assistant-baseline"
-                  ? await proveAssistantBaseline(window, owner, accountId)
-                  : PROOF === "assistant-reopen"
-                    ? await proveAssistantReopen(
-                        window,
-                        owner,
-                        accountId,
-                        authGate,
-                      )
-                    : await proveSearchArchive(window, owner, accountId);
+    const payload = await runProof({
+      window,
+      owner,
+      accountId,
+      gate: authGate,
+    });
     if (PROOF !== "reconnect") {
       window.show();
       await delay(250);
@@ -119,6 +104,51 @@ async function runHostedMail() {
   } finally {
     await owner.close();
     app.quit();
+  }
+}
+
+async function runProof(input: {
+  window: BrowserWindow;
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>;
+  accountId: string;
+  gate: BlockedAuthGate;
+}) {
+  switch (PROOF) {
+    case "compose":
+      return proveCompose(input.window, input.owner, input.accountId);
+    case "reconnect":
+      return proveReconnect(input.window, input.accountId, input.gate);
+    case "discard":
+      return proveDiscard(input.window, input.owner, input.accountId);
+    case "send":
+      return proveSend(input.window, input.owner, input.accountId);
+    case "star":
+      return proveStar(input.window, input.owner, input.accountId);
+    case "assistant-baseline":
+      return proveAssistantBaseline(input.window, input.owner, input.accountId);
+    case "assistant-reopen":
+      return proveAssistantReopen(
+        input.window,
+        input.owner,
+        input.accountId,
+        input.gate,
+      );
+    case "missed-hint":
+      return proveMissedHint(
+        input.window,
+        input.owner,
+        input.accountId,
+        input.gate,
+      );
+    case "cursor-reset":
+      return proveCursorReset(
+        input.window,
+        input.owner,
+        input.accountId,
+        input.gate,
+      );
+    default:
+      return proveSearchArchive(input.window, input.owner, input.accountId);
   }
 }
 
@@ -346,6 +376,68 @@ async function proveAssistantReopen(
   };
 }
 
+async function proveMissedHint(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  gate: BlockedAuthGate,
+) {
+  const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+  await waitForCoverage(window);
+  gate.countCatchUp = true;
+  writeReadyFile();
+  await waitForMissingSubject(window, ARCHIVE_SUBJECT, SEARCH_HIDDEN_SUBJECT);
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    false,
+  );
+  return {
+    subjectsBefore,
+    subjectsAfter: await readSubjects(window),
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+    changeRequests: gate.changes,
+    enumerationRequests: gate.enumeration,
+    bootstrapRequests: gate.bootstrap,
+  };
+}
+
+async function proveCursorReset(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  gate: BlockedAuthGate,
+) {
+  const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+  await waitForCoverage(window);
+  gate.countCatchUp = true;
+  gate.resetOnce = true;
+  await waitForResetRebuild(gate);
+  await waitForSubject(window, ARCHIVE_SUBJECT);
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    true,
+  );
+  return {
+    subjectsBefore,
+    subjectsAfter: await readSubjects(window),
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+    changeRequests: gate.changes,
+    enumerationRequests: gate.enumeration,
+    bootstrapRequests: gate.bootstrap,
+    resetFired: gate.resetFired,
+  };
+}
+
 async function proveReconnect(
   window: BrowserWindow,
   accountId: string,
@@ -385,7 +477,16 @@ function createSessionRequest(appOrigin: string): MailHttpRequestFn {
 }
 
 function createBlockedAuthGate(): BlockedAuthGate {
-  return { enabled: false, changes: 0, enumeration: 0, assistantState: 0 };
+  return {
+    enabled: false,
+    countCatchUp: false,
+    resetOnce: false,
+    resetFired: false,
+    changes: 0,
+    enumeration: 0,
+    bootstrap: 0,
+    assistantState: 0,
+  };
 }
 
 function wrapBlockedAuthRequest(
@@ -396,22 +497,44 @@ function wrapBlockedAuthRequest(
     if (input.path.includes("/assistant-state")) {
       gate.assistantState += 1;
     }
-    if (input.path.includes("/changes") && gate.enabled) {
-      gate.changes += 1;
-      return {
-        status: 401,
-        json: {
-          protocolVersion: 1,
-          requestId: "hosted-electron-blocked-auth",
-          error: {
-            code: "blocked_auth",
-            retryable: true,
-            retryAfterMs: null,
+    if (input.path.includes("/changes")) {
+      if (gate.countCatchUp || gate.enabled) {
+        gate.changes += 1;
+      }
+      if (gate.resetOnce && !gate.resetFired) {
+        gate.resetFired = true;
+        return {
+          status: 200,
+          json: {
+            protocolVersion: 1,
+            requestId: "hosted-electron-reset",
+            status: "reset_required",
+            scopeId: "primary",
           },
-        },
-      };
+        };
+      }
+      if (gate.enabled) {
+        return {
+          status: 401,
+          json: {
+            protocolVersion: 1,
+            requestId: "hosted-electron-blocked-auth",
+            error: {
+              code: "blocked_auth",
+              retryable: true,
+              retryAfterMs: null,
+            },
+          },
+        };
+      }
     }
-    if (gate.enabled && input.path.includes("/enumeration")) {
+    if (input.path.includes("/bootstrap") && gate.countCatchUp) {
+      gate.bootstrap += 1;
+    }
+    if (
+      input.path.includes("/enumeration") &&
+      (gate.enabled || gate.countCatchUp)
+    ) {
       gate.enumeration += 1;
     }
     return request(input);
@@ -449,6 +572,43 @@ async function waitForTransport(
   }
   throw new Error(
     `hosted mail inspect transport was ${await readTransport(window)}`,
+  );
+}
+
+async function waitForCoverage(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const complete = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.read) return false;
+        const diagnostics = await inspect.read();
+        return (
+          (diagnostics?.coverage?.length ?? 0) > 0 &&
+          diagnostics.coverage.every((item) => item.metadata === "complete")
+        );
+      })()
+    `)) as boolean;
+    if (complete) return;
+    await delay(500);
+  }
+  throw new Error("hosted mail never reached metadata coverage");
+}
+
+function writeReadyFile() {
+  const readyPath = process.env.ELECTRON_READY_PATH;
+  if (!readyPath) return;
+  writeFileSync(readyPath, "ready\n");
+}
+
+async function waitForResetRebuild(gate: BlockedAuthGate) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (gate.resetFired && gate.bootstrap > 0 && gate.enumeration > 0) {
+      return;
+    }
+    await delay(500);
+  }
+  throw new Error(
+    `hosted reset never rebuilt bootstrap=${gate.bootstrap} enumeration=${gate.enumeration} resetFired=${gate.resetFired} changes=${gate.changes}`,
   );
 }
 
@@ -1366,8 +1526,12 @@ type DomRect = {
 
 type BlockedAuthGate = {
   enabled: boolean;
+  countCatchUp: boolean;
+  resetOnce: boolean;
+  resetFired: boolean;
   changes: number;
   enumeration: number;
+  bootstrap: number;
   assistantState: number;
 };
 

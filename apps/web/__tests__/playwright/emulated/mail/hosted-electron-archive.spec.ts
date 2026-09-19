@@ -415,6 +415,149 @@ test("applies assistant archive after hosted Electron was stopped", async ({
   expect(cleanupErrors).toEqual([]);
 });
 
+test("rebuilds hosted desktop mail after a reset_required catch-up cursor", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath(
+    "hosted-electron-cursor-reset.png",
+  );
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "cursor-reset",
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.sqliteExists).toBe(true);
+  expect(payload.proof).toBe("cursor-reset");
+  expect(payload.resetFired).toBe(true);
+  expect(payload.changeRequests).toBeGreaterThan(0);
+  expect(payload.bootstrapRequests).toBeGreaterThan(0);
+  expect(payload.enumerationRequests).toBeGreaterThan(0);
+  expect(payload.nativeInboxHasArchiveSubject).toBe(true);
+  expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
+    true,
+  );
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      proof: payload.proof,
+      resetFired: payload.resetFired,
+      changeRequests: payload.changeRequests,
+      bootstrapRequests: payload.bootstrapRequests,
+      enumerationRequests: payload.enumerationRequests,
+      nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
+    }),
+  });
+  await copyCatchUpArtifact(
+    screenshotPath,
+    payload,
+    "hosted-electron-cursor-reset",
+  );
+});
+
+test("hides an externally archived conversation through desktop idle catch-up", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-missed-hint.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  const userData = await mkdtemp(
+    join(tmpdir(), "electron-hosted-missed-hint-"),
+  );
+  const readyPath = join(userData, "electron-ready");
+  const cleanupErrors: unknown[] = [];
+  const session = startHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "missed-hint",
+    userData,
+    readyPath,
+  });
+
+  try {
+    await waitForHostedElectronReady(readyPath, session.done);
+    const archived = await page.request.post(
+      `/api/threads/${THREAD_ID}/archive`,
+      {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      },
+    );
+    expect(archived.ok()).toBe(true);
+    const payload = await session.done;
+    expect(payload.url).toMatch(/^https?:/);
+    expect(payload.url).not.toContain("file:");
+    expect(payload.transport).toBe("desktop-ipc");
+    expect(payload.sqliteExists).toBe(true);
+    expect(payload.proof).toBe("missed-hint");
+    expect(payload.changeRequests).toBeGreaterThan(0);
+    expect(payload.bootstrapRequests).toBe(0);
+    expect(payload.enumerationRequests).toBe(0);
+    expect(payload.nativeInboxHasArchiveSubject).toBe(false);
+    expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
+      true,
+    );
+    expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
+      false,
+    );
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: payload.url,
+        transport: payload.transport,
+        proof: payload.proof,
+        changeRequests: payload.changeRequests,
+        bootstrapRequests: payload.bootstrapRequests,
+        enumerationRequests: payload.enumerationRequests,
+        nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
+      }),
+    });
+    await copyCatchUpArtifact(
+      screenshotPath,
+      payload,
+      "hosted-electron-missed-hint",
+    );
+  } finally {
+    await page.request
+      .post(`/api/threads/${THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    await session.done.catch(() => undefined);
+    await rm(userData, { recursive: true, force: true });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -429,14 +572,23 @@ function launchHostedElectron(input: {
     | "send"
     | "star"
     | "assistant-baseline"
-    | "assistant-reopen";
+    | "assistant-reopen"
+    | "missed-hint"
+    | "cursor-reset";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
   starSubject?: string;
   userData?: string;
+  readyPath?: string;
 }) {
-  return new Promise<HostedElectronPayload>((resolve, reject) => {
+  return startHostedElectron(input).done;
+}
+
+function startHostedElectron(
+  input: Parameters<typeof launchHostedElectron>[0],
+) {
+  const done = new Promise<HostedElectronPayload>((resolve, reject) => {
     const child = spawn("node", [runner], {
       cwd: join(process.cwd(), "../desktop"),
       env: {
@@ -464,6 +616,7 @@ function launchHostedElectron(input: {
           ? { ELECTRON_STAR_SUBJECT: input.starSubject }
           : {}),
         ...(input.userData ? { ELECTRON_USER_DATA: input.userData } : {}),
+        ...(input.readyPath ? { ELECTRON_READY_PATH: input.readyPath } : {}),
       },
     });
     let stdout = "";
@@ -500,6 +653,28 @@ function launchHostedElectron(input: {
       }
     });
   });
+  return { done };
+}
+
+async function waitForHostedElectronReady(
+  readyPath: string,
+  done: Promise<HostedElectronPayload>,
+) {
+  const ready = (async () => {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      if (existsSync(readyPath)) return;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error(`hosted electron never wrote ${readyPath}`);
+  })();
+  const winner = await Promise.race([
+    ready.then(() => "ready" as const),
+    done.then((payload) => payload),
+  ]);
+  if (winner === "ready") return;
+  throw new Error(
+    `hosted electron exited before ready: ${JSON.stringify(winner)}`,
+  );
 }
 
 async function copyStarArtifact(
@@ -571,6 +746,23 @@ async function copySendDiscardArtifact(
     );
     await writeFile(
       "/opt/cursor/artifacts/hosted-electron-discard.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
+}
+
+async function copyCatchUpArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+  name: string,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(screenshotPath, `/opt/cursor/artifacts/${name}.png`);
+    await writeFile(
+      `/opt/cursor/artifacts/${name}.json`,
       `${JSON.stringify(payload, null, 2)}\n`,
     );
   } catch {
@@ -672,6 +864,8 @@ type HostedElectronPayload = {
   nativeStarredHasSubject?: boolean;
   assistantCursor?: string | null;
   assistantStateRequests?: number;
+  bootstrapRequests?: number;
+  resetFired?: boolean;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {
