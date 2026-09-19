@@ -93,7 +93,8 @@
   "offline-loading.spec.ts": [
     "app/sw.ts",
     "providers/GlobalProviders.tsx",
-    "utils/offline/clear-mail-cache.ts"
+    "utils/offline/clear-mail-cache.ts",
+    "utils/offline/mail-cache.ts"
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
   "reader-transition.spec.ts": [

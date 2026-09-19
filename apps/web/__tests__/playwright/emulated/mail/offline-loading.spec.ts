@@ -81,22 +81,19 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   context,
 }, testInfo) => {
   const extraAssets = new Set<string>();
-  const onRequest = (request: { url(): string; resourceType(): string }) => {
-    const url = request.url();
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return;
-    }
-    if (
-      parsed.pathname.endsWith(".wasm") ||
-      request.resourceType() === "worker"
-    ) {
-      extraAssets.add(url);
-    }
+  const onResponse = (response: {
+    url(): string;
+    status(): number;
+    request(): { resourceType(): string };
+  }) => {
+    if (response.status() !== 200) return;
+    collectMailEngineAsset(
+      extraAssets,
+      response.url(),
+      response.request().resourceType(),
+    );
   };
-  context.on("request", onRequest);
+  context.on("response", onResponse);
   const { conversations } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
@@ -106,20 +103,11 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   const workerFile = path.resolve("public", workerName);
   try {
     // Dev mode has no precache manifest; production uses the worker built for CI.
-    // Dedicated workers fetch sqlite-wasm outside the page resource timeline.
+    // Dedicated workers import sqlite-wasm JS off the page resource timeline.
+    const origin = new URL(page.url()).origin;
+    let precacheUrls: string[] = [];
     if (!production) {
-      const origin = new URL(page.url()).origin;
-      await expect
-        .poll(() =>
-          [...extraAssets].some((url) => {
-            try {
-              return new URL(url).pathname.endsWith(".wasm");
-            } catch {
-              return false;
-            }
-          }),
-        )
-        .toBe(true);
+      await expect.poll(() => [...extraAssets].some(isWasmUrl)).toBe(true);
       const pageAssets = await page.evaluate(() =>
         performance
           .getEntriesByType("resource")
@@ -132,15 +120,12 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
             );
           }),
       );
-      const assets = [
-        ...pageAssets,
-        ...[...extraAssets].filter((url) => {
-          try {
-            return new URL(url).origin === origin;
-          } catch {
-            return false;
-          }
-        }),
+      precacheUrls = [
+        ...new Set(
+          [...pageAssets, ...extraAssets]
+            .map((url) => toPrecacheUrl(url, origin))
+            .filter((url): url is string => Boolean(url)),
+        ),
       ];
       await build({
         entryPoints: ["app/sw.ts"],
@@ -148,7 +133,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
         define: {
           "process.env.NODE_ENV": JSON.stringify("production"),
           "self.__SW_MANIFEST": JSON.stringify(
-            [...new Set(assets)].map((url) => ({ url, revision: null })),
+            precacheUrls.map((url) => ({ url, revision: null })),
           ),
         },
         outfile: workerFile,
@@ -167,10 +152,36 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
           ),
         );
       }
+    }, workerName);
+    if (!production) {
+      await page.evaluate(async (urls) => {
+        await Promise.all(
+          urls.map((url) =>
+            fetch(url, { credentials: "same-origin", cache: "reload" }).catch(
+              () => undefined,
+            ),
+          ),
+        );
+      }, precacheUrls);
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          for (const name of await caches.keys()) {
+            const cache = await caches.open(name);
+            for (const request of await cache.keys()) {
+              if (new URL(request.url).pathname.endsWith(".wasm")) return true;
+            }
+          }
+          return false;
+        }),
+      )
+      .toBe(true);
+    await page.evaluate(() => {
       navigator.serviceWorker.controller?.postMessage({
         type: "inbox-zero:save-offline-mail",
       });
-    }, workerName);
+    });
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -288,8 +299,55 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       )
       .toBe(0);
   } finally {
-    context.off("request", onRequest);
+    context.off("response", onResponse);
     await context.setOffline(false);
     if (!production) await rm(workerFile, { force: true });
   }
 });
+
+function collectMailEngineAsset(
+  extraAssets: Set<string>,
+  url: string,
+  resourceType: string,
+) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+  if (
+    parsed.pathname.includes("hot-update") ||
+    parsed.pathname.endsWith(".map")
+  )
+    return;
+  if (
+    parsed.pathname.startsWith("/_next/static/") ||
+    parsed.pathname.endsWith(".wasm") ||
+    parsed.pathname.endsWith(".mjs") ||
+    resourceType === "worker" ||
+    resourceType === "script" ||
+    resourceType === "stylesheet"
+  ) {
+    extraAssets.add(url);
+  }
+}
+
+function toPrecacheUrl(url: string, origin: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== origin) return null;
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function isWasmUrl(url: string) {
+  try {
+    return new URL(url).pathname.endsWith(".wasm");
+  } catch {
+    return false;
+  }
+}
