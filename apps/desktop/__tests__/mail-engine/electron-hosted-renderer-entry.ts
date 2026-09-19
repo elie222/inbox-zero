@@ -1152,7 +1152,9 @@ async function clickNavUser(window: BrowserWindow) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const rect = (await window.webContents.executeJavaScript(`
       (() => {
-        const button = [...document.querySelectorAll("button")].find((item) => {
+        const footer = document.querySelector('[data-sidebar="footer"]');
+        if (!(footer instanceof HTMLElement)) return null;
+        const button = [...footer.querySelectorAll("button")].find((item) => {
           const text = (item.innerText ?? "").replace(/\\s+/g, " ").trim();
           return text.includes("Smoke Test User");
         });
@@ -1164,6 +1166,7 @@ async function clickNavUser(window: BrowserWindow) {
     `)) as DomRect | null;
     if (rect && rect.width > 0 && rect.height > 0) {
       await pointerClickAt(window, rect);
+      await delay(50);
       return;
     }
     await delay(250);
