@@ -825,6 +825,7 @@ test("returns an archived conversation when new mail arrives through desktop IPC
     expect(payload.proof).toBe("archive-new-mail");
     expect(payload.archiveSucceeded).toBe(true);
     expect(payload.changeRequests).toBeGreaterThan(0);
+    expect(payload.enumerationRequests).toBe(0);
     expect(payload.nativeInboxHasArchiveSubject).toBe(true);
     expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
       true,
@@ -843,6 +844,7 @@ test("returns an archived conversation when new mail arrives through desktop IPC
         proof: payload.proof,
         archiveSucceeded: payload.archiveSucceeded,
         changeRequests: payload.changeRequests,
+        enumerationRequests: payload.enumerationRequests,
         nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
       }),
     });

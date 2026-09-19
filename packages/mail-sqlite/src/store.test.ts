@@ -18,7 +18,7 @@ import {
 } from "@inboxzero/mail-core/test-support/reference-model";
 import { archiveThenNewMailScenario } from "@inboxzero/mail-core/test-support/scenarios";
 import { createNodeSqliteDriver } from "./node-sqlite";
-import { createSqliteMailStore } from "./store";
+import { clampMaxPendingOperations, createSqliteMailStore } from "./store";
 
 const inboxQuery = {
   accountIds: ["acc-1"],
@@ -1237,6 +1237,16 @@ describe("sqlite and reference model parity", () => {
 });
 
 describe("quota, retention, and recovery", () => {
+  it("clamps requested pending-operation caps to the store maximum", () => {
+    expect(clampMaxPendingOperations(1)).toBe(1);
+    expect(clampMaxPendingOperations(5000)).toBe(5000);
+    expect(clampMaxPendingOperations(50_000)).toBe(5000);
+    expect(clampMaxPendingOperations(Number.POSITIVE_INFINITY)).toBe(5000);
+    expect(clampMaxPendingOperations(0)).toBe(5000);
+    expect(clampMaxPendingOperations(undefined)).toBe(5000);
+    expect(clampMaxPendingOperations(Number.NaN)).toBe(5000);
+  });
+
   it("rejects new commands once the pending queue is full", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver(), {
       maxPendingOperations: 1,

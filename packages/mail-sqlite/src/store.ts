@@ -61,7 +61,9 @@ export async function createSqliteMailStore(
   driver: SqliteDriver,
   options: SqliteMailStoreOptions = {},
 ): Promise<MailStore> {
-  const maxPendingOperations = options.maxPendingOperations ?? MAX_QUEUE;
+  const maxPendingOperations = clampMaxPendingOperations(
+    options.maxPendingOperations,
+  );
   await driver.write(async (tx) => {
     await migrateMailbox(tx, crypto.randomUUID());
   });
@@ -1882,6 +1884,13 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
       conversationIds: [],
     };
   }
+}
+
+export function clampMaxPendingOperations(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+    return MAX_QUEUE;
+  }
+  return Math.min(Math.floor(value), MAX_QUEUE);
 }
 
 function jsonStringArray(value: import("./driver").SqlValue) {
