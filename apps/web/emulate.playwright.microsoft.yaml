@@ -164,3 +164,82 @@ microsoft:
       parent_folder_id: sentitems
       is_read: true
       received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_plain_links
+      conversation_id: thr_playwright_plain_links
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Plain Text Links Message
+      body_content: "Visit service.new/account\n\nhttps://staging.example.com/verify?token=value"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-30T18:00:00.000Z"
+    - id: msg_playwright_reader_html
+      conversation_id: thr_playwright_reader_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Html Message
+      body_content: "<p>A rich email body for keyboard navigation.</p>"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-30T12:00:00.000Z"
+    - id: msg_unread_expand_read
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: An earlier read message stays collapsed.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2025-12-29T12:00:00.000Z"
+    - id: msg_unread_expand_open_1
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: Another unread message opens with the conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T13:00:00.000Z"
+    - id: msg_unread_expand_open_2
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: A third unread message also opens.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T14:00:00.000Z"
+    - id: msg_unread_expand_open_3
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: dana@example.com
+          name: Dana Example
+      subject: "Re: Unread Expand Message"
+      body_content: The latest unread message opens with the conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T15:00:00.000Z"

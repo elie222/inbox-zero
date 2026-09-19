@@ -295,6 +295,80 @@ google:
       label_ids:
         - INBOX
       internal_date: "1786665600000"
+    - id: msg_playwright_calendar
+      thread_id: thr_playwright_calendar
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      raw: "__PLAYWRIGHT_CALENDAR_INVITE_RAW__"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734900000000"
+    - id: msg_playwright_plain_links
+      thread_id: thr_playwright_plain_links
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Plain Text Links Message
+      body_text: "Visit service.new/account\n\nhttps://staging.example.com/verify?token=value"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734890000000"
+    - id: msg_playwright_reader_html
+      thread_id: thr_playwright_reader_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Html Message
+      body_text: A rich email body for keyboard navigation.
+      body_html: "<p>A rich email body for keyboard navigation.</p>"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734880000000"
+    - id: msg_unread_expand_read
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: An earlier read message stays collapsed.
+      label_ids:
+        - INBOX
+      internal_date: "1734870000000"
+    - id: msg_unread_expand_open_1
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: Another unread message opens with the conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734871000000"
+    - id: msg_unread_expand_open_2
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: A third unread message also opens.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734872000000"
+    - id: msg_unread_expand_open_3
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Dana Example <dana@example.com>
+      subject: "Re: Unread Expand Message"
+      body_text: The latest unread message opens with the conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734873000000"
   calendars:
     - id: primary
       user_email: __PLAYWRIGHT_TEST_EMAIL__

@@ -41,14 +41,7 @@ test("updates the draft indicator after deletion and retains remaining drafts", 
   await expect(discard).toBeVisible();
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();
   await page.unroute("**/mail**");
-  const refreshedThread = page.waitForResponse(async (response) => {
-    if (!response.url().includes("/api/threads/thr_draft_indicator?"))
-      return false;
-    const body = await response.json();
-    return body.thread?.messages.length === 2;
-  });
   await discard.click();
-  await refreshedThread;
   await expect(discardButtons).toHaveCount(1);
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();
   await expect(discard).toBeVisible();

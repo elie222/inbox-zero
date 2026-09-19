@@ -368,6 +368,14 @@ function writeEmulateSeed({
         attachment: profileImage,
         recipient: playwrightTestEmail,
       }),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_CALENDAR_INVITE_RAW__",
+      createCalendarInviteMessage({
+        recipient: playwrightTestEmail,
+        start: meetingStart,
+        end: meetingEnd,
+      }),
     );
 
   // Mailbox synchronization only covers recent mail. Preserve the fixture's
@@ -448,6 +456,53 @@ function createReaderVisualMessage({ attachment, recipient }) {
   ].join("\r\n");
 
   return Buffer.from(mime, "utf8").toString("base64url");
+}
+
+function createCalendarInviteMessage({ recipient, start, end }) {
+  const boundary = "playwright-calendar-invite-boundary";
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Inbox Zero//Playwright//EN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:playwright-calendar-invite@example.com",
+    "SUMMARY:Project planning",
+    `DTSTART:${toIcsUtc(start)}`,
+    `DTEND:${toIcsUtc(end)}`,
+    "ORGANIZER:mailto:organizer@example.com",
+    `ATTENDEE;PARTSTAT=ACCEPTED:mailto:${recipient}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const mime = [
+    "From: Organizer Example <organizer@example.com>",
+    `To: ${recipient}`,
+    "Subject: Calendar Invitation Message",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "",
+    "Please join the project planning meeting.",
+    `--${boundary}`,
+    'Content-Type: text/calendar; method=REQUEST; charset="UTF-8"',
+    'Content-Disposition: attachment; filename="invite.ics"',
+    "",
+    ics,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+  return Buffer.from(mime, "utf8").toString("base64url");
+}
+
+function toIcsUtc(value) {
+  return new Date(value)
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replace(/\.\d{3}Z$/, "Z");
 }
 
 function getUrlPort(url) {

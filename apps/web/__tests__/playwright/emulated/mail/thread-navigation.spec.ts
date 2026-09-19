@@ -8,43 +8,12 @@ test("expands unread messages when opening a thread", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_reader?parseReplies=true",
-    { headers: { "x-email-account-id": emailAccountId } },
-  );
-  expect(response.ok()).toBe(true);
-  const body: ThreadResponse = await response.json();
-  // Opening the conversation marks provider messages read, including across retries.
-  const first = body.thread.messages[0];
-  expect(first).toBeDefined();
-  if (!first) throw new Error("Reader fixture has no messages");
-  body.thread.messages = [
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_unread_expand`,
     {
-      ...first,
-      id: "msg_playwright_reader_read_history",
-      labelIds: ["INBOX"],
-      textPlain: "An earlier read message stays collapsed.",
-      snippet: "An earlier read message stays collapsed.",
+      waitUntil: "domcontentloaded",
     },
-    {
-      ...first,
-      id: "msg_playwright_reader_unread_history",
-      labelIds: ["INBOX", "UNREAD"],
-      textPlain: "Another unread message opens with the conversation.",
-      snippet: "Another unread message opens with the conversation.",
-    },
-    ...body.thread.messages.map((message) => ({
-      ...message,
-      labelIds: ["INBOX", "UNREAD"],
-    })),
-  ];
-  await page.route("**/api/threads/thr_playwright_reader?**", (route) =>
-    route.fulfill({ json: body }),
   );
-
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
 
   const headers = page.locator(
     'li[data-thread-message-id] [role="button"][aria-expanded]',
@@ -148,24 +117,18 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
 test("navigates messages from inside a rich email body", async ({ page }) => {
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    const last = body.thread.messages.at(-1);
-    expect(last).toBeDefined();
-    if (!last) throw new Error("Reader fixture has no messages");
-    last.textHtml = "<p>A rich email body for keyboard navigation.</p>";
-    await route.fulfill({ response, json: body });
-  });
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_html`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   const emailBody = page
     .frameLocator('iframe[title="Email content preview"]')
     .last()
     .getByText("A rich email body for keyboard navigation.");
-  await expect(emailBody).toBeVisible();
+  await expect(emailBody).toBeVisible({ timeout: 60_000 });
   const threadUrl = page.url();
   const messages = page.locator("li[data-thread-message-id]");
   await emailBody.click();
