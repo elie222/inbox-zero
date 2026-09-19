@@ -235,7 +235,7 @@ export function NavUser() {
         onOpenChange={setIsReferralDialogOpen}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <Referrals />
+          <Referrals source="account_menu" />
         </DialogContent>
       </Dialog>
     </>
