@@ -43,7 +43,10 @@ export function inspectCommandMatchesPayload(
   if (!payload) return true;
   const actual = engineCommandPayload(command.change);
   if (!actual) return false;
-  return Object.entries(payload).every(([key, value]) => actual[key] === value);
+  const observed: Record<string, unknown> = { ...actual };
+  return Object.entries(payload).every(
+    ([key, value]) => observed[key] === value,
+  );
 }
 
 export function inspectCommandMatches(
