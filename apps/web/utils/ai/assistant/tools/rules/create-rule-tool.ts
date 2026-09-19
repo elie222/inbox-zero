@@ -31,7 +31,8 @@ export const createRuleTool = ({
   onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool({
-    description: "Create a new rule.",
+    description:
+      "Create a new automation rule with the requested matching conditions and actions. Infer factual selectors such as the sender address from an example email to implement the user's requested scope. If the user asks for a new rule without specifying what should happen to matching emails, ask for that action before calling this tool.",
     inputSchema: createRuleSchema(provider, integrationActionsEnabled),
     execute: async ({ name, condition, actions }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
