@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `5e20fd5f1`
+- Last implementation commit: `fb6a2e811`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E84 undo-hold alignment; GitHub Playwright is the remaining mail-spec proof.
-- Next action: watch GitHub Playwright on the exact head after E84. Do not re-run emulated Playwright locally. CLA human signature.
+- Current task: remaining matrix cells after E85 undo-toast dismiss; GitHub Playwright is the remaining mail-spec proof.
+- Next action: watch GitHub Playwright on the exact head after E85. Do not re-run emulated Playwright locally. CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 18 passed (E85)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 16 passed (E84)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts utils/attachments/opened-conversation.test.ts utils/mail-api/source.test.ts` — 3 files, 20 passed (E83)
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/command-status.test.ts utils/mail-engine/conversation-thread.test.ts utils/mail-api/observations.test.ts utils/mail-api/source.test.ts hooks/useThread.test.tsx` — 5 files, 22 passed (E79)
@@ -267,6 +268,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E85. Dismiss undo when the send is no longer cancellable (2026-09-19)
+
+- Tasks: partial G5 send; follow-up to E84 undo hold
+- Tree: `cursor/mail-engine-0b4f` at `fb6a2e811`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 18 passed
+- What it proved: Independent review of E84 found Sonner pauses its timer on hover/hidden tab, so Undo could stay offered after `notBeforeMs`. The undo offer now observes the operation and uses a wall-clock timeout: leaving `queued`/`preparing`, or the hold elapsing, dismisses the toast and clears keyboard undo. Admission opts in with `holdForUndo` instead of a discarded timestamp.
+- Limitations: GitHub Playwright is the remaining proof. Do not check G4/G5.
 
 ### E84. Undo toast and send hold start together (2026-09-19)
 
