@@ -268,7 +268,8 @@ async function proveStar(
   await waitForConversations(window);
   await waitForSubject(window, STAR_SUBJECT);
   await clickConversation(window, STAR_SUBJECT);
-  await clickMoreActionsStar(window);
+  await waitForThreadReader(window);
+  await pressStarKey(window);
   const readerStarred = await waitForStarredReader(window);
   const starSucceeded = await waitForStarSucceeded(window, STAR_THREAD_ID);
   const nativeStarred = await waitForNativeStarredSubject(
@@ -818,40 +819,37 @@ async function clickConversation(window: BrowserWindow, subject: string) {
   );
 }
 
-async function clickMoreActionsStar(window: BrowserWindow) {
+async function waitForThreadReader(window: BrowserWindow) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
-    const clicked = (await window.webContents.executeJavaScript(`
-      (() => {
-        const more = document.querySelector('button[aria-label="More actions"]');
-        if (!(more instanceof HTMLElement)) return "missing-more";
-        const actionsMenu = [...document.querySelectorAll('[role="menu"]')].find(
-          (menu) =>
-            [...menu.querySelectorAll('[role="menuitem"]')].some((item) => {
-              const label = (item.textContent ?? "").replace(/\\s+/g, " ").trim();
-              return label.startsWith("Star") || label.startsWith("Unstar");
-            }),
-        );
-        if (!actionsMenu) {
-          more.click();
-          return "opened";
-        }
-        const star = [...actionsMenu.querySelectorAll('[role="menuitem"]')].find(
-          (item) => {
-            const label = (item.textContent ?? "").replace(/\\s+/g, " ").trim();
-            return label.startsWith("Star") && !label.startsWith("Starred");
-          },
-        );
-        if (!(star instanceof HTMLElement)) return "missing-star";
-        star.click();
-        return "starred";
-      })()
-    `)) as "missing-more" | "opened" | "missing-star" | "starred";
-    if (clicked === "starred") return;
+    const visible = (await window.webContents.executeJavaScript(`
+      Boolean(document.querySelector('[data-testid="thread-reader"]'))
+    `)) as boolean;
+    if (visible) return;
     await delay(250);
   }
   await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-  const body = await readBodyText(window);
-  throw new Error(`Star control missing: ${body.slice(0, 2000)}`);
+  throw new Error("thread reader never opened");
+}
+
+async function pressStarKey(window: BrowserWindow) {
+  const focused = (await window.webContents.executeJavaScript(`
+    (() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      const reader = document.querySelector('[data-testid="thread-reader"]');
+      if (!(reader instanceof HTMLElement)) return false;
+      reader.focus();
+      return true;
+    })()
+  `)) as boolean;
+  if (!focused) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("thread reader missing for star shortcut");
+  }
+  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "S" });
+  window.webContents.sendInputEvent({ type: "char", keyCode: "s" });
+  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "S" });
 }
 
 async function clickDiscardDraft(window: BrowserWindow) {
