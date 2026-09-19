@@ -157,19 +157,49 @@ async function waitForMissingSubject(window: BrowserWindow, subject: string) {
 }
 
 async function clickArchive(window: BrowserWindow, subject: string) {
-  const clicked = (await window.webContents.executeJavaScript(`
+  const selection = (await window.webContents.executeJavaScript(`
     (() => {
       const list = document.querySelector('[role="listbox"][aria-label="Conversations"]');
       const option = [...(list?.querySelectorAll('[role="option"]') ?? [])]
-        .find((item) => item.textContent.includes(${JSON.stringify(subject)}));
+        .find((item) => (item.textContent ?? "").includes(${JSON.stringify(subject)}));
       const checkbox = option?.querySelector('[role="checkbox"]');
-      checkbox?.click();
-      const archive = document.querySelector('button[aria-label="Archive"]');
-      archive?.click();
-      return Boolean(checkbox && archive);
+      if (!(checkbox instanceof HTMLElement)) {
+        return {
+          ok: false,
+          optionCount: list?.querySelectorAll('[role="option"]').length ?? 0,
+          checkboxCount: document.querySelectorAll('[role="checkbox"]').length,
+        };
+      }
+      checkbox.click();
+      return { ok: true };
     })()
-  `)) as boolean;
-  if (!clicked) throw new Error(`Archive control missing for ${subject}`);
+  `)) as { ok: boolean; optionCount?: number; checkboxCount?: number };
+  if (!selection.ok) {
+    await captureWindow(window);
+    throw new Error(
+      `Selection checkbox missing for ${subject} (options=${selection.optionCount} checkboxes=${selection.checkboxCount})`,
+    );
+  }
+
+  // ListToolbar Archive only mounts after selectedCount > 0; that paint
+  // happens after this executeJavaScript stack returns.
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const archiveVisible = (await window.webContents.executeJavaScript(
+      `Boolean(document.querySelector('button[aria-label="Archive"]'))`,
+    )) as boolean;
+    if (archiveVisible) {
+      await window.webContents.executeJavaScript(`
+        document.querySelector('button[aria-label="Archive"]')?.click()
+      `);
+      return;
+    }
+    await delay(50);
+  }
+  await captureWindow(window);
+  const body = await readBodyText(window);
+  throw new Error(
+    `Archive control missing for ${subject}: ${body.slice(0, 2000)}`,
+  );
 }
 
 async function readSubjects(window: BrowserWindow) {
