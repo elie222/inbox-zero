@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `4e9ce861e`
+- Last implementation commit: `d61635f41`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E64 sidebar counts and E65 native sqlite wipe unit, simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: remaining G matrix cells (coverage/retention product UI, G4 desktop logout wiring/self-hosted); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells after E66 desktop logout wipe wiring and E67 queue/disk product UI, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: remaining G matrix cells (G4 self-hosted/packaging, desktop sidebar counts, hosted Electron Sign out wipe); H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/admission-notice.test.ts utils/mail-engine/wipe-local-mailbox.test.ts utils/mail-engine/stage-attachments.test.ts utils/mail-engine/thread-mail-mutations.test.ts utils/mail-engine/active-client.test.ts app/(app)/[emailAccountId]/mail/use-thread-actions.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts components/CommandK.test.tsx` — 8 files, 38 passed on `d61635f41`; queue_full/too_large copy and desktop-vs-OPFS wipe routing (E67/E66)
+  - `pnpm --filter @inboxzero/desktop exec vitest run src/mail-engine/wipe.test.ts src/mail-engine/ipc.test.ts` — 2 files, 4 passed on `d61635f41`; close-then-delete sqlite/wal/shm (E66)
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/mail-ipc-client.test.ts` — 1 file, 4 passed on `d61635f41`; client close stops mailbox polls (E66)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "Inbox and Unread counts"` — 2 passed in 1.4m on `4e9ce861e`; spec 35.4s; Inbox badge and Unread list drop then recover (E64 Gmail)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "Inbox and Unread counts"` — 2 passed in 1.4m on `4e9ce861e`; spec 33.3s (E64 Outlook)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/node-sqlite.test.ts` — 1 file, 4 passed on `1304e661a`; wipeNodeMailbox removes sqlite/wal/shm (E65)
@@ -234,12 +237,32 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21); queued archive hidden after OPFS reload (E61) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3) |
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
-| Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34); Sign out wipes OPFS `.mail-engine` (E62 unit, E63 Playwright) | Partial: follower tab + owner reload + reconnect (E21); Sign out wipes OPFS `.mail-engine` (E63 Playwright) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child; IPC protocolVersion 0 is invalid (E62); `wipeNodeMailbox` deletes sqlite/wal/shm (E65, not wired to desktop logout) |
+| Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34); Sign out wipes OPFS `.mail-engine` (E62 unit, E63 Playwright) | Partial: follower tab + owner reload + reconnect (E21); Sign out wipes OPFS `.mail-engine` (E63 Playwright) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44); Sign out IPC wipes native sqlite (E66 unit) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46); Sign out IPC wipes native sqlite (E66 unit) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child; IPC protocolVersion 0 is invalid (E62); `wipeNodeMailbox` deletes sqlite/wal/shm (E65); desktop `logOut` closes then wipes (E66, not hosted Electron Sign out) |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
+| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13); queue_full/too_large product copy (E67) | Partial: coverage-gated first paint (E21); queue_full/too_large product copy (E67) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Uploads HTTP too_large 507 and MailShell/send copy (E67). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E67. Queue-full and disk-pressure product copy (2026-09-19)
+
+- Tasks: partial G5 coverage/retention product UI
+- Tree: `cursor/mail-engine-0b4f` at `b24ea8bdc` (copy); `d61635f41` (proof rerun)
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/admission-notice.test.ts utils/mail-engine/stage-attachments.test.ts utils/mail-engine/thread-mail-mutations.test.ts app/(app)/[emailAccountId]/mail/use-thread-actions.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts components/CommandK.test.tsx` — included in 8 files, 38 passed
+- What it proved: archive, star, send, and attachment staging use `queue_full` / `too_large` / `storage_unavailable` copy instead of a generic queue failure. Uploads map blob `too_large` to HTTP 507 `too_large`.
+- Limitations: no Playwright of the toast in a live MailShell. Browser OPFS quota UI and assistant fairness under live provider quota remain Not run. Do not check G5.
+
+### E66. Desktop logout closes then wipes native sqlite (2026-09-19)
+
+- Tasks: partial G4 native mailbox delete on logout
+- Tree: `cursor/mail-engine-0b4f` at `d61635f41`
+- Commands:
+  - `pnpm --filter @inboxzero/desktop exec vitest run src/mail-engine/wipe.test.ts src/mail-engine/ipc.test.ts` — 2 files, 4 passed
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/mail-ipc-client.test.ts` — 1 file, 4 passed
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/wipe-local-mailbox.test.ts utils/mail-engine/active-client.test.ts` — included in 8 files, 38 passed
+- What it proved: `logOut` wipes native sqlite through desktop `wipeMailbox` IPC when that host exists, otherwise OPFS. `closeAndWipeDesktopMailbox` closes the owner first, then deletes sqlite/wal/shm, including when close rejects. App quit closes the owner without deleting the returning-user mailbox. IPC client close stops mailbox polls.
+- Limitations: no hosted Electron Sign out click. Self-hosted config and macOS/Windows packaging remain Not run. Do not check G4.
 
 ### E65. Native sqlite wipe unit (2026-09-19)
 
@@ -248,7 +271,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/node-sqlite.test.ts` — 1 file, 4 passed
 - What it proved: after close, `wipeNodeMailbox` deletes `mailbox.sqlite` plus `-wal` and `-shm`. A second wipe and an in-memory path do not throw. A reopen has no drafts.
-- Limitations: desktop `logOut` / IPC does not call this yet. No Electron proof. Do not check G4.
+- Limitations: desktop logout wiring is E66. No hosted Electron Sign out. Do not check G4.
 
 ### E64. Inbox unread badge and Unread list move with archive (2026-09-19)
 
@@ -258,7 +281,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "Inbox and Unread counts"` — 2 passed in 1.4m; spec 35.4s
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/archive-reconciliation.spec.ts -g "Inbox and Unread counts"` — 2 passed in 1.4m; spec 33.3s
 - What it proved: archiving unread Second Unread Command Message hides it from All and Unread and drops the sidebar Inbox unread badge by one. Provider unarchive restores the conversation and the badge on both Gmail and Outlook web.
-- Limitations: desktop sidebar counts and coverage/retention product UI remain Not run. Do not check G5.
+- Limitations: desktop sidebar counts remain Not run. Coverage/retention product UI is E67. Do not check G5.
 
 ### E63. Playwright Sign out wipes the OPFS mailbox (2026-09-19)
 
@@ -269,7 +292,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -C apps/web exec playwright test -c playwright.config.mjs --project=emulated __tests__/playwright/emulated/mail/offline-loading.spec.ts -g "clears it on sign-out"` — 2 passed in 1.5m; spec 45.7s
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/active-client.test.ts utils/mail-engine/wasm-sqlite.test.ts` — 2 files, 9 passed
 - What it proved: mail hides SideNav, so Sign out is opened from `/settings` NavUser. `logOut` aborts the owner runtime, terminates the wasm worker even if the close RPC fails, retries `removeEntry` on `.mail-engine`, then redirects. After Sign out, OPFS no longer has that directory and the offline mail cache is empty. Gmail lands on marketing Log in; Outlook emulator lands on Logged out.
-- Limitations: `wipeNodeMailbox` unit is E65; desktop logout still does not call it. Self-hosted config and macOS/Windows packaging remain Not run. Coverage/retention product UI remains Not run. Do not check G4/G5.
+- Limitations: `wipeNodeMailbox` unit is E65; desktop logout wiring is E66. Self-hosted config and macOS/Windows packaging remain Not run. Coverage/retention product UI is E67. Do not check G4/G5.
 
 ### E62. G4 old-client IPC reject and OPFS logout wipe (2026-09-19)
 
