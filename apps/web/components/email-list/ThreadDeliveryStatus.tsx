@@ -30,6 +30,7 @@ import {
   canEditEngineSend,
   engineDeliveryLabel,
   engineSendCommandsForThread,
+  engineSendReplyMessageId,
   shouldShowEngineDeliveryStatus,
 } from "@/utils/mail-engine/engine-delivery";
 import { restoreCancelledSendDraft } from "@/utils/mail-engine/reply-drafts";
@@ -55,13 +56,6 @@ export function ThreadDeliveryStatus({
     () => navigator.onLine,
     () => true,
   );
-  const wasOnline = useRef(online);
-  useEffect(() => {
-    const becameOnline = online && !wasOnline.current;
-    wasOnline.current = online;
-    if (!becameOnline || !client) return;
-    client.requestSync([emailAccountId]).catch(() => undefined);
-  }, [client, emailAccountId, online]);
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dismissedSendIds, setDismissedSendIds] = useState<string[]>([]);
@@ -234,8 +228,11 @@ export function ThreadDeliveryStatus({
                   disabled={busy}
                   onClick={() =>
                     act(async () => {
-                      const parentMessageId =
-                        row.messageIds[0] ?? messageIds.at(-1) ?? threadId;
+                      const parentMessageId = engineSendReplyMessageId(
+                        row,
+                        messageIds,
+                        threadId,
+                      );
                       if (
                         row.status === "queued" ||
                         row.status === "preparing"

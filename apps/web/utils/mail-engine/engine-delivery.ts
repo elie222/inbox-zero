@@ -68,3 +68,11 @@ export function canEditEngineSend(status: string, online: boolean) {
     "needs_attention",
   ].includes(status);
 }
+
+export function engineSendReplyMessageId(
+  command: { messageIds: string[] },
+  threadMessageIds: string[],
+  threadId: string,
+) {
+  return command.messageIds[0] ?? threadMessageIds.at(-1) ?? threadId;
+}

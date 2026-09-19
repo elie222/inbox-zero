@@ -932,9 +932,14 @@ export async function createSqliteMailStore(
               kind: payload.kind,
               changeKind: payload.changeKind,
               change: payload.change,
-              messageIds: targets
-                .filter((target) => String(target.command_id) === operationId)
-                .map((target) => String(target.message_id)),
+              messageIds: [
+                ...payload.messageIds,
+                ...targets
+                  .filter((target) => String(target.command_id) === operationId)
+                  .map((target) => String(target.message_id)),
+              ].filter(
+                (value, index, values) => values.indexOf(value) === index,
+              ),
               conversationIds: [
                 ...conversations
                   .filter(
@@ -2066,6 +2071,7 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
       kind?: string;
       change?: Record<string, unknown> & { kind?: string };
       replyToConversationId?: string | null;
+      replyToMessageId?: string | null;
     };
     return {
       kind: payload.kind ?? "unknown",
@@ -2074,6 +2080,7 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
       conversationIds: payload.replyToConversationId
         ? [payload.replyToConversationId]
         : [],
+      messageIds: payload.replyToMessageId ? [payload.replyToMessageId] : [],
     };
   } catch {
     return {
@@ -2081,6 +2088,7 @@ function parseOperationPayload(value: import("./driver").SqlValue) {
       changeKind: null,
       change: null,
       conversationIds: [],
+      messageIds: [],
     };
   }
 }

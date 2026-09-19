@@ -143,7 +143,8 @@
   ],
   "thread-states.spec.ts": [
     "components/email-list/EmailThread.tsx",
-    "components/email-list/ThreadDeliveryStatus.tsx"
+    "components/email-list/ThreadDeliveryStatus.tsx",
+    "utils/mail-engine/engine-delivery.ts"
   ],
   "triage-actions.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",

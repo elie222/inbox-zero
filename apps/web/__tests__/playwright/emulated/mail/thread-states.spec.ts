@@ -137,12 +137,22 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   });
   await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
   await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   await expect(
     delivery.getByText("Waiting for connection", { exact: true }),
   ).toBeVisible();
   await delivery.getByRole("button", { name: "Edit reply" }).click();
-  await expect(editor).toContainText(text);
+  const restored = page.locator("[contenteditable='true']");
+  await expect(restored).toContainText(text);
   await expect(
     delivery.getByText("Waiting for connection", { exact: true }),
   ).toHaveCount(0);
@@ -155,8 +165,8 @@ test("restores a queued reply for editing without sending a duplicate", async ({
       }),
     )
     .toBeUndefined();
-  await editor.fill(`${text} Let's meet at 3 pm.`);
-  await expect(editor).toContainText("Let's meet at 3 pm.");
+  await restored.fill(`${text} Let's meet at 3 pm.`);
+  await expect(restored).toContainText("Let's meet at 3 pm.");
   await capturePlaywrightCheckpoint(page, testInfo, "22-edit-queued-reply");
   await page.reload();
   await expect(

@@ -3,6 +3,7 @@ import {
   canEditEngineSend,
   engineDeliveryLabel,
   engineSendCommandsForThread,
+  engineSendReplyMessageId,
   shouldShowEngineDeliveryStatus,
 } from "./engine-delivery";
 
@@ -57,5 +58,22 @@ describe("engine send delivery status", () => {
     expect(engineDeliveryLabel("queued", false)).toBe("Waiting for connection");
     expect(canEditEngineSend("queued", true)).toBe(true);
     expect(canEditEngineSend("executing", true)).toBe(false);
+  });
+
+  it("prefers the send's reply-to over a later thread row", () => {
+    expect(
+      engineSendReplyMessageId(
+        { messageIds: ["msg_playwright_reply"] },
+        ["msg_playwright_reply", "msg_later_sent"],
+        "thr_playwright_reply",
+      ),
+    ).toBe("msg_playwright_reply");
+    expect(
+      engineSendReplyMessageId(
+        { messageIds: [] },
+        ["msg_playwright_reply", "msg_later_sent"],
+        "thr_playwright_reply",
+      ),
+    ).toBe("msg_later_sent");
   });
 });

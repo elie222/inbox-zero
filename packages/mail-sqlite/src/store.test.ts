@@ -1841,6 +1841,51 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("reports the reply-to message on a queued send", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-reply" },
+      expectedRevision: null,
+      content: {
+        to: ["leslie@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Re: Reply Workflow Message",
+        editableHtml: "<p>Thursday works.</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-reply",
+          conversationId: "thr_playwright_reply",
+          draft: { accountId: "acc-1", draftId: "d-reply" },
+          draftRevision: saved.draftRevision,
+          replyTo: { accountId: "acc-1", messageId: "msg_playwright_reply" },
+        })
+      ).status,
+    ).toBe("queued");
+    const diagnostics = await store.getDiagnostics("acc-1");
+    expect(
+      diagnostics.commands.find(
+        (command) => command.operationId === "send-reply",
+      ),
+    ).toMatchObject({
+      conversationIds: ["thr_playwright_reply"],
+      messageIds: ["msg_playwright_reply"],
+    });
+    await store.close();
+  });
+
   it("releases connectivity holds without clearing undo holds", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
