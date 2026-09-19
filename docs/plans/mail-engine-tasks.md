@@ -10,12 +10,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: `b44f80a72`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E88 bulk-archive PUT hold; GitHub Playwright is the remaining mail-spec proof.
-- Next action: watch GitHub Playwright on the exact head after E88. Do not re-run emulated Playwright locally. CLA human signature.
+- Current task: remaining matrix cells after E88 GitHub Playwright green and E89 assistant queue_full fairness. CLA human signature.
+- Next action: push E89, watch GitHub checks on the new head. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
-  - GitHub Playwright run `35446791346` on `5dcd08906`: mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, mail-preferences, settings, chat, onboarding passed; cleanup failed because bulk-archive reconnect held Next `next-action` POSTs while engine archive uses PUT `/operations/` (E88)
+  - GitHub Playwright run `35447369929` on `864ed7c08`: Web E2E, cleanup, mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, mail-preferences, settings, chat, onboarding, hosted-electron-in-mail all passed (E88)
+  - GitHub Run Tests `35447369980` on `864ed7c08`: Tests 1/2 and Tests 2/2 passed
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/engine-assistant.test.ts` — 1 file, 2 passed (E89)
+  - GitHub Playwright run `35446791346` on `5dcd08906`: cleanup failed because bulk-archive reconnect held Next `next-action` POSTs while engine archive uses PUT `/operations/` (E88)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E87)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E86)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 18 passed (E85)
@@ -267,10 +270,19 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18); multiple in-thread server drafts (E76); offline queued reply holds until reconnect (E78) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone; enumerate/catch-up persist fetched bodies (E76); offline `notBeforeMs` hold + start skips release while `navigator.onLine` is false (E78); body observations keep attachment descriptors and meeting flags (E79) |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34); Sign out wipes OPFS `.mail-engine` (E62 unit, E63 Playwright) | Partial: follower tab + owner reload + reconnect (E21); Sign out wipes OPFS `.mail-engine` (E63 Playwright) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child; IPC protocolVersion 0 is invalid (E62); `wipeNodeMailbox` deletes sqlite/wal/shm (E65); desktop `logOut` closes then wipes (E66); hosted Electron Sign out UI wipes native sqlite (E71); quit leaves sqlite (E68); self-hosted `INBOX_ZERO_APP_URL` is the only allowed origin (E75) |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
-| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13); queue_full/too_large product copy (E67); live MailShell queue_full toast (E72) | Partial: coverage-gated first paint (E21); queue_full/too_large product copy (E67) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; store clamps maxPendingOperations at 5000 (E74); body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Uploads HTTP too_large 507 and MailShell/send copy (E67). Live MailShell queue_full toast with page pending-op cap (E72). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
+| Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13); queue_full/too_large product copy (E67); live MailShell queue_full toast (E72) | Partial: coverage-gated first paint (E21); queue_full/too_large product copy (E67) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; store clamps maxPendingOperations at 5000 (E74); body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Uploads HTTP too_large 507 and MailShell/send copy (E67). Live MailShell queue_full toast with page pending-op cap (E72). Assistant catch-up still applies when user commands are queue_full (E89). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E89. Assistant catch-up while user commands are queue_full (2026-09-19)
+
+- Tasks: partial G2 quota fairness; assistant catch-up vs pending-op cap
+- Tree: `cursor/mail-engine-0b4f` at `1c202905d` (product still `b44f80a72`)
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/engine-assistant.test.ts` — 1 file, 2 passed
+- What it proved: With `maxPendingOperations: 1`, a queued user archive rejects a second admit with `queue_full`, but engine assistant catch-up still archives a different conversation and advances `assistantCursor`. The user queue stays full afterward. `applyAssistantEntries` does not consume the pending-op cap.
+- Limitations: Live provider quota fairness remains Not run. Browser OPFS quota UI remains Not run. Do not check G2/G4/G5.
 
 ### E88. Hold engine PUT during bulk-archive reconnect (2026-09-19)
 
@@ -278,8 +290,10 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Tree: `cursor/mail-engine-0b4f` at `0489ed02e` (product still `b44f80a72`)
 - Commands:
   - GitHub Playwright `35446791346` on `5dcd08906` — E2E cleanup failed: inspect expected `reconciling`, received `succeeded`
-- What it proved: `blockServerActions` aborted Next `next-action` POSTs, but MailShell archives with PUT `/api/mail/v1/accounts/**/operations/**`, so the command finished before reload. Reconnect now holds that PUT the same way as archive-reconciliation/triage-actions/manual-label, keeps `reconciling` across reload, then releases and expects `succeeded`. Mail-compose/reader/triage already passed on `5dcd08906`.
-- Limitations: GitHub Playwright on the E88 head is the remaining proof. Do not check G4/G5.
+  - GitHub Playwright `35447369929` on `864ed7c08` — Web E2E, cleanup, mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, settings, chat passed
+  - GitHub Run Tests `35447369980` on `864ed7c08` — Tests 1/2 and Tests 2/2 passed
+- What it proved: `blockServerActions` aborted Next `next-action` POSTs, but MailShell archives with PUT `/api/mail/v1/accounts/**/operations/**`, so the command finished before reload. Reconnect now holds that PUT the same way as archive-reconciliation/triage-actions/manual-label, keeps `reconciling` across reload, then releases and expects `succeeded`. GitHub Playwright on `864ed7c08` passed cleanup and every other E2E area.
+- Limitations: CLA still needs a human signature. Do not check G4/G5.
 
 ### E87. Mount a new undo toast for each held send (2026-09-19)
 
