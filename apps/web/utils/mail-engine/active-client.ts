@@ -24,7 +24,7 @@ export async function closeActiveMailEngine() {
   activeMailClient = null;
   if (!client) return;
   try {
-    await client.close();
+    await client.close?.();
   } catch {
     // Logout still proceeds if the worker is already gone.
   }

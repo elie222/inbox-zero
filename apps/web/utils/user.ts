@@ -5,7 +5,7 @@ import { signOut } from "@/utils/auth-client";
 import { clearLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { closeActiveMailEngine } from "@/utils/mail-engine/active-client";
-import { wipeOpfsMailEngine } from "@/utils/mail-engine/wasm-sqlite";
+import { wipeLocalMailbox } from "@/utils/mail-engine/wipe-local-mailbox";
 import { clearLocalReplyDrafts } from "@/utils/mail-engine/reply-drafts";
 import { clearPersistedSwrCache } from "@/utils/swr-persistence";
 
@@ -15,7 +15,7 @@ export async function logOut(callbackUrl?: string) {
   clearPersistedSwrCache();
   clearLocalReplyDrafts();
   await clearOfflineMailCache();
-  await wipeOpfsMailEngine();
+  await wipeLocalMailbox();
 
   await signOut({
     fetchOptions: {

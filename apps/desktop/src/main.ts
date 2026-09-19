@@ -49,6 +49,7 @@ import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
 import { createOriginMailRequest } from "./mail-engine/request";
+import { closeAndWipeDesktopMailbox } from "./mail-engine/wipe";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -150,6 +151,11 @@ function startDesktopApp() {
     const owner = await getDesktopMailOwner();
     return owner.handleIpc(payload);
   });
+  ipcMain.handle("mail-engine-wipe", async (event) => {
+    if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
+    await wipeDesktopMailOwner();
+    return { status: "ok" };
+  });
 
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
@@ -199,6 +205,7 @@ function startDesktopApp() {
     isQuitting = true;
     // Skip if windows already closed; last-window `close` already wrote the snapshot.
     if (windows.length > 0) persistWindowsNow();
+    closeDesktopMailOwner().catch(() => undefined);
   });
 
   app.whenReady().then(async () => {
@@ -614,12 +621,40 @@ function getDesktopMailOwner() {
   return desktopMailOwner;
 }
 
+function desktopMailboxPath() {
+  return path.join(app.getPath("userData"), "mailbox.sqlite");
+}
+
 function createDesktopMailProcess() {
-  const databasePath = path.join(app.getPath("userData"), "mailbox.sqlite");
   // Session cookies live on this process; the utility child cannot read them.
   return createDesktopMailOwner({
-    databasePath,
+    databasePath: desktopMailboxPath(),
     ...createRoutedBackendPorts(createDesktopMailRequest()),
+  });
+}
+
+async function closeDesktopMailOwner() {
+  const ownerPromise = desktopMailOwner;
+  desktopMailOwner = undefined;
+  try {
+    await (await ownerPromise)?.close();
+  } catch {
+    // Quitting still proceeds if the owner is already gone.
+  }
+}
+
+async function wipeDesktopMailOwner() {
+  const ownerPromise = desktopMailOwner;
+  desktopMailOwner = undefined;
+  let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined;
+  try {
+    owner = ownerPromise ? await ownerPromise : undefined;
+  } catch {
+    owner = undefined;
+  }
+  await closeAndWipeDesktopMailbox({
+    owner,
+    databasePath: desktopMailboxPath(),
   });
 }
 

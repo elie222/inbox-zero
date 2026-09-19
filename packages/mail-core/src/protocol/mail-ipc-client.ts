@@ -12,6 +12,7 @@ export function createMailIpcClient(
 ): MailClient & { inspect(): Promise<unknown> } {
   const requestId = options?.requestId ?? defaultRequestId;
   const pollMs = options?.pollMs ?? 750;
+  const handles = new Set<{ close(): void }>();
 
   async function call(method: string, payload: unknown) {
     const response = (await invoke({
@@ -28,7 +29,7 @@ export function createMailIpcClient(
 
   return {
     observeMailbox: (query) =>
-      observeSnapshot(call, "observeMailbox", query, pollMs),
+      observeSnapshot(call, "observeMailbox", query, pollMs, handles),
     observeConversation: (key, page) =>
       observeSnapshot(
         call,
@@ -39,6 +40,7 @@ export function createMailIpcClient(
           pageSize: page.pageSize,
         },
         pollMs,
+        handles,
       ),
     observeOperation() {
       return unavailableHandle();
@@ -57,6 +59,9 @@ export function createMailIpcClient(
     ensureMessageContent: (key) => call("ensureMessageContent", key),
     getDiagnostics: (accountId) => call("getDiagnostics", { accountId }),
     inspect: () => call("inspect", {}),
+    async close() {
+      for (const handle of [...handles]) handle.close();
+    },
   };
 }
 
@@ -65,6 +70,7 @@ function observeSnapshot<T>(
   method: "observeMailbox" | "observeConversation",
   payload: unknown,
   pollMs: number,
+  handles: Set<{ close(): void }>,
 ): QueryHandle<T> {
   let snapshot: QuerySnapshot<T> = {
     status: "loading",
@@ -85,7 +91,7 @@ function observeSnapshot<T>(
     refresh().catch(() => undefined);
   }, pollMs);
   refresh().catch(() => undefined);
-  return {
+  const handle: QueryHandle<T> = {
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
       listeners.add(listener);
@@ -97,8 +103,11 @@ function observeSnapshot<T>(
       closed = true;
       clearInterval(timer);
       listeners.clear();
+      handles.delete(handle);
     },
   };
+  handles.add(handle);
+  return handle;
 }
 
 function unavailableHandle<T>(): QueryHandle<T> {

@@ -79,4 +79,35 @@ describe("createMailIpcClient", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(invoke.mock.calls.length).toBe(calls);
   });
+
+  it("stops mailbox polls when the client closes", async () => {
+    const invoke = vi.fn(async () => ({
+      status: "ok",
+      result: {
+        status: "ready",
+        revision: { databaseEpoch: "e1", sequence: 1 },
+        data: { conversations: [] },
+        refreshing: false,
+        error: null,
+      },
+    }));
+    const client = createMailIpcClient(invoke, {
+      requestId: () => "obs-close",
+      pollMs: 20,
+    });
+    client.observeMailbox({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalled();
+    });
+    await client.close?.();
+    const calls = invoke.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(invoke.mock.calls.length).toBe(calls);
+  });
 });

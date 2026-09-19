@@ -73,6 +73,7 @@ export type MailClient = {
   requestSync(accountIds: string[]): Promise<WorkAdmission>;
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
+  close?(): Promise<void>;
 };
 
 export type MailEngine = MailClient & {

@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
   startAuth: (provider: string, options?: { callbackPath?: string }) =>
     ipcRenderer.invoke("desktop-auth:start", provider, options),
   mailEngine: (payload: unknown) => ipcRenderer.invoke("mail-engine", payload),
+  wipeMailbox: () => ipcRenderer.invoke("mail-engine-wipe"),
 });
