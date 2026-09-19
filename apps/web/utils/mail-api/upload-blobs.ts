@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import {
   createFileBlobStore,
+  deleteUnheldBlob,
+  holdBlob,
   readBlobMetadata,
+  releaseBlobHold,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
 
@@ -86,9 +89,32 @@ export async function inspectAccountUpload(
 export async function cancelAccountUpload(accountId: string, uploadId: string) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  const store = createFileBlobStore(accountMailUploadDirectory(accountId));
-  await store.delete(parsed.data);
+  const directory = accountMailUploadDirectory(accountId);
+  if ((await deleteUnheldBlob(directory, parsed.data)) === "in_use") {
+    return { status: "in_use" as const, blobId: parsed.data };
+  }
   return { status: "deleted" as const, blobId: parsed.data };
+}
+
+export async function holdAccountUploads(accountId: string, blobIds: string[]) {
+  const directory = accountMailUploadDirectory(accountId);
+  for (const blobId of blobIds) {
+    const parsed = blobIdSchema.safeParse(blobId);
+    if (!parsed.success) continue;
+    await holdBlob(directory, parsed.data);
+  }
+}
+
+export async function releaseAccountUploadHolds(
+  accountId: string,
+  blobIds: string[],
+) {
+  const directory = accountMailUploadDirectory(accountId);
+  for (const blobId of blobIds) {
+    const parsed = blobIdSchema.safeParse(blobId);
+    if (!parsed.success) continue;
+    await releaseBlobHold(directory, parsed.data);
+  }
 }
 
 function isDiskFullError(error: unknown) {

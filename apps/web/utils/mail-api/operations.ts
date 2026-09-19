@@ -16,7 +16,11 @@ import {
   createFileBlobStore,
   readBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
-import { accountMailUploadDirectory } from "@/utils/mail-api/upload-blobs";
+import {
+  accountMailUploadDirectory,
+  holdAccountUploads,
+  releaseAccountUploadHolds,
+} from "@/utils/mail-api/upload-blobs";
 
 const logger = createScopedLogger("mail-api/operations");
 
@@ -363,54 +367,59 @@ async function executeSend(
   if (operation.intent.kind !== "send") {
     return { status: "rejected" as const, code: "unsupported", targets: [] };
   }
-  const attachments = await loadSendAttachments(
-    accountId,
-    operation.intent.attachmentIds,
-  );
-  const outcome = await executeDurableEmailSend({
-    logger,
-    emailAccountId: accountId,
-    getEmailProvider: async () => provider,
-    provider: provider.name === "microsoft" ? "microsoft" : "google",
-    input: {
-      mutationId: sendMutationId(operation.key.operationId),
-      queuedAt: operation.intent.queuedAtMs,
-      threadId: operation.intent.replyToMessageId
-        ? operation.intent.replyToConversationId
-        : null,
-      messageIds: operation.intent.replyToMessageId
-        ? [operation.intent.replyToMessageId]
-        : [operation.intent.frozenDraftId],
-      email: {
-        to: operation.intent.to.join(", "),
-        cc: operation.intent.cc.join(", ") || undefined,
-        bcc: operation.intent.bcc.join(", ") || undefined,
-        subject: operation.intent.subject,
-        messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
-        replyToEmail:
-          operation.intent.replyToMessageId &&
-          operation.intent.replyToConversationId
-            ? {
-                threadId: operation.intent.replyToConversationId,
-                messageId: operation.intent.replyToMessageId,
-              }
-            : undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        ...(operation.intent.providerDraftId
-          ? { providerDraftId: operation.intent.providerDraftId }
-          : {}),
+  try {
+    await holdAccountUploads(accountId, operation.intent.attachmentIds);
+    const attachments = await loadSendAttachments(
+      accountId,
+      operation.intent.attachmentIds,
+    );
+    const outcome = await executeDurableEmailSend({
+      logger,
+      emailAccountId: accountId,
+      getEmailProvider: async () => provider,
+      provider: provider.name === "microsoft" ? "microsoft" : "google",
+      input: {
+        mutationId: sendMutationId(operation.key.operationId),
+        queuedAt: operation.intent.queuedAtMs,
+        threadId: operation.intent.replyToMessageId
+          ? operation.intent.replyToConversationId
+          : null,
+        messageIds: operation.intent.replyToMessageId
+          ? [operation.intent.replyToMessageId]
+          : [operation.intent.frozenDraftId],
+        email: {
+          to: operation.intent.to.join(", "),
+          cc: operation.intent.cc.join(", ") || undefined,
+          bcc: operation.intent.bcc.join(", ") || undefined,
+          subject: operation.intent.subject,
+          messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
+          replyToEmail:
+            operation.intent.replyToMessageId &&
+            operation.intent.replyToConversationId
+              ? {
+                  threadId: operation.intent.replyToConversationId,
+                  messageId: operation.intent.replyToMessageId,
+                }
+              : undefined,
+          attachments: attachments.length > 0 ? attachments : undefined,
+          ...(operation.intent.providerDraftId
+            ? { providerDraftId: operation.intent.providerDraftId }
+            : {}),
+        },
       },
-    },
-  });
-  const result = mapSendOutcome(
-    operation.key.operationId,
-    outcome,
-    await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
-  );
-  if (result.status === "confirmed") {
-    await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+    });
+    const result = mapSendOutcome(
+      operation.key.operationId,
+      outcome,
+      await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
+    );
+    if (result.status === "confirmed") {
+      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+    }
+    return result;
+  } finally {
+    await releaseAccountUploadHolds(accountId, operation.intent.attachmentIds);
   }
-  return result;
 }
 
 async function inspectSend(

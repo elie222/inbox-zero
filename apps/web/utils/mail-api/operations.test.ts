@@ -15,7 +15,10 @@ import {
   createFileBlobStore,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
-import { accountMailUploadDirectory } from "./upload-blobs";
+import {
+  accountMailUploadDirectory,
+  cancelAccountUpload,
+} from "./upload-blobs";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -260,6 +263,62 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(result.status).toBe("uncertain");
     expect(await store.read("blob-hold")).not.toBeNull();
+    expect(await cancelAccountUpload("acc-1", "blob-hold")).toEqual({
+      status: "deleted",
+      blobId: "blob-hold",
+    });
+  });
+
+  it("refuses cancel of a blob while send execute still needs it", async () => {
+    const store = await stageAccountBlob("acc-1", "blob-live");
+    vi.mocked(executeDurableEmailSend).mockImplementation(async () => {
+      expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
+        status: "in_use",
+        blobId: "blob-live",
+      });
+      expect(await store.read("blob-live")).not.toBeNull();
+      return {
+        status: "applied",
+        result: { messageId: "sent-live", threadId: "t-live" },
+      };
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(["blob-live"]),
+      attemptId: "a-send-live",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(await store.read("blob-live")).toBeNull();
+    expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
+      status: "deleted",
+      blobId: "blob-live",
+    });
+  });
+
+  it("drops the hold when send execute throws", async () => {
+    await stageAccountBlob("acc-1", "blob-throw");
+    vi.mocked(executeDurableEmailSend).mockRejectedValue(
+      new Error("provider down"),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    await expect(
+      executor.execute({
+        operation: sendOperation(["blob-throw"]),
+        attemptId: "a-send-throw",
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow("provider down");
+    expect(await cancelAccountUpload("acc-1", "blob-throw")).toEqual({
+      status: "deleted",
+      blobId: "blob-throw",
+    });
   });
 
   it("does not delete a sibling staged upload when another send confirms", async () => {

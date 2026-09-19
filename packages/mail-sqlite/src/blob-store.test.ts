@@ -1,11 +1,15 @@
-import { mkdtemp, rm, utimes } from "node:fs/promises";
+import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  BLOB_GATE_STALE_MS,
+  BLOB_HOLD_TTL_MS,
   collectUnreferencedBlobs,
   createFileBlobStore,
+  holdBlob,
+  isBlobHeld,
   readBlobMetadata,
   writeBlobMetadata,
 } from "./blob-store";
@@ -178,6 +182,91 @@ describe("file blob store", () => {
     expect(await store.read("orphan-old")).toBeNull();
     expect(await store.read("orphan-fresh")).not.toBeNull();
     expect(await store.read("keep-draft")).not.toBeNull();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("refuses to garbage-collect a held blob and delete clears the hold", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    const store = createFileBlobStore(directory);
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    expect(
+      await store.stage({
+        blobId: "held-old",
+        bytes: (async function* () {
+          yield bytes;
+        })(),
+        checksum,
+        sizeBytes: 4,
+      }),
+    ).toEqual({ status: "staged" });
+    expect(await store.finalize("held-old")).toMatchObject({
+      blobId: "held-old",
+    });
+    await holdBlob(directory, "held-old");
+    expect(await isBlobHeld(directory, "held-old")).toBe(true);
+    const nowMs = Date.now();
+    await utimes(
+      join(directory, "held-old"),
+      new Date(nowMs - 10_000),
+      new Date(nowMs - 10_000),
+    );
+    const collected = await collectUnreferencedBlobs({
+      directory,
+      referencedIds: [],
+      nowMs,
+      graceMs: 1000,
+    });
+    expect(collected.deleted).toEqual([]);
+    expect(await store.read("held-old")).not.toBeNull();
+    await store.delete("held-old");
+    expect(await store.read("held-old")).toBeNull();
+    expect(await isBlobHeld(directory, "held-old")).toBe(false);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("expires a stale hold so garbage collection can delete the blob", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    const store = createFileBlobStore(directory);
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    expect(
+      await store.stage({
+        blobId: "stale-hold",
+        bytes: (async function* () {
+          yield bytes;
+        })(),
+        checksum,
+        sizeBytes: 4,
+      }),
+    ).toEqual({ status: "staged" });
+    expect(await store.finalize("stale-hold")).toMatchObject({
+      blobId: "stale-hold",
+    });
+    await holdBlob(directory, "stale-hold");
+    const nowMs = Date.now();
+    const stale = new Date(nowMs - BLOB_HOLD_TTL_MS - 1000);
+    await utimes(join(directory, "stale-hold"), stale, stale);
+    await utimes(join(directory, "stale-hold.hold"), stale, stale);
+    const collected = await collectUnreferencedBlobs({
+      directory,
+      referencedIds: [],
+      nowMs,
+      graceMs: 1000,
+    });
+    expect(collected.deleted).toEqual(["stale-hold"]);
+    expect(await store.read("stale-hold")).toBeNull();
+    expect(await isBlobHeld(directory, "stale-hold")).toBe(false);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("reaps a leftover gate so a later hold can proceed", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-blobs-"));
+    await writeFile(join(directory, "gated.gate"), "");
+    const stale = new Date(Date.now() - BLOB_GATE_STALE_MS - 50);
+    await utimes(join(directory, "gated.gate"), stale, stale);
+    await holdBlob(directory, "gated");
+    expect(await isBlobHeld(directory, "gated")).toBe(true);
     await rm(directory, { recursive: true, force: true });
   });
 });

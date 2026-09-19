@@ -5,8 +5,10 @@ import {
   accountMailUploadDirectory,
   admitAccountUpload,
   cancelAccountUpload,
+  holdAccountUploads,
   inspectAccountUpload,
   putAccountUploadContent,
+  releaseAccountUploadHolds,
 } from "./upload-blobs";
 import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
@@ -67,6 +69,45 @@ describe("account upload inspect and cancel", () => {
     expect(await inspectAccountUpload(accountId, "file-sibling")).toEqual({
       status: "ready",
       blobId: "file-sibling",
+    });
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("refuses cancel while a send holds the blob", async () => {
+    const accountId = "acc-upload-hold";
+    const directory = accountMailUploadDirectory(accountId);
+    await rm(directory, { recursive: true, force: true });
+    await mkdir(directory, { recursive: true });
+    const store = createFileBlobStore(directory);
+    const bytes = Buffer.from("blob", "utf8");
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    expect(
+      await store.stage({
+        blobId: "file-1",
+        bytes: (async function* () {
+          yield bytes;
+        })(),
+        checksum,
+        sizeBytes: bytes.byteLength,
+      }),
+    ).toEqual({ status: "staged" });
+    expect(await store.finalize("file-1")).toMatchObject({ blobId: "file-1" });
+    await holdAccountUploads(accountId, ["file-1", "../escape"]);
+    expect(await cancelAccountUpload(accountId, "file-1")).toEqual({
+      status: "in_use",
+      blobId: "file-1",
+    });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "ready",
+      blobId: "file-1",
+    });
+    await releaseAccountUploadHolds(accountId, ["file-1"]);
+    expect(await cancelAccountUpload(accountId, "file-1")).toEqual({
+      status: "deleted",
+      blobId: "file-1",
+    });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
     });
     await rm(directory, { recursive: true, force: true });
   });

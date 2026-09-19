@@ -86,6 +86,12 @@ export const DELETE = withEmailProvider(
         { status: 400 },
       );
     }
+    if (cancelled.status === "in_use") {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 409 },
+      );
+    }
     return NextResponse.json({
       protocolVersion: MAIL_PROTOCOL_VERSION,
       requestId,
