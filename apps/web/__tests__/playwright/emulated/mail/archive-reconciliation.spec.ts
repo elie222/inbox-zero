@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -142,3 +142,87 @@ test("keeps a queued archive hidden after an OPFS reload", async ({
   }
   expect(cleanupErrors).toEqual([]);
 });
+
+test("drops Inbox and Unread counts when an unread conversation is archived", async ({
+  page,
+}, testInfo) => {
+  const threadId = "thr_playwright_3";
+  const subject = "Second Unread Command Message";
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(page, conversations, subject);
+  await expect(conversation).toBeVisible();
+  await expect.poll(() => inboxUnreadBadge(page)).toBeGreaterThan(0);
+  const before = await inboxUnreadBadge(page);
+
+  const cleanupErrors: unknown[] = [];
+  try {
+    await conversation.getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(conversation).toHaveCount(0);
+    await expect.poll(() => inboxUnreadBadge(page)).toBe(before - 1);
+    await page.getByRole("button", { name: "Unread", exact: true }).click();
+    await expect(conversation).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "unread-list-after-archive-count",
+    );
+
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "archive",
+            threadId,
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({
+        status: expect.stringMatching(/^(reconciling|succeeded)$/),
+      });
+    const unarchive = await page.request.post(
+      `/api/threads/${threadId}/unarchive`,
+      { headers: { "X-Email-Account-ID": emailAccountId } },
+    );
+    expect(unarchive.ok()).toBe(true);
+    await expect(conversation).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => inboxUnreadBadge(page)).toBe(before);
+    await page.getByRole("button", { name: "Unread", exact: true }).click();
+    await expect(conversation).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "unread-list-after-provider-unarchive",
+    );
+  } finally {
+    await page.request
+      .post(`/api/threads/${threadId}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
+function inboxLink(page: Page) {
+  return page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ });
+}
+
+async function inboxUnreadBadge(page: Page) {
+  const name = (await inboxLink(page).textContent())
+    ?.replace(/\s+/g, " ")
+    .trim();
+  const match = name?.match(/^Inbox(?: (\d+))?$/);
+  return match?.[1] ? Number(match[1]) : 0;
+}
