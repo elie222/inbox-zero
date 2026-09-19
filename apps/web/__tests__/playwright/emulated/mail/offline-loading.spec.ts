@@ -276,18 +276,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
-    // Mail ships its own sidebar and omits NavUser. Sign out lives on the
-    // app SideNav, which settings-dialog already opens from /settings.
-    await page.goto("/settings");
-    await expect(
-      page.getByRole("heading", { name: "Settings", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
-    await page
-      .locator('[data-sidebar="footer"]')
-      .getByRole("button")
-      .filter({ hasText: /Smoke Test User|playwright-test\+/i })
-      .click();
-    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await signOutFromAppNav(page);
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
     await expect
       .poll(() =>
@@ -368,4 +357,25 @@ async function mailEngineOpfsExists(page: Page) {
       return false;
     }
   }, MAIL_ENGINE_OPFS_DIRECTORY);
+}
+
+// Mail hides SideNav. NavUser / Sign out only render on non-mail routes.
+async function signOutFromAppNav(page: Page) {
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  await page.keyboard.press("Escape");
+  const trigger = page
+    .locator('[data-sidebar="footer"]')
+    .getByRole("button")
+    .filter({ hasText: /playwright-test\+/i })
+    .filter({ visible: true });
+  const signOut = page.getByRole("menuitem", { name: "Sign out" });
+  await expect(async () => {
+    if (await signOut.isVisible()) return;
+    await trigger.click();
+    await expect(signOut).toBeVisible({ timeout: 2000 });
+  }).toPass();
+  await signOut.click();
 }
