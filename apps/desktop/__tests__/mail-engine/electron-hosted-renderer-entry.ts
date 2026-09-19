@@ -822,19 +822,24 @@ async function clickMoreActionsStar(window: BrowserWindow) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const clicked = (await window.webContents.executeJavaScript(`
       (() => {
-        const more = [...document.querySelectorAll("button")].find((button) => {
-          const label = button.getAttribute("aria-label") ?? "";
-          const text = (button.textContent ?? "").trim();
-          return /^More actions/.test(label) || /^More actions/.test(text);
-        });
+        const more = document.querySelector('button[aria-label="More actions"]');
         if (!(more instanceof HTMLElement)) return "missing-more";
-        const openMenu = document.querySelector('[role="menu"]');
-        if (!openMenu) {
+        const actionsMenu = [...document.querySelectorAll('[role="menu"]')].find(
+          (menu) =>
+            [...menu.querySelectorAll('[role="menuitem"]')].some((item) => {
+              const label = (item.textContent ?? "").replace(/\\s+/g, " ").trim();
+              return label.startsWith("Star") || label.startsWith("Unstar");
+            }),
+        );
+        if (!actionsMenu) {
           more.click();
           return "opened";
         }
-        const star = [...openMenu.querySelectorAll('[role="menuitem"]')].find(
-          (item) => (item.textContent ?? "").trim() === "Star",
+        const star = [...actionsMenu.querySelectorAll('[role="menuitem"]')].find(
+          (item) => {
+            const label = (item.textContent ?? "").replace(/\\s+/g, " ").trim();
+            return label.startsWith("Star") && !label.startsWith("Starred");
+          },
         );
         if (!(star instanceof HTMLElement)) return "missing-star";
         star.click();
