@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `7b681e8d5`
+- Last implementation commit: `121eccc10`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E82 GitHub Playwright triage; GitHub Playwright is the remaining mail-spec proof.
-- Next action: push E82 and watch GitHub Playwright on the exact head. Do not re-run emulated Playwright locally. CLA human signature.
+- Current task: remaining matrix cells after E83 GitHub Playwright triage; GitHub Playwright is the remaining mail-spec proof.
+- Next action: watch GitHub Playwright on the exact head after E83. Do not re-run emulated Playwright locally. CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts utils/attachments/opened-conversation.test.ts utils/mail-api/source.test.ts` — 3 files, 20 passed (E83)
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/command-status.test.ts utils/mail-engine/conversation-thread.test.ts utils/mail-api/observations.test.ts utils/mail-api/source.test.ts hooks/useThread.test.tsx` — 5 files, 22 passed (E79)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='stores enumerated bodies so conversation'` — 1 passed (E79)
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/maintenance.test.ts src/engine-bootstrap.test.ts` — 2 files, 4 passed (E79)
@@ -265,6 +266,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E83. GitHub Playwright cleanup reload and Enter-send toast (2026-09-19)
+
+- Tasks: partial G5 compose/cleanup; CI `bulk-archive.spec.ts` reconnect and `compose-and-reply.spec.ts` Enter send
+- Tree: `cursor/mail-engine-0b4f` at `121eccc10`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts utils/attachments/opened-conversation.test.ts utils/mail-api/source.test.ts` — 3 files, 20 passed
+- What it proved: GitHub Playwright on `517ed0080` failed because (1) Bulk Archive progress is an in-memory sender queue, so after reload the durable proof is inspect `reconciling` then `succeeded`, (2) Enter-send waited for the reader body before the undo toast, so a 5s hold expired before the assertion and retry could not find the archived conversation, (3) hydrate of an empty message dropped the body observation, (4) unknown-size attachments reserved 0 bytes against the conversation budget, (5) the connection banner unmounted until the engine client existed. Product/spec fixes land here; GitHub Playwright remains the proof.
+- Limitations: GitHub Playwright is the remaining proof. Sender-queue progress UI is not persisted across reload. CLA still needs a human signature. Do not check G4/G5.
 
 ### E82. GitHub Playwright reader/send/settings remount holes (2026-09-19)
 
