@@ -5,6 +5,7 @@ import {
   saveLearnedPattern,
 } from "@/utils/rule/learned-patterns";
 import {
+  ActionType,
   ExecutedActionStatus,
   ExecutedRuleStatus,
   GroupItemSource,
@@ -82,7 +83,9 @@ describe("learnFromOutlookLabelRemoval", () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
       {
         rule: { id: "rule-custom", systemType: null },
-        actionItems: [{ labelId: "label-custom", label: "Custom" }],
+        actionItems: [
+          { type: ActionType.LABEL, labelId: "label-custom", label: "Custom" },
+        ],
       },
     ] as any);
 

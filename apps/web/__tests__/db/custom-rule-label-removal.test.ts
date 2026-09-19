@@ -93,17 +93,22 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("custom rule label removal", () => {
 
   it("keeps user-authored patterns and exclusions", async () => {
     await client.query(`
-        INSERT INTO "GroupItem" ("id", "updatedAt", "groupId", "type", "value", "exclude", "source") VALUES
-          ('user', now(), 'custom-group', 'FROM', 'sender@example.com', false, 'USER')
-      `);
+      INSERT INTO "GroupItem" ("id", "updatedAt", "groupId", "type", "value", "exclude", "source") VALUES
+        ('user', now(), 'custom-group', 'FROM', 'sender@example.com', false, 'USER'),
+        ('ai-exclude', now(), 'custom-group', 'FROM', 'excluded@example.com', true, 'AI')
+    `);
 
-    await removeAiLearnedPattern({
-      emailAccountId: "account",
-      from: "sender@example.com",
-      ruleId: "custom-rule",
-    });
+    for (const from of ["sender@example.com", "excluded@example.com"]) {
+      expect(
+        await removeAiLearnedPattern({
+          emailAccountId: "account",
+          from,
+          ruleId: "custom-rule",
+        }),
+      ).toBe(0);
+    }
 
-    expect(await remainingIds()).toEqual(["user"]);
+    expect(await remainingIds()).toEqual(["ai-exclude", "user"]);
   });
 
   it("migration drops custom-rule AI patterns contradicted by a later label removal", async () => {
