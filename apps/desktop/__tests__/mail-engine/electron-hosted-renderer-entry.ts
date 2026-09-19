@@ -384,14 +384,24 @@ async function openCompose(window: BrowserWindow) {
     await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
     throw new Error("Compose control missing");
   }
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const open = (await window.webContents.executeJavaScript(`
-      [...document.querySelectorAll('[role="dialog"]')].some((dialog) =>
-        (dialog.textContent ?? "").includes("New Message"),
-      )
+  // Dialog chrome is in ComposeModalProvider; the To field lives in the
+  // lazy ComposeEmailForm chunk and can land after "New Message".
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const ready = (await window.webContents.executeJavaScript(`
+      (() => {
+        const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
+          (item) => (item.textContent ?? "").includes("New Message"),
+        );
+        if (!(dialog instanceof HTMLElement)) return false;
+        return Boolean(
+          dialog.querySelector('input[aria-label="To"]') ??
+            dialog.querySelector('input[name="to"]') ??
+            dialog.querySelector('input[role="combobox"]'),
+        );
+      })()
     `)) as boolean;
-    if (open) return;
-    await delay(50);
+    if (ready) return;
+    await delay(250);
   }
   await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
   const body = await readBodyText(window);
@@ -411,9 +421,19 @@ async function fillComposeDraft(window: BrowserWindow) {
       )?.set;
       const to =
         dialog.querySelector('input[aria-label="To"]') ??
-        dialog.querySelector('input[name="to"]');
+        dialog.querySelector('input[name="to"]') ??
+        dialog.querySelector('input[role="combobox"]');
       if (!(to instanceof HTMLInputElement) || !setter) {
-        return { ok: false, step: "to" };
+        return {
+          ok: false,
+          step: "to",
+          inputs: [...dialog.querySelectorAll("input")].map((input) => ({
+            name: input.name,
+            aria: input.getAttribute("aria-label"),
+            placeholder: input.placeholder,
+            role: input.getAttribute("role"),
+          })),
+        };
       }
       to.focus();
       setter.call(to, ${JSON.stringify(DRAFT_TO)});
@@ -445,10 +465,12 @@ async function fillComposeDraft(window: BrowserWindow) {
       }
       return { ok: true };
     })()
-  `)) as { ok: boolean; step?: string };
+  `)) as { ok: boolean; step?: string; inputs?: unknown };
   if (!filled.ok) {
     await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-    throw new Error(`Compose draft fields missing (${filled.step})`);
+    throw new Error(
+      `Compose draft fields missing (${filled.step}) ${JSON.stringify(filled.inputs ?? [])}`,
+    );
   }
   await delay(500);
 }
