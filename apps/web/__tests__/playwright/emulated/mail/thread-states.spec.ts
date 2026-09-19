@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -7,66 +7,6 @@ import {
   openMail,
   readLatestMailMutation,
 } from "./mail-test-helpers";
-
-test("restores a queued reply for editing without sending a duplicate", async ({
-  page,
-}, testInfo) => {
-  page.setDefaultTimeout(20_000);
-  page.setDefaultNavigationTimeout(30_000);
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
-  await expect(
-    page.getByRole("heading", { name: "Reply Workflow Message" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
-  const editor = page.getByRole("textbox", { name: "Email message" });
-  const text = "I can review the updated proposal on Thursday.";
-  await editor.fill(text);
-  await page.evaluate(() => {
-    Object.defineProperty(navigator, "onLine", {
-      configurable: true,
-      get: () => false,
-    });
-    window.dispatchEvent(new Event("offline"));
-  });
-  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
-  await page.getByRole("button", { name: "Send", exact: true }).click();
-  const delivery = page.getByRole("region", { name: "Reply delivery status" });
-  await expect(
-    delivery.getByText("Waiting for connection", { exact: true }),
-  ).toBeVisible();
-  await delivery.getByRole("button", { name: "Edit reply" }).click();
-  await expect(editor).toContainText(text);
-  await expect(
-    delivery.getByText("Waiting for connection", { exact: true }),
-  ).toHaveCount(0);
-  await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "reply",
-        threadId: "thr_playwright_reply",
-      }),
-    )
-    .toBeUndefined();
-  await editor.fill(`${text} Let's meet at 3 pm.`);
-  await expect(editor).toContainText("Let's meet at 3 pm.");
-  await capturePlaywrightCheckpoint(page, testInfo, "22-edit-queued-reply");
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Reply Workflow Message" }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "reply",
-        threadId: "thr_playwright_reply",
-      }),
-    )
-    .toBeUndefined();
-});
 
 test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
@@ -88,11 +28,7 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     .map((message) => message.id);
   const replyBody = `Confirmed, see you Thursday. This reply is sent only inside the local emulator. Attempt ${testInfo.retry}.`;
   const editor = page.locator("[contenteditable='true']");
-  if (!(await editor.count()))
-    await page
-      .getByRole("button", { name: "Reply", exact: true })
-      .last()
-      .click();
+  if (!(await editor.count())) await replyToSeededWorkflowMessage(page).click();
   await expect(editor).toBeVisible();
   await editor.fill(replyBody);
   await page.evaluate(() => {
@@ -175,6 +111,66 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     .toBe(true);
   await expectThreadReaderBody(page, replyBody);
   await capturePlaywrightCheckpoint(page, testInfo, "11-sent-reply");
+});
+
+test("restores a queued reply for editing without sending a duplicate", async ({
+  page,
+}, testInfo) => {
+  page.setDefaultTimeout(20_000);
+  page.setDefaultNavigationTimeout(30_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  await expect(
+    page.getByRole("heading", { name: "Reply Workflow Message" }),
+  ).toBeVisible();
+  await replyToSeededWorkflowMessage(page).click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  const text = "I can review the updated proposal on Thursday.";
+  await editor.fill(text);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+    window.dispatchEvent(new Event("offline"));
+  });
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  await expect(
+    delivery.getByText("Waiting for connection", { exact: true }),
+  ).toBeVisible();
+  await delivery.getByRole("button", { name: "Edit reply" }).click();
+  await expect(editor).toContainText(text);
+  await expect(
+    delivery.getByText("Waiting for connection", { exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toBeUndefined();
+  await editor.fill(`${text} Let's meet at 3 pm.`);
+  await expect(editor).toContainText("Let's meet at 3 pm.");
+  await capturePlaywrightCheckpoint(page, testInfo, "22-edit-queued-reply");
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Reply Workflow Message" }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toBeUndefined();
 });
 
 test("captures thread reading and reply states", async ({ page }, testInfo) => {
@@ -309,3 +305,9 @@ test("captures a longer thread and draft collapse", async ({
   );
   await capturePlaywrightCheckpoint(page, testInfo, "15-draft-after-collapse");
 });
+
+function replyToSeededWorkflowMessage(page: Page) {
+  return page
+    .locator('[data-thread-message-id="msg_playwright_reply"]')
+    .getByRole("button", { name: "Reply", exact: true });
+}
