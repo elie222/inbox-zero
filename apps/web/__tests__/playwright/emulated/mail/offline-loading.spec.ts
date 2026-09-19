@@ -278,8 +278,8 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
     await page
       .locator('[data-sidebar="footer"]')
-      .getByRole("button")
-      .filter({ hasText: /playwright-test\+/i })
+      .locator("button")
+      .last()
       .click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
