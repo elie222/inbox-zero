@@ -245,11 +245,17 @@ export async function createSqliteMailStore(
         }
         const queued = await tx.query(
           `SELECT * FROM operations
-           WHERE status IN ('queued', 'retry_wait')
-             AND executable_hash IS NOT NULL
+           WHERE executable_hash IS NOT NULL
              AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+             AND (
+               status IN ('queued', 'retry_wait')
+               OR (
+                 status = 'executing'
+                 AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
+               )
+             )
            ORDER BY created_at_ms`,
-          [input.nowMs],
+          [input.nowMs, input.nowMs],
         );
         for (const row of queued) {
           if (await hasUnsatisfiedDependency(tx, row)) continue;
@@ -527,17 +533,13 @@ export async function createSqliteMailStore(
             input.operation.key.operationId,
           );
         } else if (input.result.status === "uncertain") {
-          const nextAttemptAtMs =
-            current[0].status === "uncertain" ||
-            current[0].status === "verifying"
-              ? Date.now() + 1000
-              : null;
+          const inspectable = isInspectableOperationStatus(current[0].status);
           await tx.execute(
-            `UPDATE operations SET status = 'uncertain', receipt_id = ?, claimed_by = NULL, claimed_until_ms = NULL, next_attempt_at_ms = ?
+            `UPDATE operations SET status = 'uncertain', receipt_id = COALESCE(?, receipt_id), claimed_by = NULL, claimed_until_ms = NULL, next_attempt_at_ms = ?
              WHERE account_id = ? AND command_id = ?`,
             [
               input.result.receiptId,
-              nextAttemptAtMs,
+              inspectable ? Date.now() + 1000 : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
@@ -549,6 +551,16 @@ export async function createSqliteMailStore(
             [
               input.result.receiptId,
               Date.now() + input.result.retryAfterMs,
+              input.operation.key.accountId,
+              input.operation.key.operationId,
+            ],
+          );
+        } else if (isInspectableOperationStatus(current[0].status)) {
+          await tx.execute(
+            `UPDATE operations SET claimed_by = NULL, claimed_until_ms = NULL, next_attempt_at_ms = ?
+             WHERE account_id = ? AND command_id = ?`,
+            [
+              Date.now() + (input.result.retryAfterMs ?? 1000),
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
@@ -1963,6 +1975,10 @@ function operationStatusFromTargets(
   if (rejected && !applied) return "failed";
   if (applied && !rejected) return "succeeded";
   return completeStatus;
+}
+
+function isInspectableOperationStatus(status: import("./driver").SqlValue) {
+  return status === "uncertain" || status === "verifying";
 }
 
 function frozenDraftIdFromPayload(value: import("./driver").SqlValue) {

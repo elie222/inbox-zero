@@ -1106,6 +1106,293 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("keeps inspecting after not_dispatched and preserves the receipt", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-hold" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-hold",
+          draft: { accountId: "acc-1", draftId: "d-hold" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(execute?.kind).toBe("command");
+    if (execute?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: { status: "uncertain", receiptId: "r-hold" },
+    });
+    const inspect = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(inspect?.kind).toBe("inspect");
+    if (inspect?.kind !== "inspect") throw new Error("expected inspect");
+    await store.settleAttempt({
+      attemptId: inspect.attemptId,
+      operation: inspect.operation,
+      result: {
+        status: "not_dispatched",
+        reason: "throttled",
+        retryAfterMs: 5000,
+      },
+    });
+    const nowMs = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const again = await store.claimWork({
+      ownerId: "owner",
+      nowMs: nowMs + 5000,
+      leaseMs: 30_000,
+    });
+    expect(again?.kind).toBe("inspect");
+    if (again?.kind !== "inspect") throw new Error("expected inspect");
+    expect(again.receiptId).toBe("r-hold");
+    await store.settleAttempt({
+      attemptId: again.attemptId,
+      operation: again.operation,
+      result: { status: "uncertain", receiptId: null },
+    });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-hold" },
+          expectedRevision: saved.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    const afterNullReceipt = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: afterNullReceipt,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const later = await store.claimWork({
+      ownerId: "owner",
+      nowMs: afterNullReceipt + 1000,
+      leaseMs: 30_000,
+    });
+    expect(later?.kind).toBe("inspect");
+    if (later?.kind !== "inspect") throw new Error("expected inspect");
+    expect(later.receiptId).toBe("r-hold");
+    await store.close();
+  });
+
+  it("keeps inspecting after inspect blocked_auth", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-auth" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-auth",
+          draft: { accountId: "acc-1", draftId: "d-auth" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(execute?.kind).toBe("command");
+    if (execute?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: { status: "uncertain", receiptId: "r-auth" },
+    });
+    const inspect = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(inspect?.kind).toBe("inspect");
+    if (inspect?.kind !== "inspect") throw new Error("expected inspect");
+    await store.settleAttempt({
+      attemptId: inspect.attemptId,
+      operation: inspect.operation,
+      result: {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: 5000,
+      },
+    });
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-auth",
+      }),
+    ).toMatchObject({ operation: { status: "uncertain" } });
+    const nowMs = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const again = await store.claimWork({
+      ownerId: "owner",
+      nowMs: nowMs + 5000,
+      leaseMs: 30_000,
+    });
+    expect(again?.kind).toBe("inspect");
+    if (again?.kind !== "inspect") throw new Error("expected inspect");
+    expect(again.receiptId).toBe("r-auth");
+    await store.close();
+  });
+
+  it("reclaims an executing command after the lease expires", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-lease" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-lease",
+          draft: { accountId: "acc-1", draftId: "d-lease" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const first = await store.claimWork({
+      ownerId: "owner-a",
+      nowMs: 1000,
+      leaseMs: 30_000,
+    });
+    expect(first?.kind).toBe("command");
+    if (first?.kind !== "command") throw new Error("expected command");
+    expect(
+      await store.claimWork({
+        ownerId: "owner-b",
+        nowMs: 31_000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const reclaimed = await store.claimWork({
+      ownerId: "owner-b",
+      nowMs: 31_001,
+      leaseMs: 30_000,
+    });
+    expect(reclaimed?.kind).toBe("command");
+    if (reclaimed?.kind !== "command") throw new Error("expected command");
+    expect(reclaimed.attemptId).not.toBe(first.attemptId);
+    expect(
+      await store.settleAttempt({
+        attemptId: first.attemptId,
+        operation: first.operation,
+        result: {
+          status: "confirmed",
+          receiptId: "stale-lease",
+          observations: [],
+          targets: [],
+        },
+      }),
+    ).toMatchObject({ status: "stale" });
+    await store.settleAttempt({
+      attemptId: reclaimed.attemptId,
+      operation: reclaimed.operation,
+      result: {
+        status: "confirmed",
+        receiptId: "r-lease",
+        observations: [],
+        targets: [],
+      },
+    });
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-lease",
+      }),
+    ).toMatchObject({ operation: { status: "succeeded" } });
+    await store.close();
+  });
+
   it("inspects a verifying send after next_attempt_at_ms", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -1255,6 +1542,80 @@ describe("drafts, freeze, and uncertain settlement", () => {
         })
       ).status,
     ).toBe("conflict");
+    await engine.close();
+  });
+
+  it("does not execute again when inspect is not_dispatched", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-throttle" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    let executes = 0;
+    let inspects = 0;
+    const engine = createMailEngine({
+      store,
+      source: fixtureSource(new Map()),
+      executor: {
+        async execute() {
+          executes += 1;
+          return { status: "uncertain", receiptId: "r-throttle" };
+        },
+        async inspect({ receiptId }) {
+          inspects += 1;
+          expect(receiptId).toBe("r-throttle");
+          if (inspects === 1) {
+            return {
+              status: "not_dispatched",
+              reason: "throttled",
+              retryAfterMs: 0,
+            };
+          }
+          return {
+            status: "confirmed",
+            receiptId: "r-throttle",
+            observations: [],
+            targets: [],
+          };
+        },
+      },
+      runtime: createHostRuntime(),
+    });
+    expect(
+      (
+        await engine.submitSend({
+          commandId: "send-throttle",
+          draft: { accountId: "acc-1", draftId: "d-throttle" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    await engine.runUntil(Date.now() + 2000);
+    expect(executes).toBe(1);
+    expect(inspects).toBe(2);
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-throttle",
+      }),
+    ).toMatchObject({ operation: { status: "succeeded" } });
     await engine.close();
   });
 
