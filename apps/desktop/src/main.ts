@@ -49,7 +49,10 @@ import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
 import { createOriginMailRequest } from "./mail-engine/request";
-import { closeAndWipeDesktopMailbox } from "./mail-engine/wipe";
+import {
+  closeAndWipeDesktopMailbox,
+  closeDesktopMailbox,
+} from "./mail-engine/wipe";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -636,11 +639,13 @@ function createDesktopMailProcess() {
 async function closeDesktopMailOwner() {
   const ownerPromise = desktopMailOwner;
   desktopMailOwner = undefined;
+  let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined;
   try {
-    await (await ownerPromise)?.close();
+    owner = ownerPromise ? await ownerPromise : undefined;
   } catch {
-    // Quitting still proceeds if the owner is already gone.
+    owner = undefined;
   }
+  await closeDesktopMailbox(owner);
 }
 
 async function wipeDesktopMailOwner() {
