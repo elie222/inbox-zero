@@ -20,6 +20,94 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
+  it("maps split labelIds onto the same-message inbox and category predicates", () => {
+    expect(
+      threadsQueryToPredicate({
+        labelIds: ["INBOX", "CATEGORY_PROMOTIONS"],
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        {
+          kind: "membership",
+          membership: "category",
+          id: "CATEGORY_PROMOTIONS",
+        },
+      ],
+    });
+  });
+
+  it("maps starred split labelIds onto the starred flag, not a STARRED label", () => {
+    expect(threadsQueryToPredicate({ labelIds: ["INBOX", "STARRED"] })).toEqual(
+      {
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          { kind: "starred", value: true },
+        ],
+      },
+    );
+  });
+
+  it("ORs anyLabelIds on top of required inbox membership", () => {
+    expect(
+      threadsQueryToPredicate({
+        labelIds: ["INBOX"],
+        anyLabelIds: ["Label_users", "Label_customers"],
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        {
+          kind: "any",
+          predicates: [
+            { kind: "membership", membership: "label", id: "Label_users" },
+            { kind: "membership", membership: "label", id: "Label_customers" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("excludes Gmail category splits from Other using category membership", () => {
+    expect(
+      threadsQueryToPredicate({
+        type: "inbox",
+        excludeSplits: [
+          {
+            matchAll: true,
+            filters: [{ kind: "CATEGORY", value: "CATEGORY_PROMOTIONS" }],
+          },
+        ],
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        {
+          kind: "not",
+          predicate: {
+            kind: "any",
+            predicates: [
+              {
+                kind: "all",
+                predicates: [
+                  {
+                    kind: "membership",
+                    membership: "category",
+                    id: "CATEGORY_PROMOTIONS",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+
   it("maps free-text search to a text predicate", () => {
     expect(threadsQueryToPredicate({ q: "invoice" })).toEqual({
       kind: "text",

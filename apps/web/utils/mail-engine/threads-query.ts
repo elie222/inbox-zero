@@ -36,12 +36,13 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
   ) {
     clauses.push({ kind: "role", role: query.type });
   } else if (query.type?.startsWith("CATEGORY_")) {
-    clauses.push({
-      kind: "membership",
-      membership: "category",
-      id: query.type,
-    });
-  } else if (!query.q && !query.labelId && !query.folderId) {
+    clauses.push(gmailTokenToPredicate(query.type));
+  } else if (
+    !query.q &&
+    !query.labelId &&
+    !query.folderId &&
+    !query.labelIds?.length
+  ) {
     clauses.push({ kind: "role", role: "inbox" });
   }
   if (query.isUnread) clauses.push({ kind: "read", value: false });
@@ -53,11 +54,14 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
       match: "address",
     });
   }
-  if (query.labelId) {
+  if (query.labelId) clauses.push(gmailTokenToPredicate(query.labelId));
+  for (const labelId of query.labelIds ?? []) {
+    clauses.push(gmailTokenToPredicate(labelId));
+  }
+  if (query.anyLabelIds?.length) {
     clauses.push({
-      kind: "membership",
-      membership: "label",
-      id: query.labelId,
+      kind: "any",
+      predicates: query.anyLabelIds.map(gmailTokenToPredicate),
     });
   }
   if (query.folderId) {
@@ -87,22 +91,7 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
         kind: "any",
         predicates: query.excludeSplits.map((split) => ({
           kind: split.matchAll ? "all" : "any",
-          predicates: split.filters.map((filter) =>
-            filter.kind === "UNREAD"
-              ? { kind: "read" as const, value: false }
-              : filter.kind === "FROM" && filter.value
-                ? {
-                    kind: "address" as const,
-                    field: "from" as const,
-                    value: filter.value,
-                    match: "address" as const,
-                  }
-                : {
-                    kind: "membership" as const,
-                    membership: "label" as const,
-                    id: filter.value ?? "",
-                  },
-          ),
+          predicates: split.filters.map(splitFilterToPredicate),
         })),
       },
     });
@@ -117,9 +106,7 @@ function leafToPredicate(leaf: {
   fromEmail?: string | null;
   isUnread?: true | null;
 }): MailPredicate {
-  if (leaf.labelId) {
-    return { kind: "membership", membership: "label", id: leaf.labelId };
-  }
+  if (leaf.labelId) return gmailTokenToPredicate(leaf.labelId);
   if (leaf.fromEmail) {
     return {
       kind: "address",
@@ -208,4 +195,35 @@ function findStandaloneToken(input: string, token: string) {
     start = at + 1;
   }
   return -1;
+}
+
+function splitFilterToPredicate(filter: {
+  kind: string;
+  value?: string | null;
+}): MailPredicate {
+  if (filter.kind === "UNREAD") return { kind: "read", value: false };
+  if (filter.kind === "STARRED") return { kind: "starred", value: true };
+  if (filter.kind === "FROM" && filter.value) {
+    return {
+      kind: "address",
+      field: "from",
+      value: filter.value,
+      match: "address",
+    };
+  }
+  return gmailTokenToPredicate(filter.value || "INBOX");
+}
+
+function gmailTokenToPredicate(id: string): MailPredicate {
+  if (id === "INBOX") return { kind: "role", role: "inbox" };
+  if (id === "SENT") return { kind: "role", role: "sent" };
+  if (id === "DRAFT") return { kind: "role", role: "draft" };
+  if (id === "TRASH") return { kind: "role", role: "trash" };
+  if (id === "SPAM") return { kind: "role", role: "spam" };
+  if (id === "UNREAD") return { kind: "read", value: false };
+  if (id === "STARRED") return { kind: "starred", value: true };
+  if (id.startsWith("CATEGORY_")) {
+    return { kind: "membership", membership: "category", id };
+  }
+  return { kind: "membership", membership: "label", id };
 }
