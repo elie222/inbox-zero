@@ -299,18 +299,25 @@ export async function createSqliteMailStore(
         for (const row of inspectable) {
           if (await hasUnsatisfiedDependency(tx, row)) continue;
           const attemptId = crypto.randomUUID();
-          await tx.execute(
+          const claimed = await tx.execute(
             `UPDATE operations
              SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
-             WHERE account_id = ? AND command_id = ? AND status IN ('uncertain', 'verifying')`,
+             WHERE account_id = ? AND command_id = ?
+               AND status IN ('uncertain', 'verifying')
+               AND executable_hash IS NOT NULL
+               AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+               AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)`,
             [
               input.ownerId,
               input.nowMs + input.leaseMs,
               attemptId,
               row.account_id,
               row.command_id,
+              input.nowMs,
+              input.nowMs,
             ],
           );
+          if (claimed.changedRows === 0) continue;
           const prepared = await toPrepared(tx, row);
           if (!prepared) return null;
           return {
@@ -325,41 +332,57 @@ export async function createSqliteMailStore(
           [input.nowMs],
         );
         if (hydrate[0]) {
-          await tx.execute(
-            "UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ? WHERE job_id = ?",
-            [input.ownerId, input.nowMs + input.leaseMs, hydrate[0].job_id],
+          const claimed = await tx.execute(
+            `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?
+             WHERE job_id = ? AND (claimed_by IS NULL OR claimed_until_ms < ?)`,
+            [
+              input.ownerId,
+              input.nowMs + input.leaseMs,
+              hydrate[0].job_id,
+              input.nowMs,
+            ],
           );
-          const payload = JSON.parse(String(hydrate[0].payload_json)) as {
-            keys: MessageKey[];
-            purpose: "metadata" | "body";
-          };
-          return {
-            kind: "hydrate" as const,
-            jobId: String(hydrate[0].job_id),
-            keys: payload.keys,
-            purpose: payload.purpose,
-          };
+          if (claimed.changedRows > 0) {
+            const payload = JSON.parse(String(hydrate[0].payload_json)) as {
+              keys: MessageKey[];
+              purpose: "metadata" | "body";
+            };
+            return {
+              kind: "hydrate" as const,
+              jobId: String(hydrate[0].job_id),
+              keys: payload.keys,
+              purpose: payload.purpose,
+            };
+          }
         }
         const search = await tx.query(
           `SELECT * FROM sync_jobs WHERE kind = 'search' AND (claimed_by IS NULL OR claimed_until_ms < ?) LIMIT 1`,
           [input.nowMs],
         );
         if (search[0]) {
-          await tx.execute(
-            "UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ? WHERE job_id = ?",
-            [input.ownerId, input.nowMs + input.leaseMs, search[0].job_id],
+          const claimed = await tx.execute(
+            `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?
+             WHERE job_id = ? AND (claimed_by IS NULL OR claimed_until_ms < ?)`,
+            [
+              input.ownerId,
+              input.nowMs + input.leaseMs,
+              search[0].job_id,
+              input.nowMs,
+            ],
           );
-          const payload = JSON.parse(String(search[0].payload_json)) as {
-            predicate: import("@inboxzero/mail-core/queries").MailPredicate;
-            page: string | null;
-          };
-          return {
-            kind: "search" as const,
-            jobId: String(search[0].job_id),
-            accountId: String(search[0].account_id),
-            predicate: payload.predicate,
-            page: payload.page,
-          };
+          if (claimed.changedRows > 0) {
+            const payload = JSON.parse(String(search[0].payload_json)) as {
+              predicate: import("@inboxzero/mail-core/queries").MailPredicate;
+              page: string | null;
+            };
+            return {
+              kind: "search" as const,
+              jobId: String(search[0].job_id),
+              accountId: String(search[0].account_id),
+              predicate: payload.predicate,
+              page: payload.page,
+            };
+          }
         }
         return null;
       });
@@ -581,7 +604,7 @@ export async function createSqliteMailStore(
             `UPDATE operations SET status = 'blocked_auth', next_attempt_at_ms = ?, claimed_by = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
-              input.result.retryAfterMs,
+              Date.now() + (input.result.retryAfterMs ?? 1000),
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
