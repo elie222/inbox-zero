@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
+import { findOrderPrefixedLabelMatches } from "@/utils/label/find-order-prefixed-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
@@ -90,8 +91,8 @@ function buildCreateOrGetTool({
   return tool({
     description:
       terms.resource === "label"
-        ? `Reuse an existing Gmail label by exact path. A leaf name also reuses a uniquely matching nested label; if multiple nested labels share that leaf, this returns their full paths instead of creating a root label. Create the label only when no match exists. Do not call ${listToolName} first — this tool handles resolution and creation in one step.`
-        : `Reuse an existing ${terms.resource} by exact name or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
+        ? `Reuse an existing Gmail label by exact path. A leaf name also reuses a uniquely matching nested label, and an unnumbered name reuses a uniquely matching numbered label (e.g. "OG" reuses "7: OG"); if multiple labels match, this returns them instead of creating a new one. Create the label only when no match exists. Do not call ${listToolName} first — this tool handles resolution and creation in one step.`
+        : `Reuse an existing ${terms.resource} by exact name (an unnumbered name also reuses a uniquely matching numbered ${terms.resource}) or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: terms.createToolName, email, logger });
@@ -125,27 +126,47 @@ function buildCreateOrGetTool({
           };
         }
 
-        if (terms.resource === "label") {
-          const nestedMatches = findNestedLabelMatches({
-            labels: hiddenAware,
-            name: input.name,
-            getLabelName: (label) => label.name,
-            normalize: normalizeLabelName,
-          });
+        // A bare name may match a numbered label ("7: OG") and, for Gmail, a
+        // nested one ("Projects/OG"). Only reuse when the match is unambiguous.
+        const prefixedMatches = findOrderPrefixedLabelMatches({
+          labels: hiddenAware,
+          name: input.name,
+          getLabelName: (label) => label.name,
+          normalize: normalizeLabelName,
+        });
+        const nestedMatches =
+          terms.resource === "label"
+            ? findNestedLabelMatches({
+                labels: hiddenAware,
+                name: input.name,
+                getLabelName: (label) => label.name,
+                normalize: normalizeLabelName,
+              })
+            : [];
+        const candidates = [
+          ...new Map(
+            [...prefixedMatches, ...nestedMatches].map((label) => [
+              label.id,
+              label,
+            ]),
+          ).values(),
+        ];
 
-          if (nestedMatches.length === 1) {
-            return {
-              created: false,
-              label: pickLabelFields(nestedMatches[0]),
-            };
-          }
+        if (candidates.length === 1) {
+          return {
+            created: false,
+            [terms.resource]: pickLabelFields(candidates[0]),
+          };
+        }
 
-          if (nestedMatches.length > 1) {
-            return {
-              error: `Multiple Gmail labels match "${input.name}". Use the full label path.`,
-              labels: nestedMatches.map(pickLabelFields),
-            };
-          }
+        if (candidates.length > 1) {
+          return {
+            error:
+              terms.resource === "label"
+                ? `Multiple labels match "${input.name}". Use the exact name or full path.`
+                : `Multiple categories match "${input.name}". Use the exact name.`,
+            [terms.resourcePlural]: candidates.map(pickLabelFields),
+          };
         }
 
         const created = await emailProvider.createLabel(input.name);
