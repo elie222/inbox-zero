@@ -1,4 +1,11 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
@@ -75,6 +82,36 @@ export function createFileBlobStore(
   };
 }
 
+export async function collectUnreferencedBlobs(input: {
+  directory: string;
+  referencedIds: Iterable<string>;
+  nowMs: number;
+  graceMs: number;
+}): Promise<{ deleted: string[] }> {
+  const referenced = new Set(input.referencedIds);
+  let names: string[];
+  try {
+    names = await readdir(input.directory);
+  } catch {
+    return { deleted: [] };
+  }
+  const blobIds = new Set<string>();
+  for (const name of names) {
+    const blobId = blobIdFromFileName(name);
+    if (blobId) blobIds.add(blobId);
+  }
+  const store = createFileBlobStore(input.directory);
+  const deleted: string[] = [];
+  for (const blobId of blobIds) {
+    if (referenced.has(blobId)) continue;
+    const newestMs = await blobNewestMtimeMs(input.directory, blobId);
+    if (newestMs == null || input.nowMs - newestMs < input.graceMs) continue;
+    await store.delete(blobId);
+    deleted.push(blobId);
+  }
+  return { deleted };
+}
+
 export async function writeBlobMetadata(
   directory: string,
   blobId: string,
@@ -121,4 +158,27 @@ function blobFile(directory: string, blobId: string, suffix = "") {
     throw new Error("invalid blob id");
   }
   return path;
+}
+
+function blobIdFromFileName(name: string) {
+  let blobId = name;
+  if (name.endsWith(".meta.json")) {
+    blobId = name.slice(0, -".meta.json".length);
+  } else if (name.endsWith(".staging")) {
+    blobId = name.slice(0, -".staging".length);
+  }
+  return blobIdSchema.safeParse(blobId).success ? blobId : null;
+}
+
+async function blobNewestMtimeMs(directory: string, blobId: string) {
+  let newestMs: number | null = null;
+  for (const suffix of ["", ".staging", ".meta.json"]) {
+    try {
+      const info = await stat(blobFile(directory, blobId, suffix));
+      if (newestMs == null || info.mtimeMs > newestMs) newestMs = info.mtimeMs;
+    } catch {
+      // Missing sibling files are expected for staging-only or finalized blobs.
+    }
+  }
+  return newestMs;
 }
