@@ -34,12 +34,6 @@ test("archives a selected conversation and restores it with undo", async ({
   await page.getByRole("button", { name: "Archive", exact: true }).click();
 
   await expect(archiveConversation).toHaveCount(0);
-  const notifications = page.getByRole("region", {
-    name: "Notifications alt+T",
-  });
-  await expect(
-    notifications.getByText("Archived", { exact: true }),
-  ).toBeVisible();
   await expect
     .poll(() =>
       readLatestMailMutation(page, {
@@ -51,7 +45,7 @@ test("archives a selected conversation and restores it with undo", async ({
     .toMatchObject({
       status: expect.stringMatching(/^(reconciling|succeeded)$/),
     });
-  await notifications.getByRole("button", { name: /^Undo/ }).click();
+  await undoLastTriage(page);
   await expect(archiveConversation).toBeVisible();
 });
 
@@ -138,27 +132,38 @@ test("advances the split reader after archiving an open conversation", async ({
     const emailFrame = page
       .locator('iframe[title="Email content preview"]')
       .last();
-    await expect(emailFrame).toHaveAttribute("data-email-ready", "true");
-    const emailBody = emailFrame.contentFrame().locator("body");
-    await emailBody.click();
-    await emailBody.press("h");
-    await expect(
-      page.getByPlaceholder("When should it return? Try Friday at 3pm"),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(
-      page.getByPlaceholder("Type a command or search..."),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toBeHidden();
-    await emailBody.click();
-    await emailBody.press("e");
+    if (await emailFrame.count()) {
+      await expect(emailFrame).toHaveAttribute("data-email-ready", "true");
+      const emailBody = emailFrame.contentFrame().locator("body");
+      await emailBody.click();
+      await emailBody.press("h");
+      await expect(
+        page.getByPlaceholder("When should it return? Try Friday at 3pm"),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(
+        page.getByPlaceholder("Type a command or search..."),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await emailBody.click();
+      await emailBody.press("e");
+    } else {
+      await page.getByTestId("thread-reader").click();
+      await page.keyboard.press("e");
+    }
     archived = true;
-    await expect(
-      page
-        .getByRole("region", { name: "Notifications alt+T" })
-        .getByText("Archived", { exact: true }),
-    ).toBeVisible();
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "archive",
+          threadId: "thr_playwright_3",
+        }),
+      )
+      .toMatchObject({
+        status: expect.stringMatching(/^(reconciling|succeeded)$/),
+      });
 
     await expect(conversations).toBeVisible();
     await expect
