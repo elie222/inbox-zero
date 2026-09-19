@@ -40,6 +40,9 @@ describe("stageSendAttachments", () => {
         },
       ]),
     ).resolves.toEqual(["file-1"]);
+    expect(
+      http.request.mock.calls.filter((call) => call[0].method === "DELETE"),
+    ).toEqual([]);
     expect(http.request).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -61,6 +64,32 @@ describe("stageSendAttachments", () => {
         body: content,
       }),
     );
+  });
+
+  it("returns only the admitted blob id when admit remaps the client id", async () => {
+    http.request
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "stored-1" } })
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "stored-1" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+      ]),
+    ).resolves.toEqual(["stored-1"]);
+    expect(http.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "PUT",
+        path: "/api/mail/v1/accounts/account/uploads/stored-1/content?protocolVersion=1",
+      }),
+    );
+    expect(
+      http.request.mock.calls.filter((call) => call[0].method === "DELETE"),
+    ).toEqual([]);
   });
 
   it("fails the send when staging is rejected", async () => {
@@ -218,6 +247,69 @@ describe("stageSendAttachments", () => {
       .map((call) => call[0].path);
     expect(deleted).toEqual([
       "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      "/api/mail/v1/accounts/account/uploads/file-2?protocolVersion=1",
+    ]);
+  });
+
+  it("cancels the client upload id when admit throws before a blobId", async () => {
+    http.request
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValue({ status: 200, json: { status: "deleted" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+      ]),
+    ).rejects.toThrow("timeout");
+    expect(http.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "DELETE",
+        path: "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      }),
+    );
+  });
+
+  it("cancels both client and remapped ids when a later admit throws", async () => {
+    http.request
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "stored-1" } })
+      .mockResolvedValueOnce({ status: 200, json: { blobId: "stored-1" } })
+      .mockRejectedValueOnce(new Error("later fail"))
+      .mockResolvedValue({ status: 200, json: { status: "deleted" } });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "note.txt",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "text/plain",
+        },
+        {
+          id: "file-2",
+          filename: "photo.jpg",
+          content: Buffer.from("world").toString("base64"),
+          contentType: "image/jpeg",
+        },
+      ]),
+    ).rejects.toThrow("later fail");
+    expect(http.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "PUT",
+        path: "/api/mail/v1/accounts/account/uploads/stored-1/content?protocolVersion=1",
+      }),
+    );
+    const deleted = http.request.mock.calls
+      .filter((call) => call[0].method === "DELETE")
+      .map((call) => call[0].path);
+    expect(deleted).toEqual([
+      "/api/mail/v1/accounts/account/uploads/file-1?protocolVersion=1",
+      "/api/mail/v1/accounts/account/uploads/stored-1?protocolVersion=1",
+      "/api/mail/v1/accounts/account/uploads/file-2?protocolVersion=1",
     ]);
   });
 });

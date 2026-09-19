@@ -13,7 +13,8 @@ export async function stageSendAttachments(
 ) {
   if (!attachments?.length) return [];
   const request = createMailHttpRequest(accountId);
-  const ids: string[] = [];
+  const stagedIds: string[] = [];
+  const cancelIds: string[] = [];
   const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
   try {
     for (const attachment of attachments) {
@@ -22,6 +23,7 @@ export async function stageSendAttachments(
       const uploadId = blobIdSchema.safeParse(attachment.id).success
         ? attachment.id
         : randomUuid();
+      cancelIds.push(uploadId);
       const admitted = await request({
         method: "POST",
         path: base,
@@ -50,7 +52,8 @@ export async function stageSendAttachments(
             `Could not stage ${attachment.filename} for sending.`,
         );
       }
-      ids.push(blobId);
+      if (blobId !== uploadId) cancelIds.push(blobId);
+      stagedIds.push(blobId);
       const staged = await request({
         method: "PUT",
         path: `${base}/${encodeURIComponent(blobId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
@@ -64,9 +67,9 @@ export async function stageSendAttachments(
         );
       }
     }
-    return ids;
+    return stagedIds;
   } catch (error) {
-    await cancelStagedUploads(request, base, ids);
+    await cancelStagedUploads(request, base, cancelIds);
     throw error;
   }
 }
