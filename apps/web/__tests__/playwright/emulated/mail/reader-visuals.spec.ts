@@ -413,7 +413,9 @@ for (const parent of ["none", "missing"] as const) {
     });
     const message = page.locator("[data-thread-message-id]");
     await expect(message).toHaveCount(1);
-    await expect(message.getByText("Draft", { exact: true })).toBeVisible();
+    await expect(
+      message.getByRole("button", { name: /^Draft to / }),
+    ).toBeVisible();
     await expect(
       message.getByRole("textbox", { name: "Email message" }),
     ).toContainText("This unsent draft should remain visible.");
