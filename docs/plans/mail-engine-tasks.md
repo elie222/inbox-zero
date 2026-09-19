@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `f28fc0d22`
+- Last implementation commit: `ac3b9ff01`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E103 confirmed-send blob release. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
+- Current task: remaining matrix cells after E106 snooze restore-before-cancel. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
 - Next action: watch GitHub checks on the exact head after this push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts` — 1 file, 17 passed (E106)
+  - GitHub Playwright `35456627052` on `eda4228d8`: E2E mail-offline failed — Sign out did not show Log in / Logged out in 30s (retry also failed). Other selected E2E jobs succeeded.
   - GitHub Playwright `35455930195` on `f4398bc43`: all E2E jobs passed
   - GitHub Run Tests `35455930301` on `f4398bc43`: success
   - GitHub Build Check `35455930394` on `f4398bc43`: success
@@ -418,6 +420,15 @@ Expand this table from architecture section 13 before broad implementation. Link
   - GitHub Build Check `35455930394` on `f4398bc43` — success
 - What it proved: After execute or inspect confirms a send, those `attachmentIds` are deleted from the account upload directory. An uncertain execute leaves the files so a later inspect or retry can load them.
 - Limitations: Directory-wide stale sweep is not used: it would delete sibling in-flight uploads older than a grace window. Abandoned files wait for tmpdir cleanup until a live id set exists. Do not check G4/G5.
+
+### E106. Restore snoozed mail before cancelling a stale prepare (2026-09-19)
+
+- Tasks: partial E4 snooze edges
+- Tree: `cursor/mail-engine-0b4f` at `ac3b9ff01`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/operations.test.ts` — 1 file, 17 passed
+- What it proved: Engine snooze prepares before archive. A fresh past-due command is `snooze_expired` without archive. Replay of `PENDING` confirms without archiving again. A `PREPARING` replay after the wake time unarchives first, then cancels. Failed restore is `not_dispatched` / `unavailable` and leaves the prepare row. Activate `CANCELLED` unarchives applied ids and does not confirm if restore fails.
+- Limitations: No `cancel_snooze` metadata command. Do not check E4/G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
