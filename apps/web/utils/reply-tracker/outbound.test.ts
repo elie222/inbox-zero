@@ -181,4 +181,64 @@ describe("handleOutboundReply", () => {
       lockToken: "lock-token-1",
     });
   });
+
+  it("should skip filing assistant notifications without calling the AI", async () => {
+    const message = getMockMessage({
+      id: "filing-msg-1",
+      threadId: "thread1",
+      from: `Inbox Zero Assistant <${emailAccount.email}>`,
+      to: emailAccount.email,
+      subject: "✓ Filed Receipt.pdf",
+    });
+
+    await handleOutboundReply({
+      emailAccount,
+      message: message as any,
+      provider: provider as any,
+      logger,
+    });
+
+    expect(acquireOutboundThreadStatusLock).not.toHaveBeenCalled();
+    expect(provider.getThreadMessages).not.toHaveBeenCalled();
+    expect(aiDetermineThreadStatus).not.toHaveBeenCalled();
+    expect(applyThreadStatusLabel).not.toHaveBeenCalled();
+    expect(updateThreadTrackers).not.toHaveBeenCalled();
+  });
+
+  it("should leave filing assistant messages out of the thread sent to the AI", async () => {
+    const message = getMockMessage({
+      id: "sent-msg-1",
+      threadId: "thread1",
+      from: emailAccount.email,
+      to: "sender@example.com",
+    });
+    const filingNotification = getMockMessage({
+      id: "filing-msg-1",
+      threadId: "thread1",
+      from: emailAccount.email,
+      to: emailAccount.email,
+      subject: "✓ Filed Receipt.pdf",
+    });
+
+    prisma.rule.findMany.mockResolvedValue([
+      { systemType: SystemType.AWAITING_REPLY },
+    ] as any);
+    provider.getThreadMessages.mockResolvedValue([message, filingNotification]);
+    vi.mocked(aiDetermineThreadStatus).mockResolvedValue({
+      status: SystemType.AWAITING_REPLY,
+      rationale: "Waiting for response",
+    });
+
+    await handleOutboundReply({
+      emailAccount,
+      message: message as any,
+      provider: provider as any,
+      logger,
+    });
+
+    const { threadMessages } = vi.mocked(aiDetermineThreadStatus).mock
+      .calls[0][0];
+    expect(threadMessages.map((m) => m.id)).toEqual(["sent-msg-1"]);
+    expect(applyThreadStatusLabel).toHaveBeenCalled();
+  });
 });
