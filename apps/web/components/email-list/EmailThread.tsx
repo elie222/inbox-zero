@@ -165,6 +165,7 @@ export function EmailThread({
     // White regardless of the surface it is dropped on: an email body renders
     // on white inside its iframe, so anything else leaves each message boxed.
     <OpenedConversationAttachments
+      allowUncached
       emailAccountId={emailAccountId}
       threadId={threadId}
     >

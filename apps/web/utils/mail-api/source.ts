@@ -223,12 +223,7 @@ export function createEmailProviderMailboxSource(input: {
             ),
             bodies:
               purpose === "body"
-                ? messages.map((message) => ({
-                    key: { accountId, messageId: message.id },
-                    version: message.historyId || null,
-                    html: message.textHtml ?? null,
-                    text: message.textPlain ?? null,
-                  }))
+                ? parsedMessageBodies(accountId, messages).bodies
                 : [],
             unresolved,
           },

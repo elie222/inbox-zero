@@ -53,6 +53,7 @@ export async function queueReaderEmail({
 }): Promise<ReaderEmailOutcome> {
   const commandId = mutationId ?? crypto.randomUUID();
   const draftId = commandId;
+  const shouldHold = holdUntil !== undefined && holdUntil > Date.now();
   const attachmentIds = await stageSendAttachments(
     emailAccountId,
     email.attachments,
@@ -71,7 +72,7 @@ export async function queueReaderEmail({
     draftRevision,
     notBeforeMs: !online
       ? nowMs + OFFLINE_DISPATCH_HOLD_MS
-      : holdUntil !== undefined && holdUntil > nowMs
+      : shouldHold
         ? holdUntil
         : undefined,
     replyTo: messageIds[0]
@@ -87,7 +88,7 @@ export async function queueReaderEmail({
     );
   }
   await onQueued?.();
-  if (holdUntil !== undefined && holdUntil > Date.now()) {
+  if (shouldHold && holdUntil !== undefined) {
     return {
       status: "held",
       holdUntil,

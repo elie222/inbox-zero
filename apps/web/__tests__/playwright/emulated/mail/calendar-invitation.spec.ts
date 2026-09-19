@@ -30,15 +30,11 @@ test("shows inline calendar responses with the current RSVP", async ({
   );
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_calendar`);
-  const invitationHeader = page
-    .locator('li[data-thread-message-id="msg_playwright_calendar"]')
-    .locator('[role="button"][aria-expanded]');
-  await expect(invitationHeader).toBeVisible({ timeout: 60_000 });
-  if ((await invitationHeader.getAttribute("aria-expanded")) === "false") {
-    await invitationHeader.click();
-  }
+  await expect(
+    page.locator('li[data-thread-message-id="msg_playwright_calendar"]'),
+  ).toBeVisible({ timeout: 60_000 });
   const card = page.getByLabel("Calendar invitation", { exact: true });
-  await expect(card).toBeVisible();
+  await expect(card).toBeVisible({ timeout: 60_000 });
   await expect(
     card.getByRole("button", { name: "Yes", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");

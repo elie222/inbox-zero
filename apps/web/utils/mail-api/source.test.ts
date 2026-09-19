@@ -402,6 +402,69 @@ describe("createEmailProviderMailboxSource", () => {
     ]);
   });
 
+  it("hydrates attachment descriptors and meeting invitations with the body", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessage() {
+          return {
+            id: "msg-1",
+            threadId: "t1",
+            historyId: "11",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: "Invite",
+            textPlain: "Please join",
+            attachments: [
+              {
+                attachmentId: "att-ics",
+                filename: "invite.ics",
+                mimeType: "text/calendar",
+                size: 80,
+                headers: {
+                  "content-description": "",
+                  "content-id": "",
+                  "content-transfer-encoding": "base64",
+                  "content-type": "text/calendar",
+                },
+              },
+            ],
+            isMeetingInvitation: true,
+            inline: [],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.hydrate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      keys: [{ accountId: "acc-1", messageId: "msg-1" }],
+      purpose: "body",
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.value.bodies).toEqual([
+      {
+        key: { accountId: "acc-1", messageId: "msg-1" },
+        version: "11",
+        html: null,
+        text: "Please join",
+        attachments: [
+          {
+            attachmentId: "att-ics",
+            filename: "invite.ics",
+            mimeType: "text/calendar",
+            size: 80,
+            inline: false,
+          },
+        ],
+        isMeetingInvitation: true,
+      },
+    ]);
+  });
+
   it("blocks catch-up when provider authentication fails", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

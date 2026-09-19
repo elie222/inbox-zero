@@ -56,10 +56,7 @@ export async function enqueueThreadMailMutationBatch(
   if (!targets.length)
     return { batchId, mutations: [] as ThreadMailMutation[] };
 
-  const client = getActiveMailClient();
-  if (!client) {
-    throw new Error("Mail engine is unavailable");
-  }
+  const client = await waitForActiveMailClient();
   const change = mutationPayloadToChange(payload);
   if (!change) {
     throw new Error("Unsupported mail mutation");
@@ -94,4 +91,19 @@ export async function enqueueThreadMailMutationBatch(
     });
   }
   return { batchId, mutations };
+}
+
+const ENGINE_WAIT_MS = 30_000;
+const ENGINE_POLL_MS = 25;
+
+async function waitForActiveMailClient() {
+  const deadline = Date.now() + ENGINE_WAIT_MS;
+  for (;;) {
+    const client = getActiveMailClient();
+    if (client) return client;
+    if (Date.now() >= deadline) {
+      throw new Error("Mail engine is unavailable");
+    }
+    await new Promise((resolve) => setTimeout(resolve, ENGINE_POLL_MS));
+  }
 }

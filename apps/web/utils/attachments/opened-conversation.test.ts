@@ -58,6 +58,18 @@ it("does not fetch when the tab is hidden or offline", async () => {
   expect(fetchAttachment).not.toHaveBeenCalled();
 });
 
+it("fetches previewable images when the descriptor omits size", async () => {
+  const session = createOpenedConversationAttachments(
+    "account",
+    "thread",
+    true,
+  );
+  expect(
+    await session.load("a", "file", undefined, { ...image, size: 0 }),
+  ).toBeInstanceOf(Blob);
+  expect(fetchAttachment).toHaveBeenCalledTimes(1);
+});
+
 it("does not expose MIME-spoofed documents as image previews", async () => {
   vi.mocked(fetchAttachment).mockResolvedValue(
     new Blob(

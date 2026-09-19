@@ -68,17 +68,19 @@ export function createOpenedConversationAttachments(
     const transferSignal = controller.signal;
     transferSignal.throwIfAborted();
     if (!allowUncached || !attachment) return;
-    const size = attachment.size;
+    const reportedSize = attachment.size;
+    const size =
+      Number.isSafeInteger(reportedSize) && reportedSize > 0
+        ? reportedSize
+        : undefined;
     if (
-      !size ||
-      !Number.isSafeInteger(size) ||
-      size < 0 ||
-      size > FILE_LIMIT ||
-      consumedBytes + size > CONVERSATION_LIMIT ||
+      (size !== undefined &&
+        (size > FILE_LIMIT || consumedBytes + size > CONVERSATION_LIMIT)) ||
       !eligible()
     )
       return;
-    consumedBytes += size;
+    const reserved = size ?? 0;
+    consumedBytes += reserved;
     let actualBytes = 0;
     try {
       const blob = await queueAttachmentDownload({
@@ -94,7 +96,7 @@ export function createOpenedConversationAttachments(
               filename: attachment.filename,
             }),
             emailAccountId,
-            maxBytes: size,
+            maxBytes: size ?? FILE_LIMIT,
             signal,
             onProgress: (bytes) => {
               actualBytes = bytes;
@@ -107,7 +109,7 @@ export function createOpenedConversationAttachments(
       return blob;
     } finally {
       if (startedEpoch === epoch)
-        consumedBytes -= size - Math.min(size, actualBytes);
+        consumedBytes -= reserved - Math.min(reserved, actualBytes);
     }
   }
 }

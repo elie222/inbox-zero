@@ -265,14 +265,10 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     <MailEngineRuntimeStatusContext.Provider
       value={{ client, mounted: true, unavailable }}
     >
-      {client ? (
-        <MailEngineProvider client={client}>
-          <MailEngineConnectionBanner />
-          {children}
-        </MailEngineProvider>
-      ) : (
-        children
-      )}
+      <MailEngineProvider client={client}>
+        {client ? <MailEngineConnectionBanner /> : null}
+        {children}
+      </MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>
   );
 }

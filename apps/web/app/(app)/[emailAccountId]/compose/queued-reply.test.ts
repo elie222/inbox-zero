@@ -217,6 +217,34 @@ describe("queueReaderEmail", () => {
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
+  it("still holds when submitSend outlasts the undo window", async () => {
+    const holdUntil = Date.now() + 20;
+    const client = createClient();
+    client.submitSend.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      return { status: "queued" };
+    });
+
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
+        emailAccountId: "account",
+        holdUntil,
+        messageIds: ["message"],
+        mutationId: "mutation",
+        online: true,
+        threadId: "thread",
+      }),
+    ).resolves.toEqual({
+      holdUntil,
+      mutationId: "mutation",
+      status: "held",
+      threadId: "thread",
+    });
+    expect(client.observeOperation).not.toHaveBeenCalled();
+  });
+
   it("explains when the queued email is waiting for account reconnection", async () => {
     const client = createClient({
       handle: createHandle({ status: "blocked_auth" }),

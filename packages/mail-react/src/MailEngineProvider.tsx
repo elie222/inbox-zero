@@ -7,7 +7,7 @@ export function MailEngineProvider({
   client,
   children,
 }: {
-  client: MailClient;
+  client: MailClient | null;
   children: ReactNode;
 }) {
   return (

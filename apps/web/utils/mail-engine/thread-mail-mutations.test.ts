@@ -3,6 +3,10 @@ import { enqueueThreadMailMutationBatch } from "./thread-mail-mutations";
 import { admissionRejectionCopy } from "./admission-notice";
 
 const mail = vi.hoisted(() => ({
+  current: null as null | {
+    getDiagnostics: ReturnType<typeof vi.fn>;
+    submitConversations: ReturnType<typeof vi.fn>;
+  },
   client: {
     getDiagnostics: vi.fn(),
     submitConversations: vi.fn(),
@@ -10,12 +14,13 @@ const mail = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/mail-engine/active-client", () => ({
-  getActiveMailClient: () => mail.client,
+  getActiveMailClient: () => mail.current,
 }));
 
 describe("thread mail mutation batches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mail.current = mail.client;
     mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
     mail.client.submitConversations.mockResolvedValue({ status: "queued" });
   });
@@ -62,6 +67,20 @@ describe("thread mail mutation batches", () => {
       },
     ]);
     expect(mail.client.submitConversations).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits until the mail engine is published", async () => {
+    mail.current = null;
+    const pending = enqueueThreadMailMutationBatch({
+      emailAccountId: "account",
+      threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
+      payload: { kind: "archive" },
+    });
+    queueMicrotask(() => {
+      mail.current = mail.client;
+    });
+    await pending;
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an incomplete snapshot before submitting any thread", async () => {
