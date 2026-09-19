@@ -10,6 +10,8 @@ const THREAD_ID = "thr_playwright_archive";
 const SUBJECT = "Archive Action Message";
 const HIDDEN_SUBJECT = "Keyboard Navigation Message";
 const DRAFT_SUBJECT = "Hosted desktop draft example";
+const DISCARD_SUBJECT = "Hosted desktop discard example";
+const SEND_SUBJECT = "Hosted desktop send example";
 const electronBin = join(
   process.cwd(),
   "../desktop/node_modules/electron/dist/electron",
@@ -186,14 +188,72 @@ test("reconnects hosted Next from blocked_auth catch-up through desktop IPC", as
   await copyReconnectArtifact(screenshotPath, payload);
 });
 
+test("discards then sends from hosted Next through desktop SQLite IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath(
+    "hosted-electron-send-discard.png",
+  );
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "send-discard",
+    discardSubject: DISCARD_SUBJECT,
+    sendSubject: SEND_SUBJECT,
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.sqliteExists).toBe(true);
+  expect(payload.proof).toBe("send-discard");
+  expect(payload.nativeDraftHadDiscardSubject).toBe(true);
+  expect(payload.nativeDraftHasDiscardSubject).toBe(false);
+  expect(payload.sendSucceeded).toBe(true);
+  expect(payload.nativeDraftHasSendSubject).toBe(false);
+  expect(payload.nativeSentHasSendSubject).toBe(true);
+  expect(
+    payload.sentSubjects?.some((text) => text.includes(SEND_SUBJECT)),
+  ).toBe(true);
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      sqliteExists: payload.sqliteExists,
+      proof: payload.proof,
+      nativeDraftHadDiscardSubject: payload.nativeDraftHadDiscardSubject,
+      nativeDraftHasDiscardSubject: payload.nativeDraftHasDiscardSubject,
+      sendSucceeded: payload.sendSucceeded,
+      nativeDraftHasSendSubject: payload.nativeDraftHasSendSubject,
+      nativeSentHasSendSubject: payload.nativeSentHasSendSubject,
+      hadSentSubject: payload.sentSubjects?.some((text) =>
+        text.includes(SEND_SUBJECT),
+      ),
+    }),
+  });
+  await copySendDiscardArtifact(screenshotPath, payload);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
   storageState: string;
   screenshotPath: string;
   searchScreenshotPath?: string;
-  proof?: "search-archive" | "compose" | "reconnect";
+  proof?: "search-archive" | "compose" | "reconnect" | "send-discard";
   draftSubject?: string;
+  discardSubject?: string;
+  sendSubject?: string;
 }) {
   return new Promise<HostedElectronPayload>((resolve, reject) => {
     const child = spawn("node", [runner], {
@@ -212,6 +272,12 @@ function launchHostedElectron(input: {
         ...(input.proof ? { ELECTRON_PROOF: input.proof } : {}),
         ...(input.draftSubject
           ? { ELECTRON_DRAFT_SUBJECT: input.draftSubject }
+          : {}),
+        ...(input.discardSubject
+          ? { ELECTRON_DISCARD_SUBJECT: input.discardSubject }
+          : {}),
+        ...(input.sendSubject
+          ? { ELECTRON_SEND_SUBJECT: input.sendSubject }
           : {}),
       },
     });
@@ -249,6 +315,25 @@ function launchHostedElectron(input: {
       }
     });
   });
+}
+
+async function copySendDiscardArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(
+      screenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-send-discard.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-send-discard.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
 }
 
 async function copyReconnectArtifact(
@@ -330,4 +415,13 @@ type HostedElectronPayload = {
   enumerationRequests?: number;
   reconnectUrl?: string;
   headingVisible?: boolean;
+  discardSubject?: string;
+  sendSubject?: string;
+  discardedDraftSubjects?: string[];
+  nativeDraftHadDiscardSubject?: boolean;
+  nativeDraftHasDiscardSubject?: boolean;
+  sendSucceeded?: boolean;
+  nativeDraftHasSendSubject?: boolean;
+  nativeSentHasSendSubject?: boolean;
+  sentSubjects?: string[];
 };

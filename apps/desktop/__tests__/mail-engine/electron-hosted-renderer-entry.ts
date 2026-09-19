@@ -21,6 +21,10 @@ const SEARCH_HIDDEN_SUBJECT =
   process.env.ELECTRON_SEARCH_HIDDEN ?? "Keyboard Navigation Message";
 const DRAFT_SUBJECT =
   process.env.ELECTRON_DRAFT_SUBJECT ?? "Hosted desktop draft example";
+const DISCARD_SUBJECT =
+  process.env.ELECTRON_DISCARD_SUBJECT ?? "Hosted desktop discard example";
+const SEND_SUBJECT =
+  process.env.ELECTRON_SEND_SUBJECT ?? "Hosted desktop send example";
 const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
 const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
 
@@ -76,7 +80,9 @@ async function runHostedMail() {
         ? await proveCompose(window, owner, accountId)
         : PROOF === "reconnect"
           ? await proveReconnect(window, accountId, authGate)
-          : await proveSearchArchive(window, owner, accountId);
+          : PROOF === "send-discard"
+            ? await proveSendDiscard(window, owner, accountId)
+            : await proveSearchArchive(window, owner, accountId);
     if (PROOF !== "reconnect") {
       window.show();
       await delay(250);
@@ -143,7 +149,7 @@ async function proveCompose(
 ) {
   await waitForConversations(window);
   await openCompose(window);
-  await fillComposeDraft(window);
+  await fillComposeDraft(window, DRAFT_SUBJECT);
   await closeCompose(window);
   await delay(500);
   await openDraftsMailbox(window);
@@ -159,6 +165,81 @@ async function proveCompose(
     nativeDraftHasSubject: nativeDrafts.some((item) =>
       item.includes(DRAFT_SUBJECT),
     ),
+  };
+}
+
+async function proveSendDiscard(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForConversations(window);
+  await openCompose(window);
+  await fillComposeDraft(window, DISCARD_SUBJECT);
+  await closeCompose(window);
+  await delay(500);
+  await openDraftsMailbox(window);
+  const discardedDraftSubjects = await waitForSubject(window, DISCARD_SUBJECT);
+  const nativeDraftsBeforeDiscard = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "draft",
+    DISCARD_SUBJECT,
+    true,
+  );
+  await clickConversation(window, DISCARD_SUBJECT);
+  await clickDiscardDraft(window);
+  await waitForSubjectGone(window, DISCARD_SUBJECT);
+  const nativeDraftsAfterDiscard = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "draft",
+    DISCARD_SUBJECT,
+    false,
+  );
+
+  await openCompose(window);
+  await fillComposeDraft(window, SEND_SUBJECT);
+  await waitForNativeRoleSubject(owner, accountId, "draft", SEND_SUBJECT, true);
+  await clickSend(window);
+  await waitForComposeClosed(window);
+  const sendSucceeded = await waitForSendSucceeded(window);
+  await openDraftsMailbox(window);
+  await waitForSubjectGone(window, SEND_SUBJECT);
+  const nativeDraftsAfterSend = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "draft",
+    SEND_SUBJECT,
+    false,
+  );
+  const nativeSent = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "sent",
+    SEND_SUBJECT,
+    true,
+  );
+  await openSentMailbox(window);
+  const sentSubjects = await waitForSubject(window, SEND_SUBJECT);
+  return {
+    discardSubject: DISCARD_SUBJECT,
+    sendSubject: SEND_SUBJECT,
+    discardedDraftSubjects,
+    nativeDraftHadDiscardSubject: nativeDraftsBeforeDiscard.some((item) =>
+      item.includes(DISCARD_SUBJECT),
+    ),
+    nativeDraftHasDiscardSubject: nativeDraftsAfterDiscard.some((item) =>
+      item.includes(DISCARD_SUBJECT),
+    ),
+    sendSucceeded,
+    nativeDraftHasSendSubject: nativeDraftsAfterSend.some((item) =>
+      item.includes(SEND_SUBJECT),
+    ),
+    nativeSentHasSendSubject: nativeSent.some((item) =>
+      item.includes(SEND_SUBJECT),
+    ),
+    sentSubjects,
   };
 }
 
@@ -308,6 +389,15 @@ async function waitForMissingSubject(
     await delay(500);
   }
   throw new Error(`${subject} remained in the hosted inbox`);
+}
+
+async function waitForSubjectGone(window: BrowserWindow, subject: string) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const subjects = await readSubjects(window);
+    if (!subjects.some((text) => text.includes(subject))) return;
+    await delay(500);
+  }
+  throw new Error(`${subject} remained in the hosted mailbox`);
 }
 
 async function searchMailbox(window: BrowserWindow, query: string) {
@@ -481,7 +571,7 @@ async function openCompose(window: BrowserWindow) {
   throw new Error(`New Message dialog missing: ${body.slice(0, 2000)}`);
 }
 
-async function fillComposeDraft(window: BrowserWindow) {
+async function fillComposeDraft(window: BrowserWindow, subjectValue: string) {
   const filled = (await window.webContents.executeJavaScript(`
     (() => {
       const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
@@ -517,7 +607,7 @@ async function fillComposeDraft(window: BrowserWindow) {
         return { ok: false, step: "subject" };
       }
       subject.focus();
-      setter.call(subject, ${JSON.stringify(DRAFT_SUBJECT)});
+      setter.call(subject, ${JSON.stringify(subjectValue)});
       subject.dispatchEvent(new Event("input", { bubbles: true }));
       const editor = dialog.querySelector(
         '[role="textbox"][aria-label="Email message"]',
@@ -611,10 +701,169 @@ async function openDraftsMailbox(window: BrowserWindow) {
   throw new Error(`Drafts mailbox missing: ${body.slice(0, 2000)}`);
 }
 
+async function openSentMailbox(window: BrowserWindow) {
+  let expandedMail = false;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const opened = (await window.webContents.executeJavaScript(`
+      (() => {
+        const sent = [...document.querySelectorAll("a")].find((link) =>
+          [...link.querySelectorAll("span")].some(
+            (span) => span.textContent?.trim() === "Sent",
+          ),
+        );
+        if (sent instanceof HTMLElement) {
+          sent.click();
+          return "sent";
+        }
+        return "missing";
+      })()
+    `)) as "sent" | "missing";
+    if (opened === "sent") return;
+    if (!expandedMail) {
+      expandedMail = true;
+      await window.webContents.executeJavaScript(`
+        (() => {
+          const mail = [...document.querySelectorAll("button")].find((button) =>
+            [...button.querySelectorAll("span")].some(
+              (span) => span.textContent?.trim() === "Mail",
+            ),
+          );
+          if (mail instanceof HTMLElement) mail.click();
+        })()
+      `);
+    }
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Sent mailbox missing: ${body.slice(0, 2000)}`);
+}
+
+async function clickConversation(window: BrowserWindow, subject: string) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const list = document.querySelector('[role="listbox"][aria-label="Conversations"]');
+      const option = [...(list?.querySelectorAll('[role="option"]') ?? [])]
+        .find((item) => (item.textContent ?? "").includes(${JSON.stringify(subject)}));
+      if (!(option instanceof HTMLElement)) {
+        return {
+          ok: false,
+          optionCount: list?.querySelectorAll('[role="option"]').length ?? 0,
+        };
+      }
+      option.click();
+      return { ok: true };
+    })()
+  `)) as { ok: boolean; optionCount?: number };
+  if (!clicked.ok) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error(
+      `Conversation missing for ${subject} (options=${clicked.optionCount})`,
+    );
+  }
+}
+
+async function clickDiscardDraft(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const clicked = (await window.webContents.executeJavaScript(`
+      (() => {
+        const button = [...document.querySelectorAll("button")].find(
+          (item) => item.getAttribute("aria-label") === "Discard draft",
+        );
+        if (!(button instanceof HTMLElement)) return false;
+        button.click();
+        return true;
+      })()
+    `)) as boolean;
+    if (clicked) return;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Discard draft control missing: ${body.slice(0, 2000)}`);
+}
+
+async function clickSend(window: BrowserWindow) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
+        (item) => (item.textContent ?? "").includes("New Message"),
+      );
+      const send = [...(dialog?.querySelectorAll("button") ?? [])].find(
+        (button) =>
+          button instanceof HTMLButtonElement &&
+          button.type === "submit" &&
+          !button.hidden &&
+          (button.textContent ?? "").includes("Send"),
+      );
+      if (!(send instanceof HTMLElement)) return false;
+      send.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (!clicked) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Send control missing");
+  }
+}
+
+async function waitForComposeClosed(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const open = (await window.webContents.executeJavaScript(`
+      [...document.querySelectorAll('[role="dialog"]')].some((dialog) =>
+        (dialog.textContent ?? "").includes("New Message"),
+      )
+    `)) as boolean;
+    if (!open) return;
+    await delay(250);
+  }
+  throw new Error("New Message dialog stayed open after send");
+}
+
+async function waitForSendSucceeded(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const succeeded = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.read) return false;
+        const diagnostics = await inspect.read();
+        return Boolean(
+          diagnostics?.commands?.some(
+            (command) =>
+              command.kind === "send" && command.status === "succeeded",
+          ),
+        );
+      })()
+    `)) as boolean;
+    if (succeeded) return true;
+    await delay(500);
+  }
+  throw new Error("hosted send never reached succeeded");
+}
+
+async function waitForNativeRoleSubject(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  role: "inbox" | "draft" | "sent",
+  subject: string,
+  present: boolean,
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const subjects = await readNativeMailboxSubjects(owner, accountId, role);
+    if (subjects.some((item) => item.includes(subject)) === present) {
+      return subjects;
+    }
+    await delay(500);
+  }
+  throw new Error(
+    `native ${role} ${present ? "never contained" : "still contained"} ${subject}`,
+  );
+}
+
 async function readNativeMailboxSubjects(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
-  role: "inbox" | "draft",
+  role: "inbox" | "draft" | "sent",
 ) {
   const snapshot = (await owner.handleIpc({
     protocolVersion: 1,
