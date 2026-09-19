@@ -11,7 +11,9 @@ test("inspects an account's engine queue", async ({ page }, testInfo) => {
     page.getByRole("heading", { name: "Mail queue", exact: true }),
   ).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText("No actions match this status.")).toBeVisible();
-  await expect(page.getByText("Pending actions")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Pending actions", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Connection" })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-queue-empty");
 });
