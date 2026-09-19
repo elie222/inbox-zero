@@ -1,6 +1,13 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { isMicrosoftPlaywright } from "../mail-provider";
+import {
+  inspectCommandIsActive,
+  inspectCommandMatches,
+  inspectCommandToMutation,
+  type InspectCommand,
+} from "@/utils/playwright/mail-inspect-command";
 
 const DEFAULT_SPLIT_RULE_ID = "playwright-default-split-rule";
 const DEFAULT_SPLIT_ACTION_ID = "playwright-default-split-action";
@@ -16,6 +23,31 @@ export async function openMail(page: Page) {
   await expect(conversations).toBeVisible({ timeout: 60_000 });
 
   return { conversations, emailAccountId };
+}
+
+export async function expectThreadReaderBody(
+  page: Page,
+  text: string,
+  timeout = 60_000,
+) {
+  await expect
+    .poll(
+      async () => {
+        if (
+          (await page.getByTestId("thread-reader").getByText(text).count()) > 0
+        )
+          return true;
+        const frames = page.locator('iframe[title="Email content preview"]');
+        const n = await frames.count();
+        for (let i = 0; i < n; i += 1) {
+          if ((await frames.nth(i).contentFrame().getByText(text).count()) > 0)
+            return true;
+        }
+        return false;
+      },
+      { timeout },
+    )
+    .toBe(true);
 }
 
 /**
@@ -64,99 +96,28 @@ export async function readLatestMailMutation(
     kind: string;
     sender?: string;
     threadId?: string;
+    payload?: Record<string, unknown>;
   },
 ) {
   try {
-    return await page.evaluate(
-      async (match) =>
-        await new Promise<Record<string, unknown> | undefined>(
-          (resolve, reject) => {
-            const openRequest = indexedDB.open("inbox-zero-email-cache");
-            openRequest.onerror = () => reject(openRequest.error);
-            openRequest.onsuccess = () => {
-              const database = openRequest.result;
-              if (!database.objectStoreNames.contains("mailMutations")) {
-                database.close();
-                resolve(undefined);
-                return;
-              }
-              const transaction = database.transaction(
-                "mailMutations",
-                "readonly",
-              );
-              transaction.onerror = () => reject(transaction.error);
-              const request = transaction.objectStore("mailMutations").getAll();
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => {
-                database.close();
-                resolve(
-                  request.result
-                    .filter(
-                      (mutation) =>
-                        mutation.emailAccountId === match.emailAccountId &&
-                        mutation.kind === match.kind &&
-                        (!match.threadId ||
-                          mutation.threadId === match.threadId) &&
-                        (!match.sender ||
-                          mutation.clientSource?.sender === match.sender),
-                    )
-                    .sort((left, right) => right.createdAt - left.createdAt)[0],
-                );
-              };
-            };
-          },
-        ),
-      expected,
-    );
+    const commands = await page.evaluate(async () => {
+      const inspect = window.__inboxZeroMailInspect;
+      if (!inspect?.read) return;
+      const diagnostics = (await inspect.read()) as {
+        commands?: InspectCommand[];
+      };
+      return diagnostics.commands;
+    });
+    const command = commands
+      ?.filter((item) => inspectCommandMatches(item, expected))
+      .filter(inspectCommandIsActive)
+      .at(-1);
+    if (!command) return;
+    return inspectCommandToMutation(command);
   } catch (error) {
     if (String(error).includes("Execution context was destroyed")) return;
     throw error;
   }
-}
-
-export function clearMailMutations(
-  page: Page,
-  expected: { emailAccountId: string; threadId?: string },
-) {
-  return page.evaluate(
-    async (match) =>
-      await new Promise<void>((resolve, reject) => {
-        const openRequest = indexedDB.open("inbox-zero-email-cache");
-        openRequest.onerror = () => reject(openRequest.error);
-        openRequest.onsuccess = () => {
-          const database = openRequest.result;
-          if (!database.objectStoreNames.contains("mailMutations")) {
-            database.close();
-            resolve();
-            return;
-          }
-          const transaction = database.transaction(
-            "mailMutations",
-            "readwrite",
-          );
-          transaction.onerror = () => reject(transaction.error);
-          transaction.oncomplete = () => {
-            database.close();
-            resolve();
-          };
-          const request = transaction.objectStore("mailMutations").openCursor();
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor) return;
-            const mutation = cursor.value;
-            if (
-              mutation.emailAccountId === match.emailAccountId &&
-              (!match.threadId || mutation.threadId === match.threadId)
-            ) {
-              cursor.delete();
-            }
-            cursor.continue();
-          };
-        };
-      }),
-    expected,
-  );
 }
 
 export async function seedDefaultSplitRule(emailAccountId: string) {
@@ -212,4 +173,103 @@ export async function withClient<T>(callback: (client: Client) => Promise<T>) {
   } finally {
     await client.end();
   }
+}
+
+export async function insertInboxMailInConversation(
+  page: Page,
+  input: {
+    threadId: string;
+    messageId: string;
+    subject: string;
+    from: string;
+  },
+) {
+  const token = await readProviderAccessToken();
+  const email = process.env.PLAYWRIGHT_TEST_EMAIL;
+  if (!email) throw new Error("PLAYWRIGHT_TEST_EMAIL is missing");
+  if (isMicrosoftPlaywright()) {
+    await insertOutlookInboxReply(page, token, input);
+    return;
+  }
+  const baseUrl = process.env.GOOGLE_BASE_URL;
+  if (!baseUrl) throw new Error("GOOGLE_BASE_URL is missing");
+  const inserted = await page.request.post(
+    `${baseUrl}/gmail/v1/users/me/messages`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      data: {
+        threadId: input.threadId,
+        from: input.from,
+        to: email,
+        subject: input.subject,
+        body_text: "New mail in the archived conversation.",
+        labelIds: ["INBOX", "UNREAD"],
+        internalDate: String(Date.now()),
+      },
+    },
+  );
+  expect(inserted.ok(), await inserted.text()).toBe(true);
+}
+
+async function insertOutlookInboxReply(
+  page: Page,
+  token: string,
+  input: { messageId: string; subject: string },
+) {
+  const baseUrl = process.env.MICROSOFT_BASE_URL;
+  if (!baseUrl) throw new Error("MICROSOFT_BASE_URL is missing");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  const draft = await page.request.post(
+    `${baseUrl}/v1.0/me/messages/${input.messageId}/createReply`,
+    { headers },
+  );
+  expect(draft.ok(), await draft.text()).toBe(true);
+  const draftId = ((await draft.json()) as { id?: string }).id;
+  if (!draftId) throw new Error("Outlook createReply did not return an id");
+  const patched = await page.request.patch(
+    `${baseUrl}/v1.0/me/messages/${draftId}`,
+    {
+      headers,
+      data: {
+        subject: input.subject,
+        body: {
+          contentType: "text",
+          content: "New mail in the archived conversation.",
+        },
+        isRead: false,
+      },
+    },
+  );
+  expect(patched.ok(), await patched.text()).toBe(true);
+  const moved = await page.request.post(
+    `${baseUrl}/v1.0/me/messages/${draftId}/move`,
+    {
+      headers,
+      data: { destinationId: "inbox" },
+    },
+  );
+  expect(moved.ok(), await moved.text()).toBe(true);
+}
+
+async function readProviderAccessToken() {
+  const email = process.env.PLAYWRIGHT_TEST_EMAIL;
+  if (!email) throw new Error("PLAYWRIGHT_TEST_EMAIL is missing");
+  const token = await withClient(async (client) => {
+    const result = await client.query<{ access_token: string | null }>(
+      `SELECT account.access_token
+       FROM "EmailAccount" email_account
+       JOIN "Account" account ON account.id = email_account."accountId"
+       WHERE email_account.email = $1`,
+      [email],
+    );
+    return result.rows[0]?.access_token ?? null;
+  });
+  if (!token) throw new Error("Could not read the Playwright provider token");
+  return token;
 }

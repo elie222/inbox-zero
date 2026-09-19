@@ -7,26 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockEnqueueThreadMailMutationBatch = vi.fn();
 const mockFetchWithAccount = vi.fn();
-const mockGetMailMutationsForAccount = vi.fn();
-const mutationListeners = new Set<() => void>();
 let durableMutations: Array<Record<string, unknown>> = [];
 
-vi.mock("@/utils/email-cache/mail-mutations", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@/utils/email-cache/mail-mutations")>();
-  return {
-    ...original,
-    getMailMutationsForAccount: (
-      ...args: Parameters<typeof mockGetMailMutationsForAccount>
-    ) => mockGetMailMutationsForAccount(...args),
-    subscribeToMailMutations: (listener: () => void) => {
-      mutationListeners.add(listener);
-      return () => mutationListeners.delete(listener);
-    },
-  };
-});
-
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
+vi.mock("@/utils/mail-engine/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: (
     ...args: Parameters<typeof mockEnqueueThreadMailMutationBatch>
   ) => mockEnqueueThreadMailMutationBatch(...args),
@@ -42,22 +25,14 @@ describe("archive sender queue", () => {
     vi.resetModules();
     vi.clearAllMocks();
     durableMutations = [];
-    mutationListeners.clear();
     mockFetchWithAccount.mockResolvedValue({
       ok: true,
       json: async () => ({ threads: [] }),
     });
-    mockGetMailMutationsForAccount.mockImplementation(
-      async (emailAccountId: string) =>
-        durableMutations.filter(
-          (mutation) => mutation.emailAccountId === emailAccountId,
-        ),
-    );
     mockEnqueueThreadMailMutationBatch.mockImplementation(async (input) => {
       const batchId = `batch-${durableMutations.length + 1}`;
-      const mutations = createMutations(input, batchId, "pending");
+      const mutations = createMutations(input, batchId, "succeeded");
       durableMutations.push(...mutations);
-      notifyMutationListeners();
       return { batchId, mutations };
     });
   });
@@ -182,9 +157,8 @@ describe("archive sender queue", () => {
       (input) =>
         new Promise((resolve) => {
           finishEnqueue = () => {
-            const mutations = createMutations(input, "batch-1", "pending");
+            const mutations = createMutations(input, "batch-1", "succeeded");
             durableMutations.push(...mutations);
-            notifyMutationListeners();
             resolve({ batchId: "batch-1", mutations });
           };
         }),
@@ -236,32 +210,6 @@ describe("archive sender queue", () => {
 
     expect(statusResult.current).toEqual({
       batchId: "batch-1",
-      status: "processing",
-      threadIds: ["thread-1", "thread-2"],
-      threadsTotal: 2,
-    });
-    expect(progressResult.current).toEqual({
-      activeItems: 1,
-      completedItems: 0,
-      failedItems: 0,
-      settledItems: 0,
-      totalItems: 1,
-    });
-
-    durableMutations = durableMutations.map((mutation) => ({
-      ...mutation,
-      status: "succeeded",
-      updatedAt: 2,
-    }));
-    await act(async () => {
-      notifyMutationListeners();
-      await vi.waitFor(() =>
-        expect(statusResult.current?.status).toBe("completed"),
-      );
-    });
-
-    expect(statusResult.current).toEqual({
-      batchId: "batch-1",
       status: "completed",
       threadIds: [],
       threadsTotal: 2,
@@ -273,172 +221,6 @@ describe("archive sender queue", () => {
       settledItems: 1,
       totalItems: 1,
     });
-  });
-
-  it("restores the latest active batch and blocks duplicate work after reload", async () => {
-    durableMutations = [
-      ...createMutations(
-        {
-          clientSource: { kind: "sender", sender: "sender@example.com" },
-          emailAccountId: "account-1",
-          payload: { kind: "archive" },
-          threads: [{ id: "old-thread", messages: [{ id: "old-message" }] }],
-        },
-        "old-batch",
-        "succeeded",
-        1,
-      ),
-      ...createMutations(
-        {
-          clientSource: { kind: "sender", sender: "sender@example.com" },
-          emailAccountId: "account-1",
-          payload: { kind: "archive" },
-          threads: [
-            { id: "thread-1", messages: [{ id: "message-1" }] },
-            { id: "thread-2", messages: [{ id: "message-2" }] },
-          ],
-        },
-        "active-batch",
-        "awaiting_sync",
-        2,
-      ),
-    ];
-    mockGetMailMutationsForAccount.mockResolvedValue(durableMutations);
-    const { jotaiStore } = await import("@/store");
-    const {
-      addToArchiveSenderThreadQueue,
-      useArchiveQueueProgress,
-      useArchiveSenderStatus,
-    } = await import("./archive-sender-queue");
-    const wrapper = createWrapper(jotaiStore);
-    const { result: statusResult } = renderHook(
-      () => useArchiveSenderStatus("account-1", "SENDER@example.com"),
-      { wrapper },
-    );
-    const { result: progressResult } = renderHook(
-      () => useArchiveQueueProgress("account-1"),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await vi.waitFor(() =>
-        expect(mockGetMailMutationsForAccount).toHaveBeenCalledWith(
-          "account-1",
-        ),
-      );
-      await vi.waitFor(() =>
-        expect(statusResult.current?.batchId).toBe("active-batch"),
-      );
-    });
-
-    expect(statusResult.current).toEqual({
-      batchId: "active-batch",
-      status: "processing",
-      threadIds: ["thread-1", "thread-2"],
-      threadsTotal: 2,
-    });
-    expect(progressResult.current).toEqual({
-      activeItems: 1,
-      completedItems: 0,
-      failedItems: 0,
-      settledItems: 0,
-      totalItems: 1,
-    });
-    await expect(
-      addToArchiveSenderThreadQueue({
-        sender: "sender@example.com",
-        emailAccountId: "account-1",
-      }),
-    ).resolves.toBe(false);
-    expect(mockFetchWithAccount).not.toHaveBeenCalled();
-    expect(mockEnqueueThreadMailMutationBatch).not.toHaveBeenCalled();
-  });
-
-  it("restores failed row status without adding historical work to progress", async () => {
-    durableMutations = createMutations(
-      {
-        clientSource: { kind: "sender", sender: "sender@example.com" },
-        emailAccountId: "account-1",
-        payload: { kind: "archive" },
-        threads: [
-          { id: "thread-1", messages: [{ id: "message-1" }] },
-          { id: "thread-2", messages: [{ id: "message-2" }] },
-        ],
-      },
-      "failed-batch",
-      "failed",
-      1,
-    );
-    mockGetMailMutationsForAccount.mockResolvedValue(durableMutations);
-    const { jotaiStore } = await import("@/store");
-    const { useArchiveQueueProgress, useArchiveSenderStatus } = await import(
-      "./archive-sender-queue"
-    );
-    const wrapper = createWrapper(jotaiStore);
-    const { result: statusResult } = renderHook(
-      () => useArchiveSenderStatus("account-1", "sender@example.com"),
-      { wrapper },
-    );
-    const { result: progressResult } = renderHook(
-      () => useArchiveQueueProgress("account-1"),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await vi.waitFor(() =>
-        expect(statusResult.current?.status).toBe("failed"),
-      );
-    });
-
-    expect(statusResult.current).toEqual({
-      batchId: "failed-batch",
-      status: "failed",
-      threadIds: [],
-      threadsTotal: 2,
-    });
-    expect(progressResult.current).toBeUndefined();
-  });
-
-  it("does not restore historical completed work as current sender status", async () => {
-    durableMutations = createMutations(
-      {
-        clientSource: { kind: "sender", sender: "sender@example.com" },
-        emailAccountId: "account-1",
-        payload: { kind: "archive" },
-        threads: [
-          { id: "thread-1", messages: [{ id: "message-1" }] },
-          { id: "thread-2", messages: [{ id: "message-2" }] },
-        ],
-      },
-      "completed-batch",
-      "succeeded",
-      1,
-    );
-    mockGetMailMutationsForAccount.mockResolvedValue(durableMutations);
-    const { jotaiStore } = await import("@/store");
-    const { useArchiveQueueProgress, useArchiveSenderStatus } = await import(
-      "./archive-sender-queue"
-    );
-    const wrapper = createWrapper(jotaiStore);
-    const { result: statusResult } = renderHook(
-      () => useArchiveSenderStatus("account-1", "sender@example.com"),
-      { wrapper },
-    );
-    const { result: progressResult } = renderHook(
-      () => useArchiveQueueProgress("account-1"),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await vi.waitFor(() =>
-        expect(mockGetMailMutationsForAccount).toHaveBeenCalledWith(
-          "account-1",
-        ),
-      );
-    });
-
-    expect(statusResult.current).toBeUndefined();
-    expect(progressResult.current).toBeUndefined();
   });
 
   it("continues queueing other senders after one sender fails", async () => {
@@ -561,8 +343,4 @@ function createMutations(
     createdAt: now,
     updatedAt: now,
   }));
-}
-
-function notifyMutationListeners() {
-  for (const listener of mutationListeners) listener();
 }

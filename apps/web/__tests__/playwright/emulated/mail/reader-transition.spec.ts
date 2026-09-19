@@ -6,17 +6,6 @@ import { openMail } from "./mail-test-helpers";
 test("never paints an empty reader when moving between loaded HTML threads", async ({
   page,
 }, testInfo) => {
-  await page.route(/\/api\/threads\/thr_playwright_[^/?]+\?/, async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    if (body.thread?.messages) {
-      for (const message of body.thread.messages) {
-        message.textHtml = `<p>Navigation body for ${body.thread.id}</p>`;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    await route.fulfill({ response, json: body });
-  });
   const { conversations } = await openMail(page);
   await expect(conversations.getByRole("option").nth(1)).toBeVisible();
   await conversations.getByRole("option").first().click();

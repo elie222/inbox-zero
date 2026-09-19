@@ -635,7 +635,7 @@ function EmailPreview({
   if (error) {
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        Could not load email content: {error.message}
+        Could not load email content: {error.error}
       </div>
     );
   }

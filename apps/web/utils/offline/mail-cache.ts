@@ -1,14 +1,16 @@
 const MAIL_PATH = /^\/[^/]+\/mail\/?$/u;
 const ACCOUNT_PATH = "/api/user/email-accounts";
 export const OFFLINE_MAIL_CACHE_PREFIX = "inbox-zero:offline-mail:";
+export const MAIL_ENGINE_STATIC_CACHE = "inbox-zero:mail-engine-static";
 export const CLEAR_OFFLINE_MAIL = "inbox-zero:clear-offline-mail";
 export const SAVE_OFFLINE_MAIL = "inbox-zero:save-offline-mail";
 export const SKIP_WAITING = "SKIP_WAITING";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
-// Documents and account metadata let the existing IndexedDB mailbox open
-// without a server. API mutations and authentication always use the network.
+// Shell documents and account metadata let the mail route reopen from Cache
+// Storage after activation. Mailbox state lives in SQLite; API mutations and
+// authentication always use the network.
 export function createOfflineMailCache({
   origin,
   cacheName,
@@ -183,6 +185,22 @@ export function matchesOfflineMailRequest(request: Request, origin: string) {
   return (
     (request.mode === "navigate" && isOfflineMailPath(url.pathname)) ||
     (url.pathname === ACCOUNT_PATH && !url.search)
+  );
+}
+
+export function matchesMailEngineStaticRequest(
+  request: Request,
+  origin: string,
+) {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== origin) return false;
+  if (url.pathname.includes("hot-update") || url.pathname.endsWith(".map")) {
+    return false;
+  }
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.endsWith(".wasm") ||
+    request.destination === "worker"
   );
 }
 

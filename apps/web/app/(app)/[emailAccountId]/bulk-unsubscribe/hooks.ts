@@ -35,7 +35,7 @@ import {
 } from "@/utils/parse/unsubscribe";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { fetchAllSenderThreads } from "@/store/fetch-sender-threads";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { enqueueThreadMailMutationBatch } from "@/utils/mail-engine/thread-mail-mutations";
 
 // Shared type for SWR mutate function
 type MutateFn = (

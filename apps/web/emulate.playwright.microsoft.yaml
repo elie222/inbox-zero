@@ -1,0 +1,391 @@
+microsoft:
+  users:
+    - email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Smoke Test User
+  oauth_clients:
+    - client_id: emulate-microsoft-client-id
+      client_secret: emulate-microsoft-secret
+      name: Inbox Zero Smoke
+      redirect_uris:
+        - __PLAYWRIGHT_TEST_REDIRECT_URI__
+        - __PLAYWRIGHT_TEST_LINKING_URI__
+  categories:
+    - id: Label_project
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      display_name: Project Alpha
+      color: preset1
+  messages:
+    - id: msg_playwright_1
+      conversation_id: thr_playwright_1
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: alice@example.com
+        name: Alice Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Playwright Test Message
+      body_content: "<p>Navigation body for thr_playwright_1</p>"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-04T12:00:00.000Z"
+    - id: msg_playwright_2
+      conversation_id: thr_playwright_2
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: bob@example.com
+        name: Bob Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Read Command Message
+      body_content: "<p>Navigation body for thr_playwright_2</p>"
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-03T18:00:00.000Z"
+    - id: msg_playwright_archive
+      conversation_id: thr_playwright_archive
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: erin@example.com
+        name: Erin Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Archive Action Message
+      body_content: This conversation is reserved for archive and undo coverage.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-03T12:00:00.000Z"
+    - id: msg_playwright_delete
+      conversation_id: thr_playwright_delete
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: frank@example.com
+        name: Frank Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Delete Action Message
+      body_content: This conversation is reserved for delete coverage.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T20:00:00.000Z"
+    - id: msg_playwright_3
+      conversation_id: thr_playwright_3
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: carol@example.com
+        name: Carol Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Second Unread Command Message
+      body_content: Another unread message for bulk-action checks.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T18:00:00.000Z"
+    - id: msg_playwright_keyboard
+      conversation_id: thr_playwright_keyboard
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: grace@example.com
+        name: Grace Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Keyboard Navigation Message
+      body_content: This conversation is reserved for keyboard navigation coverage.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T12:00:00.000Z"
+    - id: msg_playwright_reader_1
+      conversation_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Navigation Message
+      body_content: First message in the reader conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T06:00:00.000Z"
+    - id: msg_playwright_reader_2
+      conversation_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: dana@example.com
+          name: Dana Example
+      subject: "Re: Reader Navigation Message"
+      body_content: A second message proves the complete conversation is rendered.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T07:00:00.000Z"
+    - id: msg_playwright_label
+      conversation_id: thr_playwright_label
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: harper@example.com
+        name: Harper Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Project Label Message
+      body_content: This conversation is visible in the seeded project label.
+      parent_folder_id: inbox
+      is_read: true
+      categories:
+        - Project Alpha
+      received_date_time: "2026-01-01T18:00:00.000Z"
+    - id: msg_playwright_draft
+      conversation_id: thr_playwright_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: jordan@example.com
+          name: Jordan Example
+      subject: Seeded Draft Message
+      body_content: This unsent draft is visible in the Drafts view.
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T12:00:00.000Z"
+    - id: msg_playwright_sent
+      conversation_id: thr_playwright_sent
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: kai@example.com
+          name: Kai Example
+      subject: Seeded Sent Message
+      body_content: This sent conversation is visible in the Sent view.
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_plain_links
+      conversation_id: thr_playwright_plain_links
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Plain Text Links Message
+      body_content: "Visit service.new/account\n\nhttps://staging.example.com/verify?token=value"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-30T18:00:00.000Z"
+    - id: msg_playwright_reader_html
+      conversation_id: thr_playwright_reader_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Html Message
+      body_content: "<p>A rich email body for keyboard navigation.</p>"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-30T12:00:00.000Z"
+    - id: msg_unread_expand_read
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: An earlier read message stays collapsed.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2025-12-29T12:00:00.000Z"
+    - id: msg_unread_expand_open_1
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: Another unread message opens with the conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T13:00:00.000Z"
+    - id: msg_unread_expand_open_2
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_content: A third unread message also opens.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T14:00:00.000Z"
+    - id: msg_unread_expand_open_3
+      conversation_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: dana@example.com
+          name: Dana Example
+      subject: "Re: Unread Expand Message"
+      body_content: The latest unread message opens with the conversation.
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-29T15:00:00.000Z"
+    - id: msg_playwright_overflow_plain
+      conversation_id: thr_playwright_overflow_plain
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Plain Message
+      body_content: "Account details:\n\n__PLAYWRIGHT_LONG_LINK__\n\nEnd of message."
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_overflow_html
+      conversation_id: thr_playwright_overflow_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Html Message
+      body_content: "<div><p>Account details:</p><a href=\"__PLAYWRIGHT_LONG_LINK__\">__PLAYWRIGHT_LONG_LINK__</a><p>End of message.</p></div>"
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_overflow_styled
+      conversation_id: thr_playwright_overflow_styled
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Styled Html Message
+      body_content: "<div style=\"font-family: Arial; font-size: 16px\"><p>Account details:</p><a href=\"__PLAYWRIGHT_LONG_LINK__\">__PLAYWRIGHT_LONG_LINK__</a><p>End of message.</p></div>"
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_theme_system
+      conversation_id: thr_playwright_theme_system
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: System Theme Message
+      body_content: "<p>A simple message in the system theme.</p>"
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-29T12:00:00.000Z"
+    - id: msg_playwright_theme_designed
+      conversation_id: thr_playwright_theme_designed
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Designed Html Message
+      body_content: "__PLAYWRIGHT_DESIGNED_HTML__"
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-29T12:00:00.000Z"
+    - id: msg_playwright_matched_earlier
+      conversation_id: thr_playwright_matched_reason
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Matched Reason Message
+      body_content: "<p>Earlier message body.</p>"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T06:00:00.000Z"
+    - id: msg_playwright_matched_later
+      conversation_id: thr_playwright_matched_reason
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Matched Reason Message
+      body_content: "<p>Later message body.</p>"
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2026-01-02T07:00:00.000Z"
+    - id: msg_playwright_draft_orphan
+      conversation_id: thr_playwright_draft_orphan
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: recipient@example.com
+      subject: Draft Without Parent
+      body_content: "<p>This unsent draft should remain visible.</p>"
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T12:00:00.000Z"
+    - id: msg_playwright_draft_missing_parent
+      conversation_id: thr_playwright_draft_missing_parent
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: recipient@example.com
+      subject: Draft Missing Parent
+      body_content: "<p>This unsent draft should remain visible.</p>"
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T12:00:00.000Z"
+    - id: msg_playwright_reader_collapse_1
+      conversation_id: thr_playwright_reader_collapse
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: dana@example.com
+        name: Dana Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Collapsed Reader Message
+      body_content: First collapsed history message.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T06:00:00.000Z"
+    - id: msg_playwright_reader_collapse_2
+      conversation_id: thr_playwright_reader_collapse
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: dana@example.com
+          name: Dana Example
+      subject: "Re: Collapsed Reader Message"
+      body_content: Latest read message stays expanded.
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-02T07:00:00.000Z"

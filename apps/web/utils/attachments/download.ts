@@ -1,24 +1,21 @@
+import { MAIL_PROTOCOL_VERSION } from "@inboxzero/mail-core/identities";
 import { fetchWithAccount } from "@/utils/fetch";
 
 export function getAttachmentUrl({
+  accountId,
   messageId,
   attachmentId,
-  mimeType,
-  filename,
 }: {
+  accountId: string;
   messageId: string;
   attachmentId: string;
-  mimeType: string;
-  filename: string;
 }) {
   const searchParams = new URLSearchParams({
     messageId,
     attachmentId,
-    mimeType,
-    filename,
+    protocolVersion: String(MAIL_PROTOCOL_VERSION),
   });
-
-  return `/api/messages/attachment?${searchParams.toString()}`;
+  return `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/attachment-content?${searchParams}`;
 }
 
 export async function fetchAttachment({

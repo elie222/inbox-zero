@@ -1,11 +1,18 @@
-import { Serwist, type PrecacheEntry, type SerwistGlobalConfig } from "serwist";
+import {
+  CacheFirst,
+  Serwist,
+  type PrecacheEntry,
+  type SerwistGlobalConfig,
+} from "serwist";
 import {
   CLEAR_OFFLINE_MAIL,
   SAVE_OFFLINE_MAIL,
   SKIP_WAITING,
   OFFLINE_MAIL_CACHE_PREFIX,
+  MAIL_ENGINE_STATIC_CACHE,
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  matchesMailEngineStaticRequest,
   clearsOfflineMailOnGet,
 } from "../utils/offline/mail-cache";
 
@@ -130,6 +137,13 @@ const serwist = new Serwist({
           await cache.clear();
         }
       },
+    },
+    {
+      matcher: ({ request }) =>
+        matchesMailEngineStaticRequest(request, self.location.origin),
+      handler: new CacheFirst({
+        cacheName: MAIL_ENGINE_STATIC_CACHE,
+      }),
     },
   ],
   disableDevLogs: process.env.NODE_ENV === "production",

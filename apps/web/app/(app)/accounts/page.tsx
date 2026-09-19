@@ -40,7 +40,7 @@ import {
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
 import { clearOfflineMailCache } from "@/utils/offline/clear-mail-cache";
-import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
+import { clearLocalReplyDrafts } from "@/utils/mail-engine/reply-drafts";
 import { clearPersistedSwrCacheForAccount } from "@/utils/swr-persistence";
 
 export default function AccountsPage() {
@@ -163,7 +163,7 @@ function AccountOptionsDropdown({
       if (emailAccount.isPrimary) {
         await logOut("/login");
       } else {
-        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
+        clearLocalReplyDrafts(emailAccount.id);
         clearPersistedSwrCacheForAccount(emailAccount.id);
         await clearOfflineMailCache();
       }

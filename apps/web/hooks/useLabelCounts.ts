@@ -1,110 +1,85 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
-import useSWR from "swr";
-import type { LabelCountsResponse } from "@/app/api/labels/counts/route";
-import { subscribeToMailboxStore } from "@/utils/email-cache/mailbox";
-import { GmailLabel } from "@/utils/gmail/label";
+  mailboxCountTargets,
+  type MailboxCountFolder,
+  type MailboxLabelCount,
+} from "@/utils/mail-engine/label-count-targets";
+
+const NO_LABELS: Array<{ id: string; name: string }> = [];
+const NO_FOLDERS: MailboxCountFolder[] = [];
 
 /**
- * Unread/total counts per label, Gmail category, or Outlook folder.
- * Deliberately not blocking: the sidebar renders without counts and fills in.
+ * Unread/total counts per label or folder, derived from the same effective
+ * mailbox queries as the lists. The sidebar renders without counts and fills in.
  */
-export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
-  const { data, error, isLoading, mutate } = useSWR<LabelCountsResponse>(
-    "/api/labels/counts",
-    { shouldRetryOnError: false },
-  );
-  const dataRef = useRef(data);
-  const pendingInboxUnread = useRef({ emailAccountId, delta: 0 });
-  dataRef.current = data;
-
-  useLayoutEffect(() => {
-    pendingInboxUnread.current = { emailAccountId, delta: 0 };
-  }, [emailAccountId]);
-
-  useEffect(
+export function useLabelCounts({
+  emailAccountId,
+  labels,
+  folders,
+}: {
+  emailAccountId: string;
+  labels: Array<{ id: string; name: string }>;
+  folders: MailboxCountFolder[];
+}) {
+  const client = useOptionalMailClient();
+  const resolvedLabels = labels.length > 0 ? labels : NO_LABELS;
+  const resolvedFolders = folders.length > 0 ? folders : NO_FOLDERS;
+  const targets = useMemo(
     () =>
-      subscribeToMailboxStore((changedAccountId, options) => {
-        if (
-          changedAccountId === emailAccountId &&
-          options?.refreshCounts !== false
-        )
-          mutate();
+      mailboxCountTargets({
+        accountId: emailAccountId,
+        labels: resolvedLabels,
+        folders: resolvedFolders,
       }),
-    [emailAccountId, mutate],
+    [emailAccountId, resolvedFolders, resolvedLabels],
   );
-
-  const applyPendingInboxUnreadDelta = useCallback(() => {
-    mutate(
-      (current) => {
-        if (
-          pendingInboxUnread.current.emailAccountId !== emailAccountId ||
-          !pendingInboxUnread.current.delta ||
-          !current?.counts.some((count) => count.id === GmailLabel.INBOX)
-        ) {
-          return current;
-        }
-        const delta = pendingInboxUnread.current.delta;
-        pendingInboxUnread.current.delta = 0;
-        return applyInboxUnreadDelta(current, delta);
-      },
-      { revalidate: false },
-    );
-  }, [emailAccountId, mutate]);
+  const [countsById, setCountsById] = useState(
+    new Map<string, MailboxLabelCount>(),
+  );
 
   useEffect(() => {
-    if (!data || !pendingInboxUnread.current.delta) return;
-    applyPendingInboxUnreadDelta();
-  }, [applyPendingInboxUnreadDelta, data]);
-
-  const adjustInboxUnread = useCallback(
-    (delta: number) => {
-      if (
-        !delta ||
-        pendingInboxUnread.current.emailAccountId !== emailAccountId
-      ) {
-        return;
+    if (!client) {
+      setCountsById(new Map());
+      return;
+    }
+    const subscriptions = targets.map((target) => ({
+      target,
+      handle: client.observeMailbox(target.query),
+    }));
+    const apply = () => {
+      const next = new Map<string, MailboxLabelCount>();
+      for (const { target, handle } of subscriptions) {
+        const counts = handle.getSnapshot().data?.counts;
+        if (!counts) continue;
+        next.set(target.id, {
+          id: target.id,
+          name: target.name,
+          kind: target.kind,
+          total: counts.matchingConversations,
+          unread: counts.unreadConversations,
+        });
       }
-      pendingInboxUnread.current.delta += delta;
-      if (!dataRef.current) {
-        return;
-      }
-      applyPendingInboxUnreadDelta();
-    },
-    [applyPendingInboxUnreadDelta, emailAccountId],
-  );
+      setCountsById(next);
+    };
+    const unsubscribers = subscriptions.map(({ handle }) =>
+      handle.subscribe(apply),
+    );
+    apply();
+    return () => {
+      for (const unsubscribe of unsubscribers) unsubscribe();
+      for (const { handle } of subscriptions) handle.close();
+    };
+  }, [client, targets]);
 
-  const countsById = useMemo(
-    () => new Map((data?.counts ?? []).map((count) => [count.id, count])),
-    [data?.counts],
-  );
+  const mutate = useCallback(async () => {
+    await client?.requestSync([emailAccountId]);
+  }, [client, emailAccountId]);
 
   return {
     countsById,
-    isPartial: data?.partial ?? true,
-    isLoading,
-    error,
+    isPartial: countsById.size < targets.length,
+    isLoading: Boolean(client) && countsById.size === 0,
     mutate,
-    adjustInboxUnread,
-  };
-}
-
-function applyInboxUnreadDelta(
-  current: LabelCountsResponse | undefined,
-  delta: number,
-) {
-  if (!current) return current;
-  return {
-    ...current,
-    counts: current.counts.map((count) =>
-      count.id === GmailLabel.INBOX
-        ? { ...count, unread: Math.max(0, count.unread + delta) }
-        : count,
-    ),
   };
 }

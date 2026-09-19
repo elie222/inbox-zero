@@ -1,5 +1,5 @@
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
-import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
 import prisma from "@/utils/prisma";
 
 export async function deleteExpiredEmailSendOperations(

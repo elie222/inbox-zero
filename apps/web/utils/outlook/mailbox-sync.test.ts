@@ -14,6 +14,7 @@ describe("buildOutlookMailboxSyncPage", () => {
       wasSnapshot: true,
       reset: true,
       categoryMap: new Map(),
+      folderIds: { inbox: "inbox-folder-id" },
     });
 
     expect(page.hasMore).toBe(false);
@@ -60,6 +61,10 @@ describe("buildOutlookMailboxSyncPage", () => {
       wasSnapshot: false,
       reset: false,
       categoryMap: new Map([["To Reply", "category-id"]]),
+      folderIds: {
+        inbox: "inbox-folder-id",
+        archive: "archive-folder-id",
+      },
     });
 
     expect(page).toMatchObject({
@@ -80,5 +85,40 @@ describe("buildOutlookMailboxSyncPage", () => {
       provider: "microsoft",
       snapshot: false,
     });
+  });
+
+  it("maps a moved message to its new folder instead of inbox", () => {
+    const page = buildOutlookMailboxSyncPage({
+      response: {
+        value: [
+          {
+            id: "message-1",
+            conversationId: "thread-1",
+            parentFolderId: "archive-folder-id",
+            subject: "Archived elsewhere",
+            receivedDateTime: "2026-07-31T10:00:00.000Z",
+            isRead: true,
+          },
+        ],
+        "@odata.deltaLink":
+          "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$deltatoken=abc",
+      },
+      after: "2026-07-01T00:00:00.000Z",
+      wasSnapshot: false,
+      reset: false,
+      categoryMap: new Map(),
+      folderIds: {
+        inbox: "inbox-folder-id",
+        archive: "archive-folder-id",
+      },
+    });
+
+    expect(page.upsertedMessages).toEqual([
+      expect.objectContaining({
+        id: "message-1",
+        labelIds: ["ARCHIVE"],
+        parentFolderId: "archive-folder-id",
+      }),
+    ]);
   });
 });

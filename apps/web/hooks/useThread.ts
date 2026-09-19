@@ -1,189 +1,131 @@
-import { captureLocalMailCacheContext } from "@/utils/email-cache/local-mail-cache-context";
-import { useLayoutEffect, useMemo, useRef } from "react";
-import useSWR, { unstable_serialize, useSWRConfig } from "swr";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
+import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import { useLocalMailThread } from "@/hooks/useLocalMailThread";
-import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
-import { createMailMutationOverlay } from "@/utils/email-cache/mail-mutation-overlay";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
-  readCachedThreadDetail,
-  writeCachedThreadDetail,
-} from "@/utils/email-cache/threads";
-import {
-  createThreadRequest,
-  fetchThreadRequest,
-  type ThreadRequestOptions,
-} from "@/utils/email-cache/thread-request";
-import {
-  EMAIL_CACHE_MEASURES,
-  finishEmailCacheMeasure,
-  startEmailCacheMeasure,
-} from "@/utils/email-cache/telemetry";
+  conversationViewToThreadResponse,
+  missingConversationBodyIds,
+} from "@/utils/mail-engine/conversation-thread";
+import { isMetadataCoverageComplete } from "@/utils/mail-engine/coverage";
 
-// `id` accepts null so "no thread open" is expressible in the type rather than
-// as a magic empty string that would silently resolve to the thread list route.
+const EMPTY_SNAPSHOT: QuerySnapshot<ConversationView> = {
+  status: "loading",
+  revision: null,
+  data: null,
+  refreshing: false,
+  error: null,
+};
+
 export function useThread(
   {
     id,
     emailAccountId: explicitEmailAccountId,
   }: { id: string | null; emailAccountId?: string },
-  options?: ThreadRequestOptions & { localMail?: boolean },
+  options?: {
+    includeDrafts?: boolean;
+    localMail?: boolean;
+    parseReplies?: boolean;
+  },
 ) {
   const { emailAccountId: currentEmailAccountId } = useAccount();
   const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
-  const { cache, fetcher } = useSWRConfig();
+  const client = useOptionalMailClient();
   const includeDrafts = options?.includeDrafts;
-  const parseReplies = options?.parseReplies;
-  const localMail = useLocalMailThread({
-    emailAccountId,
-    threadId: id,
-    includeDrafts,
-    enabled: Boolean(options?.localMail && !parseReplies && id),
+  const [pagination, setPagination] = useState({
+    accountId: emailAccountId,
+    id,
+    pageSize: 50,
   });
-  const localData = useMemo<ThreadResponse | undefined>(() => {
-    if (
-      !id ||
-      (!localMail.messages.length &&
-        !localMail.hasMore &&
-        !localMail.hasRetainedThread)
-    )
+  const pageSize =
+    pagination.accountId === emailAccountId && pagination.id === id
+      ? pagination.pageSize
+      : 50;
+  const [snapshot, setSnapshot] =
+    useState<QuerySnapshot<ConversationView>>(EMPTY_SNAPSHOT);
+
+  useEffect(() => {
+    if (!client || !emailAccountId || !id) {
+      setSnapshot(EMPTY_SNAPSHOT);
       return;
-    return {
-      thread: {
-        id,
-        messages: localMail.messages.map(({ message }) => message),
-        snippet: "",
-      },
-    };
-  }, [id, localMail.hasMore, localMail.hasRetainedThread, localMail.messages]);
-  const request = useMemo(
-    () =>
-      id && emailAccountId
-        ? createThreadRequest({
-            emailAccountId,
-            threadId: id,
-            options: { includeDrafts, parseReplies },
-          })
-        : null,
-    [emailAccountId, id, includeDrafts, parseReplies],
-  );
-  const memoryData = request
-    ? (
-        cache.get(unstable_serialize(request.key)) as
-          | { data?: ThreadResponse }
-          | undefined
-      )?.data
-    : undefined;
-  const hasMatchingMemoryData = memoryData?.thread.id === id;
-  const checkedPersistentCache = useRef(new Set<string>());
-  const swr = useSWR<ThreadResponse>(
-    request?.key ?? null,
-    request && fetcher && id
-      ? () =>
-          fetchThreadRequest(request, async (version) => {
-            if (
-              !hasMatchingMemoryData &&
-              !checkedPersistentCache.current.has(request.cacheIdentity)
-            ) {
-              checkedPersistentCache.current.add(request.cacheIdentity);
-              const startedAt = startEmailCacheMeasure();
-              const cached = await readCachedThreadDetail({
-                emailAccountId,
-                threadId: id,
-                variant: request.variant,
-              });
-              finishEmailCacheMeasure(
-                EMAIL_CACHE_MEASURES.threadHydration,
-                startedAt,
-              );
-              if (cached) return cached.data;
-            }
-
-            const cacheContext =
-              await captureLocalMailCacheContext(emailAccountId);
-            const requestedAt = Date.now();
-            const data = (await fetcher(request.key)) as ThreadResponse;
-            writeCachedThreadDetail({
-              emailAccountId,
-              threadId: id,
-              variant: request.variant,
-              version,
-              data,
-              now: requestedAt,
-              cacheContext,
-            });
-            return data;
-          })
-      : null,
-    {
-      keepPreviousData: false,
-      revalidateOnMount: !hasMatchingMemoryData,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    },
-  );
-  const currentData =
-    localData ?? (swr.data?.thread.id === id ? swr.data : undefined);
-  const lastResponse = useRef<{ key: string; data: ThreadResponse } | null>(
-    null,
-  );
-  useLayoutEffect(() => {
-    if (request && currentData && currentData !== localData) {
-      lastResponse.current = { key: request.cacheIdentity, data: currentData };
     }
-  }, [currentData, localData, request]);
-  // Cache invalidation must not disable actions for a reader that is still visible.
-  const data =
-    currentData ??
-    (swr.isValidating && lastResponse.current?.key === request?.cacheIdentity
-      ? lastResponse.current?.data
-      : undefined);
+    const handle = client.observeConversation(
+      { accountId: emailAccountId, conversationId: id },
+      { after: null, pageSize },
+    );
+    const apply = () => setSnapshot(handle.getSnapshot());
+    const unsubscribe = handle.subscribe(apply);
+    apply();
+    return () => {
+      unsubscribe();
+      handle.close();
+    };
+  }, [client, emailAccountId, id, pageSize]);
 
-  const { mutations } = useRetainedMailMutationOverlay({
-    emailAccountId,
-    enabled: Boolean(request),
-    onReconcile: () => swr.mutate(),
-  });
-  const overlaidData = useMemo(() => {
-    if (!data) return data;
-    // Preserve fetched unread flags for the reader's initial message expansion.
-    const starMutations = mutations.filter(
-      (mutation) =>
-        mutation.threadId === id && mutation.kind === "set_starred_state",
-    );
-    if (!starMutations.length) return data;
-    // The reader can outlive its list row while queued changes reach the server.
-    const messages = createMailMutationOverlay(starMutations).applyToMessages(
-      emailAccountId,
-      data.thread.messages,
-    );
-    return { ...data, thread: { ...data.thread, messages } };
-  }, [data, emailAccountId, id, mutations]);
+  useEffect(() => {
+    if (!client || !snapshot.data) return;
+    for (const message of snapshot.data.messages) {
+      if (message.content.status === "available") continue;
+      client.ensureMessageContent(message.key).catch(() => undefined);
+    }
+  }, [client, snapshot.data]);
+
+  const data = useMemo<ThreadResponse | undefined>(() => {
+    if (!id || !snapshot.data) return;
+    return conversationViewToThreadResponse(snapshot.data, { includeDrafts });
+  }, [id, includeDrafts, snapshot.data]);
+
+  const mutate = useCallback(async () => {
+    if (!client || !emailAccountId) return data;
+    await client.requestSync([emailAccountId]);
+    if (snapshot.data) {
+      await Promise.all(
+        snapshot.data.messages.map((message) =>
+          client.ensureMessageContent(message.key),
+        ),
+      );
+    }
+    return data;
+  }, [client, data, emailAccountId, snapshot.data]);
+
+  const isLoading =
+    Boolean(id) && (!client || !data) && snapshot.status !== "error";
 
   return {
-    ...swr,
-    data: overlaidData,
-    error: data ? undefined : swr.error,
-    isLoading: !data && (swr.isLoading || localMail.isLoading),
+    data,
+    error: conversationQueryError(snapshot.error),
+    isLoading,
+    isValidating: snapshot.refreshing,
+    mutate,
     localAvailability:
-      currentData === localData && localData
+      data && snapshot.data
         ? {
-            missingBodyIds: new Set(
-              localMail.messages
-                .filter((entry) => !entry.bodyAvailable)
-                .map(({ message }) => message.id),
+            missingBodyIds: missingConversationBodyIds(snapshot.data),
+            hasMore: Boolean(snapshot.data.nextPage),
+            loadingMore: snapshot.refreshing && pageSize > 50,
+            loadMore: () =>
+              setPagination({
+                accountId: emailAccountId,
+                id,
+                pageSize: pageSize + 50,
+              }),
+            refreshing: snapshot.refreshing,
+            providerConfirmed: isMetadataCoverageComplete(
+              snapshot.data.coverage,
             ),
-            hasMore: localMail.hasMore,
-            loadingMore: localMail.isValidating,
-            loadMore: localMail.loadMore,
-            refreshing: swr.isValidating,
-            // Only a provider response vouches for the local copy; without one
-            // the reader can only promise the messages it has downloaded.
-            providerConfirmed: swr.data?.thread.id === id,
           }
         : undefined,
-    isValidating: swr.isValidating,
-    mutate: swr.mutate,
   };
+}
+
+function conversationQueryError(
+  error: { code: string } | null,
+): { error: string; info: { error: string } } | undefined {
+  if (!error) return;
+  const message =
+    error.code === "not_found"
+      ? "This conversation isn't available yet."
+      : "Couldn't open this conversation.";
+  return { error: message, info: { error: message } };
 }

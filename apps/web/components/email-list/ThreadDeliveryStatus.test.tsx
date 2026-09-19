@@ -12,14 +12,8 @@ import { SWRConfig } from "swr";
 import { cancelScheduledEmailAction } from "@/utils/actions/scheduled-email";
 import { ThreadDeliveryStatus } from "./ThreadDeliveryStatus";
 
-vi.mock("@/utils/email-cache/database", () => ({
-  getEmailCacheDatabase: async () => undefined,
-}));
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  subscribeToMailMutations: () => () => {},
-}));
-vi.mock("@/utils/email-cache/reply-drafts", () => ({
-  restoreReplyFromOutbox: vi.fn(),
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => null,
 }));
 vi.mock("@/utils/actions/scheduled-email", () => ({
   cancelScheduledEmailAction: vi.fn(),

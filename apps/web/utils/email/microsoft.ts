@@ -1227,6 +1227,7 @@ export class OutlookProvider implements EmailProvider {
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -1269,7 +1270,7 @@ export class OutlookProvider implements EmailProvider {
     let inboxFolderId: string | undefined;
     if (options.inboxOnly) {
       const folderIds = await getFolderIds(this.client, this.logger, {
-        includeDrafts: false,
+        includeDrafts: Boolean(options.includeDrafts),
       });
       inboxFolderId = folderIds.inbox;
     }
@@ -1292,8 +1293,6 @@ export class OutlookProvider implements EmailProvider {
       searchQuery: searchQuery || undefined,
     });
 
-    // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
-    // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(
       this.client,
       {
@@ -1302,6 +1301,7 @@ export class OutlookProvider implements EmailProvider {
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
         folderId: inboxFolderId,
+        includeDrafts: options.includeDrafts,
       },
       this.logger,
     );

@@ -14,10 +14,9 @@ import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
-import { MailboxSyncManager } from "@/app/(app)/MailboxSyncManager";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
-import { MailMutationOutboxManager } from "@/app/(app)/MailMutationOutboxManager";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
+import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
 import { SettingsDialog } from "@/app/(app)/settings/SettingsDialog";
@@ -87,30 +86,31 @@ export default async function AppLayout({
     <div className={inter.variable}>
       <div className="font-inter">
         <AppProviders>
-          <SideNavWithTopNav
-            defaultOpen={!isClosed}
-            feedbackEnabled={
-              !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL)
-            }
-          >
-            <MailboxSyncManager />
-            <DesktopMailIndicators />
-            <MailMutationOutboxManager />
-            <AiAutomationStatusBanner />
-            <ErrorMessages />
-            <ProviderRateLimitBanner />
-            {children}
-          </SideNavWithTopNav>
-          <EmailViewer />
-          <SettingsDialog />
-          <AnnouncementDialog />
-          <ErrorBoundary extra={{ component: "AppLayout" }}>
-            <PostHogIdentify />
+          <MailEngineRuntime>
+            <SideNavWithTopNav
+              defaultOpen={!isClosed}
+              feedbackEnabled={
+                !bypassPremiumChecks ||
+                Boolean(process.env.FEEDBACK_WEBHOOK_URL)
+              }
+            >
+              <DesktopMailIndicators />
+              <AiAutomationStatusBanner />
+              <ErrorMessages />
+              <ProviderRateLimitBanner />
+              {children}
+            </SideNavWithTopNav>
+            <EmailViewer />
+            <SettingsDialog />
+            <AnnouncementDialog />
+            <ErrorBoundary extra={{ component: "AppLayout" }}>
+              <PostHogIdentify />
 
-            <CommandK />
-            <AssessUser />
-            <SentryIdentify email={session.user.email} />
-          </ErrorBoundary>
+              <CommandK />
+              <AssessUser />
+              <SentryIdentify email={session.user.email} />
+            </ErrorBoundary>
+          </MailEngineRuntime>
         </AppProviders>
       </div>
     </div>

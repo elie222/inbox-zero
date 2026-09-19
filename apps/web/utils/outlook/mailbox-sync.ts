@@ -7,7 +7,11 @@ import {
 import type { MailboxSyncPage } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { getCategoryMap, convertMessage } from "@/utils/outlook/message";
+import {
+  getCategoryMap,
+  convertMessage,
+  getFolderIds,
+} from "@/utils/outlook/message";
 import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
@@ -55,12 +59,17 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
+    const [categoryMap, folderIds] = await Promise.all([
+      getCategoryMap(client, logger),
+      getFolderIds(client, logger),
+    ]);
     return buildOutlookMailboxSyncPage({
       response,
       after: decoded.after,
       wasSnapshot: decoded.snapshot,
       reset: false,
-      categoryMap: await getCategoryMap(client, logger),
+      categoryMap,
+      folderIds,
     });
   } catch (error) {
     const { status, code } = extractErrorInfo(error);
@@ -86,12 +95,14 @@ export function buildOutlookMailboxSyncPage({
   wasSnapshot,
   reset,
   categoryMap,
+  folderIds = {},
 }: {
   response: DeltaResponse;
   after: string;
   wasSnapshot: boolean;
   reset: boolean;
   categoryMap: Map<string, string>;
+  folderIds?: Record<string, string>;
 }): MailboxSyncPage {
   const nextLink = response["@odata.nextLink"];
   const deltaLink = response["@odata.deltaLink"];
@@ -113,9 +124,6 @@ export function buildOutlookMailboxSyncPage({
       return [];
     }
 
-    const folderIds: Record<string, string> = message.parentFolderId
-      ? { inbox: message.parentFolderId }
-      : {};
     return [
       compactMailboxSyncMessage(
         convertMessage(message, folderIds, categoryMap),
@@ -162,11 +170,16 @@ async function getInitialPage({
     logger,
   );
 
+  const [categoryMap, folderIds] = await Promise.all([
+    getCategoryMap(client, logger),
+    getFolderIds(client, logger),
+  ]);
   return buildOutlookMailboxSyncPage({
     response,
     after: after.toISOString(),
     wasSnapshot: true,
     reset: true,
-    categoryMap: await getCategoryMap(client, logger),
+    categoryMap,
+    folderIds,
   });
 }

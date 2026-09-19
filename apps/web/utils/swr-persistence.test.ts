@@ -28,7 +28,7 @@ describe("swr-persistence", () => {
       ACCOUNT_A,
       cacheWith({
         "/api/labels": { labels: [{ id: "l1", name: "Newsletters" }] },
-        "/api/labels/counts": { counts: [{ id: "l1", unread: 3 }] },
+        "/api/mail/settings": { splits: [] },
       }),
     );
 
@@ -38,9 +38,7 @@ describe("swr-persistence", () => {
       isLoading: false,
       isValidating: false,
     });
-    expect(restored.get("/api/labels/counts")?.data).toEqual({
-      counts: [{ id: "l1", unread: 3 }],
-    });
+    expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [] });
   });
 
   it("does not leak entries across accounts", () => {
@@ -110,11 +108,11 @@ describe("swr-persistence", () => {
       ACCOUNT_A,
       cacheWith({
         "/api/labels": { labels: ["old"] },
-        "/api/labels/counts": { counts: [7] },
+        "/api/mail/settings": { splits: [7] },
       }),
     );
 
-    // A page that only fetched labels persists; counts must survive.
+    // A page that only fetched labels persists; settings must survive.
     persistSwrEntries(
       ACCOUNT_A,
       cacheWith({ "/api/labels": { labels: ["new"] } }),
@@ -122,7 +120,7 @@ describe("swr-persistence", () => {
 
     const restored = readPersistedSwrEntries(ACCOUNT_A);
     expect(restored.get("/api/labels")?.data).toEqual({ labels: ["new"] });
-    expect(restored.get("/api/labels/counts")?.data).toEqual({ counts: [7] });
+    expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [7] });
   });
 
   it("returns nothing for a corrupt snapshot instead of throwing", () => {

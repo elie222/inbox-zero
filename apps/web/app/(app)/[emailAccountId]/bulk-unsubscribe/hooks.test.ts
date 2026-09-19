@@ -48,7 +48,7 @@ vi.mock("@/store/fetch-sender-threads", () => ({
   fetchAllSenderThreads: fetchAllSenderThreadsMock,
 }));
 
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
+vi.mock("@/utils/mail-engine/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: enqueueThreadMailMutationBatchMock,
 }));
 

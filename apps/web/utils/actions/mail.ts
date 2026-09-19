@@ -544,11 +544,11 @@ export const saveComposeDraftAction = actionClient
         provider: providerName,
         logger,
       });
-      const draftId = await saveComposeDraft({
+      const saved = await saveComposeDraft({
         provider,
         ...parsedInput,
       });
-      return { draftId };
+      return saved;
     },
   );
 

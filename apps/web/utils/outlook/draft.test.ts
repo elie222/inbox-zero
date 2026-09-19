@@ -40,6 +40,40 @@ describe("outlook/draft", () => {
     ).resolves.toEqual({ id: "draft-1", version: 'W/"version-1"' });
   });
 
+  it("uses changeKey when Graph omits @odata.etag", async () => {
+    const client = createOutlookReadClient({
+      id: "draft-1",
+      parentFolderId: "drafts",
+      changeKey: "version-from-change-key",
+    });
+
+    await expect(
+      getDraftReference({
+        client,
+        messageId: "draft-1",
+        logger: createTestLogger(),
+      }),
+    ).resolves.toEqual({
+      id: "draft-1",
+      version: 'W/"version-from-change-key"',
+    });
+  });
+
+  it("uses an unconditional version when Graph omits etag and changeKey", async () => {
+    const client = createOutlookReadClient({
+      id: "draft-1",
+      parentFolderId: "drafts",
+    });
+
+    await expect(
+      getDraftReference({
+        client,
+        messageId: "draft-1",
+        logger: createTestLogger(),
+      }),
+    ).resolves.toEqual({ id: "draft-1", version: "*" });
+  });
+
   it("rejects a draft reference when the Drafts folder is unavailable", async () => {
     mocks.getFolderIds.mockResolvedValue({});
     const client = createOutlookReadClient({

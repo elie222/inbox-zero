@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
 import { deleteExpiredEmailSendOperations } from "./email-send-operation-retention";
 
 vi.mock("@/utils/prisma");

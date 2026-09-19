@@ -1,39 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MailMutation } from "@/utils/email-cache/mail-mutations";
+import type { OperationState } from "@inboxzero/mail-core/operations";
+import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import { queueReaderEmail } from "./queued-reply";
+import { UNDO_SEND_DELAY_MS } from "./undo-send";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
-const outbox = vi.hoisted(() => ({
-  claimNotification: vi.fn(),
-  enqueue: vi.fn(),
-  get: vi.fn(),
-  listener: undefined as (() => void) | undefined,
-  unsubscribe: vi.fn(),
-}));
+const staging = vi.hoisted(() => vi.fn());
 
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  claimMailMutationNotification: outbox.claimNotification,
-  enqueueMailMutation: outbox.enqueue,
-  getMailMutation: outbox.get,
-  subscribeToMailMutations: vi.fn((listener: () => void) => {
-    outbox.listener = listener;
-    return outbox.unsubscribe;
-  }),
+vi.mock("@/utils/mail-engine/stage-attachments", () => ({
+  stageSendAttachments: staging,
 }));
 
 describe("queueReaderEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    outbox.listener = undefined;
-    outbox.enqueue.mockImplementation(async (input) => ({
-      ...createMutation("pending"),
-      ...input,
-    }));
-    outbox.get.mockResolvedValue(createMutation("pending"));
-    outbox.claimNotification.mockResolvedValue(undefined);
+    staging.mockResolvedValue([]);
   });
 
   it("returns immediately after durably queueing while offline", async () => {
+    const client = createClient();
     const outcome = await queueReaderEmail({
+      client,
       email: createEmail(),
       emailAccountId: "account-two",
       messageIds: ["message"],
@@ -41,51 +28,103 @@ describe("queueReaderEmail", () => {
       threadId: "thread",
     });
 
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      email: createEmail(),
-      emailAccountId: "account-two",
-      kind: "reply",
-      messageIds: ["message"],
-      threadId: "thread",
-    });
+    expect(client.saveDraft).toHaveBeenCalledOnce();
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "thread",
+        replyTo: { accountId: "account-two", messageId: "message" },
+        notBeforeMs: expect.any(Number),
+      }),
+    );
+    const notBeforeMs = client.submitSend.mock.calls[0]?.[0]?.notBeforeMs;
+    expect(notBeforeMs).toBeGreaterThan(Date.now() + 60 * 60 * 1000);
     expect(outcome).toEqual({
       reason: "offline",
       status: "queued",
       threadId: "thread",
     });
-    expect(outbox.get).not.toHaveBeenCalled();
+    expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
-  it("reuses a persisted reply identity without enqueueing a duplicate", async () => {
+  it("admits a new message without a reply target", async () => {
+    const client = createClient();
     await queueReaderEmail({
+      client,
       email: createEmail(),
-      emailAccountId: "account",
-      messageIds: ["message"],
+      emailAccountId: "account-two",
+      messageIds: [],
       online: false,
-      threadId: "thread",
-      mutationId: "mutation",
+      threadId: "compose:new-message",
     });
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "compose:new-message",
+        replyTo: null,
+      }),
+    );
   });
 
-  it("refuses changed content under an existing reply identity", async () => {
+  it("freezes the provider draft id into the sendable engine draft", async () => {
+    const client = createClient();
+    await queueReaderEmail({
+      client,
+      email: { ...createEmail(), providerDraftId: "gmail-draft-1" },
+      emailAccountId: "account-two",
+      messageIds: [],
+      online: false,
+      threadId: "compose:new-message",
+    });
+    expect(client.saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          providerDraftId: "gmail-draft-1",
+        }),
+      }),
+    );
+  });
+
+  it("reuses a draft identity and refuses a conflicting send payload", async () => {
+    const client = createClient();
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "invalid",
+    });
     await expect(
       queueReaderEmail({
+        client,
         email: { ...createEmail(), messageHtml: "Changed" },
+        emailAccountId: "account",
+        messageIds: ["message"],
+        mutationId: "mutation",
+        online: false,
+        threadId: "thread",
+      }),
+    ).rejects.toThrow("different content");
+  });
+
+  it("explains a full command queue instead of a generic send failure", async () => {
+    const client = createClient();
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
         emailAccountId: "account",
         messageIds: ["message"],
         online: false,
         threadId: "thread",
-        mutationId: "mutation",
       }),
-    ).rejects.toThrow("different content");
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    ).rejects.toThrow(admissionRejectionCopy("queue_full"));
   });
 
   it("observes the persisted provider result while online", async () => {
-    let current = createMutation("processing");
-    outbox.get.mockImplementation(async () => current);
+    const handle = createHandle({ status: "executing" });
+    const client = createClient({ handle });
     const pending = queueReaderEmail({
+      client,
       email: createEmail(),
       emailAccountId: "account",
       messageIds: ["message"],
@@ -93,61 +132,23 @@ describe("queueReaderEmail", () => {
       settlementTimeoutMs: 1000,
       threadId: "thread",
     });
-    await vi.waitFor(() => expect(outbox.listener).toBeTypeOf("function"));
-
-    current = createMutation("succeeded", {
-      result: { messageId: "sent-message", threadId: "sent-thread" },
-    });
-    outbox.listener?.();
-
+    await vi.waitFor(() => expect(handle.subscribe).toHaveBeenCalled());
+    handle.set({ status: "succeeded" });
     await expect(pending).resolves.toEqual({
-      messageId: "sent-message",
+      messageId: "",
       status: "sent",
-      threadId: "sent-thread",
-    });
-    expect(outbox.unsubscribe).toHaveBeenCalledOnce();
-  });
-
-  it("rechecks when completion arrives during an in-flight storage read", async () => {
-    let finishFirstRead: ((mutation: MailMutation) => void) | undefined;
-    outbox.get
-      .mockReturnValueOnce(
-        new Promise<MailMutation>((resolve) => {
-          finishFirstRead = resolve;
-        }),
-      )
-      .mockResolvedValueOnce(
-        createMutation("succeeded", {
-          result: { messageId: "sent-message", threadId: "sent-thread" },
-        }),
-      );
-    const pending = queueReaderEmail({
-      email: createEmail(),
-      emailAccountId: "account",
-      messageIds: ["message"],
-      online: true,
-      settlementTimeoutMs: 1000,
       threadId: "thread",
     });
-    await vi.waitFor(() => expect(outbox.get).toHaveBeenCalledOnce());
-
-    outbox.listener?.();
-    finishFirstRead?.(createMutation("processing"));
-
-    await expect(pending).resolves.toEqual({
-      messageId: "sent-message",
-      status: "sent",
-      threadId: "sent-thread",
-    });
-    expect(outbox.get).toHaveBeenCalledTimes(2);
+    expect(handle.close).toHaveBeenCalledOnce();
   });
 
   it("does not turn an uncertain delivery into an automatic retry", async () => {
-    outbox.get.mockResolvedValue(createMutation("uncertain"));
-    outbox.claimNotification.mockResolvedValue(createMutation("uncertain"));
-
+    const client = createClient({
+      handle: createHandle({ status: "uncertain" }),
+    });
     await expect(
       queueReaderEmail({
+        client,
         email: createEmail(),
         emailAccountId: "account",
         messageIds: ["message"],
@@ -159,20 +160,18 @@ describe("queueReaderEmail", () => {
       status: "uncertain",
       threadId: "thread",
     });
-
-    expect(outbox.enqueue).toHaveBeenCalledOnce();
-    expect(outbox.claimNotification).toHaveBeenCalledWith("mutation-id");
   });
 
   it("returns the persisted terminal failure", async () => {
-    const failed = createMutation("failed", {
-      lastError: "Provider rejected the email",
+    const client = createClient({
+      handle: createHandle({
+        status: "failed",
+        error: { code: "Provider rejected the email", retryable: false },
+      }),
     });
-    outbox.get.mockResolvedValue(failed);
-    outbox.claimNotification.mockResolvedValue(failed);
-
     await expect(
       queueReaderEmail({
+        client,
         email: createEmail(),
         emailAccountId: "account",
         messageIds: ["message"],
@@ -186,116 +185,84 @@ describe("queueReaderEmail", () => {
     });
   });
 
-  it("leaves terminal toast ownership with the global notifier when already claimed", async () => {
-    outbox.get.mockResolvedValue(createMutation("uncertain"));
-    outbox.claimNotification.mockResolvedValue(undefined);
+  it("holds an online send so undo can cancel it before delivery", async () => {
+    const onQueued = vi.fn();
+    const client = createClient();
+    const before = Date.now();
 
-    await expect(
-      queueReaderEmail({
-        email: createEmail(),
-        emailAccountId: "account",
-        messageIds: ["message"],
-        online: true,
-        threadId: "thread",
-      }),
-    ).resolves.toEqual({
-      ownsNotification: false,
-      status: "uncertain",
-      threadId: "thread",
-    });
-  });
-
-  it("recovers from a transient mutation read error on a later notification", async () => {
-    outbox.get
-      .mockRejectedValueOnce(new Error("temporary IndexedDB read failure"))
-      .mockResolvedValueOnce(
-        createMutation("succeeded", {
-          result: { messageId: "sent-message", threadId: "sent-thread" },
-        }),
-      );
-    const pending = queueReaderEmail({
+    const outcome = await queueReaderEmail({
+      client,
       email: createEmail(),
       emailAccountId: "account",
+      holdForUndo: true,
       messageIds: ["message"],
+      mutationId: "mutation",
+      onQueued,
       online: true,
-      settlementTimeoutMs: 1000,
       threadId: "thread",
     });
-    await vi.waitFor(() => expect(outbox.get).toHaveBeenCalledOnce());
+    const after = Date.now();
 
-    outbox.listener?.();
-
-    await expect(pending).resolves.toEqual({
-      messageId: "sent-message",
-      status: "sent",
-      threadId: "sent-thread",
-    });
-  });
-
-  it("holds an online send so undo can cancel it before delivery", async () => {
-    const holdUntil = Date.now() + 5000;
-    const onQueued = vi.fn();
-
-    await expect(
-      queueReaderEmail({
-        email: createEmail(),
-        emailAccountId: "account",
-        holdUntil,
-        messageIds: ["message"],
-        onQueued,
-        online: true,
-        threadId: "thread",
-      }),
-    ).resolves.toEqual({
-      holdUntil,
-      mutationId: "mutation-id",
+    expect(outcome).toMatchObject({
+      mutationId: "mutation",
       status: "held",
       threadId: "thread",
     });
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      email: createEmail(),
-      emailAccountId: "account",
-      kind: "reply",
-      messageIds: ["message"],
-      nextAttemptAt: holdUntil,
-      threadId: "thread",
-    });
+    if (outcome.status !== "held") throw new Error("expected held");
+    expect(outcome.holdUntil).toBeGreaterThanOrEqual(
+      before + UNDO_SEND_DELAY_MS,
+    );
+    expect(outcome.holdUntil).toBeLessThanOrEqual(after + UNDO_SEND_DELAY_MS);
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandId: "mutation",
+        notBeforeMs: outcome.holdUntil,
+      }),
+    );
     expect(onQueued).toHaveBeenCalledOnce();
-    expect(outbox.get).not.toHaveBeenCalled();
+    expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
-  it("does not treat retry backoff as an undo hold", async () => {
-    vi.useFakeTimers();
-    const nextAttemptAt = Date.now() + 30_000;
-    outbox.get.mockResolvedValue(
-      createMutation("retry_wait", { id: "mutation", nextAttemptAt }),
-    );
+  it("still holds when submitSend outlasts the original undo window", async () => {
+    const client = createClient();
+    client.submitSend.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      return { status: "queued" };
+    });
 
-    const pending = queueReaderEmail({
+    const outcome = await queueReaderEmail({
+      client,
       email: createEmail(),
       emailAccountId: "account",
+      holdForUndo: true,
       messageIds: ["message"],
       mutationId: "mutation",
       online: true,
-      settlementTimeoutMs: 100,
       threadId: "thread",
     });
-    await vi.advanceTimersByTimeAsync(100);
 
-    await expect(pending).resolves.toEqual({
-      reason: "pending",
-      status: "queued",
+    expect(outcome).toMatchObject({
+      mutationId: "mutation",
+      status: "held",
       threadId: "thread",
     });
-    expect(outbox.enqueue).not.toHaveBeenCalled();
-    vi.useRealTimers();
+    if (outcome.status !== "held") throw new Error("expected held");
+    expect(outcome.holdUntil).toBeGreaterThan(Date.now());
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notBeforeMs: outcome.holdUntil,
+      }),
+    );
+    expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
   it("explains when the queued email is waiting for account reconnection", async () => {
-    outbox.get.mockResolvedValue(createMutation("blocked_auth"));
-
+    const client = createClient({
+      handle: createHandle({ status: "blocked_auth" }),
+    });
     await expect(
       queueReaderEmail({
+        client,
         email: createEmail(),
         emailAccountId: "account",
         messageIds: ["message"],
@@ -311,7 +278,11 @@ describe("queueReaderEmail", () => {
 
   it("keeps a slow online send queued instead of resubmitting it", async () => {
     vi.useFakeTimers();
+    const client = createClient({
+      handle: createHandle({ status: "queued" }),
+    });
     const pending = queueReaderEmail({
+      client,
       email: createEmail(),
       emailAccountId: "account",
       messageIds: ["message"],
@@ -320,7 +291,6 @@ describe("queueReaderEmail", () => {
       threadId: "thread",
     });
     await vi.advanceTimersByTimeAsync(100);
-
     await expect(pending).resolves.toEqual({
       reason: "pending",
       status: "queued",
@@ -338,23 +308,59 @@ function createEmail() {
   };
 }
 
-function createMutation(
-  status: MailMutation["status"],
-  extra: Partial<MailMutation> = {},
-): MailMutation {
+function createClient(options?: { handle?: ReturnType<typeof createHandle> }) {
   return {
-    id: "mutation-id",
-    batchId: "mutation-id",
-    emailAccountId: "account",
-    threadId: "thread",
-    messageIds: ["message"],
-    kind: "reply",
-    email: createEmail(),
-    status,
+    observeOperation: vi.fn(() => options?.handle ?? createHandle()),
+    saveDraft: vi.fn().mockResolvedValue({
+      status: "saved",
+      draftRevision: 1,
+    }),
+    readDraft: vi.fn().mockResolvedValue({ status: "missing" }),
+    submitSend: vi.fn().mockResolvedValue({ status: "queued" }),
+  } as {
+    observeOperation: ReturnType<typeof vi.fn>;
+    saveDraft: ReturnType<typeof vi.fn>;
+    readDraft: ReturnType<typeof vi.fn>;
+    submitSend: ReturnType<typeof vi.fn>;
+  } & import("@inboxzero/mail-core/engine").MailClient;
+}
+
+function createHandle(initial?: Partial<OperationState>) {
+  let listener: (() => void) | undefined;
+  let data: OperationState | null = initial ? operationState(initial) : null;
+  const handle: QueryHandle<OperationState> & {
+    set: (next: Partial<OperationState>) => void;
+    subscribe: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+  } = {
+    getSnapshot: () => ({
+      status: data ? "ready" : "loading",
+      revision: null,
+      data,
+      refreshing: false,
+      error: null,
+    }),
+    subscribe: vi.fn((next: () => void) => {
+      listener = next;
+      return vi.fn();
+    }),
+    close: vi.fn(),
+    set(next) {
+      data = operationState(next);
+      listener?.();
+    },
+  };
+  return handle;
+}
+
+function operationState(partial: Partial<OperationState>): OperationState {
+  return {
+    key: { accountId: "account", operationId: "mutation" },
+    status: "queued",
+    authority: "backend",
     attempts: 0,
-    nextAttemptAt: 0,
-    createdAt: 0,
-    updatedAt: 0,
-    ...extra,
+    nextAttemptAtMs: null,
+    error: null,
+    ...partial,
   };
 }

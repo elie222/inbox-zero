@@ -17,9 +17,20 @@ const basePort = getUrlPort(baseURL);
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5433/postgres";
+const mailProvider =
+  process.env.PLAYWRIGHT_MAIL_PROVIDER === "microsoft" ? "microsoft" : "google";
 const emulateBaseUrl =
-  process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
+  (mailProvider === "microsoft"
+    ? process.env.MICROSOFT_BASE_URL
+    : process.env.GOOGLE_BASE_URL) ??
+  `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
+const microsoftClientId =
+  process.env.MICROSOFT_CLIENT_ID ?? "emulate-microsoft-client-id";
+const microsoftClientSecret =
+  process.env.MICROSOFT_CLIENT_SECRET ?? "emulate-microsoft-secret";
+const microsoftWebhookClientState =
+  process.env.MICROSOFT_WEBHOOK_CLIENT_STATE ?? "playwright-microsoft-webhook";
 const emailBaseUrl =
   process.env.PLAYWRIGHT_EMAIL_BASE_URL ??
   `http://127.0.0.1:${await getAvailablePort()}`;
@@ -73,22 +84,31 @@ const authStatePath = path.join(
 );
 const emulateSeedPath = writeEmulateSeed({
   baseURL,
+  mailProvider,
   playwrightTestEmail,
   runId,
 });
 const emulateCommand =
   process.env.EMULATE_COMMAND ??
-  `npx emulate start --service google --port ${emulatePort} --seed ${emulateSeedPath}`;
+  `npx emulate start --service ${mailProvider} --port ${emulatePort} --seed ${emulateSeedPath}`;
 
 fs.mkdirSync(path.dirname(authStatePath), { recursive: true });
 process.env.DATABASE_URL = databaseUrl;
-process.env.GOOGLE_BASE_URL = emulateBaseUrl;
+if (mailProvider === "microsoft") {
+  process.env.MICROSOFT_BASE_URL = emulateBaseUrl;
+  process.env.MICROSOFT_CLIENT_ID = microsoftClientId;
+  process.env.MICROSOFT_CLIENT_SECRET = microsoftClientSecret;
+  process.env.MICROSOFT_WEBHOOK_CLIENT_STATE = microsoftWebhookClientState;
+} else {
+  process.env.GOOGLE_BASE_URL = emulateBaseUrl;
+}
 process.env.INTERNAL_API_KEY = internalApiKey;
 process.env.NEXT_PUBLIC_BASE_URL = baseURL;
 process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
+process.env.PLAYWRIGHT_MAIL_PROVIDER = mailProvider;
 process.env.PLAYWRIGHT_STRIPE_BASE_URL = stripeBaseUrl;
 process.env.PLAYWRIGHT_LLM_BASE_URL = llmBaseUrl;
 // Only a default. Production runs freeze NEXT_PUBLIC_* into the build, which
@@ -156,7 +176,8 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      name: "Google emulator",
+      name:
+        mailProvider === "microsoft" ? "Microsoft emulator" : "Google emulator",
       stdout: "pipe",
       command: emulateCommand,
       cwd: process.cwd(),
@@ -235,7 +256,14 @@ export default defineConfig({
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
         GOOGLE_CLIENT_SECRET:
           process.env.GOOGLE_CLIENT_SECRET ?? "client_secret",
-        GOOGLE_BASE_URL: emulateBaseUrl,
+        ...(mailProvider === "microsoft"
+          ? {
+              MICROSOFT_BASE_URL: emulateBaseUrl,
+              MICROSOFT_CLIENT_ID: microsoftClientId,
+              MICROSOFT_CLIENT_SECRET: microsoftClientSecret,
+              MICROSOFT_WEBHOOK_CLIENT_STATE: microsoftWebhookClientState,
+            }
+          : { GOOGLE_BASE_URL: emulateBaseUrl }),
         GOOGLE_PUBSUB_TOPIC_NAME:
           process.env.GOOGLE_PUBSUB_TOPIC_NAME ?? "topic",
         GOOGLE_PUBSUB_VERIFICATION_TOKEN:
@@ -290,14 +318,31 @@ export default defineConfig({
   ],
 });
 
-function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
+function writeEmulateSeed({
+  baseURL,
+  mailProvider,
+  playwrightTestEmail,
+  runId,
+}) {
+  const isMicrosoft = mailProvider === "microsoft";
   const templatePath = path.join(
     process.cwd(),
-    "emulate.playwright.config.yaml",
+    isMicrosoft
+      ? "emulate.playwright.microsoft.yaml"
+      : "emulate.playwright.config.yaml",
   );
   const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
-  const redirectUri = new URL("/api/auth/callback/google", baseURL).href;
+  const redirectUri = new URL(
+    isMicrosoft ? "/api/auth/callback/microsoft" : "/api/auth/callback/google",
+    baseURL,
+  ).href;
+  const linkingUri = new URL(
+    isMicrosoft
+      ? "/api/outlook/linking/callback"
+      : "/api/google/linking/callback",
+    baseURL,
+  ).href;
   const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
   const profileImage = fs.readFileSync(
@@ -310,6 +355,7 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
+    .replaceAll("__PLAYWRIGHT_TEST_LINKING_URI__", linkingUri)
     .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())
     .replaceAll("__PLAYWRIGHT_MEETING_END__", meetingEnd.toISOString())
     .replaceAll(
@@ -322,10 +368,33 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
         attachment: profileImage,
         recipient: playwrightTestEmail,
       }),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_CALENDAR_INVITE_RAW__",
+      createCalendarInviteMessage({
+        recipient: playwrightTestEmail,
+        start: meetingStart,
+        end: meetingEnd,
+      }),
+    )
+    .replaceAll("__PLAYWRIGHT_LONG_LINK__", createOverflowLongLink())
+    .replaceAll(
+      "__PLAYWRIGHT_DESIGNED_HTML__",
+      JSON.stringify(createDesignedThemeHtml()).slice(1, -1),
     );
 
   // Mailbox synchronization only covers recent mail. Preserve the fixture's
   // ordering without letting fixed seed dates age out of that window.
+  seed = isMicrosoft
+    ? refreshMicrosoftMessageDates(seed)
+    : refreshGmailMessageDates(seed);
+
+  fs.writeFileSync(outputPath, seed);
+
+  return outputPath;
+}
+
+function refreshGmailMessageDates(seed) {
   const messageDates = [
     ...new Set(
       [...seed.matchAll(/internal_date: "(\d+)"/g)].map((match) =>
@@ -334,15 +403,28 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
     ),
   ].sort((left, right) => right - left);
   const yesterday = Date.now() - 24 * 60 * 60 * 1000;
-  seed = seed.replaceAll(/internal_date: "(\d+)"/g, (_, timestamp) => {
+  return seed.replaceAll(/internal_date: "(\d+)"/g, (_, timestamp) => {
     const date =
       yesterday - messageDates.indexOf(Number(timestamp)) * 60 * 60 * 1000;
     return `internal_date: "${date}"`;
   });
+}
 
-  fs.writeFileSync(outputPath, seed);
-
-  return outputPath;
+function refreshMicrosoftMessageDates(seed) {
+  const messageDates = [
+    ...new Set(
+      [...seed.matchAll(/received_date_time: "([^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ),
+  ].sort((left, right) => Date.parse(right) - Date.parse(left));
+  const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+  return seed.replaceAll(/received_date_time: "([^"]+)"/g, (_, timestamp) => {
+    const date = new Date(
+      yesterday - messageDates.indexOf(timestamp) * 60 * 60 * 1000,
+    );
+    return `received_date_time: "${date.toISOString()}"`;
+  });
 }
 
 function createReaderVisualMessage({ attachment, recipient }) {
@@ -379,6 +461,70 @@ function createReaderVisualMessage({ attachment, recipient }) {
   ].join("\r\n");
 
   return Buffer.from(mime, "utf8").toString("base64url");
+}
+
+function createCalendarInviteMessage({ recipient, start, end }) {
+  const boundary = "playwright-calendar-invite-boundary";
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Inbox Zero//Playwright//EN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:playwright-calendar-invite@example.com",
+    "SUMMARY:Project planning",
+    `DTSTART:${toIcsUtc(start)}`,
+    `DTEND:${toIcsUtc(end)}`,
+    "ORGANIZER:mailto:organizer@example.com",
+    `ATTENDEE;PARTSTAT=ACCEPTED:mailto:${recipient}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const mime = [
+    "From: Organizer Example <organizer@example.com>",
+    `To: ${recipient}`,
+    "Subject: Calendar Invitation Message",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "",
+    "Please join the project planning meeting.",
+    `--${boundary}`,
+    'Content-Type: text/calendar; method=REQUEST; charset="UTF-8"',
+    'Content-Disposition: attachment; filename="invite.ics"',
+    "",
+    ics,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+  return Buffer.from(mime, "utf8").toString("base64url");
+}
+
+function toIcsUtc(value) {
+  return new Date(value)
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replace(/\.\d{3}Z$/, "Z");
+}
+
+function createOverflowLongLink() {
+  return `https://example.com/account?reference=${"abcdef0123456789".repeat(24)}`;
+}
+
+function createDesignedThemeHtml() {
+  return `<html><head><style>
+          .card { background: #f8f9fa; color: #202124; }
+          @media (prefers-color-scheme: dark) {
+            .card { background: #202124 !important; color: #e8eaed !important; }
+          }
+        </style></head><body>
+          <div class="card" style="background:#f8f9fa;color:#202124;font-family:Arial,sans-serif;font-size:16px">
+            Finish setup
+          </div>
+        </body></html>`;
 }
 
 function getUrlPort(url) {

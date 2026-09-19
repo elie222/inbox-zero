@@ -1,8 +1,5 @@
 "use client";
 
-import { mergePartialSearchResults } from "./local-search-results";
-import { useMailSyncActivation } from "./use-mail-sync-activation";
-import { useLocalMailSearch } from "./use-local-mail-search";
 import type { ListThread } from "./types";
 
 import { MailPanelErrorBoundary } from "@/app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary";
@@ -75,13 +72,10 @@ import {
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
-import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
-import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
-import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
 import {
   MailLayout,
   MailSplitFilterKind,
@@ -114,6 +108,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
+import { useThreadPlans } from "@/hooks/useThreadPlans";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
@@ -146,7 +141,7 @@ import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingContent } from "@/components/LoadingContent";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
-import type { LabelCount } from "@/app/api/labels/counts/route";
+import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
 import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
@@ -160,7 +155,7 @@ const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   backgroundColor: option.value,
   textColor: "#000000",
 }));
-const NO_COUNTS = new Map<string, LabelCount>();
+const NO_COUNTS = new Map<string, MailboxLabelCount>();
 
 export function MailShell() {
   const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
@@ -172,11 +167,11 @@ export function MailShell() {
   const { userLabels } = useEmail();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
-  const {
-    adjustInboxUnread,
-    countsById,
-    mutate: mutateCounts,
-  } = useLabelCounts({ emailAccountId });
+  const { countsById, mutate: mutateCounts } = useLabelCounts({
+    emailAccountId,
+    labels: allLabels,
+    folders,
+  });
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
@@ -191,6 +186,7 @@ export function MailShell() {
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
+  const client = useOptionalMailClient();
 
   const [openThreadQuery, setOpenThreadQuery] = useQueryStates({
     "thread-id": parseAsString,
@@ -263,11 +259,6 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
-  useMailSyncActivation({
-    emailAccountId,
-    isAllAccounts,
-    combinedAccounts,
-  });
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;
@@ -453,74 +444,11 @@ export function MailShell() {
     loadMore,
     refetch: refetchThreadList,
   } = isAllAccounts ? combinedThreadState : accountThreadState;
-
-  const searchAccounts = useMemo(
-    () =>
-      isAllAccounts
-        ? combinedAccounts
-        : [
-            {
-              id: emailAccountId,
-              email: userEmail,
-              name: emailAccount?.name ?? null,
-              image: emailAccount?.image ?? null,
-            },
-          ],
-    [
-      isAllAccounts,
-      combinedAccounts,
-      emailAccountId,
-      userEmail,
-      emailAccount?.name,
-      emailAccount?.image,
-    ],
-  );
-  const searchLabelsByAccount = useMemo(
-    () => (isAllAccounts ? labelsByAccount : { [emailAccountId]: userLabels }),
-    [isAllAccounts, labelsByAccount, emailAccountId, userLabels],
-  );
   const providerState = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
   const hasProviderResponse = searchSettled && providerState.hasRemoteResponse;
-  const hasPartialProviderResponse =
-    isAllAccounts && combinedThreadState.failedAccountIds.length > 0;
-  const localSearch = useLocalMailSearch({
-    query: searchQuery,
-    accounts: searchAccounts,
-    labelsByAccount: searchLabelsByAccount,
-    combined: isAllAccounts,
-    enabled:
-      !!searchQuery && (!hasProviderResponse || hasPartialProviderResponse),
-  });
-  const showLocalSearch =
-    !!searchQuery &&
-    (!hasProviderResponse || hasPartialProviderResponse) &&
-    localSearch.status === "ready";
-  // Until local search answers it may still find matches, so it is too early to
-  // say the query needs the provider or that the search failed.
-  const localSearchPending =
-    !!searchQuery &&
-    (!hasProviderResponse || hasPartialProviderResponse) &&
-    !localSearch.status;
-  const threads = useMemo(() => {
-    if (showLocalSearch) {
-      if (!hasProviderResponse) return localSearch.threads;
-      return mergePartialSearchResults(
-        remoteThreads,
-        localSearch.threads,
-        combinedThreadState.failedAccountIds,
-      );
-    }
-    return searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
-  }, [
-    showLocalSearch,
-    hasProviderResponse,
-    localSearch.threads,
-    remoteThreads,
-    combinedThreadState.failedAccountIds,
-    searchSettled,
-  ]);
+  const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
     isAllAccounts,
@@ -541,23 +469,10 @@ export function MailShell() {
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
   let emptySearchMessage: string | undefined;
-  if (showLocalSearch) {
-    emptySearchMessage = "No matches yet.";
-  } else if (searchQuery && !hasProviderResponse && !localSearchPending) {
-    if (!localSearch.online)
-      emptySearchMessage =
-        "Connect to search this query with your email provider.";
-    else if (providerState.searchError)
-      emptySearchMessage =
-        "Search could not complete. Try again when connected.";
+  if (searchQuery && hasProviderResponse && !threads.length) {
+    emptySearchMessage = "No emails in this view";
   }
-  const searchStatus = getSearchStatus({
-    query: searchQuery,
-    hasProviderResponse,
-    online: localSearch.online,
-    error: providerState.searchError,
-    localStatus: localSearch.status,
-  });
+  const searchStatus = undefined;
 
   const selection = useThreadSelection(orderedIds);
 
@@ -609,19 +524,6 @@ export function MailShell() {
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
   const [visibleReaderThreadKey, setVisibleReaderThreadKey] =
     useState<string>();
-  const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
-  const adjacentPrefetchScopeKey = `adjacent:${readerThreadKey ?? "none"}`;
-  const threadSelections = useMemo(
-    () =>
-      threads.map((thread) => getListThreadSelection(thread, emailAccountId)),
-    [emailAccountId, threads],
-  );
-  useAdjacentThreadPrefetch({
-    coordinator: threadPrefetchCoordinator,
-    currentThread: deferredReaderSelection,
-    scopeKey: adjacentPrefetchScopeKey,
-    threads: threadSelections,
-  });
   const {
     data: openThreadData,
     error: openThreadError,
@@ -635,6 +537,10 @@ export function MailShell() {
     },
     { includeDrafts: true, localMail: true },
   );
+  const { data: openThreadPlanData } = useThreadPlans({
+    threadId: deferredReaderSelection?.threadId,
+    emailAccountId: deferredReaderSelection?.emailAccountId,
+  });
   // Withheld until the deferred id catches up, so a fast J/K can't pair the new
   // thread's header with the previous thread's body.
   const openMessages = readerSelectionSettled
@@ -714,7 +620,7 @@ export function MailShell() {
     archive,
     trash,
     markSpam,
-    setReadState: queueReadState,
+    setReadState,
     setStarredState,
     snooze,
     undo,
@@ -723,38 +629,6 @@ export function MailShell() {
     readerTarget,
     threads,
   });
-  const inboxFolderId = folders.find(
-    (folder) => folder.systemType === "INBOX",
-  )?.id;
-  // Behind a ref so setReadState stays referentially stable across thread-list
-  // refreshes, matching useThreadActions.
-  const threadsRef = useRef(threads);
-  threadsRef.current = threads;
-  const setReadState = useCallback(
-    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
-      const threadsBeforeQueue = threadsRef.current;
-      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
-      if (!isAllAccounts) {
-        adjustInboxUnread(
-          getInboxUnreadDelta({
-            countByMessage: isOutlook,
-            inboxFolderId,
-            read,
-            threadKeys: queuedKeys,
-            threads: threadsBeforeQueue,
-          }),
-        );
-      }
-      return queuedKeys;
-    },
-    [
-      adjustInboxUnread,
-      inboxFolderId,
-      isAllAccounts,
-      isOutlook,
-      queueReadState,
-    ],
-  );
   const markRead = useCallback(
     (threadKeys: string[]) => setReadState(threadKeys, true, false),
     [setReadState],
@@ -1013,9 +887,11 @@ export function MailShell() {
       : accountsData?.emailAccounts.find(
           (account) => account.id === labelAccountId,
         );
+  // Outlook categories use the same engine membership command as Gmail labels.
   const canLabel =
     currentLabelTargets.length > 0 &&
-    isGoogleProvider(labelAccount?.account.provider) &&
+    (isGoogleProvider(labelAccount?.account.provider) ||
+      isMicrosoftProvider(labelAccount?.account.provider)) &&
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
     );
@@ -1779,11 +1655,7 @@ export function MailShell() {
                 <LoadingContent
                   loading={
                     !threads.length &&
-                    (localSearchPending ||
-                      (!showLocalSearch &&
-                        (isLoading || (!!searchQuery && !searchSettled)) &&
-                        (!searchQuery ||
-                          (localSearch.online && !providerState.searchError))))
+                    (isLoading || (!!searchQuery && !searchSettled))
                   }
                   error={searchQuery ? undefined : error}
                 >
@@ -1801,26 +1673,9 @@ export function MailShell() {
                     onOpenThread={openAt}
                     onToggleSelect={selection.toggle}
                     onSelectRangeTo={selection.selectRangeTo}
-                    showLoadMore={
-                      showLocalSearch
-                        ? localSearch.hasMore ||
-                          (hasProviderResponse && hasMore)
-                        : hasMore
-                    }
-                    isLoadingMore={
-                      showLocalSearch
-                        ? localSearch.isLoadingMore ||
-                          (hasProviderResponse && isLoadingMore)
-                        : isLoadingMore
-                    }
-                    onLoadMore={
-                      showLocalSearch
-                        ? () => {
-                            if (localSearch.hasMore) localSearch.loadMore();
-                            if (hasProviderResponse && hasMore) loadMore();
-                          }
-                        : loadMore
-                    }
+                    showLoadMore={hasMore}
+                    isLoadingMore={isLoadingMore}
+                    onLoadMore={loadMore}
                     showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
                     listKey={
                       isAllAccounts
@@ -1898,7 +1753,7 @@ export function MailShell() {
                   renderMessageMenu={(message) => (
                     <MessageActionsMenu
                       message={message}
-                      plans={openThread?.plans ?? []}
+                      plans={openThreadPlanData?.plans ?? []}
                       setChatInput={setChatInput}
                       showFixWithChat={
                         !isAllAccounts ||
@@ -2012,7 +1867,7 @@ export function MailShell() {
                 ? combinedThreadState.optimisticallyUpdateThreads(keys, updater)
                 : accountThreadState.optimisticallyUpdateThreads(keys, updater);
               for (const key of keys) update.commit(key);
-              requestMailboxSync(pickerAccount.id);
+              client?.requestSync([pickerAccount.id]).catch(() => undefined);
               refetchOpenThread();
               if (labelPicker.mode === "move") {
                 if (openThreadKey && keys.includes(openThreadKey)) {
@@ -2066,24 +1921,3 @@ function getMailSearchVariant({
 }
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
-
-function getSearchStatus({
-  query,
-  hasProviderResponse,
-  online,
-  error,
-  localStatus,
-}: {
-  query: string | null;
-  hasProviderResponse: boolean;
-  online: boolean;
-  error: unknown;
-  localStatus?: string;
-}) {
-  if (!query || hasProviderResponse) return;
-  // Without local results the empty list already explains an offline or
-  // failed search, and an in-progress one needs no banner at all.
-  if (localStatus !== "ready") return;
-  if (!online) return "Offline. Results may be incomplete.";
-  if (error) return "Search could not complete. Results may be incomplete.";
-}

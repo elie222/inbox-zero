@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  matchesMailEngineStaticRequest,
   clearsOfflineMailOnGet,
 } from "./mail-cache";
 
@@ -211,6 +212,42 @@ describe("offline mail cache", () => {
     expect(
       matchesOfflineMailRequest(
         documentRequest("https://other.example.com/account-1/mail"),
+        origin,
+      ),
+    ).toBe(false);
+  });
+
+  it("caches sqlite-wasm and Next static chunks for offline engine boot", () => {
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/chunks/engine-worker.js`),
+        origin,
+      ),
+    ).toBe(true);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/media/sqlite3.wasm`),
+        origin,
+      ),
+    ).toBe(true);
+    const worker = new Request(`${origin}/sqlite3-opfs-async-proxy.js`);
+    Object.defineProperty(worker, "destination", { value: "worker" });
+    expect(matchesMailEngineStaticRequest(worker, origin)).toBe(true);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/chunks/engine.hot-update.js`),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/api/user/email-accounts`),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request("https://other.example.com/_next/static/chunks/app.js"),
         origin,
       ),
     ).toBe(false);
