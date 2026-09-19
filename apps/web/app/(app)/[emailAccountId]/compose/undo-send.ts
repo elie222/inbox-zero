@@ -33,6 +33,8 @@ export function beginUndoSend({
   restoreComposer: () => void;
   holdUntil: number;
 }) {
+  const duration = holdUntil - Date.now();
+  if (duration <= 0) return;
   pending = {
     client,
     operationId,
@@ -44,8 +46,7 @@ export function beginUndoSend({
     id: UNDO_SEND_TOAST_ID,
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
-    // Keep the toast up even if submitSend already used the original hold.
-    duration: Math.max(UNDO_SEND_DELAY_MS, holdUntil - Date.now()),
+    duration,
     onUndo: async () => {
       await undoPendingSend();
     },

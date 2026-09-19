@@ -8,6 +8,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { sendEmailToDraftContent } from "@/utils/mail-engine/draft-content";
 import { stageSendAttachments } from "@/utils/mail-engine/stage-attachments";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+import { getUndoSendHoldUntil } from "./undo-send";
 
 export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
 
@@ -53,7 +54,6 @@ export async function queueReaderEmail({
 }): Promise<ReaderEmailOutcome> {
   const commandId = mutationId ?? crypto.randomUUID();
   const draftId = commandId;
-  const shouldHold = holdUntil !== undefined && holdUntil > Date.now();
   const attachmentIds = await stageSendAttachments(
     emailAccountId,
     email.attachments,
@@ -65,16 +65,14 @@ export async function queueReaderEmail({
     content,
   });
   const nowMs = Date.now();
+  const undoHoldUntil =
+    holdUntil !== undefined ? getUndoSendHoldUntil(online, nowMs) : undefined;
   const admission = await client.submitSend({
     commandId,
     conversationId: threadId,
     draft: { accountId: emailAccountId, draftId },
     draftRevision,
-    notBeforeMs: !online
-      ? nowMs + OFFLINE_DISPATCH_HOLD_MS
-      : shouldHold
-        ? holdUntil
-        : undefined,
+    notBeforeMs: !online ? nowMs + OFFLINE_DISPATCH_HOLD_MS : undoHoldUntil,
     replyTo: messageIds[0]
       ? { accountId: emailAccountId, messageId: messageIds[0] }
       : null,
@@ -88,10 +86,10 @@ export async function queueReaderEmail({
     );
   }
   await onQueued?.();
-  if (shouldHold && holdUntil !== undefined) {
+  if (undoHoldUntil !== undefined) {
     return {
       status: "held",
-      holdUntil,
+      holdUntil: undoHoldUntil,
       mutationId: commandId,
       threadId,
     };

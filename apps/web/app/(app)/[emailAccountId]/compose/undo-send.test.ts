@@ -48,13 +48,16 @@ describe("undo send", () => {
       restoreComposer,
     });
 
-    expect(notifications.toastUndo).toHaveBeenCalledWith({
-      duration: UNDO_SEND_DELAY_MS,
+    const toast = notifications.toastUndo.mock.calls[0]?.[0];
+    expect(toast).toEqual({
+      duration: expect.any(Number),
       id: "undo-send",
       message: "Email sent!",
       onUndo: expect.any(Function),
       shortcut: "z",
     });
+    expect(toast.duration).toBeGreaterThan(0);
+    expect(toast.duration).toBeLessThanOrEqual(UNDO_SEND_DELAY_MS);
     await expect(undoPendingSend()).resolves.toBe(true);
     expect(client.cancelOperation).toHaveBeenCalledWith({
       accountId: "account",
@@ -65,7 +68,7 @@ describe("undo send", () => {
     await expect(undoPendingSend()).resolves.toBe(false);
   });
 
-  it("keeps the undo toast for the full delay even if submit already used the hold", () => {
+  it("does not offer undo after the hold has already expired", () => {
     beginUndoSend({
       client: {
         cancelOperation: vi.fn().mockResolvedValue({ status: "cancelled" }),
@@ -76,12 +79,7 @@ describe("undo send", () => {
       restoreComposer: vi.fn(),
     });
 
-    expect(notifications.toastUndo).toHaveBeenCalledWith(
-      expect.objectContaining({
-        duration: UNDO_SEND_DELAY_MS,
-        message: "Email sent!",
-      }),
-    );
+    expect(notifications.toastUndo).not.toHaveBeenCalled();
   });
 
   it("does not restore when the send has already started", async () => {

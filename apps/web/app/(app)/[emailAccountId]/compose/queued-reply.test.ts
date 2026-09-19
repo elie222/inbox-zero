@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperationState } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import { queueReaderEmail } from "./queued-reply";
+import { UNDO_SEND_DELAY_MS } from "./undo-send";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const staging = vi.hoisted(() => vi.fn());
@@ -185,63 +186,75 @@ describe("queueReaderEmail", () => {
   });
 
   it("holds an online send so undo can cancel it before delivery", async () => {
-    const holdUntil = Date.now() + 5000;
     const onQueued = vi.fn();
     const client = createClient();
+    const before = Date.now();
 
-    await expect(
-      queueReaderEmail({
-        client,
-        email: createEmail(),
-        emailAccountId: "account",
-        holdUntil,
-        messageIds: ["message"],
-        mutationId: "mutation",
-        onQueued,
-        online: true,
-        threadId: "thread",
-      }),
-    ).resolves.toEqual({
-      holdUntil,
+    const outcome = await queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      holdUntil: before + UNDO_SEND_DELAY_MS,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      onQueued,
+      online: true,
+      threadId: "thread",
+    });
+    const after = Date.now();
+
+    expect(outcome).toMatchObject({
       mutationId: "mutation",
       status: "held",
       threadId: "thread",
     });
+    if (outcome.status !== "held") throw new Error("expected held");
+    expect(outcome.holdUntil).toBeGreaterThanOrEqual(
+      before + UNDO_SEND_DELAY_MS,
+    );
+    expect(outcome.holdUntil).toBeLessThanOrEqual(after + UNDO_SEND_DELAY_MS);
     expect(client.submitSend).toHaveBeenCalledWith(
       expect.objectContaining({
         commandId: "mutation",
-        notBeforeMs: holdUntil,
+        notBeforeMs: outcome.holdUntil,
       }),
     );
     expect(onQueued).toHaveBeenCalledOnce();
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
-  it("still holds when submitSend outlasts the undo window", async () => {
-    const holdUntil = Date.now() + 20;
+  it("still holds when submitSend outlasts the original undo window", async () => {
+    const originalHoldUntil = Date.now() + 20;
     const client = createClient();
     client.submitSend.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 40));
       return { status: "queued" };
     });
 
-    await expect(
-      queueReaderEmail({
-        client,
-        email: createEmail(),
-        emailAccountId: "account",
-        holdUntil,
-        messageIds: ["message"],
-        mutationId: "mutation",
-        online: true,
-        threadId: "thread",
-      }),
-    ).resolves.toEqual({
-      holdUntil,
+    const outcome = await queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      holdUntil: originalHoldUntil,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      threadId: "thread",
+    });
+
+    expect(outcome).toMatchObject({
       mutationId: "mutation",
       status: "held",
       threadId: "thread",
     });
+    if (outcome.status !== "held") throw new Error("expected held");
+    expect(outcome.holdUntil).toBeGreaterThan(Date.now());
+    expect(outcome.holdUntil).toBeGreaterThan(originalHoldUntil);
+    expect(client.submitSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notBeforeMs: outcome.holdUntil,
+      }),
+    );
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
