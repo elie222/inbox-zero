@@ -12,9 +12,17 @@ export async function desktopStoragePressure(
   const readFs = options.statfs ?? statfs;
   try {
     const info = await readFs(dirname(databasePath));
-    const free = Number(info.bavail) * Number(info.bsize);
-    if (!Number.isFinite(free) || free < 0) return false;
-    return free < DESKTOP_STORAGE_FREE_BYTES;
+    const available = Number(info.bavail);
+    const blockSize = Number(info.bsize);
+    if (
+      !Number.isFinite(available) ||
+      available < 0 ||
+      !Number.isFinite(blockSize) ||
+      blockSize <= 0
+    ) {
+      return false;
+    }
+    return available * blockSize < DESKTOP_STORAGE_FREE_BYTES;
   } catch {
     return false;
   }

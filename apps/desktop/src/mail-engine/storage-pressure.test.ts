@@ -6,14 +6,19 @@ import {
 
 describe("desktopStoragePressure", () => {
   it("is true when the mailbox volume has less than the free-space floor", async () => {
+    let probed: string | undefined;
     await expect(
       desktopStoragePressure("/tmp/mail/mailbox.sqlite", {
-        statfs: async () => ({ bavail: 1, bsize: 4096 }),
+        statfs: async (path) => {
+          probed = path;
+          return { bavail: 1, bsize: 4096 };
+        },
       }),
     ).resolves.toBe(true);
+    expect(probed).toBe("/tmp/mail");
   });
 
-  it("is false when there is enough free space or statfs fails", async () => {
+  it("is false when there is enough free space or the probe is unusable", async () => {
     await expect(
       desktopStoragePressure("/tmp/mail/mailbox.sqlite", {
         statfs: async () => ({
@@ -32,6 +37,11 @@ describe("desktopStoragePressure", () => {
     await expect(
       desktopStoragePressure("/tmp/mail/mailbox.sqlite", {
         statfs: async () => ({ bavail: Number.NaN, bsize: 4096 }),
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      desktopStoragePressure("/tmp/mail/mailbox.sqlite", {
+        statfs: async () => ({ bavail: 1, bsize: 0 }),
       }),
     ).resolves.toBe(false);
   });
