@@ -3,6 +3,7 @@ import {
   createHostRuntime,
   type MailEngine,
 } from "@inboxzero/mail-core/engine";
+import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import { dispatchMailIpc } from "./ipc";
@@ -18,6 +19,7 @@ export async function createDesktopMailOwner(input: {
   databasePath: string;
   source: MailboxSource;
   executor: OperationExecutor;
+  assistant?: AssistantStateSource;
 }): Promise<DesktopMailOwner> {
   let owned = await createOwnedEngine(input);
   return {
@@ -38,12 +40,14 @@ async function createOwnedEngine(input: {
   databasePath: string;
   source: MailboxSource;
   executor: OperationExecutor;
+  assistant?: AssistantStateSource;
 }): Promise<{ engine: MailEngine; stop(): Promise<void> }> {
   const store = await createDesktopMailStore(input.databasePath);
   const engine = createMailEngine({
     store,
     source: input.source,
     executor: input.executor,
+    assistant: input.assistant,
     runtime: createHostRuntime(),
     ownerId: "desktop-owner",
   });

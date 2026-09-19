@@ -1,17 +1,21 @@
 import {
+  createBackendAssistantSource,
   createBackendMailboxSource,
   createBackendOperationExecutor,
   type MailHttpRequestFn,
 } from "@inboxzero/mail-core/protocol/backend-adapter";
+import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 
 export function createRoutedBackendPorts(request: MailHttpRequestFn): {
   source: MailboxSource;
   executor: OperationExecutor;
+  assistant: AssistantStateSource;
 } {
   const sources = new Map<string, MailboxSource>();
   const executors = new Map<string, OperationExecutor>();
+  const assistants = new Map<string, AssistantStateSource>();
   const sourceFor = (accountId: string) => {
     const existing = sources.get(accountId);
     if (existing) return existing;
@@ -24,6 +28,13 @@ export function createRoutedBackendPorts(request: MailHttpRequestFn): {
     if (existing) return existing;
     const created = createBackendOperationExecutor({ request, accountId });
     executors.set(accountId, created);
+    return created;
+  };
+  const assistantFor = (accountId: string) => {
+    const existing = assistants.get(accountId);
+    if (existing) return existing;
+    const created = createBackendAssistantSource({ request, accountId });
+    assistants.set(accountId, created);
     return created;
   };
   return {
@@ -48,6 +59,9 @@ export function createRoutedBackendPorts(request: MailHttpRequestFn): {
         executorFor(input.operation.key.accountId).execute(input),
       inspect: (input) =>
         executorFor(input.operation.key.accountId).inspect(input),
+    },
+    assistant: {
+      read: (input) => assistantFor(input.session.accountId).read(input),
     },
   };
 }

@@ -37,6 +37,17 @@ describe("readAssistantStatePage", () => {
         },
       },
     ]);
-    expect(page.nextCursor).toBeNull();
+    expect(page.nextCursor).toBe("rule-1");
+  });
+
+  it("keeps the current cursor when there are no further executed rules", async () => {
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    const page = await readAssistantStatePage({
+      emailAccountId: "acc-1",
+      cursor: "rule-1",
+    });
+    expect(page.entries).toEqual([]);
+    expect(page.cursor).toBe("rule-1");
+    expect(page.nextCursor).toBe("rule-1");
   });
 });

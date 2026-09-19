@@ -4,6 +4,7 @@ import {
   type MailEngine,
 } from "@inboxzero/mail-core/engine";
 import {
+  createBackendAssistantSource,
   createBackendMailboxSource,
   createBackendOperationExecutor,
 } from "@inboxzero/mail-core/protocol/backend-adapter";
@@ -53,6 +54,10 @@ async function createInTabEngine(input: {
     store,
     source: createBackendMailboxSource({ request, accountId: input.accountId }),
     executor: createBackendOperationExecutor({
+      request,
+      accountId: input.accountId,
+    }),
+    assistant: createBackendAssistantSource({
       request,
       accountId: input.accountId,
     }),

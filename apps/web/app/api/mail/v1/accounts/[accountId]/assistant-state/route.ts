@@ -21,7 +21,7 @@ export const GET = withEmailProvider(
     if (mismatch) return mismatch;
     const page = await readAssistantStatePage({
       emailAccountId: request.auth.emailAccountId,
-      cursor: request.nextUrl.searchParams.get("cursor"),
+      cursor: request.nextUrl.searchParams.get("cursor") || null,
     });
     return NextResponse.json(
       assistantStateResultSchema.parse({

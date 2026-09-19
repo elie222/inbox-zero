@@ -7,10 +7,11 @@ export async function readAssistantStatePage(input: {
   pageSize?: number;
 }): Promise<Omit<AssistantStatePage, "session">> {
   const pageSize = input.pageSize ?? 50;
+  const cursor = input.cursor || null;
   const rows = await prisma.executedRule.findMany({
     where: {
       emailAccountId: input.emailAccountId,
-      ...(input.cursor ? { id: { gt: input.cursor } } : {}),
+      ...(cursor ? { id: { gt: cursor } } : {}),
     },
     orderBy: { id: "asc" },
     take: pageSize,
@@ -52,8 +53,8 @@ export async function readAssistantStatePage(input: {
   );
   const last = rows.at(-1);
   return {
-    cursor: input.cursor,
-    nextCursor: last && rows.length === pageSize ? last.id : null,
+    cursor,
+    nextCursor: last?.id ?? cursor,
     reset: false,
     entries,
   };
