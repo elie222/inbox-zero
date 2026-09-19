@@ -10,6 +10,10 @@ import {
 // In dev: hello+ai-test@example.com
 const FILEBOT_SUFFIX = `ai${env.NODE_ENV === "development" ? "-test" : ""}`;
 const FILEBOT_DISPLAY_NAME = "Inbox Zero Assistant";
+// Subjects written by utils/drive/filing-notifications.ts. Matched as a fallback
+// because some providers drop the Reply-To and From display name on replies.
+const FILEBOT_NOTIFICATION_SUBJECT =
+  /^(?:re:\s*)*(?:✓ Filed |📄 Where should I file |📄 Filing update for )/i;
 
 /**
  * Check if any recipient in the email is a filebot reply address.
@@ -107,6 +111,54 @@ export function isFilebotNotificationMessage({
 
   const fromName = extractNameFromEmail(from).trim().toLowerCase();
   return fromName === FILEBOT_DISPLAY_NAME.toLowerCase();
+}
+
+/**
+ * Check whether a thread message belongs to the user's exchange with the filing
+ * assistant: a notification the app sent into the thread, or the user's reply
+ * to one. Neither is a turn in the real conversation.
+ */
+export function isFilebotConversationMessage({
+  userEmail,
+  message,
+}: {
+  userEmail: string;
+  message: {
+    headers: {
+      from: string;
+      to: string;
+      subject?: string;
+      "reply-to"?: string;
+    };
+  };
+}): boolean {
+  const { from, to, subject } = message.headers;
+
+  if (
+    isFilebotNotificationMessage({
+      userEmail,
+      from,
+      to,
+      replyTo: message.headers["reply-to"],
+    })
+  ) {
+    return true;
+  }
+
+  const normalizedUserEmail = userEmail.toLowerCase();
+  if (extractEmailAddress(from)?.toLowerCase() !== normalizedUserEmail) {
+    return false;
+  }
+
+  if (isFilebotEmail({ userEmail, emailToCheck: to })) return true;
+
+  const isSelfAddressed = extractEmailAddresses(to).some(
+    (email) => email.toLowerCase() === normalizedUserEmail,
+  );
+
+  return (
+    isSelfAddressed && FILEBOT_NOTIFICATION_SUBJECT.test(subject?.trim() ?? "")
+  );
 }
 
 /**

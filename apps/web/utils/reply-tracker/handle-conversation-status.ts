@@ -8,7 +8,10 @@ import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { sortByInternalDate } from "@/utils/date";
 import { withPrismaRetry } from "@/utils/prisma-retry";
-import { buildThreadStatusMessagesForLLM } from "@/utils/reply-tracker/thread-status-context";
+import {
+  buildThreadStatusMessagesForLLM,
+  excludeAssistantMessages,
+} from "@/utils/reply-tracker/thread-status-context";
 
 const logger = createScopedLogger("conversation-status-handler");
 
@@ -54,7 +57,19 @@ export async function determineConversationStatus({
     };
   }
 
-  const sortedMessages = [...threadMessages].sort(sortByInternalDate());
+  const sortedMessages = excludeAssistantMessages({
+    messages: [...threadMessages].sort(sortByInternalDate()),
+    userEmail: emailAccount.email,
+  });
+
+  if (!sortedMessages.length) {
+    logger.info("Thread only contains assistant messages, skipping");
+    return {
+      rule: null,
+      reason: "Thread only contains assistant messages",
+    };
+  }
+
   const threadMessagesForLLM = buildThreadStatusMessagesForLLM(sortedMessages);
 
   // Check if the user sent the last email in the thread
