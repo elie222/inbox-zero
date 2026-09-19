@@ -110,7 +110,7 @@ export function createEmailProviderOperationExecutor(input: {
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
-        return inspectSend(accountId, operation);
+        return inspectSend(provider, accountId, operation);
       }
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
@@ -353,10 +353,18 @@ async function executeSend(
       },
     },
   });
-  return mapSendOutcome(operation.key.operationId, outcome);
+  return mapSendOutcome(
+    operation.key.operationId,
+    outcome,
+    await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
+  );
 }
 
-async function inspectSend(accountId: string, operation: PreparedOperation) {
+async function inspectSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+) {
   const mutationId = sendMutationId(operation.key.operationId);
   const found = await prisma.emailSendOperation.findUnique({
     where: {
@@ -373,7 +381,11 @@ async function inspectSend(accountId: string, operation: PreparedOperation) {
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
-      observations: [],
+      observations: await observeSentMessage(
+        provider,
+        accountId,
+        sentMessageIdFromResult(found.result),
+      ),
       targets: [],
     };
   }
@@ -386,13 +398,14 @@ async function inspectSend(accountId: string, operation: PreparedOperation) {
 function mapSendOutcome(
   operationId: string,
   outcome: Awaited<ReturnType<typeof executeDurableEmailSend>>,
+  observations: ReturnType<typeof parsedMessagePatch>[] = [],
 ) {
   const receiptId = sendMutationId(operationId);
   if (outcome.status === "applied" || outcome.status === "already_applied") {
     return {
       status: "confirmed" as const,
       receiptId,
-      observations: [],
+      observations,
       targets: [],
     };
   }
@@ -470,4 +483,42 @@ async function threadIdForSnooze(
   } catch {
     return first.messageId;
   }
+}
+
+async function observeSentMessage(
+  provider: EmailProvider,
+  accountId: string,
+  messageId: string | null,
+) {
+  if (!messageId) return [];
+  try {
+    const message = await provider.getMessage(messageId);
+    return [
+      parsedMessagePatch(
+        accountId,
+        provider.name === "microsoft" ? "microsoft" : "google",
+        message,
+      ),
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function sentMessageIdFrom(
+  outcome: Awaited<ReturnType<typeof executeDurableEmailSend>>,
+) {
+  if (outcome.status !== "applied" && outcome.status !== "already_applied") {
+    return null;
+  }
+  return sentMessageIdFromResult(
+    "result" in outcome ? outcome.result : undefined,
+  );
+}
+
+function sentMessageIdFromResult(result: unknown) {
+  if (!result || typeof result !== "object" || !("messageId" in result)) {
+    return null;
+  }
+  return typeof result.messageId === "string" ? result.messageId : null;
 }

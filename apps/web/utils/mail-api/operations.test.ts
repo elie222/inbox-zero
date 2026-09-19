@@ -98,6 +98,39 @@ describe("createEmailProviderOperationExecutor", () => {
     );
   });
 
+  it("observes the sent message so the mailbox can drop the draft", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-1", threadId: "t-1" },
+    });
+    const getMessage = vi.fn(async (id: string) => ({
+      id,
+      threadId: "t-1",
+      headers: { from: "me@example.com", to: "ada@example.com" },
+      labelIds: ["SENT"],
+      snippet: "Hi",
+    }));
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google", getMessage } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(),
+      attemptId: "a-send-observe",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(getMessage).toHaveBeenCalledWith("sent-1");
+    expect(result.observations).toEqual([
+      expect.objectContaining({
+        kind: "message_patch",
+        key: { accountId: "acc-1", messageId: "sent-1" },
+        fields: expect.objectContaining({ roles: ["sent"] }),
+      }),
+    ]);
+  });
+
   it("replies with a provider thread id, not an optional conversation id", async () => {
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
