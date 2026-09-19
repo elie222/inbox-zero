@@ -14,6 +14,7 @@ type PendingUndoSend = {
   restoreComposer: () => void;
   undone: boolean;
   release: () => void;
+  toastId: string;
 };
 
 let pending: PendingUndoSend | null = null;
@@ -43,12 +44,14 @@ export function beginUndoSend({
     operationId,
   });
   let unsubscribe = () => {};
+  const toastId = undoSendToastId(operationId);
   const current: PendingUndoSend = {
     client,
     operationId,
     emailAccountId,
     restoreComposer,
     undone: false,
+    toastId,
     release: () => {
       clearTimeout(timeout);
       unsubscribe();
@@ -64,7 +67,7 @@ export function beginUndoSend({
   };
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
-    id: UNDO_SEND_TOAST_ID,
+    id: toastId,
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
     duration,
@@ -89,7 +92,7 @@ export async function undoPendingSend() {
       pending = null;
       current.release();
     }
-    toast.dismiss(UNDO_SEND_TOAST_ID);
+    toast.dismiss(current.toastId);
     toastError({ description: "Couldn't undo send" });
     return false;
   }
@@ -97,7 +100,7 @@ export async function undoPendingSend() {
     pending = null;
     current.release();
   }
-  toast.dismiss(UNDO_SEND_TOAST_ID);
+  toast.dismiss(current.toastId);
   current.restoreComposer();
   return true;
 }
@@ -108,11 +111,16 @@ function releasePreviousOffer() {
   previous.undone = true;
   pending = null;
   previous.release();
+  toast.dismiss(previous.toastId);
 }
 
 function clearUndoSendOffer(offer: PendingUndoSend) {
   if (pending !== offer || offer.undone) return;
   pending = null;
   offer.release();
-  toast.dismiss(UNDO_SEND_TOAST_ID);
+  toast.dismiss(offer.toastId);
+}
+
+function undoSendToastId(operationId: string) {
+  return `${UNDO_SEND_TOAST_ID}:${operationId}`;
 }

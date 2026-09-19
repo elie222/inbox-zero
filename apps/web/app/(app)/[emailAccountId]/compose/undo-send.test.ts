@@ -51,7 +51,7 @@ describe("undo send", () => {
     const toast = notifications.toastUndo.mock.calls[0]?.[0];
     expect(toast).toEqual({
       duration: expect.any(Number),
-      id: "undo-send",
+      id: "undo-send:mutation",
       message: "Email sent!",
       onUndo: expect.any(Function),
       shortcut: "z",
@@ -64,7 +64,7 @@ describe("undo send", () => {
       operationId: "mutation",
     });
     expect(restoreComposer).toHaveBeenCalledOnce();
-    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send");
+    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
   });
@@ -94,7 +94,7 @@ describe("undo send", () => {
 
     handle.set("executing");
 
-    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send");
+    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(client.cancelOperation).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe("undo send", () => {
 
     await vi.advanceTimersByTimeAsync(UNDO_SEND_DELAY_MS);
 
-    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send");
+    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(client.cancelOperation).not.toHaveBeenCalled();
@@ -147,6 +147,10 @@ describe("undo send", () => {
       restoreComposer: vi.fn(),
     });
     expect(first.handle.close).toHaveBeenCalled();
+    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:first");
+    expect(notifications.toastUndo.mock.calls[1]?.[0]?.id).toBe(
+      "undo-send:second",
+    );
     notifications.dismiss.mockClear();
 
     await vi.advanceTimersByTimeAsync(1000);
