@@ -8,13 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `86e7673d1`
+- Last implementation commit: `cc3a4f0a8`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E110 mail v1 download. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
-- Next action: watch GitHub checks on the exact head after this push. Do not re-run emulated Playwright locally.
+- Current task: remaining matrix cells after E113 Edit-reply parent + attachment `not_found`. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
+- Next action: watch GitHub Playwright on the exact head after this push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - GitHub Playwright `35460803760` on `fe25114a7`: mail-reader failed — Edit reply did not restore the composer (`thread-states` queued-reply edit). Run Tests `35460803867` success. Build Check `35460803740` success.
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts app/api/mail/v1/accounts/[accountId]/attachment-content/route.test.ts utils/mail-engine/engine-delivery.test.ts utils/mail-engine/http.test.ts utils/mail-engine/stage-attachments.test.ts` — 5 files, 31 passed (E111/E112/E113)
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/backend-adapter.test.ts` — 1 file, 6 passed (E112)
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='reports the reply-to message|holds a send until notBeforeMs'` — 2 passed (E113)
   - GitHub Playwright `35460091432` on `31d39f667`: all E2E jobs passed, including mail-offline (E109 docs head)
   - GitHub Run Tests `35460091454` on `31d39f667`: success
   - GitHub Build Check `35460091406` on `31d39f667`: failed — `createMailHttpRequest` fetch typing for octet-stream PUT bodies
@@ -508,6 +512,36 @@ Expand this table from architecture section 13 before broad implementation. Link
   - GitHub Playwright `35460091432` on `31d39f667` — all E2E jobs passed (E109 docs head, before this commit)
 - What it proved: `getAttachmentUrl` builds `/api/mail/v1/accounts/{accountId}/attachment-content`. Reader Download fetches that URL with `X-Email-Account-ID` and saves a blob. Preview load uses the same helper. The attachment-previews spec waits for GET `/attachment-content` plus the account header instead of an `emailAccountId` query param.
 - Limitations: Blob URLs are revoked after 60s so Chromium can start the download. User downloads buffer the whole file. Do not check G4/G5.
+
+### E111. Delete admitted uploads when content staging fails (2026-09-19)
+
+- Tasks: partial E3 blob staging cleanup
+- Tree: `cursor/mail-engine-0b4f` at `d02b85c72`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/stage-attachments.test.ts utils/mail-engine/http.test.ts` — included in 5 files, 31 passed
+- What it proved: After POST admit, the client records the blob id before PUT. Any later staging failure DELETEs every admitted id from that attempt, including a PUT throw and a later admit failure, and does not DELETE ids from a successful staging.
+- Limitations: A POST that throws after the server already admitted still cannot DELETE that uploadId. Do not check G4/G5.
+
+### E112. Missing attachments are `not_found` (2026-09-19)
+
+- Tasks: partial E3 HTTP `/attachment-content`
+- Tree: `cursor/mail-engine-0b4f` at `c3355ee80`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts app/api/mail/v1/accounts/[accountId]/attachment-content/route.test.ts` — included in 5 files, 31 passed
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/backend-adapter.test.ts` — 1 file, 6 passed
+- What it proved: `MailboxSource.readAttachment` can return `{ status: "not_found" }`. Provider 404s and HTTP 404/`not_found` map to that status instead of `paused` with `retryAfterMs: 0`. GET `/attachment-content` returns HTTP 404. Provider rate-limit still returns HTTP 503 `throttled`.
+- Limitations: A missing attachment whose provider error has no numeric 404 still pauses as `unavailable`. Do not check G4/G5.
+
+### E113. Edit reply opens the send's parent message (2026-09-19)
+
+- Tasks: partial G5 queued reply restore; CI `thread-states.spec.ts` Edit reply
+- Tree: `cursor/mail-engine-0b4f` at `cc3a4f0a8`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/engine-delivery.test.ts` — included in 5 files, 31 passed
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='reports the reply-to message|holds a send until notBeforeMs'` — 2 passed
+  - GitHub Playwright `35460803760` on `fe25114a7` — mail-reader failed: Edit reply did not restore the composer after a queued send
+- What it proved: Send diagnostics put `replyToMessageId` first in `messageIds`, so Edit reply restores onto `msg_playwright_reply` rather than a later sent row from an earlier test on the same emulator mailbox. ThreadDeliveryStatus no longer `requestSync`s on become-online; `MailEngineHost` still does on the window `online` event. The spec waits for inspect `reconciling` before Edit reply and reads the remounted `[contenteditable='true']` editor. GitHub Playwright on this head is the remaining proof.
+- Limitations: GitHub Playwright is the remaining mail-spec proof. Do not run emulated Playwright locally. Do not check G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
