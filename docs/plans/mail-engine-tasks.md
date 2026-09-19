@@ -493,6 +493,8 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/desktop && pnpm exec vitest run src/mail-engine/request.test.ts` — 1 file, 6 passed
   - GitHub Playwright `35460091432` on `31d39f667` — all E2E jobs passed, including mail-offline
   - GitHub Run Tests `35460091454` on `31d39f667` — success
+  - GitHub Build Check `35460091406` on `31d39f667` — failed: fetch typing for octet-stream PUT
+  - `ad37f8c0c` — type octet-stream PUT bodies as `BodyInit` so next build accepts fetch
   - GitHub Playwright `35458591054` on `bb16b6406` — all E2E jobs passed (E108 docs head, before this commit)
 - What it proved: POST `/uploads` admits metadata only. PUT `/uploads/[uploadId]/content` streams octet-stream bytes into that blob under the declared checksum and size. Missing admit is 404 and cancels an unread body. Checksum mismatch is 400 `invalid`. Oversized bodies are 507 `too_large`. Sidecar size caps above 25MB are ignored so PUT cannot use them as a buffer limit. Compose staging POSTs admit then PUTs bytes; it no longer ships JSON/base64 content. GitHub Playwright `35460091432` on `31d39f667` passed every selected E2E area. Build Check `35460091406` failed on fetch typing for those PUT bodies.
 - Limitations: Reader download/preview still used `/api/messages/attachment` until E110. Abandoned admit metadata is not auto-deleted when PUT fails. Do not check G4/G5.
