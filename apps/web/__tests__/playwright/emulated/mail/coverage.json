@@ -94,7 +94,10 @@
     "app/sw.ts",
     "providers/GlobalProviders.tsx",
     "utils/offline/clear-mail-cache.ts",
-    "utils/offline/mail-cache.ts"
+    "utils/offline/mail-cache.ts",
+    "utils/user.ts",
+    "utils/mail-engine/wasm-sqlite.ts",
+    "utils/mail-engine/active-client.ts"
   ],
   "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
   "reader-transition.spec.ts": [

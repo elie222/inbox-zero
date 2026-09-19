@@ -1,10 +1,11 @@
 import { build } from "esbuild";
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import { MAIL_ENGINE_OPFS_DIRECTORY } from "@/utils/mail-engine/wasm-sqlite";
 
 test("preserves bootstrap fragments for precached workers online and offline", async ({
   page,
@@ -274,15 +275,14 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
-    const signOutStatus = await page.evaluate(async () => {
-      const response = await fetch("/api/auth/sign-out", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      return response.status;
-    });
-    expect(signOutStatus).toBe(200);
+    await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
+    await page
+      .locator('[data-sidebar="footer"]')
+      .getByRole("button")
+      .filter({ hasText: /playwright-test\+/i })
+      .click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await expect.poll(() => mailEngineOpfsExists(page)).toBe(false);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -350,4 +350,16 @@ function isWasmUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+async function mailEngineOpfsExists(page: Page) {
+  return page.evaluate(async (directory) => {
+    const root = await navigator.storage.getDirectory();
+    try {
+      await root.getDirectoryHandle(directory);
+      return true;
+    } catch {
+      return false;
+    }
+  }, MAIL_ENGINE_OPFS_DIRECTORY);
 }
