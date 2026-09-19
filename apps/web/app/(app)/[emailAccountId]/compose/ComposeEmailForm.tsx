@@ -125,11 +125,7 @@ import {
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
-import {
-  beginUndoSend,
-  getUndoSendHoldUntil,
-  UNDO_SEND_DELAY_MS,
-} from "./undo-send";
+import { beginUndoSend, UNDO_SEND_DELAY_MS } from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 
 export type ReplyingToEmail = {
@@ -906,7 +902,6 @@ function ComposeEmailFormContent({
           localDraftIdentity?.messageId ??
           requestId;
         const online = navigator.onLine;
-        const holdUntil = getUndoSendHoldUntil(online);
         if (!client) {
           setSubmissionError(
             "Mail is still starting. Try sending again in a moment.",
@@ -924,7 +919,7 @@ function ComposeEmailFormContent({
             email: enrichedData,
             mutationId: requestId,
             emailAccountId: selectedEmailAccountId,
-            holdUntil,
+            holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
             online,
             threadId: readerThreadId,

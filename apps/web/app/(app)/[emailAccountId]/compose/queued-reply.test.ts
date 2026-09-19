@@ -194,7 +194,7 @@ describe("queueReaderEmail", () => {
       client,
       email: createEmail(),
       emailAccountId: "account",
-      holdUntil: before + UNDO_SEND_DELAY_MS,
+      holdForUndo: true,
       messageIds: ["message"],
       mutationId: "mutation",
       onQueued,
@@ -224,7 +224,6 @@ describe("queueReaderEmail", () => {
   });
 
   it("still holds when submitSend outlasts the original undo window", async () => {
-    const originalHoldUntil = Date.now() + 20;
     const client = createClient();
     client.submitSend.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 40));
@@ -235,7 +234,7 @@ describe("queueReaderEmail", () => {
       client,
       email: createEmail(),
       emailAccountId: "account",
-      holdUntil: originalHoldUntil,
+      holdForUndo: true,
       messageIds: ["message"],
       mutationId: "mutation",
       online: true,
@@ -249,7 +248,6 @@ describe("queueReaderEmail", () => {
     });
     if (outcome.status !== "held") throw new Error("expected held");
     expect(outcome.holdUntil).toBeGreaterThan(Date.now());
-    expect(outcome.holdUntil).toBeGreaterThan(originalHoldUntil);
     expect(client.submitSend).toHaveBeenCalledWith(
       expect.objectContaining({
         notBeforeMs: outcome.holdUntil,

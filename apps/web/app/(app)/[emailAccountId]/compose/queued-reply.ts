@@ -37,7 +37,7 @@ export async function queueReaderEmail({
   online,
   onQueued,
   mutationId,
-  holdUntil,
+  holdForUndo,
   settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
@@ -48,7 +48,7 @@ export async function queueReaderEmail({
   online: boolean;
   onQueued?: () => Promise<void>;
   mutationId?: string;
-  holdUntil?: number;
+  holdForUndo?: boolean;
   settlementTimeoutMs?: number;
   threadId: string;
 }): Promise<ReaderEmailOutcome> {
@@ -65,8 +65,9 @@ export async function queueReaderEmail({
     content,
   });
   const nowMs = Date.now();
-  const undoHoldUntil =
-    holdUntil !== undefined ? getUndoSendHoldUntil(online, nowMs) : undefined;
+  const undoHoldUntil = holdForUndo
+    ? getUndoSendHoldUntil(online, nowMs)
+    : undefined;
   const admission = await client.submitSend({
     commandId,
     conversationId: threadId,
