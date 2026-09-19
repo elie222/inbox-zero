@@ -237,6 +237,10 @@ export interface MailStore {
     accountId: string;
     connection: "ready" | "offline" | "blocked_auth";
   }): Promise<void>;
+  releaseDeferredOperations(input: {
+    accountIds: string[];
+    nowMs: number;
+  }): Promise<void>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   settleAttempt(input: {
     attemptId: string;

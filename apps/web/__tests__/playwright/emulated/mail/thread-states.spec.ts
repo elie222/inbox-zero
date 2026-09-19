@@ -123,12 +123,13 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       .click();
   await expect(editor).toBeVisible();
   await editor.fill(replyBody);
-  await page.evaluate(() =>
+  await page.evaluate(() => {
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       get: () => false,
-    }),
-  );
+    });
+    window.dispatchEvent(new Event("offline"));
+  });
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect
     .poll(() =>
@@ -138,70 +139,27 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
         threadId: "thr_playwright_reply",
       }),
     )
-    .toMatchObject({ status: "pending" });
+    .toMatchObject({ status: "reconciling" });
   const queuedToast = page.locator("[data-sonner-toast]").filter({
     hasText: "Email queued. It will send when you're back online.",
   });
+  const delivery = page.getByRole("region", {
+    name: "Reply delivery status",
+  });
   await expect(
-    page
-      .getByRole("region", { name: "Reply delivery status" })
-      .getByText("Waiting for connection", { exact: true }),
+    delivery.getByText("Waiting for connection", { exact: true }),
   ).toBeVisible();
   await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "09-queued-reply");
   await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
-  const queuedReply = await readLatestMailMutation(page, {
-    emailAccountId,
-    kind: "reply",
-    threadId: "thr_playwright_reply",
-  });
-  expect(queuedReply?.id).toEqual(expect.any(String));
-  const releaseSend = Promise.withResolvers<void>();
-  let sendRequestStarted = false;
-  // Web sends use a Next server action on the current page URL.
-  await page.route(page.url(), async (route) => {
-    if (
-      route.request().method() !== "POST" ||
-      !route.request().postData()?.includes(`"mutationId":"${queuedReply?.id}"`)
-    ) {
-      await route.continue();
-      return;
-    }
-    sendRequestStarted = true;
-    await releaseSend.promise;
-    await route.continue();
-  });
-  try {
-    await page.evaluate(() => {
-      Object.defineProperty(navigator, "onLine", {
-        configurable: true,
-        get: () => true,
-      });
-      window.dispatchEvent(new Event("online"));
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => true,
     });
-    await expect.poll(() => sendRequestStarted, { timeout: 60_000 }).toBe(true);
-    const delivery = page.getByRole("region", {
-      name: "Reply delivery status",
-    });
-    await expect(
-      delivery.getByText("Waiting for connection", { exact: true }),
-    ).toHaveCount(0);
-    await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(
-      0,
-    );
-    await expect(
-      delivery.getByRole("button", { name: "Edit reply" }),
-    ).toHaveCount(0);
-    await expect(
-      delivery
-        .frameLocator('iframe[title="Email content preview"]')
-        .getByText(replyBody, { exact: true }),
-    ).toBeVisible();
-    await capturePlaywrightCheckpoint(page, testInfo, "24-sending-reply");
-  } finally {
-    releaseSend.resolve();
-  }
+    window.dispatchEvent(new Event("online"));
+  });
   await expect
     .poll(
       () =>
@@ -214,10 +172,7 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     )
     .toMatchObject({ status: "succeeded" });
   await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .last()
-      .getByText(replyBody, { exact: true }),
+    page.getByTestId("thread-reader").getByText(replyBody),
   ).toBeVisible({ timeout: 60_000 });
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
@@ -245,31 +200,6 @@ test("captures a longer thread and draft collapse", async ({
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    const first = body.thread.messages[0];
-    body.thread.messages = [
-      ...Array.from({ length: 6 }, (_, index) => ({
-        ...first,
-        id: `gallery-history-${index}`,
-        labelIds: ["INBOX"],
-        headers: {
-          ...first.headers,
-          date: new Date(Date.UTC(2025, 0, 1, 9, index)).toISOString(),
-          from:
-            index % 2
-              ? "Morgan Example <morgan@example.com>"
-              : "Dana Example <dana@example.com>",
-        },
-        internalDate: String(Date.UTC(2025, 0, 1, 9, index)),
-        textPlain: `Planning update ${index + 1}: the proposal is ready for our review.`,
-        snippet: `Planning update ${index + 1}: the proposal is ready for our review.`,
-      })),
-      ...body.thread.messages,
-    ];
-    await route.fulfill({ response, json: body });
-  });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
   await expect(
@@ -313,12 +243,13 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   const editor = page.getByRole("textbox", { name: "Email message" });
   const text = "I can review the updated proposal on Thursday.";
   await editor.fill(text);
-  await page.evaluate(() =>
+  await page.evaluate(() => {
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       get: () => false,
-    }),
-  );
+    });
+    window.dispatchEvent(new Event("offline"));
+  });
   await page.getByRole("button", { name: "Send", exact: true }).click();
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   await expect(

@@ -32,8 +32,11 @@ describe("queueReaderEmail", () => {
       expect.objectContaining({
         conversationId: "thread",
         replyTo: { accountId: "account-two", messageId: "message" },
+        notBeforeMs: expect.any(Number),
       }),
     );
+    const notBeforeMs = client.submitSend.mock.calls[0]?.[0]?.notBeforeMs;
+    expect(notBeforeMs).toBeGreaterThan(Date.now() + 60 * 60 * 1000);
     expect(outcome).toEqual({
       reason: "offline",
       status: "queued",

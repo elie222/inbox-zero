@@ -250,6 +250,16 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     };
   }, [emailAccountId, provider]);
 
+  useEffect(() => {
+    if (!client || !emailAccountId) return;
+    const resumeDeferred = () => {
+      if (!navigator.onLine) return;
+      client.requestSync([emailAccountId]).catch(() => undefined);
+    };
+    window.addEventListener("online", resumeDeferred);
+    return () => window.removeEventListener("online", resumeDeferred);
+  }, [client, emailAccountId]);
+
   return (
     <MailEngineRuntimeStatusContext.Provider
       value={{ client, mounted: true, unavailable }}

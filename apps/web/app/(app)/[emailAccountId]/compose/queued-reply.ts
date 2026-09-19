@@ -1,5 +1,8 @@
 import type { MailClient } from "@inboxzero/mail-core/engine";
-import type { OperationState } from "@inboxzero/mail-core/operations";
+import {
+  OFFLINE_DISPATCH_HOLD_MS,
+  type OperationState,
+} from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { sendEmailToDraftContent } from "@/utils/mail-engine/draft-content";
@@ -60,13 +63,17 @@ export async function queueReaderEmail({
     draftId,
     content,
   });
+  const nowMs = Date.now();
   const admission = await client.submitSend({
     commandId,
     conversationId: threadId,
     draft: { accountId: emailAccountId, draftId },
     draftRevision,
-    notBeforeMs:
-      holdUntil !== undefined && holdUntil > Date.now() ? holdUntil : undefined,
+    notBeforeMs: !online
+      ? nowMs + OFFLINE_DISPATCH_HOLD_MS
+      : holdUntil !== undefined && holdUntil > nowMs
+        ? holdUntil
+        : undefined,
     replyTo: messageIds[0]
       ? { accountId: emailAccountId, messageId: messageIds[0] }
       : null,

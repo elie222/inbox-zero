@@ -3,6 +3,7 @@ import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
 import { isMicrosoftPlaywright } from "../mail-provider";
 import {
+  inspectCommandIsActive,
   inspectCommandMatches,
   inspectCommandToMutation,
   type InspectCommand,
@@ -84,6 +85,7 @@ export async function readLatestMailMutation(
     });
     const command = commands
       ?.filter((item) => inspectCommandMatches(item, expected))
+      .filter(inspectCommandIsActive)
       .at(-1);
     if (!command) return;
     return inspectCommandToMutation(command);

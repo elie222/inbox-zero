@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  inspectCommandIsActive,
   inspectCommandMatches,
   inspectCommandMatchesThread,
 } from "./mail-inspect-command";
@@ -85,5 +86,13 @@ describe("inspectCommandMatches", () => {
 
     expect(unread).toHaveLength(1);
     expect(unread[0]?.change).toEqual({ kind: "set_read", read: false });
+  });
+});
+
+describe("inspectCommandIsActive", () => {
+  it("hides cancelled and superseded commands from the outbox helper", () => {
+    expect(inspectCommandIsActive({ status: "queued" })).toBe(true);
+    expect(inspectCommandIsActive({ status: "cancelled" })).toBe(false);
+    expect(inspectCommandIsActive({ status: "superseded" })).toBe(false);
   });
 });

@@ -175,6 +175,10 @@ export function createMailEngine(input: {
       if (accountIds.length === 0) {
         return { status: "rejected", code: "invalid_account" };
       }
+      await store.releaseDeferredOperations({
+        accountIds,
+        nowMs: runtime.nowMs(),
+      });
       return { status: "scheduled" };
     },
     async ensureMessageContent(key) {

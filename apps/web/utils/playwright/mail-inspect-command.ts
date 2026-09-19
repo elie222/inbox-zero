@@ -72,3 +72,9 @@ export function inspectCommandToMutation(command: InspectCommand) {
     payload: engineCommandPayload(command.change),
   };
 }
+
+export function inspectCommandIsActive(
+  command: Pick<InspectCommand, "status">,
+) {
+  return command.status !== "cancelled" && command.status !== "superseded";
+}

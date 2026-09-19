@@ -536,7 +536,7 @@ test("undoes a composed message before it is delivered", async ({
         threadId: "compose:new-message",
       }),
     )
-    .toMatchObject({ status: "pending" });
+    .toMatchObject({ status: "reconciling" });
   await notifications.getByRole("button", { name: /^Undo/ }).click();
 
   await expect(dialog).toBeVisible();

@@ -98,6 +98,10 @@ export function canCancelOperation(status: OperationStatus): boolean {
   return status === "preparing" || status === "queued";
 }
 
+/** Undo/throttle delays stay below this; connectivity holds are much longer. */
+export const DEFERRED_DISPATCH_MIN_HOLD_MS = 60 * 60 * 1000;
+export const OFFLINE_DISPATCH_HOLD_MS = 365 * 24 * 60 * 60 * 1000;
+
 export function isPendingEffectStatus(status: OperationStatus): boolean {
   return (PENDING_EFFECT_STATUSES as readonly string[]).includes(status);
 }

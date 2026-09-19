@@ -22,6 +22,7 @@ import type {
 } from "@inboxzero/mail-core/identities";
 import type { MessageMetadata } from "@inboxzero/mail-core/messages";
 import {
+  DEFERRED_DISPATCH_MIN_HOLD_MS,
   isPendingEffectStatus,
   type OperationState,
   type PreparedOperation,
@@ -307,6 +308,20 @@ export async function createSqliteMailStore(
           };
         }
         return null;
+      });
+    },
+    async releaseDeferredOperations(input) {
+      if (input.accountIds.length === 0) return;
+      await driver.write(async (tx) => {
+        await tx.execute(
+          `UPDATE operations
+           SET next_attempt_at_ms = NULL
+           WHERE status IN ('queued', 'retry_wait')
+             AND next_attempt_at_ms IS NOT NULL
+             AND next_attempt_at_ms > ?
+             AND account_id IN (${input.accountIds.map(() => "?").join(",")})`,
+          [input.nowMs + DEFERRED_DISPATCH_MIN_HOLD_MS, ...input.accountIds],
+        );
       });
     },
     async applySyncPage(input) {

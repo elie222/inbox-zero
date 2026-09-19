@@ -7,6 +7,7 @@ import {
   createMailEngine,
   createHostRuntime,
 } from "@inboxzero/mail-core/engine";
+import { OFFLINE_DISPATCH_HOLD_MS } from "@inboxzero/mail-core/operations";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
@@ -583,6 +584,98 @@ describe("drafts, freeze, and uncertain settlement", () => {
         (command) => command.operationId === "send-hold",
       )?.conversationIds,
     ).toEqual(["thread-hold"]);
+    await store.close();
+  });
+
+  it("releases connectivity holds without clearing undo holds", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const offlineDraft = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-offline" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Offline",
+        editableHtml: "<p>Offline</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    const undoDraft = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-undo" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Undo",
+        editableHtml: "<p>Undo</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(offlineDraft.status).toBe("saved");
+    expect(undoDraft.status).toBe("saved");
+    if (offlineDraft.status !== "saved" || undoDraft.status !== "saved") {
+      throw new Error("expected save");
+    }
+    const nowMs = Date.now();
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-offline",
+          conversationId: "thread-offline",
+          draft: { accountId: "acc-1", draftId: "d-offline" },
+          draftRevision: offlineDraft.draftRevision,
+          notBeforeMs: nowMs + OFFLINE_DISPATCH_HOLD_MS,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-undo",
+          conversationId: "thread-undo",
+          draft: { accountId: "acc-1", draftId: "d-undo" },
+          draftRevision: undoDraft.draftRevision,
+          notBeforeMs: nowMs + 5000,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.releaseDeferredOperations({
+      accountIds: ["acc-1"],
+      nowMs,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs,
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.key.operationId).toBe("send-offline");
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: nowMs + 5000 - 1,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
     await store.close();
   });
 
