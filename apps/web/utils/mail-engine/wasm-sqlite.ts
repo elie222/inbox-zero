@@ -113,10 +113,29 @@ export async function wipeOpfsMailEngine() {
   ) {
     return;
   }
+  let root: FileSystemDirectoryHandle;
   try {
-    const root = await navigator.storage.getDirectory();
-    await root.removeEntry(MAIL_ENGINE_OPFS_DIRECTORY, { recursive: true });
+    root = await navigator.storage.getDirectory();
   } catch {
-    // Private mode or a missing directory must not prevent logout.
+    return;
   }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      await root.removeEntry(MAIL_ENGINE_OPFS_DIRECTORY, { recursive: true });
+      return;
+    } catch (error) {
+      if (isMissingOpfsEntry(error)) return;
+      if (attempt === 7) return;
+      await new Promise((resolve) => setTimeout(resolve, 25 * 2 ** attempt));
+    }
+  }
+}
+
+function isMissingOpfsEntry(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "NotFoundError"
+  );
 }

@@ -234,6 +234,7 @@ function messagePatch(
 
 describe("wipeOpfsMailEngine", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -263,5 +264,25 @@ describe("wipeOpfsMailEngine", () => {
       },
     });
     await expect(wipeOpfsMailEngine()).resolves.toBeUndefined();
+  });
+
+  it("retries removeEntry while the SAHPool still holds the directory", async () => {
+    vi.useFakeTimers();
+    const removeEntry = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("busy"), { name: "InvalidStateError" }),
+      )
+      .mockResolvedValueOnce(undefined);
+    vi.stubGlobal("navigator", {
+      storage: {
+        getDirectory: async () => ({ removeEntry }),
+      },
+    });
+    const done = wipeOpfsMailEngine();
+    await vi.runAllTimersAsync();
+    await done;
+    expect(removeEntry).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });

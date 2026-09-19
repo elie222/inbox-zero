@@ -200,11 +200,16 @@ async function createWorkerOwnedEngine(input: {
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),
     async close() {
-      await request(worker, pending, {
-        id: crypto.randomUUID(),
-        type: "close",
-      });
-      worker.terminate();
+      try {
+        await request(worker, pending, {
+          id: crypto.randomUUID(),
+          type: "close",
+        });
+      } finally {
+        // SAHPool keeps OPFS handles until the worker is gone, even if the
+        // graceful close RPC fails.
+        worker.terminate();
+      }
     },
   };
 }
