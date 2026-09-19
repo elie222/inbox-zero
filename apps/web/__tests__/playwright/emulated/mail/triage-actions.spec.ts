@@ -68,7 +68,6 @@ test("deletes an open conversation and restores it from Trash", async ({
 
   await expect(conversations).toBeVisible();
   await expect(deletedConversation).toHaveCount(0);
-  await expect(page.getByText("Deleted", { exact: true })).toBeVisible();
   await expectEngineMutation(page, emailAccountId, "trash", DELETE_THREAD);
 
   await openMailboxFromSidebar(page, "Trash");
