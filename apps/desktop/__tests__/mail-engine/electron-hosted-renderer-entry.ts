@@ -501,28 +501,36 @@ async function closeCompose(window: BrowserWindow) {
 }
 
 async function openDraftsMailbox(window: BrowserWindow) {
+  let expandedMail = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const opened = (await window.webContents.executeJavaScript(`
       (() => {
         const drafts = [...document.querySelectorAll("a")].find((link) =>
-          /^Drafts\\b/.test((link.textContent ?? "").trim()),
+          [...link.querySelectorAll("span")].some(
+            (span) => span.textContent?.trim() === "Drafts",
+          ),
         );
         if (drafts instanceof HTMLElement) {
           drafts.click();
           return "drafts";
         }
-        const mail = [...document.querySelectorAll("button")].find(
-          (button) => button.textContent?.trim() === "Mail",
-        );
-        if (mail instanceof HTMLElement) {
-          mail.click();
-          return "mail";
-        }
         return "missing";
       })()
-    `)) as "drafts" | "mail" | "missing";
+    `)) as "drafts" | "missing";
     if (opened === "drafts") return;
-    if (opened === "missing") break;
+    if (!expandedMail) {
+      expandedMail = true;
+      await window.webContents.executeJavaScript(`
+        (() => {
+          const mail = [...document.querySelectorAll("button")].find((button) =>
+            [...button.querySelectorAll("span")].some(
+              (span) => span.textContent?.trim() === "Mail",
+            ),
+          );
+          if (mail instanceof HTMLElement) mail.click();
+        })()
+      `);
+    }
     await delay(50);
   }
   await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
