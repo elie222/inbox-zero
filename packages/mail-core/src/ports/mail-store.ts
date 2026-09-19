@@ -64,6 +64,12 @@ export type ClaimedWork =
       operation: PreparedOperation;
     }
   | {
+      kind: "inspect";
+      attemptId: string;
+      receiptId: string | null;
+      operation: PreparedOperation;
+    }
+  | {
       kind: "sync";
       jobId: string;
       accountId: string;

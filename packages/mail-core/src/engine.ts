@@ -217,6 +217,20 @@ export function createMailEngine(input: {
           await refreshViews();
           continue;
         }
+        if (work.kind === "inspect") {
+          const result = await executor.inspect({
+            operation: work.operation,
+            receiptId: work.receiptId,
+            signal: signal ?? new AbortController().signal,
+          });
+          await store.settleAttempt({
+            attemptId: work.attemptId,
+            operation: work.operation,
+            result,
+          });
+          await refreshViews();
+          continue;
+        }
         if (work.kind === "prepare") {
           const generation =
             generations.get(work.accountId) ?? work.conversation.accountId;

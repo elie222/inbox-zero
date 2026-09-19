@@ -1013,6 +1013,251 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("inspects an uncertain send instead of executing it again", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-inspect" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-inspect",
+          draft: { accountId: "acc-1", draftId: "d-inspect" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(execute?.kind).toBe("command");
+    if (execute?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: { status: "uncertain", receiptId: "r-inspect" },
+    });
+    const inspect = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(inspect?.kind).toBe("inspect");
+    if (inspect?.kind !== "inspect") throw new Error("expected inspect");
+    expect(inspect.receiptId).toBe("r-inspect");
+    expect(inspect.operation.key.operationId).toBe("send-inspect");
+    expect(
+      (
+        await store.settleAttempt({
+          attemptId: inspect.attemptId,
+          operation: inspect.operation,
+          result: {
+            status: "confirmed",
+            receiptId: "r-inspect",
+            observations: [],
+            targets: [],
+          },
+        })
+      ).status,
+    ).toBe("committed");
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-inspect",
+      }),
+    ).toMatchObject({ operation: { status: "succeeded" } });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-inspect" },
+          expectedRevision: saved.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    await store.close();
+  });
+
+  it("inspects a verifying send after next_attempt_at_ms", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-verify" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-verify",
+          draft: { accountId: "acc-1", draftId: "d-verify" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(execute?.kind).toBe("command");
+    if (execute?.kind !== "command") throw new Error("expected command");
+    const retryAfterMs = 5000;
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: {
+        status: "accepted",
+        receiptId: "r-verify",
+        retryAfterMs,
+      },
+    });
+    const nowMs = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const inspect = await store.claimWork({
+      ownerId: "owner",
+      nowMs: nowMs + retryAfterMs,
+      leaseMs: 30_000,
+    });
+    expect(inspect?.kind).toBe("inspect");
+    if (inspect?.kind !== "inspect") throw new Error("expected inspect");
+    expect(inspect.receiptId).toBe("r-verify");
+    await store.close();
+  });
+
+  it("recovers an uncertain send through inspect without sending again", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-engine" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    let executes = 0;
+    let inspects = 0;
+    const engine = createMailEngine({
+      store,
+      source: fixtureSource(new Map()),
+      executor: {
+        async execute() {
+          executes += 1;
+          return { status: "uncertain", receiptId: "r-engine" };
+        },
+        async inspect({ receiptId }) {
+          inspects += 1;
+          expect(receiptId).toBe("r-engine");
+          return {
+            status: "confirmed",
+            receiptId: "r-engine",
+            observations: [],
+            targets: [],
+          };
+        },
+      },
+      runtime: createHostRuntime(),
+    });
+    expect(
+      (
+        await engine.submitSend({
+          commandId: "send-engine",
+          draft: { accountId: "acc-1", draftId: "d-engine" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    await engine.runUntil(Date.now() + 2000);
+    expect(executes).toBe(1);
+    expect(inspects).toBe(1);
+    expect(
+      await store.readOperation({
+        accountId: "acc-1",
+        operationId: "send-engine",
+      }),
+    ).toMatchObject({ operation: { status: "succeeded" } });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-engine" },
+          expectedRevision: saved.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    await engine.close();
+  });
+
   it("tombstones local messages that a completed bootstrap did not see", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({

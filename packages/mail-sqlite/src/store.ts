@@ -270,6 +270,39 @@ export async function createSqliteMailStore(
           if (!prepared) return null;
           return { kind: "command" as const, attemptId, operation: prepared };
         }
+        const inspectable = await tx.query(
+          `SELECT * FROM operations
+           WHERE status IN ('uncertain', 'verifying')
+             AND executable_hash IS NOT NULL
+             AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+             AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
+           ORDER BY created_at_ms`,
+          [input.nowMs, input.nowMs],
+        );
+        for (const row of inspectable) {
+          if (await hasUnsatisfiedDependency(tx, row)) continue;
+          const attemptId = crypto.randomUUID();
+          await tx.execute(
+            `UPDATE operations
+             SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+             WHERE account_id = ? AND command_id = ? AND status IN ('uncertain', 'verifying')`,
+            [
+              input.ownerId,
+              input.nowMs + input.leaseMs,
+              attemptId,
+              row.account_id,
+              row.command_id,
+            ],
+          );
+          const prepared = await toPrepared(tx, row);
+          if (!prepared) return null;
+          return {
+            kind: "inspect" as const,
+            attemptId,
+            receiptId: row.receipt_id == null ? null : String(row.receipt_id),
+            operation: prepared,
+          };
+        }
         const hydrate = await tx.query(
           `SELECT * FROM sync_jobs WHERE kind = 'hydrate' AND (claimed_by IS NULL OR claimed_until_ms < ?) LIMIT 1`,
           [input.nowMs],
@@ -494,11 +527,17 @@ export async function createSqliteMailStore(
             input.operation.key.operationId,
           );
         } else if (input.result.status === "uncertain") {
+          const nextAttemptAtMs =
+            current[0].status === "uncertain" ||
+            current[0].status === "verifying"
+              ? Date.now() + 1000
+              : null;
           await tx.execute(
-            `UPDATE operations SET status = 'uncertain', receipt_id = ?, claimed_by = NULL
+            `UPDATE operations SET status = 'uncertain', receipt_id = ?, claimed_by = NULL, claimed_until_ms = NULL, next_attempt_at_ms = ?
              WHERE account_id = ? AND command_id = ?`,
             [
               input.result.receiptId,
+              nextAttemptAtMs,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
