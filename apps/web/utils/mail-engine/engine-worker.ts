@@ -11,7 +11,7 @@ import {
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createMailHttpRequest } from "./http";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
-import type { WorkerRequest } from "./worker-protocol";
+import type { BrowserEngineStart, WorkerRequest } from "./worker-protocol";
 import { createMailWorkerHost } from "./worker-session";
 
 const host = createMailWorkerHost({
@@ -31,15 +31,17 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   });
 };
 
-async function createWorkerEngine(input: {
-  accountId: string;
-  provider: "google" | "microsoft";
-  generation?: string;
-  persist?: boolean;
-}): Promise<MailEngine> {
+async function createWorkerEngine(
+  input: BrowserEngineStart,
+): Promise<MailEngine> {
   const request = createMailHttpRequest(input.accountId);
   const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const store = await createSqliteMailStore(driver);
+  const store = await createSqliteMailStore(
+    driver,
+    input.maxPendingOperations === undefined
+      ? undefined
+      : { maxPendingOperations: input.maxPendingOperations },
+  );
   await store.ensureAccount({
     accountId: input.accountId,
     provider: input.provider,

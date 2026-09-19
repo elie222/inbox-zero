@@ -3,6 +3,7 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import {
   conversationWithSubject,
   openMail,
@@ -47,6 +48,84 @@ test("archives a selected conversation and restores it with undo", async ({
     });
   await undoLastTriage(page);
   await expect(archiveConversation).toBeVisible();
+});
+
+test("shows a queue_full toast when a second archive cannot be admitted", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    window.__inboxZeroMailMaxPendingOperations = 1;
+  });
+  const { conversations, emailAccountId } = await openMail(page);
+  const first = conversationWithSubject(
+    page,
+    conversations,
+    "Archive Action Message",
+  );
+  const second = conversationWithSubject(
+    page,
+    conversations,
+    "Playwright Test Message",
+  );
+
+  let releaseExecute = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseExecute = resolve;
+  });
+  await page.route(
+    "**/api/mail/v1/accounts/**/operations/**",
+    async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.continue();
+        return;
+      }
+      await held;
+      await route.continue();
+    },
+  );
+
+  const cleanupErrors: unknown[] = [];
+  try {
+    await first.getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(first).toHaveCount(0);
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "archive",
+          threadId: ARCHIVE_THREAD,
+        }),
+      )
+      .toMatchObject({ status: "reconciling" });
+
+    await second.getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(second).toBeVisible();
+    await expect(
+      page.locator("[data-sonner-toast]").filter({
+        hasText: admissionRejectionCopy("queue_full"),
+      }),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(page, testInfo, "queue-full-toast");
+  } finally {
+    releaseExecute();
+    await page.request
+      .post(`/api/threads/${ARCHIVE_THREAD}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
 });
 
 test("deletes an open conversation and restores it from Trash", async ({

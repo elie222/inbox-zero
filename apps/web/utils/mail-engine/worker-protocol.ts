@@ -5,6 +5,7 @@ export type BrowserEngineStart = {
   provider: "google" | "microsoft";
   generation?: string;
   persist?: boolean;
+  maxPendingOperations?: number;
 };
 
 export type WorkerRequest =
@@ -46,4 +47,19 @@ export function workerStartFence(
     return "account_mismatch";
   }
   return null;
+}
+
+export function readPageMaxPendingOperations(): number | undefined {
+  if (typeof window === "undefined") return;
+  const value = window.__inboxZeroMailMaxPendingOperations;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
+    return;
+  }
+  return Math.floor(value);
+}
+
+declare global {
+  interface Window {
+    __inboxZeroMailMaxPendingOperations?: number;
+  }
 }

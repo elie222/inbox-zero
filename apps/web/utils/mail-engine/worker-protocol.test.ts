@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   browserMailEngineCapabilities,
+  readPageMaxPendingOperations,
   workerStartFence,
 } from "./worker-protocol";
 
@@ -28,5 +29,11 @@ describe("worker account fencing", () => {
 
   it("rejects a second account on an already started worker", () => {
     expect(workerStartFence("acc-1", "acc-2")).toBe("account_mismatch");
+  });
+});
+
+describe("page pending-operation cap", () => {
+  it("returns undefined when window is not present", () => {
+    expect(readPageMaxPendingOperations()).toBeUndefined();
   });
 });

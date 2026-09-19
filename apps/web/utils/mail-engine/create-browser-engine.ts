@@ -14,37 +14,43 @@ import { createMailHttpRequest } from "@/utils/mail-engine/http";
 import { createWasmSqliteDriver } from "@/utils/mail-engine/wasm-sqlite";
 import {
   browserMailEngineCapabilities,
+  readPageMaxPendingOperations,
+  type BrowserEngineStart,
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
 
 export { browserMailEngineCapabilities };
 
-export async function createBrowserMailEngine(input: {
-  accountId: string;
-  provider: "google" | "microsoft";
-  generation?: string;
-  persist?: boolean;
-}): Promise<MailEngine> {
+export async function createBrowserMailEngine(
+  input: BrowserEngineStart,
+): Promise<MailEngine> {
+  const started: BrowserEngineStart = {
+    ...input,
+    maxPendingOperations:
+      input.maxPendingOperations ?? readPageMaxPendingOperations(),
+  };
   if (browserMailEngineCapabilities().worker) {
     try {
-      return await createWorkerOwnedEngine(input);
+      return await createWorkerOwnedEngine(started);
     } catch {
       // Dedicated workers can fail in private mode or without module workers.
     }
   }
-  return createInTabEngine(input);
+  return createInTabEngine(started);
 }
 
-async function createInTabEngine(input: {
-  accountId: string;
-  provider: "google" | "microsoft";
-  generation?: string;
-  persist?: boolean;
-}): Promise<MailEngine> {
+async function createInTabEngine(
+  input: BrowserEngineStart,
+): Promise<MailEngine> {
   const request = createMailHttpRequest(input.accountId);
   const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const store = await createSqliteMailStore(driver);
+  const store = await createSqliteMailStore(
+    driver,
+    input.maxPendingOperations === undefined
+      ? undefined
+      : { maxPendingOperations: input.maxPendingOperations },
+  );
   await store.ensureAccount({
     accountId: input.accountId,
     provider: input.provider,
@@ -87,12 +93,9 @@ async function createInTabEngine(input: {
   };
 }
 
-async function createWorkerOwnedEngine(input: {
-  accountId: string;
-  provider: "google" | "microsoft";
-  generation?: string;
-  persist?: boolean;
-}): Promise<MailEngine> {
+async function createWorkerOwnedEngine(
+  input: BrowserEngineStart,
+): Promise<MailEngine> {
   const worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
     type: "module",
   });
