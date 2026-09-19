@@ -1,10 +1,13 @@
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect } from "@playwright/test";
+import type { Client } from "pg";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
+import { withClient } from "./mail-test-helpers";
 
 const THREAD_ID = "thr_playwright_archive";
 const SUBJECT = "Archive Action Message";
@@ -13,6 +16,10 @@ const DRAFT_SUBJECT = "Hosted desktop draft example";
 const DISCARD_SUBJECT = "Hosted desktop discard example";
 const SEND_SUBJECT = "Hosted desktop send example";
 const STAR_SUBJECT = "Second Unread Command Message";
+const ASSISTANT_THREAD_ID = "thr_playwright_archive";
+const ASSISTANT_RULE_ID = "playwright-mail-assistant-archive-rule";
+const ASSISTANT_EXECUTED_RULE_ID =
+  "playwright-mail-assistant-archive-execution";
 const electronBin = join(
   process.cwd(),
   "../desktop/node_modules/electron/dist/electron",
@@ -322,6 +329,90 @@ test("stars a conversation from hosted Next through desktop SQLite IPC", async (
   await copyStarArtifact(screenshotPath, payload);
 });
 
+test("applies assistant archive after hosted Electron was stopped", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-assistant.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  const userData = await mkdtemp(join(tmpdir(), "electron-hosted-assistant-"));
+  const cleanupErrors: unknown[] = [];
+
+  try {
+    const baseline = await launchHostedElectron({
+      appUrl: baseURL,
+      accountId: emailAccountId,
+      storageState: authFile,
+      screenshotPath,
+      proof: "assistant-baseline",
+      userData,
+    });
+    expect(baseline.transport).toBe("desktop-ipc");
+    expect(
+      baseline.subjectsBefore?.some((text) => text.includes(SUBJECT)),
+    ).toBe(true);
+    expect(baseline.nativeInboxHasArchiveSubject).toBe(true);
+
+    await seedAssistantArchive(emailAccountId);
+    const archived = await page.request.post(
+      `/api/threads/${ASSISTANT_THREAD_ID}/archive`,
+      { headers: { "X-Email-Account-ID": emailAccountId } },
+    );
+    expect(archived.ok()).toBe(true);
+
+    const reopened = await launchHostedElectron({
+      appUrl: baseURL,
+      accountId: emailAccountId,
+      storageState: authFile,
+      screenshotPath,
+      proof: "assistant-reopen",
+      userData,
+    });
+    expect(reopened.transport).toBe("desktop-ipc");
+    expect(reopened.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
+      false,
+    );
+    expect(reopened.nativeInboxHasArchiveSubject).toBe(false);
+    expect(reopened.assistantCursor).toMatch(/\S/);
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: reopened.url,
+        transport: reopened.transport,
+        proof: reopened.proof,
+        nativeInboxHasArchiveSubject: reopened.nativeInboxHasArchiveSubject,
+        assistantCursor: reopened.assistantCursor,
+      }),
+    });
+    await copyAssistantArtifact(screenshotPath, reopened);
+  } finally {
+    await page.request
+      .post(`/api/threads/${ASSISTANT_THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    await cleanupAssistantArchive().catch((error) => {
+      cleanupErrors.push(error);
+    });
+    await rm(userData, { recursive: true, force: true });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -334,11 +425,14 @@ function launchHostedElectron(input: {
     | "reconnect"
     | "discard"
     | "send"
-    | "star";
+    | "star"
+    | "assistant-baseline"
+    | "assistant-reopen";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
   starSubject?: string;
+  userData?: string;
 }) {
   return new Promise<HostedElectronPayload>((resolve, reject) => {
     const child = spawn("node", [runner], {
@@ -367,6 +461,7 @@ function launchHostedElectron(input: {
         ...(input.starSubject
           ? { ELECTRON_STAR_SUBJECT: input.starSubject }
           : {}),
+        ...(input.userData ? { ELECTRON_USER_DATA: input.userData } : {}),
       },
     });
     let stdout = "";
@@ -417,6 +512,25 @@ async function copyStarArtifact(
     );
     await writeFile(
       "/opt/cursor/artifacts/hosted-electron-star.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
+}
+
+async function copyAssistantArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(
+      screenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-assistant.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-assistant.json",
       `${JSON.stringify(payload, null, 2)}\n`,
     );
   } catch {
@@ -554,4 +668,59 @@ type HostedElectronPayload = {
   readerStarred?: boolean;
   starSucceeded?: boolean;
   nativeStarredHasSubject?: boolean;
+  assistantCursor?: string | null;
 };
+
+async function seedAssistantArchive(emailAccountId: string) {
+  await withClient(async (client) => {
+    await deleteAssistantArchive(client);
+    await client.query(
+      `INSERT INTO "Rule"
+         (id, name, enabled, automate, "runOnThreads", instructions,
+          "emailAccountId", "createdAt", "updatedAt")
+       VALUES ($1, $2, true, true, false, $3, $4,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        ASSISTANT_RULE_ID,
+        "Playwright mail assistant archive",
+        "Archive routine project updates",
+        emailAccountId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'APPLIED', true, $4, $5, $6,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        ASSISTANT_EXECUTED_RULE_ID,
+        ASSISTANT_THREAD_ID,
+        "msg_playwright_archive",
+        "Assistant archived while the mail client was stopped.",
+        ASSISTANT_RULE_ID,
+        emailAccountId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedAction"
+         (id, type, "executionStatus", "executedAt", "executedRuleId",
+          "createdAt", "updatedAt")
+       VALUES ($1, 'ARCHIVE', 'SUCCEEDED', CURRENT_TIMESTAMP, $2,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [`${ASSISTANT_EXECUTED_RULE_ID}-archive`, ASSISTANT_EXECUTED_RULE_ID],
+    );
+  });
+}
+
+async function cleanupAssistantArchive() {
+  await withClient(deleteAssistantArchive);
+}
+
+async function deleteAssistantArchive(client: Client) {
+  await client.query(
+    `DELETE FROM "ExecutedRule" WHERE id = $1 OR "ruleId" = $2`,
+    [ASSISTANT_EXECUTED_RULE_ID, ASSISTANT_RULE_ID],
+  );
+  await client.query(`DELETE FROM "Rule" WHERE id = $1`, [ASSISTANT_RULE_ID]);
+}

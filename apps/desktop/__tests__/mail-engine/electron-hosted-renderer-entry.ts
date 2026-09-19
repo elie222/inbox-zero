@@ -90,7 +90,11 @@ async function runHostedMail() {
               ? await proveSend(window, owner, accountId)
               : PROOF === "star"
                 ? await proveStar(window, owner, accountId)
-                : await proveSearchArchive(window, owner, accountId);
+                : PROOF === "assistant-baseline"
+                  ? await proveAssistantBaseline(window, owner, accountId)
+                  : PROOF === "assistant-reopen"
+                    ? await proveAssistantReopen(window, owner, accountId)
+                    : await proveSearchArchive(window, owner, accountId);
     if (PROOF !== "reconnect") {
       window.show();
       await delay(250);
@@ -285,6 +289,53 @@ async function proveStar(
     nativeStarredHasSubject: nativeStarred.some((item) =>
       item.includes(STAR_SUBJECT),
     ),
+  };
+}
+
+async function proveAssistantBaseline(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    true,
+  );
+  const assistantCursor = await waitForAssistantCursor(window, false);
+  return {
+    subjectsBefore,
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+    assistantCursor,
+  };
+}
+
+async function proveAssistantReopen(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForConversations(window);
+  await waitForSubjectGone(window, ARCHIVE_SUBJECT);
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    false,
+  );
+  const assistantCursor = await waitForAssistantCursor(window, true);
+  return {
+    subjectsAfter: await readSubjects(window),
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+    assistantCursor,
   };
 }
 
@@ -1069,6 +1120,29 @@ async function waitForNativeStarredSubject(
   throw new Error(
     `native starred ${present ? "never contained" : "still contained"} ${subject}`,
   );
+}
+
+async function waitForAssistantCursor(
+  window: BrowserWindow,
+  required: boolean,
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const cursor = await readAssistantCursor(window);
+    if (required ? Boolean(cursor) : true) return cursor;
+    await delay(500);
+  }
+  throw new Error("hosted assistant cursor never stored");
+}
+
+async function readAssistantCursor(window: BrowserWindow) {
+  return (await window.webContents.executeJavaScript(`
+    (async () => {
+      const inspect = window.__inboxZeroMailInspect;
+      if (!inspect?.inspect) return null;
+      const snapshot = await inspect.inspect();
+      return snapshot?.accounts?.[0]?.assistantCursor ?? null;
+    })()
+  `)) as string | null;
 }
 
 async function waitForNativeRoleSubject(
