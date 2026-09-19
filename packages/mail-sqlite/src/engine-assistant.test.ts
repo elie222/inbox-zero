@@ -136,6 +136,12 @@ describe("engine assistant catch-up", () => {
     );
     expect(assistantTarget?.confirmed.roles.includes("inbox")).toBe(false);
     expect(inspection.accounts[0]?.assistantCursor).toBe("next");
+    expect(inspection.operations).toEqual([
+      expect.objectContaining({
+        key: { accountId: "acc-1", operationId: "archive-user" },
+        status: "uncertain",
+      }),
+    ]);
     const stillBlocked = await store.admitMetadata({
       accountId: "acc-1",
       commandId: "archive-later",
