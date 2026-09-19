@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
-import { extractEmailReply } from "@/utils/parse/extract-reply.client";
+import { extractDraftComposerContent } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
@@ -764,7 +764,10 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
 });
 
 function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
-  const splitHtml = extractEmailReply(draft.textHtml || "");
+  const splitHtml = extractDraftComposerContent(
+    draft.textHtml,
+    draft.textPlain,
+  );
 
   return {
     to: draft.headers.to,

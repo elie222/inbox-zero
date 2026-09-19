@@ -122,7 +122,8 @@
   ],
   "server-drafts.spec.ts": [
     "components/email-list/EmailThread.tsx",
-    "components/email-list/EmailMessage.tsx"
+    "components/email-list/EmailMessage.tsx",
+    "utils/parse/extract-reply.client.ts"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
   "starring.spec.ts": [
