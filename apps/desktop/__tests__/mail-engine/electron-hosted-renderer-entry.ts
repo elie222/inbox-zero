@@ -80,9 +80,11 @@ async function runHostedMail() {
         ? await proveCompose(window, owner, accountId)
         : PROOF === "reconnect"
           ? await proveReconnect(window, accountId, authGate)
-          : PROOF === "send-discard"
-            ? await proveSendDiscard(window, owner, accountId)
-            : await proveSearchArchive(window, owner, accountId);
+          : PROOF === "discard"
+            ? await proveDiscard(window, owner, accountId)
+            : PROOF === "send"
+              ? await proveSend(window, owner, accountId)
+              : await proveSearchArchive(window, owner, accountId);
     if (PROOF !== "reconnect") {
       window.show();
       await delay(250);
@@ -168,7 +170,7 @@ async function proveCompose(
   };
 }
 
-async function proveSendDiscard(
+async function proveDiscard(
   window: BrowserWindow,
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
@@ -197,13 +199,23 @@ async function proveSendDiscard(
     DISCARD_SUBJECT,
     false,
   );
+  return {
+    discardSubject: DISCARD_SUBJECT,
+    discardedDraftSubjects,
+    nativeDraftHadDiscardSubject: nativeDraftsBeforeDiscard.some((item) =>
+      item.includes(DISCARD_SUBJECT),
+    ),
+    nativeDraftHasDiscardSubject: nativeDraftsAfterDiscard.some((item) =>
+      item.includes(DISCARD_SUBJECT),
+    ),
+  };
+}
 
-  const mailUrl = new URL(
-    `/${accountId}/mail`,
-    window.webContents.getURL(),
-  ).toString();
-  await window.loadURL(mailUrl);
-  await waitForTransport(window, "desktop-ipc");
+async function proveSend(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
   await waitForConversations(window);
   await openCompose(window);
   await fillComposeDraft(window, SEND_SUBJECT);
@@ -230,15 +242,7 @@ async function proveSendDiscard(
   await openSentMailbox(window);
   const sentSubjects = await waitForSubject(window, SEND_SUBJECT);
   return {
-    discardSubject: DISCARD_SUBJECT,
     sendSubject: SEND_SUBJECT,
-    discardedDraftSubjects,
-    nativeDraftHadDiscardSubject: nativeDraftsBeforeDiscard.some((item) =>
-      item.includes(DISCARD_SUBJECT),
-    ),
-    nativeDraftHasDiscardSubject: nativeDraftsAfterDiscard.some((item) =>
-      item.includes(DISCARD_SUBJECT),
-    ),
     sendSucceeded,
     nativeDraftHasSendSubject: nativeDraftsAfterSend.some((item) =>
       item.includes(SEND_SUBJECT),

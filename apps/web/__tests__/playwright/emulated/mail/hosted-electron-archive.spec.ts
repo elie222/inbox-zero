@@ -188,7 +188,7 @@ test("reconnects hosted Next from blocked_auth catch-up through desktop IPC", as
   await copyReconnectArtifact(screenshotPath, payload);
 });
 
-test("discards then sends from hosted Next through desktop SQLite IPC", async ({
+test("discards a compose draft from hosted Next through desktop SQLite IPC", async ({
   page,
   baseURL,
 }, testInfo) => {
@@ -197,9 +197,7 @@ test("discards then sends from hosted Next through desktop SQLite IPC", async ({
   if (!baseURL) throw new Error("Playwright baseURL is missing");
   if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
 
-  const screenshotPath = testInfo.outputPath(
-    "hosted-electron-send-discard.png",
-  );
+  const screenshotPath = testInfo.outputPath("hosted-electron-discard.png");
   await mkdir(dirname(screenshotPath), { recursive: true });
 
   const payload = await launchHostedElectron({
@@ -207,17 +205,55 @@ test("discards then sends from hosted Next through desktop SQLite IPC", async ({
     accountId: emailAccountId,
     storageState: authFile,
     screenshotPath,
-    proof: "send-discard",
+    proof: "discard",
     discardSubject: DISCARD_SUBJECT,
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.sqliteExists).toBe(true);
+  expect(payload.proof).toBe("discard");
+  expect(payload.nativeDraftHadDiscardSubject).toBe(true);
+  expect(payload.nativeDraftHasDiscardSubject).toBe(false);
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      sqliteExists: payload.sqliteExists,
+      proof: payload.proof,
+      nativeDraftHadDiscardSubject: payload.nativeDraftHadDiscardSubject,
+      nativeDraftHasDiscardSubject: payload.nativeDraftHasDiscardSubject,
+    }),
+  });
+  await copySendDiscardArtifact(screenshotPath, payload);
+});
+
+test("sends a compose draft from hosted Next through desktop SQLite IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-send.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "send",
     sendSubject: SEND_SUBJECT,
   });
   expect(payload.url).toMatch(/^https?:/);
   expect(payload.url).not.toContain("file:");
   expect(payload.transport).toBe("desktop-ipc");
   expect(payload.sqliteExists).toBe(true);
-  expect(payload.proof).toBe("send-discard");
-  expect(payload.nativeDraftHadDiscardSubject).toBe(true);
-  expect(payload.nativeDraftHasDiscardSubject).toBe(false);
+  expect(payload.proof).toBe("send");
   expect(payload.sendSucceeded).toBe(true);
   expect(payload.nativeDraftHasSendSubject).toBe(false);
   expect(payload.nativeSentHasSendSubject).toBe(true);
@@ -231,8 +267,6 @@ test("discards then sends from hosted Next through desktop SQLite IPC", async ({
       transport: payload.transport,
       sqliteExists: payload.sqliteExists,
       proof: payload.proof,
-      nativeDraftHadDiscardSubject: payload.nativeDraftHadDiscardSubject,
-      nativeDraftHasDiscardSubject: payload.nativeDraftHasDiscardSubject,
       sendSucceeded: payload.sendSucceeded,
       nativeDraftHasSendSubject: payload.nativeDraftHasSendSubject,
       nativeSentHasSendSubject: payload.nativeSentHasSendSubject,
@@ -241,7 +275,7 @@ test("discards then sends from hosted Next through desktop SQLite IPC", async ({
       ),
     }),
   });
-  await copySendDiscardArtifact(screenshotPath, payload);
+  await copySendArtifact(screenshotPath, payload);
 });
 
 function launchHostedElectron(input: {
@@ -250,7 +284,7 @@ function launchHostedElectron(input: {
   storageState: string;
   screenshotPath: string;
   searchScreenshotPath?: string;
-  proof?: "search-archive" | "compose" | "reconnect" | "send-discard";
+  proof?: "search-archive" | "compose" | "reconnect" | "discard" | "send";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
@@ -317,6 +351,25 @@ function launchHostedElectron(input: {
   });
 }
 
+async function copySendArtifact(
+  screenshotPath: string,
+  payload: HostedElectronPayload,
+) {
+  try {
+    await mkdir("/opt/cursor/artifacts", { recursive: true });
+    await copyFile(
+      screenshotPath,
+      "/opt/cursor/artifacts/hosted-electron-send.png",
+    );
+    await writeFile(
+      "/opt/cursor/artifacts/hosted-electron-send.json",
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+  } catch {
+    // Evidence still lives on the Playwright output path.
+  }
+}
+
 async function copySendDiscardArtifact(
   screenshotPath: string,
   payload: HostedElectronPayload,
@@ -325,10 +378,10 @@ async function copySendDiscardArtifact(
     await mkdir("/opt/cursor/artifacts", { recursive: true });
     await copyFile(
       screenshotPath,
-      "/opt/cursor/artifacts/hosted-electron-send-discard.png",
+      "/opt/cursor/artifacts/hosted-electron-discard.png",
     );
     await writeFile(
-      "/opt/cursor/artifacts/hosted-electron-send-discard.json",
+      "/opt/cursor/artifacts/hosted-electron-discard.json",
       `${JSON.stringify(payload, null, 2)}\n`,
     );
   } catch {
