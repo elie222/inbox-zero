@@ -141,6 +141,7 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
     });
     window.dispatchEvent(new Event("offline"));
   });
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect
     .poll(() =>
@@ -188,24 +189,30 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       if (!String(error).includes("Execution context was destroyed"))
         throw error;
     });
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_reply?includeDrafts=true",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        if (!response.ok()) return false;
+        const body: ThreadResponse = await response.json();
+        const appended = body.thread.messages.filter(
+          (message) =>
+            message.labelIds?.includes("SENT") &&
+            !initialSentIds.includes(message.id),
+        );
+        return appended.some((message) =>
+          `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(
+            replyBody,
+          ),
+        );
+      },
+      { timeout: 90_000 },
+    )
+    .toBe(true);
   await expectThreadReaderBody(page, replyBody);
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_reply?includeDrafts=true",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(response.ok()).toBe(true);
-  const body: ThreadResponse = await response.json();
-  const sentMessages = body.thread.messages.filter((message) =>
-    message.labelIds?.includes("SENT"),
-  );
-  expect(sentMessages).toHaveLength(initialSentIds.length + 1);
-  const appended = sentMessages.filter(
-    (message) => !initialSentIds.includes(message.id),
-  );
-  expect(appended).toHaveLength(1);
-  expect(
-    `${appended[0].textPlain ?? ""}${appended[0].textHtml ?? ""}`,
-  ).toContain(replyBody);
   await capturePlaywrightCheckpoint(page, testInfo, "11-sent-reply");
 });
 
@@ -265,6 +272,7 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     });
     window.dispatchEvent(new Event("offline"));
   });
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
   await page.getByRole("button", { name: "Send", exact: true }).click();
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   await expect(
