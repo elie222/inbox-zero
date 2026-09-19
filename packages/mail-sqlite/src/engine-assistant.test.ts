@@ -66,13 +66,83 @@ describe("engine assistant catch-up", () => {
         },
       },
       runtime: createHostRuntime(),
-      assistant: archiveAssistant(),
+      assistant: archiveAssistant("m1", "c1"),
     });
     await engine.runUntil(Date.now() + 1000);
     const inspection = await store.inspect();
     const message = inspection.messages.find((item) => item.messageId === "m1");
     expect(message?.confirmed.roles.includes("inbox")).toBe(false);
     expect(inspection.accounts[0]?.assistantCursor).toBe("next");
+    await engine.close();
+  });
+
+  it("applies assistant archive catch-up while user commands are queue_full", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver(), {
+      maxPendingOperations: 1,
+    });
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const queued = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-user",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    expect(queued.status).toBe("queued");
+    const blocked = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-later",
+      targets: [{ accountId: "acc-1", messageId: "m2" }],
+      change: { kind: "archive" },
+    });
+    expect(blocked).toEqual({ status: "rejected", code: "queue_full" });
+
+    const engine = createMailEngine({
+      store,
+      source: idleSource(),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime(),
+      assistant: archiveAssistant("m2", "c2"),
+    });
+    await engine.runUntil(Date.now() + 1000);
+    const inspection = await store.inspect();
+    const assistantTarget = inspection.messages.find(
+      (item) => item.messageId === "m2",
+    );
+    expect(assistantTarget?.confirmed.roles.includes("inbox")).toBe(false);
+    expect(inspection.accounts[0]?.assistantCursor).toBe("next");
+    const stillBlocked = await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-later",
+      targets: [{ accountId: "acc-1", messageId: "m2" }],
+      change: { kind: "archive" },
+    });
+    expect(stillBlocked).toEqual({ status: "rejected", code: "queue_full" });
     await engine.close();
   });
 });
@@ -120,7 +190,10 @@ function idleSource(): MailboxSource {
   };
 }
 
-function archiveAssistant(): AssistantStateSource {
+function archiveAssistant(
+  messageId = "m1",
+  conversationId = "c1",
+): AssistantStateSource {
   return {
     async read() {
       return {
@@ -134,14 +207,47 @@ function archiveAssistant(): AssistantStateSource {
             {
               id: "a1",
               revision: "1",
-              messageId: "m1",
-              conversationId: "c1",
+              messageId,
+              conversationId,
               kind: "ARCHIVE",
               payload: {},
             },
           ],
         },
       };
+    },
+  };
+}
+
+function messagePatch(
+  messageId: string,
+  conversationId: string,
+  receivedAtMs: number,
+  roles: string[],
+) {
+  return {
+    kind: "message_patch" as const,
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google" as const,
+      messageId,
+      conversationId,
+      version: "1",
+    },
+    fields: {
+      subject: "Hi",
+      preview: "Hi",
+      from: "ada@example.com",
+      to: ["me@example.com"],
+      cc: [],
+      receivedAtMs,
+      read: false,
+      starred: false,
+      folderId: "inbox",
+      labelIds: roles.includes("inbox") ? ["INBOX"] : [],
+      categoryIds: [],
+      roles,
+      hasAttachments: false,
     },
   };
 }
