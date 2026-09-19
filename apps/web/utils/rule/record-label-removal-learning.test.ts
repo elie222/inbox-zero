@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  removeAiLearnedPattern,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import { recordLabelRemovalLearning } from "./record-label-removal-learning";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
+  removeAiLearnedPattern: vi.fn().mockResolvedValue(0),
 }));
 
 const logger = createTestLogger();
@@ -66,5 +70,24 @@ describe("recordLabelRemovalLearning", () => {
       reason: "Label removed",
       source: GroupItemSource.LABEL_REMOVED,
     });
+  });
+
+  it("drops the AI-learned pattern instead of excluding when a custom rule's label is removed", async () => {
+    await recordLabelRemovalLearning({
+      sender: "sender@example.com",
+      ruleId: "rule-1",
+      systemType: null,
+      messageId: "message-1",
+      threadId: "thread-1",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(removeAiLearnedPattern).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      from: "sender@example.com",
+      ruleId: "rule-1",
+    });
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 });
