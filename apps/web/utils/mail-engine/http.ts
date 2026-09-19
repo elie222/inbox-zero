@@ -3,6 +3,7 @@ import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 export function createMailHttpRequest(accountId: string): MailHttpRequestFn {
   return async ({ method, path, body, signal, accept }) => {
+    const encoded = encodeRequestBody(body);
     const response = await fetch(path, {
       method,
       signal,
@@ -11,9 +12,9 @@ export function createMailHttpRequest(accountId: string): MailHttpRequestFn {
         accept:
           accept === "bytes" ? "application/octet-stream" : "application/json",
         [EMAIL_ACCOUNT_HEADER]: accountId,
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...encoded.headers,
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: encoded.body,
     });
     if (accept === "bytes" && response.ok) {
       const sizeHeader = response.headers.get("content-length");
@@ -42,4 +43,18 @@ async function* iterableFromStream(stream: ReadableStream<Uint8Array> | null) {
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+function encodeRequestBody(body: unknown) {
+  if (body === undefined) return { headers: {}, body: undefined };
+  if (body instanceof Uint8Array) {
+    return {
+      headers: { "content-type": "application/octet-stream" },
+      body,
+    };
+  }
+  return {
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  };
 }

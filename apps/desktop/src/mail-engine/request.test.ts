@@ -127,4 +127,29 @@ describe("createOriginMailRequest", () => {
       [EMAIL_ACCOUNT_HEADER]: "acc-1",
     });
   });
+
+  it("sends upload content as octet-stream bytes, not JSON", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: "staged" }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = createOriginMailRequest({
+      origin: "http://localhost:3000",
+    });
+    await request({
+      method: "PUT",
+      path: "/api/mail/v1/accounts/acc-1/uploads/file-1/content",
+      body: bytes,
+      signal: new AbortController().signal,
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBe(bytes);
+    expect(init.headers).toMatchObject({
+      accept: "application/json",
+      "content-type": "application/octet-stream",
+      [EMAIL_ACCOUNT_HEADER]: "acc-1",
+    });
+  });
 });

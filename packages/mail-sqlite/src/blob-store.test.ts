@@ -70,6 +70,17 @@ describe("file blob store", () => {
       filename: "invoice.pdf",
       contentType: "application/pdf",
     });
+    await writeBlobMetadata(directory, "invoice", {
+      filename: "invoice.pdf",
+      contentType: "application/pdf",
+      checksum: "ok",
+      sizeBytes: 99_000_000,
+    });
+    expect(await readBlobMetadata(directory, "invoice")).toEqual({
+      filename: "invoice.pdf",
+      contentType: "application/pdf",
+      checksum: "ok",
+    });
     await store.delete("invoice");
     expect(await readBlobMetadata(directory, "invoice")).toBeNull();
     await rm(directory, { recursive: true, force: true });

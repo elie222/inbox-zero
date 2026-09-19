@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import {
@@ -11,11 +10,7 @@ import {
   mailRequestId,
   unsupportedVersionResponse,
 } from "@/utils/mail-api/authorization";
-import {
-  createFileBlobStore,
-  writeBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import { accountMailUploadDirectory } from "@/utils/mail-api/upload-blobs";
+import { admitAccountUpload } from "@/utils/mail-api/upload-blobs";
 
 export const POST = withEmailProvider(
   "mail/v1/uploads",
@@ -41,91 +36,24 @@ export const POST = withEmailProvider(
       parsed.data.protocolVersion,
     );
     if (version) return version;
-    const bytes = decodeUploadBytes(body);
-    if (!bytes) {
+    const admitted = await admitAccountUpload(request.auth.emailAccountId, {
+      uploadId: parsed.data.uploadId,
+      checksum: parsed.data.checksum,
+      sizeBytes: parsed.data.sizeBytes,
+      filename: parsed.data.filename ?? parsed.data.uploadId,
+      contentType: parsed.data.contentType,
+    });
+    if (admitted.status === "invalid") {
       return NextResponse.json(
         mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
         { status: 400 },
       );
     }
-    const directory = accountMailUploadDirectory(request.auth.emailAccountId);
-    const store = createFileBlobStore(directory);
-    try {
-      const staged = await store.stage({
-        blobId: parsed.data.uploadId,
-        bytes: (async function* () {
-          yield bytes;
-        })(),
-        checksum: parsed.data.checksum,
-        sizeBytes: parsed.data.sizeBytes,
-      });
-      if (staged.status !== "staged") {
-        const tooLarge = staged.code === "too_large";
-        return NextResponse.json(
-          mailHttpErrorResponse({
-            requestId,
-            code: tooLarge ? "too_large" : "invalid",
-            retryable: false,
-          }),
-          { status: tooLarge ? 507 : 400 },
-        );
-      }
-      const finalized = await store.finalize(parsed.data.uploadId);
-      if (!finalized) {
-        return NextResponse.json(
-          mailHttpErrorResponse({
-            requestId,
-            code: "unavailable",
-            retryable: true,
-          }),
-          { status: 503 },
-        );
-      }
-      await writeBlobMetadata(directory, finalized.blobId, {
-        filename: parsed.data.filename ?? parsed.data.uploadId,
-        contentType: parsed.data.contentType,
-      });
-      return NextResponse.json({
-        protocolVersion: MAIL_PROTOCOL_VERSION,
-        requestId,
-        status: "staged",
-        blobId: finalized.blobId,
-        sizeBytes: finalized.sizeBytes,
-        checksum: finalized.checksum,
-      });
-    } catch (error) {
-      const diskFull = isDiskFullError(error);
-      return NextResponse.json(
-        mailHttpErrorResponse({
-          requestId,
-          code: diskFull ? "too_large" : "invalid",
-          retryable: false,
-        }),
-        { status: diskFull ? 507 : 400 },
-      );
-    }
+    return NextResponse.json({
+      protocolVersion: MAIL_PROTOCOL_VERSION,
+      requestId,
+      status: "admitted",
+      blobId: admitted.blobId,
+    });
   },
 );
-
-function decodeUploadBytes(body: unknown) {
-  if (!body || typeof body !== "object" || !("bytes" in body)) return null;
-  const encoded = body.bytes;
-  if (typeof encoded !== "string") return null;
-  const bytes = Buffer.from(encoded, "base64");
-  const expected =
-    "checksum" in body && typeof body.checksum === "string"
-      ? body.checksum
-      : null;
-  if (
-    expected &&
-    createHash("sha256").update(bytes).digest("hex") !== expected
-  ) {
-    return null;
-  }
-  return bytes;
-}
-
-function isDiskFullError(error: unknown) {
-  if (!error || typeof error !== "object" || !("code" in error)) return false;
-  return error.code === "ENOSPC" || error.code === "EDQUOT";
-}

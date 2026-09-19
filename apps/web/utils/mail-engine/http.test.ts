@@ -39,4 +39,33 @@ describe("createMailHttpRequest", () => {
       [EMAIL_ACCOUNT_HEADER]: "acc-1",
     });
   });
+
+  it("sends upload content as octet-stream bytes, not JSON", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: "staged", blobId: "file-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = createMailHttpRequest("acc-1");
+    const result = await request({
+      method: "PUT",
+      path: "/api/mail/v1/accounts/acc-1/uploads/file-1/content",
+      body: bytes,
+      signal: new AbortController().signal,
+    });
+    expect(result).toEqual({
+      status: 200,
+      json: { status: "staged", blobId: "file-1" },
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBe(bytes);
+    expect(init.headers).toMatchObject({
+      accept: "application/json",
+      "content-type": "application/octet-stream",
+    });
+  });
 });

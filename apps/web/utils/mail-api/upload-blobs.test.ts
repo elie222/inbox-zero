@@ -3,8 +3,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import {
   accountMailUploadDirectory,
+  admitAccountUpload,
   cancelAccountUpload,
   inspectAccountUpload,
+  putAccountUploadContent,
 } from "./upload-blobs";
 import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
@@ -66,6 +68,90 @@ describe("account upload inspect and cancel", () => {
       status: "ready",
       blobId: "file-sibling",
     });
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("admits metadata then streams content into a ready blob", async () => {
+    const accountId = "acc-upload-content";
+    const directory = accountMailUploadDirectory(accountId);
+    await rm(directory, { recursive: true, force: true });
+    const bytes = Buffer.from("streamed", "utf8");
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    expect(
+      await admitAccountUpload(accountId, {
+        uploadId: "file-1",
+        checksum,
+        sizeBytes: bytes.byteLength,
+        filename: "note.txt",
+        contentType: "text/plain",
+      }),
+    ).toEqual({ status: "admitted", blobId: "file-1" });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+    expect(
+      await putAccountUploadContent(
+        accountId,
+        "file-1",
+        (async function* () {
+          yield bytes;
+        })(),
+      ),
+    ).toEqual({
+      status: "staged",
+      blobId: "file-1",
+      sizeBytes: bytes.byteLength,
+      checksum,
+    });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "ready",
+      blobId: "file-1",
+    });
+    expect(
+      await putAccountUploadContent(
+        accountId,
+        "file-1",
+        (async function* () {
+          yield Buffer.from("wrong", "utf8");
+        })(),
+      ),
+    ).toEqual({ status: "rejected", code: "checksum_mismatch" });
+    expect(
+      await putAccountUploadContent(
+        accountId,
+        "missing",
+        (async function* () {
+          yield bytes;
+        })(),
+      ),
+    ).toEqual({ status: "missing" });
+    expect(
+      await putAccountUploadContent(
+        accountId,
+        "../escape",
+        (async function* () {
+          yield bytes;
+        })(),
+      ),
+    ).toEqual({ status: "invalid" });
+    expect(
+      await admitAccountUpload(accountId, {
+        uploadId: "file-small",
+        checksum,
+        sizeBytes: 1,
+        filename: "small.txt",
+        contentType: "text/plain",
+      }),
+    ).toEqual({ status: "admitted", blobId: "file-small" });
+    expect(
+      await putAccountUploadContent(
+        accountId,
+        "file-small",
+        (async function* () {
+          yield bytes;
+        })(),
+      ),
+    ).toEqual({ status: "rejected", code: "too_large" });
     await rm(directory, { recursive: true, force: true });
   });
 });

@@ -1,10 +1,74 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
-import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
+import {
+  createFileBlobStore,
+  readBlobMetadata,
+  writeBlobMetadata,
+} from "@inboxzero/mail-sqlite/blob-store";
 
 export function accountMailUploadDirectory(accountId: string) {
   return join(tmpdir(), "inbox-zero-mail-uploads", accountId);
+}
+
+export async function admitAccountUpload(
+  accountId: string,
+  input: {
+    uploadId: string;
+    checksum: string;
+    sizeBytes: number;
+    filename: string;
+    contentType: string;
+  },
+) {
+  const parsed = blobIdSchema.safeParse(input.uploadId);
+  if (!parsed.success) return { status: "invalid" as const };
+  await writeBlobMetadata(accountMailUploadDirectory(accountId), parsed.data, {
+    filename: input.filename,
+    contentType: input.contentType,
+    checksum: input.checksum,
+    sizeBytes: input.sizeBytes,
+  });
+  return { status: "admitted" as const, blobId: parsed.data };
+}
+
+export async function putAccountUploadContent(
+  accountId: string,
+  uploadId: string,
+  bytes: AsyncIterable<Uint8Array>,
+) {
+  const parsed = blobIdSchema.safeParse(uploadId);
+  if (!parsed.success) return { status: "invalid" as const };
+  const directory = accountMailUploadDirectory(accountId);
+  const metadata = await readBlobMetadata(directory, parsed.data);
+  if (!metadata?.checksum || metadata.sizeBytes == null) {
+    return { status: "missing" as const };
+  }
+  const store = createFileBlobStore(directory);
+  try {
+    const staged = await store.stage({
+      blobId: parsed.data,
+      bytes,
+      checksum: metadata.checksum,
+      sizeBytes: metadata.sizeBytes,
+    });
+    if (staged.status !== "staged") {
+      return { status: "rejected" as const, code: staged.code };
+    }
+    const finalized = await store.finalize(parsed.data);
+    if (!finalized) return { status: "unavailable" as const };
+    return {
+      status: "staged" as const,
+      blobId: finalized.blobId,
+      sizeBytes: finalized.sizeBytes,
+      checksum: finalized.checksum,
+    };
+  } catch (error) {
+    if (isDiskFullError(error)) {
+      return { status: "rejected" as const, code: "too_large" as const };
+    }
+    throw error;
+  }
 }
 
 export async function inspectAccountUpload(
@@ -25,4 +89,9 @@ export async function cancelAccountUpload(accountId: string, uploadId: string) {
   const store = createFileBlobStore(accountMailUploadDirectory(accountId));
   await store.delete(parsed.data);
   return { status: "deleted" as const, blobId: parsed.data };
+}
+
+function isDiskFullError(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  return error.code === "ENOSPC" || error.code === "EDQUOT";
 }

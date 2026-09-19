@@ -19,22 +19,29 @@ describe("stageSendAttachments", () => {
   });
 
   it("uploads each attachment and returns staged blob ids", async () => {
-    http.request.mockResolvedValue({
-      status: 200,
-      json: { blobId: "blob-1" },
-    });
+    http.request
+      .mockResolvedValueOnce({
+        status: 200,
+        json: { blobId: "file-1" },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: { blobId: "file-1" },
+      });
 
+    const content = Buffer.from("hello");
     await expect(
       stageSendAttachments("account", [
         {
           id: "file-1",
           filename: "note.txt",
-          content: Buffer.from("hello").toString("base64"),
+          content: content.toString("base64"),
           contentType: "text/plain",
         },
       ]),
-    ).resolves.toEqual(["blob-1"]);
-    expect(http.request).toHaveBeenCalledWith(
+    ).resolves.toEqual(["file-1"]);
+    expect(http.request).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         method: "POST",
         path: "/api/mail/v1/accounts/account/uploads",
@@ -43,6 +50,15 @@ describe("stageSendAttachments", () => {
           filename: "note.txt",
           contentType: "text/plain",
         }),
+      }),
+    );
+    expect(http.request.mock.calls[0][0].body).not.toHaveProperty("bytes");
+    expect(http.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "PUT",
+        path: "/api/mail/v1/accounts/account/uploads/file-1/content?protocolVersion=1",
+        body: content,
       }),
     );
   });
@@ -74,5 +90,35 @@ describe("stageSendAttachments", () => {
         },
       ]),
     ).rejects.toThrow(admissionRejectionCopy("too_large"));
+  });
+
+  it("fails the send when content PUT is rejected after admit", async () => {
+    http.request
+      .mockResolvedValueOnce({
+        status: 200,
+        json: { blobId: "file-1" },
+      })
+      .mockResolvedValueOnce({
+        status: 507,
+        json: { error: { code: "too_large" } },
+      });
+    await expect(
+      stageSendAttachments("account", [
+        {
+          id: "file-1",
+          filename: "photo.jpg",
+          content: Buffer.from("hello").toString("base64"),
+          contentType: "image/jpeg",
+        },
+      ]),
+    ).rejects.toThrow(admissionRejectionCopy("too_large"));
+    expect(http.request).toHaveBeenCalledTimes(2);
+    expect(http.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        method: "PUT",
+        path: "/api/mail/v1/accounts/account/uploads/file-1/content?protocolVersion=1",
+      }),
+    );
   });
 });

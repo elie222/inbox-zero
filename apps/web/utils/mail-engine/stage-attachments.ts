@@ -20,9 +20,10 @@ export async function stageSendAttachments(
     const uploadId = blobIdSchema.safeParse(attachment.id).success
       ? attachment.id
       : randomUuid();
-    const response = await request({
+    const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
+    const admitted = await request({
       method: "POST",
-      path: `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`,
+      path: base,
       body: {
         protocolVersion: MAIL_PROTOCOL_VERSION,
         requestId: randomUuid(),
@@ -32,20 +33,31 @@ export async function stageSendAttachments(
         checksum,
         contentType: attachment.contentType,
         filename: attachment.filename,
-        bytes: attachment.content,
       },
       signal: AbortSignal.timeout(30_000),
     });
     const blobId =
-      response.json &&
-      typeof response.json === "object" &&
-      "blobId" in response.json &&
-      typeof response.json.blobId === "string"
-        ? response.json.blobId
+      admitted.json &&
+      typeof admitted.json === "object" &&
+      "blobId" in admitted.json &&
+      typeof admitted.json.blobId === "string"
+        ? admitted.json.blobId
         : null;
-    if (response.status >= 400 || !blobId) {
+    if (admitted.status >= 400 || !blobId) {
       throw new Error(
-        admissionRejectionCopy(httpErrorCode(response.json)) ??
+        admissionRejectionCopy(httpErrorCode(admitted.json)) ??
+          `Could not stage ${attachment.filename} for sending.`,
+      );
+    }
+    const staged = await request({
+      method: "PUT",
+      path: `${base}/${encodeURIComponent(blobId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+      body: bytes,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (staged.status >= 400) {
+      throw new Error(
+        admissionRejectionCopy(httpErrorCode(staged.json)) ??
           `Could not stage ${attachment.filename} for sending.`,
       );
     }

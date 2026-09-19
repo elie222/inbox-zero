@@ -115,7 +115,12 @@ export async function collectUnreferencedBlobs(input: {
 export async function writeBlobMetadata(
   directory: string,
   blobId: string,
-  metadata: { filename: string; contentType: string },
+  metadata: {
+    filename: string;
+    contentType: string;
+    checksum?: string;
+    sizeBytes?: number;
+  },
 ) {
   await mkdir(directory, { recursive: true });
   await writeFile(
@@ -127,17 +132,35 @@ export async function writeBlobMetadata(
 export async function readBlobMetadata(
   directory: string,
   blobId: string,
-): Promise<{ filename: string; contentType: string } | null> {
+): Promise<{
+  filename: string;
+  contentType: string;
+  checksum?: string;
+  sizeBytes?: number;
+} | null> {
   const path = blobFile(directory, blobId, ".meta.json");
   try {
     const raw = await readFile(path, "utf8");
     const parsed = JSON.parse(raw) as {
       filename?: string;
       contentType?: string;
+      checksum?: string;
+      sizeBytes?: number;
     };
     return {
       filename: parsed.filename ?? blobId,
       contentType: parsed.contentType ?? "application/octet-stream",
+      ...(typeof parsed.checksum === "string" &&
+      parsed.checksum.length >= 1 &&
+      parsed.checksum.length <= 128
+        ? { checksum: parsed.checksum }
+        : {}),
+      ...(typeof parsed.sizeBytes === "number" &&
+      Number.isInteger(parsed.sizeBytes) &&
+      parsed.sizeBytes >= 0 &&
+      parsed.sizeBytes <= 25_000_000
+        ? { sizeBytes: parsed.sizeBytes }
+        : {}),
     };
   } catch {
     return null;
