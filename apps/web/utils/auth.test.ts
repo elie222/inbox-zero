@@ -104,6 +104,24 @@ vi.mock("@/utils/error", () => ({
 }));
 
 describe("betterAuthConfig", () => {
+  it("enforces application admin access in the configured SSO plugin", async () => {
+    const plugin = (betterAuthConfig as any).options.plugins.find(
+      (plugin: { id: string }) => plugin.id === "sso",
+    );
+    const context = {
+      path: "/sso/register",
+      context: {
+        session: { user: { id: "basic-user", email: "basic@example.invalid" } },
+      },
+    };
+    const runHooks = async () => {
+      for (const hook of plugin.hooks.before) {
+        if (hook.matcher(context)) await hook.handler(context);
+      }
+    };
+    await expect(runHooks()).rejects.toMatchObject({ statusCode: 403 });
+  });
+
   it("does not trust Microsoft for implicit social account linking", () => {
     expect(
       (betterAuthConfig as any).options.account.accountLinking.trustedProviders,

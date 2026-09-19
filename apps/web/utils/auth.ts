@@ -1,6 +1,6 @@
 import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
-import { sso } from "@better-auth/sso";
+import { adminSso } from "@/utils/auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
@@ -259,7 +259,7 @@ export const betterAuthConfig = betterAuth({
   }),
   plugins: [
     emailOtpPlugin,
-    sso({
+    adminSso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
