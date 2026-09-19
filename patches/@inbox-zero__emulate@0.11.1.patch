@@ -1,5 +1,5 @@
 diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
-index 8f3e6ed63256db303a769d8201df5c2bec28692b..4d26c844431c9a379f333e4f46e57c51b9ad7a65 100644
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..7231ef4fc7c7e76691ace76e07ba38bf529a989f 100644
 --- a/dist/dist-JYOXR3UP.js
 +++ b/dist/dist-JYOXR3UP.js
 @@ -890,6 +890,26 @@ function resolveMessage(ctx, userEmail, messageId) {
@@ -29,7 +29,7 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..4d26c844431c9a379f333e4f46e57c51
  function resolveCalendar(ctx, userEmail, calendarId) {
    const ms = getMicrosoftStore(ctx.store);
    if (calendarId === "primary") {
-@@ -973,6 +993,38 @@ function graphRoutes(ctx) {
+@@ -973,6 +993,41 @@ function graphRoutes(ctx) {
        ...nextSkip != null ? { "@odata.nextLink": buildNextLink(c.req.url, nextSkip) } : {}
      });
    });
@@ -44,6 +44,9 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..4d26c844431c9a379f333e4f46e57c51
 +    const currentIds = current.map((message) => message.microsoft_id);
 +    const deltaLink = folderMessagesDeltaLink(folder.microsoft_id, encodeFolderDeltaToken(currentIds));
 +    const deltaToken = c.req.query("$deltatoken") ?? c.req.query("%24deltatoken");
++    if (deltaToken === "expired") {
++      return microsoftGraphError(c, 410, "SyncStateNotFound", "The sync state provided is malformed or does not exist.");
++    }
 +    if (deltaToken) {
 +      const previousIds = decodeFolderDeltaToken(deltaToken);
 +      const currentIdSet = new Set(currentIds);

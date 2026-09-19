@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createOutlookTestHarness, type OutlookTestHarness } from "./helpers";
-import { decodeMailboxSyncCursor } from "@/utils/email/mailbox-sync";
+import {
+  decodeMailboxSyncCursor,
+  encodeMailboxSyncCursor,
+} from "@/utils/email/mailbox-sync";
+import { createEmailProviderMailboxSource } from "@/utils/mail-api/source";
 
 vi.mock("server-only", () => ({}));
 
@@ -124,6 +128,54 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             message.id === keepId && message.labelIds?.includes("INBOX"),
         ),
       ).toBe(true);
+    });
+
+    it("rebuilds from snapshot when Graph delta returns 410", async () => {
+      const first = await harness.provider.getMailboxSyncPage({
+        after: new Date(0),
+        limit: 50,
+      });
+      expect(first.reset).toBe(true);
+      const expired = encodeMailboxSyncCursor({
+        version: 1,
+        provider: "microsoft",
+        deltaLink:
+          "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$deltatoken=expired",
+        after: "1970-01-01T00:00:00.000Z",
+        snapshot: false,
+      });
+      const rebuilt = await harness.provider.getMailboxSyncPage({
+        cursor: expired,
+        limit: 50,
+      });
+      expect(rebuilt.reset).toBe(true);
+      expect(rebuilt.upsertedMessages.length).toBeGreaterThan(0);
+      expect(
+        decodeMailboxSyncCursor(rebuilt.cursor, "microsoft").deltaLink,
+      ).toMatch(/\$deltatoken=/);
+      expect(
+        decodeMailboxSyncCursor(rebuilt.cursor, "microsoft").deltaLink,
+      ).not.toContain("deltatoken=expired");
+
+      const source = createEmailProviderMailboxSource({
+        accountId: "outlook-delta",
+        provider: harness.provider,
+      });
+      const changes = await source.readChanges({
+        session: { accountId: "outlook-delta", generation: "g1" },
+        requestId: "expired-delta",
+        position: {
+          streamId: "primary",
+          generation: "g1",
+          checkpoint: expired,
+        },
+        pageSize: 50,
+        signal: new AbortController().signal,
+      });
+      expect(changes).toEqual({
+        status: "reset_required",
+        scopeId: "primary",
+      });
     });
   },
 );
