@@ -8,13 +8,19 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `6dcdf92de`
+- Last implementation commit: `1adaf205b`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E107 upload inspect/cancel. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
+- Current task: remaining matrix cells after E108 attachment-content. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
 - Next action: watch GitHub checks on the exact head after this push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts utils/mail-api/authorization.test.ts utils/mail-engine/http.test.ts` — 3 files, 18 passed (E108)
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/backend-adapter.test.ts` — 1 file, 5 passed (E108)
+  - `cd apps/desktop && pnpm exec vitest run src/mail-engine/request.test.ts` — 1 file, 5 passed (E108)
+  - GitHub Playwright `35457999445` on `db0a8e813`: all E2E jobs passed, including mail-offline (E107 docs head)
+  - GitHub Run Tests `35457999460` on `db0a8e813`: success
+  - GitHub Build Check `35457999469` on `db0a8e813`: success
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts` — 1 file, 1 passed (E107)
   - `pnpm exec ultracite check` on upload-blobs helpers and GET/DELETE route — pass
   - GitHub Playwright `35457233816` on `0584b6a70`: all E2E jobs passed, including mail-offline
@@ -293,7 +299,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 
 | Scenario family | Gmail web | Outlook web | Gmail desktop | Outlook desktop | Shared/store evidence |
 | --- | --- | --- | --- | --- | --- |
-| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24); Promos split shows only matching mail (E77) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite); split `labelIds` map onto category/starred predicates (E77) |
+| Login/bootstrap/body/search/reopen | Partial: OPFS list after coverage (E13/E14); mailbox search (E16); category/label filters (E24); Promos split shows only matching mail (E77) | Partial: Outlook search (E20); inspect coverage (E21) | Partial: hosted Next over desktop IPC lists and searches Archive Action Message (E36/E39) | Partial: hosted Next over desktop IPC lists and searches Outlook Archive Action Message (E37/E40) | Gmail+Outlook HTTP search/body/read/reopen (provider + SQLite); split `labelIds` map onto category/starred predicates (E77); GET `/attachment-content` streams provider attachment bytes (E108) |
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: Outlook archive hide + succeeded (E20); queued archive survives OPFS reload (E61); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: hosted Electron archive hide + native SQLite (E36/E39); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43); bulk archive/undo, labels, trash restore (E57) | Partial: hosted Electron More actions Star (E48); bulk archive/undo, labels, trash restore (E59) | Partial: hosted Electron More actions Star (E47); bulk archive/undo, labels, trash restore (E59) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
@@ -444,11 +450,28 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Tree: `cursor/mail-engine-0b4f` at `6dcdf92de`
 - Commands:
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts` — 1 file, 1 passed
+  - GitHub Playwright `35457999445` on `db0a8e813` — all E2E jobs passed, including mail-offline
+  - GitHub Run Tests `35457999460` on `db0a8e813` — success
+  - GitHub Build Check `35457999469` on `db0a8e813` — success
   - GitHub Playwright `35457233816` on `0584b6a70` — all E2E jobs passed (E106 docs head, before this commit)
   - GitHub Run Tests `35457233813` on `0584b6a70` — success
   - GitHub Build Check `35457233815` on `0584b6a70` — success
-- What it proved: GET reports `ready` for a finalized account upload, `not_found` when missing, and `invalid` for a path-escape id. DELETE removes that blob and is idempotent; a sibling upload stays ready.
+- What it proved: GET reports `ready` for a finalized account upload, `not_found` when missing, and `invalid` for a path-escape id. DELETE removes that blob and is idempotent; a sibling upload stays ready. GitHub Playwright on `db0a8e813` passed every selected E2E area.
 - Limitations: Cancel is a named client delete, not a directory sweep. The HTTP host has no live send-attachment id set, so it does not refuse DELETE of a blob a pending send still needs. PUT `/uploads/[uploadId]/content` streaming is not this change. Do not check G4/G5.
+
+### E108. Stream provider attachment bytes over GET (2026-09-19)
+
+- Tasks: partial E3 HTTP `/attachment-content`
+- Tree: `cursor/mail-engine-0b4f` at `1adaf205b`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts utils/mail-api/authorization.test.ts utils/mail-engine/http.test.ts` — 3 files, 18 passed
+  - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/backend-adapter.test.ts` — 1 file, 5 passed
+  - `cd apps/desktop && pnpm exec vitest run src/mail-engine/request.test.ts` — 1 file, 5 passed
+  - GitHub Playwright `35457999445` on `db0a8e813` — all E2E jobs passed (E107 docs head, before this commit)
+  - GitHub Run Tests `35457999460` on `db0a8e813` — success
+  - GitHub Build Check `35457999469` on `db0a8e813` — success
+- What it proved: `createEmailProviderMailboxSource.readAttachment` streams provider bytes. The client adapter GETs `/attachment-content` with `accept: "bytes"` instead of returning `paused`. A 404 maps to `paused` with `retryAfterMs: 0`. Browser and desktop HTTP clients return the octet-stream body without parsing it as JSON.
+- Limitations: MailShell download/preview still uses `/api/messages/attachment`. `MailboxSource.readAttachment` has no `not_found` status, so a missing attachment stays `paused`/`unavailable`. PUT `/uploads/[uploadId]/content` streaming is not this change. Do not check G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
