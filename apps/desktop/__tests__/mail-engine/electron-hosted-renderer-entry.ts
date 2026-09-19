@@ -198,6 +198,13 @@ async function proveSendDiscard(
     false,
   );
 
+  const mailUrl = new URL(
+    `/${accountId}/mail`,
+    window.webContents.getURL(),
+  ).toString();
+  await window.loadURL(mailUrl);
+  await waitForTransport(window, "desktop-ipc");
+  await waitForConversations(window);
   await openCompose(window);
   await fillComposeDraft(window, SEND_SUBJECT);
   await delay(3000);
@@ -830,20 +837,27 @@ async function waitForComposeClosed(window: BrowserWindow) {
 
 async function waitForSendSucceeded(window: BrowserWindow) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
-    const succeeded = (await window.webContents.executeJavaScript(`
+    const result = (await window.webContents.executeJavaScript(`
       (async () => {
         const inspect = window.__inboxZeroMailInspect;
-        if (!inspect?.read) return false;
+        if (!inspect?.read) return { status: "missing" };
         const diagnostics = await inspect.read();
-        return Boolean(
-          diagnostics?.commands?.some(
-            (command) =>
-              command.kind === "send" && command.status === "succeeded",
-          ),
-        );
+        const send = diagnostics?.commands
+          ?.filter((command) => command.kind === "send")
+          .at(-1);
+        return send
+          ? { status: send.status, kind: send.kind }
+          : { status: "missing" };
       })()
-    `)) as boolean;
-    if (succeeded) return true;
+    `)) as { status?: string };
+    if (result.status === "succeeded") return true;
+    if (
+      result.status === "failed" ||
+      result.status === "cancelled" ||
+      result.status === "needs_attention"
+    ) {
+      throw new Error(`hosted send ${result.status}`);
+    }
     await delay(500);
   }
   throw new Error("hosted send never reached succeeded");
