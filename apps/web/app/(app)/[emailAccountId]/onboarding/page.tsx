@@ -53,6 +53,7 @@ export default async function OnboardingPage(props: {
         where: { id: session.user.id },
         select: {
           email: true,
+          onboardingPaywallVariant: true,
           premium: { select: premiumEntitlementSelect },
         },
       })
@@ -61,9 +62,11 @@ export default async function OnboardingPage(props: {
   if (
     user &&
     (await shouldShowPaywallFirst({
+      userId: session.user.id,
       email: user.email,
       isPremium: isPremiumRecord(user.premium),
       forced: paywallFirst,
+      storedVariant: user.onboardingPaywallVariant,
     }))
   ) {
     redirect(PAYWALL_FIRST_UPGRADE_PATH);
