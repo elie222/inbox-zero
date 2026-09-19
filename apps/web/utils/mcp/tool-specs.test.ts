@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildIntegrationArgsFromFields,
   getIntegrationActionDisplayValue,
   getIntegrationActionLabel,
+  getOnlyIntegrationToolSpec,
 } from "./tool-specs";
 
 describe("getIntegrationActionLabel", () => {
@@ -69,5 +71,32 @@ describe("getIntegrationActionDisplayValue", () => {
         integrationArgs: { content: "   " },
       }),
     ).toBeNull();
+  });
+});
+
+describe("buildIntegrationArgsFromFields", () => {
+  it("keeps Todoist title, description, project, and due date from flat fields", () => {
+    const spec = getOnlyIntegrationToolSpec();
+    expect(spec).toBeDefined();
+    if (!spec) return;
+
+    expect(
+      buildIntegrationArgsFromFields({
+        spec,
+        fields: {
+          content: "Follow up",
+          description: "From the email",
+          projectId: "inbox",
+          dueString: "tomorrow",
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        content: "Follow up",
+        description: "From the email",
+        projectId: "inbox",
+        dueString: "tomorrow",
+      }),
+    );
   });
 });
