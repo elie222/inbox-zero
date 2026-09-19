@@ -191,6 +191,13 @@ async function runProof(input: {
       return proveInboxCounts(input.window, input.owner, input.accountId);
     case "sign-out":
       return proveSignOut(input.window, input.sqlitePath);
+    case "archive-new-mail":
+      return proveArchiveNewMail(
+        input.window,
+        input.owner,
+        input.accountId,
+        input.gate,
+      );
     default:
       return proveSearchArchive(input.window, input.owner, input.accountId);
   }
@@ -734,6 +741,51 @@ async function proveInboxCounts(
     inboxUnreadAfterRestore,
     unreadHiddenAfterArchive: true,
     unreadVisibleAfterRestore: true,
+  };
+}
+
+async function proveArchiveNewMail(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  gate: BlockedAuthGate,
+) {
+  const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+  await waitForCoverage(window);
+  gate.countCatchUp = true;
+  await clickArchive(window, ARCHIVE_SUBJECT);
+  await waitForSubjectGone(window, ARCHIVE_SUBJECT);
+  const archiveSucceeded = await waitForInspectSucceeded(window, {
+    kind: "archive",
+    threadId: "thr_playwright_archive",
+  });
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    false,
+  );
+  const subjectsAfterArchive = await readSubjects(window);
+  writeReadyFile();
+  const subjectsAfter = await waitForSubject(window, ARCHIVE_SUBJECT);
+  const nativeInbox = await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    ARCHIVE_SUBJECT,
+    true,
+  );
+  return {
+    subjectsBefore,
+    subjectsAfterArchive,
+    subjectsAfter,
+    archiveSucceeded,
+    nativeInboxHasArchiveSubject: nativeInbox.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+    changeRequests: gate.changes,
+    enumerationRequests: gate.enumeration,
   };
 }
 
