@@ -72,4 +72,24 @@ describe("createOriginMailRequest", () => {
       cookie: "better-auth.session=abc",
     });
   });
+
+  it("issues mail HTTP against the configured origin, not the SaaS host", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = createOriginMailRequest({
+      origin: "http://mail.internal.example:8080",
+    });
+    await request({
+      method: "GET",
+      path: "/api/mail/v1/accounts/acc-1/capabilities",
+      signal: new AbortController().signal,
+    });
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe(
+      "http://mail.internal.example:8080/api/mail/v1/accounts/acc-1/capabilities",
+    );
+    expect(url).not.toContain("getinboxzero.com");
+  });
 });

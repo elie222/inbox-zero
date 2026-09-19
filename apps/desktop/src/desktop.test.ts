@@ -43,6 +43,51 @@ describe("desktop shell helpers", () => {
     );
   });
 
+  it("treats INBOX_ZERO_APP_URL as the only allowed origin", () => {
+    const origin = "http://mail.internal.example:8080";
+    expect(getDesktopAppOrigin(`${origin}/welcome`)).toBe(origin);
+    expect(getDesktopLoginUrl(origin)).toBe(`${origin}/login`);
+    expect(getDesktopHomeUrl(origin)).toBe(
+      `${origin}/welcome-redirect?mode=mail`,
+    );
+    expect(getDesktopBrowserStartUrl(origin, "google")).toBe(
+      `${origin}/api/mobile-auth/browser-start?provider=google`,
+    );
+    expect(isAllowedDesktopNavigation(`${origin}/acc-1/mail`, origin)).toBe(
+      true,
+    );
+    expect(
+      isAllowedDesktopNavigation(
+        "https://www.getinboxzero.com/acc-1/mail",
+        origin,
+      ),
+    ).toBe(false);
+    expect(isAllowedDesktopNavigation("https://evil.test/mail", origin)).toBe(
+      false,
+    );
+    expect(
+      getDesktopSessionRestoreUrl(origin, `${origin}/acc-1/mail?type=inbox`),
+    ).toBe(`${origin}/acc-1/mail?type=inbox`);
+    expect(
+      getDesktopSessionRestoreUrl(
+        origin,
+        "https://www.getinboxzero.com/acc-1/mail",
+      ),
+    ).toBeNull();
+    expect(getDesktopMailAccountId(`${origin}/acc-1/mail`, origin)).toBe(
+      "acc-1",
+    );
+    expect(
+      getDesktopMailAccountId(
+        "https://www.getinboxzero.com/acc-1/mail",
+        origin,
+      ),
+    ).toBeNull();
+    expect(getDesktopPostAuthUrl(origin, "/connect-mailbox")).toBe(
+      `${origin}/connect-mailbox`,
+    );
+  });
+
   it("builds the system-browser OAuth start URL", () => {
     expect(
       getDesktopBrowserStartUrl("https://www.getinboxzero.com", "google"),
