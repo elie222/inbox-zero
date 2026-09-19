@@ -52,6 +52,7 @@ export default async function OnboardingPage(props: {
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
         select: {
+          id: true,
           email: true,
           onboardingPaywallVariant: true,
           premium: { select: premiumEntitlementSelect },
@@ -62,7 +63,7 @@ export default async function OnboardingPage(props: {
   if (
     user &&
     (await shouldShowPaywallFirst({
-      userId: session.user.id,
+      userId: user.id,
       email: user.email,
       isPremium: isPremiumRecord(user.premium),
       forced: paywallFirst,
