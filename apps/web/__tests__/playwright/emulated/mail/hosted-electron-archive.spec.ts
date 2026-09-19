@@ -781,6 +781,54 @@ test("drops Inbox and Unread counts when an unread conversation is archived thro
   expect(cleanupErrors).toEqual([]);
 });
 
+test("wipes native sqlite when Sign out is used through desktop IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-sign-out.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+
+  const payload = await launchHostedElectron({
+    appUrl: baseURL,
+    accountId: emailAccountId,
+    storageState: authFile,
+    screenshotPath,
+    proof: "sign-out",
+  });
+  expect(payload.url).toMatch(/^https?:/);
+  expect(payload.url).not.toContain("file:");
+  expect(payload.transport).toBe("desktop-ipc");
+  expect(payload.proof).toBe("sign-out");
+  expect(payload.sqliteExistsBefore).toBe(true);
+  expect(payload.sqliteExists).toBe(false);
+  expect(payload.sqliteExistsAfter).toBe(false);
+  expect(payload.sqliteWalExistsAfter).toBe(false);
+  expect(payload.sqliteShmExistsAfter).toBe(false);
+  expect(payload.signedOut).toBe(true);
+  testInfo.annotations.push({
+    type: "hosted-electron-payload",
+    description: JSON.stringify({
+      url: payload.url,
+      transport: payload.transport,
+      proof: payload.proof,
+      sqliteExistsBefore: payload.sqliteExistsBefore,
+      sqliteExists: payload.sqliteExists,
+      sqliteWalExists: payload.sqliteWalExists,
+      sqliteShmExists: payload.sqliteShmExists,
+    }),
+  });
+  await copyCatchUpArtifact(
+    screenshotPath,
+    payload,
+    "hosted-electron-sign-out",
+  );
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -800,7 +848,8 @@ function launchHostedElectron(input: {
     | "cursor-reset"
     | "bulk"
     | "queued-restart"
-    | "inbox-counts";
+    | "inbox-counts"
+    | "sign-out";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
@@ -1108,6 +1157,13 @@ type HostedElectronPayload = {
   inboxUnreadAfterRestore?: number;
   unreadHiddenAfterArchive?: boolean;
   unreadVisibleAfterRestore?: boolean;
+  sqliteExistsBefore?: boolean;
+  sqliteExistsAfter?: boolean;
+  sqliteWalExistsAfter?: boolean;
+  sqliteShmExistsAfter?: boolean;
+  sqliteWalExists?: boolean;
+  sqliteShmExists?: boolean;
+  signedOut?: boolean;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {

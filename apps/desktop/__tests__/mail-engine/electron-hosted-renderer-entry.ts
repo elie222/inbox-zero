@@ -10,6 +10,7 @@ import {
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
 import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
+import { closeAndWipeDesktopMailbox } from "../../src/mail-engine/wipe";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
 
 const PARTITION = "persist:inbox-zero";
@@ -60,12 +61,13 @@ async function runHostedMail() {
   const sqlitePath = join(app.getPath("userData"), "mailbox.sqlite");
   const authGate = createBlockedAuthGate();
   await injectAppCookies(appOrigin, requiredEnv("ELECTRON_STORAGE_STATE"));
-  const owner = await createDesktopMailOwner({
-    databasePath: sqlitePath,
-    ...createRoutedBackendPorts(
-      wrapBlockedAuthRequest(createSessionRequest(appOrigin), authGate),
-    ),
-  });
+  let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined =
+    await createDesktopMailOwner({
+      databasePath: sqlitePath,
+      ...createRoutedBackendPorts(
+        wrapBlockedAuthRequest(createSessionRequest(appOrigin), authGate),
+      ),
+    });
   const window = new BrowserWindow({
     show: true,
     width: 1280,
@@ -81,17 +83,31 @@ async function runHostedMail() {
   });
   ipcMain.handle(
     "mail-engine",
-    (_event: IpcMainInvokeEvent, payload: unknown) => owner.handleIpc(payload),
+    (_event: IpcMainInvokeEvent, payload: unknown) => {
+      if (!owner) return { status: "invalid" };
+      return owner.handleIpc(payload);
+    },
   );
+  ipcMain.handle("mail-engine-wipe", async () => {
+    const current = owner;
+    owner = undefined;
+    await closeAndWipeDesktopMailbox({
+      owner: current,
+      databasePath: sqlitePath,
+    });
+    return { status: "ok" };
+  });
   const mailUrl = new URL(`/${accountId}/mail`, appOrigin).toString();
   try {
     await window.loadURL(mailUrl);
     const transport = await waitForTransport(window, "desktop-ipc");
+    if (!owner) throw new Error("desktop mail owner is missing");
     const payload = await runProof({
       window,
       owner,
       accountId,
       gate: authGate,
+      sqlitePath,
     });
     if (PROOF !== "reconnect") {
       window.show();
@@ -105,12 +121,18 @@ async function runHostedMail() {
         transport,
         sqlitePath,
         sqliteExists: existsSync(sqlitePath),
+        sqliteWalExists: existsSync(`${sqlitePath}-wal`),
+        sqliteShmExists: existsSync(`${sqlitePath}-shm`),
         proof: PROOF,
         ...payload,
       })}\n`,
     );
   } finally {
-    await owner.close();
+    try {
+      await owner?.close();
+    } catch {
+      // Sign out may already have closed the owner.
+    }
     app.quit();
   }
 }
@@ -120,6 +142,7 @@ async function runProof(input: {
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>;
   accountId: string;
   gate: BlockedAuthGate;
+  sqlitePath: string;
 }) {
   switch (PROOF) {
     case "compose":
@@ -166,6 +189,8 @@ async function runProof(input: {
       );
     case "inbox-counts":
       return proveInboxCounts(input.window, input.owner, input.accountId);
+    case "sign-out":
+      return proveSignOut(input.window, input.sqlitePath);
     default:
       return proveSearchArchive(input.window, input.owner, input.accountId);
   }
@@ -712,6 +737,26 @@ async function proveInboxCounts(
   };
 }
 
+async function proveSignOut(window: BrowserWindow, sqlitePath: string) {
+  await waitForConversations(window);
+  const sqliteExistsBefore = existsSync(sqlitePath);
+  const origin = new URL(window.webContents.getURL()).origin;
+  await window.loadURL(`${origin}/settings`);
+  await waitForHeading(window, "Settings");
+  await clickNavUser(window);
+  const signOutRect = await waitForMenuItemRect(window, "Sign out");
+  await pointerClickAt(window, signOutRect);
+  await waitForSignedOut(window);
+  await waitForMailboxGone(sqlitePath);
+  return {
+    sqliteExistsBefore,
+    sqliteExistsAfter: existsSync(sqlitePath),
+    sqliteWalExistsAfter: existsSync(`${sqlitePath}-wal`),
+    sqliteShmExistsAfter: existsSync(`${sqlitePath}-shm`),
+    signedOut: true,
+  };
+}
+
 async function proveReconnect(
   window: BrowserWindow,
   accountId: string,
@@ -1103,6 +1148,64 @@ async function selectConversation(window: BrowserWindow, subject: string) {
   throw new Error(`Selection checkbox missing for ${subject}`);
 }
 
+async function clickNavUser(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const rect = (await window.webContents.executeJavaScript(`
+      (() => {
+        const button = [...document.querySelectorAll("button")].find((item) => {
+          const text = (item.innerText ?? "").replace(/\\s+/g, " ").trim();
+          return text.includes("Smoke Test User");
+        });
+        if (!(button instanceof HTMLElement)) return null;
+        button.scrollIntoView({ block: "nearest" });
+        const box = button.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })()
+    `)) as DomRect | null;
+    if (rect && rect.width > 0 && rect.height > 0) {
+      await pointerClickAt(window, rect);
+      return;
+    }
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error("NavUser trigger missing");
+}
+
+async function waitForSignedOut(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const state = (await window.webContents
+      .executeJavaScript(`
+      (() => {
+        const text = (document.body?.innerText ?? "").replace(/\\s+/g, " ");
+        return {
+          loggedOut: /\\bLog in\\b/.test(text) || /\\bLogged out\\b/.test(text),
+        };
+      })()
+    `)
+      .catch(() => null)) as { loggedOut: boolean } | null;
+    if (state?.loggedOut) return;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Sign out never left the app: ${body.slice(0, 2000)}`);
+}
+
+async function waitForMailboxGone(sqlitePath: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (
+      !existsSync(sqlitePath) &&
+      !existsSync(`${sqlitePath}-wal`) &&
+      !existsSync(`${sqlitePath}-shm`)
+    ) {
+      return;
+    }
+    await delay(250);
+  }
+  throw new Error(`native sqlite still present at ${sqlitePath}`);
+}
+
 async function clickExactButton(window: BrowserWindow, name: string) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const clicked = (await window.webContents.executeJavaScript(`
@@ -1240,6 +1343,7 @@ async function waitForMenuItemRect(window: BrowserWindow, label: string) {
           },
         );
         if (!(item instanceof HTMLElement)) return null;
+        item.scrollIntoView({ block: "nearest" });
         const box = item.getBoundingClientRect();
         return { x: box.x, y: box.y, width: box.width, height: box.height };
       })()
