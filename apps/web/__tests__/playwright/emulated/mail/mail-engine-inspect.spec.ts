@@ -1,4 +1,4 @@
-import { expect, type Route } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail } from "./mail-test-helpers";
@@ -10,27 +10,7 @@ test("exposes engine diagnostics after metadata coverage", async ({
   await expect(conversations.getByRole("option").first()).toBeVisible({
     timeout: 60_000,
   });
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(async () => {
-          const seam = window.__inboxZeroMailInspect;
-          if (!seam) return { present: false, coverageComplete: false };
-          const diagnostics = (await seam.read()) as {
-            coverage?: Array<{ metadata: string }>;
-          };
-          return {
-            present: true,
-            coverageComplete:
-              (diagnostics.coverage?.length ?? 0) > 0 &&
-              diagnostics.coverage?.every(
-                (item) => item.metadata === "complete",
-              ),
-          };
-        }),
-      { timeout: 60_000 },
-    )
-    .toMatchObject({ present: true, coverageComplete: true });
+  await waitForMetadataCoverage(page);
   const inspect = await page.evaluate(async () => {
     const seam = window.__inboxZeroMailInspect;
     if (!seam) return { present: false as const };
@@ -137,7 +117,12 @@ test("opens account reconnect from blocked_auth catch-up", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
+  await waitForMetadataCoverage(page);
+
+  let changeRequests = 0;
+  let enumerationRequests = 0;
   const fulfillBlockedAuth = async (route: Route) => {
+    changeRequests += 1;
     await route.fulfill({
       status: 401,
       contentType: "application/json",
@@ -152,18 +137,18 @@ test("opens account reconnect from blocked_auth catch-up", async ({
       },
     });
   };
-  // Gmail idle catch-up reads /changes. Outlook without a folder-delta
-  // cursor re-enumerates instead, so both resources must surface blocked_auth.
   await page.route("**/api/mail/v1/accounts/**/changes", fulfillBlockedAuth);
-  await page.route(
-    "**/api/mail/v1/accounts/**/enumeration",
-    fulfillBlockedAuth,
-  );
+  await page.route("**/api/mail/v1/accounts/**/enumeration", async (route) => {
+    enumerationRequests += 1;
+    await route.continue();
+  });
   await expect(
     page.getByRole("heading", {
       name: "Reconnect this account to continue syncing.",
     }),
   ).toBeVisible({ timeout: 60_000 });
+  expect(changeRequests).toBeGreaterThan(0);
+  expect(enumerationRequests).toBe(0);
   await expect
     .poll(async () => {
       const diagnostics = (await page.evaluate(async () => {
@@ -196,3 +181,27 @@ test("opens account reconnect from blocked_auth catch-up", async ({
     new RegExp(`${emailAccountId}/mail\\?reconnect=blocked`),
   );
 });
+
+async function waitForMetadataCoverage(page: Page) {
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async () => {
+          const seam = window.__inboxZeroMailInspect;
+          if (!seam) return { present: false, coverageComplete: false };
+          const diagnostics = (await seam.read()) as {
+            coverage?: Array<{ metadata: string }>;
+          };
+          return {
+            present: true,
+            coverageComplete:
+              (diagnostics.coverage?.length ?? 0) > 0 &&
+              diagnostics.coverage?.every(
+                (item) => item.metadata === "complete",
+              ),
+          };
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ present: true, coverageComplete: true });
+}
