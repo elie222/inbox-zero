@@ -1,3 +1,4 @@
+import { asSchema } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { aiTranslateEmails } from "./translate-email";
@@ -76,12 +77,30 @@ describe("aiTranslateEmails", () => {
     );
   });
 
-  it("throws when the model returns the wrong number of translations", async () => {
+  it("normalizes blank entries in mixed requests to empty strings", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
-        translations: ["only one"],
+        translations: ["Hello", "   "],
       },
     });
+
+    const result = await aiTranslateEmails({
+      texts: ["Hola", "   "],
+      targetLanguage: "en",
+      emailAccount: getEmailAccount(),
+    });
+
+    expect(result).toEqual(["Hello", ""]);
+  });
+
+  it("rejects a wrong-length model response via schema validation", async () => {
+    mockGenerateObject.mockImplementation(
+      async (options: { schema: { parse: (value: unknown) => unknown } }) => {
+        const object = { translations: ["only one"] };
+        options.schema.parse(object);
+        return { object };
+      },
+    );
 
     await expect(
       aiTranslateEmails({
@@ -114,7 +133,7 @@ describe("aiTranslateEmails", () => {
     expect(call.prompt).not.toContain(`${"a".repeat(30_000)}...`);
   });
 
-  it("pins the output schema length to the number of input texts", async () => {
+  it("validates translation count in Zod without minItems/maxItems on the provider schema", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         translations: ["one", "two", "three"],
@@ -133,6 +152,16 @@ describe("aiTranslateEmails", () => {
       };
     };
 
+    const jsonSchema = (await Promise.resolve(
+      asSchema(call.schema).jsonSchema,
+    )) as {
+      properties?: {
+        translations?: { minItems?: number; maxItems?: number };
+      };
+    };
+
+    expect(jsonSchema.properties?.translations?.minItems).toBeUndefined();
+    expect(jsonSchema.properties?.translations?.maxItems).toBeUndefined();
     expect(
       call.schema.safeParse({ translations: ["one", "two", "three"] }).success,
     ).toBe(true);
