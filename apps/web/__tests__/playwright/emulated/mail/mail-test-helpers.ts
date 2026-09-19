@@ -1,6 +1,11 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import {
+  inspectCommandMatches,
+  inspectCommandToMutation,
+  type InspectCommand,
+} from "@/utils/playwright/mail-inspect-command";
 
 const DEFAULT_SPLIT_RULE_ID = "playwright-default-split-rule";
 const DEFAULT_SPLIT_ACTION_ID = "playwright-default-split-action";
@@ -64,89 +69,23 @@ export async function readLatestMailMutation(
     kind: string;
     sender?: string;
     threadId?: string;
+    payload?: Record<string, unknown>;
   },
 ) {
   try {
-    const engineMutation = await page.evaluate(async (match) => {
+    const commands = await page.evaluate(async () => {
       const inspect = window.__inboxZeroMailInspect;
       if (!inspect?.read) return;
       const diagnostics = (await inspect.read()) as {
-        commands?: Array<{
-          status: string;
-          kind: string;
-          changeKind: string | null;
-          change: Record<string, unknown> | null;
-          messageIds: string[];
-          conversationIds: string[];
-        }>;
+        commands?: InspectCommand[];
       };
-      const command = diagnostics.commands
-        ?.filter((item) => {
-          const kind = engineCommandKind(item);
-          const kindMatches =
-            kind === match.kind ||
-            (match.kind === "reply" && item.kind === "send");
-          const threadMatches =
-            !match.threadId ||
-            item.conversationIds.includes(match.threadId) ||
-            item.messageIds.some((messageId) =>
-              messageId.includes(match.threadId ?? ""),
-            );
-          return kindMatches && threadMatches;
-        })
-        .at(-1);
-      if (!command) return;
-      return {
-        kind: engineCommandKind(command),
-        status: engineCommandStatus(command.status),
-        threadId: command.conversationIds[0],
-        payload: engineCommandPayload(command.change),
-      };
-
-      function engineCommandStatus(status: string) {
-        if (status === "succeeded") return "succeeded";
-        if (
-          status === "failed" ||
-          status === "cancelled" ||
-          status === "superseded" ||
-          status === "needs_attention"
-        ) {
-          return "failed";
-        }
-        if (
-          status === "executing" ||
-          status === "verifying" ||
-          status === "uncertain" ||
-          status === "queued" ||
-          status === "preparing" ||
-          status === "retry_wait"
-        ) {
-          return "reconciling";
-        }
-        return "pending";
-      }
-
-      function engineCommandKind(item: {
-        kind: string;
-        changeKind: string | null;
-      }) {
-        const changeKind = item.changeKind ?? item.kind;
-        if (item.kind === "send" || changeKind === "send") return "reply";
-        if (changeKind === "set_read") return "set_read_state";
-        if (changeKind === "set_starred") return "set_starred_state";
-        if (changeKind === "restore_from_trash") return "untrash";
-        if (changeKind === "set_spam") return "spam";
-        return changeKind;
-      }
-
-      function engineCommandPayload(change: Record<string, unknown> | null) {
-        if (!change) return;
-        if (change.kind === "set_read") return { read: change.read };
-        if (change.kind === "set_starred") return { starred: change.starred };
-      }
-    }, expected);
-    if (engineMutation) return engineMutation;
-    return;
+      return diagnostics.commands;
+    });
+    const command = commands
+      ?.filter((item) => inspectCommandMatches(item, expected))
+      .at(-1);
+    if (!command) return;
+    return inspectCommandToMutation(command);
   } catch (error) {
     if (String(error).includes("Execution context was destroyed")) return;
     throw error;

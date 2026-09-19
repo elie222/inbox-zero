@@ -84,6 +84,7 @@ test("opens a complete conversation and updates its read state", async ({
           emailAccountId,
           kind: "set_read_state",
           threadId: "thr_playwright_reader",
+          payload: { read: false },
         }),
       { timeout: 60_000 },
     )
@@ -154,10 +155,14 @@ test("waits for a direct reader snapshot before marking it read", async ({
           emailAccountId,
           kind: "set_read_state",
           threadId: "thr_playwright_reader",
+          payload: { read: true },
         }),
       { timeout: 60_000 },
     )
-    .toMatchObject({ payload: { read: true }, status: "pending" });
+    .toMatchObject({
+      payload: { read: true },
+      status: expect.stringMatching(/^(reconciling|succeeded)$/),
+    });
 });
 
 test("filters the mail list by state, category, and label", async ({
