@@ -713,6 +713,38 @@ describe("drafts, freeze, and uncertain settlement", () => {
         })
       ).status,
     ).toBe("queued");
+    expect(
+      await store.settleAttempt({
+        attemptId: work.attemptId,
+        operation: work.operation,
+        result: { status: "rejected", code: "invalid", targets: [] },
+      }),
+    ).toEqual({ status: "stale" });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-late" },
+          expectedRevision: edited.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later still",
+            editableHtml: "<p>Later still</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    expect(
+      await store.admitSend({
+        commandId: "send-late-third",
+        draft: { accountId: "acc-1", draftId: "d-late" },
+        draftRevision: edited.draftRevision,
+        replyTo: null,
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
     await store.close();
   });
 
@@ -778,6 +810,17 @@ describe("drafts, freeze, and uncertain settlement", () => {
       },
     });
     expect(edited.status).toBe("saved");
+    if (edited.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-reject-again",
+          draft: { accountId: "acc-1", draftId: "d-reject" },
+          draftRevision: edited.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
     await store.close();
   });
 

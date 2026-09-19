@@ -478,7 +478,7 @@ export async function createSqliteMailStore(
           );
           await persistTargetOutcomes(tx, input.operation.key, targets);
           await tx.execute(
-            `UPDATE operations SET status = ?, error_code = ?, error_retryable = 0, claimed_by = NULL
+            `UPDATE operations SET status = ?, error_code = ?, error_retryable = 0, claimed_by = NULL, attempt_id = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
               operationStatusFromTargets(targets, "failed"),
@@ -491,6 +491,7 @@ export async function createSqliteMailStore(
             tx,
             input.operation.key.accountId,
             current[0].payload_json,
+            input.operation.key.operationId,
           );
         } else if (input.result.status === "uncertain") {
           await tx.execute(
@@ -573,7 +574,12 @@ export async function createSqliteMailStore(
           `UPDATE operations SET status = 'cancelled' WHERE account_id = ? AND command_id = ?`,
           [key.accountId, key.operationId],
         );
-        await unfreezeSendDraft(tx, key.accountId, current.payload_json);
+        await unfreezeSendDraft(
+          tx,
+          key.accountId,
+          current.payload_json,
+          key.operationId,
+        );
         const targets = await tx.query(
           "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
           [key.accountId, key.operationId],
@@ -939,7 +945,12 @@ export async function createSqliteMailStore(
            WHERE account_id = ? AND command_id = ?`,
           [code, key.accountId, key.operationId],
         );
-        await unfreezeSendDraft(tx, key.accountId, current.payload_json);
+        await unfreezeSendDraft(
+          tx,
+          key.accountId,
+          current.payload_json,
+          key.operationId,
+        );
         const targets = await tx.query(
           "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
           [key.accountId, key.operationId],
@@ -1934,9 +1945,22 @@ async function unfreezeSendDraft(
   tx: SqlTransaction,
   accountId: string,
   payload: import("./driver").SqlValue,
+  commandId: string,
 ) {
   const frozenDraftId = frozenDraftIdFromPayload(payload);
   if (!frozenDraftId) return;
+  const live = await tx.query(
+    `SELECT payload_json FROM operations
+     WHERE account_id = ? AND command_id != ? AND status IN (${PENDING_STATUSES.map(() => "?").join(",")})`,
+    [accountId, commandId, ...PENDING_STATUSES],
+  );
+  if (
+    live.some(
+      (row) => frozenDraftIdFromPayload(row.payload_json) === frozenDraftId,
+    )
+  ) {
+    return;
+  }
   await tx.execute(
     "UPDATE drafts SET frozen = 0 WHERE account_id = ? AND draft_id = ?",
     [accountId, frozenDraftId],
