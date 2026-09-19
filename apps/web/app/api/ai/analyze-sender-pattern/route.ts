@@ -9,6 +9,7 @@ import { analyzeSenderPatternBodySchema } from "@/utils/ai/choose-rule/analyze-s
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { canonicalizeEmailAddress, extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
@@ -69,6 +70,11 @@ async function process({
     if (!emailAccount) {
       logger.error("Email account not found");
       return NextResponse.json({ success: false }, { status: 404 });
+    }
+
+    if (!shouldLearnAiSenderPatterns({ user: emailAccount.user })) {
+      logger.info("Skipping sender pattern detection - learning disabled");
+      return NextResponse.json({ success: true });
     }
 
     const existingCheck = await prisma.newsletter.findFirst({
