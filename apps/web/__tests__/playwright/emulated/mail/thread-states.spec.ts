@@ -2,7 +2,11 @@ import { expect } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { openMail, readLatestMailMutation } from "./mail-test-helpers";
+import {
+  openMail,
+  readLatestMailMutation,
+  threadReaderBody,
+} from "./mail-test-helpers";
 
 test("captures thread reading and reply states", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
@@ -175,9 +179,9 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("heading", { name: /Reply Workflow Message/ }),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(
-    page.getByTestId("thread-reader").getByText(replyBody),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(threadReaderBody(page, replyBody)).toBeVisible({
+    timeout: 60_000,
+  });
   await expect
     .poll(
       () =>

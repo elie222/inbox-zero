@@ -25,6 +25,17 @@ export async function openMail(page: Page) {
   return { conversations, emailAccountId };
 }
 
+export function threadReaderBody(page: Page, text: string) {
+  const reader = page.getByTestId("thread-reader");
+  return reader
+    .getByText(text)
+    .or(
+      reader
+        .frameLocator('iframe[title="Email content preview"]')
+        .getByText(text),
+    );
+}
+
 /**
  * Mailboxes other than the inbox sit behind the collapsed "Mail" group, which
  * stays open once a view inside it is showing.
