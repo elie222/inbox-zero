@@ -75,7 +75,9 @@ async function runHostedMail() {
         sqliteExists: existsSync(sqlitePath),
         subjectsBefore,
         subjectsAfter,
-        nativeInboxHasArchiveSubject: nativeSubjects.includes(ARCHIVE_SUBJECT),
+        nativeInboxHasArchiveSubject: nativeSubjects.some((item) =>
+          item.includes(ARCHIVE_SUBJECT),
+        ),
       })}\n`,
     );
   } finally {
@@ -136,19 +138,19 @@ async function waitForTransport(
 async function waitForSubject(window: BrowserWindow, subject: string) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     const subjects = await readSubjects(window);
-    if (subjects.includes(subject)) return subjects;
+    if (subjects.some((text) => text.includes(subject))) return subjects;
     await delay(500);
   }
   const body = await readBodyText(window);
   throw new Error(
-    `${subject} did not appear in the hosted inbox: ${body.slice(0, 500)}`,
+    `${subject} did not appear in the hosted inbox: ${body.slice(0, 2000)}`,
   );
 }
 
 async function waitForMissingSubject(window: BrowserWindow, subject: string) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     const subjects = await readSubjects(window);
-    if (!subjects.includes(subject)) return;
+    if (!subjects.some((text) => text.includes(subject))) return;
     await delay(500);
   }
   throw new Error(`${subject} remained in the hosted inbox`);
