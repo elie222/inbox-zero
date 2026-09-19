@@ -142,18 +142,6 @@ test("creates and applies a label to selected conversations with L", async ({
   );
   expect(label).toBeTruthy();
   for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {
-    await expect
-      .poll(
-        () =>
-          readLatestMailMutation(page, {
-            emailAccountId,
-            kind: "set_membership",
-            threadId,
-            payload: { membership: "label", id: label.id, present: true },
-          }),
-        { timeout: 60_000 },
-      )
-      .toMatchObject({ status: "succeeded" });
     const response = await page.request.get(`/api/threads/${threadId}`, {
       headers: { "X-Email-Account-ID": emailAccountId },
     });
@@ -169,6 +157,20 @@ test("creates and applies a label to selected conversations with L", async ({
   await page.keyboard.press("Escape");
   await expect(picker).toBeHidden();
   await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
+  for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "set_membership",
+            threadId,
+            payload: { membership: "label", id: label.id, present: true },
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
+  }
 });
 
 test("L labels the open conversation after it leaves the unread list", async ({
@@ -236,6 +238,22 @@ test("L labels the open conversation after it leaves the unread list", async ({
   await page.keyboard.press("Enter");
   await expect(picker).toBeHidden();
   await expect(heading).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_3",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
   const response = await page.request.get("/api/threads/thr_playwright_3", {
     headers: { "X-Email-Account-ID": emailAccountId },
   });
@@ -245,9 +263,9 @@ test("L labels the open conversation after it leaves the unread list", async ({
   );
 });
 
-test("keeps conversations available to retry after an interrupted labeling request", async ({
+test("keeps a queued label visible while provider execute is held", async ({
   page,
-}) => {
+}, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -262,24 +280,68 @@ test("keeps conversations available to retry after an interrupted labeling reque
     exact: true,
   });
   await expect(labelOption).toBeVisible();
-  await page.route("**/mail**", async (route) => {
-    if (route.request().method() === "POST") await route.abort("failed");
-    else await route.continue();
+
+  let releaseExecute = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseExecute = resolve;
   });
-  await labelOption.click();
-  await expect(
-    page.getByText("Couldn't label 1 conversation. Select a label to retry.", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(picker).toBeVisible();
-  await expect(labelOption).toBeEnabled();
-  await page.unroute("**/mail**");
-  await labelOption.click();
-  await expect(picker).toBeHidden();
-  await expect(
-    conversation.getByText("Project Alpha", { exact: true }),
-  ).toBeVisible();
+  await page.route(
+    "**/api/mail/v1/accounts/**/operations/**",
+    async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.continue();
+        return;
+      }
+      await held;
+      await route.continue();
+    },
+  );
+
+  try {
+    await labelOption.click();
+    await expect(picker).toBeHidden();
+    await expect(
+      conversation.getByText("Project Alpha", { exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_keyboard",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      )
+      .toMatchObject({ status: "reconciling" });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "label-queued-before-dispatch",
+    );
+  } finally {
+    releaseExecute();
+  }
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_keyboard",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
   const response = await page.request.get(
     "/api/threads/thr_playwright_keyboard",
     {
