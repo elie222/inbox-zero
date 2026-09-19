@@ -10,11 +10,12 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 - Branch/worktree: `cursor/mail-engine-0b4f`
 - Last implementation commit: `b44f80a72`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E87 unique undo-send toasts; GitHub Playwright is the remaining mail-spec proof.
-- Next action: watch GitHub Playwright on the exact head after E87. Do not re-run emulated Playwright locally. CLA human signature.
+- Current task: remaining matrix cells after E88 bulk-archive PUT hold; GitHub Playwright is the remaining mail-spec proof.
+- Next action: watch GitHub Playwright on the exact head after E88. Do not re-run emulated Playwright locally. CLA human signature.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - GitHub Playwright run `35446791346` on `5dcd08906`: mail, mail-compose, mail-reader, mail-triage, mail-navigation, mail-offline, mail-preferences, settings, chat, onboarding passed; cleanup failed because bulk-archive reconnect held Next `next-action` POSTs while engine archive uses PUT `/operations/` (E88)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E87)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts` — 1 file, 7 passed (E86)
   - `cd apps/web && pnpm exec vitest --run app/(app)/[emailAccountId]/compose/undo-send.test.ts app/(app)/[emailAccountId]/compose/queued-reply.test.ts` — 2 files, 18 passed (E85)
@@ -270,6 +271,15 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Partial: Outlook SW-controlled reload keeps Conversations and Archive Action Message (E53) | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Partial: returning-user native SQLite reopen (E31) | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E88. Hold engine PUT during bulk-archive reconnect (2026-09-19)
+
+- Tasks: partial G5 cleanup reconnect; follow-up to E83 inspect-after-reload
+- Tree: `cursor/mail-engine-0b4f` at `0489ed02e` (product still `b44f80a72`)
+- Commands:
+  - GitHub Playwright `35446791346` on `5dcd08906` — E2E cleanup failed: inspect expected `reconciling`, received `succeeded`
+- What it proved: `blockServerActions` aborted Next `next-action` POSTs, but MailShell archives with PUT `/api/mail/v1/accounts/**/operations/**`, so the command finished before reload. Reconnect now holds that PUT the same way as archive-reconciliation/triage-actions/manual-label, keeps `reconciling` across reload, then releases and expects `succeeded`. Mail-compose/reader/triage already passed on `5dcd08906`.
+- Limitations: GitHub Playwright on the E88 head is the remaining proof. Do not check G4/G5.
 
 ### E87. Mount a new undo toast for each held send (2026-09-19)
 
