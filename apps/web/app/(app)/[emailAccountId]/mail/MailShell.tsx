@@ -882,9 +882,11 @@ export function MailShell() {
       : accountsData?.emailAccounts.find(
           (account) => account.id === labelAccountId,
         );
+  // Outlook categories use the same engine membership command as Gmail labels.
   const canLabel =
     currentLabelTargets.length > 0 &&
-    isGoogleProvider(labelAccount?.account.provider) &&
+    (isGoogleProvider(labelAccount?.account.provider) ||
+      isMicrosoftProvider(labelAccount?.account.provider)) &&
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
     );

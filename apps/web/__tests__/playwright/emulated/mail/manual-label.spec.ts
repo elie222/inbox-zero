@@ -32,9 +32,7 @@ test("applies an existing label from the reader menu and keeps the conversation 
   );
   await conversation.click();
   await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /^More actions/ }).click();
