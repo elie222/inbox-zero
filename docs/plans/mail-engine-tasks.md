@@ -8,7 +8,7 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `55fa8b1ff`
+- Last implementation commit: `5e6713b91`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
 - Current task: remaining matrix cells after E79 attachment projection; GitHub Playwright is the remaining mail-spec proof.
 - Next action: watch GitHub Playwright on the exact head; do not re-run emulated Playwright locally. CLA human signature.
@@ -269,7 +269,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 ### E79. Persist attachment descriptors with enumerated bodies (2026-09-19)
 
 - Tasks: partial G5 reader/compose; CI `compose-and-reply.spec.ts` and attachment-backed reader specs
-- Tree: `cursor/mail-engine-0b4f`
+- Tree: `cursor/mail-engine-0b4f` at `5e6713b91`
 - Commands:
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/command-status.test.ts utils/mail-engine/conversation-thread.test.ts utils/mail-api/observations.test.ts utils/mail-api/source.test.ts hooks/useThread.test.tsx` — 5 files, 22 passed
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='stores enumerated bodies so conversation'` — 1 passed
