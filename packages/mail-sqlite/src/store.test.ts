@@ -519,6 +519,314 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("rejects a second send while the draft is frozen and unfreezes after fail", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-fail" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    const send = await store.admitSend({
+      commandId: "send-fail",
+      draft: { accountId: "acc-1", draftId: "d-fail" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    expect(send.status).toBe("queued");
+    expect(
+      await store.admitSend({
+        commandId: "send-fail",
+        draft: { accountId: "acc-1", draftId: "d-fail" },
+        draftRevision: saved.draftRevision,
+        replyTo: null,
+      }),
+    ).toMatchObject({ status: "already_recorded" });
+    expect(
+      await store.admitSend({
+        commandId: "send-fail-again",
+        draft: { accountId: "acc-1", draftId: "d-fail" },
+        draftRevision: saved.draftRevision,
+        replyTo: null,
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-fail" },
+          expectedRevision: saved.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Hi later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    expect(
+      (
+        await store.failOperation(
+          { accountId: "acc-1", operationId: "send-fail" },
+          "provider_error",
+        )
+      ).status,
+    ).toBe("committed");
+    const edited = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-fail" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi later",
+        editableHtml: "<p>Later</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(edited.status).toBe("saved");
+    if (edited.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-fail-again",
+          draft: { accountId: "acc-1", draftId: "d-fail" },
+          draftRevision: edited.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    await store.close();
+  });
+
+  it("unfreezes a draft when a send is rejected", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-reject" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(saved.status).toBe("saved");
+    if (saved.status !== "saved") throw new Error("expected save");
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-reject",
+          draft: { accountId: "acc-1", draftId: "d-reject" },
+          draftRevision: saved.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(
+      (
+        await store.settleAttempt({
+          attemptId: work.attemptId,
+          operation: work.operation,
+          result: { status: "rejected", code: "invalid", targets: [] },
+        })
+      ).status,
+    ).toBe("committed");
+    const edited = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-reject" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi later",
+        editableHtml: "<p>Later</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(edited.status).toBe("saved");
+    await store.close();
+  });
+
+  it("keeps a draft frozen after an uncertain or confirmed send", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const uncertainDraft = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-uncertain" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Uncertain",
+        editableHtml: "<p>Uncertain</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    const confirmedDraft = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-confirmed" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Confirmed",
+        editableHtml: "<p>Confirmed</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(uncertainDraft.status).toBe("saved");
+    expect(confirmedDraft.status).toBe("saved");
+    if (
+      uncertainDraft.status !== "saved" ||
+      confirmedDraft.status !== "saved"
+    ) {
+      throw new Error("expected save");
+    }
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-uncertain",
+          draft: { accountId: "acc-1", draftId: "d-uncertain" },
+          draftRevision: uncertainDraft.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const uncertainWork = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(uncertainWork?.kind).toBe("command");
+    if (uncertainWork?.kind !== "command") throw new Error("expected command");
+    expect(uncertainWork.operation.key.operationId).toBe("send-uncertain");
+    await store.settleAttempt({
+      attemptId: uncertainWork.attemptId,
+      operation: uncertainWork.operation,
+      result: { status: "uncertain", receiptId: "r-lost" },
+    });
+    expect(
+      (
+        await store.admitSend({
+          commandId: "send-confirmed",
+          draft: { accountId: "acc-1", draftId: "d-confirmed" },
+          draftRevision: confirmedDraft.draftRevision,
+          replyTo: null,
+        })
+      ).status,
+    ).toBe("queued");
+    const confirmedWork = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(confirmedWork?.kind).toBe("command");
+    if (confirmedWork?.kind !== "command") throw new Error("expected command");
+    expect(confirmedWork.operation.key.operationId).toBe("send-confirmed");
+    await store.settleAttempt({
+      attemptId: confirmedWork.attemptId,
+      operation: confirmedWork.operation,
+      result: {
+        status: "confirmed",
+        receiptId: "r-sent",
+        observations: [],
+        targets: [],
+      },
+    });
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-uncertain" },
+          expectedRevision: uncertainDraft.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Uncertain later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    expect(
+      (
+        await store.saveDraft({
+          key: { accountId: "acc-1", draftId: "d-confirmed" },
+          expectedRevision: confirmedDraft.draftRevision,
+          content: {
+            to: ["ada@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Confirmed later",
+            editableHtml: "<p>Later</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+          },
+        })
+      ).status,
+    ).toBe("conflict");
+    expect(
+      await store.admitSend({
+        commandId: "send-uncertain-again",
+        draft: { accountId: "acc-1", draftId: "d-uncertain" },
+        draftRevision: uncertainDraft.draftRevision,
+        replyTo: null,
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
+    expect(
+      await store.admitSend({
+        commandId: "send-confirmed-again",
+        draft: { accountId: "acc-1", draftId: "d-confirmed" },
+        draftRevision: confirmedDraft.draftRevision,
+        replyTo: null,
+      }),
+    ).toEqual({ status: "rejected", code: "invalid" });
+    await store.close();
+  });
+
   it("freezes the provider draft id into the send command", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({

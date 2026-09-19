@@ -479,6 +479,11 @@ export async function createSqliteMailStore(
               input.operation.key.operationId,
             ],
           );
+          await unfreezeSendDraft(
+            tx,
+            input.operation.key.accountId,
+            current[0].payload_json,
+          );
         } else if (input.result.status === "uncertain") {
           await tx.execute(
             `UPDATE operations SET status = 'uncertain', receipt_id = ?, claimed_by = NULL
@@ -560,13 +565,7 @@ export async function createSqliteMailStore(
           `UPDATE operations SET status = 'cancelled' WHERE account_id = ? AND command_id = ?`,
           [key.accountId, key.operationId],
         );
-        const frozenDraftId = frozenDraftIdFromPayload(current.payload_json);
-        if (frozenDraftId) {
-          await tx.execute(
-            "UPDATE drafts SET frozen = 0 WHERE account_id = ? AND draft_id = ?",
-            [key.accountId, frozenDraftId],
-          );
-        }
+        await unfreezeSendDraft(tx, key.accountId, current.payload_json);
         const targets = await tx.query(
           "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
           [key.accountId, key.operationId],
@@ -609,7 +608,7 @@ export async function createSqliteMailStore(
     async admitSend(input) {
       return driver.write(async (tx) => {
         const draft = await tx.query(
-          "SELECT revision, content_json FROM drafts WHERE account_id = ? AND draft_id = ?",
+          "SELECT revision, content_json, frozen FROM drafts WHERE account_id = ? AND draft_id = ?",
           [input.draft.accountId, input.draft.draftId],
         );
         if (!draft[0] || Number(draft[0].revision) !== input.draftRevision) {
@@ -667,6 +666,9 @@ export async function createSqliteMailStore(
               revision: await readRevision(tx),
             };
           }
+          return { status: "rejected" as const, code: "invalid" as const };
+        }
+        if (Number(draft[0].frozen) === 1) {
           return { status: "rejected" as const, code: "invalid" as const };
         }
         const full = await rejectIfQueueFull(
@@ -929,6 +931,7 @@ export async function createSqliteMailStore(
            WHERE account_id = ? AND command_id = ?`,
           [code, key.accountId, key.operationId],
         );
+        await unfreezeSendDraft(tx, key.accountId, current.payload_json);
         const targets = await tx.query(
           "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
           [key.accountId, key.operationId],
@@ -1917,6 +1920,19 @@ function frozenDraftIdFromPayload(value: import("./driver").SqlValue) {
   } catch {
     return null;
   }
+}
+
+async function unfreezeSendDraft(
+  tx: SqlTransaction,
+  accountId: string,
+  payload: import("./driver").SqlValue,
+) {
+  const frozenDraftId = frozenDraftIdFromPayload(payload);
+  if (!frozenDraftId) return;
+  await tx.execute(
+    "UPDATE drafts SET frozen = 0 WHERE account_id = ? AND draft_id = ?",
+    [accountId, frozenDraftId],
+  );
 }
 
 function parseOperationPayload(value: import("./driver").SqlValue) {
