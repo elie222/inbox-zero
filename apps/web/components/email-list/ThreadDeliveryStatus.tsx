@@ -55,6 +55,13 @@ export function ThreadDeliveryStatus({
     () => navigator.onLine,
     () => true,
   );
+  const wasOnline = useRef(online);
+  useEffect(() => {
+    const becameOnline = online && !wasOnline.current;
+    wasOnline.current = online;
+    if (!becameOnline || !client) return;
+    client.requestSync([emailAccountId]).catch(() => undefined);
+  }, [client, emailAccountId, online]);
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dismissedSendIds, setDismissedSendIds] = useState<string[]>([]);

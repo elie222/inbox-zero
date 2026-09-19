@@ -227,6 +227,7 @@ describe("local reply drafts", () => {
         };
       },
     } as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
     await restoreCancelledSendDraft({
       emailAccountId: "account",
       threadId: "thread",

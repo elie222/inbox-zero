@@ -276,7 +276,8 @@ export async function restoreCancelledSendDraft(input: {
     threadId: input.threadId,
     messageId: getReplyDraftSessionId(input.messageId, "reply"),
   };
-  await createReplyDraftWriter(identity).save({
+  const current = await getReplyDraft(identity);
+  await createReplyDraftWriter(identity, current?.revision ?? 0).save({
     composeMode: "reply",
     values: {
       to: stored.content.to.join(", "),
