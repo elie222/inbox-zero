@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `2b9aaaa1e`
+- Last implementation commit: `f271f69a4`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining desktop provider UI, mark-unread inspect mismatch, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Current task: remaining desktop provider UI, simplifier/reviewer, and take PR 3793 to exact-head green.
 - Next action: remaining desktop UI matrix cells and watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed: metadata `msg_*` ids match `thr_*` seeds; payload `{ read: false }` selects unread over an earlier mark-read
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 7 passed in 2.1m on `f271f69a4` plus the deep-link spec tweak (E26)
   - `cd apps/web && pnpm exec vitest --run utils/outlook/mailbox-sync.test.ts` — 1 file, 3 passed including archive folder mapping on delta pages
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/outlook-mailbox-delta.test.ts` — 1 file, 1 passed: initial Graph deltaLink is `graph.microsoft.com` with `$deltatoken`; later pages keep that host; archived mail loses INBOX and gains ARCHIVE
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/catch-up.test.ts __tests__/integration/google-emulator-oauth.test.ts` — 2 files, 4 passed including Outlook folder-move catch-up and Google RS256 OIDC
@@ -129,7 +131,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, and inspect Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and ignores a restored hosted window (E23). Gmail web Drafts names Jordan Example; mixed threads show `Dana Example, me`; category filters use engine membership (E24).
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, and inspect Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and ignores a restored hosted window (E23). Gmail web Drafts names Jordan Example; mixed threads show `Dana Example, me`; category filters use engine membership (E24). Navigation Playwright is green including KeyU unread inspect (E26).
 
 ### G. Scale, preservation, and release readiness
 
@@ -414,6 +416,16 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/mail-engine/catch-up.test.ts __tests__/integration/google-emulator-oauth.test.ts` — 2 files, 4 passed
 - What it proved: the patched Microsoft emulator serves `GET /v1.0/me/mailFolders/:folderId/messages/delta`. The first page returns a `https://graph.microsoft.com` `$deltatoken` cursor. Later pages keep that host. Archiving a message is visible on the next delta as ARCHIVE, not INBOX. Engine catch-up still applies Outlook folder moves. Google RS256 identity tokens still verify.
 - Limitations: still a single primary inbox stream; expired-delta 410 rebuild and per-folder discovery UI remain unproven. Live Outlook inspect Playwright was not rerun on this head.
+
+### E26. Navigation inspect matches metadata message ids (2026-09-18)
+
+- Tasks: partial F2, partial F4
+- Tree: `cursor/mail-engine-0b4f` at `f271f69a4`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/playwright/mail-inspect-command.test.ts` — 1 file, 4 passed
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/navigation-and-views.spec.ts` — 7 passed in 2.1m
+- What it proved: after prepare finishes, KeyU unread is an `admitExact` metadata command with `msg_*` ids and empty `conversationIds`. Inspect helpers map `thr_playwright_reader` onto those members and filter `{ read: false }`, so the toast path records succeeded unread. Deep-link reader waits for a settled snapshot and the Mark as unread control; auto mark-read is not required when the snapshot is already read. Engine in-flight statuses map to reconciling, not pending.
+- Limitations: desktop UI cells remain unrun.
 
 ## Decision and deviation log
 
