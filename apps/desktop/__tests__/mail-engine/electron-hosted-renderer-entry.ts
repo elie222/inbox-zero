@@ -12,11 +12,16 @@ import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
 
 const PARTITION = "persist:inbox-zero";
+const PROOF = process.env.ELECTRON_PROOF ?? "search-archive";
 const ARCHIVE_SUBJECT =
   process.env.ELECTRON_ARCHIVE_SUBJECT ?? "Archive Action Message";
 const SEARCH_QUERY = process.env.ELECTRON_SEARCH_QUERY ?? "Archive Action";
 const SEARCH_HIDDEN_SUBJECT =
   process.env.ELECTRON_SEARCH_HIDDEN ?? "Keyboard Navigation Message";
+const DRAFT_SUBJECT =
+  process.env.ELECTRON_DRAFT_SUBJECT ?? "Hosted desktop draft example";
+const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
+const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
 
 if (process.env.ELECTRON_USER_DATA) {
   app.setPath("userData", process.env.ELECTRON_USER_DATA);
@@ -62,24 +67,13 @@ async function runHostedMail() {
   try {
     await window.loadURL(mailUrl);
     const transport = await waitForTransport(window, "desktop-ipc");
-    const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
-    await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
-    await searchMailbox(window, SEARCH_QUERY);
-    const subjectsSearched = await waitForSearchResult(
-      window,
-      ARCHIVE_SUBJECT,
-      SEARCH_HIDDEN_SUBJECT,
-    );
-    await captureWindow(window, process.env.ELECTRON_SEARCH_SCREENSHOT_PATH);
-    await clearSearch(window);
-    await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
-    await clickArchive(window, ARCHIVE_SUBJECT);
-    await waitForMissingSubject(window, ARCHIVE_SUBJECT);
-    const subjectsAfter = await readSubjects(window);
+    const payload =
+      PROOF === "compose"
+        ? await proveCompose(window, owner, accountId)
+        : await proveSearchArchive(window, owner, accountId);
     window.show();
     await delay(250);
     await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
-    const nativeSubjects = await readNativeInboxSubjects(owner, accountId);
     process.stdout.write(
       `ELECTRON_HOSTED_MAIL ${JSON.stringify({
         electron: process.versions.electron,
@@ -87,21 +81,77 @@ async function runHostedMail() {
         transport,
         sqlitePath,
         sqliteExists: existsSync(sqlitePath),
-        subjectsBefore,
-        subjectsSearched,
-        searchHidHiddenSubject: !subjectsSearched.some((text) =>
-          text.includes(SEARCH_HIDDEN_SUBJECT),
-        ),
-        subjectsAfter,
-        nativeInboxHasArchiveSubject: nativeSubjects.some((item) =>
-          item.includes(ARCHIVE_SUBJECT),
-        ),
+        proof: PROOF,
+        ...payload,
       })}\n`,
     );
   } finally {
     await owner.close();
     app.quit();
   }
+}
+
+async function proveSearchArchive(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  const subjectsBefore = await waitForSubject(window, ARCHIVE_SUBJECT);
+  await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
+  await searchMailbox(window, SEARCH_QUERY);
+  const subjectsSearched = await waitForSearchResult(
+    window,
+    ARCHIVE_SUBJECT,
+    SEARCH_HIDDEN_SUBJECT,
+  );
+  await captureWindow(window, process.env.ELECTRON_SEARCH_SCREENSHOT_PATH);
+  await clearSearch(window);
+  await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
+  await clickArchive(window, ARCHIVE_SUBJECT);
+  await waitForMissingSubject(window, ARCHIVE_SUBJECT);
+  const subjectsAfter = await readSubjects(window);
+  const nativeSubjects = await readNativeMailboxSubjects(
+    owner,
+    accountId,
+    "inbox",
+  );
+  return {
+    subjectsBefore,
+    subjectsSearched,
+    searchHidHiddenSubject: !subjectsSearched.some((text) =>
+      text.includes(SEARCH_HIDDEN_SUBJECT),
+    ),
+    subjectsAfter,
+    nativeInboxHasArchiveSubject: nativeSubjects.some((item) =>
+      item.includes(ARCHIVE_SUBJECT),
+    ),
+  };
+}
+
+async function proveCompose(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForConversations(window);
+  await openCompose(window);
+  await fillComposeDraft(window);
+  await closeCompose(window);
+  await delay(500);
+  await openDraftsMailbox(window);
+  const draftSubjects = await waitForSubject(window, DRAFT_SUBJECT);
+  const nativeDrafts = await readNativeMailboxSubjects(
+    owner,
+    accountId,
+    "draft",
+  );
+  return {
+    draftSubject: DRAFT_SUBJECT,
+    draftSubjects,
+    nativeDraftHasSubject: nativeDrafts.some((item) =>
+      item.includes(DRAFT_SUBJECT),
+    ),
+  };
 }
 
 function createSessionRequest(appOrigin: string) {
@@ -148,6 +198,21 @@ async function waitForTransport(
   }
   throw new Error(
     `hosted mail inspect transport was ${await readTransport(window)}`,
+  );
+}
+
+async function waitForConversations(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const count = (await window.webContents.executeJavaScript(`
+      document.querySelector('[role="listbox"][aria-label="Conversations"]')
+        ?.querySelectorAll('[role="option"]').length ?? 0
+    `)) as number;
+    if (count > 0) return;
+    await delay(500);
+  }
+  const body = await readBodyText(window);
+  throw new Error(
+    `hosted inbox never listed conversations: ${body.slice(0, 2000)}`,
   );
 }
 
@@ -301,17 +366,160 @@ async function readBodyText(window: BrowserWindow) {
   );
 }
 
-async function readNativeInboxSubjects(
+async function openCompose(window: BrowserWindow) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((item) => {
+        if (item.getAttribute("aria-label") === "Compose") return true;
+        return [...item.querySelectorAll("span")].some(
+          (span) => span.textContent?.trim() === "Compose",
+        );
+      });
+      if (!(button instanceof HTMLElement)) return false;
+      button.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (!clicked) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Compose control missing");
+  }
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const open = (await window.webContents.executeJavaScript(`
+      [...document.querySelectorAll('[role="dialog"]')].some((dialog) =>
+        (dialog.textContent ?? "").includes("New Message"),
+      )
+    `)) as boolean;
+    if (open) return;
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`New Message dialog missing: ${body.slice(0, 2000)}`);
+}
+
+async function fillComposeDraft(window: BrowserWindow) {
+  const filled = (await window.webContents.executeJavaScript(`
+    (() => {
+      const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
+        (item) => (item.textContent ?? "").includes("New Message"),
+      );
+      if (!(dialog instanceof HTMLElement)) return { ok: false, step: "dialog" };
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      const to =
+        dialog.querySelector('input[aria-label="To"]') ??
+        dialog.querySelector('input[name="to"]');
+      if (!(to instanceof HTMLInputElement) || !setter) {
+        return { ok: false, step: "to" };
+      }
+      to.focus();
+      setter.call(to, ${JSON.stringify(DRAFT_TO)});
+      to.dispatchEvent(new Event("input", { bubbles: true }));
+      to.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
+      const subject = dialog.querySelector('input[placeholder="Subject"]');
+      if (!(subject instanceof HTMLInputElement)) {
+        return { ok: false, step: "subject" };
+      }
+      subject.focus();
+      setter.call(subject, ${JSON.stringify(DRAFT_SUBJECT)});
+      subject.dispatchEvent(new Event("input", { bubbles: true }));
+      const editor = dialog.querySelector(
+        '[role="textbox"][aria-label="Email message"]',
+      );
+      if (!(editor instanceof HTMLElement)) {
+        return { ok: false, step: "editor" };
+      }
+      editor.focus();
+      document.execCommand("selectAll");
+      const inserted = document.execCommand(
+        "insertText",
+        false,
+        ${JSON.stringify(DRAFT_BODY)},
+      );
+      if (!inserted) {
+        editor.textContent = ${JSON.stringify(DRAFT_BODY)};
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      return { ok: true };
+    })()
+  `)) as { ok: boolean; step?: string };
+  if (!filled.ok) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error(`Compose draft fields missing (${filled.step})`);
+  }
+  await delay(500);
+}
+
+async function closeCompose(window: BrowserWindow) {
+  const closed = (await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('button[aria-label="Close compose"]');
+      if (!(button instanceof HTMLElement)) return false;
+      button.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (!closed) {
+    await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+    throw new Error("Close compose control missing");
+  }
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const open = (await window.webContents.executeJavaScript(`
+      [...document.querySelectorAll('[role="dialog"]')].some((dialog) =>
+        (dialog.textContent ?? "").includes("New Message"),
+      )
+    `)) as boolean;
+    if (!open) return;
+    await delay(50);
+  }
+  throw new Error("New Message dialog stayed open after close");
+}
+
+async function openDraftsMailbox(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const opened = (await window.webContents.executeJavaScript(`
+      (() => {
+        const drafts = [...document.querySelectorAll("a")].find((link) =>
+          /^Drafts\\b/.test((link.textContent ?? "").trim()),
+        );
+        if (drafts instanceof HTMLElement) {
+          drafts.click();
+          return "drafts";
+        }
+        const mail = [...document.querySelectorAll("button")].find(
+          (button) => button.textContent?.trim() === "Mail",
+        );
+        if (mail instanceof HTMLElement) {
+          mail.click();
+          return "mail";
+        }
+        return "missing";
+      })()
+    `)) as "drafts" | "mail" | "missing";
+    if (opened === "drafts") return;
+    if (opened === "missing") break;
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`Drafts mailbox missing: ${body.slice(0, 2000)}`);
+}
+
+async function readNativeMailboxSubjects(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
+  role: "inbox" | "draft",
 ) {
   const snapshot = (await owner.handleIpc({
     protocolVersion: 1,
-    requestId: "hosted-inbox",
+    requestId: `hosted-${role}`,
     method: "observeMailbox",
     payload: {
       accountIds: [accountId],
-      predicate: { kind: "role", role: "inbox" },
+      predicate: { kind: "role", role },
       order: "newest_first",
       pageSize: 25,
       after: null,
