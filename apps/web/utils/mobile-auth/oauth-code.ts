@@ -15,6 +15,7 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("mobile-auth/oauth-code");
 const MOBILE_AUTH_TOKEN_TTL_MS = 5 * 60 * 1000;
+const MOBILE_AUTH_STATE_REGEX = /^[A-Za-z0-9._~-]{16,256}$/u;
 const stateSchema = z.object({
   returnUrlMode: z.enum(MOBILE_AUTH_RETURN_URL_MODES),
   codeChallenge: mobileAuthCodeChallengeSchema,
@@ -33,7 +34,7 @@ export function createMobileAuthState(): string {
 }
 
 export function isValidMobileAuthState(state: string): boolean {
-  return /^[A-Za-z0-9._~-]{16,256}$/u.test(state);
+  return MOBILE_AUTH_STATE_REGEX.test(state);
 }
 
 export async function storeMobileAuthState(
