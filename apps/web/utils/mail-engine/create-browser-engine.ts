@@ -15,6 +15,7 @@ import { createWasmSqliteDriver } from "@/utils/mail-engine/wasm-sqlite";
 import {
   browserMailEngineCapabilities,
   readPageMaxPendingOperations,
+  shouldReleaseDeferredOnStart,
   type BrowserEngineStart,
   type WorkerRequest,
   type WorkerResponse,
@@ -67,7 +68,9 @@ async function createInTabEngine(
     runtime: createHostRuntime(),
     ownerId: "browser-owner",
   });
-  await engine.requestSync([input.accountId]);
+  if (shouldReleaseDeferredOnStart(input.online)) {
+    await engine.requestSync([input.accountId]);
+  }
   let stopped = false;
   const loop = (async () => {
     while (!stopped) {

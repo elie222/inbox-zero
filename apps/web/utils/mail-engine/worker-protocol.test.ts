@@ -3,6 +3,7 @@ import {
   browserMailEngineCapabilities,
   readPageMaxPendingOperations,
   workerStartFence,
+  shouldReleaseDeferredOnStart,
 } from "./worker-protocol";
 
 describe("browser mail engine capabilities", () => {
@@ -35,5 +36,16 @@ describe("worker account fencing", () => {
 describe("page pending-operation cap", () => {
   it("returns undefined when window is not present", () => {
     expect(readPageMaxPendingOperations()).toBeUndefined();
+  });
+});
+
+describe("deferred release on engine start", () => {
+  it("releases connectivity holds when the page is online", () => {
+    expect(shouldReleaseDeferredOnStart()).toBe(true);
+    expect(shouldReleaseDeferredOnStart(true)).toBe(true);
+  });
+
+  it("keeps connectivity holds when the page is offline", () => {
+    expect(shouldReleaseDeferredOnStart(false)).toBe(false);
   });
 });

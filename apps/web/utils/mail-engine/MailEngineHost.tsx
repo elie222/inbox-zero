@@ -201,6 +201,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         engine = await createBrowserMailEngine({
           accountId: emailAccountId,
           provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+          online: typeof navigator === "undefined" || navigator.onLine,
         });
         if (abort.signal.aborted) {
           await engine.close();

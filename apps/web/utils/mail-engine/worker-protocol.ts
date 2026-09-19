@@ -6,7 +6,12 @@ export type BrowserEngineStart = {
   generation?: string;
   persist?: boolean;
   maxPendingOperations?: number;
+  online?: boolean;
 };
+
+export function shouldReleaseDeferredOnStart(online?: boolean) {
+  return online !== false;
+}
 
 export type WorkerRequest =
   | { id: string; type: "start"; input: BrowserEngineStart }

@@ -11,7 +11,11 @@ import {
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createMailHttpRequest } from "./http";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
-import type { BrowserEngineStart, WorkerRequest } from "./worker-protocol";
+import {
+  shouldReleaseDeferredOnStart,
+  type BrowserEngineStart,
+  type WorkerRequest,
+} from "./worker-protocol";
 import { createMailWorkerHost } from "./worker-session";
 
 const host = createMailWorkerHost({
@@ -61,7 +65,9 @@ async function createWorkerEngine(
     runtime: createHostRuntime(),
     ownerId: "browser-worker",
   });
-  await created.requestSync([input.accountId]);
+  if (shouldReleaseDeferredOnStart(input.online)) {
+    await created.requestSync([input.accountId]);
+  }
   let stopped = false;
   const loop = (async () => {
     while (!stopped) {
