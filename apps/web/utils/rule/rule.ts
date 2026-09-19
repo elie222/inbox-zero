@@ -1,10 +1,11 @@
+import isEqual from "lodash/isEqual";
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { ActionType } from "@/generated/prisma/enums";
 import type { SystemType } from "@/generated/prisma/enums";
-import type { Prisma, Rule } from "@/generated/prisma/client";
+import type { Action, Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
@@ -289,17 +290,21 @@ export async function replaceRuleWithResolvedActions({
   emailAccountId,
   data,
   actions,
+  requireReviewOnChange = false,
 }: {
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
   actions: RuleActionCreateData[];
+  requireReviewOnChange?: boolean;
 }): Promise<RuleWithRelations> {
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
     select: {
       ...RULE_SCOPE_SELECT,
-      actions: { select: { type: true } },
+      conditionalOperator: true,
+      runOnThreads: true,
+      actions: true,
     },
   });
 
@@ -325,7 +330,11 @@ export async function replaceRuleWithResolvedActions({
       name: data.name,
       systemType: data.systemType,
       instructions: data.instructions,
-      enabled: data.enabled,
+      enabled:
+        requireReviewOnChange &&
+        (!existingRule || ruleDefinitionChanged(data, actions, existingRule))
+          ? false
+          : data.enabled,
       automate: data.automate,
       runOnThreads: data.runOnThreads,
       conditionalOperator: data.conditionalOperator ?? undefined,
@@ -404,21 +413,7 @@ export async function createRule({
       data: {
         name: result.name,
         systemType,
-        enabled: shouldEnable(
-          result,
-          mappedActions.map((a) => ({
-            type: a.type,
-            subject: a.subject ?? null,
-            content: a.content ?? null,
-            to: a.to ?? null,
-            cc: a.cc ?? null,
-            bcc: a.bcc ?? null,
-            integrationName: a.integrationName ?? null,
-            integrationToolName: a.integrationToolName ?? null,
-            integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
-          })),
-          enablement,
-        ),
+        enabled: shouldEnable(result, mappedActions, enablement),
         runOnThreads,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
@@ -485,6 +480,9 @@ export async function updateRule({
         ...(runOnThreads !== undefined && { runOnThreads }),
       },
       actions: mappedActions,
+      requireReviewOnChange: !shouldEnable(result, mappedActions, {
+        source: "default",
+      }),
     });
 
     queueRuleHistory({ rule, triggerType: "updated" });
@@ -669,7 +667,7 @@ export async function deleteRule({
 
 function shouldEnable(
   rule: CreateOrUpdateRuleSchema,
-  actions: RiskAction[],
+  resolvedActions: RuleActionCreateData[],
   enablement: CreateRuleEnablement,
 ) {
   if (
@@ -679,6 +677,18 @@ function shouldEnable(
     })
   )
     return false;
+
+  const actions: RiskAction[] = resolvedActions.map((action) => ({
+    type: action.type,
+    subject: action.subject ?? null,
+    content: action.content ?? null,
+    to: action.to ?? null,
+    cc: action.cc ?? null,
+    bcc: action.bcc ?? null,
+    integrationName: action.integrationName ?? null,
+    integrationToolName: action.integrationToolName ?? null,
+    integrationArgs: (action.integrationArgs as Prisma.JsonValue) ?? null,
+  }));
 
   if (enablement.source === "chat" && enablement.chatRiskConfirmed) {
     return true;
@@ -1071,4 +1081,45 @@ function addNestedActionOwnershipToInputs(
       emailAccountId,
     );
   });
+}
+
+function ruleDefinitionChanged(
+  data: RuleRecordData,
+  actions: RuleActionCreateData[],
+  existingRule: Pick<
+    Rule,
+    RuleScopeKey | "conditionalOperator" | "runOnThreads"
+  > & {
+    actions: Action[];
+  },
+) {
+  // A name edit does not change the automation the user already approved.
+  const conditionKeys = [
+    ...RULE_SCOPE_KEYS,
+    "conditionalOperator",
+    "runOnThreads",
+  ] as const;
+  if (
+    conditionKeys.some(
+      (key) => data[key] !== undefined && data[key] !== existingRule[key],
+    )
+  ) {
+    return true;
+  }
+
+  if (actions.length !== existingRule.actions.length) return true;
+
+  // Action IDs and database ordering change during replacement; compare the
+  // persisted action fields, treating omitted nullable fields as null.
+  const remainingActions = [...existingRule.actions];
+  for (const action of actions) {
+    const index = remainingActions.findIndex((existing) =>
+      Object.entries(action).every(([key, value]) =>
+        isEqual(value ?? null, existing[key as keyof Action] ?? null),
+      ),
+    );
+    if (index === -1) return true;
+    remainingActions.splice(index, 1);
+  }
+  return false;
 }

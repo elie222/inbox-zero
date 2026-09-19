@@ -950,6 +950,195 @@ describe("draft messaging actions", () => {
   });
 });
 
+describe("full rule update enablement", () => {
+  beforeEach(resetRuleMocks);
+
+  it.each([
+    ActionType.FORWARD,
+    ActionType.REPLY,
+    ActionType.SEND_EMAIL,
+  ])("disables an enabled safe rule when replacement introduces %s", async (type) => {
+    mockStoredRule({ enabled: true, actions: [resolvedArchiveAction()] });
+
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [{ ...forwardAction(), type }] }),
+    });
+
+    expect(rule.enabled).toBe(false);
+    expect(rule.actions[0].type).toBe(type);
+  });
+
+  it.each([
+    "recipient",
+    "condition",
+    "thread scope",
+  ])("requires review again when an approved forwarding rule changes its %s", async (change) => {
+    mockStoredRule({ enabled: true });
+    const action = forwardAction();
+    if (change === "recipient") action.fields!.to = "other@example.com";
+
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({
+        from:
+          change === "condition" ? "other@example.com" : "sender@example.com",
+        actions: [action],
+      }),
+      runOnThreads: change !== "thread scope",
+    });
+
+    expect(rule.enabled).toBe(false);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("preserves enabled=%s on a name-only edit of an approved definition", async (enabled) => {
+    mockStoredRule({ enabled });
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({
+        name: "Renamed rule",
+        actions: [forwardAction()],
+      }),
+    });
+    expect(rule.enabled).toBe(enabled);
+    expect(rule.name).toBe("Renamed rule");
+  });
+
+  it.each([
+    true,
+    false,
+  ])("preserves enabled=%s when replacing with safe actions", async (enabled) => {
+    mockStoredRule({ enabled });
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [archiveAction()] }),
+    });
+    expect(rule.enabled).toBe(enabled);
+    expect(rule.actions[0].type).toBe(ActionType.ARCHIVE);
+  });
+
+  it("applies the creation risk policy to newly introduced integration actions", async () => {
+    mockStoredRule({ enabled: true, actions: [resolvedArchiveAction()] });
+    mockIsIntegrationActionEnabledForEmailAccountId.mockResolvedValue(true);
+    prisma.mcpConnection.findMany.mockResolvedValue([
+      { integration: { name: "todoist" } },
+    ] as never);
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "high",
+      message: "Dynamic content",
+    });
+
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [integrationAction()] }),
+    });
+    expect(rule.enabled).toBe(false);
+    expect(rule.actions[0].type).toBe(ActionType.INTEGRATION);
+  });
+
+  it("preserves approval when actions arrive in a different database order", async () => {
+    mockStoredRule({
+      enabled: true,
+      actions: [
+        resolvedArchiveAction(),
+        { type: ActionType.FORWARD, to: "forward@example.com" },
+      ],
+    });
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [forwardAction(), archiveAction()] }),
+    });
+    expect(rule.enabled).toBe(true);
+  });
+
+  it("keeps a disabled rule disabled when outbound actions are introduced", async () => {
+    mockStoredRule({ enabled: false, actions: [resolvedArchiveAction()] });
+    const rule = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [forwardAction()] }),
+    });
+    expect(rule.enabled).toBe(false);
+  });
+
+  it("allows an explicit enable after a risky replacement", async () => {
+    mockStoredRule({ enabled: true, actions: [resolvedArchiveAction()] });
+    const updated = await updateRule({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      logger,
+      result: createRuleResult({ actions: [forwardAction()] }),
+    });
+    expect(updated.enabled).toBe(false);
+    const enabled = await setRuleEnabled({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: true,
+    });
+    expect(enabled.enabled).toBe(true);
+  });
+});
+
+function mockStoredRule({
+  enabled,
+  actions = [{ type: ActionType.FORWARD, to: "forward@example.com" }],
+}: {
+  enabled: boolean;
+  actions?: ResolvedRuleAction[];
+}) {
+  let stored = {
+    id: RULE_ID,
+    name: "Original rule",
+    enabled,
+    instructions: null,
+    from: "sender@example.com",
+    to: null,
+    subject: null,
+    body: null,
+    groupId: null,
+    group: null,
+    conditionalOperator: "AND",
+    runOnThreads: true,
+    actions,
+  };
+  prisma.rule.findUnique.mockImplementation(async () => stored as any);
+  prisma.rule.update.mockImplementation(async ({ data }) => {
+    const { actions: actionWrite, ...fields } = data;
+    stored = {
+      ...stored,
+      ...Object.fromEntries(
+        Object.entries(fields).filter(([, value]) => value !== undefined),
+      ),
+      actions: (actionWrite as any)?.createMany?.data ?? stored.actions,
+    };
+    return stored as any;
+  });
+}
+
 function resetRuleMocks() {
   vi.clearAllMocks();
   mockEnv.webhookActionsEnabled = true;
