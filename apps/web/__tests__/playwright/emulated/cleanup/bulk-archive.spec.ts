@@ -77,10 +77,18 @@ offlineTest(
       await expect(
         page.getByRole("heading", { name: "Bulk Archive" }),
       ).toBeVisible({ timeout: 60_000 });
-      await expect(
-        page.getByText("Archiving 1 of 1 senders...", { exact: true }),
-      ).toBeVisible();
-      await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+      await expect
+        .poll(() =>
+          readLatestMailMutation(page, {
+            emailAccountId: fixture?.emailAccountId ?? "",
+            kind: "archive",
+            sender: ARCHIVE_SENDER,
+            threadId: CLEANUP_ARCHIVE_THREAD_ID,
+          }),
+        )
+        .toMatchObject({
+          status: "reconciling",
+        });
 
       await page.unroute("**/*", blockServerActions);
       await page.evaluate(() => window.dispatchEvent(new Event("online")));

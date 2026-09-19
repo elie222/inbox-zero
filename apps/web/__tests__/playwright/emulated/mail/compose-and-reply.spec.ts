@@ -766,14 +766,14 @@ test("opens and sends a reply from the reader with Enter", async ({
   const notifications = page.getByRole("region", {
     name: "Notifications alt+T",
   });
-  await expect(replyEditor).toHaveCount(0);
-  await expectThreadReaderBody(page, replyBody);
   await expect(
     notifications.getByText("Email sent!", { exact: true }),
   ).toBeVisible();
   await expect(
     notifications.getByRole("button", { name: /^Undo/ }),
   ).toBeVisible();
+  await expect(replyEditor).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(0);
   await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
