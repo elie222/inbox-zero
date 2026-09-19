@@ -118,7 +118,10 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
-import { extractUniqueEmailAddresses } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractUniqueEmailAddresses,
+} from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
 import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
@@ -1106,14 +1109,26 @@ export class GmailProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      replyAll?: boolean;
     },
   ): Promise<{ messageId: string }> {
+    const userEmails =
+      options?.replyAll === true
+        ? await this.getSelfEmailAddresses(
+            extractEmailAddress(options.from || ""),
+          )
+        : undefined;
     const result = await replyToEmail(
       this.client,
       email,
       content,
       options?.from,
-      options,
+      {
+        replyTo: options?.replyTo,
+        attachments: options?.attachments,
+        replyAll: options?.replyAll,
+        userEmails,
+      },
     );
     return { messageId: requireSentMessageId(result.data.id) };
   }
