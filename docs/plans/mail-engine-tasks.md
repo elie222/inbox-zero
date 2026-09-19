@@ -8,13 +8,14 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `cf5499b94`
+- Last implementation commit: `8ae2d6f1d`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (desktop metadata/assistant, Outlook desktop send, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: Outlook desktop metadata or assistant UI; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells (desktop metadata/assistant, large-mailbox/offline), simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: hosted Electron starring after conversation-click retry; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed, 1 failed in 2.1m on `8ae2d6f1d`; discard 7.8s; send 14.3s; reconnect 6.8s; native draft gone after send; star failed on an empty conversation remount (E46)
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed in 2.1m on `cf5499b94`; discard 10.2s; send 14.9s; native SQLite draft gone after discard; inspect send succeeded; Sent lists Hosted desktop send example (E45)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/starring.spec.ts` — 2 passed in 1.5m on `33155a553`; spec 46.2s; keyboard S, CommandK Unstar, reader S, and More actions Star/Unstar all succeed (E43)
   - `cd apps/web && RUN_INTEGRATION_TESTS=true pnpm exec vitest --run __tests__/integration/outlook-mailbox-flag.test.ts` — 1 file, 1 passed; Graph PATCH persists `flag.flagStatus` and maps to STARRED
@@ -158,7 +159,7 @@ Metadata commands include snooze-as-archive with `prepareSnoozedThread` / `activ
 - [ ] F4. Extend existing browser harness to Outlook and add actual desktop UI/engine coverage; inspect screenshots, traces and errors.
 - [x] F5. Remove superseded mailbox caches, overlays, invalidation loops, and duplicate dispatchers for replaced flows.
 
-Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, inspect, and starring Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21/E43). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and ignores a restored hosted window (E23). A second Electron process reopens the same native SQLite file with the provider paused; an archived conversation stays hidden (E31). Hosted Next over desktop IPC searches and archives against Gmail and Outlook emulators (E36–E40). Hosted Gmail compose saves a draft into Drafts and native SQLite (E41). Hosted Outlook compose does the same (E42). Hosted Electron reconnects from `blocked_auth` catch-up without re-enumerating (E44). Hosted Electron discard removes the Drafts conversation from UI and native SQLite; send succeeds and appears in Sent (E45). Gmail web Drafts names Jordan Example; mixed threads show `Dana Example, me`; category filters use engine membership (E24). Navigation Playwright is green including KeyU unread inspect (E26).
+Mail page waits for OPFS engine coverage, then first-paints MailShell inside `MailEngineProvider`. App layout starts `MailEngineRuntime` so CommandK, EmailViewer, and EmailList share the same client. Lists, search, archive/read/star/snooze, labels, reader, EmailList, CommandK, sidebar/desktop counts, and compose/send use the engine. IndexedDB mailbox cache, search index, mutation outbox, sync managers, and the user-work importer are deleted. Unsent compose persists through `saveDraft`/`readDraft`; send freezes `providerDraftId` and converts that provider draft. A completed bootstrap tombstones local messages the provider no longer returned. Gmail web compose-drafts Playwright is green (E18). Outlook web archive, search, compose-drafts, inspect, and starring Playwright are green via `PLAYWRIGHT_MAIL_PROVIDER=microsoft` (E20/E21/E43). Desktop MailApp boots from bundled `file:` assets and archives against native SQLite (E22); hosted Next is not required for that smoke. The linux-unpacked product binary launches with `INBOX_ZERO_LOCAL_MAIL=1` and ignores a restored hosted window (E23). A second Electron process reopens the same native SQLite file with the provider paused; an archived conversation stays hidden (E31). Hosted Next over desktop IPC searches and archives against Gmail and Outlook emulators (E36–E40). Hosted Gmail compose saves a draft into Drafts and native SQLite (E41). Hosted Outlook compose does the same (E42). Hosted Electron reconnects from `blocked_auth` catch-up without re-enumerating (E44). Hosted Electron discard removes the Drafts conversation from UI and native SQLite; send succeeds and appears in Sent (E45). Hosted Outlook discard, send, and `blocked_auth` reconnect through desktop IPC (E46). Gmail web Drafts names Jordan Example; mixed threads show `Dana Example, me`; category filters use engine membership (E24). Navigation Playwright is green including KeyU unread inspect (E26).
 
 ### G. Scale, preservation, and release readiness
 
@@ -200,13 +201,22 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26) | Partial: Outlook starring S/CommandK/menu (E43) | Not run | Not run | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Not run | Not run | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
 | Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21) | Not run | Not run | Uncertain send reopen |
-| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts + native SQLite (E42) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
-| Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Not run | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
+| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone |
+| Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Not run | Not run | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
 | Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` |
 
 ## Evidence log
+
+### E46. Hosted Outlook discard, send, and reconnect through desktop IPC (2026-09-19)
+
+- Tasks: partial C2/F3
+- Tree: `cursor/mail-engine-0b4f` at `8ae2d6f1d`
+- Commands:
+  - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed, 1 failed in 2.1m; discard 7.8s; send 14.3s; reconnect 6.8s
+- What it proved: Outlook hosted Electron discard removes Hosted desktop discard example from Drafts and native SQLite `role:draft`. Send observes the provider sent message so SQLite drops the draft role; inspect `kind:send` succeeds and Sent lists Hosted desktop send example over `desktop-ipc`. Reconnect still hits `/changes` without `/enumeration`.
+- Limitations: hosted Electron starring remounted an empty conversation list (options=0) before More actions. Desktop assistant UI remains Not run. Do not check C2/F3 boxes.
 
 ### E45. Hosted Electron discard and send through desktop IPC (2026-09-19)
 
@@ -215,7 +225,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 6 passed in 2.1m; discard 10.2s; send 14.9s; reconnect 5.0s
 - What it proved: a saved Hosted desktop discard example appears in Drafts and native SQLite `role:draft`, then is gone after Discard draft. A separate Electron launch sends Hosted desktop send example; inspect `kind:send` succeeds, native `role:draft` does not contain the subject, and Sent lists it over `desktop-ipc`.
-- Limitations: Outlook desktop send/discard, desktop metadata, and desktop assistant UI remain Not run. Do not check C2/F3 boxes.
+- Limitations: Outlook desktop send/discard is E46. Desktop metadata and desktop assistant UI remain Not run. Do not check C2/F3 boxes.
 
 ### E44. Hosted Electron blocked_auth reconnect through desktop IPC (2026-09-19)
 
@@ -224,7 +234,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 4 passed in 1.7m; reconnect 11.3s; archive 25.6s; compose 19.4s
 - What it proved: after Archive Action Message is listed, the hosted Electron owner wraps Node `/changes` with `blocked_auth`. MailShell shows the reconnect banner. Inspect `connection` is `blocked_auth`. `/changes` is hit 5 times and `/enumeration` stays 0. Reconnect follows the stubbed linking URL (`reconnect=blocked`) over `desktop-ipc`.
-- Limitations: Gmail desktop send/discard is E45. Outlook desktop send/discard, desktop metadata, and desktop assistant UI remain Not run. Do not check C2/F3 boxes.
+- Limitations: Gmail desktop send/discard is E45. Outlook desktop send/discard/reconnect is E46. Desktop metadata and desktop assistant UI remain Not run. Do not check C2/F3 boxes.
 
 ### E43. Outlook web starring through CommandK (2026-09-19)
 
@@ -243,7 +253,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 3 passed in 1.7m; archive 38.9s; compose 14.9s
 - What it proved: the same hosted compose path against the Microsoft emulator. Drafts shows Hosted desktop draft example to recipient@example.com. Native SQLite `role:draft` contains the subject. Search-then-archive still hides Archive Action Message.
-- Limitations: desktop send/discard/reconnect remain Not run. Do not check C2/F3 boxes.
+- Limitations: Outlook desktop send/discard/reconnect is E46. Do not check C2/F3 boxes.
 
 ### E41. Hosted Electron Gmail compose draft (2026-09-19)
 
