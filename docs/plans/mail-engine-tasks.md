@@ -8,13 +8,17 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `78d894d92`
+- Last implementation commit: `688c68c7e`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E92 GitHub Playwright green and E93 failed-send unfreeze. CLA human signature.
-- Next action: watch GitHub checks on the exact head after E93. Do not re-run emulated Playwright locally.
+- Current task: remaining matrix cells after E93 freeze follow-up, E96 inspect recovery, and Command K mark-read inspect wait. CLA human signature.
+- Next action: watch GitHub checks on the exact head after push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - GitHub Playwright `35452753217` on `3fe7e0923`: mail-navigation failed — Command K `Mark 2 as unread` missing after `Mark 2 as read` (E97)
+  - GitHub Run Tests `35452753220` on `3fe7e0923`: success
+  - GitHub Build Check `35452753228` on `3fe7e0923`: success
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='inspect|verifying send|uncertain send through inspect|unfreeze|frozen|late confirmed'` — 9 passed (E96)
   - GitHub Playwright `35451970312` on `f9317f2f4`: all E2E jobs passed (E92 head)
   - GitHub Run Tests `35451970332` on `f9317f2f4`: success
   - GitHub Build Check `35451970243` on `f9317f2f4`: success
@@ -271,8 +275,8 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Cross-view archive/counts/new mail | Partial: archive hide + succeeded (E15); queued archive survives OPFS reload (E29); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: Outlook archive hide + succeeded (E20); queued archive survives OPFS reload (E61); Inbox unread badge + Unread list drop and restore (E64); archived conversation returns on new mail (E70) | Partial: hosted Electron archive hide + native SQLite (E36/E39); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | Partial: hosted Electron Outlook archive hide + native SQLite (E37/E40); Inbox unread badge + Unread list drop and restore (E69); archived conversation returns on new mail (E73) | SQLite archive + reference parity; wasm `archiveThenNewMailScenario` (E29) |
 | Metadata/bulk/container operations | Partial: KeyU unread inspect succeeded (E26); starring S/CommandK/menu (E54); bulk archive/undo, labels, trash restore (E56) | Partial: Outlook starring S/CommandK/menu (E43); bulk archive/undo, labels, trash restore (E57) | Partial: hosted Electron More actions Star (E48); bulk archive/undo, labels, trash restore (E59) | Partial: hosted Electron More actions Star (E47); bulk archive/undo, labels, trash restore (E59) | Metadata change unit tests; Gmail/Outlook mark-read via HTTP; mixed bulk applied/rejected on SQLite |
 | Missed hints/reset/moves/stale reads | Partial: idle catch-up `/changes` after coverage (E27); history 404 snapshot rebuild (E32) | Partial: Outlook idle catch-up `/changes` after folder-delta (E27); expired `$deltatoken` 410 rebuild (E30) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Partial: hosted Electron idle `/changes` hides external archive; `reset_required` rebuilds (E58) | Gmail external archive + Outlook move catch-up (provider + SQLite); duplicate idle catch-up; expired/reset cursor + stale hydration; SQLite blocked_auth recover + missed archive hint |
-| Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21); queued archive hidden after OPFS reload (E61) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3) |
-| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18); multiple in-thread server drafts (E76); offline queued reply holds until reconnect (E78) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone; enumerate/catch-up persist fetched bodies (E76); offline `notBeforeMs` hold + start skips release while `navigator.onLine` is false (E78); body observations keep attachment descriptors and meeting flags (E79); cancelling a queued send unfreezes the draft (E92); failed and provider-rejected sends unfreeze; a second command on a frozen draft is rejected (E93) |
+| Before-dispatch failure/response loss/restart | Partial: owner reload (E14); queued archive hidden after OPFS reload (E29) | Partial: owner reload (E21); queued archive hidden after OPFS reload (E61) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Partial: queued archive native reopen (E31); uncertain execute (E55); hosted UI restart (E60) | Uncertain send reopen; uncommitted SQLite WAL crash recovery (E3); uncertain/verifying commands are claimed for `inspect`, not a second `execute` (E96) |
+| Drafts/blobs/send uncertainty/late edits | Partial: compose Drafts restore/discard/send (E18); multiple in-thread server drafts (E76); offline queued reply holds until reconnect (E78) | Partial: compose Drafts restore/discard/send (E21) | Partial: hosted compose Drafts (E41); discard + send through desktop IPC (E45) | Partial: hosted Outlook compose Drafts (E42); discard + send through desktop IPC (E46) | Frozen send payload + provider draft id + durable send receipts + blob checksum reject + attachment sidecar send + assistant draft protection + bootstrap tombstone; enumerate/catch-up persist fetched bodies (E76); offline `notBeforeMs` hold + start skips release while `navigator.onLine` is false (E78); body observations keep attachment descriptors and meeting flags (E79); cancelling a queued send unfreezes the draft (E92); failed and provider-rejected sends unfreeze; a second command on a frozen draft is rejected (E93); late settle of a failed send cannot thaw a newer send (E94/E95); uncertain/verifying sends recover through inspect (E96) |
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34); Sign out wipes OPFS `.mail-engine` (E62 unit, E63 Playwright) | Partial: follower tab + owner reload + reconnect (E21); Sign out wipes OPFS `.mail-engine` (E63 Playwright) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46); Sign out IPC wipes native sqlite (E66 unit); quit closes without wipe (E68); hosted Electron Sign out wipes native sqlite (E71); self-hosted origin (E75) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child; IPC protocolVersion 0 is invalid (E62); `wipeNodeMailbox` deletes sqlite/wal/shm (E65); desktop `logOut` closes then wipes (E66); hosted Electron Sign out UI wipes native sqlite (E71); quit leaves sqlite (E68); self-hosted `INBOX_ZERO_APP_URL` is the only allowed origin (E75) |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13); queue_full/too_large product copy (E67); live MailShell queue_full toast (E72) | Partial: coverage-gated first paint (E21); queue_full/too_large product copy (E67) | Partial: native mailbox quarantine rename-not-delete (E55) | Partial: native mailbox quarantine rename-not-delete (E55) | Queue cap including preparing; store clamps maxPendingOperations at 5000 (E74); body eviction keeps drafts/ops/metadata; corrupt sqlite rename-not-delete; blob ENOSPC→too_large (E55). Uploads HTTP too_large 507 and MailShell/send copy (E67). Live MailShell queue_full toast with page pending-op cap (E72). Assistant catch-up still applies when user commands are queue_full (E89). Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
@@ -298,7 +302,43 @@ Expand this table from architecture section 13 before broad implementation. Link
   - GitHub Playwright `35451970312` on `f9317f2f4` — all E2E jobs passed (E92 head, before this commit)
   - GitHub Run Tests `35451970332` on `f9317f2f4` — success
 - What it proved: `failOperation` and `settleAttempt` `rejected` share `unfreezeSendDraft` with cancel. A new `commandId` against a frozen draft is `invalid`; the same command stays `already_recorded`. Uncertain and confirmed sends keep the freeze. After fail, a later save and a new send admit.
-- Limitations: GitHub Playwright on the E93 head is the remaining mail-spec proof. Do not check G4/G5.
+- Limitations: GitHub Playwright `35452753217` on `3fe7e0923` failed mail-navigation Command K mark-unread. Do not check G4/G5.
+
+### E94. Ignore a late confirmed settle after a send has failed (2026-09-19)
+
+- Tasks: partial E3; late provider success revived a failed send
+- Tree: `cursor/mail-engine-0b4f` at `a6a7e799f`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='unfreeze|frozen|rejects a second send|late confirmed'` — 6 passed
+- What it proved: `failOperation` clears `attempt_id`. `settleAttempt` returns `stale` when the operation is already succeeded/failed/cancelled/superseded, so a later confirmed cannot freeze a draft the user already edited.
+- Limitations: Do not check G4/G5.
+
+### E95. Keep a newer send frozen when an older send settles late (2026-09-19)
+
+- Tasks: partial E3; E93 review medium: late reject of send A thawed send B
+- Tree: `cursor/mail-engine-0b4f` at `84ced9ad5`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='unfreeze|frozen|rejects a second send|late confirmed'` — 6 passed
+- What it proved: rejected settlement clears `attempt_id`. `unfreezeSendDraft` no-ops if another pending send still owns the draft. After reject, a new command admits; a later reject of the failed send cannot thaw that retry.
+- Limitations: Do not check G4/G5.
+
+### E96. Inspect uncertain and verifying sends instead of executing again (2026-09-19)
+
+- Tasks: partial E3; lost acknowledgement had no inspect recovery
+- Tree: `cursor/mail-engine-0b4f` at `688c68c7e`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='inspect|verifying send|uncertain send through inspect|unfreeze|frozen|late confirmed'` — 9 passed
+- What it proved: `claimWork` returns `inspect` for `uncertain`/`verifying`. The engine calls `executor.inspect` with the persisted receipt. The first lost acknowledgement inspects immediately; a later inspect that stays uncertain backs off. Confirmed inspect keeps the draft frozen.
+- Limitations: Expired `executing` lease reclaim is still open. Do not check G4/G5.
+
+### E97. Wait for engine read before Command K mark-unread (2026-09-19)
+
+- Tasks: partial G5 Command K; GitHub Playwright mail-navigation on `3fe7e0923`
+- Tree: `cursor/mail-engine-0b4f` at `893820222`
+- Commands:
+  - GitHub Playwright `35452753217` on `3fe7e0923` — mail-navigation failed: Command K `Mark 2 as unread` missing after `Mark 2 as read`
+- What it proved: The spec now polls inspect until Alice's `set_read_state` has `succeeded` before reopening Command K. GitHub Playwright on this head is the remaining proof.
+- Limitations: Do not check G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
