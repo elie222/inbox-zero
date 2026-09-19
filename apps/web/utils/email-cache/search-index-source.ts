@@ -1,5 +1,5 @@
 import { getEmailCacheDatabase } from "./database";
-import type { SearchMessage } from "./search-query";
+import { hasLocalMailAttachment, type SearchMessage } from "./search-query";
 
 export async function readSearchIndexThreadPage({
   emailAccountId,
@@ -55,6 +55,7 @@ export async function readSearchIndexThreadPage({
       textPlain: message.textPlain,
       date: message.date,
       parentFolderId: message.parentFolderId,
+      hasAttachment: hasLocalMailAttachment(message),
     });
     bytes += cursor.value.byteSize;
     cursor = await cursor.continue();

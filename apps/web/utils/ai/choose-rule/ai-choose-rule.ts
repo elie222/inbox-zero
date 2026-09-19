@@ -108,9 +108,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     promptHardening: { trust: "untrusted", level: "full" },
   });
 
-  const hasCustomRules = rules.some((rule) => !rule.systemType);
-
-  if (hasCustomRules && emailAccount.multiRuleSelectionEnabled) {
+  if (shouldSelectMultipleRules({ rules, emailAccount })) {
     const result = await getAiResponseMultiRule({
       email,
       emailAccount,
@@ -441,3 +439,17 @@ const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [
   "When one specific transactional rule fully explains the email, do not also select a generic notification or account-update rule.",
   "Prefer one best rule when candidate rules refer to the same underlying event.",
 ] as const;
+
+// Multiple rules only make sense when the user has custom rules to combine.
+export function shouldSelectMultipleRules({
+  rules,
+  emailAccount,
+}: {
+  rules: { systemType?: string | null }[];
+  emailAccount: Pick<EmailAccountWithAI, "multiRuleSelectionEnabled">;
+}) {
+  return (
+    emailAccount.multiRuleSelectionEnabled &&
+    rules.some((rule) => !rule.systemType)
+  );
+}

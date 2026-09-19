@@ -1,5 +1,5 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createSearchIndex } from "./search-index";
 import {
   matchesLocalSearch,
@@ -196,5 +196,96 @@ describe("boolean queries against the local index", () => {
     expect(
       matchesLocalSearch(record, parseLocalSearch("in:archive", [])!),
     ).toBe(scenario.archived);
+  });
+  afterEach(() => vi.useRealTimers());
+  it("prunes the scan on a relative date bound", () => {
+    // The corpus spans 1 to 3 September at noon. Anchor the clock off that
+    // hour so no boundary ties with a message; the comparison is strict.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-04T06:00:00Z"));
+    expect(search("newer_than:2d")).toEqual(["third", "second"]);
+    expect(search("older_than:2d")).toEqual(["first"]);
+    expect(search("newer_than:2d quarterly")).toEqual(["third"]);
+    expect(search("-newer_than:2d")).toEqual(["first"]);
+    expect(search("newer_than:1y")).toEqual(["third", "second", "first"]);
+  });
+  it("rebuilds an index written by a different schema version", () => {
+    const database = new sqlite3.oo1.DB(":memory:", "c");
+    const index = createSearchIndex(database);
+    index.resetAccount({
+      emailAccountId,
+      generation,
+      expectedGeneration: null,
+    });
+    index.applyBatch({
+      emailAccountId,
+      generation,
+      expectedRevision: 0,
+      revision: 1,
+      upserts: corpus,
+      deletes: [],
+    });
+    // A future or downgraded build leaves a layout this one cannot read. The
+    // index is derived from the local mail store, so it must be discarded and
+    // rebuilt rather than failing every request for good.
+    database.exec("PRAGMA user_version=99");
+    const reopened = createSearchIndex(database);
+    expect(reopened.getAccountState(emailAccountId)).toBeNull();
+    reopened.resetAccount({
+      emailAccountId,
+      generation,
+      expectedGeneration: null,
+    });
+    reopened.applyBatch({
+      emailAccountId,
+      generation,
+      expectedRevision: 0,
+      revision: 1,
+      upserts: corpus,
+      deletes: [],
+    });
+    expect(
+      reopened
+        .search({ emailAccountId, generation, query: "quarterly", labels })
+        .messages.map((result) => result.id),
+    ).toEqual(["third", "first"]);
+    const fresh = new sqlite3.oo1.DB(":memory:", "c");
+    createSearchIndex(fresh);
+    const current = Number(fresh.selectValue("PRAGMA user_version"));
+    fresh.close();
+    expect(Number(database.selectValue("PRAGMA user_version"))).toBe(current);
+    database.close();
+  });
+  it("finds attachments from either provider's signal", () => {
+    const documents = [
+      message("gmail", {
+        from: "alice@example.com",
+        subject: "Quarterly report",
+        body: "The forecast is ready",
+      }),
+      message("outlook", {
+        from: "bob@example.com",
+        subject: "Budget review",
+        body: "Numbers are ok",
+      }),
+      message("plain", {
+        from: "carol@example.com",
+        subject: "Quarterly lunch",
+        body: "No files here",
+      }),
+    ];
+    // Gmail keeps attachment metadata; Outlook only reports a flag.
+    Object.assign(documents[0], {
+      attachments: [{ filename: "report.pdf" }],
+    });
+    Object.assign(documents[1], { hasAttachment: true });
+    expect(search("has:attachment", documents)).toEqual(["outlook", "gmail"]);
+    expect(search("-has:attachment", documents)).toEqual(["plain"]);
+    expect(search("has:attachment quarterly", documents)).toEqual(["gmail"]);
+    expect(search("has:attachment OR lunch", documents)).toEqual([
+      "plain",
+      "outlook",
+      "gmail",
+    ]);
   });
 });

@@ -323,6 +323,14 @@ const parsedEnv = createEnv({
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     MCP_SERVER_ENABLED: booleanString.optional().default(false),
+    // provider:model for structured classifiers, e.g. typesafe:jev-latest
+    DEFAULT_CLASSIFIER: z
+      .string()
+      .regex(/^typesafe:\S+$/, "Expected typesafe:<model>")
+      .optional(),
+    // Whether users who haven't chosen get DEFAULT_CLASSIFIER; otherwise opt-in
+    DEFAULT_CLASSIFIER_ENABLED: booleanString.optional().default(false),
+    TYPESAFE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
@@ -600,6 +608,12 @@ if (
 ) {
   throw new Error(
     "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
+  );
+}
+
+if (process.env.DEFAULT_CLASSIFIER && !process.env.TYPESAFE_API_KEY) {
+  throw new Error(
+    "TYPESAFE_API_KEY is required when DEFAULT_CLASSIFIER is set.",
   );
 }
 

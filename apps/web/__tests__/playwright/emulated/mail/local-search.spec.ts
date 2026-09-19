@@ -1,5 +1,6 @@
 import { build } from "esbuild";
 import { localMailSyncBody } from "@/utils/actions/local-mail-sync.validation";
+import { SOURCE_VERSION } from "@/utils/email-cache/search-index-source-version";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { ThreadListItem } from "@/utils/threads/load";
@@ -15,6 +16,9 @@ import {
   openMail,
   openMailboxFromSidebar,
 } from "./mail-test-helpers";
+
+const PROVIDER_PROMPT =
+  "Connect to search this query with your email provider.";
 
 test("clears an uncommitted live search with the button and sidebar navigation", async ({
   page,
@@ -161,6 +165,31 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
     conversationWithSubject(page, conversations, "Cached body search result"),
   ).toBeVisible();
   await context.setOffline(true);
+  // Local search may still find matches while it runs, so the provider prompt
+  // must not appear for a query it can answer, not even for a frame.
+  await page.evaluate((prompt) => {
+    const state = window as unknown as { sawProviderPrompt?: boolean };
+    state.sawProviderPrompt = false;
+    // Read each record, not the settled page: text inserted then removed or
+    // rewritten before the callback runs is only visible in the records.
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const texts = [
+          record.oldValue,
+          record.target.textContent,
+          ...Array.from(record.addedNodes, (node) => node.textContent),
+          ...Array.from(record.removedNodes, (node) => node.textContent),
+        ];
+        if (texts.some((text) => text?.includes(prompt)))
+          state.sawProviderPrompt = true;
+      }
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      characterDataOldValue: true,
+    });
+  }, PROVIDER_PROMPT);
   const input = page.getByPlaceholder("Search mail");
   await input.fill("subject:Cached");
   await expect(
@@ -182,12 +211,19 @@ test("searches cached bodies offline and distinguishes unsupported and empty sea
   await expect(
     page.getByText("No matches yet.", { exact: true }),
   ).toBeVisible();
-  await input.fill("has:attachment");
+  await input.fill("needle -has:attachment");
   await expect(
-    page.getByText("Connect to search this query with your email provider.", {
-      exact: true,
-    }),
+    conversationWithSubject(page, conversations, "Cached body search result"),
   ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { sawProviderPrompt?: boolean })
+          .sawProviderPrompt,
+    ),
+  ).toBe(false);
+  await input.fill("larger:1M");
+  await expect(page.getByText(PROVIDER_PROMPT, { exact: true })).toBeVisible();
   await context.setOffline(false);
 });
 
@@ -244,7 +280,7 @@ async function seedSearchCache(
   messageCount = 0,
 ) {
   return page.evaluate(
-    async ({ accountId, messageCount }) =>
+    async ({ accountId, messageCount, sourceVersion }) =>
       new Promise<ThreadListItem>((resolve, reject) => {
         const request = indexedDB.open("inbox-zero-email-cache");
         request.onerror = () => reject(request.error);
@@ -287,7 +323,7 @@ async function seedSearchCache(
               tx.objectStore("searchIndexAccounts").put({
                 emailAccountId: accountId,
                 generation: crypto.randomUUID(),
-                sourceVersion: 2,
+                sourceVersion,
               });
             tx.objectStore("localMailMessages").put({
               emailAccountId: accountId,
@@ -355,7 +391,7 @@ async function seedSearchCache(
           tx.onerror = () => reject(tx.error);
         };
       }),
-    { accountId: emailAccountId, messageCount },
+    { accountId: emailAccountId, messageCount, sourceVersion: SOURCE_VERSION },
   );
 }
 
@@ -386,25 +422,30 @@ test("uses the persistent index offline after reopening and pages beyond the fir
     const { emailAccountId } = await openMail(page);
     await expect
       .poll(() =>
-        page.evaluate(async (emailAccountId) => {
-          const database = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open("inbox-zero-email-cache");
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-          const account = await new Promise<
-            { sourceVersion?: number; seed?: unknown } | undefined
-          >((resolve, reject) => {
-            const request = database
-              .transaction("searchIndexAccounts")
-              .objectStore("searchIndexAccounts")
-              .get(emailAccountId);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-          database.close();
-          return account?.sourceVersion === 2 && !account.seed;
-        }, emailAccountId),
+        page.evaluate(
+          async ({ emailAccountId, sourceVersion }) => {
+            const database = await new Promise<IDBDatabase>(
+              (resolve, reject) => {
+                const request = indexedDB.open("inbox-zero-email-cache");
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+              },
+            );
+            const account = await new Promise<
+              { sourceVersion?: number; seed?: unknown } | undefined
+            >((resolve, reject) => {
+              const request = database
+                .transaction("searchIndexAccounts")
+                .objectStore("searchIndexAccounts")
+                .get(emailAccountId);
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            database.close();
+            return account?.sourceVersion === sourceVersion && !account.seed;
+          },
+          { emailAccountId, sourceVersion: SOURCE_VERSION },
+        ),
       )
       .toBe(true);
 

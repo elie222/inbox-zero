@@ -3,10 +3,12 @@ import { z } from "zod";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
+import { mobileAuthCodeVerifierSchema } from "@/utils/mobile-auth/pkce";
 import { consumeMobileAuthCode } from "@/utils/mobile-auth/oauth-code";
 import { buildMobileSessionCookie } from "@/utils/mobile-auth/session-cookie";
 
 const exchangeCodeSchema = z.object({
+  codeVerifier: mobileAuthCodeVerifierSchema,
   code: z.string().trim().min(1).max(256),
   state: z.string().trim().min(1).max(256),
 });
@@ -15,7 +17,7 @@ export const POST = withError("mobile-auth/exchange-code", async (request) => {
   const body = exchangeCodeSchema.parse(await request.json());
 
   const [{ userId }, authContext] = await Promise.all([
-    consumeMobileAuthCode({ code: body.code, state: body.state }),
+    consumeMobileAuthCode(body),
     betterAuthConfig.$context,
   ]);
 

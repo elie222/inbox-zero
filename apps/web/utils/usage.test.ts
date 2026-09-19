@@ -43,6 +43,18 @@ function languageModelUsage({
 }
 
 describe("calculateUsageCost", () => {
+  it("prices classifier calls by input tokens only", () => {
+    const usage = languageModelUsage({
+      inputTokens: 1_000_000_000,
+      outputTokens: 5,
+      totalTokens: 1_000_000_005,
+    });
+
+    expect(
+      calculateUsageCost({ provider: "typesafe", model: "jev-latest", usage }),
+    ).toBeCloseTo(42);
+  });
+
   it("applies cached input pricing when cached tokens are present", () => {
     const provider = "openrouter";
     const model = "openai/gpt-5.1";

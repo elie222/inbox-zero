@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -52,6 +53,7 @@ import {
 } from "./windows";
 
 const PARTITION = "persist:inbox-zero";
+const DESKTOP_AUTH_PROOF_TTL_MS = 5 * 60 * 1000;
 const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
 const LAST_APP_URL_FILE = "last-app-url";
 const WINDOWS_STATE_FILE = "windows.json";
@@ -61,6 +63,7 @@ const lastUrlByWindow = new WeakMap<BrowserWindow, string>();
 const unreadByContents = new Map<number, number>();
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -164,8 +167,19 @@ function startDesktopApp() {
       const callbackPath = getStartAuthCallbackPath(options);
       persistPendingCallbackPath(callbackPath);
       try {
-        await openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
+        const verifier = randomBytes(32).toString("base64url");
+        pendingAuthProof = {
+          verifier,
+          expiresAt: Date.now() + DESKTOP_AUTH_PROOF_TTL_MS,
+        };
+        const challenge = createHash("sha256")
+          .update(verifier)
+          .digest("base64url");
+        await openExternal(
+          getDesktopBrowserStartUrl(appOrigin, provider, challenge),
+        );
       } catch (error) {
+        pendingAuthProof = null;
         persistPendingCallbackPath(null);
         throw error;
       }
@@ -490,18 +504,29 @@ async function handleAuthCallbackUrl(url: string) {
   }
 
   try {
+    const proof = pendingAuthProof;
+    if (!proof || proof.expiresAt <= Date.now()) {
+      throw new Error("Start signing in again from the desktop app");
+    }
     await exchangeAuthCode(
       window.webContents.session,
       callback.code,
       callback.state,
+      proof.verifier,
     );
+    if (pendingAuthProof === proof) pendingAuthProof = null;
     await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     showSignInError(error);
   }
 }
 
-async function exchangeAuthCode(session: Session, code: string, state: string) {
+async function exchangeAuthCode(
+  session: Session,
+  code: string,
+  state: string,
+  codeVerifier: string,
+) {
   const response = await session.fetch(
     new URL("/api/mobile-auth/exchange-code", appOrigin).toString(),
     {
@@ -509,7 +534,7 @@ async function exchangeAuthCode(session: Session, code: string, state: string) {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ code, state }),
+      body: JSON.stringify({ code, state, codeVerifier }),
     },
   );
 

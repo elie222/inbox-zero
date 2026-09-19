@@ -108,6 +108,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
 
       const result = await isColdEmail({
+        logger,
         email: {
           id: "message-1",
           threadId: "thread-1",

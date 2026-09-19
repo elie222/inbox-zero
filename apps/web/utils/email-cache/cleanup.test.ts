@@ -1,3 +1,4 @@
+import { SOURCE_VERSION } from "./search-index-source-version";
 // @vitest-environment jsdom
 
 import "fake-indexeddb/auto";
@@ -127,7 +128,7 @@ describe("email cache cleanup", () => {
     await database?.put("searchIndexAccounts", {
       emailAccountId: "retained-account",
       generation: "generation-1",
-      sourceVersion: 2,
+      sourceVersion: SOURCE_VERSION,
       messageBytes: 0,
     });
     for (const emailAccountId of ["retained-account", "legacy-account"]) {
