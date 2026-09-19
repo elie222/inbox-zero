@@ -1,6 +1,10 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
 import { openMail } from "./mail-test-helpers";
 
 test("exposes engine diagnostics after metadata coverage", async ({
@@ -182,6 +186,53 @@ test("opens account reconnect from blocked_auth catch-up", async ({
   );
 });
 
+test("does not share the owner engine with a second signed-in account", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  await waitForMetadataCoverage(page);
+  await expect
+    .poll(async () => page.evaluate(() => window.__inboxZeroMailInspect?.role))
+    .toBe("owner");
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+  const other = await page.context().newPage();
+  try {
+    await other.goto(`/${secondAccount.id}/mail`, {
+      waitUntil: "domcontentloaded",
+    });
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      expect(
+        await page.evaluate(() => window.__inboxZeroMailInspect?.role),
+      ).toBe("owner");
+      expect(
+        await page.evaluate(() => window.__inboxZeroMailInspect?.accountId),
+      ).toBe(emailAccountId);
+      await expect(conversations.getByRole("option").first()).toBeVisible();
+      const otherInspect = await other.evaluate(() => ({
+        role: window.__inboxZeroMailInspect?.role ?? null,
+        accountId: window.__inboxZeroMailInspect?.accountId ?? null,
+      }));
+      expect(otherInspect.accountId).not.toBe(emailAccountId);
+      expect(otherInspect.role).not.toBe("owner");
+      expect(otherInspect.role).not.toBe("follower");
+      await delay(500);
+    }
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "mail-engine-second-account-owner",
+    );
+    await capturePlaywrightCheckpoint(
+      other,
+      testInfo,
+      "mail-engine-second-account-fenced",
+    );
+  } finally {
+    await other.close();
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
 async function waitForMetadataCoverage(page: Page) {
   await expect
     .poll(
@@ -204,4 +255,8 @@ async function waitForMetadataCoverage(page: Page) {
       { timeout: 60_000 },
     )
     .toMatchObject({ present: true, coverageComplete: true });
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
