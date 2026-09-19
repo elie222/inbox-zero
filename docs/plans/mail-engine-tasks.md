@@ -8,13 +8,16 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `cc3a4f0a8`
+- Last implementation commit: `3ff7e6351`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells after E113 Edit-reply parent + attachment `not_found`. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
+- Current task: remaining matrix cells after E115 in-use upload hold. GitHub Playwright is the remaining mail-spec proof. CLA human signature.
 - Next action: watch GitHub Playwright on the exact head after this push. Do not re-run emulated Playwright locally.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - GitHub Playwright `35462270621` on `202e99a20`: all E2E jobs passed, including mail, mail-compose, and mail-reader. Run Tests `35462270663` success. Build Check `35462270614` success.
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/blob-store.test.ts` — 1 file, 8 passed (E115)
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts utils/mail-api/operations.test.ts app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/route.test.ts` — 3 files, 24 passed (E115)
   - GitHub Playwright `35460803760` on `fe25114a7`: mail-reader failed — Edit reply did not restore the composer (`thread-states` queued-reply edit). Run Tests `35460803867` success. Build Check `35460803740` success.
   - `cd apps/web && pnpm exec vitest --run utils/mail-api/source.test.ts app/api/mail/v1/accounts/[accountId]/attachment-content/route.test.ts utils/mail-engine/engine-delivery.test.ts utils/mail-engine/http.test.ts utils/mail-engine/stage-attachments.test.ts` — 5 files, 31 passed (E111/E112/E113)
   - `pnpm --filter @inboxzero/mail-core exec vitest run src/protocol/backend-adapter.test.ts` — 1 file, 6 passed (E112)
@@ -469,7 +472,7 @@ Expand this table from architecture section 13 before broad implementation. Link
   - GitHub Run Tests `35457233813` on `0584b6a70` — success
   - GitHub Build Check `35457233815` on `0584b6a70` — success
 - What it proved: GET reports `ready` for a finalized account upload, `not_found` when missing, and `invalid` for a path-escape id. DELETE removes that blob and is idempotent; a sibling upload stays ready. GitHub Playwright on `db0a8e813` passed every selected E2E area.
-- Limitations: Cancel is a named client delete, not a directory sweep. The HTTP host has no live send-attachment id set, so it does not refuse DELETE of a blob a pending send still needs. PUT `/uploads/[uploadId]/content` streaming is not this change. Do not check G4/G5.
+- Limitations: Cancel is a named client delete, not a directory sweep. PUT `/uploads/[uploadId]/content` streaming is not this change. Live-send DELETE hold is E115. Do not check G4/G5.
 
 ### E108. Stream provider attachment bytes over GET (2026-09-19)
 
@@ -520,7 +523,7 @@ Expand this table from architecture section 13 before broad implementation. Link
 - Commands:
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/stage-attachments.test.ts utils/mail-engine/http.test.ts` — included in 5 files, 31 passed
 - What it proved: After POST admit, the client records the blob id before PUT. Any later staging failure DELETEs every admitted id from that attempt, including a PUT throw and a later admit failure, and does not DELETE ids from a successful staging.
-- Limitations: A POST that throws after the server already admitted still cannot DELETE that uploadId. Do not check G4/G5.
+- Limitations: A POST that throws after the server already admitted still cannot DELETE that uploadId until E114. Do not check G4/G5.
 
 ### E112. Missing attachments are `not_found` (2026-09-19)
 
@@ -540,8 +543,30 @@ Expand this table from architecture section 13 before broad implementation. Link
   - `cd apps/web && pnpm exec vitest --run utils/mail-engine/engine-delivery.test.ts` — included in 5 files, 31 passed
   - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/store.test.ts --testNamePattern='reports the reply-to message|holds a send until notBeforeMs'` — 2 passed
   - GitHub Playwright `35460803760` on `fe25114a7` — mail-reader failed: Edit reply did not restore the composer after a queued send
-- What it proved: Send diagnostics put `replyToMessageId` first in `messageIds`, so Edit reply restores onto `msg_playwright_reply` rather than a later sent row from an earlier test on the same emulator mailbox. ThreadDeliveryStatus no longer `requestSync`s on become-online; `MailEngineHost` still does on the window `online` event. The spec waits for inspect `reconciling` before Edit reply and reads the remounted `[contenteditable='true']` editor. GitHub Playwright on this head is the remaining proof.
-- Limitations: GitHub Playwright is the remaining mail-spec proof. Do not run emulated Playwright locally. Do not check G4/G5.
+  - GitHub Playwright `35462270621` on `202e99a20` — all E2E jobs passed, including mail-reader
+  - GitHub Run Tests `35462270663` on `202e99a20` — success
+  - GitHub Build Check `35462270614` on `202e99a20` — success
+- What it proved: Send diagnostics put `replyToMessageId` first in `messageIds`, so Edit reply restores onto `msg_playwright_reply` rather than a later sent row from an earlier test on the same emulator mailbox. ThreadDeliveryStatus no longer `requestSync`s on become-online; `MailEngineHost` still does on the window `online` event. The spec waits for inspect `reconciling` before Edit reply and reads the remounted `[contenteditable='true']` editor. GitHub Playwright `35462270621` on `202e99a20` passed every selected E2E area, including mail-reader Edit reply.
+- Limitations: Do not run emulated Playwright locally. Do not check G4/G5.
+
+### E114. Cancel admitted uploads when admit fetch throws (2026-09-19)
+
+- Tasks: partial E3 blob staging cleanup
+- Tree: `cursor/mail-engine-0b4f` at `4f684d2a5`
+- Commands:
+  - `cd apps/web && pnpm exec vitest --run utils/mail-engine/stage-attachments.test.ts` — 1 file, 11 passed
+- What it proved: Staging tracks `cancelIds` separately from `stagedIds`. The client id is recorded before POST, so a throw after the server admitted still DELETEs that uploadId. A remapped `blobId` is also cancelled; success returns only admitted ids. Happy path issues no DELETE.
+- Limitations: HTTP DELETE of a blob a pending execute still needs is E115. Do not check G4/G5.
+
+### E115. Refuse DELETE of blobs a live send still needs (2026-09-19)
+
+- Tasks: partial E3 live send-attachment hold
+- Tree: `cursor/mail-engine-0b4f` at `3ff7e6351`
+- Commands:
+  - `pnpm --filter @inboxzero/mail-sqlite exec vitest run src/blob-store.test.ts` — 1 file, 8 passed
+  - `cd apps/web && pnpm exec vitest --run utils/mail-api/upload-blobs.test.ts utils/mail-api/operations.test.ts app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/route.test.ts` — 3 files, 24 passed
+- What it proved: `executeSend` writes a `.hold` sidecar before loading attachments. DELETE of a held blob returns HTTP 409 with existing code `invalid`. Hold vs cancel is serialized on a `.gate` file. Confirmed send still deletes the blob; uncertain or thrown execute drops the hold so a later cancel can delete. Holds older than one hour expire so crash leftovers are collectable. Independent review approved after gate reap.
+- Limitations: `EmailSendOperation` does not store attachment ids, so queued client-only sends cannot be refused until execute starts. Holds are not refcounted; attachment ids must be unique per in-flight send. Body-eviction still needs a host pressure signal. Sender-queue progress is in-memory. Do not check G4/G5.
 
 ### E91. Draft-only reader asserts the compose Draft summary (2026-09-19)
 
