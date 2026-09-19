@@ -8,13 +8,15 @@ Read the [implementation plan](./mail-engine-plan.md), including its architectur
 
 - Current milestone: Stage 3–4 engine owns MailShell lists, reader, EmailList/CommandK mutations, label counts (`observeMailbox`), and compose/send. IndexedDB mailbox cache, search index, outbox, and importer are deleted.
 - Branch/worktree: `cursor/mail-engine-0b4f`
-- Last implementation commit: `bc3de9fd5`
+- Last implementation commit: `1117e59b2`
 - Pull request: https://github.com/elie222/inbox-zero/pull/3793
-- Current task: remaining matrix cells (offline web), simplifier/reviewer, and take PR 3793 to exact-head green.
-- Next action: web offline-loading Playwright; remaining G matrix cells that are still Not run; watch CI on the exact head after this ledger commit.
+- Current task: remaining matrix cells after Gmail web offline, simplifier/reviewer, and take PR 3793 to exact-head green.
+- Next action: Outlook web offline and remaining G matrix cells that are still Not run; H simplifier/reviewer; watch CI on the exact head after this ledger commit.
 - Blockers or decisions requiring user input: none for the authorized existing-login/backend-mediated route. CLA assistant still requires a human signature.
 - Running processes/subagents: restart `pr-digest --watch 3793` on the exact head after push.
 - Last validation:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.3m on `1117e59b2`; offline reload 34.3s; Conversations list and Archive Action Message visible after `setOffline` + reload (E52)
+  - `cd apps/web && pnpm exec vitest --run utils/offline/mail-cache.test.ts utils/playwright/emulated-suite-selection.test.mjs` — 2 files, 53 passed including mail-engine static matcher
   - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "10k-conversation|100k conversations"` — 2 passed, 19 skipped in 17.18s on `bc3de9fd5`; `readMailboxView` under 5s (E51)
   - `pnpm --filter @inboxzero/mail-sqlite test src/store.test.ts -t "1M conversations"` — 1 passed, 20 skipped in 161.77s on `bc3de9fd5`; 1M list/count under 5s query budget (E51)
   - `PLAYWRIGHT_MAIL_PROVIDER=microsoft DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/hosted-electron-archive.spec.ts` — 8 passed in 2.4m on `53fd1b733`; assistant 10.8s; Archive Action Message gone; `assistantCursor` is `playwright-mail-assistant-archive-execution`; `assistantStateRequests` is 1 (E50)
@@ -211,9 +213,19 @@ Expand this table from architecture section 13 before broad implementation. Link
 | Account/owner/session isolation | Partial: follower tab + owner reload (E14); worker in-flight fence + wrong-account follower (E28); two signed-in accounts in Chromium (E34) | Partial: follower tab + owner reload + reconnect (E21) | Partial: Electron process owns SQLite (E17); local MailApp `file:` boot (E22); linux-unpacked `INBOX_ZERO_LOCAL_MAIL=1` (E23); returning-user offline reopen (E31); hosted Electron `blocked_auth` reconnect (E44) | Partial: hosted Outlook `blocked_auth` reconnect without re-enumeration (E46) | Worker account fence + Web Lock owner + follower-tab channel + forked utility-child |
 | Assistant while client stopped/catch-up | Partial: Gmail MailShell catch-up after stop (E35) | Partial: Outlook MailShell catch-up after stop (E38) | Partial: hosted Electron reopen after seeded ARCHIVE (E49) | Partial: hosted Electron reopen after seeded ARCHIVE (E50) | Engine assistant catch-up on SQLite |
 | Coverage/retention/storage pressure | Partial: coverage-gated first paint (E13) | Partial: coverage-gated first paint (E21) | Not run | Not run | Coverage-gated UI cutover; G3 importer skipped (mail is not live) |
-| Large-mailbox performance/offline boot | Not run | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
+| Large-mailbox performance/offline boot | Partial: SW-controlled reload keeps Conversations and Archive Action Message (E52) | Not run | Partial: local MailApp `file:` archive without Next (E22); packaged binary ignores restored hosted URL (E23); returning-user native SQLite reopen (E31) | Not run | 10k/100k/1M conversation list/count smoke on `node:sqlite` (E51) |
 
 ## Evidence log
+
+### E52. Gmail web offline mail reload (2026-09-19)
+
+- Tasks: partial G1 web offline boot
+- Tree: `cursor/mail-engine-0b4f` at `1117e59b2`
+- Commands:
+  - `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres UPSTASH_REDIS_URL=http://127.0.0.1:8079 UPSTASH_REDIS_TOKEN=dev_token pnpm -F inbox-zero-ai test:playwright:emulated mail/offline-loading.spec.ts` — 3 passed in 1.3m; `opens saved mail offline, reconnects, and clears it on sign-out` 34.3s
+  - `cd apps/web && pnpm exec vitest --run utils/offline/mail-cache.test.ts utils/playwright/emulated-suite-selection.test.mjs` — 2 files, 53 passed
+- What it proved: after metadata coverage, Chromium goes offline and reloads. The service worker precaches worker-imported sqlite-wasm JS plus wasm, CacheFirst serves `/_next/static` and `.wasm`, MailCoverageGate does not show “Mail needs persistent browser storage,” Conversations lists Archive Action Message from OPFS, reconnect reload still shows it, and sign-out clears the offline mail cache.
+- Limitations: Outlook web offline and desktop installer-offline cells remain Not run. Production `PLAYWRIGHT_PRODUCTION=1` local-search path was not re-run here (CI already covers bundled `sw.js`). Do not check G1.
 
 ### E51. SQLite 10k/100k/1M list and count smoke (2026-09-19)
 
