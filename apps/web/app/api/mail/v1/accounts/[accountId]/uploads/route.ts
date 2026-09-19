@@ -15,10 +15,7 @@ import {
   createFileBlobStore,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  collectStaleMailUploads,
-} from "@/utils/mail-api/upload-blobs";
+import { accountMailUploadDirectory } from "@/utils/mail-api/upload-blobs";
 
 export const POST = withEmailProvider(
   "mail/v1/uploads",
@@ -88,10 +85,6 @@ export const POST = withEmailProvider(
         filename: parsed.data.filename ?? parsed.data.uploadId,
         contentType: parsed.data.contentType,
       });
-      await collectStaleMailUploads({
-        accountId: request.auth.emailAccountId,
-        keepIds: [finalized.blobId],
-      }).catch(() => undefined);
       return NextResponse.json({
         protocolVersion: MAIL_PROTOCOL_VERSION,
         requestId,

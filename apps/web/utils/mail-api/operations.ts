@@ -16,10 +16,7 @@ import {
   createFileBlobStore,
   readBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  collectStaleMailUploads,
-} from "@/utils/mail-api/upload-blobs";
+import { accountMailUploadDirectory } from "@/utils/mail-api/upload-blobs";
 
 const logger = createScopedLogger("mail-api/operations");
 
@@ -362,7 +359,6 @@ async function executeSend(
   );
   if (result.status === "confirmed") {
     await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-    await collectStaleMailUploads({ accountId }).catch(() => undefined);
   }
   return result;
 }
@@ -387,7 +383,6 @@ async function inspectSend(
   if (found.status === EmailSendOperationStatus.SENT) {
     if (operation.intent.kind === "send") {
       await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-      await collectStaleMailUploads({ accountId }).catch(() => undefined);
     }
     return {
       status: "confirmed" as const,

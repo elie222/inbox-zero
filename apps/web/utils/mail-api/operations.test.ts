@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir, utimes } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createEmailProviderOperationExecutor } from "./operations";
 import type { EmailProvider } from "@/utils/email/types";
@@ -15,10 +14,7 @@ import {
   createFileBlobStore,
   writeBlobMetadata,
 } from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  UPLOAD_BLOB_GRACE_MS,
-} from "./upload-blobs";
+import { accountMailUploadDirectory } from "./upload-blobs";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -265,18 +261,12 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(await store.read("blob-hold")).not.toBeNull();
   });
 
-  it("collects old unreferenced uploads after a confirmed send", async () => {
+  it("does not delete a sibling staged upload when another send confirms", async () => {
     const store = await stageAccountBlob("acc-1", "blob-send");
-    await stageAccountBlob("acc-1", "orphan-old");
-    const nowMs = Date.now();
-    await utimes(
-      join(accountMailUploadDirectory("acc-1"), "orphan-old"),
-      new Date(nowMs - UPLOAD_BLOB_GRACE_MS - 1000),
-      new Date(nowMs - UPLOAD_BLOB_GRACE_MS - 1000),
-    );
+    await stageAccountBlob("acc-1", "blob-sibling");
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
-      result: { messageId: "sent-gc", threadId: "t-gc" },
+      result: { messageId: "sent-keep", threadId: "t-keep" },
     });
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
@@ -284,12 +274,12 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     const result = await executor.execute({
       operation: sendOperation(["blob-send"]),
-      attemptId: "a-send-gc",
+      attemptId: "a-send-keep",
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
     expect(await store.read("blob-send")).toBeNull();
-    expect(await store.read("orphan-old")).toBeNull();
+    expect(await store.read("blob-sibling")).not.toBeNull();
   });
 
   it("deletes staged blobs when inspect confirms a send", async () => {
