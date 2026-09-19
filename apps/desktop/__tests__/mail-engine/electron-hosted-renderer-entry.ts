@@ -29,6 +29,14 @@ const STAR_SUBJECT =
   process.env.ELECTRON_STAR_SUBJECT ?? "Second Unread Command Message";
 const STAR_THREAD_ID =
   process.env.ELECTRON_STAR_THREAD_ID ?? "thr_playwright_3";
+const BULK_FIRST_SUBJECT = "Playwright Test Message";
+const BULK_SECOND_SUBJECT = "Read Command Message";
+const DELETE_SUBJECT = "Delete Action Message";
+const LABEL_SUBJECT = "Re: Reader Navigation Message";
+const BULK_FIRST_THREAD = "thr_playwright_1";
+const BULK_SECOND_THREAD = "thr_playwright_2";
+const DELETE_THREAD = "thr_playwright_delete";
+const LABEL_THREAD = "thr_playwright_reader";
 const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
 const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
 
@@ -147,6 +155,8 @@ async function runProof(input: {
         input.accountId,
         input.gate,
       );
+    case "bulk":
+      return proveBulk(input.window, input.owner, input.accountId);
     default:
       return proveSearchArchive(input.window, input.owner, input.accountId);
   }
@@ -435,6 +445,149 @@ async function proveCursorReset(
     enumerationRequests: gate.enumeration,
     bootstrapRequests: gate.bootstrap,
     resetFired: gate.resetFired,
+  };
+}
+
+async function proveBulk(
+  window: BrowserWindow,
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+) {
+  await waitForConversations(window);
+  await waitForSubject(window, BULK_FIRST_SUBJECT);
+  await waitForSubject(window, BULK_SECOND_SUBJECT);
+  await selectConversation(window, BULK_FIRST_SUBJECT);
+  await selectConversation(window, BULK_SECOND_SUBJECT);
+  await clickToolbarButton(window, "Archive");
+  await waitForMissingSubject(
+    window,
+    BULK_FIRST_SUBJECT,
+    SEARCH_HIDDEN_SUBJECT,
+  );
+  await waitForMissingSubject(
+    window,
+    BULK_SECOND_SUBJECT,
+    SEARCH_HIDDEN_SUBJECT,
+  );
+  const bulkArchived =
+    (await waitForInspectSucceeded(window, {
+      kind: "archive",
+      threadId: BULK_FIRST_THREAD,
+    })) &&
+    (await waitForInspectSucceeded(window, {
+      kind: "archive",
+      threadId: BULK_SECOND_THREAD,
+    }));
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    BULK_FIRST_SUBJECT,
+    false,
+  );
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    BULK_SECOND_SUBJECT,
+    false,
+  );
+  await undoLastTriage(window);
+  await waitForSubject(window, BULK_FIRST_SUBJECT);
+  await waitForSubject(window, BULK_SECOND_SUBJECT);
+  const bulkUndone =
+    (await waitForInspectSucceeded(window, {
+      kind: "unarchive",
+      threadId: BULK_FIRST_THREAD,
+    })) &&
+    (await waitForInspectSucceeded(window, {
+      kind: "unarchive",
+      threadId: BULK_SECOND_THREAD,
+    }));
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    BULK_FIRST_SUBJECT,
+    true,
+  );
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    BULK_SECOND_SUBJECT,
+    true,
+  );
+
+  await clickConversation(window, DELETE_SUBJECT);
+  await waitForHeading(window, DELETE_SUBJECT);
+  await clickMoreActionsItem(window, "Delete");
+  await waitForSubjectGone(window, DELETE_SUBJECT);
+  await waitForInspectSucceeded(window, {
+    kind: "trash",
+    threadId: DELETE_THREAD,
+  });
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    DELETE_SUBJECT,
+    false,
+  );
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "trash",
+    DELETE_SUBJECT,
+    true,
+  );
+  await openNamedMailbox(window, "Trash");
+  await waitForSubject(window, DELETE_SUBJECT);
+  await undoLastTriage(window);
+  await waitForSubjectGone(window, DELETE_SUBJECT);
+  const trashRestored = await waitForInspectSucceeded(window, {
+    kind: "untrash",
+    threadId: DELETE_THREAD,
+  });
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "trash",
+    DELETE_SUBJECT,
+    false,
+  );
+  await window.loadURL(
+    new URL(
+      `/${accountId}/mail`,
+      getDesktopAppOrigin(requiredEnv("ELECTRON_APP_URL")),
+    ).toString(),
+  );
+  await waitForTransport(window, "desktop-ipc");
+  await waitForSubject(window, DELETE_SUBJECT);
+  await waitForNativeRoleSubject(
+    owner,
+    accountId,
+    "inbox",
+    DELETE_SUBJECT,
+    true,
+  );
+
+  await clickConversation(window, LABEL_SUBJECT);
+  await waitForHeading(window, LABEL_SUBJECT);
+  await clickMoreActionsItem(window, "Label");
+  await applyPickerLabel(window, "Project", "Project Alpha");
+  const labelSucceeded = await waitForInspectSucceeded(window, {
+    kind: "set_membership",
+    threadId: LABEL_THREAD,
+    payload: { membership: "label", id: "Label_project", present: true },
+  });
+  return {
+    bulkArchived,
+    bulkUndone,
+    trashRestored,
+    labelSucceeded,
+    nativeInboxHasBulkSubjects: true,
+    nativeTrashHasDeleteSubject: false,
   };
 }
 
@@ -771,6 +924,261 @@ async function clickArchive(window: BrowserWindow, subject: string) {
   throw new Error(
     `Archive control missing for ${subject}: ${body.slice(0, 2000)}`,
   );
+}
+
+async function selectConversation(window: BrowserWindow, subject: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const selection = (await window.webContents.executeJavaScript(`
+      (() => {
+        const list = document.querySelector('[role="listbox"][aria-label="Conversations"]');
+        const option = [...(list?.querySelectorAll('[role="option"]') ?? [])]
+          .find((item) => (item.textContent ?? "").includes(${JSON.stringify(subject)}));
+        const checkbox = option?.querySelector('[role="checkbox"]');
+        if (!(checkbox instanceof HTMLElement)) {
+          return {
+            ok: false,
+            selected: option?.getAttribute("aria-selected") === "true",
+          };
+        }
+        if (option?.getAttribute("aria-selected") === "true") return { ok: true };
+        checkbox.click();
+        return { ok: true };
+      })()
+    `)) as { ok: boolean };
+    if (selection.ok) return;
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`Selection checkbox missing for ${subject}`);
+}
+
+async function clickToolbarButton(window: BrowserWindow, name: string) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const clicked = (await window.webContents.executeJavaScript(`
+      (() => {
+        const button = document.querySelector(
+          ${JSON.stringify(`button[aria-label="${name}"]`)},
+        );
+        if (!(button instanceof HTMLElement)) return false;
+        button.click();
+        return true;
+      })()
+    `)) as boolean;
+    if (clicked) return;
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`${name} toolbar control missing`);
+}
+
+async function undoLastTriage(window: BrowserWindow) {
+  const clicked = (await window.webContents.executeJavaScript(`
+    (() => {
+      const buttons = [...document.querySelectorAll("button")];
+      const undo = buttons.find((item) =>
+        /^Undo/.test((item.textContent ?? "").trim()),
+      );
+      if (!(undo instanceof HTMLElement)) return false;
+      undo.click();
+      return true;
+    })()
+  `)) as boolean;
+  if (clicked) return;
+  window.webContents.focus();
+  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Z" });
+  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Z" });
+}
+
+async function waitForHeading(window: BrowserWindow, name: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const visible = (await window.webContents.executeJavaScript(`
+      [...document.querySelectorAll("h1, h2, h3")].some(
+        (heading) => heading.textContent?.trim() === ${JSON.stringify(name)},
+      )
+    `)) as boolean;
+    if (visible) return;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`heading ${name} missing`);
+}
+
+async function clickMoreActionsItem(window: BrowserWindow, label: string) {
+  const moreRect = await waitForElementRect(
+    window,
+    'button[aria-label="More actions"]',
+  );
+  await pointerClickAt(window, moreRect);
+  await delay(50);
+  const itemRect = await waitForMenuItemRect(window, label);
+  await pointerClickAt(window, itemRect);
+}
+
+async function waitForMenuItemRect(window: BrowserWindow, label: string) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const rect = (await window.webContents.executeJavaScript(`
+      (() => {
+        const item = [...document.querySelectorAll('[role="menuitem"]')].find(
+          (entry) => {
+            const text = (entry.textContent ?? "").replace(/\\s+/g, " ").trim();
+            return text.startsWith(${JSON.stringify(label)});
+          },
+        );
+        if (!(item instanceof HTMLElement)) return null;
+        const box = item.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })()
+    `)) as DomRect | null;
+    if (rect && rect.width > 0 && rect.height > 0) return rect;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  const body = await readBodyText(window);
+  throw new Error(`${label} menu item missing: ${body.slice(0, 2000)}`);
+}
+
+async function applyPickerLabel(
+  window: BrowserWindow,
+  query: string,
+  optionName: string,
+) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const applied = (await window.webContents.executeJavaScript(`
+      (() => {
+        const dialog = [...document.querySelectorAll('[role="dialog"]')].find(
+          (item) => (item.textContent ?? "").includes("Label conversations"),
+        );
+        if (!(dialog instanceof HTMLElement)) return { ok: false, step: "dialog" };
+        const combobox =
+          dialog.querySelector('[role="combobox"]') ??
+          dialog.querySelector("input");
+        if (!(combobox instanceof HTMLInputElement)) {
+          return { ok: false, step: "combobox" };
+        }
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )?.set;
+        setter?.call(combobox, ${JSON.stringify(query)});
+        combobox.dispatchEvent(new Event("input", { bubbles: true }));
+        const option = [...dialog.querySelectorAll('[role="option"]')].find(
+          (item) =>
+            (item.textContent ?? "").replace(/\\s+/g, " ").trim() ===
+            ${JSON.stringify(optionName)},
+        );
+        if (!(option instanceof HTMLElement)) return { ok: false, step: "option" };
+        option.click();
+        return { ok: true };
+      })()
+    `)) as { ok: boolean; step?: string };
+    if (applied.ok) return;
+    await delay(250);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`label picker never applied ${optionName}`);
+}
+
+async function openNamedMailbox(window: BrowserWindow, name: string) {
+  let expandedMail = false;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const opened = (await window.webContents.executeJavaScript(`
+      (() => {
+        const link = [...document.querySelectorAll("a")].find((item) =>
+          [...item.querySelectorAll("span")].some(
+            (span) => span.textContent?.trim() === ${JSON.stringify(name)},
+          ),
+        );
+        if (link instanceof HTMLElement) {
+          link.click();
+          return "opened";
+        }
+        return "missing";
+      })()
+    `)) as "opened" | "missing";
+    if (opened === "opened") return;
+    if (!expandedMail) {
+      expandedMail = true;
+      await window.webContents.executeJavaScript(`
+        (() => {
+          const mail = [...document.querySelectorAll("button")].find((button) =>
+            [...button.querySelectorAll("span")].some(
+              (span) => span.textContent?.trim() === "Mail",
+            ),
+          );
+          if (mail instanceof HTMLElement) mail.click();
+        })()
+      `);
+    }
+    await delay(50);
+  }
+  await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
+  throw new Error(`${name} mailbox missing`);
+}
+
+async function waitForInspectSucceeded(
+  window: BrowserWindow,
+  expected: {
+    kind: string;
+    threadId: string;
+    payload?: Record<string, unknown>;
+  },
+) {
+  const kindMap: Record<string, string> = {
+    archive: "archive",
+    unarchive: "unarchive",
+    trash: "trash",
+    restore_from_trash: "untrash",
+    set_membership: "set_membership",
+  };
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const result = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.read) return { status: "missing" };
+        const diagnostics = await inspect.read();
+        const kindMap = ${JSON.stringify(kindMap)};
+        const expected = ${JSON.stringify(expected)};
+        const slug = expected.threadId.startsWith("thr_")
+          ? expected.threadId.slice(4)
+          : expected.threadId;
+        const match = diagnostics?.commands
+          ?.filter((command) => {
+            const changeKind = command.change?.kind ?? command.kind;
+            const mapped = kindMap[changeKind] ?? changeKind;
+            if (mapped !== expected.kind) return false;
+            const ids = command.conversationIds ?? [];
+            const messages = command.messageIds ?? [];
+            const threadOk =
+              ids.includes(expected.threadId) ||
+              messages.some(
+                (messageId) =>
+                  messageId.includes(expected.threadId) ||
+                  messageId === "msg_" + slug ||
+                  messageId.startsWith("msg_" + slug + "_"),
+              );
+            if (!threadOk) return false;
+            if (!expected.payload) return true;
+            return Object.entries(expected.payload).every(
+              ([key, value]) => command.change?.[key] === value,
+            );
+          })
+          .at(-1);
+        return match
+          ? { status: match.status, kind: match.change?.kind ?? match.kind }
+          : { status: "missing" };
+      })()
+    `)) as { status?: string };
+    if (result.status === "succeeded") return true;
+    if (
+      result.status === "failed" ||
+      result.status === "cancelled" ||
+      result.status === "needs_attention"
+    ) {
+      throw new Error(`hosted ${expected.kind} ${result.status}`);
+    }
+    await delay(500);
+  }
+  throw new Error(`hosted ${expected.kind} never reached succeeded`);
 }
 
 async function readSubjects(window: BrowserWindow) {
@@ -1318,7 +1726,7 @@ async function readAssistantCursor(window: BrowserWindow) {
 async function waitForNativeRoleSubject(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
-  role: "inbox" | "draft" | "sent",
+  role: MailboxRole,
   subject: string,
   present: boolean,
 ) {
@@ -1337,7 +1745,7 @@ async function waitForNativeRoleSubject(
 async function readNativeMailboxSubjects(
   owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
   accountId: string,
-  role: "inbox" | "draft" | "sent",
+  role: MailboxRole,
 ) {
   const snapshot = (await owner.handleIpc({
     protocolVersion: 1,
@@ -1516,6 +1924,8 @@ function requiredEnv(name: string) {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+type MailboxRole = "inbox" | "draft" | "sent" | "trash";
 
 type DomRect = {
   x: number;

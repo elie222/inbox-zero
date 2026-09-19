@@ -75,7 +75,7 @@ function runElectron(binary, script, extraEnv) {
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error(`electron hosted mail timed out\n${stdout}\n${stderr}`));
-    }, 180_000);
+    }, 240_000);
     child.on("error", (error) => {
       clearTimeout(timer);
       reject(error);

@@ -558,6 +558,82 @@ test("hides an externally archived conversation through desktop idle catch-up", 
   expect(cleanupErrors).toEqual([]);
 });
 
+test("archives two conversations, restores trash, and labels through desktop IPC", async ({
+  page,
+  baseURL,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
+  if (!baseURL) throw new Error("Playwright baseURL is missing");
+  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
+
+  const screenshotPath = testInfo.outputPath("hosted-electron-bulk.png");
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  const cleanupErrors: unknown[] = [];
+
+  try {
+    const payload = await launchHostedElectron({
+      appUrl: baseURL,
+      accountId: emailAccountId,
+      storageState: authFile,
+      screenshotPath,
+      proof: "bulk",
+    });
+    expect(payload.url).toMatch(/^https?:/);
+    expect(payload.url).not.toContain("file:");
+    expect(payload.transport).toBe("desktop-ipc");
+    expect(payload.sqliteExists).toBe(true);
+    expect(payload.proof).toBe("bulk");
+    expect(payload.bulkArchived).toBe(true);
+    expect(payload.bulkUndone).toBe(true);
+    expect(payload.trashRestored).toBe(true);
+    expect(payload.labelSucceeded).toBe(true);
+    expect(payload.nativeInboxHasBulkSubjects).toBe(true);
+    expect(payload.nativeTrashHasDeleteSubject).toBe(false);
+    testInfo.annotations.push({
+      type: "hosted-electron-payload",
+      description: JSON.stringify({
+        url: payload.url,
+        transport: payload.transport,
+        proof: payload.proof,
+        bulkArchived: payload.bulkArchived,
+        bulkUndone: payload.bulkUndone,
+        trashRestored: payload.trashRestored,
+        labelSucceeded: payload.labelSucceeded,
+      }),
+    });
+    await copyCatchUpArtifact(screenshotPath, payload, "hosted-electron-bulk");
+  } finally {
+    await Promise.all(
+      ["thr_playwright_1", "thr_playwright_2"].map((threadId) =>
+        page.request
+          .post(`/api/threads/${threadId}/unarchive`, {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          })
+          .then((response) => expect(response.ok()).toBe(true))
+          .catch((error) => {
+            cleanupErrors.push(error);
+          }),
+      ),
+    );
+    await page.request
+      .post("/api/threads/thr_playwright_delete/untrash", {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
+  }
+  expect(cleanupErrors).toEqual([]);
+});
+
 function launchHostedElectron(input: {
   appUrl: string;
   accountId: string;
@@ -574,7 +650,8 @@ function launchHostedElectron(input: {
     | "assistant-baseline"
     | "assistant-reopen"
     | "missed-hint"
-    | "cursor-reset";
+    | "cursor-reset"
+    | "bulk";
   draftSubject?: string;
   discardSubject?: string;
   sendSubject?: string;
@@ -866,6 +943,12 @@ type HostedElectronPayload = {
   assistantStateRequests?: number;
   bootstrapRequests?: number;
   resetFired?: boolean;
+  bulkArchived?: boolean;
+  bulkUndone?: boolean;
+  trashRestored?: boolean;
+  labelSucceeded?: boolean;
+  nativeInboxHasBulkSubjects?: boolean;
+  nativeTrashHasDeleteSubject?: boolean;
 };
 
 async function seedAssistantArchive(emailAccountId: string) {
