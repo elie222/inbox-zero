@@ -72,6 +72,7 @@ model User {
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
   onboardingAnswers       Json?
+  onboardingPaywallVariant String?
   lastLogin               DateTime?
   utms                    Json?
   errorMessages           Json? // eg. user set incorrect AI API key
