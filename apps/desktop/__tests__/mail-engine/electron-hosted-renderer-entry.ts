@@ -108,7 +108,7 @@ async function proveSearchArchive(
   await clearSearch(window);
   await waitForSubject(window, SEARCH_HIDDEN_SUBJECT);
   await clickArchive(window, ARCHIVE_SUBJECT);
-  await waitForMissingSubject(window, ARCHIVE_SUBJECT);
+  await waitForMissingSubject(window, ARCHIVE_SUBJECT, SEARCH_HIDDEN_SUBJECT);
   const subjectsAfter = await readSubjects(window);
   const nativeSubjects = await readNativeMailboxSubjects(
     owner,
@@ -228,10 +228,19 @@ async function waitForSubject(window: BrowserWindow, subject: string) {
   );
 }
 
-async function waitForMissingSubject(window: BrowserWindow, subject: string) {
+async function waitForMissingSubject(
+  window: BrowserWindow,
+  subject: string,
+  stillPresent: string,
+) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     const subjects = await readSubjects(window);
-    if (!subjects.some((text) => text.includes(subject))) return;
+    if (
+      !subjects.some((text) => text.includes(subject)) &&
+      subjects.some((text) => text.includes(stillPresent))
+    ) {
+      return;
+    }
     await delay(500);
   }
   throw new Error(`${subject} remained in the hosted inbox`);
