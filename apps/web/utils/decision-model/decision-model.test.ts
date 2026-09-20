@@ -226,4 +226,22 @@ describe("runDecisionModelOrFallback", () => {
     expect(result).toBe("llm");
     expect(fallback).toHaveBeenCalledOnce();
   });
+
+  it("falls back when decision-model configuration lookup fails", async () => {
+    prisma.user.findUnique.mockRejectedValue(new Error("database unavailable"));
+    const decide = vi.fn();
+    const fallback = vi.fn().mockResolvedValue("llm");
+
+    const result = await runDecisionModelOrFallback({
+      emailAccount: getEmailAccount(),
+      logger,
+      feature: "test",
+      decide,
+      fallback,
+    });
+
+    expect(result).toBe("llm");
+    expect(decide).not.toHaveBeenCalled();
+    expect(fallback).toHaveBeenCalledOnce();
+  });
 });

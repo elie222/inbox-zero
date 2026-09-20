@@ -156,7 +156,17 @@ export async function runDecisionModelOrFallback<T>({
   decide: (config: DecisionModelConfig) => Promise<T>;
   fallback: () => Promise<T>;
 }): Promise<T> {
-  const config = await getDecisionModelConfig(emailAccount);
+  let config: DecisionModelConfig | null;
+  try {
+    config = await getDecisionModelConfig(emailAccount);
+  } catch (error) {
+    logger.warn("Decision model configuration failed, falling back to LLM", {
+      error,
+      feature,
+    });
+    return fallback();
+  }
+
   if (!config) return fallback();
 
   try {

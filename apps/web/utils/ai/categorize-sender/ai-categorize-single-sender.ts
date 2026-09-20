@@ -26,15 +26,20 @@ export async function aiCategorizeSender({
     emailAccount,
     logger,
     feature: "sender categorization",
-    decide: (config) =>
-      decideSenderCategory({
+    decide: async (config) => {
+      const result = await decideSenderCategory({
         config,
         emailAccount,
         sender,
         previousEmails,
         categories,
         logger,
-      }),
+      });
+      if (!result) {
+        throw new Error("Decision model was uncertain about sender category");
+      }
+      return result;
+    },
     fallback: () =>
       categorizeSenderWithLlm({
         emailAccount,

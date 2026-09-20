@@ -49,6 +49,7 @@ export function DecisionModelSection() {
       </ItemContent>
       <ItemActions>
         <Switch
+          aria-label="Specialized decision model"
           checked={data.decisionModelEnabled}
           onCheckedChange={(decisionModelEnabled) => {
             mutate({ ...data, decisionModelEnabled }, false);

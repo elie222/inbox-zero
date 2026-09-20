@@ -49,14 +49,21 @@ export async function aiCategorizeSenders({
     emailAccount,
     logger,
     feature: "bulk sender categorization",
-    decide: (config) =>
-      decideBulkSenderCategories({
+    decide: async (config) => {
+      const result = await decideBulkSenderCategories({
         config,
         emailAccount,
         senders,
         categories,
         logger,
-      }),
+      });
+      if (result.some(({ category }) => !category)) {
+        throw new Error(
+          "Decision model was uncertain about one or more sender categories",
+        );
+      }
+      return result;
+    },
     fallback: () =>
       categorizeSendersWithLlm({ emailAccount, senders, categories }),
   });

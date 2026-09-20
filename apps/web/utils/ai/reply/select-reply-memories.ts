@@ -124,7 +124,27 @@ export async function selectRelevantReplyMemoriesWithLlm({
   logger: Logger;
 }): Promise<string[] | null> {
   try {
-    const prompt = `<incoming_email>
+    return await selectRelevantReplyMemoriesWithLlmStrict({
+      candidates,
+      emailContent,
+      emailAccount,
+    });
+  } catch (error) {
+    logger.error("Failed to select relevant reply memories", { error });
+    return null;
+  }
+}
+
+export async function selectRelevantReplyMemoriesWithLlmStrict({
+  candidates,
+  emailContent,
+  emailAccount,
+}: {
+  candidates: ReplyMemoryCandidate[];
+  emailContent: string;
+  emailAccount: EmailAccountWithAI;
+}): Promise<string[]> {
+  const prompt = `<incoming_email>
 ${truncate(emailContent, MAX_EMAIL_CONTENT_LENGTH)}
 </incoming_email>
 
@@ -136,32 +156,28 @@ ${getUserInfoPrompt({ emailAccount })}
 
 Select the ids of the memories relevant to drafting a reply to this email.`;
 
-    const modelOptions = getModelForUseCase(
-      emailAccount.user,
-      LlmUseCase.ReplyMemorySelection,
-    );
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.ReplyMemorySelection,
+  );
 
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Reply memory selection",
-      modelOptions,
-      promptHardening: { trust: "untrusted", level: "compact" },
-    });
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Reply memory selection",
+    modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
+  });
 
-    const result = await generateObject({
-      ...modelOptions,
-      instructions: system,
-      prompt,
-      schema: selectionSchema,
-    });
+  const result = await generateObject({
+    ...modelOptions,
+    instructions: system,
+    prompt,
+    schema: selectionSchema,
+  });
 
-    const candidateIds = new Set(candidates.map((memory) => memory.id));
+  const candidateIds = new Set(candidates.map((memory) => memory.id));
 
-    return result.object.selectedMemoryIds
-      .filter((id) => candidateIds.has(id))
-      .slice(0, MAX_SELECTED_REPLY_MEMORIES);
-  } catch (error) {
-    logger.error("Failed to select relevant reply memories", { error });
-    return null;
-  }
+  return result.object.selectedMemoryIds
+    .filter((id) => candidateIds.has(id))
+    .slice(0, MAX_SELECTED_REPLY_MEMORIES);
 }

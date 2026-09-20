@@ -21,8 +21,8 @@ import { decideSenderCategory } from "@/utils/decision-model/categorize-sender";
 import { decideUnsubscribePageState } from "@/utils/decision-model/unsubscribe-page";
 import { decideColdEmail } from "@/utils/decision-model/cold-email";
 import { determineThreadStatusWithLlm } from "@/utils/ai/reply/determine-thread-status";
-import { selectRelevantReplyMemoriesWithLlm } from "@/utils/ai/reply/select-reply-memories";
-import { detectRecurringPatternWithLlm } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
+import { selectRelevantReplyMemoriesWithLlmStrict } from "@/utils/ai/reply/select-reply-memories";
+import { detectRecurringPatternWithLlmStrict } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { categorizeSenderWithLlm } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { checkUnsubscribePageStateWithLlm } from "@/utils/ai/senders/unsubscribe-page";
 import { checkColdEmailWithLlm } from "@/utils/cold-email/is-cold-email";
@@ -230,12 +230,11 @@ describe.runIf(shouldRun)("Eval: JEV vs GPT-5.6 Luna decisions", () => {
           ).join(","),
         runLuna: async () =>
           (
-            (await selectRelevantReplyMemoriesWithLlm({
+            await selectRelevantReplyMemoriesWithLlmStrict({
               candidates,
               emailContent,
               emailAccount,
-              logger,
-            })) ?? []
+            })
           ).join(","),
         reporter,
       });
@@ -255,12 +254,11 @@ describe.runIf(shouldRun)("Eval: JEV vs GPT-5.6 Luna decisions", () => {
           ).join(","),
         runLuna: async () =>
           (
-            (await selectRelevantReplyMemoriesWithLlm({
+            await selectRelevantReplyMemoriesWithLlmStrict({
               candidates,
               emailContent: "Can you confirm tomorrow's meeting time?",
               emailAccount,
-              logger,
-            })) ?? []
+            })
           ).join(","),
         reporter,
       });
@@ -312,12 +310,11 @@ describe.runIf(shouldRun)("Eval: JEV vs GPT-5.6 Luna decisions", () => {
           ).matchedRule,
         runLuna: async () =>
           (
-            await detectRecurringPatternWithLlm({
+            await detectRecurringPatternWithLlmStrict({
               emails,
               emailAccount,
               rules,
               consistentRuleName: "Receipts",
-              logger,
             })
           )?.matchedRule ?? null,
         reporter,
@@ -357,12 +354,11 @@ describe.runIf(shouldRun)("Eval: JEV vs GPT-5.6 Luna decisions", () => {
           ).matchedRule,
         runLuna: async () =>
           (
-            await detectRecurringPatternWithLlm({
+            await detectRecurringPatternWithLlmStrict({
               emails: mixedEmails,
               emailAccount,
               rules,
               consistentRuleName: "Receipts",
-              logger,
             })
           )?.matchedRule ?? null,
         reporter,
