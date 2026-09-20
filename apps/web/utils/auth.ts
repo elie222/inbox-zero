@@ -122,8 +122,7 @@ const microsoftSocialProvider =
         scope: [...OUTLOOK_SCOPES],
         tenantId: env.MICROSOFT_TENANT_ID,
         disableIdTokenSignIn: true,
-        // Better Auth inlines the Graph photo as a base64 data URI on the user row.
-        // handleLinkAccount already stores the mailbox photo, so skip the fetch.
+        // Inlined as a data URI on the user row; handleLinkAccount already has it.
         disableProfilePhoto: true,
         // The only hook that sees the decoded id_token before better-auth looks
         // the account up, so the only place both account keys are known.
@@ -946,9 +945,8 @@ function scheduleEmailWatchesAfterLink(userId: string) {
   );
 }
 
-// Better Auth replays the stored user row inside the session cookie, so an inline
-// base64 photo from a provider pushes the request headers past the edge limit and
-// locks the account out before any route runs. Only remote URLs belong here.
+// Better Auth replays the user row inside the session cookie, so an inline photo
+// pushes request headers past the edge limit and locks the account out.
 function dropInlineImage(user: { image?: string | null }) {
   if (typeof user.image !== "string" || !/^data:/i.test(user.image)) return;
   return { data: { image: null } };
