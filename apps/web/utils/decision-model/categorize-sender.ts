@@ -32,7 +32,7 @@ export async function decideSenderCategory({
   previousEmails: { subject: string; snippet: string }[];
   categories: CategoryOption[];
   logger: Logger;
-}): Promise<{ category: string; rationale?: string } | null> {
+}): Promise<{ category: string; rationale: string } | null> {
   const result = await decideSenderCategories({
     config,
     emailAccount,
