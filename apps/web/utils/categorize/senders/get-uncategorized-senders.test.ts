@@ -49,6 +49,21 @@ describe("getUncategorizedSenders", () => {
     ]);
   });
 
+  it("dedupes case variants of the same sender into one entry", async () => {
+    mockGetSenders.mockResolvedValue([
+      { from: "Sender@example.com", fromName: null },
+      { from: "sender@example.com", fromName: "Sender" },
+    ]);
+
+    const result = await getUncategorizedSenders({
+      emailAccountId: "account-1",
+    });
+
+    expect(result.uncategorizedSenders).toEqual([
+      { email: "sender@example.com", name: "Sender" },
+    ]);
+  });
+
   it("treats mixed-case senders as categorized when a canonicalized record exists", async () => {
     mockGetSenders.mockResolvedValue([
       { from: "Costco@digital.costco.com", fromName: "Costco" },

@@ -26,9 +26,11 @@ export async function getUncategorizedSenders({
 
     const senderMap = new Map<string, string | null>();
     for (const sender of result) {
-      const email = extractEmailAddress(sender.from);
+      const extractedEmail = extractEmailAddress(sender.from);
       // Unparseable from headers extract to "" and can never be categorized
-      if (!email) continue;
+      if (!extractedEmail) continue;
+      // Normalize so case variants of the same address dedupe to one entry
+      const email = extractedEmail.toLowerCase();
       // Only set the name if we don't already have one (keep first non-null)
       if (!senderMap.has(email) || (!senderMap.get(email) && sender.fromName)) {
         senderMap.set(email, sender.fromName);
@@ -54,7 +56,7 @@ export async function getUncategorizedSenders({
     );
 
     uncategorizedSenders = allSenderEmails
-      .filter((email) => !existingSenderEmails.has(email.toLowerCase()))
+      .filter((email) => !existingSenderEmails.has(email))
       .map((email) => ({ email, name: senderMap.get(email) ?? null }));
 
     // Use result.length (raw query count) not allSenderEmails.length (de-duplicated count)
