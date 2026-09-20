@@ -9,7 +9,7 @@ import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 
 export const shouldRunDecisionModelEvals =
-  shouldRunEvalTests() && !!env.TYPESAFE_API_KEY;
+  shouldRunEvalTests() && !!env.TYPESAFE_API_KEY && !!env.OPENROUTER_API_KEY;
 export const DECISION_MODEL_EVAL_TIMEOUT = 60_000;
 export const decisionModelEvalLogger = createScopedLogger(
   "eval-decision-model-comparison",
