@@ -40,8 +40,8 @@ export const saveAiSettingsBody = z.object({
 });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
-export const saveClassifierSettingsBody = z.object({
-  classifierEnabled: z.boolean(),
+export const saveDecisionModelSettingsBody = z.object({
+  decisionModelEnabled: z.boolean(),
 });
 
 export const saveSensitiveDataPolicyBody = z.object({

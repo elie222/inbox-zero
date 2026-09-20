@@ -53,7 +53,7 @@ export async function getDecisionModelConfig(
 
   const user = await prisma.user.findUnique({
     where: { id: emailAccount.userId },
-    select: { classifierEnabled: true, aiApiKey: true },
+    select: { decisionModelEnabled: true, aiApiKey: true },
   });
 
   return user && isDecisionModelEnabledForUser(user) ? config : null;
@@ -65,10 +65,10 @@ export async function getDecisionModelConfig(
  * goes.
  */
 export function isDecisionModelEnabledForUser(
-  user: Pick<User, "classifierEnabled" | "aiApiKey">,
+  user: Pick<User, "decisionModelEnabled" | "aiApiKey">,
 ) {
-  if (user.classifierEnabled !== null) return user.classifierEnabled;
-  return !user.aiApiKey && env.DEFAULT_CLASSIFIER_ENABLED;
+  if (user.decisionModelEnabled !== null) return user.decisionModelEnabled;
+  return !user.aiApiKey && env.DEFAULT_DECISION_MODEL_ENABLED;
 }
 
 export function isDecisionModelAvailable() {
@@ -182,11 +182,11 @@ function sendToProvider(options: {
 }
 
 function getDeploymentDecisionModelConfig(): DecisionModelConfig | null {
-  if (!env.DEFAULT_CLASSIFIER || !env.TYPESAFE_API_KEY) return null;
+  if (!env.DEFAULT_DECISION_MODEL || !env.TYPESAFE_API_KEY) return null;
 
   return {
     provider: "typesafe",
-    model: env.DEFAULT_CLASSIFIER.slice("typesafe:".length),
+    model: env.DEFAULT_DECISION_MODEL.slice("typesafe:".length),
     apiKey: env.TYPESAFE_API_KEY,
   };
 }

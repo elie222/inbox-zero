@@ -254,7 +254,7 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.35 / 1_000_000,
     output: 0.75 / 1_000_000,
   },
-  // TypeSafe classifier: $42 per billion input tokens, output free
+  // TypeSafe decision model: $42 per billion input tokens, output free
   "jev-latest": {
     input: 42 / 1_000_000_000,
     output: 0,

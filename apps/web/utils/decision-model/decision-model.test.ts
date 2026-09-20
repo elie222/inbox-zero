@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
-  DEFAULT_CLASSIFIER: undefined as string | undefined,
-  DEFAULT_CLASSIFIER_ENABLED: false,
+  DEFAULT_DECISION_MODEL: undefined as string | undefined,
+  DEFAULT_DECISION_MODEL_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
 }));
 const decideWithTypeSafeMock = vi.hoisted(() => vi.fn());
@@ -42,23 +42,23 @@ describe("getDecisionModelConfig", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    envMock.DEFAULT_CLASSIFIER = "typesafe:jev-latest";
-    envMock.DEFAULT_CLASSIFIER_ENABLED = false;
+    envMock.DEFAULT_DECISION_MODEL = "typesafe:jev-latest";
+    envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
   });
 
   function mockUserSetting(
-    classifierEnabled: boolean | null,
+    decisionModelEnabled: boolean | null,
     aiApiKey: string | null = null,
   ) {
     prisma.user.findUnique.mockResolvedValue({
-      classifierEnabled,
+      decisionModelEnabled,
       aiApiKey,
     } as never);
   }
 
   it("returns null without a database lookup when no decision model is configured", async () => {
-    envMock.DEFAULT_CLASSIFIER = undefined;
+    envMock.DEFAULT_DECISION_MODEL = undefined;
 
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("getDecisionModelConfig", () => {
   });
 
   it("is on unless the user opts out when the deployment default is on", async () => {
-    envMock.DEFAULT_CLASSIFIER_ENABLED = true;
+    envMock.DEFAULT_DECISION_MODEL_ENABLED = true;
 
     mockUserSetting(null);
     expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
@@ -94,7 +94,7 @@ describe("getDecisionModelConfig", () => {
   });
 
   it("does not enroll users with their own AI key through the deployment default", async () => {
-    envMock.DEFAULT_CLASSIFIER_ENABLED = true;
+    envMock.DEFAULT_DECISION_MODEL_ENABLED = true;
 
     mockUserSetting(null, "user-key");
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
@@ -182,14 +182,14 @@ describe("runDecisionModel", () => {
 describe("runDecisionModelOrFallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    envMock.DEFAULT_CLASSIFIER = "typesafe:jev-latest";
-    envMock.DEFAULT_CLASSIFIER_ENABLED = false;
+    envMock.DEFAULT_DECISION_MODEL = "typesafe:jev-latest";
+    envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
   });
 
   it("keeps the original path when the decision model is not enabled", async () => {
     prisma.user.findUnique.mockResolvedValue({
-      classifierEnabled: false,
+      decisionModelEnabled: false,
       aiApiKey: null,
     } as never);
     const decide = vi.fn();
@@ -209,7 +209,7 @@ describe("runDecisionModelOrFallback", () => {
 
   it("falls back when the enabled decision model fails", async () => {
     prisma.user.findUnique.mockResolvedValue({
-      classifierEnabled: true,
+      decisionModelEnabled: true,
       aiApiKey: null,
     } as never);
     const decide = vi.fn().mockRejectedValue(new Error("provider down"));

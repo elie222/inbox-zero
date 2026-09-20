@@ -94,7 +94,7 @@ model User {
   aiProvider        String?
   aiModel           String?
   aiApiKey          String?
-  classifierEnabled Boolean? // null follows DEFAULT_CLASSIFIER_ENABLED
+  decisionModelEnabled Boolean? // null follows DEFAULT_DECISION_MODEL_ENABLED
   webhookSecret     String?
 
   // referral system
