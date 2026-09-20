@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CONVERSATION_TRACKING_META_RULE_ID } from "@/utils/reply-tracker/conversation-status-config";
 import {
   ensureConversationRuleContinuity,
   ensureConversationRuleForAiCalendarMatch,
-  CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
   runRules,
 } from "./run-rules";

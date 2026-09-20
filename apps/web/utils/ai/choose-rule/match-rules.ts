@@ -101,7 +101,8 @@ export async function findMatchingRules({
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   // With a classifier, only the deterministic cold-email guards run here. When
-  // they can't decide, the cold-email question is folded into the rule choice.
+  // they can't decide, the classifier is asked the same yes/no the LLM path
+  // asks, alongside the rule choice and in the same request.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -155,7 +156,7 @@ export async function findMatchingRules({
       : null;
 
   if (classifier && (potentialAiMatches.length || pendingColdEmailRule)) {
-    const classifierResult = await classifierChooseRule({
+    const selection = await classifierChooseRule({
       classifier,
       message,
       emailAccount,
@@ -173,20 +174,32 @@ export async function findMatchingRules({
       return null;
     });
 
-    if (classifierResult?.isColdEmail && pendingColdEmailRule) {
-      return buildColdEmailMatch({
-        coldEmailRuleId: pendingColdEmailRule.id,
-        matchReasons: [{ type: ConditionType.AI }],
-        reasoning: classifierResult.reason,
-        selectionMetadata,
-      });
-    }
+    if (selection) {
+      if (selection.type === "coldEmail" && pendingColdEmailRule) {
+        return buildColdEmailMatch({
+          coldEmailRuleId: pendingColdEmailRule.id,
+          matchReasons: [{ type: ConditionType.AI }],
+          reasoning: selection.reason,
+          selectionMetadata,
+        });
+      }
 
-    if (classifierResult) {
-      return mergeAiResultsIntoMatches({
-        matches,
-        aiResult: classifierResult,
-        selectionMetadata,
+      // The classifier answered the cold-email question, so the LLM check below
+      // has nothing left to decide, whatever happens to the rule choice.
+      pendingColdEmailRule = null;
+
+      if (selection.type === "rules") {
+        return mergeAiResultsIntoMatches({
+          matches,
+          aiResult: selection,
+          selectionMetadata,
+        });
+      }
+
+      // "undecided": the rule choice was too close to call, so the LLM chooser
+      // below takes it instead.
+      logger.info("Classifier deferred the rule choice to the LLM path", {
+        reason: selection.reason,
       });
     }
   }
