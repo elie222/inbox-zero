@@ -1,27 +1,28 @@
 import { env } from "@/env";
 import type { User } from "@/generated/prisma/client";
-import { classifyWithTypeSafe } from "@/utils/classifier/typesafe";
 import { assertTrialAiUsageAllowed } from "@/utils/llms/model-usage-guard";
 import { enforceSensitiveDataPolicy } from "@/utils/llms/sensitive-content";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveAiUsage } from "@/utils/usage";
+import { decideWithTypeSafe } from "./typesafe";
 
-// Classifiers are models that answer structured questions (pick one of these
-// labels, yes or no) with probabilities, rather than generating text.
+type DecisionInstructions = string | Record<string, string>;
 
-type QuestionInstructions = string | Record<string, string>;
-
-export type ClassifierQuestion =
+export type DecisionQuestion =
   | {
       type: "choice";
-      instructions: QuestionInstructions;
+      instructions: DecisionInstructions;
       criteria: Record<string, string>;
     }
-  | { type: "yesNo"; instructions: QuestionInstructions };
+  | {
+      type: "yesNo";
+      instructions: DecisionInstructions;
+      criteria?: { true: DecisionInstructions; false: DecisionInstructions };
+    };
 
-export type ClassifierAnswer =
+export type DecisionAnswer =
   | {
       type: "choice";
       choice: string;
@@ -30,23 +31,24 @@ export type ClassifierAnswer =
     }
   | { type: "yesNo"; probability: number };
 
-export type ClassifierResponse = {
+export type DecisionModelResponse = {
   model: string;
   inputTokens: number;
-  answers: Record<string, ClassifierAnswer | undefined>;
+  outputTokens: number;
+  answers: Record<string, DecisionAnswer | undefined>;
 };
 
-export type ClassifierConfig = {
+export type DecisionModelConfig = {
   provider: "typesafe";
   model: string;
   apiKey: string;
 };
 
-/** The classifier this account uses, or null to use the LLM path instead. */
-export async function getClassifierConfig(
+/** The optional decision model for this account, or null for the LLM path. */
+export async function getDecisionModelConfig(
   emailAccount: Pick<EmailAccountWithAI, "userId">,
-): Promise<ClassifierConfig | null> {
-  const config = getDeploymentClassifierConfig();
+): Promise<DecisionModelConfig | null> {
+  const config = getDeploymentDecisionModelConfig();
   if (!config) return null;
 
   const user = await prisma.user.findUnique({
@@ -54,31 +56,30 @@ export async function getClassifierConfig(
     select: { classifierEnabled: true, aiApiKey: true },
   });
 
-  return user && isClassifierEnabledForUser(user) ? config : null;
+  return user && isDecisionModelEnabledForUser(user) ? config : null;
 }
 
 /**
  * An explicit user choice wins. Otherwise the deployment default applies,
- * except for users with their own AI key: they chose where their email goes,
- * so a deployment default never sends it to a classifier provider.
+ * except for users with their own AI key because they chose where their data
+ * goes.
  */
-export function isClassifierEnabledForUser(
+export function isDecisionModelEnabledForUser(
   user: Pick<User, "classifierEnabled" | "aiApiKey">,
 ) {
   if (user.classifierEnabled !== null) return user.classifierEnabled;
   return !user.aiApiKey && env.DEFAULT_CLASSIFIER_ENABLED;
 }
 
-export function isClassifierAvailable() {
-  return !!getDeploymentClassifierConfig();
+export function isDecisionModelAvailable() {
+  return !!getDeploymentDecisionModelConfig();
 }
 
 /**
- * Sends email-derived state to an external classifier. Trial usage limits and
- * the account's sensitive data policy apply first; either can throw. Usage is
- * recorded like LLM calls so it counts toward cost tracking and trial limits.
+ * Sends structured state to the configured decision model. Trial limits,
+ * sensitive-data policy, and usage accounting match the LLM path.
  */
-export async function classify({
+export async function runDecisionModel({
   config,
   emailAccount,
   state,
@@ -86,13 +87,13 @@ export async function classify({
   label,
   logger,
 }: {
-  config: ClassifierConfig;
+  config: DecisionModelConfig;
   emailAccount: EmailAccountWithAI;
   state: Record<string, unknown>;
-  questions: Record<string, ClassifierQuestion>;
+  questions: Record<string, DecisionQuestion>;
   label: string;
   logger: Logger;
-}): Promise<ClassifierResponse> {
+}): Promise<DecisionModelResponse> {
   await assertTrialAiUsageAllowed({
     userEmail: emailAccount.email,
     hasUserApiKey: false,
@@ -124,14 +125,17 @@ export async function classify({
     model: config.model,
     usage: {
       inputTokens: response.inputTokens,
-      outputTokens: 0,
-      totalTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+      totalTokens: response.inputTokens + response.outputTokens,
       inputTokenDetails: {
         noCacheTokens: undefined,
         cacheReadTokens: undefined,
         cacheWriteTokens: undefined,
       },
-      outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+      outputTokenDetails: {
+        textTokens: response.outputTokens,
+        reasoningTokens: undefined,
+      },
     },
     label,
   });
@@ -139,19 +143,45 @@ export async function classify({
   return response;
 }
 
-function sendToProvider(options: {
-  config: ClassifierConfig;
-  state: Record<string, unknown>;
-  questions: Record<string, ClassifierQuestion>;
-}): Promise<ClassifierResponse> {
-  switch (options.config.provider) {
-    case "typesafe":
-      return classifyWithTypeSafe(options);
+export async function runDecisionModelOrFallback<T>({
+  emailAccount,
+  logger,
+  feature,
+  decide,
+  fallback,
+}: {
+  emailAccount: EmailAccountWithAI;
+  logger: Logger;
+  feature: string;
+  decide: (config: DecisionModelConfig) => Promise<T>;
+  fallback: () => Promise<T>;
+}): Promise<T> {
+  const config = await getDecisionModelConfig(emailAccount);
+  if (!config) return fallback();
+
+  try {
+    return await decide(config);
+  } catch (error) {
+    logger.warn("Decision model failed, falling back to LLM", {
+      error,
+      feature,
+    });
+    return fallback();
   }
 }
 
-function getDeploymentClassifierConfig(): ClassifierConfig | null {
-  // env.ts only accepts typesafe:<model> and requires TYPESAFE_API_KEY with it.
+function sendToProvider(options: {
+  config: DecisionModelConfig;
+  state: Record<string, unknown>;
+  questions: Record<string, DecisionQuestion>;
+}): Promise<DecisionModelResponse> {
+  switch (options.config.provider) {
+    case "typesafe":
+      return decideWithTypeSafe(options);
+  }
+}
+
+function getDeploymentDecisionModelConfig(): DecisionModelConfig | null {
   if (!env.DEFAULT_CLASSIFIER || !env.TYPESAFE_API_KEY) return null;
 
   return {

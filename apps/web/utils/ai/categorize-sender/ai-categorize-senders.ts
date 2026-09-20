@@ -7,6 +7,11 @@ import { extractEmailAddress } from "@/utils/email";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 import { strictOptional } from "@/utils/llms/strict-optional";
+import { createScopedLogger } from "@/utils/logger";
+import { decideBulkSenderCategories } from "@/utils/decision-model/categorize-sender";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
+
+const logger = createScopedLogger("categorize-senders-bulk");
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
 export const UNKNOWN_CATEGORY = "Other";
@@ -40,6 +45,40 @@ export async function aiCategorizeSenders({
 > {
   if (senders.length === 0) return [];
 
+  return runDecisionModelOrFallback({
+    emailAccount,
+    logger,
+    feature: "bulk sender categorization",
+    decide: (config) =>
+      decideBulkSenderCategories({
+        config,
+        emailAccount,
+        senders,
+        categories,
+        logger,
+      }),
+    fallback: () =>
+      categorizeSendersWithLlm({ emailAccount, senders, categories }),
+  });
+}
+
+export async function categorizeSendersWithLlm({
+  emailAccount,
+  senders,
+  categories,
+}: {
+  emailAccount: EmailAccountWithAI;
+  senders: {
+    emailAddress: string;
+    emails: { subject: string; snippet: string }[];
+  }[];
+  categories: Pick<Category, "name" | "description">[];
+}): Promise<
+  {
+    category?: string;
+    sender: string;
+  }[]
+> {
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to categorize email accounts based on their names, email addresses, and emails they've sent us.
 Provide accurate categorizations to help users efficiently manage their inbox.`;

@@ -6,7 +6,7 @@ const envMock = vi.hoisted(() => ({
   DEFAULT_CLASSIFIER_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
 }));
-const classifyWithTypeSafeMock = vi.hoisted(() => vi.fn());
+const decideWithTypeSafeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/env", () => ({ env: envMock }));
 vi.mock("@/utils/prisma");
@@ -14,13 +14,17 @@ vi.mock("@/utils/llms/model-usage-guard", () => ({
   assertTrialAiUsageAllowed: vi.fn(),
 }));
 vi.mock("@/utils/usage", () => ({ saveAiUsage: vi.fn() }));
-vi.mock("@/utils/classifier/typesafe", () => ({
-  classifyWithTypeSafe: classifyWithTypeSafeMock,
+vi.mock("@/utils/decision-model/typesafe", () => ({
+  decideWithTypeSafe: decideWithTypeSafeMock,
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
 import { saveAiUsage } from "@/utils/usage";
-import { classify, getClassifierConfig } from "./classify";
+import {
+  getDecisionModelConfig,
+  runDecisionModel,
+  runDecisionModelOrFallback,
+} from "./decision-model";
 
 const logger = createTestLogger();
 const config = {
@@ -29,7 +33,7 @@ const config = {
   apiKey: "test-key",
 };
 
-describe("getClassifierConfig", () => {
+describe("getDecisionModelConfig", () => {
   const deploymentConfig = {
     provider: "typesafe",
     model: "jev-latest",
@@ -53,10 +57,10 @@ describe("getClassifierConfig", () => {
     } as never);
   }
 
-  it("returns null without a database lookup when no classifier is configured", async () => {
+  it("returns null without a database lookup when no decision model is configured", async () => {
     envMock.DEFAULT_CLASSIFIER = undefined;
 
-    expect(await getClassifierConfig(getEmailAccount())).toBeNull();
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
@@ -64,15 +68,15 @@ describe("getClassifierConfig", () => {
     envMock.TYPESAFE_API_KEY = undefined;
     mockUserSetting(true);
 
-    expect(await getClassifierConfig(getEmailAccount())).toBeNull();
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
   });
 
   it("is opt-in when the deployment default is off", async () => {
     mockUserSetting(null);
-    expect(await getClassifierConfig(getEmailAccount())).toBeNull();
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
 
     mockUserSetting(true);
-    expect(await getClassifierConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
       deploymentConfig,
     );
   });
@@ -81,35 +85,35 @@ describe("getClassifierConfig", () => {
     envMock.DEFAULT_CLASSIFIER_ENABLED = true;
 
     mockUserSetting(null);
-    expect(await getClassifierConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
       deploymentConfig,
     );
 
     mockUserSetting(false);
-    expect(await getClassifierConfig(getEmailAccount())).toBeNull();
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
   });
 
   it("does not enroll users with their own AI key through the deployment default", async () => {
     envMock.DEFAULT_CLASSIFIER_ENABLED = true;
 
     mockUserSetting(null, "user-key");
-    expect(await getClassifierConfig(getEmailAccount())).toBeNull();
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
 
     mockUserSetting(true, "user-key");
-    expect(await getClassifierConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
       deploymentConfig,
     );
   });
 });
 
-describe("classify", () => {
+describe("runDecisionModel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("does not call the provider when the sensitive data policy blocks the request", async () => {
     await expect(
-      classify({
+      runDecisionModel({
         config,
         emailAccount: { ...getEmailAccount(), sensitiveDataPolicy: "BLOCK" },
         state: { content: `client_secret=${"c".repeat(24)}` },
@@ -118,18 +122,19 @@ describe("classify", () => {
         logger,
       }),
     ).rejects.toThrow("blocked by your account settings");
-    expect(classifyWithTypeSafeMock).not.toHaveBeenCalled();
+    expect(decideWithTypeSafeMock).not.toHaveBeenCalled();
   });
 
   it("sends redacted state to the provider under a REDACT policy", async () => {
     const secret = "c".repeat(24);
-    classifyWithTypeSafeMock.mockResolvedValue({
+    decideWithTypeSafeMock.mockResolvedValue({
       model: "test-model",
       inputTokens: 1,
+      outputTokens: 0,
       answers: {},
     });
 
-    await classify({
+    await runDecisionModel({
       config,
       emailAccount: { ...getEmailAccount(), sensitiveDataPolicy: "REDACT" },
       state: { content: `client_secret=${secret}` },
@@ -138,18 +143,19 @@ describe("classify", () => {
       logger,
     });
 
-    const sent = JSON.stringify(classifyWithTypeSafeMock.mock.calls[0]?.[0]);
+    const sent = JSON.stringify(decideWithTypeSafeMock.mock.calls[0]?.[0]);
     expect(sent).not.toContain(secret);
   });
 
   it("records usage for the configured model", async () => {
-    classifyWithTypeSafeMock.mockResolvedValue({
+    decideWithTypeSafeMock.mockResolvedValue({
       model: "test-model",
       inputTokens: 1200,
+      outputTokens: 12,
       answers: {},
     });
 
-    await classify({
+    await runDecisionModel({
       config,
       emailAccount: getEmailAccount(),
       state: {},
@@ -165,9 +171,59 @@ describe("classify", () => {
         label: "test",
         usage: expect.objectContaining({
           inputTokens: 1200,
-          outputTokens: 0,
+          outputTokens: 12,
+          totalTokens: 1212,
         }),
       }),
     );
+  });
+});
+
+describe("runDecisionModelOrFallback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    envMock.DEFAULT_CLASSIFIER = "typesafe:jev-latest";
+    envMock.DEFAULT_CLASSIFIER_ENABLED = false;
+    envMock.TYPESAFE_API_KEY = "key";
+  });
+
+  it("keeps the original path when the decision model is not enabled", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      classifierEnabled: false,
+      aiApiKey: null,
+    } as never);
+    const decide = vi.fn();
+    const fallback = vi.fn().mockResolvedValue("llm");
+
+    const result = await runDecisionModelOrFallback({
+      emailAccount: getEmailAccount(),
+      logger,
+      feature: "test",
+      decide,
+      fallback,
+    });
+
+    expect(result).toBe("llm");
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it("falls back when the enabled decision model fails", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      classifierEnabled: true,
+      aiApiKey: null,
+    } as never);
+    const decide = vi.fn().mockRejectedValue(new Error("provider down"));
+    const fallback = vi.fn().mockResolvedValue("llm");
+
+    const result = await runDecisionModelOrFallback({
+      emailAccount: getEmailAccount(),
+      logger,
+      feature: "test",
+      decide,
+      fallback,
+    });
+
+    expect(result).toBe("llm");
+    expect(fallback).toHaveBeenCalledOnce();
   });
 });

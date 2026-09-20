@@ -1,10 +1,10 @@
 import type { Rule } from "@/generated/prisma/client";
 import { shouldSelectMultipleRules } from "@/utils/ai/choose-rule/ai-choose-rule";
 import {
-  type ClassifierConfig,
-  type ClassifierQuestion,
-  classify,
-} from "@/utils/classifier/classify";
+  type DecisionModelConfig,
+  type DecisionQuestion,
+  runDecisionModel,
+} from "@/utils/decision-model/decision-model";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -12,7 +12,7 @@ import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 import type { ParsedMessage } from "@/utils/types";
 
-const MODULE = "classifier-choose-rule";
+const MODULE = "decision-model-choose-rule";
 
 const COLD_EMAIL_KEY = "Cold Email";
 const NONE_KEY = "None";
@@ -24,6 +24,7 @@ const QUESTION =
 const CHOICE_QUESTION_KEY = "__rule_choice__";
 const RULE_APPLIES_QUESTION = "Does this rule apply to this email?";
 const RULE_APPLIES_THRESHOLD = 0.5;
+const MIN_CHOICE_CONFIDENCE = 0.3;
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
 
 type RuleCandidate = {
@@ -33,8 +34,8 @@ type RuleCandidate = {
   systemType?: string | null;
 };
 
-export async function classifierChooseRule<T extends RuleCandidate>({
-  classifier,
+export async function decisionModelChooseRule<T extends RuleCandidate>({
+  decisionModel,
   message,
   emailAccount,
   rules,
@@ -42,11 +43,11 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   classificationFeedback,
   logger: parentLogger,
 }: {
-  classifier: ClassifierConfig;
+  decisionModel: DecisionModelConfig;
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   rules: T[];
-  // Pass when the cold-email decision is still open so the classifier makes it too.
+  // Pass when the cold-email decision is still open so the decision model makes it too.
   coldEmailRule: Pick<Rule, "instructions"> | null;
   classificationFeedback: ClassificationFeedbackItem[] | null;
   logger: Logger;
@@ -58,33 +59,43 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   const logger = parentLogger.with({ module: MODULE });
 
   const { criteria, rulesByKey } = buildCriteria({ rules, coldEmailRule });
+  const ruleEntries = [...rulesByKey];
 
   // For multi-rule accounts, the choice picks the primary rule and a yes/no per
   // custom rule, in the same request, adds any others that also apply. System
   // rules are only ever primary, so at most one is selected.
   const selectMultiple = shouldSelectMultipleRules({ rules, emailAccount });
-  const ruleAppliesQuestions: Record<string, ClassifierQuestion> =
-    selectMultiple
-      ? Object.fromEntries(
-          [...rulesByKey]
-            .filter(([, rule]) => !rule.systemType)
-            .map(([key]) => [
-              key,
-              {
-                type: "yesNo",
-                instructions: {
-                  question: RULE_APPLIES_QUESTION,
-                  rule: criteria[key],
-                },
+  const ruleAppliesQuestions: Record<string, DecisionQuestion> = selectMultiple
+    ? Object.fromEntries(
+        ruleEntries
+          .map(([key, rule], index) => ({ key, rule, index }))
+          .filter(({ rule }) => !rule.systemType)
+          .map(({ key, index }) => [
+            key,
+            {
+              type: "yesNo",
+              instructions: `${RULE_APPLIES_QUESTION} Compare \`email\` with \`candidateRules[${index}]\`.`,
+              criteria: {
+                true: "The email clearly satisfies the candidate rule.",
+                false: "The email does not satisfy the candidate rule.",
               },
-            ]),
-        )
-      : {};
+            },
+          ]),
+      )
+    : {};
 
-  const res = await classify({
-    config: classifier,
+  const res = await runDecisionModel({
+    config: decisionModel,
     emailAccount,
-    state: buildState({ message, emailAccount, classificationFeedback }),
+    state: buildState({
+      message,
+      emailAccount,
+      classificationFeedback,
+      candidateRules: ruleEntries.map(([name, rule]) => ({
+        name,
+        instructions: rule.instructions.trim() || rule.name,
+      })),
+    }),
     questions: {
       ...ruleAppliesQuestions,
       [CHOICE_QUESTION_KEY]: {
@@ -93,13 +104,16 @@ export async function classifierChooseRule<T extends RuleCandidate>({
         criteria,
       },
     },
-    label: "Classifier rule selection",
+    label: "Choose rule",
     logger,
   });
 
   const answer = res.answers[CHOICE_QUESTION_KEY];
   if (answer?.type !== "choice") {
-    throw new Error("Classifier response is missing the rule choice");
+    throw new Error("Decision model response is missing the rule choice");
+  }
+  if (answer.confidence < MIN_CHOICE_CONFIDENCE) {
+    throw new Error("Decision model confidence is too low for rule selection");
   }
 
   const ruleApplies = Object.fromEntries(
@@ -109,7 +123,7 @@ export async function classifierChooseRule<T extends RuleCandidate>({
     }),
   );
 
-  logger.info("Classifier chose rule", {
+  logger.info("Decision model chose rule", {
     choice: answer.choice,
     confidence: answer.confidence,
     probabilities: answer.probabilities,
@@ -118,7 +132,7 @@ export async function classifierChooseRule<T extends RuleCandidate>({
     inputTokens: res.inputTokens,
   });
 
-  const reason = `Classifier chose "${answer.choice}" (confidence ${answer.confidence.toFixed(2)})`;
+  const reason = `Decision model chose "${answer.choice}" (confidence ${answer.confidence.toFixed(2)})`;
 
   if (answer.choice === NONE_KEY)
     return { rules: [], reason, isColdEmail: false };
@@ -128,7 +142,7 @@ export async function classifierChooseRule<T extends RuleCandidate>({
 
   const primaryRule = rulesByKey.get(answer.choice);
   if (!primaryRule) {
-    throw new Error("Classifier chose a rule that was not offered");
+    throw new Error("Decision model chose a rule that was not offered");
   }
 
   const additionalRules = [...rulesByKey]
@@ -185,10 +199,12 @@ function buildState({
   message,
   emailAccount,
   classificationFeedback,
+  candidateRules,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   classificationFeedback: ClassificationFeedbackItem[] | null;
+  candidateRules: { name: string; instructions: string }[];
 }) {
   const email = getEmailForLLM(message, {
     maxLength: EMAIL_CONTENT_MAX_LENGTH,
@@ -218,6 +234,7 @@ function buildState({
         ownerAction:
           item.eventType === "LABEL_ADDED" ? "applied rule" : "removed rule",
       })) ?? [],
+    candidateRules,
   };
 }
 

@@ -5,8 +5,47 @@ import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-c
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 import { strictOptional } from "@/utils/llms/strict-optional";
+import { createScopedLogger } from "@/utils/logger";
+import { decideSenderCategory } from "@/utils/decision-model/categorize-sender";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
+
+const logger = createScopedLogger("categorize-sender");
 
 export async function aiCategorizeSender({
+  emailAccount,
+  sender,
+  previousEmails,
+  categories,
+}: {
+  emailAccount: EmailAccountWithAI;
+  sender: string;
+  previousEmails: { subject: string; snippet: string }[];
+  categories: Pick<Category, "name" | "description">[];
+}) {
+  return runDecisionModelOrFallback({
+    emailAccount,
+    logger,
+    feature: "sender categorization",
+    decide: (config) =>
+      decideSenderCategory({
+        config,
+        emailAccount,
+        sender,
+        previousEmails,
+        categories,
+        logger,
+      }),
+    fallback: () =>
+      categorizeSenderWithLlm({
+        emailAccount,
+        sender,
+        previousEmails,
+        categories,
+      }),
+  });
+}
+
+export async function categorizeSenderWithLlm({
   emailAccount,
   sender,
   previousEmails,

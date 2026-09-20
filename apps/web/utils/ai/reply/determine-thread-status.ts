@@ -8,6 +8,11 @@ import type { ConversationStatus } from "@/utils/reply-tracker/conversation-stat
 import { THREAD_STATUS_LATEST_MESSAGE_MAX_LENGTH } from "@/utils/reply-tracker/thread-status-context";
 import { SystemType } from "@/generated/prisma/enums";
 import { getRuleConfig, isDefaultRuleInstructions } from "@/utils/rule/consts";
+import { createScopedLogger } from "@/utils/logger";
+import { decideThreadStatus } from "@/utils/decision-model/thread-status";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
+
+const logger = createScopedLogger("determine-thread-status");
 
 const STATUS_ORDER = [
   SystemType.TO_REPLY,
@@ -49,7 +54,7 @@ export function getConversationStatusDefinitions(
  */
 export function buildThreadStatusSystemPrompt({
   definitions,
-  userSentLastEmail,
+  userSentLastEmail: _userSentLastEmail,
 }: {
   definitions: { systemType: ConversationStatus; instructions: string }[];
   userSentLastEmail: boolean;
@@ -107,6 +112,45 @@ export async function aiDetermineThreadStatus({
     conversationRules,
     statuses,
   );
+
+  return runDecisionModelOrFallback({
+    emailAccount,
+    logger,
+    feature: "thread status",
+    decide: (config) =>
+      decideThreadStatus({
+        config,
+        emailAccount,
+        definitions,
+        threadMessages,
+        userSentLastEmail,
+        logger,
+      }),
+    fallback: () =>
+      determineThreadStatusWithLlm({
+        emailAccount,
+        threadMessages,
+        modelType,
+        userSentLastEmail,
+        definitions,
+      }),
+  });
+}
+
+export async function determineThreadStatusWithLlm({
+  emailAccount,
+  threadMessages,
+  modelType,
+  userSentLastEmail,
+  definitions,
+}: {
+  emailAccount: EmailAccountWithAI;
+  threadMessages: EmailForLLM[];
+  modelType?: ModelType;
+  userSentLastEmail: boolean;
+  definitions: { systemType: ConversationStatus; instructions: string }[];
+}): Promise<{ status: ConversationStatus; rationale: string }> {
+  const statuses = definitions.map((definition) => definition.systemType);
 
   const system = buildThreadStatusSystemPrompt({
     definitions,

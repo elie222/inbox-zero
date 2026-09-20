@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { classifyWithTypeSafe } from "./typesafe";
+import { decideWithTypeSafe } from "./typesafe";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
@@ -10,7 +10,7 @@ const config = {
   apiKey: "test-key",
 };
 
-describe("classifyWithTypeSafe", () => {
+describe("decideWithTypeSafe", () => {
   beforeEach(() => {
     fetchMock.mockReset();
   });
@@ -32,7 +32,7 @@ describe("classifyWithTypeSafe", () => {
       }),
     );
 
-    const result = await classifyWithTypeSafe({
+    const result = await decideWithTypeSafe({
       config,
       state: { text: "hello" },
       questions: {
@@ -41,7 +41,11 @@ describe("classifyWithTypeSafe", () => {
           instructions: "Pick one",
           criteria: { A: "a", B: "b" },
         },
-        applies: { type: "yesNo", instructions: "Does it apply?" },
+        applies: {
+          type: "yesNo",
+          instructions: "Does it apply?",
+          criteria: { true: "It applies", false: "It does not apply" },
+        },
       },
     });
 
@@ -56,12 +60,17 @@ describe("classifyWithTypeSafe", () => {
           instructions: "Pick one",
           criteria: { A: "a", B: "b" },
         },
-        applies: { type: "noul", instructions: "Does it apply?" },
+        applies: {
+          type: "noul",
+          instructions: "Does it apply?",
+          criteria: { true: "It applies", false: "It does not apply" },
+        },
       },
     });
     expect(result).toEqual({
       model: "test-model",
       inputTokens: 12,
+      outputTokens: 1,
       answers: {
         label: {
           type: "choice",
@@ -84,7 +93,7 @@ describe("classifyWithTypeSafe", () => {
     );
 
     await expect(
-      classifyWithTypeSafe({ config, state: {}, questions: {} }),
+      decideWithTypeSafe({ config, state: {}, questions: {} }),
     ).rejects.toThrow();
   });
 
@@ -92,7 +101,7 @@ describe("classifyWithTypeSafe", () => {
     fetchMock.mockResolvedValue(new Response("rate limited", { status: 429 }));
 
     await expect(
-      classifyWithTypeSafe({ config, state: {}, questions: {} }),
+      decideWithTypeSafe({ config, state: {}, questions: {} }),
     ).rejects.toThrow("status 429");
   });
 });

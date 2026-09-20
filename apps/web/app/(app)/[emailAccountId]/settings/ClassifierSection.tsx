@@ -38,10 +38,10 @@ export function ClassifierSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Fast rule matching</ItemTitle>
+        <ItemTitle>Specialized decision model</ItemTitle>
         <ItemDescription>
-          Use a specialized classification model to pick which rules apply to
-          incoming emails. Falls back to your AI model if it is unavailable.
+          Use an optional classification model for rule matching and other
+          structured decisions. Falls back to your AI model if unavailable.
         </ItemDescription>
       </ItemContent>
       <ItemActions>

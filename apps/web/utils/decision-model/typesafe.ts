@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type {
-  ClassifierConfig,
-  ClassifierQuestion,
-  ClassifierResponse,
-} from "@/utils/classifier/classify";
+  DecisionModelConfig,
+  DecisionModelResponse,
+  DecisionQuestion,
+} from "./decision-model";
 
 const TYPESAFE_API_URL = "https://api.typesafe.ai/v1/systemone";
 const TYPESAFE_TIMEOUT_MS = 30_000;
@@ -12,7 +12,10 @@ const probabilitySchema = z.number().min(0).max(1);
 
 const typeSafeResponseSchema = z.object({
   model: z.string(),
-  usage: z.object({ input_tokens: z.number().int().nonnegative() }),
+  usage: z.object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative().optional().default(0),
+  }),
   answers: z.record(
     z.string(),
     z.discriminatedUnion("type", [
@@ -27,15 +30,15 @@ const typeSafeResponseSchema = z.object({
   ),
 });
 
-export async function classifyWithTypeSafe({
+export async function decideWithTypeSafe({
   config,
   state,
   questions,
 }: {
-  config: ClassifierConfig;
+  config: DecisionModelConfig;
   state: Record<string, unknown>;
-  questions: Record<string, ClassifierQuestion>;
-}): Promise<ClassifierResponse> {
+  questions: Record<string, DecisionQuestion>;
+}): Promise<DecisionModelResponse> {
   const response = await fetch(TYPESAFE_API_URL, {
     method: "POST",
     headers: {
@@ -49,7 +52,11 @@ export async function classifyWithTypeSafe({
         Object.entries(questions).map(([key, question]) => [
           key,
           question.type === "yesNo"
-            ? { type: "noul", instructions: question.instructions }
+            ? {
+                type: "noul",
+                instructions: question.instructions,
+                criteria: question.criteria,
+              }
             : question,
         ]),
       ),
@@ -66,6 +73,7 @@ export async function classifyWithTypeSafe({
   return {
     model: body.model,
     inputTokens: body.usage.input_tokens,
+    outputTokens: body.usage.output_tokens,
     answers: Object.fromEntries(
       Object.entries(body.answers).map(([key, answer]) => [
         key,

@@ -7,15 +7,17 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 
-const classifyMock = vi.hoisted(() => vi.fn());
+const runDecisionModelMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/utils/classifier/classify", () => ({ classify: classifyMock }));
+vi.mock("@/utils/decision-model/decision-model", () => ({
+  runDecisionModel: runDecisionModelMock,
+}));
 
-import { classifierChooseRule } from "./classifier-choose-rule";
+import { decisionModelChooseRule } from "./choose-rule";
 
 const logger = createTestLogger();
 const CHOICE_KEY = "__rule_choice__";
-const classifier = {
+const decisionModel = {
   provider: "typesafe" as const,
   model: "test-model",
   apiKey: "test-key",
@@ -29,9 +31,10 @@ function mockAnswer(
   choice: string,
   { confidence = 0.9, ruleApplies = {} as Record<string, number> } = {},
 ) {
-  classifyMock.mockResolvedValue({
+  runDecisionModelMock.mockResolvedValue({
     model: "test-model",
     inputTokens: 10,
+    outputTokens: 1,
     answers: {
       [CHOICE_KEY]: {
         type: "choice",
@@ -50,7 +53,7 @@ function mockAnswer(
 }
 
 function getRequest(callIndex = 0) {
-  return classifyMock.mock.calls[callIndex]?.[0];
+  return runDecisionModelMock.mock.calls[callIndex]?.[0];
 }
 
 const newsletterRule = {
@@ -65,10 +68,10 @@ const receiptRule = {
 };
 
 function chooseRule(
-  overrides: Partial<Parameters<typeof classifierChooseRule>[0]> = {},
+  overrides: Partial<Parameters<typeof decisionModelChooseRule>[0]> = {},
 ) {
-  return classifierChooseRule({
-    classifier,
+  return decisionModelChooseRule({
+    decisionModel,
     message: getMessage(),
     emailAccount: getEmailAccount(),
     rules: [newsletterRule, receiptRule],
@@ -79,7 +82,7 @@ function chooseRule(
   });
 }
 
-describe("classifierChooseRule", () => {
+describe("decisionModelChooseRule", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -91,7 +94,7 @@ describe("classifierChooseRule", () => {
 
     expect(result).toEqual({
       rules: [{ rule: receiptRule, isPrimary: true }],
-      reason: 'Classifier chose "Receipts" (confidence 0.80)',
+      reason: 'Decision model chose "Receipts" (confidence 0.80)',
       isColdEmail: false,
     });
     expect(Object.keys(getRequest().questions)).toEqual([CHOICE_KEY]);
@@ -150,6 +153,12 @@ describe("classifierChooseRule", () => {
     await expect(chooseRule()).rejects.toThrow("not offered");
   });
 
+  it("falls back when the choice distribution is too uncertain", async () => {
+    mockAnswer("Receipts", { confidence: 0.29 });
+
+    await expect(chooseRule()).rejects.toThrow("confidence is too low");
+  });
+
   it("disambiguates duplicate rule names", async () => {
     const first = { id: "a", name: "Follow up", instructions: "First" };
     const second = { id: "b", name: "follow up", instructions: "Second" };
@@ -195,6 +204,10 @@ describe("classifierChooseRule", () => {
           rule: "Newsletter",
           ownerAction: "removed rule",
         },
+      ],
+      candidateRules: [
+        { name: "Newsletter", instructions: "Newsletters" },
+        { name: "Receipts", instructions: "Receipts and invoices" },
       ],
     });
   });

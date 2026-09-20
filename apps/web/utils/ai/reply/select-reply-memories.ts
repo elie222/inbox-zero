@@ -7,6 +7,8 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { Logger } from "@/utils/logger";
 import { truncate } from "@/utils/string";
 import { formatReplyMemoryPromptLine } from "./extract-reply-memories";
+import { decideRelevantReplyMemories } from "@/utils/decision-model/reply-memory-selection";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
 
 const MAX_SELECTED_REPLY_MEMORIES = 6;
 const MAX_EMAIL_CONTENT_LENGTH = 4000;
@@ -78,6 +80,39 @@ export async function selectReplyMemoriesForEmail<
 }
 
 export async function aiSelectRelevantReplyMemories({
+  candidates,
+  emailContent,
+  emailAccount,
+  logger,
+}: {
+  candidates: ReplyMemoryCandidate[];
+  emailContent: string;
+  emailAccount: EmailAccountWithAI;
+  logger: Logger;
+}): Promise<string[] | null> {
+  return runDecisionModelOrFallback({
+    emailAccount,
+    logger,
+    feature: "reply memory selection",
+    decide: (config) =>
+      decideRelevantReplyMemories({
+        config,
+        candidates,
+        emailContent,
+        emailAccount,
+        logger,
+      }),
+    fallback: () =>
+      selectRelevantReplyMemoriesWithLlm({
+        candidates,
+        emailContent,
+        emailAccount,
+        logger,
+      }),
+  });
+}
+
+export async function selectRelevantReplyMemoriesWithLlm({
   candidates,
   emailContent,
   emailAccount,
