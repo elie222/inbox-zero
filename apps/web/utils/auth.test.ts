@@ -127,6 +127,37 @@ describe("betterAuthConfig", () => {
       (betterAuthConfig as any).options.account.accountLinking.trustedProviders,
     ).toEqual(["google", "apple"]);
   });
+
+  describe("inline profile photos", () => {
+    const userHooks = () =>
+      (betterAuthConfig as any).options.databaseHooks.user;
+
+    it("drops an inline image when a user is created", async () => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image: "data:image/jpeg;base64,AAAA",
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("drops an inline image when a user is updated", async () => {
+      await expect(
+        userHooks().update.before({
+          image: "data:image/jpeg;base64,AAAA",
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("keeps a remote image url", async () => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image: "https://example.invalid/avatar.png",
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
 });
 
 describe("handleReferralOnSignUp", () => {

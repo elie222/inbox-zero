@@ -122,6 +122,9 @@ const microsoftSocialProvider =
         scope: [...OUTLOOK_SCOPES],
         tenantId: env.MICROSOFT_TENANT_ID,
         disableIdTokenSignIn: true,
+        // Better Auth inlines the Graph photo as a base64 data URI on the user row.
+        // handleLinkAccount already stores the mailbox photo, so skip the fetch.
+        disableProfilePhoto: true,
         // The only hook that sees the decoded id_token before better-auth looks
         // the account up, so the only place both account keys are known.
         mapProfileToUser: async (profile: MicrosoftProfile) => {
@@ -344,12 +347,14 @@ export const betterAuthConfig = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          if (isAllowedAuthSignupEmail(user.email)) return;
+          if (!isAllowedAuthSignupEmail(user.email)) {
+            logger.warn("Blocked auth sign-up outside configured allowlist", {
+              emailDomain: user.email.split("@")[1]?.toLowerCase(),
+            });
+            assertAllowedAuthSignupEmail(user.email);
+          }
 
-          logger.warn("Blocked auth sign-up outside configured allowlist", {
-            emailDomain: user.email.split("@")[1]?.toLowerCase(),
-          });
-          assertAllowedAuthSignupEmail(user.email);
+          return dropInlineImage(user);
         },
         after: async (user, context) => {
           markAuthContextAsNewUser(context?.context);
@@ -363,6 +368,9 @@ export const betterAuthConfig = betterAuth({
             captureException(error, { extra: { user } });
           });
         },
+      },
+      update: {
+        before: async (user) => dropInlineImage(user),
       },
     },
     account: {
@@ -936,4 +944,12 @@ function scheduleEmailWatchesAfterLink(userId: string) {
       });
     }),
   );
+}
+
+// Better Auth replays the stored user row inside the session cookie, so an inline
+// base64 photo from a provider pushes the request headers past the edge limit and
+// locks the account out before any route runs. Only remote URLs belong here.
+function dropInlineImage(user: { image?: string | null }) {
+  if (typeof user.image !== "string" || !user.image.startsWith("data:")) return;
+  return { data: { image: null } };
 }
