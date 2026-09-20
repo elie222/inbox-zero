@@ -100,9 +100,8 @@ export async function findMatchingRules({
   const classifier = await getClassifierConfig(emailAccount);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // With a classifier, only the deterministic cold-email guards run here. When
-  // they can't decide, the classifier is asked the same yes/no the LLM path
-  // asks, alongside the rule choice and in the same request.
+  // With a classifier, only the deterministic cold-email guards run here; the
+  // classifier is asked the question the guards could not settle.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -184,8 +183,7 @@ export async function findMatchingRules({
         });
       }
 
-      // The classifier answered the cold-email question, so the LLM check below
-      // has nothing left to decide, whatever happens to the rule choice.
+      // Settled, so the LLM check below must not re-ask it.
       pendingColdEmailRule = null;
 
       if (selection.type === "rules") {
@@ -196,8 +194,6 @@ export async function findMatchingRules({
         });
       }
 
-      // "undecided": the rule choice was too close to call, so the LLM chooser
-      // below takes it instead.
       logger.info("Classifier deferred the rule choice to the LLM path", {
         reason: selection.reason,
       });

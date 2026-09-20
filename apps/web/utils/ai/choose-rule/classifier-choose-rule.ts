@@ -32,22 +32,14 @@ const RULE_APPLIES_QUESTION = "Does this rule apply to this email?";
 const RULE_APPLIES_THRESHOLD = 0.5;
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
 
-// A false "cold" hides a real email while a missed one only leaves a message
-// in the inbox, so the bar sits well above a coin flip: offline, a lower bar
-// bought a few more cold emails at the cost of flagging ordinary bulk mail.
+// Well above a coin flip: a false "cold" hides a real email, a missed one
+// only leaves a message in the inbox.
 const COLD_EMAIL_THRESHOLD = 0.7;
 
-// Below this gap the classifier is guessing, and offline it was wrong more
-// often than not. Those emails go to the LLM chooser instead. Widening the
-// band spends LLM calls without buying accuracy.
 const DEAD_HEAT_MARGIN = 0.1;
 
-// The shipping Notification text ("Alerts, status updates, or system
-// messages") leaves digests, and automated mail that carries someone's words,
-// to the Conversations rule. Saying that a notification is automated and may
-// relay a person's text is what separates them. Used only here: the rule keeps
-// its own text, so the LLM path and any wording the owner customised are
-// untouched.
+// The rule's own text leaves digests, and automated mail carrying someone's
+// words, to the Conversations rule.
 const NOTIFICATION_CRITERION =
   "Notifications: Alerts, status updates, or system messages sent automatically by a platform or service, including ones that pass along something another person wrote.";
 
@@ -58,25 +50,15 @@ type RuleCandidate = {
   systemType?: string | null;
 };
 
-/**
- * Cold email and the rule choice are separate questions, so the answer to one
- * can leave the other to the LLM path:
- * - `coldEmail`: cold, and no rule is applied.
- * - `rules`: not cold, and these rules matched (none, for "None").
- * - `undecided`: not cold, but the rule choice was too close to call.
- */
 type ClassifierRuleSelection<T> =
   | { type: "coldEmail"; reason: string }
   | { type: "rules"; rules: { rule: T; isPrimary?: boolean }[]; reason: string }
   | { type: "undecided"; reason: string };
 
 /**
- * Asks the classifier the questions the LLM path asks, in one request:
- * cold email as its own yes/no, only for a sender the deterministic guards
- * could not decide, and the rule choice as a choice. The classifier answers
- * each question in a request independently, so cold never competes with
- * Marketing or Notification for probability the way it did when it was folded
- * into the choice as one more option.
+ * Cold email is a separate question rather than one more option in the choice,
+ * so it never competes with Marketing or Notification for probability. The
+ * classifier answers both in one request, so this costs no extra call.
  */
 export async function classifierChooseRule<T extends RuleCandidate>({
   classifier,
@@ -168,7 +150,6 @@ export async function classifierChooseRule<T extends RuleCandidate>({
     }
   }
 
-  // Asked only about cold email: there was no rule to choose between.
   if (!rules.length) {
     return { type: "rules", rules: [], reason: "Classifier says not cold" };
   }
@@ -230,14 +211,10 @@ export async function classifierChooseRule<T extends RuleCandidate>({
 }
 
 /**
- * The classifier splits "this is bulk mail" across every content rule while
- * "this is a conversation" collects all of its own, so the single highest
- * answer can lose a contest it wins on the total. Compare the two totals
- * first, then take the best content rule.
- *
- * Only those two answers are decided this way. A custom rule or "None" at the
- * top is left alone, and reports no margin, because this contest is not the
- * one it won.
+ * "This is bulk mail" is split across every content rule while "this is a
+ * conversation" collects all of its own, so the highest single answer can lose
+ * a contest it wins on the total. Only those two answers are decided this way:
+ * a custom rule or "None" at the top won a different contest.
  */
 function resolveChoice<T extends RuleCandidate>({
   answer,
@@ -265,7 +242,6 @@ function resolveChoice<T extends RuleCandidate>({
     .map(([key]) => key)
     .sort((a, b) => probabilityOf(b) - probabilityOf(a));
 
-  // The contest needs both sides on offer, and a top answer that is in it.
   if (!conversationKey || !contentKeys.length) return unaggregated;
   if (answer.choice !== conversationKey && !contentKeys.includes(answer.choice))
     return unaggregated;
@@ -278,19 +254,17 @@ function resolveChoice<T extends RuleCandidate>({
   const topContentKey = contentKeys[0]!;
   const choice = conversation > content ? conversationKey : topContentKey;
 
-  // Two ways to be a coin flip: conversation against the content total, or,
-  // once content has won, its top two categories against each other.
-  const contentMargin =
-    contentKeys.length > 1
-      ? probabilityOf(topContentKey) - probabilityOf(contentKeys[1]!)
-      : 1;
+  const runnerUpKey = contentKeys[1];
+  const contentMargin = runnerUpKey
+    ? probabilityOf(topContentKey) - probabilityOf(runnerUpKey)
+    : Number.POSITIVE_INFINITY;
 
   return {
     choice,
     probability: probabilityOf(choice),
     margin: Math.min(
       Math.abs(conversation - content),
-      choice === conversationKey ? 1 : contentMargin,
+      choice === conversationKey ? Number.POSITIVE_INFINITY : contentMargin,
     ),
   };
 }
@@ -347,9 +321,8 @@ function getRuleCriterion(rule: RuleCandidate) {
   return rule.instructions.trim() || rule.name;
 }
 
-// The whole prompt, not the opening line: spelling out that newsletters,
-// marketing and automated mail are not cold outreach is what keeps ordinary
-// bulk mail from being flagged.
+// The whole prompt: the paragraphs ruling out newsletters and marketing are
+// what keep ordinary bulk mail from being flagged.
 function buildColdEmailQuestion(
   coldEmailRule: Pick<Rule, "instructions">,
 ): ClassifierQuestion {
