@@ -100,8 +100,8 @@ export async function findMatchingRules({
   const classifier = await getClassifierConfig(emailAccount);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // With a classifier, only the deterministic cold-email guards run here. When
-  // they can't decide, the cold-email question is folded into the rule choice.
+  // With a classifier, only the deterministic cold-email guards run here; the
+  // classifier is asked the question the guards could not settle.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -155,7 +155,7 @@ export async function findMatchingRules({
       : null;
 
   if (classifier && (potentialAiMatches.length || pendingColdEmailRule)) {
-    const classifierResult = await classifierChooseRule({
+    const selection = await classifierChooseRule({
       classifier,
       message,
       emailAccount,
@@ -173,20 +173,29 @@ export async function findMatchingRules({
       return null;
     });
 
-    if (classifierResult?.isColdEmail && pendingColdEmailRule) {
-      return buildColdEmailMatch({
-        coldEmailRuleId: pendingColdEmailRule.id,
-        matchReasons: [{ type: ConditionType.AI }],
-        reasoning: classifierResult.reason,
-        selectionMetadata,
-      });
-    }
+    if (selection) {
+      if (selection.type === "coldEmail" && pendingColdEmailRule) {
+        return buildColdEmailMatch({
+          coldEmailRuleId: pendingColdEmailRule.id,
+          matchReasons: [{ type: ConditionType.AI }],
+          reasoning: selection.reason,
+          selectionMetadata,
+        });
+      }
 
-    if (classifierResult) {
-      return mergeAiResultsIntoMatches({
-        matches,
-        aiResult: classifierResult,
-        selectionMetadata,
+      // Settled, so the LLM check below must not re-ask it.
+      pendingColdEmailRule = null;
+
+      if (selection.type === "rules") {
+        return mergeAiResultsIntoMatches({
+          matches,
+          aiResult: selection,
+          selectionMetadata,
+        });
+      }
+
+      logger.info("Classifier deferred the rule choice to the LLM path", {
+        reason: selection.reason,
       });
     }
   }

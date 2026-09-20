@@ -3068,9 +3068,9 @@ describe("findMatchingRules - classifier rule selection", () => {
       classificationFeedback,
     );
     vi.mocked(classifierChooseRule).mockResolvedValue({
+      type: "rules",
       rules: [{ rule: aiRule, isPrimary: true }],
       reason: "Classifier reason",
-      isColdEmail: false,
     });
 
     const result = await findMatchingRules({
@@ -3109,9 +3109,8 @@ describe("findMatchingRules - classifier rule selection", () => {
     vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
     vi.mocked(classifierChooseRule).mockResolvedValue({
-      rules: [],
+      type: "coldEmail",
       reason: "Classifier cold",
-      isColdEmail: true,
     });
 
     const result = await findMatchingRules({
@@ -3209,6 +3208,41 @@ describe("findMatchingRules - classifier rule selection", () => {
     expect(classifierChooseRule).not.toHaveBeenCalled();
     expect(checkColdEmailGuards).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
+    expect(result.reasoning).toBe("LLM reason");
+  });
+
+  it("lets the LLM choose the rule when the classifier is too close to call, without asking it about cold email again", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+    const aiRule = getAiRule();
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
+    vi.mocked(classifierChooseRule).mockResolvedValue({
+      type: "undecided",
+      reason: "Classifier was too close to call (margin 0.02)",
+    });
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: aiRule }],
+      reason: "LLM reason",
+    });
+
+    const result = await findMatchingRules({
+      rules: [coldEmailRule, aiRule],
+      message: getMessage(),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(checkColdEmailWithAi).not.toHaveBeenCalled();
+    expect(aiChooseRule).toHaveBeenCalledTimes(1);
+    expect(result.matches).toEqual([
+      { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
     expect(result.reasoning).toBe("LLM reason");
   });
 
