@@ -2,7 +2,6 @@ import type { Rule } from "@/generated/prisma/client";
 import { shouldSelectMultipleRules } from "@/utils/ai/choose-rule/ai-choose-rule";
 import {
   type DecisionModelConfig,
-  type DecisionQuestion,
   runDecisionModel,
 } from "@/utils/decision-model/decision-model";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
@@ -22,8 +21,6 @@ const QUESTION =
 // Rule names become question keys, so the choice lives under a key no rule
 // name can take.
 const CHOICE_QUESTION_KEY = "__rule_choice__";
-const RULE_APPLIES_QUESTION = "Does this rule apply to this email?";
-const RULE_APPLIES_THRESHOLD = 0.5;
 const MIN_CHOICE_CONFIDENCE = 0.3;
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
 
@@ -58,31 +55,15 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
 }> {
   const logger = parentLogger.with({ module: MODULE });
 
-  const { criteria, rulesByKey } = buildCriteria({ rules, coldEmailRule });
-  const ruleEntries = [...rulesByKey];
+  // Secondary rules can overlap the primary rule, and JEV did not reliably
+  // separate those from explicit negative instructions in evals.
+  if (shouldSelectMultipleRules({ rules, emailAccount })) {
+    throw new Error(
+      "Decision model does not support multi-rule selection; use the LLM path",
+    );
+  }
 
-  // For multi-rule accounts, the choice picks the primary rule and a yes/no per
-  // custom rule, in the same request, adds any others that also apply. System
-  // rules are only ever primary, so at most one is selected.
-  const selectMultiple = shouldSelectMultipleRules({ rules, emailAccount });
-  const ruleAppliesQuestions: Record<string, DecisionQuestion> = selectMultiple
-    ? Object.fromEntries(
-        ruleEntries
-          .map(([key, rule], index) => ({ key, rule, index }))
-          .filter(({ rule }) => !rule.systemType)
-          .map(({ key, index }) => [
-            key,
-            {
-              type: "yesNo",
-              instructions: `${RULE_APPLIES_QUESTION} Compare \`email\` with \`candidateRules[${index}]\`.`,
-              criteria: {
-                true: "The email clearly satisfies the candidate rule.",
-                false: "The email does not satisfy the candidate rule.",
-              },
-            },
-          ]),
-      )
-    : {};
+  const { criteria, rulesByKey } = buildCriteria({ rules, coldEmailRule });
 
   const res = await runDecisionModel({
     config: decisionModel,
@@ -91,13 +72,12 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
       message,
       emailAccount,
       classificationFeedback,
-      candidateRules: ruleEntries.map(([name, rule]) => ({
+      candidateRules: [...rulesByKey].map(([name, rule]) => ({
         name,
         instructions: rule.instructions.trim() || rule.name,
       })),
     }),
     questions: {
-      ...ruleAppliesQuestions,
       [CHOICE_QUESTION_KEY]: {
         type: "choice",
         instructions: QUESTION,
@@ -116,18 +96,10 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
     throw new Error("Decision model confidence is too low for rule selection");
   }
 
-  const ruleApplies = Object.fromEntries(
-    Object.keys(ruleAppliesQuestions).map((key) => {
-      const ruleAnswer = res.answers[key];
-      return [key, ruleAnswer?.type === "yesNo" ? ruleAnswer.probability : 0];
-    }),
-  );
-
   logger.info("Decision model chose rule", {
     choice: answer.choice,
     confidence: answer.confidence,
     probabilities: answer.probabilities,
-    ruleApplies,
     model: res.model,
     inputTokens: res.inputTokens,
   });
@@ -145,15 +117,8 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
     throw new Error("Decision model chose a rule that was not offered");
   }
 
-  const additionalRules = [...rulesByKey]
-    .filter(
-      ([key, rule]) =>
-        rule !== primaryRule && ruleApplies[key] >= RULE_APPLIES_THRESHOLD,
-    )
-    .map(([, rule]) => ({ rule, isPrimary: false }));
-
   return {
-    rules: [{ rule: primaryRule, isPrimary: true }, ...additionalRules],
+    rules: [{ rule: primaryRule, isPrimary: true }],
     reason,
     isColdEmail: false,
   };

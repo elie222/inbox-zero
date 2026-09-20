@@ -27,10 +27,7 @@ function getMessage(overrides: Parameters<typeof getMockMessage>[0] = {}) {
   return getMockMessage(overrides) as unknown as ParsedMessage;
 }
 
-function mockAnswer(
-  choice: string,
-  { confidence = 0.9, ruleApplies = {} as Record<string, number> } = {},
-) {
+function mockAnswer(choice: string, { confidence = 0.9 } = {}) {
   runDecisionModelMock.mockResolvedValue({
     model: "test-model",
     inputTokens: 10,
@@ -42,12 +39,6 @@ function mockAnswer(
         confidence,
         probabilities: { [choice]: confidence },
       },
-      ...Object.fromEntries(
-        Object.entries(ruleApplies).map(([key, probability]) => [
-          key,
-          { type: "yesNo", probability },
-        ]),
-      ),
     },
   });
 }
@@ -212,94 +203,12 @@ describe("decisionModelChooseRule", () => {
     });
   });
 
-  describe("with multi-rule selection", () => {
-    const customRules = [newsletterRule, receiptRule];
-    const multiRuleAccount = getEmailAccount({
-      multiRuleSelectionEnabled: true,
-    });
-
-    it("adds other rules that clear the yes/no threshold", async () => {
-      mockAnswer("Receipts", {
-        ruleApplies: { Newsletter: 0.7, Receipts: 0.95 },
-      });
-
-      const result = await chooseRule({
-        emailAccount: multiRuleAccount,
-        rules: customRules,
-      });
-
-      expect(Object.keys(getRequest().questions)).toEqual([
-        "Newsletter",
-        "Receipts",
-        CHOICE_KEY,
-      ]);
-      expect(getRequest().questions.Newsletter.type).toBe("yesNo");
-      expect(result.rules).toEqual([
-        { rule: receiptRule, isPrimary: true },
-        { rule: newsletterRule, isPrimary: false },
-      ]);
-    });
-
-    it("never adds system rules as secondary matches", async () => {
-      const calendarRule = {
-        id: "r3",
-        name: "Calendar",
-        instructions: "Calendar invites",
-        systemType: "CALENDAR",
-      };
-      mockAnswer("Receipts", {
-        ruleApplies: { Newsletter: 0.9, Receipts: 0.95, Calendar: 0.9 },
-      });
-
-      const result = await chooseRule({
-        emailAccount: multiRuleAccount,
-        rules: [...customRules, calendarRule],
-      });
-
-      expect(Object.keys(getRequest().questions)).toEqual([
-        "Newsletter",
-        "Receipts",
-        CHOICE_KEY,
-      ]);
-      expect(result.rules).toEqual([
-        { rule: receiptRule, isPrimary: true },
-        { rule: newsletterRule, isPrimary: false },
-      ]);
-    });
-
-    it("keeps only the primary rule when the others fall below the threshold", async () => {
-      mockAnswer("Receipts", {
-        ruleApplies: { Newsletter: 0.2, Receipts: 0.95 },
-      });
-
-      const result = await chooseRule({
-        emailAccount: multiRuleAccount,
-        rules: customRules,
-      });
-
-      expect(result.rules).toEqual([{ rule: receiptRule, isPrimary: true }]);
-    });
-
-    it("returns no rules when the choice is None, whatever the yes/no answers", async () => {
-      mockAnswer("None", { ruleApplies: { Newsletter: 0.9, Receipts: 0.9 } });
-
-      const result = await chooseRule({
-        emailAccount: multiRuleAccount,
-        rules: customRules,
-      });
-
-      expect(result.rules).toEqual([]);
-    });
-
-    it("asks only the choice when every candidate is a system rule", async () => {
-      mockAnswer("Newsletter");
-
-      await chooseRule({
-        emailAccount: multiRuleAccount,
-        rules: [{ ...newsletterRule, systemType: "NEWSLETTER" }],
-      });
-
-      expect(Object.keys(getRequest().questions)).toEqual([CHOICE_KEY]);
-    });
+  it("leaves multi-rule selection on the LLM path", async () => {
+    await expect(
+      chooseRule({
+        emailAccount: getEmailAccount({ multiRuleSelectionEnabled: true }),
+      }),
+    ).rejects.toThrow("does not support multi-rule selection");
+    expect(runDecisionModelMock).not.toHaveBeenCalled();
   });
 });
