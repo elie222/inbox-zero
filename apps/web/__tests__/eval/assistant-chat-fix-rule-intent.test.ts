@@ -154,7 +154,7 @@ describe.runIf(shouldRunEval)("Eval: fix-rule user intent", () => {
         const writes = trace.toolCalls.filter((call) =>
           isAssistantWriteToolName(call.toolName),
         );
-        // Invalid tool inputs can be corrected without executing a write.
+        // Authorized writes may retry invalid inputs; unapproved attempts still fail.
         const executedWrites = writes.filter(
           (call) => call.output !== undefined,
         );
