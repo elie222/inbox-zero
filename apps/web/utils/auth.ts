@@ -950,6 +950,6 @@ function scheduleEmailWatchesAfterLink(userId: string) {
 // base64 photo from a provider pushes the request headers past the edge limit and
 // locks the account out before any route runs. Only remote URLs belong here.
 function dropInlineImage(user: { image?: string | null }) {
-  if (typeof user.image !== "string" || !user.image.startsWith("data:")) return;
+  if (typeof user.image !== "string" || !/^data:/i.test(user.image)) return;
   return { data: { image: null } };
 }

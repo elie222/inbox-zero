@@ -132,11 +132,14 @@ describe("betterAuthConfig", () => {
     const userHooks = () =>
       (betterAuthConfig as any).options.databaseHooks.user;
 
-    it("drops an inline image when a user is created", async () => {
+    it.each([
+      "data:image/jpeg;base64,AAAA",
+      "DATA:image/jpeg;base64,AAAA",
+    ])("drops an inline image when a user is created: %s", async (image) => {
       await expect(
         userHooks().create.before({
           email: "user@example.invalid",
-          image: "data:image/jpeg;base64,AAAA",
+          image,
         }),
       ).resolves.toEqual({ data: { image: null } });
     });
