@@ -2,10 +2,10 @@ import type { Rule } from "@/generated/prisma/client";
 import { SystemType } from "@/generated/prisma/enums";
 import { shouldSelectMultipleRules } from "@/utils/ai/choose-rule/ai-choose-rule";
 import {
-  type ClassifierConfig,
-  type ClassifierQuestion,
-  classify,
-} from "@/utils/classifier/classify";
+  type DecisionModelConfig,
+  type DecisionQuestion,
+  runDecisionModel,
+} from "@/utils/decision-model/decision-model";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -18,7 +18,7 @@ import type { ClassificationFeedbackItem } from "@/utils/rule/classification-fee
 import { isDefaultRuleInstructions } from "@/utils/rule/consts";
 import type { ParsedMessage } from "@/utils/types";
 
-const MODULE = "classifier-choose-rule";
+const MODULE = "decision-model-choose-rule";
 
 const NONE_KEY = "None";
 const NONE_DEFINITION = "None of the rules apply to this email";
@@ -27,9 +27,8 @@ const QUESTION =
 // Rule names become question keys, so the choice lives under a key no rule
 // name can take.
 const CHOICE_QUESTION_KEY = "__rule_choice__";
+const MIN_CHOICE_CONFIDENCE = 0.3;
 const COLD_EMAIL_QUESTION_KEY = "__cold_email__";
-const RULE_APPLIES_QUESTION = "Does this rule apply to this email?";
-const RULE_APPLIES_THRESHOLD = 0.5;
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
 
 // Well above a coin flip: a false "cold" hides a real email, a missed one
@@ -50,18 +49,13 @@ type RuleCandidate = {
   systemType?: string | null;
 };
 
-type ClassifierRuleSelection<T> =
+type DecisionRuleSelection<T> =
   | { type: "coldEmail"; reason: string }
   | { type: "rules"; rules: { rule: T; isPrimary?: boolean }[]; reason: string }
   | { type: "undecided"; reason: string };
 
-/**
- * Cold email is a separate question rather than one more option in the choice,
- * so it never competes with Marketing or Notification for probability. The
- * classifier answers both in one request, so this costs no extra call.
- */
-export async function classifierChooseRule<T extends RuleCandidate>({
-  classifier,
+export async function decisionModelChooseRule<T extends RuleCandidate>({
+  decisionModel,
   message,
   emailAccount,
   rules,
@@ -69,61 +63,56 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   classificationFeedback,
   logger: parentLogger,
 }: {
-  classifier: ClassifierConfig;
+  decisionModel: DecisionModelConfig;
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   rules: T[];
-  // Pass when the cold-email decision is still open so the classifier makes it too.
+  // Pass when the cold-email decision is still open so the decision model makes it too.
   coldEmailRule: Pick<Rule, "instructions"> | null;
   classificationFeedback: ClassificationFeedbackItem[] | null;
   logger: Logger;
-}): Promise<ClassifierRuleSelection<T>> {
+}): Promise<DecisionRuleSelection<T>> {
   const logger = parentLogger.with({ module: MODULE });
+
+  // Secondary rules can overlap the primary rule, and JEV did not reliably
+  // separate those from explicit negative instructions in evals.
+  if (shouldSelectMultipleRules({ rules, emailAccount })) {
+    throw new Error(
+      "Decision model does not support multi-rule selection; use the LLM path",
+    );
+  }
 
   const { criteria, rulesByKey } = buildCriteria(rules);
 
-  // For multi-rule accounts, the choice picks the primary rule and a yes/no per
-  // custom rule, in the same request, adds any others that also apply. System
-  // rules are only ever primary, so at most one is selected.
-  const selectMultiple = shouldSelectMultipleRules({ rules, emailAccount });
-  const ruleAppliesQuestions: Record<string, ClassifierQuestion> =
-    selectMultiple
-      ? Object.fromEntries(
-          [...rulesByKey]
-            .filter(([, rule]) => !rule.systemType)
-            .map(([key]) => [
-              key,
-              {
-                type: "yesNo",
-                instructions: {
-                  question: RULE_APPLIES_QUESTION,
-                  rule: criteria[key],
-                },
-              },
-            ]),
-        )
-      : {};
+  const questions: Record<string, DecisionQuestion> = {};
+  if (rules.length) {
+    questions[CHOICE_QUESTION_KEY] = {
+      type: "choice",
+      instructions: QUESTION,
+      criteria,
+    };
+  }
+  if (coldEmailRule) {
+    questions[COLD_EMAIL_QUESTION_KEY] = buildColdEmailQuestion();
+  }
 
-  const res = await classify({
-    config: classifier,
+  const res = await runDecisionModel({
+    config: decisionModel,
     emailAccount,
-    state: buildState({ message, emailAccount, classificationFeedback }),
-    questions: {
-      ...ruleAppliesQuestions,
-      ...(rules.length
-        ? {
-            [CHOICE_QUESTION_KEY]: {
-              type: "choice" as const,
-              instructions: QUESTION,
-              criteria,
-            },
-          }
-        : {}),
-      ...(coldEmailRule
-        ? { [COLD_EMAIL_QUESTION_KEY]: buildColdEmailQuestion(coldEmailRule) }
-        : {}),
-    },
-    label: "Classifier rule selection",
+    state: buildState({
+      message,
+      emailAccount,
+      classificationFeedback,
+      candidateRules: [...rulesByKey].map(([name, rule]) => ({
+        name,
+        instructions: getRuleCriterion(rule),
+      })),
+      coldEmailDefinition: coldEmailRule
+        ? coldEmailRule.instructions?.trim() || DEFAULT_COLD_EMAIL_PROMPT
+        : null,
+    }),
+    questions,
+    label: "Choose rule",
     logger,
   });
 
@@ -132,12 +121,14 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   if (coldEmailRule) {
     const coldAnswer = res.answers[COLD_EMAIL_QUESTION_KEY];
     if (coldAnswer?.type !== "yesNo") {
-      throw new Error("Classifier response is missing the cold email answer");
+      throw new Error(
+        "Decision model response is missing the cold email answer",
+      );
     }
     coldEmailProbability = coldAnswer.probability;
 
     if (coldEmailProbability > COLD_EMAIL_THRESHOLD) {
-      logger.info("Classifier says cold email", {
+      logger.info("Decision model says cold email", {
         coldEmailProbability,
         model: res.model,
         inputTokens: res.inputTokens,
@@ -145,36 +136,29 @@ export async function classifierChooseRule<T extends RuleCandidate>({
 
       return {
         type: "coldEmail",
-        reason: `Classifier says cold email (confidence ${coldEmailProbability.toFixed(2)})`,
+        reason: `Decision model says cold email (confidence ${coldEmailProbability.toFixed(2)})`,
       };
     }
   }
 
   if (!rules.length) {
-    return { type: "rules", rules: [], reason: "Classifier says not cold" };
+    return { type: "rules", rules: [], reason: "Decision model says not cold" };
   }
 
   const answer = res.answers[CHOICE_QUESTION_KEY];
   if (answer?.type !== "choice") {
-    throw new Error("Classifier response is missing the rule choice");
+    throw new Error("Decision model response is missing the rule choice");
   }
-
   const { choice, probability, margin } = resolveChoice({ answer, rulesByKey });
-
-  const ruleApplies = Object.fromEntries(
-    Object.keys(ruleAppliesQuestions).map((key) => {
-      const ruleAnswer = res.answers[key];
-      return [key, ruleAnswer?.type === "yesNo" ? ruleAnswer.probability : 0];
-    }),
-  );
-
-  logger.info("Classifier chose rule", {
+  if (probability < MIN_CHOICE_CONFIDENCE) {
+    throw new Error("Decision model confidence is too low for rule selection");
+  }
+  logger.info("Decision model chose rule", {
     choice,
     topChoice: answer.choice,
     confidence: probability,
     margin,
     probabilities: answer.probabilities,
-    ruleApplies,
     coldEmailProbability,
     model: res.model,
     inputTokens: res.inputTokens,
@@ -183,29 +167,22 @@ export async function classifierChooseRule<T extends RuleCandidate>({
   if (margin !== null && margin < DEAD_HEAT_MARGIN) {
     return {
       type: "undecided",
-      reason: `Classifier was too close to call (margin ${margin.toFixed(2)})`,
+      reason: `Decision model was too close to call (margin ${margin.toFixed(2)})`,
     };
   }
 
-  const reason = `Classifier chose "${choice}" (confidence ${probability.toFixed(2)})`;
+  const reason = `Decision model chose "${choice}" (confidence ${probability.toFixed(2)})`;
 
   if (choice === NONE_KEY) return { type: "rules", rules: [], reason };
 
   const primaryRule = rulesByKey.get(choice);
   if (!primaryRule) {
-    throw new Error("Classifier chose a rule that was not offered");
+    throw new Error("Decision model chose a rule that was not offered");
   }
-
-  const additionalRules = [...rulesByKey]
-    .filter(
-      ([key, rule]) =>
-        rule !== primaryRule && ruleApplies[key] >= RULE_APPLIES_THRESHOLD,
-    )
-    .map(([, rule]) => ({ rule, isPrimary: false }));
 
   return {
     type: "rules",
-    rules: [{ rule: primaryRule, isPrimary: true }, ...additionalRules],
+    rules: [{ rule: primaryRule, isPrimary: true }],
     reason,
   };
 }
@@ -321,17 +298,16 @@ function getRuleCriterion(rule: RuleCandidate) {
   return rule.instructions.trim() || rule.name;
 }
 
-// The whole prompt: the paragraphs ruling out newsletters and marketing are
-// what keep ordinary bulk mail from being flagged.
-function buildColdEmailQuestion(
-  coldEmailRule: Pick<Rule, "instructions">,
-): ClassifierQuestion {
-  const instructions =
-    coldEmailRule.instructions?.trim() || DEFAULT_COLD_EMAIL_PROMPT;
-
+function buildColdEmailQuestion(): DecisionQuestion {
   return {
     type: "yesNo",
-    instructions: `Is this a cold email? ${instructions} Answer about this email only.`,
+    instructions:
+      "Is `email` cold outreach under `coldEmailDefinition` from the perspective of `accountOwner`?",
+    criteria: {
+      true: "The message is unsolicited outreach that meets the supplied cold-email definition.",
+      false:
+        "The message is ordinary marketing, a newsletter, an account message, receipt, alert, calendar invite, or a valuable specific opportunity.",
+    },
   };
 }
 
@@ -341,10 +317,14 @@ function buildState({
   message,
   emailAccount,
   classificationFeedback,
+  candidateRules,
+  coldEmailDefinition,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   classificationFeedback: ClassificationFeedbackItem[] | null;
+  candidateRules: { name: string; instructions: string }[];
+  coldEmailDefinition: string | null;
 }) {
   const email = getEmailForLLM(message, {
     maxLength: EMAIL_CONTENT_MAX_LENGTH,
@@ -374,5 +354,7 @@ function buildState({
         ownerAction:
           item.eventType === "LABEL_ADDED" ? "applied rule" : "removed rule",
       })) ?? [],
+    candidateRules,
+    coldEmailDefinition,
   };
 }

@@ -27,7 +27,7 @@ import { SentMessageOpenTrackingSetting } from "@/app/(app)/[emailAccountId]/set
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
-import { ClassifierSection } from "@/app/(app)/[emailAccountId]/settings/ClassifierSection";
+import { DecisionModelSection } from "@/app/(app)/[emailAccountId]/settings/DecisionModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -161,9 +161,9 @@ export function SettingsContent() {
           <ItemCard className="p-4">
             <ModelSection />
           </ItemCard>
-          {user?.isClassifierAvailable && (
+          {user?.isDecisionModelAvailable && (
             <ItemCard>
-              <ClassifierSection />
+              <DecisionModelSection />
             </ItemCard>
           )}
         </SettingsGroup>
