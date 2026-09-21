@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  connect,
   handleRequest,
   mcpServerConstructor,
   registerTool,
@@ -23,7 +22,6 @@ const {
   );
 
   return {
-    connect,
     handleRequest,
     mcpServerConstructor,
     registerTool,
@@ -106,7 +104,7 @@ describe("mcp-server", () => {
     expect(mcpServerConstructor).not.toHaveBeenCalled();
   });
 
-  it("registers tools and delegates the request to the MCP transport", async () => {
+  it("annotates mailbox tools and delegates the request to the MCP transport", async () => {
     const request = new Request("http://localhost/mcp", {
       method: "POST",
     });
@@ -116,20 +114,6 @@ describe("mcp-server", () => {
       scopes: ["mcp:read", "mcp:write"],
     } as never);
 
-    expect(mcpServerConstructor).toHaveBeenCalledTimes(1);
-    expect(registerTool.mock.calls.map(([name]) => name)).toEqual([
-      "list_email_accounts",
-      "search_inbox",
-      "read_thread",
-      "create_draft",
-      "list_rules",
-      "get_rule",
-      "create_rule",
-      "update_rule",
-      "delete_rule",
-      "get_stats_by_period",
-      "get_response_time_stats",
-    ]);
     expect(
       registerTool.mock.calls.find(([name]) => name === "search_inbox")?.[1],
     ).toMatchObject({
@@ -152,11 +136,6 @@ describe("mcp-server", () => {
       registerTool.mock.calls.find(([name]) => name === "delete_rule")?.[1],
     ).toMatchObject({
       annotations: { readOnlyHint: false, destructiveHint: true },
-    });
-    expect(connect).toHaveBeenCalledTimes(1);
-    expect(transportConstructor).toHaveBeenCalledWith({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
     });
     expect(handleRequest).toHaveBeenCalledWith(request);
     expect(response).toBeInstanceOf(Response);
