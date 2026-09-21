@@ -31,7 +31,8 @@ export const createRuleTool = ({
   onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool({
-    description: "Create a new rule.",
+    description:
+      "Create a new rule. Ask what action to take if the user has not specified one.",
     inputSchema: createRuleSchema(provider, integrationActionsEnabled),
     execute: async ({ name, condition, actions }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
