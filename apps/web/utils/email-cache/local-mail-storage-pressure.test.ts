@@ -1,3 +1,4 @@
+import { SOURCE_VERSION } from "./search-index-source-version";
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -200,14 +201,14 @@ it("protects recent complete coverage and never selects incomplete history", asy
   ).toBe("protected");
 });
 
-it("revisits unpinned exceptions below the coverage floor without claiming more coverage", async () => {
+it("revisits released exceptions below the coverage floor without claiming more coverage", async () => {
   await seed("account", 100 * day);
   const database = (await getEmailCacheDatabase())!;
   await updateLocalMailThreadProtection({
     emailAccountId: "account",
     generation: "generation",
     threadId: "thread",
-    pinned: true,
+    reservation: { id: "hold", bytes: 1, expiresAt: now + 60_000 },
     now,
   });
   const options = { emailAccountIds: ["account"], now };
@@ -220,7 +221,7 @@ it("revisits unpinned exceptions below the coverage floor without claiming more 
     emailAccountId: "account",
     generation: "generation",
     threadId: "thread",
-    pinned: false,
+    reservation: { id: "hold", bytes: 0, expiresAt: now },
     now,
   });
   await relieveLocalMailStoragePressure(options);
@@ -243,7 +244,7 @@ it("finishes a protected-only exception pass and backs off before rescanning", a
     emailAccountId: "account",
     generation: "generation",
     threadId: "thread",
-    pinned: true,
+    reservation: { id: "hold", bytes: 1, expiresAt: now + 60_000 },
     now,
   });
   const options = { emailAccountIds: ["account"], now };
@@ -301,7 +302,7 @@ async function seed(emailAccountId: string, receivedAt: number) {
   await db.put("searchIndexAccounts", {
     emailAccountId,
     generation: "generation",
-    sourceVersion: 2,
+    sourceVersion: SOURCE_VERSION,
   });
   await db.put("localMailSyncStates", {
     emailAccountId,

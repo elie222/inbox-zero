@@ -38,16 +38,13 @@ describe("offline scheduled delivery status", () => {
     setOnline(true);
   });
 
-  it("keeps scheduled status unknown without fetching while offline", async () => {
+  it("shows nothing and does not fetch while offline without a known status", async () => {
     setOnline(false);
     const fetcher = vi.fn().mockRejectedValue(new Error("Network unavailable"));
     renderStatus(fetcher);
-    await waitFor(() =>
-      expect(
-        screen.getByText(/scheduled reply status is unavailable/i),
-      ).toBeTruthy(),
-    );
+    await act(async () => {});
     expect(fetcher).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -66,7 +63,9 @@ describe("offline scheduled delivery status", () => {
     await screen.findByText(/Scheduled for/);
     act(() => setOnline(false));
     expect(screen.getByText(/Scheduled for/)).toBeTruthy();
-    expect(screen.getByText(/last known scheduled reply status/i)).toBeTruthy();
+    expect(
+      screen.getByText("Offline. Showing the last known status."),
+    ).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "Cancel send" }) as HTMLButtonElement)
         .disabled,
@@ -81,31 +80,43 @@ describe("offline scheduled delivery status", () => {
     expect(fetcher).not.toHaveBeenCalled();
     act(() => setOnline(true));
     await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
-    expect(
-      screen.queryByText(/scheduled reply status is unavailable/i),
-    ).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("offers retry after a network failure even when the browser claims to be online", async () => {
-    const fetcher = vi
-      .fn()
-      .mockRejectedValueOnce(new TypeError("Fetch failed"))
-      .mockResolvedValue({ scheduledEmails: [] });
+  it("offers a retry when a refresh fails while the browser claims to be online", async () => {
+    const scheduled = {
+      scheduledEmails: [
+        {
+          id: "scheduled-1",
+          status: "PENDING",
+          sendAt: "2027-01-01T12:00:00Z",
+          reminderStatus: "NONE",
+        },
+      ],
+    };
+    const fetcher = vi.fn().mockResolvedValueOnce(scheduled);
     renderStatus(fetcher);
+    await screen.findByText(/Scheduled for/);
+    // Let SWR forget the initial request so reconnecting revalidates.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    fetcher.mockRejectedValue(new TypeError("Fetch failed"));
+    act(() => setOnline(false));
+    act(() => setOnline(true));
     expect(
-      await screen.findByText("Scheduled reply status is unavailable."),
+      await screen.findByText(
+        "Could not refresh. Showing the last known status.",
+      ),
     ).toBeTruthy();
-    expect(navigator.onLine).toBe(true);
+    expect(screen.getByText(/Scheduled for/)).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Retry scheduled status" }),
-    );
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    fetcher.mockResolvedValue(scheduled);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() =>
       expect(
-        screen.queryByText("Scheduled reply status is unavailable."),
+        screen.queryByText("Could not refresh. Showing the last known status."),
       ).toBeNull(),
     );
+    expect(screen.getByText(/Scheduled for/)).toBeTruthy();
   });
 
   it("keeps failed delivery actions visible as errors", async () => {
@@ -142,7 +153,12 @@ function setOnline(online: boolean) {
 function renderStatus(fetcher: () => Promise<unknown>) {
   return render(
     <SWRConfig
-      value={{ provider: () => new Map(), fetcher, shouldRetryOnError: false }}
+      value={{
+        provider: () => new Map(),
+        fetcher,
+        shouldRetryOnError: false,
+        dedupingInterval: 0,
+      }}
     >
       <ThreadDeliveryStatus
         emailAccountId="account-1"

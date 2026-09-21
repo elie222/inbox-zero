@@ -34,6 +34,34 @@ beforeEach(() => {
 });
 
 describe("attachment download", () => {
+  it.each([
+    "image/svg+xml",
+    "text/html",
+    "application/xhtml+xml",
+    "image/png",
+    "application/pdf",
+  ])("streams downloads without trusting the requested %s content type", async (mimeType) => {
+    const bytes = new TextEncoder().encode("synthetic attachment bytes");
+    getAttachmentStream.mockResolvedValue(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+    );
+    const request = attachmentRequest();
+    request.nextUrl.searchParams.set("mimeType", mimeType);
+    const response = await GET(new NextRequest(request.nextUrl), {} as never);
+    expect(response.headers.get("content-type")).toBe(
+      "application/octet-stream",
+    );
+    expect(response.headers.get("content-disposition")).toContain(
+      "attachment;",
+    );
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
   it("checks account ownership before streaming a native browser download", async () => {
     const cancel = vi.fn();
     getAttachmentStream.mockResolvedValue(

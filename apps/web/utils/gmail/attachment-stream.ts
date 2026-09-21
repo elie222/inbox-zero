@@ -1,4 +1,6 @@
-import { parser, type Token } from "stream-json/web/parser.js";
+import { parser } from "stream-json/web";
+
+type Token = parser.Token;
 
 export function decodeGmailAttachmentStream(
   source: ReadableStream<Uint8Array>,

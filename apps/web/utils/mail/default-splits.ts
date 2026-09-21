@@ -4,8 +4,8 @@ import {
   type SystemType,
 } from "@/generated/prisma/enums";
 import {
+  DEFAULT_MAIL_SPLIT_SYSTEM_TYPES,
   getRuleLabel,
-  STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 
 type RuleForDefaultSplit = {
@@ -23,7 +23,7 @@ export function getDefaultMailSplitDrafts(rules: RuleForDefaultSplit[]) {
     ),
   );
 
-  return STANDARD_CATEGORY_SYSTEM_TYPES.flatMap((systemType) => {
+  return DEFAULT_MAIL_SPLIT_SYSTEM_TYPES.flatMap((systemType) => {
     const rule = rulesBySystemType.get(systemType);
     const movesOutOfInbox = rule?.actions.some(
       (action) =>

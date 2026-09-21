@@ -84,6 +84,8 @@ export function getLabelColor(name: string) {
       return blue;
     case getRuleLabel(SystemType.CALENDAR):
       return purple;
+    case getRuleLabel(SystemType.OTP):
+      return cyan;
     case getRuleLabel(SystemType.COLD_EMAIL):
       return pink;
     case getRuleLabel(SystemType.FYI):

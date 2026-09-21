@@ -19,6 +19,7 @@ import {
   initializeSearchIndexAccount,
   seedSearchIndexWork,
 } from "./search-index-seed";
+import { SOURCE_VERSION } from "./search-index-source-version";
 import {
   acknowledgeSearchIndexWork,
   readSearchIndexWork,
@@ -44,7 +45,7 @@ describe("resumable local index seeding", () => {
     await database.put("searchIndexAccounts", {
       emailAccountId: "account-1",
       generation: "migration",
-      sourceVersion: 2,
+      sourceVersion: SOURCE_VERSION,
       seed: { store: "threadRows" },
     });
     await database.put("threadRows", {
@@ -65,8 +66,6 @@ describe("resumable local index seeding", () => {
     const budget = vi.spyOn(settings, "readLocalMailSettings").mockReturnValue({
       budgetBytes: initialBytes + 1000 + 32 * MIB,
       attachmentBudgetBytes: 0,
-      backfillEnabled: true,
-      pushEnabled: true,
     });
     const before = await database.get("searchIndexAccounts", "account-1");
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
@@ -85,8 +84,6 @@ describe("resumable local index seeding", () => {
     budget.mockReturnValue({
       budgetBytes: initialBytes + 1_000_000 + 32 * MIB,
       attachmentBudgetBytes: 0,
-      backfillEnabled: true,
-      pushEnabled: true,
     });
     expect(await seedSearchIndexWork("account-1")).toMatchObject({
       complete: false,
@@ -130,7 +127,7 @@ describe("resumable local index seeding", () => {
       initializeSearchIndexAccount("account-1"),
     ]);
     expect(accounts[0]).toEqual(accounts[1]);
-    expect(accounts[0]?.sourceVersion).toBe(2);
+    expect(accounts[0]?.sourceVersion).toBe(SOURCE_VERSION);
     expect(accounts[0]?.generation).not.toBe("obsolete-generation");
   });
 

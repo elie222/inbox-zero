@@ -1,5 +1,6 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { APIError } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { jwt } from "better-auth/plugins";
 import prisma from "@/utils/prisma";
 import {
@@ -7,12 +8,14 @@ import {
   getMcpResourceUrl,
   isMcpServerAvailable,
 } from "@/utils/mcp/config";
+import { applyNativeMcpClientRegistration } from "@/utils/mcp/oauth-registration";
 
 export function mcpOAuthPlugins() {
   if (!isMcpServerAvailable()) return [];
 
   return [
     jwt({ disableSettingJwtHeader: true }),
+    mcpNativeClientInteropPlugin(),
     oauthProvider({
       loginPage: "/mcp/login",
       consentPage: "/mcp/consent",
@@ -50,4 +53,20 @@ export function mcpOAuthPlugins() {
       },
     }),
   ];
+}
+
+function mcpNativeClientInteropPlugin() {
+  return {
+    id: "mcp-native-client-interop",
+    hooks: {
+      before: [
+        {
+          matcher: (ctx: { path?: string }) => ctx.path === "/oauth2/register",
+          handler: createAuthMiddleware(async (ctx) => {
+            applyNativeMcpClientRegistration(ctx.body);
+          }),
+        },
+      ],
+    },
+  };
 }

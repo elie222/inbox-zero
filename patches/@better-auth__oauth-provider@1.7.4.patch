@@ -1,0 +1,20 @@
+diff --git a/dist/authorize-zWEGx4ky.mjs b/dist/authorize-zWEGx4ky.mjs
+index 5fdd51c7da07656096bebbdd7b37a7b6b2490d92..e4dcb531706aaee87c824e452be165176597b487 100644
+--- a/dist/authorize-zWEGx4ky.mjs
++++ b/dist/authorize-zWEGx4ky.mjs
+@@ -1708,7 +1708,14 @@ function validateClientRedirectUri(redirectUri, applicationType) {
+ 		if (!isAllowedNativeHttpLoopback) invalidRedirectUri(`native clients may use http only on the exact loopback hosts localhost, 127.0.0.1, or [::1]: ${redirectUri}`);
+ 		return;
+ 	}
+-	if (FORBIDDEN_NATIVE_REDIRECT_SCHEMES.has(url.protocol) || !isReverseDomainPrivateUseRedirectUri(url)) invalidRedirectUri(`native private-use redirect URI schemes must be well-formed reverse-domain names, omit the naming authority, and must not use a reserved scheme: ${redirectUri}`);
++	if (FORBIDDEN_NATIVE_REDIRECT_SCHEMES.has(url.protocol) || !isNativePrivateUseRedirectUri(url)) invalidRedirectUri(`native private-use redirect URI schemes must be a reverse-domain name without a host, or a non-reserved custom scheme with a host and path: ${redirectUri}`);
++}
++function isHostBearingPrivateUseRedirectUri(uri) {
++	if (FORBIDDEN_NATIVE_REDIRECT_SCHEMES.has(uri.protocol) || uri.protocol === "http:" || uri.protocol === "https:" || uri.protocol === "ws:" || uri.protocol === "wss:") return false;
++	return uri.host.length > 0 && uri.pathname.startsWith("/");
++}
++function isNativePrivateUseRedirectUri(uri) {
++	return isReverseDomainPrivateUseRedirectUri(uri) || isHostBearingPrivateUseRedirectUri(uri);
+ }
+ function assertValidRegistrationJwks(jwks) {
+ 	const result = validatePublicClientJwks(jwks);

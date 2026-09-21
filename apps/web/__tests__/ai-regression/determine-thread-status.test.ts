@@ -547,7 +547,7 @@ describe.runIf(isAiTest)("aiDetermineThreadStatus", () => {
   );
 
   test(
-    "identifies FYI when receiving instructions after offering help (not awaiting reply)",
+    "identifies ACTIONED when receiving instructions after offering help (not awaiting reply)",
     async () => {
       const emailAccount = getEmailAccount();
       const messages = [
@@ -603,9 +603,12 @@ Platform Support`,
 
       console.debug("Result:", result);
       // ABC provided the help/instructions. User is not waiting for ABC to do something.
-      // The ball is in the user's court to act on the information if they want to.
-      // This should be FYI (informational) or TO_REPLY (if user wants to act), but NOT AWAITING_REPLY
-      expect([SystemType.FYI, SystemType.TO_REPLY]).toContain(result.status);
+      // The user's offer was answered, so the exchange is ACTIONED; TO_REPLY is
+      // also defensible if the user is read as owing a follow-up. FYI is not:
+      // the thread contains a request that was fulfilled. NOT AWAITING_REPLY.
+      expect([SystemType.ACTIONED, SystemType.TO_REPLY]).toContain(
+        result.status,
+      );
       expect(result.rationale).toBeDefined();
     },
     TIMEOUT,

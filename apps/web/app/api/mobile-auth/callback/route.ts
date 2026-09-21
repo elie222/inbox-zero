@@ -5,6 +5,7 @@ import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
 import {
   consumeMobileAuthState,
+  consumeMobileAuthFailureState,
   createMobileAuthCode,
   isValidMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
@@ -23,21 +24,25 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     throw new SafeError("Invalid authentication state", 400);
   }
 
-  const { returnUrlMode } = await consumeMobileAuthState({
-    state: query.state,
-  });
-
-  const session = await auth(request.headers);
-  const userId = session?.user?.id;
-  if (!userId) {
+  if (request.nextUrl.searchParams.has("error")) {
+    const { returnUrlMode } = await consumeMobileAuthFailureState({
+      state: query.state,
+    });
     return redirectToMobileCallback(
       query.state,
       {
-        error: "missing_session",
-        error_description: "Authentication session was not found",
+        error: "authentication_failed",
+        error_description:
+          "Provider authentication did not complete. Please try again.",
       },
       returnUrlMode,
     );
+  }
+
+  const session = await auth(request.headers);
+  const userId = session?.user?.id;
+  if (!userId || !session.session.token) {
+    throw new SafeError("Authentication session was not found", 401);
   }
 
   if (session.session.emailOtp) {
@@ -47,7 +52,13 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     );
   }
 
+  const { returnUrlMode, codeChallenge } = await consumeMobileAuthState({
+    state: query.state,
+    sessionToken: session.session.token,
+  });
+
   const code = await createMobileAuthCode({
+    codeChallenge,
     state: query.state,
     userId,
   });

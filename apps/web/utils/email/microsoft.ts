@@ -36,7 +36,11 @@ import {
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
-import { buildOutlookThreadSearchQuery } from "@/utils/outlook/thread-search-query";
+import {
+  compileOutlookThreadSearch,
+  isEmptyOutlookSearch,
+  type CompiledOutlookSearch,
+} from "@/utils/outlook/thread-search-query";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
@@ -99,6 +103,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { OutlookLabel } from "@/utils/outlook/constants";
 import { resolveOutlookSearchScope } from "@/utils/outlook/search-scope";
 import {
   extractEmailAddress,
@@ -2051,39 +2056,87 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const searchQuery = buildOutlookThreadSearchQuery(options.query);
-    if (!searchQuery) return { threads: [] };
+    const compiled = compileOutlookThreadSearch(options.query);
+    if (isEmptyOutlookSearch(compiled)) return { threads: [] };
 
     const client = this.client.getClient();
     const [folderIds, categoryMap] = await Promise.all([
-      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getFolderIds(this.client, this.logger, { includeDrafts: true }),
       getCategoryMap(this.client, this.logger),
     ]);
 
-    const nextLink = resolveMicrosoftGraphNextLink(options.pageToken);
-    const response: { value: Message[]; "@odata.nextLink"?: string } = nextLink
-      ? await client.api(nextLink).get()
-      : // Graph forbids combining $search with $filter/$orderby and caps page
-        // size at 25. Results come back in relevance order, like Outlook's
-        // own search box, and cover the whole mailbox.
-        await client
-          .api("/me/messages")
-          .select(
-            options.messageFormat === "metadata"
-              ? MESSAGE_LIST_SELECT_FIELDS
-              : MESSAGE_SELECT_FIELDS,
-          )
-          .search(searchQuery)
-          .top(Math.min(options.maxResults || 25, 25))
-          .get();
+    const folderId = await resolveOutlookSearchFolderId({
+      compiled,
+      folderIds,
+      getFolders: () => this.getFolders(),
+    });
+    if ((compiled.folderKey || compiled.folderName) && !folderId) {
+      return { threads: [] };
+    }
+
+    const apiPath = folderId
+      ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
+      : "/me/messages";
+    const selectFields =
+      options.messageFormat === "metadata"
+        ? MESSAGE_LIST_SELECT_FIELDS
+        : MESSAGE_SELECT_FIELDS;
+
+    const requiredLabelIds: string[] = [];
+    if (compiled.search) {
+      if (compiled.flagged) requiredLabelIds.push(OutlookLabel.STARRED);
+      if (compiled.category) {
+        requiredLabelIds.push(
+          categoryMap.get(compiled.category) ?? compiled.category,
+        );
+      }
+    }
+
+    const maxResults = options.maxResults || 25;
+    const needsLocalScopeFilter = requiredLabelIds.length > 0;
+    const collectedMessages: Message[] = [];
+    let nextPageTokenToFetch = options.pageToken;
+    let nextPageToken: string | undefined;
+
+    do {
+      const pageLink = resolveMicrosoftGraphNextLink(nextPageTokenToFetch);
+      const response: { value: Message[]; "@odata.nextLink"?: string } =
+        pageLink
+          ? await client.api(pageLink).get()
+          : await fetchOutlookSearchPage({
+              client,
+              apiPath,
+              selectFields,
+              compiled,
+              maxResults,
+            });
+
+      collectedMessages.push(...response.value);
+      nextPageToken = response["@odata.nextLink"];
+
+      if (!needsLocalScopeFilter || !nextPageToken) break;
+
+      const matchedThreads = buildOutlookThreadsFromMessages({
+        messages: collectedMessages,
+        folderIds,
+        categoryMap,
+        excludedLabelIds: new Set(),
+        requiredLabelIds,
+        logger: this.logger,
+      });
+      if (matchedThreads.length >= maxResults) break;
+
+      nextPageTokenToFetch = nextPageToken;
+    } while (nextPageTokenToFetch);
 
     let threads = buildOutlookThreadsFromMessages({
-      messages: response.value,
+      messages: collectedMessages,
       folderIds,
       categoryMap,
       excludedLabelIds: new Set(),
+      requiredLabelIds: requiredLabelIds.length ? requiredLabelIds : undefined,
       logger: this.logger,
-    });
+    }).slice(0, maxResults);
 
     if (options.messageFormat === "metadata") {
       threads = await addOutlookThreadParticipantMessages({
@@ -2093,10 +2146,7 @@ export class OutlookProvider implements EmailProvider {
       });
     }
 
-    return {
-      threads,
-      nextPageToken: response["@odata.nextLink"],
-    };
+    return { threads, nextPageToken };
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {
@@ -3016,4 +3066,60 @@ function mapOutlookPresetColor(
     preset && OUTLOOK_COLOR_MAP[preset as keyof typeof OUTLOOK_COLOR_MAP];
   if (!backgroundColor) return;
   return { backgroundColor, textColor: null };
+}
+
+async function resolveOutlookSearchFolderId({
+  compiled,
+  folderIds,
+  getFolders,
+}: {
+  compiled: CompiledOutlookSearch;
+  folderIds: Record<string, string>;
+  getFolders: () => ReturnType<OutlookProvider["getFolders"]>;
+}): Promise<string | undefined> {
+  if (compiled.folderKey) return folderIds[compiled.folderKey];
+  if (!compiled.folderName) return;
+
+  const folders = flattenOutlookFolders(await getFolders());
+  const normalized = compiled.folderName.toLowerCase();
+  const byPath = folders.find(
+    (folder) => folder.path.toLowerCase() === normalized,
+  );
+  if (byPath) return byPath.id;
+
+  const byName = folders.filter(
+    (folder) => folder.displayName.toLowerCase() === normalized,
+  );
+  if (byName.length === 1) return byName[0].id;
+}
+
+async function fetchOutlookSearchPage({
+  client,
+  apiPath,
+  selectFields,
+  compiled,
+  maxResults,
+}: {
+  client: ReturnType<OutlookClient["getClient"]>;
+  apiPath: string;
+  selectFields: string;
+  compiled: CompiledOutlookSearch;
+  maxResults?: number;
+}): Promise<{ value: Message[]; "@odata.nextLink"?: string }> {
+  // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
+  let request = client.api(apiPath).select(selectFields);
+  if (compiled.search) {
+    request = request.search(compiled.search);
+  } else {
+    const filters: string[] = [];
+    if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");
+    if (compiled.category) {
+      filters.push(
+        `categories/any(c:c eq '${escapeODataString(compiled.category)}')`,
+      );
+    }
+    if (filters.length) request = request.filter(filters.join(" and "));
+  }
+
+  return request.top(Math.min(maxResults || 25, 25)).get();
 }

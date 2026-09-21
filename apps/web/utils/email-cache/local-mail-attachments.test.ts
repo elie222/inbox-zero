@@ -3,10 +3,6 @@ import {
   localMailRecordBytes,
   localMailLedgerBytes,
 } from "./local-mail-storage-ledger";
-import {
-  storeLocalMailMessages,
-  deleteLocalMailMessages,
-} from "./local-mail-messages";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -19,9 +15,6 @@ import {
   prepareLocalMailAttachmentDownload,
   commitLocalMailAttachmentDownload,
   readLocalMailAttachment,
-  createLocalMailOfflineSnapshot,
-  readLocalMailOfflineSnapshot,
-  cancelLocalMailOfflineSnapshot,
   markLocalMailAttachmentDownloadFailed,
 } from "./local-mail-attachments";
 
@@ -37,74 +30,6 @@ const options = {
 beforeEach(clearEmailCache);
 
 describe("local attachment storage", () => {
-  it("marks a complete pin stale when a text-only message arrives or a saved body changes", async () => {
-    const reference = await seed(account, "message-1", 4);
-    await cache(reference);
-    expect(
-      await createLocalMailOfflineSnapshot({
-        ...options,
-        emailAccountId: account,
-        threadId: thread,
-        references: [reference],
-        messageIds: ["message-1"],
-      }),
-    ).toBeDefined();
-    const scope = { emailAccountId: account, threadId: thread };
-    expect(await readLocalMailOfflineSnapshot(scope)).toMatchObject({
-      attachmentsReady: true,
-      messagesReady: true,
-    });
-    const database = await db();
-    const first = (await database.get("localMailMessages", [
-      account,
-      "message-1",
-    ]))!;
-    await database.put("localMailMessages", {
-      ...first,
-      messageId: "message-2",
-      data: { ...first.data, id: "message-2", attachments: [], inline: [] },
-    });
-    expect(await readLocalMailOfflineSnapshot(scope)).toMatchObject({
-      messagesReady: false,
-    });
-    await database.delete("localMailMessages", [account, "message-2"]);
-    await database.put("localMailMessages", { ...first, bodyFetchedAt: 2 });
-    expect(await readLocalMailOfflineSnapshot(scope)).toMatchObject({
-      messagesReady: false,
-    });
-  });
-
-  it("does not pin a provider inventory while a message body is missing", async () => {
-    await seed(account, "message-1", 4);
-    const database = await db();
-    const row = (await database.get("localMailMessages", [
-      account,
-      "message-1",
-    ]))!;
-    await database.put("localMailMessages", {
-      ...row,
-      bodyFetchedAt: undefined,
-    });
-    expect(
-      await createLocalMailOfflineSnapshot({
-        ...options,
-        emailAccountId: account,
-        threadId: thread,
-        references: [
-          (await getLocalMailAttachmentReference({
-            emailAccountId: account,
-            messageId: "message-1",
-            attachmentId: "file",
-          }))!,
-        ],
-        messageIds: ["message-1"],
-      }),
-    ).toBeUndefined();
-    expect(
-      await database.get("localMailThreadProtection", [account, thread]),
-    ).toBeUndefined();
-  });
-
   it("does not reserve bytes when cancellation races storage admission", async () => {
     const reference = await seed(account, "message-1", 4);
     const controller = new AbortController();
@@ -209,10 +134,6 @@ describe("local attachment storage", () => {
       }),
     ).toBe(true);
     expect(await readLocalMailAttachment(reference)).toBeDefined();
-    await cancelLocalMailOfflineSnapshot({
-      emailAccountId: account,
-      threadId: thread,
-    });
   });
 
   it("consumes its own payload reservation once", async () => {
@@ -428,26 +349,6 @@ describe("local attachment storage", () => {
     ).toBe(false);
   });
 
-  it("reserves a known snapshot as a whole without silently pinning an oversized request", async () => {
-    const first = await seed(account, "message-1", 6);
-    const second = await seed(account, "message-2", 6);
-    expect(
-      await createLocalMailOfflineSnapshot({
-        emailAccountId: account,
-        threadId: thread,
-        references: [first, second],
-        ...options,
-      }),
-    ).toBeUndefined();
-    expect(
-      await readLocalMailOfflineSnapshot({
-        emailAccountId: account,
-        threadId: thread,
-      }),
-    ).toBeUndefined();
-    expect(await (await db()).count("localMailAttachmentJobs")).toBe(0);
-  });
-
   it("does not evict files attached to pending outgoing work", async () => {
     const reference = await seed(account, "message-1", 4);
     await cache(reference);
@@ -491,148 +392,33 @@ describe("local attachment storage", () => {
     ).toBeUndefined();
   });
 
-  it("keeps pinned files and evicts unpinned least-recently-used files", async () => {
+  it("keeps files for a thread with unsent work and evicts least-recently-used files", async () => {
     const first = await seed(account, "first", 4);
     const second = await seed(account, "second", 4, "thread-2");
     const third = await seed(account, "third", 4, "thread-3");
-    const snapshotId = await createLocalMailOfflineSnapshot({
+    await cache(first);
+    const database = await db();
+    // An unsent action is the protection that costs no budget, so eviction has
+    // to skip this thread while the arithmetic below still admits the others.
+    await database.put("mailMutations", {
+      id: "mutation",
+      batchId: "batch",
       emailAccountId: account,
       threadId: thread,
-      references: [first],
-      ...options,
-    });
-    expect(snapshotId).toBeDefined();
-    const ticket = await prepareLocalMailAttachmentDownload({
-      reference: first,
-      maxBytes: 4,
-      ...options,
-    });
-    await commitLocalMailAttachmentDownload({
-      ticket: ticket!,
-      blob: new Blob(["1111"]),
-      ...options,
+      messageIds: ["first"],
+      kind: "reply",
+      payload: {},
+      status: "pending",
+      attempts: 0,
+      nextAttemptAt: 0,
+      createdAt: 0,
+      updatedAt: 0,
     });
     await cache(second, 2000);
     await cache(third, 3000);
     expect(await readLocalMailAttachment(first)).toBeDefined();
     expect(await readLocalMailAttachment(second)).toBeUndefined();
     expect(await readLocalMailAttachment(third)).toBeDefined();
-    expect(
-      (
-        await readLocalMailOfflineSnapshot({
-          emailAccountId: account,
-          threadId: thread,
-        })
-      )?.attachmentsReady,
-    ).toBe(true);
-  });
-
-  it("revokes offline readiness when a blob disappears or canonical revision changes", async () => {
-    const reference = await seed(account, "message-1", 4);
-    await createLocalMailOfflineSnapshot({
-      emailAccountId: account,
-      threadId: thread,
-      references: [reference],
-      ...options,
-    });
-    await cache(reference);
-    expect(
-      (
-        await readLocalMailOfflineSnapshot({
-          emailAccountId: account,
-          threadId: thread,
-        })
-      )?.attachmentsReady,
-    ).toBe(true);
-    const database = await db();
-    const row = (await database.get("localMailMessages", [
-      account,
-      "message-1",
-    ]))!;
-    await database.put("localMailMessages", { ...row, bodyFetchedAt: 2 });
-    expect(await readLocalMailAttachment(reference)).toBeUndefined();
-    expect(
-      (
-        await readLocalMailOfflineSnapshot({
-          emailAccountId: account,
-          threadId: thread,
-        })
-      )?.attachmentsReady,
-    ).toBe(false);
-    await database.put("localMailMessages", row);
-    await database.clear("localMailAttachmentFiles");
-    expect(
-      (
-        await readLocalMailOfflineSnapshot({
-          emailAccountId: account,
-          threadId: thread,
-        })
-      )?.attachmentsReady,
-    ).toBe(false);
-  });
-
-  it.each([
-    "refresh",
-    "delete",
-  ] as const)("atomically invalidates pinned binaries on canonical %s", async (change) => {
-    const reference = await seed(account, "message-1", 4);
-    await createLocalMailOfflineSnapshot({
-      emailAccountId: account,
-      threadId: thread,
-      references: [reference],
-      ...options,
-    });
-    await cache(reference);
-    const ticket = await prepareLocalMailAttachmentDownload({
-      reference,
-      maxBytes: 4,
-      ...options,
-    });
-    const database = await db();
-    const tx = database.transaction(
-      [
-        "localMailMessages",
-        "localMailTombstones",
-        "searchIndexAccounts",
-        "searchIndexWork",
-        "localMailAttachmentFiles",
-        "localMailAttachmentJobs",
-        "localMailThreadProtection",
-      ],
-      "readwrite",
-    );
-    if (change === "refresh") {
-      const row = (await tx
-        .objectStore("localMailMessages")
-        .get([account, "message-1"]))!;
-      await storeLocalMailMessages(
-        tx,
-        account,
-        [{ ...row.data, textPlain: "Updated body" }],
-        2,
-      );
-    } else await deleteLocalMailMessages(tx, account, ["message-1"], 2);
-    await tx.done;
-    expect(await database.count("localMailAttachmentFiles")).toBe(0);
-    expect(await database.count("localMailAttachmentJobs")).toBe(0);
-    expect(
-      (await database.get("searchIndexAccounts", account))?.attachmentBytes,
-    ).toBe(0);
-    expect(
-      (
-        await readLocalMailOfflineSnapshot({
-          emailAccountId: account,
-          threadId: thread,
-        })
-      )?.attachmentsReady,
-    ).toBe(false);
-    expect(
-      await commitLocalMailAttachmentDownload({
-        ticket: ticket!,
-        blob: new Blob(["1234"]),
-        ...options,
-      }),
-    ).toBe(false);
   });
 
   it("fences late commits after account cleanup and preserves another account", async () => {
@@ -679,46 +465,6 @@ describe("local attachment storage", () => {
         ...options,
       }),
     ).toBe(false);
-  });
-
-  it("persists unknown-size work without claiming readiness and cancels reservations on unpin", async () => {
-    const reference = await seed(account, "message-1", undefined);
-    expect(
-      await createLocalMailOfflineSnapshot({
-        emailAccountId: account,
-        threadId: thread,
-        references: [reference],
-        ...options,
-      }),
-    ).toBeDefined();
-    expect(
-      await readLocalMailOfflineSnapshot({
-        emailAccountId: account,
-        threadId: thread,
-      }),
-    ).toMatchObject({ attachmentsReady: false, unknownSizeCount: 1 });
-    const ticket = await prepareLocalMailAttachmentDownload({
-      reference,
-      maxBytes: 5,
-      ...options,
-    });
-    await cancelLocalMailOfflineSnapshot({
-      emailAccountId: account,
-      threadId: thread,
-    });
-    expect(
-      await commitLocalMailAttachmentDownload({
-        ticket: ticket!,
-        blob: new Blob(["1234"]),
-        ...options,
-      }),
-    ).toBe(false);
-    expect(
-      await readLocalMailOfflineSnapshot({
-        emailAccountId: account,
-        threadId: thread,
-      }),
-    ).toBeUndefined();
   });
 });
 

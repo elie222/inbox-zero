@@ -3,25 +3,6 @@ import { BRAND_NAME } from "@/utils/branding";
 
 export type Personas = ReturnType<typeof getPersonas>;
 
-// NOTE: some users save the example rules when trying out the platform, and start auto sending emails
-// to people without realising it. This is a simple check to avoid that.
-// This needs changing when the examples change. But it works for now.
-export function hasExampleParams(rule: {
-  condition: {
-    static?: {
-      to?: string | null;
-      from?: string | null;
-    } | null;
-  };
-  actions: { content?: string | null }[];
-}) {
-  return (
-    rule.condition.static?.to?.includes("@company.com") ||
-    rule.condition.static?.from?.includes("@mycompany.com") ||
-    rule.actions.some((a) => a.content?.includes("cal.com/example"))
-  );
-}
-
 function formatPromptArray(promptArray: string[]): string {
   return `${promptArray.map((item) => `* ${item}`).join(".\n")}.`;
 }

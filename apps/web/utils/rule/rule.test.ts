@@ -25,9 +25,6 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/risk", () => ({
   getActionRiskLevel: vi.fn(),
 }));
-vi.mock("@/app/(app)/[emailAccountId]/assistant/examples", () => ({
-  hasExampleParams: vi.fn(() => false),
-}));
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
   ruleHistoryRuleInclude: { actions: true, group: true },
@@ -947,6 +944,67 @@ describe("draft messaging actions", () => {
         }),
       }),
     );
+  });
+});
+
+describe("explicit rule creation", () => {
+  beforeEach(resetRuleMocks);
+
+  it.each([
+    ActionType.FORWARD,
+    ActionType.REPLY,
+    ActionType.SEND_EMAIL,
+  ])("creates an enabled %s rule without a second enable step", async (type) => {
+    prisma.rule.create.mockImplementation(
+      async ({ data }) =>
+        ({
+          ...data,
+          id: RULE_ID,
+          actions: [],
+          group: null,
+        }) as any,
+    );
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "high",
+      message: "Dynamic content",
+    });
+    const rule = await createRule({
+      result: createRuleResult({ actions: [{ ...forwardAction(), type }] }),
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      runOnThreads: true,
+      logger,
+    });
+    expect(rule.enabled).toBe(true);
+  });
+
+  it("does not silently disable a submitted rule based on example text", async () => {
+    prisma.rule.create.mockImplementation(
+      async ({ data }) =>
+        ({
+          ...data,
+          id: RULE_ID,
+          actions: [],
+          group: null,
+        }) as any,
+    );
+    const rule = await createRule({
+      result: createRuleResult({
+        from: "sender@example.com",
+        actions: [
+          {
+            type: ActionType.REPLY,
+            fields: { content: "Book at https://cal.com/example" },
+            delayInMinutes: null,
+          } as RuleAction,
+        ],
+      }),
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      provider: "gmail",
+      runOnThreads: true,
+      logger,
+    });
+    expect(rule.enabled).toBe(true);
   });
 });
 

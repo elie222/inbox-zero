@@ -3,10 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { isMailSyncActivated } from "./mail-activation";
 import { startLocalMailHints } from "./local-mail-hints";
-import {
-  readLocalMailSettings,
-  writeLocalMailSettings,
-} from "./local-mail-settings";
 
 vi.mock("@/utils/desktop-app", () => ({ getInboxZeroDesktopApp: vi.fn() }));
 vi.mock("./mail-activation", () => ({ isMailSyncActivated: vi.fn() }));
@@ -36,15 +32,6 @@ it("creates no connection for assistant-only accounts", () => {
   vi.mocked(isMailSyncActivated).mockReturnValue(false);
   dispose = startLocalMailHints("account", vi.fn());
   expect(connections).toHaveLength(0);
-});
-
-it("closes a live stream when push is paused and reconnects when enabled", () => {
-  dispose = startLocalMailHints("account", vi.fn());
-  writeLocalMailSettings({ ...readLocalMailSettings(), pushEnabled: false });
-  expect(connections[0].close).toHaveBeenCalled();
-  expect(connections).toHaveLength(1);
-  writeLocalMailSettings({ ...readLocalMailSettings(), pushEnabled: true });
-  expect(connections).toHaveLength(2);
 });
 
 it("catches up after readiness and coalesces bursts without trusting payload cursors", async () => {

@@ -133,10 +133,17 @@ describe("cached mail search", () => {
   });
   it("does not approximate unsupported expressions", async () => {
     await seed("account-a", message("first"));
-    expect(await search("report OR invoice")).toEqual({
+    expect(await search("larger:1M")).toEqual({
       status: "unsupported",
       threads: [],
     });
+  });
+  it("answers boolean expressions from the cache", async () => {
+    await seed("account-a", message("first"));
+    expect((await search("report OR invoice")).threads).toHaveLength(1);
+    expect((await search("invoice OR receipt")).threads).toEqual([]);
+    expect((await search("report -invoice")).threads).toHaveLength(1);
+    expect((await search("report -budget")).threads).toEqual([]);
   });
   it("keeps fresher metadata while retaining a cached body", async () => {
     const record = message("first", {

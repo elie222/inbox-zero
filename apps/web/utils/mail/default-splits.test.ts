@@ -5,14 +5,28 @@ import {
   SystemType,
 } from "@/generated/prisma/enums";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
+import {
+  isOptInSystemType,
+  STANDARD_CATEGORY_SYSTEM_TYPES,
+} from "@/utils/rule/consts";
+import { categoryConfig } from "@/utils/category-config";
 
 describe("getDefaultMailSplitDrafts", () => {
+  it("keeps OTP out of onboarding categories", () => {
+    expect(STANDARD_CATEGORY_SYSTEM_TYPES).not.toContain(SystemType.OTP);
+    expect(isOptInSystemType(SystemType.OTP)).toBe(true);
+    expect(
+      categoryConfig("google").map((category) => category.key),
+    ).not.toContain(SystemType.OTP);
+  });
+
   it("creates label splits for the standard category rules in their standard order", () => {
     const rules = [
       rule(SystemType.RECEIPT, "receipt-label"),
       rule(SystemType.FYI, "fyi-label"),
       rule(SystemType.TO_REPLY, "reply-label"),
       rule(SystemType.NEWSLETTER, "newsletter-label"),
+      rule(SystemType.OTP, "otp-label"),
       rule(null, "custom-label"),
     ];
 
@@ -33,6 +47,11 @@ describe("getDefaultMailSplitDrafts", () => {
         name: "Receipt",
         labelId: "receipt-label",
         filters: [{ kind: MailSplitFilterKind.LABEL, value: "receipt-label" }],
+      },
+      {
+        name: "OTP",
+        labelId: "otp-label",
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "otp-label" }],
       },
     ]);
   });

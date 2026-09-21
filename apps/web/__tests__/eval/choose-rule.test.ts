@@ -6,7 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
+import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
@@ -31,6 +31,7 @@ const marketing = systemRule(SystemType.MARKETING);
 const calendar = systemRule(SystemType.CALENDAR);
 const receipt = systemRule(SystemType.RECEIPT);
 const notification = systemRule(SystemType.NOTIFICATION);
+const otp = systemRule(SystemType.OTP);
 const conversations = getRule(
   CONVERSATION_TRACKING_INSTRUCTIONS,
   [],
@@ -43,6 +44,7 @@ const rules = [
   calendar,
   receipt,
   notification,
+  otp,
   conversations,
 ];
 
@@ -85,7 +87,7 @@ const promotionalBoundaryCases = [
       content:
         "Thanks for being a paid member of Makers Digest! Open your dashboard to activate the partner apps included with your membership. Unlock your benefits: https://members.makersdigest.example/auth/callback#token=synthetic-example. Enjoy creating with your new apps!",
     }),
-    expectedRule: "Notification",
+    expectedRule: "OTP",
   },
   {
     name: "requested verification with an upsell",
@@ -95,7 +97,7 @@ const promotionalBoundaryCases = [
       content:
         "Enter code 123456 to verify the account you just created. It expires in 10 minutes. Once verified, explore our premium templates or upgrade for unlimited designs.",
     }),
-    expectedRule: "Notification",
+    expectedRule: "OTP",
   },
   {
     name: "account recovery in Spanish with promotional footer",
@@ -105,7 +107,7 @@ const promotionalBoundaryCases = [
       content:
         "Recibimos tu solicitud para restablecer la contraseña. Continúa aquí: https://studio.example/reset?token=synthetic-example. El enlace caduca en 15 minutos. Descubre también nuestra oferta anual con un 30% de descuento.",
     }),
-    expectedRule: "Notification",
+    expectedRule: "OTP",
   },
   {
     name: "optional member benefit promotion",
@@ -492,6 +494,24 @@ const testCases = [
         "@sarah-eng approved this pull request.\n\nLooks good! Just one nit: the error message on line 42 could be more descriptive. Otherwise LGTM.\n\n---\n\nView it on GitHub: https://github.com/acme/api/pull/1247#pullrequestreview-2839",
     }),
     expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "noreply@google.com",
+      subject: "G-482193 is your Google verification code",
+      content:
+        "G-482193 is your Google verification code. Don't share this code with anyone. It expires in 10 minutes.",
+    }),
+    expectedRule: "OTP",
+  },
+  {
+    email: getEmail({
+      from: "noreply@github.com",
+      subject: "[GitHub] Please verify your device",
+      content:
+        "Enter this code to verify your device: 847291. This code expires in 15 minutes. If you did not request this, you can ignore this email.",
+    }),
+    expectedRule: "OTP",
   },
 
   // --- Conversations: real people asking questions ---

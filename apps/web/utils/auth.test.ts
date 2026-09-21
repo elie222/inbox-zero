@@ -104,10 +104,62 @@ vi.mock("@/utils/error", () => ({
 }));
 
 describe("betterAuthConfig", () => {
+  it("enforces application admin access in the configured SSO plugin", async () => {
+    const plugin = (betterAuthConfig as any).options.plugins.find(
+      (plugin: { id: string }) => plugin.id === "sso",
+    );
+    const context = {
+      path: "/sso/register",
+      context: {
+        session: { user: { id: "basic-user", email: "basic@example.invalid" } },
+      },
+    };
+    const runHooks = async () => {
+      for (const hook of plugin.hooks.before) {
+        if (hook.matcher(context)) await hook.handler(context);
+      }
+    };
+    await expect(runHooks()).rejects.toMatchObject({ statusCode: 403 });
+  });
+
   it("does not trust Microsoft for implicit social account linking", () => {
     expect(
       (betterAuthConfig as any).options.account.accountLinking.trustedProviders,
     ).toEqual(["google", "apple"]);
+  });
+
+  describe("inline profile photos", () => {
+    const userHooks = () =>
+      (betterAuthConfig as any).options.databaseHooks.user;
+
+    it.each([
+      "data:image/jpeg;base64,AAAA",
+      "DATA:image/jpeg;base64,AAAA",
+    ])("drops an inline image when a user is created: %s", async (image) => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image,
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("drops an inline image when a user is updated", async () => {
+      await expect(
+        userHooks().update.before({
+          image: "data:image/jpeg;base64,AAAA",
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("keeps a remote image url", async () => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image: "https://example.invalid/avatar.png",
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 });
 

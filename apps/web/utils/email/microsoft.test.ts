@@ -1497,6 +1497,109 @@ describe("OutlookProvider.searchThreads", () => {
       .find((request) => request.apiPath === "/me/messages");
     expect(searchRequest?.search).toBe('"subject:test"');
   });
+
+  it("searches a well-known folder instead of dropping in:inbox", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "subject:test in:inbox" });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders/inbox-folder-id/messages",
+      filter: undefined,
+      search: '"subject:test"',
+    });
+  });
+
+  it("filters flagged mail with $filter when there is no keyword search", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "is:flagged" });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/messages",
+      filter: "flag/flagStatus eq 'flagged'",
+      search: undefined,
+    });
+  });
+
+  it("pages past unflagged $search hits until a flagged match fills the page", async () => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=flagged-search";
+    const leftover =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=more";
+    const unflagged = createMessage({
+      id: "unflagged",
+      conversationId: "thread-unflagged",
+    });
+    const flagged = createMessage({
+      id: "flagged",
+      conversationId: "thread-flagged",
+    });
+    flagged.flag = { flagStatus: "flagged" };
+
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": { value: [unflagged], "@odata.nextLink": next },
+        [next]: { value: [flagged], "@odata.nextLink": leftover },
+      },
+    });
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchThreads({
+      query: "invoice is:flagged",
+      maxResults: 1,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-flagged",
+    ]);
+    expect(result.nextPageToken).toBe(leftover);
+    expect(
+      client
+        .getRequestLog()
+        .filter((request) => request.apiPath !== "/me/outlook/masterCategories")
+        .map((request) => request.apiPath),
+    ).toEqual(["/me/messages", next]);
+    expect(
+      client
+        .getRequestLog()
+        .find((request) => request.apiPath === "/me/messages")?.search,
+    ).toBe('"invoice"');
+  });
+
+  it("does not follow $search nextLink when there is no flagged or category post-filter", async () => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=keyword";
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [
+            createMessage({ id: "message-1", conversationId: "thread-1" }),
+          ],
+          "@odata.nextLink": next,
+        },
+        [next]: {
+          value: [
+            createMessage({ id: "message-2", conversationId: "thread-2" }),
+          ],
+        },
+      },
+    });
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchThreads({ query: "invoice" });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
+    expect(result.nextPageToken).toBe(next);
+    expect(
+      client
+        .getRequestLog()
+        .filter((request) => request.apiPath !== "/me/outlook/masterCategories")
+        .map((request) => request.apiPath),
+    ).toEqual(["/me/messages"]);
+  });
 });
 
 describe("OutlookProvider.labelMessage", () => {

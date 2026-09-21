@@ -17,6 +17,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { McpSection } from "@/app/(app)/[emailAccountId]/settings/McpSection";
 import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
@@ -26,6 +27,7 @@ import { SentMessageOpenTrackingSetting } from "@/app/(app)/[emailAccountId]/set
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
+import { ClassifierSection } from "@/app/(app)/[emailAccountId]/settings/ClassifierSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -41,7 +43,6 @@ import {
   Item,
   ItemCard,
   ItemContent,
-  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -160,8 +161,36 @@ export function SettingsContent() {
           <ItemCard className="p-4">
             <ModelSection />
           </ItemCard>
+          {user?.isClassifierAvailable && (
+            <ItemCard>
+              <ClassifierSection />
+            </ItemCard>
+          )}
         </SettingsGroup>
       )}
+
+      <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+        <ItemCard>
+          {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <McpSection />}
+          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
+          <ItemSeparator />
+          <AppearanceSection />
+          <ItemSeparator />
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Beta Features</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/early-access">Open</Link>
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemCard>
+        <ItemCard>
+          <DeleteSection />
+        </ItemCard>
+      </SettingsGroup>
 
       {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
         env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
@@ -179,31 +208,6 @@ export function SettingsContent() {
           </ItemCard>
         </SettingsGroup>
       )}
-
-      <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
-        <ItemCard>
-          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
-          <ItemSeparator />
-          <AppearanceSection />
-          <ItemSeparator />
-          <Item size="sm">
-            <ItemContent>
-              <ItemTitle>Beta Features</ItemTitle>
-              <ItemDescription>
-                Try experimental features that are still in progress.
-              </ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/early-access">Open</Link>
-              </Button>
-            </ItemActions>
-          </Item>
-        </ItemCard>
-        <ItemCard>
-          <DeleteSection />
-        </ItemCard>
-      </SettingsGroup>
     </div>
   );
 }
