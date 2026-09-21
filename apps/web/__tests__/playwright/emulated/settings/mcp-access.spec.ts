@@ -194,10 +194,10 @@ test("requires client consent, enforces read-only access, and disconnects existi
   });
   expect(revoked.status()).toBe(401);
   await toggle.click();
-  await expect(toggle).toBeChecked();
-  await expect(toggle).toBeEnabled();
   await expect(page.getByRole("dialog", { name: "Connect MCP" })).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(toggle).toBeChecked();
+  await expect(toggle).toBeEnabled();
   const stillRevoked = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 6, method: "tools/list" },
