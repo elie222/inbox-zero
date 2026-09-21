@@ -46,6 +46,7 @@ export function ClassifierSection() {
       </ItemContent>
       <ItemActions>
         <Switch
+          aria-label="Fast rule matching"
           checked={data.classifierEnabled}
           onCheckedChange={(classifierEnabled) => {
             mutate({ ...data, classifierEnabled }, false);
