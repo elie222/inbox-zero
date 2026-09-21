@@ -54,6 +54,9 @@ export async function handleLoopsEvents({
 
         throw error;
       });
+
+      // Sets the Loops tier so signup nudges stop targeting trial users
+      if (newTier) await startedTrial(email, newTier);
     }
 
     // 2. Payment scenarios - distinguish between trial completion and direct purchase
