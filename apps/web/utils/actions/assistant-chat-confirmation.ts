@@ -221,7 +221,6 @@ export async function confirmAssistantCreateRuleForAccount({
       provider,
       runOnThreads: true,
       logger,
-      enablement: { source: "chat", chatRiskConfirmed: true },
     });
   } catch (error) {
     if (

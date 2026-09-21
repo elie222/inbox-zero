@@ -93,7 +93,7 @@ describe.runIf(shouldRunDecisionModelEvals)(
     }
 
     test(
-      "folds cold-email classification into rule choice",
+      "asks cold-email classification alongside rule choice",
       async () => {
         const email = getEmail({
           from: "sales@agency.example",
@@ -103,7 +103,7 @@ describe.runIf(shouldRunDecisionModelEvals)(
         });
 
         await compareDecision({
-          testName: "cold email folded into choose rule",
+          testName: "cold email alongside choose rule",
           expected: true,
           runJev: async () =>
             (
@@ -116,7 +116,7 @@ describe.runIf(shouldRunDecisionModelEvals)(
                 classificationFeedback: null,
                 logger: decisionModelEvalLogger,
               })
-            ).isColdEmail,
+            ).type === "coldEmail",
           runLuna: async () =>
             (
               await checkColdEmailWithLlm({
@@ -150,20 +150,20 @@ async function compareRuleSelection({
   await compareDecision({
     testName,
     expected,
-    runJev: async () =>
-      (
-        await decisionModelChooseRule({
-          decisionModel: decisionModelConfig,
-          message: toParsedMessage(email),
-          emailAccount: lunaEmailAccount,
-          rules,
-          coldEmailRule: null,
-          classificationFeedback: null,
-          logger: decisionModelEvalLogger,
-        })
-      ).rules
-        .map(({ rule }) => rule.name)
-        .sort(),
+    runJev: async () => {
+      const result = await decisionModelChooseRule({
+        decisionModel: decisionModelConfig,
+        message: toParsedMessage(email),
+        emailAccount: lunaEmailAccount,
+        rules,
+        coldEmailRule: null,
+        classificationFeedback: null,
+        logger: decisionModelEvalLogger,
+      });
+      if (result.type === "undecided") return ["Undecided"];
+      if (result.type === "coldEmail") return ["Cold Email"];
+      return result.rules.map(({ rule }) => rule.name).sort();
+    },
     runLuna: async () =>
       (
         await aiChooseRule({

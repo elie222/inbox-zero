@@ -122,6 +122,8 @@ const microsoftSocialProvider =
         scope: [...OUTLOOK_SCOPES],
         tenantId: env.MICROSOFT_TENANT_ID,
         disableIdTokenSignIn: true,
+        // Inlined as a data URI on the user row; handleLinkAccount already has it.
+        disableProfilePhoto: true,
         // The only hook that sees the decoded id_token before better-auth looks
         // the account up, so the only place both account keys are known.
         mapProfileToUser: async (profile: MicrosoftProfile) => {
@@ -344,12 +346,14 @@ export const betterAuthConfig = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          if (isAllowedAuthSignupEmail(user.email)) return;
+          if (!isAllowedAuthSignupEmail(user.email)) {
+            logger.warn("Blocked auth sign-up outside configured allowlist", {
+              emailDomain: user.email.split("@")[1]?.toLowerCase(),
+            });
+            assertAllowedAuthSignupEmail(user.email);
+          }
 
-          logger.warn("Blocked auth sign-up outside configured allowlist", {
-            emailDomain: user.email.split("@")[1]?.toLowerCase(),
-          });
-          assertAllowedAuthSignupEmail(user.email);
+          return dropInlineImage(user);
         },
         after: async (user, context) => {
           markAuthContextAsNewUser(context?.context);
@@ -363,6 +367,9 @@ export const betterAuthConfig = betterAuth({
             captureException(error, { extra: { user } });
           });
         },
+      },
+      update: {
+        before: async (user) => dropInlineImage(user),
       },
     },
     account: {
@@ -936,4 +943,11 @@ function scheduleEmailWatchesAfterLink(userId: string) {
       });
     }),
   );
+}
+
+// Better Auth replays the user row inside the session cookie, so an inline photo
+// pushes request headers past the edge limit and locks the account out.
+function dropInlineImage(user: { image?: string | null }) {
+  if (typeof user.image !== "string" || !/^data:/i.test(user.image)) return;
+  return { data: { image: null } };
 }

@@ -101,7 +101,7 @@ export async function findMatchingRules({
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   // With a decision model, only the deterministic cold-email guards run here. When
-  // they can't decide, the cold-email question is folded into the rule choice.
+  // they can't decide, ask it about cold email alongside rule selection.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -155,7 +155,7 @@ export async function findMatchingRules({
       : null;
 
   if (decisionModel && (potentialAiMatches.length || pendingColdEmailRule)) {
-    const decisionResult = await decisionModelChooseRule({
+    const selection = await decisionModelChooseRule({
       decisionModel,
       message,
       emailAccount,
@@ -173,20 +173,28 @@ export async function findMatchingRules({
       return null;
     });
 
-    if (decisionResult?.isColdEmail && pendingColdEmailRule) {
-      return buildColdEmailMatch({
-        coldEmailRuleId: pendingColdEmailRule.id,
-        matchReasons: [{ type: ConditionType.AI }],
-        reasoning: decisionResult.reason,
-        selectionMetadata,
-      });
-    }
+    if (selection) {
+      if (selection.type === "coldEmail" && pendingColdEmailRule) {
+        return buildColdEmailMatch({
+          coldEmailRuleId: pendingColdEmailRule.id,
+          matchReasons: [{ type: ConditionType.AI }],
+          reasoning: selection.reason,
+          selectionMetadata,
+        });
+      }
+      // Settled, so the LLM check below must not re-ask it.
+      pendingColdEmailRule = null;
 
-    if (decisionResult) {
-      return mergeAiResultsIntoMatches({
-        matches,
-        aiResult: decisionResult,
-        selectionMetadata,
+      if (selection.type === "rules") {
+        return mergeAiResultsIntoMatches({
+          matches,
+          aiResult: selection,
+          selectionMetadata,
+        });
+      }
+
+      logger.info("Decision model deferred the rule choice to the LLM path", {
+        reason: selection.reason,
       });
     }
   }
