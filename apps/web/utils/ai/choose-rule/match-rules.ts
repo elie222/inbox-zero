@@ -49,6 +49,7 @@ import { classifierChooseRule } from "@/utils/ai/choose-rule/classifier-choose-r
 import { getClassifierConfig } from "@/utils/classifier/classify";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
+import { getEffectiveRuleInstructions } from "@/utils/rule/consts";
 import {
   getSelectionMetadataTraceDetails,
   summarizeSelectionMetadata,
@@ -419,7 +420,7 @@ async function findPotentialMatchingRules({
     if (potentialAiMatch) {
       potentialAiMatches.push({
         ...rule,
-        instructions: rule.instructions ?? "",
+        instructions: getEffectiveRuleInstructions(rule) ?? "",
       });
     }
   }

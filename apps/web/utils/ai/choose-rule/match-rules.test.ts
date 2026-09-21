@@ -35,6 +35,7 @@ import { classifierChooseRule } from "@/utils/ai/choose-rule/classifier-choose-r
 import { getClassifierConfig } from "@/utils/classifier/classify";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
+import { getRuleConfig } from "@/utils/rule/consts";
 
 const logger = createTestLogger();
 
@@ -2289,6 +2290,49 @@ describe("findMatchingRules - Integration Tests", () => {
       { type: ConditionType.AI },
     ]);
     expect(result.reasoning).toBe("This is a promotional email");
+  });
+
+  it("sends the current default to the chooser for a rule on a previous default", async () => {
+    const receiptRule = getRule({
+      id: "receipt-rule",
+      name: "Receipt",
+      systemType: SystemType.RECEIPT,
+      instructions: getRuleConfig(SystemType.RECEIPT).previousInstructions?.[0],
+    });
+    const customisedRule = getRule({
+      id: "customised-rule",
+      name: "Newsletter",
+      systemType: SystemType.NEWSLETTER,
+      instructions: "Only newsletters I subscribed to",
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: receiptRule as any }],
+      reason: "Receipt",
+    });
+
+    await findMatchingRules({
+      rules: [receiptRule, customisedRule],
+      message: getMessage(),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    const sentRules = vi.mocked(aiChooseRule).mock.calls[0]?.[0].rules;
+    expect(
+      sentRules?.map(({ name, instructions }) => ({ name, instructions })),
+    ).toEqual([
+      {
+        name: "Receipt",
+        instructions: getRuleConfig(SystemType.RECEIPT).instructions,
+      },
+      {
+        name: "Newsletter",
+        instructions: "Only newsletters I subscribed to",
+      },
+    ]);
   });
 
   it("should prioritize learned patterns over AI rules", async () => {
