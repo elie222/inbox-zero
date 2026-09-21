@@ -180,11 +180,17 @@ async function compareRuleSelection({
 }
 
 function toParsedMessage(email: ReturnType<typeof getEmail>) {
-  return getMockMessage({
+  const message = getMockMessage({
     from: email.from,
     to: email.to,
     subject: email.subject,
     textPlain: email.content,
-    listUnsubscribe: email.listUnsubscribe,
-  }) as unknown as ParsedMessage;
+  });
+  return {
+    ...message,
+    headers: {
+      ...message.headers,
+      "list-unsubscribe": email.listUnsubscribe,
+    },
+  } as unknown as ParsedMessage;
 }

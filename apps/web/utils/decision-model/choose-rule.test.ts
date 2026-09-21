@@ -261,6 +261,22 @@ describe("decisionModelChooseRule", () => {
       });
     });
 
+    it("falls back when the aggregated winner is below the confidence threshold", async () => {
+      mockAnswer("Conversations", {
+        confidence: 0.4,
+        probabilities: {
+          Conversations: 0.4,
+          Newsletter: 0.29,
+          Marketing: 0.16,
+          Notification: 0.15,
+        },
+      });
+
+      await expect(
+        chooseRule({ rules: [...contentRules, systemNotificationRule] }),
+      ).rejects.toThrow("confidence is too low");
+    });
+
     it("keeps Conversations when it outweighs content together", async () => {
       mockAnswer("Conversations", {
         confidence: 0.6,

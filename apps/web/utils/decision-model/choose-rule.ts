@@ -149,11 +149,10 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
   if (answer?.type !== "choice") {
     throw new Error("Decision model response is missing the rule choice");
   }
-  if (answer.confidence < MIN_CHOICE_CONFIDENCE) {
+  const { choice, probability, margin } = resolveChoice({ answer, rulesByKey });
+  if (probability < MIN_CHOICE_CONFIDENCE) {
     throw new Error("Decision model confidence is too low for rule selection");
   }
-
-  const { choice, probability, margin } = resolveChoice({ answer, rulesByKey });
   logger.info("Decision model chose rule", {
     choice,
     topChoice: answer.choice,
