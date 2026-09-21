@@ -433,6 +433,8 @@ export async function applyOutlookSyncResponse(
       const message = {
         ...result.message,
         historyId: result.changeKey ?? result.message.historyId,
+        // Outlook reports presence separately from the message body.
+        hasAttachment: result.hasAttachments,
       };
       const receivedAt = Number(message.internalDate);
       if (!Number.isFinite(receivedAt))
