@@ -130,6 +130,7 @@ export const testColdEmailAction = actionClient
         provider: emailProvider,
         modelType: "chat",
         coldEmailRule,
+        logger,
       });
 
       return response;

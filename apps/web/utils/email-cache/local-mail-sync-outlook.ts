@@ -359,6 +359,7 @@ export async function applyOutlookSyncResponse(
         response.result.messages.map((entry) => ({
           ...entry.message,
           historyId: entry.changeKey ?? entry.message.historyId,
+          hasAttachment: entry.hasAttachments,
         })),
         fetchedAt,
         { retention: getLocalMailSyncRetention(state, job) },
@@ -384,6 +385,7 @@ export async function applyOutlookSyncResponse(
     const messages = response.result.messages.map((entry) => ({
       ...entry.message,
       historyId: entry.changeKey ?? entry.message.historyId,
+      hasAttachment: entry.hasAttachments,
     }));
     await storeLocalMailMessages(
       transaction,
@@ -431,6 +433,8 @@ export async function applyOutlookSyncResponse(
       const message = {
         ...result.message,
         historyId: result.changeKey ?? result.message.historyId,
+        // Outlook reports presence separately from the message body.
+        hasAttachment: result.hasAttachments,
       };
       const receivedAt = Number(message.internalDate);
       if (!Number.isFinite(receivedAt))
@@ -641,9 +645,9 @@ async function ensureFolder(
   );
 }
 function mergeMetadata(
-  previous: ParsedMessage,
+  previous: ParsedMessage & { hasAttachment?: boolean },
   patch: DeltaPatch,
-): ParsedMessage {
+): ParsedMessage & { hasAttachment?: boolean } {
   const result = {
     ...previous,
     headers: { ...previous.headers },
@@ -655,6 +659,8 @@ function mergeMetadata(
     result.headers.subject = patch.subject ?? "";
   }
   if (patch.bodyPreview !== undefined) result.snippet = patch.bodyPreview ?? "";
+  if (patch.hasAttachments !== undefined)
+    result.hasAttachment = patch.hasAttachments ?? undefined;
   if (patch.internalDate !== undefined && patch.internalDate !== null)
     result.internalDate = patch.internalDate;
   if (patch.parentFolderId !== undefined)

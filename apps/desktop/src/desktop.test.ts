@@ -40,9 +40,13 @@ describe("desktop shell helpers", () => {
 
   it("builds the system-browser OAuth start URL", () => {
     expect(
-      getDesktopBrowserStartUrl("https://www.getinboxzero.com", "google"),
+      getDesktopBrowserStartUrl(
+        "https://www.getinboxzero.com",
+        "google",
+        "challenge",
+      ),
     ).toBe(
-      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=challenge",
     );
   });
 

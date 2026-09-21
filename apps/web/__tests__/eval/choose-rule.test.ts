@@ -6,7 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
+import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";

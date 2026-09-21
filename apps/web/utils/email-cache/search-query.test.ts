@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { matchesLocalSearch, parseLocalSearch } from "./search-query";
 
 const message = {
@@ -89,9 +89,102 @@ describe("local search queries", () => {
     expect(parsed).toBeDefined();
     expect(matchesLocalSearch(trashed, parsed)).toBe(true);
   });
+  afterEach(() => vi.useRealTimers());
+  it("reads relative and aliased date operators", () => {
+    // The fixture is dated 2026-09-10; anchor the clock five days later.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-15T12:00:00Z"));
+    expect(matches("newer_than:7d")).toBe(true);
+    expect(matches("newer_than:2d")).toBe(false);
+    expect(matches("older_than:2d")).toBe(true);
+    expect(matches("older_than:7d")).toBe(false);
+    expect(matches("newer_than:1m")).toBe(true);
+    expect(matches("older_than:1m")).toBe(false);
+    expect(matches("newer_than:1y")).toBe(true);
+    expect(matches("older_than:1y")).toBe(false);
+    expect(matches("newer_than:7d older_than:2d")).toBe(true);
+    expect(matches("newer_than:2d OR older_than:2d")).toBe(true);
+    expect(matches("-newer_than:2d")).toBe(true);
+    expect(matches("newer:2026/09/09")).toBe(true);
+    expect(matches("older:2026/09/09")).toBe(false);
+    expect(matches("older:2026/09/11")).toBe(true);
+  });
+  it("clamps a calendar step into a shorter month", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-31T12:00:00Z"));
+    const at = (iso: string) => ({
+      ...message,
+      internalDate: String(Date.parse(iso)),
+    });
+    // One month before 31 March is 28 February, so early March is not older.
+    const older = parseLocalSearch("older_than:1m", [])!;
+    expect(matchesLocalSearch(at("2026-03-02T12:00:00Z"), older)).toBe(false);
+    expect(matchesLocalSearch(at("2026-02-27T12:00:00Z"), older)).toBe(true);
+    vi.setSystemTime(new Date("2028-02-29T12:00:00Z"));
+    const year = parseLocalSearch("older_than:1y", [])!;
+    expect(matchesLocalSearch(at("2027-03-01T12:00:00Z"), year)).toBe(false);
+    expect(matchesLocalSearch(at("2027-02-27T12:00:00Z"), year)).toBe(true);
+  });
+  it("measures a day as elapsed time across a clock change", () => {
+    // New York moves off daylight time on 1 November 2026, so the local day
+    // before this instant is 25 hours long. A calendar step would put the
+    // boundary an hour later than two days' worth of elapsed time.
+    const timezone = process.env.TZ;
+    process.env.TZ = "America/New_York";
+    try {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-01T17:00:00Z"));
+      const parsed = parseLocalSearch("newer_than:1d", [])!;
+      const at = (iso: string) => ({
+        ...message,
+        internalDate: String(Date.parse(iso)),
+      });
+      expect(matchesLocalSearch(at("2026-10-31T17:30:00Z"), parsed)).toBe(true);
+      expect(matchesLocalSearch(at("2026-10-31T16:30:00Z"), parsed)).toBe(
+        false,
+      );
+    } finally {
+      if (timezone === undefined) Reflect.deleteProperty(process.env, "TZ");
+      else process.env.TZ = timezone;
+    }
+  });
+  it("matches attachment presence from either provider's signal", () => {
+    // Gmail keeps attachment metadata; Outlook only reports a flag.
+    const gmail = { ...message, attachments: [{ filename: "report.pdf" }] };
+    const outlook = { ...message, hasAttachment: true };
+    const parsed = parseLocalSearch("has:attachment", [])!;
+    expect(matchesLocalSearch(gmail as typeof message, parsed)).toBe(true);
+    expect(matchesLocalSearch(outlook, parsed)).toBe(true);
+    expect(matchesLocalSearch(message, parsed)).toBe(false);
+    expect(
+      matchesLocalSearch(message, parseLocalSearch("-has:attachment", [])!),
+    ).toBe(true);
+    expect(
+      matchesLocalSearch(outlook, parseLocalSearch("-has:attachment", [])!),
+    ).toBe(false);
+    expect(
+      matchesLocalSearch(
+        outlook,
+        parseLocalSearch("has:attachment report", [])!,
+      ),
+    ).toBe(true);
+    // An explicit false from Outlook wins over absent Gmail metadata.
+    expect(matchesLocalSearch({ ...gmail, hasAttachment: false }, parsed)).toBe(
+      false,
+    );
+  });
   it.each([
     "{a b}",
-    "has:attachment",
+    "has:unknown",
+    "has:",
+    "newer_than:99999999999999999999d",
+    "newer_than:99999999999999999999y",
+    "newer_than:7",
+    "newer_than:d",
+    "newer_than:7w",
+    "newer_than:-7d",
+    "older_than:",
+    "newer:2026/02/30",
     "larger:1M",
     "is:unknown",
     "from:",

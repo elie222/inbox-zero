@@ -792,8 +792,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).toContain(
@@ -864,8 +863,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     const content = hiddenContext?.content ?? "";
@@ -931,8 +929,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).toContain(
@@ -988,8 +985,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).not.toContain(
@@ -1050,8 +1046,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).toContain(
@@ -1113,8 +1108,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).not.toContain(
@@ -1173,8 +1167,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).toContain(
@@ -1244,8 +1237,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "user" &&
-        message.content.includes("Hidden context for the user's request"),
+        message.role === "user" && message.content.startsWith("Hidden context"),
     );
 
     expect(hiddenContext?.content).not.toContain(

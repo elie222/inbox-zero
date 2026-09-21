@@ -5,6 +5,7 @@ import type { ParsedMessage } from "@/utils/types";
 type SearchTerm =
   | { field: "text" | "from" | "to" | "subject"; value: string }
   | { field: "label"; value: string }
+  | { field: "attachment" }
   | { field: "after"; value: number }
   | { field: "before"; value: number };
 
@@ -34,7 +35,12 @@ export type SearchMessage = Pick<
   | "internalDate"
   | "labelIds"
 > &
-  Partial<Pick<ParsedMessage, "textPlain" | "date" | "parentFolderId">>;
+  Partial<
+    Pick<ParsedMessage, "textPlain" | "date" | "parentFolderId" | "attachments">
+  > & {
+    /** Outlook reports attachment presence without the metadata Gmail keeps. */
+    hasAttachment?: boolean;
+  };
 
 export function parseLocalSearch(
   query: string,
@@ -190,7 +196,19 @@ function parseTermNode(
       term: { field: field as "text" | "from" | "to" | "subject", value },
     };
   }
-  if (field === "after" || field === "before") {
+  if (field === "older_than" || field === "newer_than") {
+    const boundary = readRelativeDate(value);
+    if (boundary === undefined) return;
+    return {
+      type: "term",
+      term: {
+        field: field === "older_than" ? "before" : "after",
+        value: boundary,
+      },
+    };
+  }
+  const dateField = DATE_FIELD_ALIASES[field] ?? field;
+  if (dateField === "after" || dateField === "before") {
     const date = value.replaceAll("/", "-");
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return;
     const utc = new Date(`${date}T00:00:00Z`);
@@ -202,8 +220,12 @@ function parseTermNode(
     // Gmail interprets calendar dates at midnight PST, independent of the device timezone.
     return {
       type: "term",
-      term: { field, value: Date.parse(`${date}T00:00:00-08:00`) },
+      term: { field: dateField, value: Date.parse(`${date}T00:00:00-08:00`) },
     };
+  }
+  if (field === "has") {
+    if (value !== "attachment") return;
+    return { type: "term", term: { field: "attachment" } };
   }
   if (!LOCATION_FIELDS.has(field)) return;
   if (field === "in" && value === "anywhere") {
@@ -220,6 +242,39 @@ function parseTermNode(
   return { type: "term", term: { field: "label", value: label } };
 }
 
+/** A day is an exact duration, so `newer_than:2d` is the last 48 hours however
+ *  the clock shifts. Months and years step the calendar instead, keeping the
+ *  same local time of day. An age large enough to leave the representable date
+ *  range yields no bound, which defers the query to the provider. */
+function readRelativeDate(value: string) {
+  const parts = /^(\d+)([dmy])$/u.exec(value);
+  if (!parts) return;
+  const amount = Number(parts[1]);
+  if (parts[2] === "d") return asTimestamp(Date.now() - amount * 86_400_000);
+  return asTimestamp(stepMonthsBack(parts[2] === "m" ? amount : amount * 12));
+}
+
+/** Stepping straight back overflows into the following month whenever the
+ *  target is shorter than the current one, so the day is clamped first: one
+ *  month before 31 March is 28 February, not 3 March. */
+function stepMonthsBack(months: number) {
+  const boundary = new Date();
+  const day = boundary.getDate();
+  boundary.setDate(1);
+  boundary.setMonth(boundary.getMonth() - months);
+  const lastDay = new Date(
+    boundary.getFullYear(),
+    boundary.getMonth() + 1,
+    0,
+  ).getDate();
+  boundary.setDate(Math.min(day, lastDay));
+  return boundary.getTime();
+}
+
+function asTimestamp(value: number) {
+  return Number.isSafeInteger(value) ? value : undefined;
+}
+
 /** Excluding spam or trash is not a request to search it, so a negated term
  *  must leave the default corpus alone. */
 function widenCorpus(state: ParserState) {
@@ -234,6 +289,7 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
   if (node.type === "or")
     return node.nodes.some((child) => matchesNode(message, child));
   const term = node.term;
+  if (term.field === "attachment") return hasLocalMailAttachment(message);
   if (term.field === "label") {
     return term.value === ARCHIVE_SEARCH_LABEL
       ? isArchivedLocalMessage(message.labelIds)
@@ -251,12 +307,24 @@ function matchesNode(message: SearchMessage, node: SearchNode): boolean {
   return getNormalizedSearchText(message, term.field).includes(term.value);
 }
 
+/** Gmail keeps attachment metadata on the message; Outlook only reports a
+ *  flag. Both search paths and the index read presence through here. */
+export function hasLocalMailAttachment(
+  message: Pick<SearchMessage, "attachments" | "hasAttachment">,
+) {
+  return message.hasAttachment ?? Boolean(message.attachments?.length);
+}
+
 function isArchivedLocalMessage(labelIds: string[] | undefined) {
   if (labelIds?.includes(ARCHIVE_SEARCH_LABEL)) return true;
   if (!labelIds?.length) return false;
   return !LIVE_MAILBOX_LABELS.some((label) => labelIds.includes(label));
 }
 
+const DATE_FIELD_ALIASES: Record<string, string> = {
+  older: "before",
+  newer: "after",
+};
 /** Outlook stores a real archive label; Gmail has none, so the index cannot
  *  select archived mail by token and must fall back to an exact check. */
 export const ARCHIVE_SEARCH_LABEL = "ARCHIVE";

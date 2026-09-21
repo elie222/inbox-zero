@@ -1,7 +1,10 @@
 import { GroupItemSource, type SystemType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  removeAiLearnedPattern,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 
 export async function recordLabelRemovalLearning({
   sender,
@@ -22,6 +25,19 @@ export async function recordLabelRemovalLearning({
 }) {
   if (!sender) {
     logger.info("No sender found, skipping learning");
+    return;
+  }
+
+  if (ruleId && !systemType) {
+    // A custom rule's label can be removed as part of a normal workflow, so this
+    // isn't strong enough to exclude the sender. It does contradict an AI-inferred
+    // sender pattern, which would otherwise keep reapplying the label.
+    const removedCount = await removeAiLearnedPattern({
+      emailAccountId,
+      from: sender,
+      ruleId,
+    });
+    logger.info("Processed custom rule label removal", { removedCount });
     return;
   }
 

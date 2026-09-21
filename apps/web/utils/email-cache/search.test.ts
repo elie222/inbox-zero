@@ -133,7 +133,7 @@ describe("cached mail search", () => {
   });
   it("does not approximate unsupported expressions", async () => {
     await seed("account-a", message("first"));
-    expect(await search("has:attachment")).toEqual({
+    expect(await search("larger:1M")).toEqual({
       status: "unsupported",
       threads: [],
     });

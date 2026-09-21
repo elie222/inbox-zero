@@ -50,6 +50,8 @@ import {
   getCheckoutSessionIdHash,
   getServerFeatureFlagVariant,
   posthogCaptureEvent,
+  trackBillingCancellationInitiated,
+  trackBillingTrialConverted,
   trackFirstTimeEvent,
   trackProductFeedback,
   trackStripeCheckoutCreated,
@@ -361,6 +363,45 @@ describe("posthogCaptureEvent", () => {
     ).resolves.toBe(true);
 
     expect(catchSpy).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Stripe billing outcome events", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures the paid trial conversion event used by experiments", async () => {
+    await trackBillingTrialConverted("user@example.com", {
+      subscriptionId: "sub_test",
+    });
+
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "billing_trial_converted",
+      properties: {
+        subscriptionId: "sub_test",
+        $set: {
+          premium: true,
+          premiumTier: "subscription",
+          premiumStatus: "active",
+        },
+      },
+      sendFeatureFlags: undefined,
+    });
+  });
+
+  it("captures the scheduled cancellation event used by experiments", async () => {
+    await trackBillingCancellationInitiated("user@example.com", {
+      subscriptionId: "sub_test",
+    });
+
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "billing_cancellation_initiated",
+      properties: { subscriptionId: "sub_test" },
+      sendFeatureFlags: undefined,
+    });
   });
 });
 

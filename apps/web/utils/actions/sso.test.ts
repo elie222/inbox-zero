@@ -68,6 +68,17 @@ describe("registerSSOProviderAction", () => {
     );
   });
 
+  it.each([
+    null,
+    { user: { id: "basic-user", email: "basic@example.com" } },
+  ])("rejects callers without application admin access: %s", async (session) => {
+    mockAuth.mockResolvedValue(session);
+    const result = await registerSSOProviderAction(input);
+    expect(result?.serverError).toBe("Unauthorized");
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
+  });
+
   it("creates a new organization when none exists with that name", async () => {
     prisma.organization.findUnique.mockResolvedValue(null);
     prisma.organization.create.mockResolvedValue({
