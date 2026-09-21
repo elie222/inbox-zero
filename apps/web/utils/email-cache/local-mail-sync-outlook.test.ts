@@ -306,6 +306,31 @@ describe("durable Outlook local mail synchronization", () => {
       (await readLocalMailSyncState(emailAccountId))?.discoveryComplete,
     ).toBe(true);
   });
+  it("stores Outlook attachment presence reported by message lookup", async () => {
+    await initialize();
+    clock += 60_000;
+    await tick(delta([{ id: "attached", internalDate: String(now - day) }]));
+    const lookup = found(message("attached"));
+    if (
+      lookup.status !== "ok" ||
+      lookup.phase !== "message-lookup" ||
+      lookup.result.status !== "found"
+    )
+      throw new Error("Unexpected fixture");
+    lookup.result.hasAttachments = true;
+    await tick(lookup);
+    expect((await stored("attached"))?.data.hasAttachment).toBe(true);
+  });
+  it("applies an Outlook attachment flag from a delta without attachment files", async () => {
+    await capabilities();
+    await folders();
+    await seed(message("existing"), now - 1000);
+    await tick(delta([{ id: "existing", hasAttachments: true }]));
+    expect((await stored("existing"))?.data.hasAttachment).toBe(true);
+    clock += 60_000;
+    await tick(delta([{ id: "existing", hasAttachments: false }]));
+    expect((await stored("existing"))?.data.hasAttachment).toBe(false);
+  });
   it("merges sparse metadata without erasing bodies or inventing missing fields", async () => {
     await capabilities();
     await folders();

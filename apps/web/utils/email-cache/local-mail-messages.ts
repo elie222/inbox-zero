@@ -114,6 +114,7 @@ export async function storeLocalMailMessages(
       bodyContentType: body?.bodyContentType,
       inline: body?.inline ?? metadata.inline,
       attachments: metadata.attachments ?? previous?.data.attachments,
+      ...attachmentPresence(message, previous, fetchedAt),
     };
     const timestamp = data.internalDate || data.date;
     const receivedAt = /^-?\d+$/u.test(timestamp)
@@ -343,6 +344,22 @@ export async function evictLocalMailMessage(
   });
   await markSearchThreadsDirty(transaction, row.emailAccountId, [row.threadId]);
   return true;
+}
+
+function attachmentPresence(
+  message: { hasAttachment?: boolean },
+  previous:
+    | { fetchedAt: number; data: { hasAttachment?: boolean } }
+    | undefined,
+  fetchedAt: number,
+): { hasAttachment?: boolean } {
+  // An older write must not replace a flag already stored by a newer snapshot.
+  if (previous && previous.fetchedAt > fetchedAt) return {};
+  if (message.hasAttachment !== undefined)
+    return { hasAttachment: message.hasAttachment };
+  if (previous?.data.hasAttachment !== undefined)
+    return { hasAttachment: previous.data.hasAttachment };
+  return {};
 }
 
 async function repairLocalMailProjection(

@@ -144,7 +144,8 @@ describe("local search queries", () => {
         false,
       );
     } finally {
-      process.env.TZ = timezone;
+      if (timezone === undefined) Reflect.deleteProperty(process.env, "TZ");
+      else process.env.TZ = timezone;
     }
   });
   it("matches attachment presence from either provider's signal", () => {
