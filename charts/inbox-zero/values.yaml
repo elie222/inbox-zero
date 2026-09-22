@@ -159,13 +159,20 @@ externalRedis:
   # existingSecret so Redis credentials are managed outside Helm.
   enabled: false
   redisUrl: ""
+  redisHttpUrl: ""
+  redisHttpToken: ""
+  # Deprecated aliases. Used when redisHttpUrl / redisHttpToken are empty.
   upstashRedisUrl: ""
   upstashRedisToken: ""
   existingSecret:
     name: ""
     redisUrlKey: REDIS_URL
-    upstashRedisUrlKey: UPSTASH_REDIS_URL
-    upstashRedisTokenKey: UPSTASH_REDIS_TOKEN
+    # Leave empty to accept either REDIS_HTTP_* or legacy UPSTASH_REDIS_* keys.
+    redisHttpUrlKey: ""
+    redisHttpTokenKey: ""
+    # Deprecated. Set only when the secret uses a custom legacy key name.
+    upstashRedisUrlKey: ""
+    upstashRedisTokenKey: ""
 
 redis:
   # Ignored when externalRedis.enabled=true.

@@ -285,8 +285,10 @@ export default defineConfig({
         ANTHROPIC_API_KEY: "",
         OPENROUTER_API_KEY: "",
         AI_GATEWAY_API_KEY: "",
-        UPSTASH_REDIS_URL: process.env.UPSTASH_REDIS_URL ?? "",
-        UPSTASH_REDIS_TOKEN: process.env.UPSTASH_REDIS_TOKEN ?? "",
+        REDIS_HTTP_URL:
+          process.env.REDIS_HTTP_URL || process.env.UPSTASH_REDIS_URL || "",
+        REDIS_HTTP_TOKEN:
+          process.env.REDIS_HTTP_TOKEN || process.env.UPSTASH_REDIS_TOKEN || "",
         QSTASH_TOKEN: "",
         QSTASH_CURRENT_SIGNING_KEY: "",
         QSTASH_NEXT_SIGNING_KEY: "",

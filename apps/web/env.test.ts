@@ -154,3 +154,64 @@ describe("env LLM compatibility conversion", () => {
     expect(env.AI_SENDER_PATTERN_LEARNING_ENABLED).toBe(false);
   });
 });
+
+const redisHttpEnvKeys = [
+  "REDIS_HTTP_URL",
+  "REDIS_HTTP_TOKEN",
+  "UPSTASH_REDIS_URL",
+  "UPSTASH_REDIS_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+] as const;
+
+describe("HTTP Redis environment names", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    for (const key of redisHttpEnvKeys) delete process.env[key];
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    for (const key of Object.keys(process.env)) delete process.env[key];
+    Object.assign(process.env, originalEnv);
+  });
+
+  it("uses REDIS_HTTP_URL and REDIS_HTTP_TOKEN when they are set", async () => {
+    process.env.REDIS_HTTP_URL = "https://redis.example.com";
+    process.env.REDIS_HTTP_TOKEN = "new-token";
+    process.env.UPSTASH_REDIS_URL = "https://legacy.example.com";
+    process.env.UPSTASH_REDIS_TOKEN = "legacy-token";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://redis.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("new-token");
+  });
+
+  it("falls back to legacy Upstash names ahead of Vercel KV", async () => {
+    process.env.UPSTASH_REDIS_URL = "https://legacy.example.com";
+    process.env.UPSTASH_REDIS_TOKEN = "legacy-token";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://legacy.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("legacy-token");
+  });
+
+  it("uses Vercel KV names when the HTTP and legacy names are blank", async () => {
+    process.env.REDIS_HTTP_URL = "  ";
+    process.env.UPSTASH_REDIS_TOKEN = "";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://kv.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("kv-token");
+  });
+});

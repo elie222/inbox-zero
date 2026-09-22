@@ -88,16 +88,16 @@ export function generateEnvFile(config: {
     setValue("WEB_PORT", env.WEB_PORT);
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   } else {
     // External infra - set placeholders
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   }
@@ -216,6 +216,7 @@ const SENSITIVE_KEYS = new Set([
   "INTERNAL_API_KEY",
   "API_KEY_SALT",
   "CRON_SECRET",
+  "REDIS_HTTP_TOKEN",
   "UPSTASH_REDIS_TOKEN",
   "POSTGRES_PASSWORD",
 ]);

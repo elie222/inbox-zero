@@ -424,8 +424,8 @@ function buildRuntimeEnv(state: WorktreeState) {
   }
 
   overrides.REDIS_URL = `redis://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_PORT}`;
-  overrides.UPSTASH_REDIS_URL = `http://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_HTTP_PORT}`;
-  overrides.UPSTASH_REDIS_TOKEN = LOCAL_REDIS_TOKEN;
+  overrides.REDIS_HTTP_URL = `http://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_HTTP_PORT}`;
+  overrides.REDIS_HTTP_TOKEN = LOCAL_REDIS_TOKEN;
 
   return {
     ...baseEnv,
@@ -704,10 +704,10 @@ async function ensureLocalPostgres(localEnv: Record<string, string>) {
 
 async function ensureLocalRedis() {
   const redisUrl = `redis://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_PORT}`;
-  const upstashUrl = `http://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_HTTP_PORT}`;
+  const redisHttpUrl = `http://${LOCAL_REDIS_HOST}:${LOCAL_REDIS_HTTP_PORT}`;
 
   const needsTcpRedis = await needsLocalRedisService(redisUrl);
-  const needsHttpRedis = await needsLocalRedisService(upstashUrl);
+  const needsHttpRedis = await needsLocalRedisService(redisHttpUrl);
 
   if (!needsTcpRedis && !needsHttpRedis) return;
 
@@ -718,6 +718,8 @@ async function ensureLocalRedis() {
   env.REDIS_PORT = String(LOCAL_REDIS_PORT);
   env.REDIS_HTTP_BIND_HOST = LOCAL_REDIS_HOST;
   env.REDIS_HTTP_PORT = String(LOCAL_REDIS_HTTP_PORT);
+  env.REDIS_HTTP_TOKEN = LOCAL_REDIS_TOKEN;
+  // Older Compose files still read this name for the HTTP proxy token.
   env.UPSTASH_REDIS_TOKEN = LOCAL_REDIS_TOKEN;
 
   await runCommand(

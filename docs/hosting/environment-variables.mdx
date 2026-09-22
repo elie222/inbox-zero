@@ -43,9 +43,11 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | Yes* | Token for webhook verification | — |
 | **Redis** ||||
-| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
-| `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
+| `REDIS_HTTP_URL` | No* | HTTP Redis endpoint for caching and rate limits. Accepts Upstash, Vercel KV, or your own [serverless-redis-http](https://github.com/hiett/serverless-redis-http) proxy (*required if not using Docker Compose with local Redis) | — |
+| `REDIS_HTTP_TOKEN` | No* | Token for `REDIS_HTTP_URL` (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Redis URL for subscriptions and the optional BullMQ worker | — |
+| `UPSTASH_REDIS_URL` | Deprecated | Legacy alias for `REDIS_HTTP_URL`. Still read when `REDIS_HTTP_URL` is unset | — |
+| `UPSTASH_REDIS_TOKEN` | Deprecated | Legacy alias for `REDIS_HTTP_TOKEN`. Still read when `REDIS_HTTP_TOKEN` is unset | — |
 | **Image Proxy (Optional)** ||||
 | `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` | No | Base URL for the optional remote-image proxy. Example: `https://img.example.com/proxy` | — |
 | `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE` | No | Set to `true` to proxy remote images through the app's own Next.js route at `/api/image-proxy` instead of a separate proxy service | `false` |

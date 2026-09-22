@@ -71,7 +71,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "inbox-zero.secretName" . }}
-                  key: UPSTASH_REDIS_TOKEN
+                  key: REDIS_HTTP_TOKEN
             - name: SRH_CONNECTION_STRING
               {{- if .Values.existingSecret }}
               valueFrom:
