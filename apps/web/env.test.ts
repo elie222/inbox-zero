@@ -133,4 +133,24 @@ describe("env LLM compatibility conversion", () => {
       "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
     );
   });
+
+  it.each([
+    undefined,
+    "",
+    "   ",
+  ])("defaults sender pattern learning on when unset %j", async (value) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    if (value === undefined)
+      delete process.env.AI_SENDER_PATTERN_LEARNING_ENABLED;
+    else process.env.AI_SENDER_PATTERN_LEARNING_ENABLED = value;
+    const { env } = await import("./env");
+    expect(env.AI_SENDER_PATTERN_LEARNING_ENABLED).toBe(true);
+  });
+
+  it("disables sender pattern learning when set to false", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.AI_SENDER_PATTERN_LEARNING_ENABLED = "false";
+    const { env } = await import("./env");
+    expect(env.AI_SENDER_PATTERN_LEARNING_ENABLED).toBe(false);
+  });
 });

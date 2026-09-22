@@ -44,6 +44,7 @@ import {
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
+import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
@@ -230,7 +231,8 @@ export async function runRules({
         isTest,
         result,
         message,
-        emailAccountId: emailAccount.id,
+        emailAccount,
+        modelType,
         queuedSenderPatternAnalyses,
         logger,
       });
@@ -527,7 +529,11 @@ async function executeMatchedRule(
     rule.systemType === SystemType.COLD_EMAIL &&
     !matchReasons?.some(
       (matchReason) => matchReason.type === ConditionType.LEARNED_PATTERN,
-    )
+    ) &&
+    shouldLearnAiSenderPatterns({
+      user: emailAccount.user,
+      modelType,
+    })
   ) {
     const from =
       extractEmailAddress(message.headers.from) || message.headers.from;
@@ -647,22 +653,24 @@ async function analyzeSenderPatternIfAiMatch({
   isTest,
   result,
   message,
-  emailAccountId,
+  emailAccount,
+  modelType,
   queuedSenderPatternAnalyses,
   logger,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
   message: ParsedMessage;
-  emailAccountId: string;
+  emailAccount: EmailAccountForDrafting;
+  modelType: ModelType;
   queuedSenderPatternAnalyses: Set<string>;
   logger: Logger;
 }) {
-  if (shouldAnalyzeSenderPattern({ isTest, result })) {
+  if (shouldAnalyzeSenderPattern({ isTest, result, emailAccount, modelType })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
       const normalizedFromAddress = fromAddress.toLowerCase();
-      const analysisKey = `${emailAccountId}:${normalizedFromAddress}`;
+      const analysisKey = `${emailAccount.id}:${normalizedFromAddress}`;
 
       if (queuedSenderPatternAnalyses.has(analysisKey)) return;
       queuedSenderPatternAnalyses.add(analysisKey);
@@ -671,7 +679,7 @@ async function analyzeSenderPatternIfAiMatch({
         let senderAlreadyAnalyzed = false;
         try {
           senderAlreadyAnalyzed = await isSenderPatternAlreadyAnalyzed({
-            emailAccountId,
+            emailAccountId: emailAccount.id,
             from: normalizedFromAddress,
           });
         } catch (error) {
@@ -689,7 +697,7 @@ async function analyzeSenderPatternIfAiMatch({
 
         await analyzeSenderPattern(
           {
-            emailAccountId,
+            emailAccountId: emailAccount.id,
             from: normalizedFromAddress,
           },
           logger,
@@ -702,11 +710,23 @@ async function analyzeSenderPatternIfAiMatch({
 function shouldAnalyzeSenderPattern({
   isTest,
   result,
+  emailAccount,
+  modelType,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  emailAccount: EmailAccountForDrafting;
+  modelType: ModelType;
 }) {
   if (isTest) return false;
+  if (
+    !shouldLearnAiSenderPatterns({
+      user: emailAccount.user,
+      modelType,
+    })
+  ) {
+    return false;
+  }
   if (!result.rule) return false;
   if (isConversationStatusType(result.rule.systemType)) return false;
 
