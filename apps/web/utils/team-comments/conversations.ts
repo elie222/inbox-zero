@@ -228,11 +228,11 @@ export async function shareConversation(
           prisma.$executeRaw`
         INSERT INTO "SharedConversation" (
           "id", "updatedAt", "organizationId", "publisherEmailAccountId",
-          "publisherAccountIdentityId", "publisherMemberId", "providerConversationId"
+          "publisherAccountIdentityId", "publisherMemberId", "providerConversationId", "revision"
         )
         SELECT ${conversationId}, CURRENT_TIMESTAMP, ${member.organizationId},
           ${member.emailAccountId}, ${member.emailAccountId}, ${member.id},
-          ${input.source.providerConversationId}
+          ${input.source.providerConversationId}, 1
         WHERE (SELECT COUNT(*) FROM "Member" m
           JOIN "EmailAccount" a ON a."id" = m."emailAccountId"
           WHERE m."id" IN (${selectedSql}) AND m."organizationId" = ${member.organizationId}) = ${participantIds.length}
@@ -261,7 +261,7 @@ export async function shareConversation(
                 conversationId,
                 participantId: grant.id,
                 kind: "INVITED",
-                revision: 0,
+                revision: 1,
               })),
           }),
         ],
@@ -504,6 +504,24 @@ async function restartSharing(
       await publishConversationChange(conversationId, logger);
       return getSharedConversation(actor, conversationId);
     } catch (error) {
+      const sqlState =
+        error instanceof Prisma.PrismaClientKnownRequestError
+          ? (
+              error.meta as
+                | {
+                    driverAdapterError?: {
+                      cause?: { originalCode?: string };
+                    };
+                  }
+                | undefined
+            )?.driverAdapterError?.cause?.originalCode
+          : undefined;
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2010" &&
+        sqlState === "22012"
+      )
+        throw new SafeError("Teammate is no longer a member");
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
         !["P2002", "P2025", "P2034"].includes(error.code) ||

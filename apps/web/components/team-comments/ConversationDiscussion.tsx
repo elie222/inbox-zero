@@ -21,10 +21,12 @@ export function ConversationDiscussion({
   memberId,
   conversationId,
   showSharedViewLink = true,
+  onStopped,
 }: {
   memberId: string;
   conversationId: string;
   showSharedViewLink?: boolean;
+  onStopped?: () => void;
 }) {
   const { summary, comments, revoked, refresh, loadMoreComments } =
     useConversationDiscussion(memberId, conversationId);
@@ -240,8 +242,10 @@ export function ConversationDiscussion({
                         conversationId,
                         clientMutationId: crypto.randomUUID(),
                       });
-                      if (result?.data) refresh();
-                      else setError(getActionErrorMessage(result ?? {}));
+                      if (result?.data) {
+                        refresh();
+                        onStopped?.();
+                      } else setError(getActionErrorMessage(result ?? {}));
                     }}
                   >
                     Stop sharing

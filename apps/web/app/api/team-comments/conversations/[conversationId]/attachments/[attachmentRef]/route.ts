@@ -21,11 +21,17 @@ export const GET = withAuth(
         { error: "Attachment unavailable" },
         { status: 404 },
       );
-    const filename = result.filename.replace(/[\r\n"\\]/g, "_").slice(0, 200);
+    const filename = Array.from(result.filename).slice(0, 200).join("");
+    const fallback =
+      filename.replace(/[^\x20-\x7e]|["\\]/g, "_") || "attachment";
+    const encoded = encodeURIComponent(filename).replace(
+      /['()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
     return new Response(result.stream, {
       headers: {
         "Content-Type": result.mimeType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
