@@ -428,7 +428,7 @@ async function discoverMetadata(
     }
 
     // Cache the discovered endpoints for next time
-    await upsertMcpIntegration(name, {
+    await upsertMcpIntegration(integration, {
       registeredAuthorizationUrl: metadata.authorization_endpoint,
       registeredTokenUrl: metadata.token_endpoint,
       registeredServerUrl: serverUrl,
@@ -462,7 +462,7 @@ async function discoverMetadata(
         integration.oauthConfig.registration_endpoint,
       );
 
-      await upsertMcpIntegration(name, {
+      await upsertMcpIntegration(integration, {
         registeredAuthorizationUrl: metadata.authorization_endpoint,
         registeredTokenUrl: metadata.token_endpoint,
         registeredServerUrl: serverUrl,
@@ -549,7 +549,7 @@ async function getOAuthClient(
     fetchFn: getMcpFetch(integration),
   });
 
-  await upsertMcpIntegration(name, {
+  await upsertMcpIntegration(integration, {
     oauthClientId: registered.client_id,
     oauthClientSecret: registered.client_secret,
   });
@@ -566,7 +566,7 @@ async function getOAuthClient(
 }
 
 async function upsertMcpIntegration(
-  integration: string,
+  integration: ResolvedMcpIntegration,
   data: {
     registeredAuthorizationUrl?: string;
     registeredTokenUrl?: string;
@@ -575,10 +575,19 @@ async function upsertMcpIntegration(
     oauthClientSecret?: string | null;
   },
 ) {
+  // A custom server row is created by its owner; if it was removed mid-flow,
+  // caching metadata must not resurrect it as an ownerless row
+  if (integration.isCustom) {
+    return prisma.mcpIntegration.updateMany({
+      where: { name: integration.name },
+      data,
+    });
+  }
+
   return prisma.mcpIntegration.upsert({
-    where: { name: integration },
+    where: { name: integration.name },
     update: data,
-    create: { name: integration, ...data },
+    create: { name: integration.name, ...data },
   });
 }
 
