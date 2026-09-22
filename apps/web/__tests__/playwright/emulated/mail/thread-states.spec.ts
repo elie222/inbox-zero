@@ -301,15 +301,14 @@ test("captures a longer thread and draft collapse", async ({
   const editor = page.locator("[contenteditable='true']");
   await editor.fill("This reply should survive collapsing its parent message.");
   const header = page
-    .locator('[role="button"][aria-expanded="true"]')
-    .filter({ hasText: "Me" })
-    .last();
-  await header.click();
-  await page
-    .locator('[role="button"][aria-expanded="false"]')
-    .filter({ hasText: "Me" })
+    .locator("li[data-thread-message-id]")
     .last()
-    .click();
+    .locator('[role="button"][aria-expanded]')
+    .first();
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+  await header.click();
   await expect(editor).toBeVisible();
   await expect(editor).toContainText(
     "This reply should survive collapsing its parent message.",

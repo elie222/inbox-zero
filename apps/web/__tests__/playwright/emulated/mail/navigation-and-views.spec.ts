@@ -137,9 +137,10 @@ test("opens a conversation from the engine without a thread-detail HTTP fetch", 
   await expect(
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "A second message proves the complete conversation is rendered.",
+  );
   expect(threadDetailRequestCount).toBe(0);
 });
 
