@@ -59,7 +59,7 @@ import {
   unarchiveThread,
 } from "@/utils/gmail/label";
 import { trashMessage, trashThread, untrashThread } from "@/utils/gmail/trash";
-import { markSpam } from "@/utils/gmail/spam";
+import { markNotSpam, markSpam } from "@/utils/gmail/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import {
   getThreadMessages,
@@ -1165,6 +1165,10 @@ export class GmailProvider implements EmailProvider {
     await markSpam({ gmail: this.client, threadId });
   }
 
+  async markNotSpam(threadId: string): Promise<void> {
+    await markNotSpam({ gmail: this.client, threadId });
+  }
+
   async markRead(threadId: string): Promise<void> {
     await markReadThread({
       gmail: this.client,
@@ -1341,10 +1345,12 @@ export class GmailProvider implements EmailProvider {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    folderId?: string;
     before?: Date;
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -1368,7 +1374,9 @@ export class GmailProvider implements EmailProvider {
       query += ` after:${Math.floor(options.after.getTime() / 1000) - 1}`;
     }
 
-    query += ` -label:${GmailLabel.DRAFT}`;
+    if (!options.includeDrafts) {
+      query += ` -label:${GmailLabel.DRAFT}`;
+    }
 
     const response = await getMessages(this.client, {
       query: query.trim() || undefined,
@@ -1624,6 +1632,7 @@ export class GmailProvider implements EmailProvider {
   async getMailboxSyncPage(options: {
     after?: Date;
     cursor?: string;
+    folderId?: string;
     limit: number;
   }) {
     return getGmailMailboxSyncPage({

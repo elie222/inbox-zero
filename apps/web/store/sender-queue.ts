@@ -1,13 +1,11 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import type { ThreadMutationPayload } from "@/utils/mail-engine/mutation-change";
 import {
-  getMailMutationsForAccount,
-  isActiveMailMutationStatus,
-  type MailMutation,
-  type MailMutationPayload,
-  subscribeToMailMutations,
-} from "@/utils/email-cache/mail-mutations";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+  enqueueThreadMailMutationBatch,
+  type ThreadMailMutation,
+} from "@/utils/mail-engine/thread-mail-mutations";
 import { fetchAllSenderThreads } from "./fetch-sender-threads";
+import { removePrefixedStorageKeys } from "./prefixed-storage";
 
 type QueueStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -26,20 +24,19 @@ type QueueProgress = {
   totalItems: number;
 };
 
-type CreatePayload = (params: { labelId?: string }) => MailMutationPayload;
+type CreatePayload = (params: { labelId?: string }) => ThreadMutationPayload;
 
 export function createSenderQueue(createPayload: CreatePayload) {
-  let durableQueue = new Map<string, QueueItem>();
-  let progressQueue = new Map<string, QueueItem>();
-  let transientQueue = new Map<string, QueueItem>();
+  const mutationPayload = createPayload({});
+  const storageKey = senderQueueStorageKey(mutationPayload);
+  const stored = readStoredQueue(storageKey);
+  let durableQueue = new Map(stored?.durable ?? []);
+  let progressQueue = new Map(stored?.progress ?? []);
+  let transientQueue = new Map(stored?.transient ?? []);
   let stateVersion = 0;
   const stateListeners = new Set<() => void>();
-  const mutationPayload = createPayload({});
   const inFlightKeys = new Set<string>();
-  const observedAccounts = new Map<string, number>();
-  const refreshes = new Map<string, Promise<void>>();
-  const trackedBatchByQueueKey = new Map<string, string>();
-  let unsubscribeFromMutations: (() => void) | undefined;
+  const accountEpoch = new Map<string, number>();
 
   async function addToQueue({
     sender,
@@ -58,6 +55,9 @@ export function createSenderQueue(createPayload: CreatePayload) {
     if (!normalizedSender) return false;
     const queueKey = getQueueKey(emailAccountId, normalizedSender);
     if (inFlightKeys.has(queueKey)) return false;
+    const startedEpoch = accountEpoch.get(emailAccountId) ?? 0;
+    const accountWasCleared = () =>
+      (accountEpoch.get(emailAccountId) ?? 0) !== startedEpoch;
 
     inFlightKeys.add(queueKey);
     setTransientQueueItem(queueKey, {
@@ -67,13 +67,6 @@ export function createSenderQueue(createPayload: CreatePayload) {
     });
 
     try {
-      const accountMutations = await getMailMutationsForAccount(emailAccountId);
-      replaceDurableAccountItems({
-        emailAccountId,
-        mutationPayload,
-        mutations: accountMutations,
-        trackedBatchByQueueKey,
-      });
       const existingItem = durableQueue.get(queueKey);
       if (existingItem?.status === "processing") {
         removeTransientQueueItem(queueKey);
@@ -85,6 +78,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
         labelId: "INBOX",
         emailAccountId,
       });
+      if (accountWasCleared()) return false;
       const threadIds = threads.map((thread) => thread.id);
 
       if (!threads.length) {
@@ -109,16 +103,17 @@ export function createSenderQueue(createPayload: CreatePayload) {
         threads,
         payload: createPayload({ labelId }),
       });
+      if (accountWasCleared()) return false;
       upsertDurableItems({
         emailAccountId,
         mutationPayload,
         mutations,
-        trackedBatchByQueueKey,
       });
       removeTransientQueueItem(queueKey);
       onSuccess?.(threads.length);
       return true;
     } catch (error) {
+      if (accountWasCleared()) return false;
       const existingItem = transientQueue.get(queueKey);
       setTransientQueueItem(queueKey, {
         status: "failed",
@@ -133,118 +128,24 @@ export function createSenderQueue(createPayload: CreatePayload) {
   }
 
   function useSenderStatus(emailAccountId: string, sender: string) {
-    useEffect(() => observeAccount(emailAccountId), [emailAccountId]);
     useSyncExternalStore(subscribeToState, getStateVersion, getStateVersion);
     const queueKey = getQueueKey(emailAccountId, sender);
     return transientQueue.get(queueKey) ?? durableQueue.get(queueKey);
   }
 
   function useQueueProgress(emailAccountId: string) {
-    useEffect(() => observeAccount(emailAccountId), [emailAccountId]);
     useSyncExternalStore(subscribeToState, getStateVersion, getStateVersion);
     return getQueueProgress(emailAccountId);
   }
 
   function clearStatuses(emailAccountId: string) {
+    accountEpoch.set(
+      emailAccountId,
+      (accountEpoch.get(emailAccountId) ?? 0) + 1,
+    );
     durableQueue = clearAccountItems(durableQueue, emailAccountId);
     progressQueue = clearAccountItems(progressQueue, emailAccountId);
     transientQueue = clearAccountItems(transientQueue, emailAccountId);
-    for (const queueKey of trackedBatchByQueueKey.keys()) {
-      if (isAccountQueueKey(queueKey, emailAccountId)) {
-        trackedBatchByQueueKey.delete(queueKey);
-      }
-    }
-    notifyStateListeners();
-  }
-
-  function observeAccount(emailAccountId: string) {
-    observedAccounts.set(
-      emailAccountId,
-      (observedAccounts.get(emailAccountId) ?? 0) + 1,
-    );
-    refreshAccount(emailAccountId).catch(() => {});
-
-    unsubscribeFromMutations ??= subscribeToMailMutations(() => {
-      for (const observedAccountId of observedAccounts.keys()) {
-        refreshAccount(observedAccountId).catch(() => {});
-      }
-    });
-
-    return () => {
-      const observerCount = (observedAccounts.get(emailAccountId) ?? 1) - 1;
-      if (observerCount > 0) {
-        observedAccounts.set(emailAccountId, observerCount);
-      } else {
-        observedAccounts.delete(emailAccountId);
-      }
-
-      if (!observedAccounts.size) {
-        unsubscribeFromMutations?.();
-        unsubscribeFromMutations = undefined;
-      }
-    };
-  }
-
-  function refreshAccount(emailAccountId: string) {
-    const previousRefresh = refreshes.get(emailAccountId) ?? Promise.resolve();
-    const refresh = previousRefresh
-      .catch(() => {})
-      .then(async () => {
-        const mutations = await getMailMutationsForAccount(emailAccountId);
-        replaceDurableAccountItems({
-          emailAccountId,
-          mutationPayload,
-          mutations,
-          trackedBatchByQueueKey,
-        });
-      });
-    refreshes.set(emailAccountId, refresh);
-    const removeCompletedRefresh = () => {
-      if (refreshes.get(emailAccountId) === refresh) {
-        refreshes.delete(emailAccountId);
-      }
-    };
-    refresh.then(removeCompletedRefresh, removeCompletedRefresh);
-    return refresh;
-  }
-
-  function replaceDurableAccountItems({
-    emailAccountId,
-    mutationPayload,
-    mutations,
-    trackedBatchByQueueKey,
-  }: {
-    emailAccountId: string;
-    mutationPayload: MailMutationPayload;
-    mutations: MailMutation[];
-    trackedBatchByQueueKey: Map<string, string>;
-  }) {
-    const batchItems = getSenderBatchItems({
-      emailAccountId,
-      mutationPayload,
-      mutations,
-    });
-    const accountItems = getLatestSenderItems(batchItems);
-    for (const [queueKey, latest] of accountItems) {
-      if (latest.item.status === "processing" && latest.item.batchId) {
-        trackedBatchByQueueKey.set(queueKey, latest.item.batchId);
-      }
-    }
-    durableQueue = clearAccountItems(durableQueue, emailAccountId);
-    for (const [queueKey, latest] of accountItems) {
-      if (
-        latest.item.status !== "completed" ||
-        trackedBatchByQueueKey.get(queueKey) === latest.item.batchId
-      ) {
-        durableQueue.set(queueKey, latest.item);
-      }
-    }
-    progressQueue = clearAccountItems(progressQueue, emailAccountId);
-    for (const [queueKey, batchId] of trackedBatchByQueueKey) {
-      if (!isAccountQueueKey(queueKey, emailAccountId)) continue;
-      const item = batchItems.get(batchId)?.item;
-      if (item) progressQueue.set(queueKey, item);
-    }
     notifyStateListeners();
   }
 
@@ -252,12 +153,10 @@ export function createSenderQueue(createPayload: CreatePayload) {
     emailAccountId,
     mutationPayload,
     mutations,
-    trackedBatchByQueueKey,
   }: {
     emailAccountId: string;
-    mutationPayload: MailMutationPayload;
-    mutations: MailMutation[];
-    trackedBatchByQueueKey: Map<string, string>;
+    mutationPayload: ThreadMutationPayload;
+    mutations: ThreadMailMutation[];
   }) {
     const items = getLatestSenderItems(
       getSenderBatchItems({ emailAccountId, mutationPayload, mutations }),
@@ -267,9 +166,6 @@ export function createSenderQueue(createPayload: CreatePayload) {
     for (const [queueKey, latest] of items) {
       durableQueue.set(queueKey, latest.item);
       progressQueue.set(queueKey, latest.item);
-      if (latest.item.batchId) {
-        trackedBatchByQueueKey.set(queueKey, latest.item.batchId);
-      }
     }
     notifyStateListeners();
   }
@@ -322,7 +218,28 @@ export function createSenderQueue(createPayload: CreatePayload) {
 
   function notifyStateListeners() {
     stateVersion += 1;
+    persistQueues();
     for (const listener of stateListeners) listener();
+  }
+
+  function persistQueues() {
+    if (!persistStoredQueues) return;
+    const storage = getSessionStorage();
+    if (!storage) return;
+    try {
+      storage.setItem(
+        storageKey,
+        JSON.stringify({
+          durable: [...durableQueue],
+          progress: [...progressQueue],
+          transient: [...transientQueue].filter(
+            ([, item]) => item.status !== "pending",
+          ),
+        }),
+      );
+    } catch {
+      // Quota or private mode; in-memory progress still works this session.
+    }
   }
 
   return {
@@ -339,10 +256,10 @@ function getSenderBatchItems({
   mutations,
 }: {
   emailAccountId: string;
-  mutationPayload: MailMutationPayload;
-  mutations: MailMutation[];
+  mutationPayload: ThreadMutationPayload;
+  mutations: ThreadMailMutation[];
 }) {
-  const batches = new Map<string, MailMutation[]>();
+  const batches = new Map<string, ThreadMailMutation[]>();
   for (const mutation of mutations) {
     if (
       mutation.emailAccountId !== emailAccountId ||
@@ -403,12 +320,12 @@ function getLatestSenderItems(
 
 function getBatchQueueItem(
   batchId: string,
-  mutations: MailMutation[],
+  mutations: ThreadMailMutation[],
 ): QueueItem {
   const activeThreadIds = Array.from(
     new Set(
       mutations
-        .filter((mutation) => isActiveMailMutationStatus(mutation.status))
+        .filter((mutation) => mutation.status !== "succeeded")
         .map((mutation) => mutation.threadId),
     ),
   );
@@ -416,28 +333,17 @@ function getBatchQueueItem(
     new Set(mutations.map((mutation) => mutation.threadId)),
   );
 
-  let status: QueueStatus = "completed";
-  if (activeThreadIds.length) status = "processing";
-  else if (
-    mutations.some(
-      (mutation) =>
-        mutation.status === "failed" || mutation.status === "uncertain",
-    )
-  ) {
-    status = "failed";
-  }
-
   return {
     batchId,
-    status,
+    status: activeThreadIds.length ? "processing" : "completed",
     threadIds: activeThreadIds,
     threadsTotal: threadIds.length,
   };
 }
 
 function matchesMutationPayload(
-  mutation: MailMutation,
-  payload: MailMutationPayload,
+  mutation: ThreadMailMutation,
+  payload: ThreadMutationPayload,
 ) {
   if (mutation.kind !== payload.kind) return false;
   if (mutation.kind === "set_read_state" && payload.kind === "set_read_state") {
@@ -467,4 +373,83 @@ function getQueueKey(emailAccountId: string, sender: string) {
 
 function normalizeSender(sender: string) {
   return sender.trim().toLowerCase();
+}
+
+const SENDER_QUEUE_STORAGE_PREFIX = "inbox-zero:sender-queue:";
+let persistStoredQueues = true;
+
+function senderQueueStorageKey(payload: ThreadMutationPayload) {
+  return `${SENDER_QUEUE_STORAGE_PREFIX}${JSON.stringify(payload)}`;
+}
+
+function getSessionStorage() {
+  try {
+    const storage = globalThis.sessionStorage;
+    if (!storage || typeof storage.getItem !== "function") return;
+    return storage;
+  } catch {
+    return;
+  }
+}
+
+export function clearStoredSenderQueues() {
+  persistStoredQueues = false;
+  const storage = getSessionStorage();
+  if (!storage) return;
+  removePrefixedStorageKeys(storage, SENDER_QUEUE_STORAGE_PREFIX);
+}
+
+function readStoredQueue(storageKey: string) {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    const raw = storage.getItem(storageKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as {
+      durable?: unknown;
+      progress?: unknown;
+      transient?: unknown;
+    };
+    return {
+      durable: parseQueueEntries(parsed.durable),
+      progress: parseQueueEntries(parsed.progress),
+      transient: parseQueueEntries(parsed.transient),
+    };
+  } catch {
+    return;
+  }
+}
+
+function parseQueueEntries(value: unknown): Array<[string, QueueItem]> {
+  if (!Array.isArray(value)) return [];
+  const entries: Array<[string, QueueItem]> = [];
+  for (const entry of value) {
+    if (!Array.isArray(entry) || entry.length !== 2) continue;
+    const [queueKey, item] = entry;
+    if (typeof queueKey !== "string" || !isQueueItem(item)) continue;
+    entries.push([queueKey, item]);
+  }
+  return entries;
+}
+
+function isQueueItem(value: unknown): value is QueueItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as QueueItem;
+  if (
+    item.status !== "processing" &&
+    item.status !== "completed" &&
+    item.status !== "failed"
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(item.threadIds) ||
+    !item.threadIds.every((threadId) => typeof threadId === "string")
+  ) {
+    return false;
+  }
+  if (!Number.isFinite(item.threadsTotal) || item.threadsTotal < 0) {
+    return false;
+  }
+  return item.batchId === undefined || typeof item.batchId === "string";
 }

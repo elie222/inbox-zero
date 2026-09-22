@@ -30,6 +30,7 @@ export type MailboxSyncPage = {
   cursor: string;
   deletedMessageIds: string[];
   hasMore: boolean;
+  removedMessageIds?: string[];
   reset: boolean;
   upsertedMessages: ParsedMessage[];
 };
@@ -216,6 +217,7 @@ export interface EmailProvider {
   getMailboxSyncPage(options: {
     after?: Date;
     cursor?: string;
+    folderId?: string;
     limit: number;
   }): Promise<MailboxSyncPage>;
   getMessage(
@@ -247,10 +249,12 @@ export interface EmailProvider {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    folderId?: string;
     before?: Date;
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -320,6 +324,7 @@ export interface EmailProvider {
     messageIds: string[],
     starred: boolean,
   ): Promise<void>;
+  markNotSpam(threadId: string): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;

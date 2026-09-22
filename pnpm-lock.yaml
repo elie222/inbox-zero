@@ -30,7 +30,7 @@ packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
 
 patchedDependencies:
   '@better-auth/oauth-provider@1.7.4': f3e7e8d12056b3b4c2a2a4154041f666a87ec5e12419a2e2dfa5b56d573b346e
-  '@inbox-zero/emulate@0.11.1': a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306
+  '@inbox-zero/emulate@0.11.1': 18e7fc04cacbe250a9550be08df26561e50ab55a0e980f5b07e18d021b1b1988
   '@sqlite.org/sqlite-wasm@3.53.4-build1': 0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855
 
 importers:
@@ -73,13 +73,37 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9(supports-color@10.2.2)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
       electron:
         specifier: 43.4.0
         version: 43.4.0(supports-color@10.2.2)
@@ -254,6 +278,18 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
       '@inboxzero/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -488,9 +524,6 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
-      dompurify:
-        specifier: 3.4.15
-        version: 3.4.15
       dub:
         specifier: 0.71.5
         version: 0.71.5
@@ -530,9 +563,6 @@ importers:
       ical.js:
         specifier: 2.2.1
         version: 2.2.1
-      idb:
-        specifier: 8.0.3
-        version: 8.0.3
       ioredis:
         specifier: 5.10.1
         version: 5.10.1(supports-color@8.1.1)
@@ -782,13 +812,10 @@ importers:
         version: 11.0.0
       emulate:
         specifier: npm:@inbox-zero/emulate@0.11.1
-        version: '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)'
+        version: '@inbox-zero/emulate@0.11.1(patch_hash=18e7fc04cacbe250a9550be08df26561e50ab55a0e980f5b07e18d021b1b1988)'
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      fake-indexeddb:
-        specifier: 6.2.5
-        version: 6.2.5
       jsdom:
         specifier: 27.3.0
         version: 27.3.0(supports-color@8.1.1)
@@ -963,6 +990,85 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+
+  packages/mail-core:
+    dependencies:
+      zod:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-react:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-sqlite:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-ui:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../mail-react
+      dompurify:
+        specifier: 3.4.15
+        version: 3.4.15
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/scheduling:
     dependencies:
@@ -8603,10 +8709,6 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fake-indexeddb@6.2.5:
-    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
-    engines: {node: '>=18'}
-
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
@@ -15519,7 +15621,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)':
+  '@inbox-zero/emulate@0.11.1(patch_hash=18e7fc04cacbe250a9550be08df26561e50ab55a0e980f5b07e18d021b1b1988)':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
@@ -21664,8 +21766,6 @@ snapshots:
   exsolve@1.0.8: {}
 
   extend@3.0.2: {}
-
-  fake-indexeddb@6.2.5: {}
 
   fast-check@3.23.2:
     dependencies:

@@ -44,11 +44,13 @@ export function isAllowedMicrosoftGraphPageToken(
 export function resolveMicrosoftGraphNextLink(
   pageToken?: string | null,
 ): string | null {
-  if (!isAbsoluteUrlPageToken(pageToken)) return null;
   if (!isAllowedMicrosoftGraphPageToken(pageToken)) {
     throw new Error("Invalid Outlook page token");
   }
-  return pageToken!;
+  if (pageToken?.startsWith("/v1.0/") || pageToken?.startsWith("/beta/")) {
+    return `https://graph.microsoft.com${pageToken}`;
+  }
+  return isAbsoluteUrlPageToken(pageToken) ? pageToken! : null;
 }
 
 export const microsoftGraphPageTokenSchema = z

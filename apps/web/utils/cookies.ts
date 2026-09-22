@@ -39,3 +39,11 @@ export function parseLastEmailAccountCookieValue({
     return cookieValue;
   }
 }
+
+export function ownedLastEmailAccountId(
+  lastEmailAccountId: string | null,
+  accountIds: readonly string[],
+) {
+  if (!lastEmailAccountId) return null;
+  return accountIds.includes(lastEmailAccountId) ? lastEmailAccountId : null;
+}

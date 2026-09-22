@@ -1,0 +1,63 @@
+{
+  "name": "@inboxzero/mail-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable mailbox schemas, query semantics, command state, and engine API",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/mail-core#readme",
+  "bugs": {
+    "url": "https://github.com/elie222/inbox-zero/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
+    "directory": "packages/mail-core"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./identities": "./src/identities.ts",
+    "./messages": "./src/messages.ts",
+    "./commands": "./src/commands.ts",
+    "./drafts": "./src/drafts.ts",
+    "./queries": "./src/queries.ts",
+    "./query-semantics": "./src/query-semantics.ts",
+    "./operations": "./src/operations.ts",
+    "./effective-state": "./src/effective-state.ts",
+    "./sync": "./src/sync.ts",
+    "./engine": "./src/engine.ts",
+    "./canonical": "./src/canonical.ts",
+    "./subscriptions": "./src/subscriptions.ts",
+    "./ports/mailbox-source": "./src/ports/mailbox-source.ts",
+    "./ports/operation-executor": "./src/ports/operation-executor.ts",
+    "./ports/mail-store": "./src/ports/mail-store.ts",
+    "./ports/assistant-source": "./src/ports/assistant-source.ts",
+    "./ports/blob-store": "./src/ports/blob-store.ts",
+    "./ports/runtime": "./src/ports/runtime.ts",
+    "./protocol/mail-http": "./src/protocol/mail-http.ts",
+    "./protocol/backend-adapter": "./src/protocol/backend-adapter.ts",
+    "./protocol/routed-backend-adapter": "./src/protocol/routed-backend-adapter.ts",
+    "./protocol/mail-ipc": "./src/protocol/mail-ipc.ts",
+    "./protocol/mail-ipc-client": "./src/protocol/mail-ipc-client.ts",
+    "./test-support/reference-model": "./test-support/reference-model.ts",
+    "./test-support/scenarios": "./test-support/scenarios.ts"
+  },
+  "scripts": {
+    "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check-imports": "node scripts/check-imports.mjs"
+  },
+  "dependencies": {
+    "zod": "4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

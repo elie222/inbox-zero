@@ -39,9 +39,8 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
-import { clearOfflineMailCache } from "@/utils/offline/clear-mail-cache";
-import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
-import { clearPersistedSwrCacheForAccount } from "@/utils/swr-persistence";
+import { clearLocalMailAccountState } from "@/utils/mail-engine/clear-local-mail-account";
+import { clearOfflineMailCacheForAccount } from "@/utils/offline/clear-mail-cache";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -163,9 +162,16 @@ function AccountOptionsDropdown({
       if (emailAccount.isPrimary) {
         await logOut("/login");
       } else {
-        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
-        clearPersistedSwrCacheForAccount(emailAccount.id);
-        await clearOfflineMailCache();
+        try {
+          await clearLocalMailAccountState(emailAccount.id);
+        } catch {
+          toastError({
+            title: "Local mailbox still on this device",
+            description:
+              "The account was deleted. Sign out to finish removing its mail from this device.",
+          });
+        }
+        await clearOfflineMailCacheForAccount(emailAccount.id);
       }
     },
     onError: (error) => {

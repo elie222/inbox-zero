@@ -1,3 +1,123 @@
+diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..8cfa38a30f0948e6475d99d2a951e5e5b3d9242b 100644
+--- a/dist/dist-JYOXR3UP.js
++++ b/dist/dist-JYOXR3UP.js
+@@ -241,6 +241,7 @@ function createMessageRecord(ms, input) {
+     last_modified_date_time: now,
+     is_draft: input.is_draft ?? false,
+     is_read: input.is_read ?? false,
++    flag_status: input.flag_status === "flagged" || input.flag_status === "complete" ? input.flag_status : "notFlagged",
+     importance: input.importance ?? "normal",
+     categories: input.categories ?? [],
+     parent_folder_id: input.parent_folder_id,
+@@ -419,6 +420,7 @@ function formatMessageResource(ms, message) {
+     lastModifiedDateTime: message.last_modified_date_time,
+     isDraft: message.is_draft,
+     isRead: message.is_read,
++    flag: { flagStatus: message.flag_status ?? "notFlagged" },
+     importance: message.importance,
+     categories: message.categories,
+     parentFolderId: message.parent_folder_id,
+@@ -711,6 +713,8 @@ function messageField(message, field) {
+       return message.has_attachments;
+     case "isRead":
+       return message.is_read;
++    case "flag/flagStatus":
++      return message.flag_status ?? "notFlagged";
+     case "from/emailAddress/address":
+       return message.from_address;
+     default:
+@@ -890,6 +894,26 @@ function resolveMessage(ctx, userEmail, messageId) {
+ function resolveFolder(ctx, userEmail, folderId) {
+   return getFolderByIdOrWellKnownName(getMicrosoftStore(ctx.store), userEmail, folderId);
+ }
++function encodeFolderDeltaToken(messageIds) {
++  return Buffer.from(JSON.stringify(messageIds)).toString("base64url");
++}
++function decodeFolderDeltaToken(token) {
++  try {
++    const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
++    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
++  } catch {
++    return [];
++  }
++}
++function folderMessagesDeltaLink(folderId, token) {
++  return `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages/delta?$deltatoken=${encodeURIComponent(token)}`;
++}
++function listFolderDeltaMessages(ms, userEmail, folder, filterExpression) {
++  return filterMessages(
++    ms.messages.findBy("user_email", userEmail).filter((message) => message.parent_folder_id === folder.microsoft_id),
++    filterExpression
++  );
++}
+ function resolveCalendar(ctx, userEmail, calendarId) {
+   const ms = getMicrosoftStore(ctx.store);
+   if (calendarId === "primary") {
+@@ -919,6 +943,13 @@ function patchMessageFromBody(ctx, messageId, body) {
+     patch.categories = body.categories.filter((value) => typeof value === "string");
+   }
+   if (typeof body.isRead === "boolean") patch.is_read = body.isRead;
++  const flag = body.flag;
++  if (flag && typeof flag === "object" && !Array.isArray(flag)) {
++    const flagStatus = flag.flagStatus;
++    if (flagStatus === "flagged" || flagStatus === "notFlagged" || flagStatus === "complete") {
++      patch.flag_status = flagStatus;
++    }
++  }
+   if (body.importance === "low" || body.importance === "normal" || body.importance === "high") {
+     patch.importance = body.importance;
+   }
+@@ -973,6 +1004,41 @@ function graphRoutes(ctx) {
+       ...nextSkip != null ? { "@odata.nextLink": buildNextLink(c.req.url, nextSkip) } : {}
+     });
+   });
++  app.get("/v1.0/me/mailFolders/:folderId/messages/delta", (c) => {
++    const authEmail = requireAuthEmail(ctx, c);
++    if (authEmail instanceof Response) return authEmail;
++    const folderId = c.req.param("folderId");
++    const folder = resolveFolder(ctx, authEmail, folderId);
++    if (!folder) return microsoftGraphError(c, 404, "ErrorFolderNotFound", "Folder not found.");
++    const ms = getMicrosoftStore(ctx.store);
++    const current = listFolderDeltaMessages(ms, authEmail, folder, c.req.query("$filter"));
++    const currentIds = current.map((message) => message.microsoft_id);
++    const deltaLink = folderMessagesDeltaLink(folder.microsoft_id, encodeFolderDeltaToken(currentIds));
++    const deltaToken = c.req.query("$deltatoken") ?? c.req.query("%24deltatoken");
++    if (deltaToken === "expired") {
++      return microsoftGraphError(c, 410, "SyncStateNotFound", "The sync state provided is malformed or does not exist.");
++    }
++    if (deltaToken) {
++      const previousIds = decodeFolderDeltaToken(deltaToken);
++      const currentIdSet = new Set(currentIds);
++      const leftIds = previousIds.filter((id) => !currentIdSet.has(id));
++      const value = [
++        ...current.map((message) => formatMessageResource(ms, message)),
++        ...leftIds.map((id) => {
++          const message = resolveMessage(ctx, authEmail, id);
++          return message ? formatMessageResource(ms, message) : { id, "@removed": { reason: "deleted" } };
++        })
++      ];
++      return c.json({
++        value,
++        "@odata.deltaLink": deltaLink
++      });
++    }
++    return c.json({
++      value: current.map((message) => formatMessageResource(ms, message)),
++      "@odata.deltaLink": deltaLink
++    });
++  });
+   app.get("/v1.0/me/mailFolders/:folderId/messages", (c) => {
+     const authEmail = requireAuthEmail(ctx, c);
+     if (authEmail instanceof Response) return authEmail;
+@@ -3009,6 +3075,7 @@ function seedFromConfig(store, baseUrl, config) {
+         received_date_time: message.received_date_time,
+         is_draft: message.is_draft,
+         is_read: message.is_read,
++        flag_status: message.flag_status ?? message.flag?.flagStatus,
+         importance: message.importance,
+         categories: message.categories,
+         parent_folder_id: message.parent_folder_id ?? (message.is_draft ? folders.drafts.microsoft_id : folders.inbox.microsoft_id),
 diff --git a/dist/dist-ZHFKHW5R.js b/dist/dist-ZHFKHW5R.js
 index b601480e5db77d6c86200023af4352aa9d49f3e3..66d9ec63db4bdb23a4a1fa39d67f614c17797ef0 100644
 --- a/dist/dist-ZHFKHW5R.js

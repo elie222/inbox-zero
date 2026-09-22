@@ -61,7 +61,7 @@ import {
   untrashThread,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
-import { markSpam } from "@/utils/outlook/spam";
+import { markNotSpam, markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import { type Logger, createScopedLogger } from "@/utils/logger";
 import {
@@ -906,6 +906,10 @@ export class OutlookProvider implements EmailProvider {
     await markSpam(this.client, threadId, this.logger);
   }
 
+  async markNotSpam(threadId: string): Promise<void> {
+    await markNotSpam(this.client, threadId, this.logger);
+  }
+
   async markRead(threadId: string): Promise<void> {
     await markReadThread({
       client: this.client,
@@ -1223,10 +1227,12 @@ export class OutlookProvider implements EmailProvider {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    folderId?: string;
     before?: Date;
     after?: Date;
     inboxOnly?: boolean;
     unreadOnly?: boolean;
+    includeDrafts?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -1266,12 +1272,12 @@ export class OutlookProvider implements EmailProvider {
 
     const searchQuery = stripGmailPrefixes(options.query || "");
 
-    let inboxFolderId: string | undefined;
+    let folderId = options.folderId;
     if (options.inboxOnly) {
       const folderIds = await getFolderIds(this.client, this.logger, {
-        includeDrafts: false,
+        includeDrafts: Boolean(options.includeDrafts),
       });
-      inboxFolderId = folderIds.inbox;
+      folderId = folderIds.inbox;
     }
 
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
@@ -1292,8 +1298,6 @@ export class OutlookProvider implements EmailProvider {
       searchQuery: searchQuery || undefined,
     });
 
-    // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
-    // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(
       this.client,
       {
@@ -1301,7 +1305,8 @@ export class OutlookProvider implements EmailProvider {
         dateFilters,
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
-        folderId: inboxFolderId,
+        folderId,
+        includeDrafts: options.includeDrafts,
       },
       this.logger,
     );
@@ -1654,6 +1659,7 @@ export class OutlookProvider implements EmailProvider {
   async getMailboxSyncPage(options: {
     after?: Date;
     cursor?: string;
+    folderId?: string;
     limit: number;
   }) {
     return getOutlookMailboxSyncPage({

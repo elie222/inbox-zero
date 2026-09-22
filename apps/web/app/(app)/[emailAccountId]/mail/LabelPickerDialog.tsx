@@ -16,9 +16,10 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
-import { applyThreadLabelsAction } from "@/utils/actions/mail-label";
-import { applyThreadLabelsInBatches } from "@/utils/label/apply-thread-labels";
 import { getActionErrorMessage } from "@/utils/error";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import type { MailClient } from "@inboxzero/mail-core/engine";
+import { randomUuid } from "@/utils/uuid";
 
 const GMAIL_CATEGORY_NAMES: Record<string, string> = {
   CATEGORY_PERSONAL: "Personal",
@@ -40,6 +41,7 @@ export function LabelPickerDialog({
   mode?: "label" | "move";
 }) {
   const { emailAccountId } = useAccount();
+  const client = useOptionalMailClient();
   const { userLabels, isLoading, error, mutate } = useLabels(emailAccountId);
   const [search, setSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -85,19 +87,14 @@ export function LabelPickerDialog({
           mutate().catch(() => {});
         }
       }
+      if (!client) throw new Error("Mail engine is unavailable");
       const { succeededThreadIds, failedThreadIds, error } =
-        await applyThreadLabelsInBatches({
+        await applyEngineLabels({
+          client,
+          emailAccountId,
           threadIds: remainingThreadIds,
-          applyBatch: async (threadIds) => {
-            const result = await applyThreadLabelsAction(emailAccountId, {
-              threadIds,
-              labelId: id,
-              removeFromInbox: isMove,
-            });
-            if (!result?.data)
-              throw new Error(getActionErrorMessage(result ?? {}));
-            return result.data;
-          },
+          labelId: id,
+          removeFromInbox: isMove,
         });
       if (succeededThreadIds.length) {
         onApplied(succeededThreadIds, id);
@@ -208,4 +205,66 @@ function getPartialFailureMessage(mode: "label" | "move", count: number) {
 
 function getLabelDisplayName(id: string, name: string) {
   return GMAIL_CATEGORY_NAMES[id] ?? name;
+}
+
+async function applyEngineLabels({
+  client,
+  emailAccountId,
+  threadIds,
+  labelId,
+  removeFromInbox,
+}: {
+  client: MailClient;
+  emailAccountId: string;
+  threadIds: string[];
+  labelId: string;
+  removeFromInbox: boolean;
+}) {
+  const succeededThreadIds: string[] = [];
+  const failedThreadIds: string[] = [];
+  let error: unknown;
+  for (const threadId of threadIds) {
+    try {
+      const diagnostics = await client.getDiagnostics(emailAccountId);
+      const label = await client.submitConversations({
+        accountId: emailAccountId,
+        commandId: randomUuid(),
+        conversations: [
+          { accountId: emailAccountId, conversationId: threadId },
+        ],
+        change: {
+          kind: "set_membership",
+          membership: "label",
+          id: labelId,
+          present: true,
+        },
+        observedRevision: diagnostics.revision,
+      });
+      if (label.status === "rejected") {
+        failedThreadIds.push(threadId);
+        continue;
+      }
+      if (removeFromInbox) {
+        const archived = await client.submitConversations({
+          accountId: emailAccountId,
+          commandId: randomUuid(),
+          conversations: [
+            { accountId: emailAccountId, conversationId: threadId },
+          ],
+          change: { kind: "archive" },
+          observedRevision: (await client.getDiagnostics(emailAccountId))
+            .revision,
+        });
+        if (archived.status === "rejected") {
+          failedThreadIds.push(threadId);
+          continue;
+        }
+      }
+      succeededThreadIds.push(threadId);
+    } catch (cause) {
+      error = cause;
+      failedThreadIds.push(threadId);
+    }
+  }
+  return { succeededThreadIds, failedThreadIds, error };
 }

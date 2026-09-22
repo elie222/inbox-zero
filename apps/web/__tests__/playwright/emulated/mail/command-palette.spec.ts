@@ -226,6 +226,17 @@ test("Command K acts on highlighted and selected conversations", async ({
 
   await palette.getByRole("option", { name: "Mark 2 as read" }).click();
   await expect(palette).toBeHidden();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_1",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded", payload: { read: true } });
   await conversations
     .getByRole("checkbox", { name: "Select conversation with Alice Example" })
     .click();

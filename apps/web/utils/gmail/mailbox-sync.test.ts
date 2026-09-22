@@ -215,6 +215,49 @@ describe("getGmailMailboxSyncPage", () => {
     ]);
   });
 
+  it("rebuilds from snapshot when Gmail history returns 404", async () => {
+    vi.mocked(getHistory).mockRejectedValue({ status: 404 });
+    vi.mocked(getMessagesBatch).mockResolvedValue([
+      {
+        ...getMockMessage({
+          id: "inbox-message",
+          labelIds: ["INBOX"],
+        }),
+        internalDate: new Date("2026-07-02T00:00:00.000Z").getTime().toString(),
+      },
+    ]);
+    const gmail = {
+      users: {
+        getProfile: vi.fn().mockResolvedValue({ data: { historyId: "300" } }),
+        messages: {
+          list: vi.fn().mockResolvedValue({
+            data: { messages: [{ id: "inbox-message" }] },
+          }),
+        },
+      },
+    };
+
+    const page = await getGmailMailboxSyncPage({
+      gmail: gmail as never,
+      accessToken: "access-token",
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "delta",
+        historyId: "1",
+        after: "2026-07-01T00:00:00.000Z",
+      }),
+      limit: 100,
+    });
+
+    expect(page.reset).toBe(true);
+    expect(page.upsertedMessages.map((message) => message.id)).toEqual([
+      "inbox-message",
+    ]);
+    expect(gmail.users.getProfile).toHaveBeenCalled();
+  });
+
   it("writes current labels for an archived message instead of deleting it", async () => {
     vi.mocked(getHistory).mockResolvedValue({
       history: [

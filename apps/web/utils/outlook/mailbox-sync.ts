@@ -3,18 +3,23 @@ import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
+  InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
 import type { MailboxSyncPage } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { getCategoryMap, convertMessage } from "@/utils/outlook/message";
+import {
+  getCategoryMap,
+  convertMessage,
+  getFolderIds,
+} from "@/utils/outlook/message";
 import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
 } from "@/utils/microsoft/retry";
 
 const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,webLink";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink";
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -31,20 +36,25 @@ export async function getOutlookMailboxSyncPage({
   logger,
   cursor,
   after,
+  folderId,
   limit,
 }: {
   client: OutlookClient;
   logger: Logger;
   cursor?: string;
   after?: Date;
+  folderId?: string;
   limit: number;
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
-    return getInitialPage({ client, logger, after, limit });
+    return getInitialPage({ client, logger, after, folderId, limit });
   }
 
   const decoded = decodeMailboxSyncCursor(cursor, "microsoft");
+  if (folderId && decoded.folderId && folderId !== decoded.folderId) {
+    throw new InvalidMailboxSyncCursorError();
+  }
   try {
     const response = await withMicrosoftGraphRetry<DeltaResponse>(
       () =>
@@ -55,12 +65,18 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
+    const [categoryMap, folderIds] = await Promise.all([
+      getCategoryMap(client, logger),
+      getFolderIds(client, logger),
+    ]);
     return buildOutlookMailboxSyncPage({
       response,
       after: decoded.after,
+      folderId: decoded.folderId ?? folderId,
       wasSnapshot: decoded.snapshot,
       reset: false,
-      categoryMap: await getCategoryMap(client, logger),
+      categoryMap,
+      folderIds,
     });
   } catch (error) {
     const { status, code } = extractErrorInfo(error);
@@ -75,6 +91,7 @@ export async function getOutlookMailboxSyncPage({
       client,
       logger,
       after: new Date(decoded.after),
+      folderId: decoded.folderId ?? folderId,
       limit,
     });
   }
@@ -83,15 +100,19 @@ export async function getOutlookMailboxSyncPage({
 export function buildOutlookMailboxSyncPage({
   response,
   after,
+  folderId,
   wasSnapshot,
   reset,
   categoryMap,
+  folderIds = {},
 }: {
   response: DeltaResponse;
   after: string;
+  folderId?: string;
   wasSnapshot: boolean;
   reset: boolean;
   categoryMap: Map<string, string>;
+  folderIds?: Record<string, string>;
 }): MailboxSyncPage {
   const nextLink = response["@odata.nextLink"];
   const deltaLink = response["@odata.deltaLink"];
@@ -101,6 +122,7 @@ export function buildOutlookMailboxSyncPage({
   }
 
   const deletedMessageIds: string[] = [];
+  const removedMessageIds: string[] = [];
   const latestMessages = new Map<string, DeltaMessage>();
   for (const message of response.value ?? []) {
     if (message.id) latestMessages.set(message.id, message);
@@ -109,13 +131,14 @@ export function buildOutlookMailboxSyncPage({
   const upsertedMessages = [...latestMessages.values()].flatMap((message) => {
     if (!message.id) return [];
     if (message["@removed"]) {
-      deletedMessageIds.push(message.id);
+      if (message["@removed"].reason === "deleted") {
+        deletedMessageIds.push(message.id);
+      } else {
+        removedMessageIds.push(message.id);
+      }
       return [];
     }
 
-    const folderIds: Record<string, string> = message.parentFolderId
-      ? { inbox: message.parentFolderId }
-      : {};
     return [
       compactMailboxSyncMessage(
         convertMessage(message, folderIds, categoryMap),
@@ -128,11 +151,13 @@ export function buildOutlookMailboxSyncPage({
       version: 1,
       provider: "microsoft",
       deltaLink: continuationLink,
+      ...(folderId ? { folderId } : {}),
       after,
       snapshot: Boolean(nextLink) && wasSnapshot,
     }),
     deletedMessageIds,
     hasMore: Boolean(nextLink),
+    removedMessageIds,
     reset,
     upsertedMessages,
   };
@@ -142,18 +167,23 @@ async function getInitialPage({
   client,
   logger,
   after,
+  folderId,
   limit,
 }: {
   client: OutlookClient;
   logger: Logger;
   after: Date;
+  folderId?: string;
   limit: number;
 }) {
+  const resolvedFolderId = folderId ?? "inbox";
   const response = await withMicrosoftGraphRetry<DeltaResponse>(
     () =>
       client
         .getClient()
-        .api("/me/mailFolders/inbox/messages/delta")
+        .api(
+          `/me/mailFolders/${encodeURIComponent(resolvedFolderId)}/messages/delta`,
+        )
         .select(MESSAGE_SELECT_FIELDS)
         .filter(`receivedDateTime ge ${after.toISOString()}`)
         .top(limit)
@@ -162,11 +192,17 @@ async function getInitialPage({
     logger,
   );
 
+  const [categoryMap, folderIds] = await Promise.all([
+    getCategoryMap(client, logger),
+    getFolderIds(client, logger),
+  ]);
   return buildOutlookMailboxSyncPage({
     response,
     after: after.toISOString(),
+    folderId: resolvedFolderId,
     wasSnapshot: true,
     reset: true,
-    categoryMap: await getCategoryMap(client, logger),
+    categoryMap,
+    folderIds,
   });
 }

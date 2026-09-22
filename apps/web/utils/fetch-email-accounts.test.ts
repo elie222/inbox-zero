@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchEmailAccounts,
   resetEmailAccountsInflight,
+  subscribeEmailAccounts,
 } from "./fetch-email-accounts";
 
 const { swrFetcher } = vi.hoisted(() => ({
@@ -54,5 +55,27 @@ describe("fetchEmailAccounts", () => {
     });
 
     expect(swrFetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("notifies subscribers after a successful refresh", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeEmailAccounts(listener);
+    swrFetcher
+      .mockResolvedValueOnce({ emailAccounts: [{ id: "a" }] })
+      .mockResolvedValueOnce({ emailAccounts: [{ id: "b" }] })
+      .mockResolvedValueOnce({ emailAccounts: [{ id: "c" }] });
+
+    await fetchEmailAccounts();
+    await fetchEmailAccounts();
+    unsubscribe();
+    await fetchEmailAccounts();
+
+    expect(listener).toHaveBeenNthCalledWith(1, {
+      emailAccounts: [{ id: "a" }],
+    });
+    expect(listener).toHaveBeenNthCalledWith(2, {
+      emailAccounts: [{ id: "b" }],
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });

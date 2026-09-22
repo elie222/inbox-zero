@@ -112,7 +112,7 @@ export const POST = withError("google/webhook", async (request) => {
 });
 
 async function processWebhookAsync(
-  decodedData: { emailAddress: string; historyId: number },
+  decodedData: { emailAddress: string; historyId: string },
   logger: Logger,
   emailAccount?: Awaited<ReturnType<typeof getWebhookEmailAccount>> | null,
 ) {
@@ -142,11 +142,14 @@ function decodeHistoryId(body: { message?: { data?: string } }) {
   const decodedData: { emailAddress: string; historyId: number | string } =
     JSON.parse(Buffer.from(base64, "base64").toString());
 
-  // seem to get this in different formats? so unifying as number
-  const historyId =
-    typeof decodedData.historyId === "string"
-      ? Number.parseInt(decodedData.historyId)
-      : decodedData.historyId;
+  const historyId = normalizeHistoryId(decodedData.historyId);
 
   return { emailAddress: decodedData.emailAddress, historyId };
+}
+
+function normalizeHistoryId(historyId: number | string) {
+  const normalized =
+    typeof historyId === "number" ? historyId.toString() : historyId.trim();
+  if (!/^\d+$/.test(normalized)) throw new Error("Invalid historyId");
+  return normalized;
 }

@@ -25,7 +25,7 @@ import {
 import {
   readRecentSearches,
   rememberRecentSearch,
-} from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
+} from "@/store/mail-search-history";
 import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";

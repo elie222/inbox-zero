@@ -5,6 +5,25 @@ import prisma from "@/utils/prisma";
 import { fetchThreadsPage } from "@/utils/threads/fetch-page";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
+const executedRulePlanSelect = {
+  id: true,
+  messageId: true,
+  threadId: true,
+  rule: true,
+  actionItems: {
+    include: {
+      messagingChannel: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  },
+  status: true,
+  reason: true,
+  createdAt: true,
+} as const;
+
 export async function loadThreads({
   query,
   emailAccountId,
@@ -33,24 +52,7 @@ export async function loadThreads({
       emailAccountId,
       threadId: { in: threadIds },
     },
-    select: {
-      id: true,
-      messageId: true,
-      threadId: true,
-      rule: true,
-      actionItems: {
-        include: {
-          messagingChannel: {
-            select: {
-              provider: true,
-            },
-          },
-        },
-      },
-      status: true,
-      reason: true,
-      createdAt: true,
-    },
+    select: executedRulePlanSelect,
     // The aggregation below keeps the first execution of each rule per message.
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
@@ -128,6 +130,21 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
 export type ThreadListItem = ReturnType<
   typeof toListThreads
 >["threads"][number];
+
+export async function loadThreadPlans({
+  emailAccountId,
+  threadId,
+}: {
+  emailAccountId: string;
+  threadId: string;
+}) {
+  const executedRules = await prisma.executedRule.findMany({
+    where: { emailAccountId, threadId },
+    select: executedRulePlanSelect,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+  return aggregateThreadPlans(executedRules);
+}
 
 function aggregateThreadPlans<
   T extends {

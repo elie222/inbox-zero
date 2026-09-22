@@ -33,7 +33,10 @@ export async function getOutlookAttachmentStream(
   if (!response.ok || !response.body || signal?.aborted) {
     await response.body?.cancel().catch(() => undefined);
     signal?.throwIfAborted();
-    throw new Error("Unable to stream attachment");
+    throw Object.assign(new Error("Unable to stream attachment"), {
+      status: response.status,
+      statusCode: response.status,
+    });
   }
   return response.body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>(),

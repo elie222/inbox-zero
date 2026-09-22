@@ -200,7 +200,6 @@ async function getGmailSnapshotPage({
     () =>
       gmail.users.messages.list({
         userId: "me",
-        labelIds: ["INBOX"],
         q: `after:${Math.floor(after.getTime() / 1000)}`,
         maxResults: limit,
         pageToken,

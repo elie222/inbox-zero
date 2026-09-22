@@ -261,6 +261,44 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
+  it("uses BigInt math for large Gmail history IDs", async () => {
+    const email = "user@test.com";
+    const historyId = "90071992547409934000";
+    const emailAccount = {
+      id: "account-123",
+      email,
+      lastSyncedHistoryId: "90071992547409930000",
+    };
+
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue(emailAccount as any);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          ...emailAccount,
+          account: {
+            access_token: "token",
+            refresh_token: "refresh",
+            expires_at: new Date(Date.now() + 3_600_000),
+          },
+          rules: [],
+        },
+        hasAutomationRules: false,
+        hasAiAccess: false,
+      },
+    } as any);
+
+    vi.mocked(getHistory).mockResolvedValue({ history: [] });
+
+    await processHistoryForUser({ emailAddress: email, historyId }, {}, logger);
+
+    expect(getHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ startHistoryId: "90071992547409931000" }),
+      expect.any(Object),
+    );
+  });
+
   it("fetches all Gmail history pages before processing catch-up", async () => {
     const email = "user@test.com";
     const historyId = 2000;

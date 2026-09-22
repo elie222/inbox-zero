@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { cookies } from "next/headers";
+import prisma from "@/utils/prisma";
 import {
   LAST_EMAIL_ACCOUNT_COOKIE,
   type LastEmailAccountCookieValue,
@@ -17,11 +18,17 @@ export const setLastEmailAccountAction = actionClientUser
   .metadata({ name: "setLastEmailAccount" })
   .inputSchema(z.object({ emailAccountId: z.string() }))
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
+    const emailAccount = await prisma.emailAccount.findFirst({
+      where: { id: emailAccountId, userId },
+      select: { id: true },
+    });
+    if (!emailAccount) return;
+
     const cookieStore = await cookies();
 
     const cookieValue: LastEmailAccountCookieValue = {
       userId,
-      emailAccountId,
+      emailAccountId: emailAccount.id,
     };
     const value = JSON.stringify(cookieValue);
 

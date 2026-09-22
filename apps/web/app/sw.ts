@@ -1,11 +1,19 @@
-import { Serwist, type PrecacheEntry, type SerwistGlobalConfig } from "serwist";
+import {
+  CacheFirst,
+  Serwist,
+  type PrecacheEntry,
+  type SerwistGlobalConfig,
+} from "serwist";
 import {
   CLEAR_OFFLINE_MAIL,
+  CLEAR_OFFLINE_MAIL_ACCOUNT,
   SAVE_OFFLINE_MAIL,
   SKIP_WAITING,
   OFFLINE_MAIL_CACHE_PREFIX,
+  MAIL_ENGINE_STATIC_CACHE,
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  matchesMailEngineStaticRequest,
   clearsOfflineMailOnGet,
 } from "../utils/offline/mail-cache";
 
@@ -56,6 +64,7 @@ self.addEventListener("message", (event) => {
   }
   if (
     event.data?.type !== CLEAR_OFFLINE_MAIL &&
+    event.data?.type !== CLEAR_OFFLINE_MAIL_ACCOUNT &&
     event.data?.type !== SAVE_OFFLINE_MAIL
   )
     return;
@@ -68,6 +77,9 @@ self.addEventListener("message", (event) => {
       const cache = await mailCachePromise;
       if (event.data.type === CLEAR_OFFLINE_MAIL) {
         await cache.clear();
+        event.ports[0]?.postMessage({ ok: true });
+      } else if (event.data.type === CLEAR_OFFLINE_MAIL_ACCOUNT) {
+        await cache.removeAccount(event.data.accountId);
         event.ports[0]?.postMessage({ ok: true });
       } else {
         await cache.save(client.url, (promise) => event.waitUntil(promise));
@@ -130,6 +142,13 @@ const serwist = new Serwist({
           await cache.clear();
         }
       },
+    },
+    {
+      matcher: ({ request }) =>
+        matchesMailEngineStaticRequest(request, self.location.origin),
+      handler: new CacheFirst({
+        cacheName: MAIL_ENGINE_STATIC_CACHE,
+      }),
     },
   ],
   disableDevLogs: process.env.NODE_ENV === "production",
