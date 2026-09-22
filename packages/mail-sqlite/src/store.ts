@@ -51,11 +51,6 @@ import {
   listReferencedBlobIds,
 } from "./maintenance";
 import {
-  readAccountRecords,
-  readDraftSummaries,
-  readOutboxItems,
-} from "./client-reads";
-import {
   readMailboxViewFromSql,
   readMailboxWindowFromSql,
 } from "./mailbox-view-readers";
@@ -559,55 +554,6 @@ export async function createSqliteMailStore(
             };
           }
         }
-        const conversation = await tx.query(
-          `SELECT j.*, a.generation
-           FROM sync_jobs j
-           JOIN accounts a ON a.account_id = j.account_id
-           WHERE j.kind = 'conversation'
-             AND (j.retry_at_ms IS NULL OR j.retry_at_ms <= ?)
-             AND (j.claimed_by IS NULL OR j.claimed_until_ms < ?)
-           LIMIT 1`,
-          [input.nowMs, input.nowMs],
-        );
-        if (conversation[0]) {
-          const attemptId = runtime.randomId();
-          const claimed = await tx.execute(
-            `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
-             WHERE job_id = ?
-               AND (retry_at_ms IS NULL OR retry_at_ms <= ?)
-               AND (claimed_by IS NULL OR claimed_until_ms < ?)`,
-            [
-              input.ownerId,
-              input.nowMs + input.leaseMs,
-              attemptId,
-              conversation[0].job_id,
-              input.nowMs,
-              input.nowMs,
-            ],
-          );
-          if (claimed.changedRows > 0) {
-            const payload = JSON.parse(
-              String(conversation[0].payload_json),
-            ) as {
-              conversationId: string;
-              page: string | null;
-            };
-            return {
-              kind: "conversation" as const,
-              jobId: String(conversation[0].job_id),
-              attemptId,
-              session: {
-                accountId: String(conversation[0].account_id),
-                generation: String(conversation[0].generation),
-              },
-              conversation: {
-                accountId: String(conversation[0].account_id),
-                conversationId: payload.conversationId,
-              },
-              page: payload.page,
-            };
-          }
-        }
         return null;
       });
     },
@@ -985,41 +931,8 @@ export async function createSqliteMailStore(
         }
       });
     },
-    async readAccounts() {
-      return driver.read(async (tx) => ({
-        revision: await readRevision(tx),
-        accounts: await readAccountRecords(tx),
-      }));
-    },
-    async readDrafts(accountIds) {
-      return driver.read(async (tx) => ({
-        revision: await readRevision(tx),
-        drafts: await readDraftSummaries(tx, accountIds),
-      }));
-    },
-    async readOutbox(accountIds) {
-      return driver.read(async (tx) => ({
-        revision: await readRevision(tx),
-        items: await readOutboxItems(tx, accountIds),
-      }));
-    },
     listReferencedBlobIds() {
       return listReferencedBlobIds(driver);
-    },
-    async enqueueConversation(key) {
-      return driver.write(async (tx) => {
-        const jobId = `conversation:${key.accountId}:${key.conversationId}`;
-        await tx.execute(
-          `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
-           VALUES (?, ?, 'conversation', ?)`,
-          [
-            jobId,
-            key.accountId,
-            JSON.stringify({ conversationId: key.conversationId, page: null }),
-          ],
-        );
-        return bumpRevision(tx);
-      });
     },
     async stageDraftAttachment(input) {
       const parsed = blobIdSchema.safeParse(input.attachmentId);

@@ -86,40 +86,6 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
     requestId: z.string().min(1).max(128),
-    method: z.literal("ensureConversation"),
-    payload: conversationKeySchema,
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
-    method: z.literal("observeAccounts"),
-    payload: z.object({}),
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
-    method: z.literal("observeDrafts"),
-    payload: z.object({
-      accountIds: z.array(accountIdSchema).min(1).max(50),
-    }),
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
-    method: z.literal("observeOutbox"),
-    payload: z.object({
-      accountIds: z.array(accountIdSchema).min(1).max(50),
-    }),
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
-    method: z.literal("observeMailboxCatalog"),
-    payload: z.object({ accountId: accountIdSchema }),
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
     method: z.literal("stageDraftAttachment"),
     payload: z.object({
       accountId: accountIdSchema,
@@ -132,12 +98,6 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
       inline: z.boolean().optional(),
       contentBase64: z.string().min(1),
     }),
-  }),
-  z.object({
-    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
-    requestId: z.string().min(1).max(128),
-    method: z.literal("referencedBlobIds"),
-    payload: z.object({}),
   }),
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),

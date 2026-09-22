@@ -46,32 +46,6 @@ export function createMailIpcClient(
       ),
     observeOperation: (key) =>
       observeSnapshot(call, "observeOperation", () => key, pollMs, handles),
-    observeAccounts: () =>
-      observeSnapshot(call, "observeAccounts", () => ({}), pollMs, handles),
-    observeDrafts: (accountIds) =>
-      observeSnapshot(
-        call,
-        "observeDrafts",
-        () => ({ accountIds }),
-        pollMs,
-        handles,
-      ),
-    observeOutbox: (accountIds) =>
-      observeSnapshot(
-        call,
-        "observeOutbox",
-        () => ({ accountIds }),
-        pollMs,
-        handles,
-      ),
-    observeMailboxCatalog: (accountId) =>
-      observeSnapshot(
-        call,
-        "observeMailboxCatalog",
-        () => ({ accountId }),
-        pollMs,
-        handles,
-      ),
     submitMetadata: (payload) => call("submitMetadata", payload),
     submitConversations: (payload) => call("submitConversations", payload),
     saveDraft: (payload) => call("saveDraft", payload),
@@ -98,10 +72,8 @@ export function createMailIpcClient(
         ...(options?.provider ? { provider: options.provider } : {}),
       }),
     ensureMessageContent: (key) => call("ensureMessageContent", key),
-    ensureConversation: (key) => call("ensureConversation", key),
     getDiagnostics: (accountId) => call("getDiagnostics", { accountId }),
     purgeAccount: (accountId) => call("purgeAccount", { accountId }),
-    referencedBlobIds: () => call("referencedBlobIds", {}),
     inspect: () => call("inspect", {}),
     async close() {
       for (const handle of [...handles]) handle.close();

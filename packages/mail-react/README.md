@@ -8,8 +8,6 @@ Peer dependency: React >= 19.2.
 ```ts
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { useMailboxWindow } from "@inboxzero/mail-react/use-mailbox-window";
-import { useDrafts } from "@inboxzero/mail-react/use-drafts";
-import { useOutbox } from "@inboxzero/mail-react/use-outbox";
-import { useAccounts } from "@inboxzero/mail-react/use-accounts";
-import { useMailboxCatalog } from "@inboxzero/mail-react/use-mailbox-catalog";
+import { useConversation } from "@inboxzero/mail-react/use-conversation";
+import { useOperation } from "@inboxzero/mail-react/use-operation";
 ```

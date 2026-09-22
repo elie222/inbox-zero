@@ -28,9 +28,6 @@ import type {
   MailPredicate,
   MailboxView,
   QuerySnapshot,
-  AccountRecord,
-  DraftSummary,
-  OutboxItem,
 } from "../queries";
 import type {
   BodyObservation,
@@ -108,14 +105,6 @@ export type ClaimedWork =
       accountId: string;
       session: AccountSession;
       predicate: MailPredicate;
-      page: string | null;
-    }
-  | {
-      kind: "conversation";
-      jobId: string;
-      attemptId: string;
-      session: AccountSession;
-      conversation: ConversationKey;
       page: string | null;
     }
   | {
@@ -283,7 +272,6 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
-  enqueueConversation(key: ConversationKey): Promise<LocalRevision>;
   enqueueHydration(input: {
     keys: MessageKey[];
     purpose: "metadata" | "body";
@@ -341,10 +329,6 @@ export interface MailStore {
   listReferencedBlobIds(): Promise<string[]>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
   readAccountSyncStates(): Promise<AccountSyncState[]>;
-  readAccounts(): Promise<{
-    revision: LocalRevision;
-    accounts: AccountRecord[];
-  }>;
   readBootstrapScan(input: {
     session: AccountSession;
     scopeId: string;
@@ -354,10 +338,6 @@ export interface MailStore {
     page: { after: string | null; pageSize: number },
   ): Promise<{ revision: LocalRevision; view: ConversationView }>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
-  readDrafts(accountIds: string[]): Promise<{
-    revision: LocalRevision;
-    drafts: DraftSummary[];
-  }>;
   readMailboxView(query: ConversationQuery): Promise<{
     revision: LocalRevision;
     view: MailboxView;
@@ -372,10 +352,6 @@ export interface MailStore {
   readOperation(key: OperationKey): Promise<{
     revision: LocalRevision;
     operation: OperationState | null;
-  }>;
-  readOutbox(accountIds: string[]): Promise<{
-    revision: LocalRevision;
-    items: OutboxItem[];
   }>;
   recordAttachmentUpload(input: {
     operationId: string;

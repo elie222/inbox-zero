@@ -29,16 +29,7 @@ import type { ScopeDescriptor } from "./ports/mailbox-source";
 import type { HostRuntime } from "./ports/runtime";
 import { webCryptoSha256 } from "./canonical";
 import { extractTextPredicates } from "./query-semantics";
-import type {
-  AccountRecord,
-  ConversationQuery,
-  DraftSummary,
-  MailboxCatalog,
-  MailboxView,
-  OutboxItem,
-  QueryHandle,
-  WellKnownMailbox,
-} from "./queries";
+import type { ConversationQuery, MailboxView, QueryHandle } from "./queries";
 import { createQueryRegistry, mailboxQueryKey } from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
 import type { BlobStore } from "./ports/blob-store";
@@ -105,10 +96,6 @@ export type MailClient = {
     page: { after: string | null; pageSize: number },
   ): QueryHandle<ConversationView>;
   observeOperation(key: OperationKey): QueryHandle<OperationState>;
-  observeAccounts(): QueryHandle<{ accounts: AccountRecord[] }>;
-  observeDrafts(accountIds: string[]): QueryHandle<{ drafts: DraftSummary[] }>;
-  observeOutbox(accountIds: string[]): QueryHandle<{ items: OutboxItem[] }>;
-  observeMailboxCatalog(accountId: string): QueryHandle<MailboxCatalog>;
   submitMetadata(input: SubmitMetadataCommand): Promise<Admission>;
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
@@ -125,10 +112,8 @@ export type MailClient = {
   >;
   requestSync(accountIds: string[]): Promise<WorkAdmission>;
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
-  ensureConversation(key: ConversationKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
-  referencedBlobIds(): Promise<string[]>;
   close?(): Promise<void>;
 };
 
@@ -230,51 +215,6 @@ export function createMailEngine(input: {
         },
       );
     },
-    observeAccounts() {
-      return queries.observe("accounts", () =>
-        store.readAccounts().then((result) => ({
-          revision: result.revision,
-          data: { accounts: result.accounts },
-        })),
-      );
-    },
-    observeDrafts(accountIds) {
-      const key = `drafts:${[...accountIds].sort().join(",")}`;
-      return queries.observe(key, () =>
-        store.readDrafts(accountIds).then((result) => ({
-          revision: result.revision,
-          data: { drafts: result.drafts },
-        })),
-      );
-    },
-    observeOutbox(accountIds) {
-      const key = `outbox:${[...accountIds].sort().join(",")}`;
-      return queries.observe(key, () =>
-        store.readOutbox(accountIds).then((result) => ({
-          revision: result.revision,
-          data: { items: result.items },
-        })),
-      );
-    },
-    observeMailboxCatalog(accountId) {
-      return queries.observe(`catalog:${accountId}`, async () => {
-        const accounts = await store.readAccounts();
-        const account = accounts.accounts.find(
-          (item) => item.accountId === accountId,
-        );
-        const catalog = await readMailboxCatalog(
-          source,
-          runtime,
-          accountId,
-          account?.provider ?? null,
-          account?.generation ?? accountId,
-        );
-        return {
-          revision: accounts.revision,
-          data: catalog,
-        };
-      });
-    },
     async submitMetadata(command) {
       const admission = await store.admitMetadata(command);
       await refreshViews();
@@ -342,13 +282,6 @@ export function createMailEngine(input: {
     async ensureMessageContent(key) {
       await store.enqueueHydration({ keys: [key], purpose: "body" });
       return { status: "scheduled" };
-    },
-    async ensureConversation(key) {
-      await store.enqueueConversation(key);
-      return { status: "scheduled" };
-    },
-    referencedBlobIds() {
-      return store.listReferencedBlobIds();
     },
     getDiagnostics(accountId) {
       return store.getDiagnostics(accountId);
@@ -419,43 +352,6 @@ export function createMailEngine(input: {
             store,
             runtime,
             signal: signal ?? new AbortController().signal,
-          });
-          await refreshViews();
-          continue;
-        }
-        if (work.kind === "conversation") {
-          const membership = await source.readConversationMembership({
-            session: work.session,
-            requestId: work.jobId,
-            signal: signal ?? new AbortController().signal,
-            conversation: work.conversation,
-            resolutionId: work.jobId,
-            page: work.page,
-            pageSize: 100,
-          });
-          if (membership.status !== "ok") {
-            await store.completeJob({
-              jobId: work.jobId,
-              attemptId: work.attemptId,
-            });
-            await noteConnection(work.session.accountId, membership.status);
-            continue;
-          }
-          if (
-            membership.value.status === "page" &&
-            membership.value.page.changes.length > 0
-          ) {
-            await store.applyHydration({
-              session: work.session,
-              requestId: work.jobId,
-              attemptId: work.attemptId,
-              changes: membership.value.page.changes,
-              bodies: [],
-            });
-          }
-          await store.completeJob({
-            jobId: work.jobId,
-            attemptId: work.attemptId,
           });
           await refreshViews();
           continue;
@@ -1118,77 +1014,6 @@ function defaultRandomId(): string {
   throw new Error(
     "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
   );
-}
-
-async function readMailboxCatalog(
-  source: MailboxSource,
-  runtime: HostRuntime,
-  accountId: string,
-  provider: "google" | "microsoft" | null,
-  generation: string,
-): Promise<MailboxCatalog> {
-  const catalog = source.readCatalog
-    ? await source.readCatalog({
-        session: { accountId, generation },
-        requestId: runtime.randomId(),
-        signal: new AbortController().signal,
-      })
-    : { status: "unsupported" as const };
-  if (catalog.status === "ok") return catalog.value;
-  return {
-    accountId,
-    provider,
-    coverage: "system_only",
-    items: systemCatalogItems(provider),
-  };
-}
-
-function systemCatalogItems(
-  provider: "google" | "microsoft" | null,
-): MailboxCatalog["items"] {
-  const mailboxes: WellKnownMailbox[] =
-    provider === "microsoft"
-      ? ["inbox", "sent", "drafts", "archive", "starred", "trash", "spam"]
-      : [
-          "inbox",
-          "sent",
-          "drafts",
-          "archive",
-          "all",
-          "starred",
-          "snoozed",
-          "trash",
-          "spam",
-        ];
-  return mailboxes.map((mailbox) => ({
-    id: mailbox,
-    name: mailboxLabel(mailbox),
-    kind: "system",
-    mailbox,
-  }));
-}
-
-function mailboxLabel(mailbox: WellKnownMailbox) {
-  switch (mailbox) {
-    case "inbox":
-      return "Inbox";
-    case "sent":
-      return "Sent";
-    case "drafts":
-      return "Drafts";
-    case "archive":
-      return "Archive";
-    case "all":
-      return "All Mail";
-    case "starred":
-      return "Starred";
-    case "snoozed":
-      return "Snoozed";
-    case "trash":
-      return "Trash";
-    case "spam":
-      return "Spam";
-  }
 }
 
 async function runAttachmentUpload(input: {

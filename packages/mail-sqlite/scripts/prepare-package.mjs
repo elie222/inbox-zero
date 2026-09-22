@@ -24,7 +24,6 @@ const publishedExports = Object.fromEntries(
       {
         types: `./${output}.d.ts`,
         import: `./${output}.js`,
-        "react-native": `./${output}.js`,
         default: `./${output}.js`,
       },
     ];

@@ -21,11 +21,7 @@
     "./use-conversation": "./src/use-conversation.ts",
     "./use-query-snapshot": "./src/use-query-snapshot.ts",
     "./use-operation": "./src/use-operation.ts",
-    "./use-mailbox-window": "./src/use-mailbox-window.ts",
-    "./use-accounts": "./src/use-accounts.ts",
-    "./use-drafts": "./src/use-drafts.ts",
-    "./use-outbox": "./src/use-outbox.ts",
-    "./use-mailbox-catalog": "./src/use-mailbox-catalog.ts"
+    "./use-mailbox-window": "./src/use-mailbox-window.ts"
   },
   "scripts": {
     "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",

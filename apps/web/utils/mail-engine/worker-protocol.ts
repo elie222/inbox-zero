@@ -35,15 +35,7 @@ export type WorkerRequest =
   | {
       id: string;
       type: "observe";
-      kind:
-        | "mailbox"
-        | "mailboxWindow"
-        | "conversation"
-        | "operation"
-        | "accounts"
-        | "drafts"
-        | "outbox"
-        | "catalog";
+      kind: "mailbox" | "mailboxWindow" | "conversation" | "operation";
       handleId: string;
       args: unknown[];
     }

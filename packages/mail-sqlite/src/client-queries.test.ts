@@ -16,7 +16,7 @@ import { createSqliteMailStore } from "./store";
 const fileDirectory = dirname(fileURLToPath(import.meta.url));
 
 describe("mail client queries", () => {
-  it("lists accounts, local drafts, outbox, and well-known mailboxes", async () => {
+  it("lists well-known mailboxes from downloaded messages", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-client-queries-"));
     const store = await createSqliteMailStore(
       createNodeSqliteDriver(join(directory, "mailbox.sqlite")),
@@ -43,54 +43,6 @@ describe("mail client queries", () => {
           roundComplete: true,
         },
       });
-      const saved = await store.saveDraft({
-        key: { accountId: "acc-1", draftId: "local-draft" },
-        expectedRevision: null,
-        content: {
-          to: ["ada@example.com"],
-          cc: [],
-          bcc: [],
-          subject: "Local",
-          editableHtml: "<p>Hello</p>",
-          quotedHtml: "",
-          attachmentIds: [],
-          conversationId: "compose:new-message",
-        },
-      });
-      expect(saved.status).toBe("saved");
-      if (saved.status !== "saved") throw new Error("expected save");
-      const queued = await store.admitSend({
-        commandId: "send-local",
-        draft: { accountId: "acc-1", draftId: "local-draft" },
-        draftRevision: saved.draftRevision,
-        replyTo: null,
-        conversationId: "compose:new-message",
-      });
-      expect(queued.status).toBe("queued");
-
-      const accounts = await store.readAccounts();
-      expect(accounts.accounts).toEqual([
-        {
-          accountId: "acc-1",
-          provider: "google",
-          generation: "g1",
-          connection: "ready",
-        },
-      ]);
-      const drafts = await store.readDrafts(["acc-1"]);
-      expect(drafts.drafts[0]).toMatchObject({
-        key: { accountId: "acc-1", draftId: "local-draft" },
-        conversationId: "compose:new-message",
-        subject: "Local",
-        frozen: true,
-      });
-      const outbox = await store.readOutbox(["acc-1"]);
-      expect(outbox.items[0]).toMatchObject({
-        key: { accountId: "acc-1", operationId: "send-local" },
-        subject: "Local",
-        to: ["ada@example.com"],
-      });
-
       const inbox = await store.readMailboxView({
         accountIds: ["acc-1"],
         predicate: mailboxPredicate("inbox"),

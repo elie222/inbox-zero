@@ -53,11 +53,6 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         status: "ok" as const,
         result: await engine.ensureMessageContent(request.payload),
       };
-    case "ensureConversation":
-      return {
-        status: "ok" as const,
-        result: await engine.ensureConversation(request.payload),
-      };
     case "getDiagnostics":
       return {
         status: "ok" as const,
@@ -103,30 +98,6 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
       handle.close();
       return { status: "ok" as const, result: snapshot };
     }
-    case "observeAccounts": {
-      const handle = engine.observeAccounts();
-      const snapshot = await waitForLoadedSnapshot(handle);
-      handle.close();
-      return { status: "ok" as const, result: snapshot };
-    }
-    case "observeDrafts": {
-      const handle = engine.observeDrafts(request.payload.accountIds);
-      const snapshot = await waitForLoadedSnapshot(handle);
-      handle.close();
-      return { status: "ok" as const, result: snapshot };
-    }
-    case "observeOutbox": {
-      const handle = engine.observeOutbox(request.payload.accountIds);
-      const snapshot = await waitForLoadedSnapshot(handle);
-      handle.close();
-      return { status: "ok" as const, result: snapshot };
-    }
-    case "observeMailboxCatalog": {
-      const handle = engine.observeMailboxCatalog(request.payload.accountId);
-      const snapshot = await waitForLoadedSnapshot(handle);
-      handle.close();
-      return { status: "ok" as const, result: snapshot };
-    }
     case "stageDraftAttachment": {
       const bytes = base64ToBytes(request.payload.contentBase64);
       return {
@@ -146,11 +117,6 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         }),
       };
     }
-    case "referencedBlobIds":
-      return {
-        status: "ok" as const,
-        result: await engine.referencedBlobIds(),
-      };
     case "cancel":
       return { status: "unsupported" as const };
     default: {

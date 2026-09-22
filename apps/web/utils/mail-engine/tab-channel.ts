@@ -13,11 +13,7 @@ type TabObserveKind =
   | "mailbox"
   | "mailboxWindow"
   | "conversation"
-  | "operation"
-  | "accounts"
-  | "drafts"
-  | "outbox"
-  | "catalog";
+  | "operation";
 
 export const MAIL_ENGINE_OWNER_LOCK = "inbox-zero:mail-engine-owner";
 export const MAIL_ENGINE_TAB_CHANNEL = "inbox-zero:mail-engine-tabs";
@@ -307,10 +303,6 @@ export function createTabFollowerClient(input: {
     observeConversation: (key, page) =>
       observeRemote("conversation", [key, page]),
     observeOperation: (key) => observeRemote("operation", [key]),
-    observeAccounts: () => observeRemote("accounts", []),
-    observeDrafts: (accountIds) => observeRemote("drafts", [accountIds]),
-    observeOutbox: (accountIds) => observeRemote("outbox", [accountIds]),
-    observeMailboxCatalog: (accountId) => observeRemote("catalog", [accountId]),
     submitMetadata: (payload) => call("submitMetadata", [payload]) as never,
     submitConversations: (payload) =>
       call("submitConversations", [payload]) as never,
@@ -328,8 +320,6 @@ export function createTabFollowerClient(input: {
         () => call("requestSync", [accountIds]) as Promise<WorkAdmission>,
       ),
     ensureMessageContent: (key) => call("ensureMessageContent", [key]) as never,
-    ensureConversation: (key) => call("ensureConversation", [key]) as never,
-    referencedBlobIds: () => call("referencedBlobIds", []) as never,
     async getDiagnostics(accountId) {
       return call("getDiagnostics", [accountId]) as never;
     },
@@ -375,10 +365,6 @@ function observe(client: MailClient, kind: TabObserveKind, args: unknown[]) {
   if (kind === "conversation") {
     return client.observeConversation(args[0] as never, args[1] as never);
   }
-  if (kind === "accounts") return client.observeAccounts();
-  if (kind === "drafts") return client.observeDrafts(args[0] as never);
-  if (kind === "outbox") return client.observeOutbox(args[0] as never);
-  if (kind === "catalog") return client.observeMailboxCatalog(args[0] as never);
   return client.observeOperation(args[0] as never);
 }
 

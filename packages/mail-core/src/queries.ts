@@ -2,12 +2,9 @@ import { z } from "zod";
 import {
   accountIdSchema,
   conversationKeySchema,
-  draftKeySchema,
   localRevisionSchema,
-  operationKeySchema,
 } from "./identities";
 import { inboxSectionSchema, mailboxRoleSchema } from "./messages";
-import { operationStatusSchema } from "./operations";
 
 export const wellKnownMailboxSchema = z.enum([
   "inbox",
@@ -191,57 +188,3 @@ export function canonicalizeQuery(query: ConversationQuery): string {
 export function mailboxPredicate(mailbox: WellKnownMailbox): MailPredicate {
   return { kind: "mailbox", mailbox };
 }
-
-export const accountRecordSchema = z.object({
-  accountId: accountIdSchema,
-  provider: z.enum(["google", "microsoft"]),
-  generation: z.string().min(1).max(128),
-  connection: z.enum(["ready", "offline", "blocked_auth"]),
-});
-export type AccountRecord = z.infer<typeof accountRecordSchema>;
-
-export const draftSummarySchema = z.object({
-  key: draftKeySchema,
-  conversationId: z.string().max(256).nullable(),
-  subject: z.string(),
-  preview: z.string(),
-  to: z.array(z.string()),
-  updatedAtMs: z.number().int(),
-  frozen: z.boolean(),
-  attachmentCount: z.number().int().nonnegative(),
-});
-export type DraftSummary = z.infer<typeof draftSummarySchema>;
-
-export const outboxItemSchema = z.object({
-  key: operationKeySchema,
-  status: operationStatusSchema,
-  subject: z.string(),
-  to: z.array(z.string()),
-  createdAtMs: z.number().int(),
-  error: z
-    .object({
-      code: z.string(),
-      retryable: z.boolean(),
-    })
-    .nullable(),
-  attachmentIds: z.array(z.string()),
-  missingAttachmentIds: z.array(z.string()),
-});
-export type OutboxItem = z.infer<typeof outboxItemSchema>;
-
-export const mailboxCatalogItemSchema = z.object({
-  id: z.string().min(1).max(256),
-  name: z.string().max(1024),
-  kind: z.enum(["system", "label", "folder"]),
-  mailbox: wellKnownMailboxSchema.nullable(),
-  color: z.string().max(64).nullable().optional(),
-});
-export type MailboxCatalogItem = z.infer<typeof mailboxCatalogItemSchema>;
-
-export const mailboxCatalogSchema = z.object({
-  accountId: accountIdSchema,
-  provider: z.enum(["google", "microsoft"]).nullable(),
-  items: z.array(mailboxCatalogItemSchema),
-  coverage: z.enum(["system_only", "provider"]),
-});
-export type MailboxCatalog = z.infer<typeof mailboxCatalogSchema>;

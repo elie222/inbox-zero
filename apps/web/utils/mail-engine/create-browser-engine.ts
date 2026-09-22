@@ -163,15 +163,7 @@ async function createWorkerOwnedEngine(
   });
 
   function observe<T>(
-    kind:
-      | "mailbox"
-      | "mailboxWindow"
-      | "conversation"
-      | "operation"
-      | "accounts"
-      | "drafts"
-      | "outbox"
-      | "catalog",
+    kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
@@ -227,10 +219,6 @@ async function createWorkerOwnedEngine(
     },
     observeConversation: (key, page) => observe("conversation", [key, page]),
     observeOperation: (key) => observe("operation", [key]),
-    observeAccounts: () => observe("accounts", []),
-    observeDrafts: (accountIds) => observe("drafts", [accountIds]),
-    observeOutbox: (accountIds) => observe("outbox", [accountIds]),
-    observeMailboxCatalog: (accountId) => observe("catalog", [accountId]),
     submitMetadata: (payload) =>
       callWorker(worker, pending, "submitMetadata", [payload]),
     submitConversations: (payload) =>
@@ -255,10 +243,6 @@ async function createWorkerOwnedEngine(
       callWorker<void>(worker, pending, "ensureAccount", [account]),
     ensureMessageContent: (key) =>
       callWorker(worker, pending, "ensureMessageContent", [key]),
-    ensureConversation: (key) =>
-      callWorker(worker, pending, "ensureConversation", [key]),
-    referencedBlobIds: () =>
-      callWorker(worker, pending, "referencedBlobIds", []),
     getDiagnostics: (accountId) =>
       callWorker(worker, pending, "getDiagnostics", [accountId]),
     purgeAccount: (accountId) =>

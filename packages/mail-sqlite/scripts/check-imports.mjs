@@ -14,7 +14,6 @@ const portableFiles = [
   "drafts.ts",
   "maintenance.ts",
   "capabilities.ts",
-  "client-reads.ts",
   "mailbox-view-readers.ts",
   "store-read-utils.ts",
 ];

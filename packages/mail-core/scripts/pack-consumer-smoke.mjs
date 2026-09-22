@@ -24,7 +24,7 @@ const portableForbidden = [
   'from "electron',
   "from 'electron",
 ];
-const hermesForbidden = ["await using ", " using {", "with {", "import assert"];
+const unsupportedSyntax = ["await using ", " using {", "with {", "import assert"];
 
 const directory = await mkdtemp(join(tmpdir(), "mail-pack-consumer-"));
 try {
@@ -134,9 +134,6 @@ console.log("pack consumer smoke ok");
   console.log(
     "mail package consumer smoke passed (static/package + node import)",
   );
-  console.log(
-    "Hermes/Metro: portable packed JS was scanned; this is not a native runtime.",
-  );
 } finally {
   await rm(directory, { recursive: true, force: true });
 }
@@ -167,10 +164,10 @@ async function assertPortablePackedJs(name, tarball, listing) {
         );
       }
     }
-    for (const token of hermesForbidden) {
+    for (const token of unsupportedSyntax) {
       if (source.includes(token)) {
         throw new Error(
-          `${name} ${file} contains Hermes-incompatible syntax ${token}`,
+          `${name} ${file} contains unsupported syntax ${token}`,
         );
       }
     }
