@@ -13,7 +13,10 @@ import {
   GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  hasIncludePatternOnAnotherRule,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
 import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
@@ -53,6 +56,7 @@ vi.mock("@/utils/reply-tracker/label-helpers", () => ({
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn(),
   saveLearnedPatterns: vi.fn(),
+  hasIncludePatternOnAnotherRule: vi.fn().mockResolvedValue(false),
 }));
 vi.mock("@/utils/rule/ai-sender-pattern-learning", () => ({
   shouldLearnAiSenderPatterns: vi.fn(() => true),
@@ -1590,6 +1594,7 @@ describe("runRules cold email pattern learning", () => {
     vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(true);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([]);
+    vi.mocked(hasIncludePatternOnAnotherRule).mockResolvedValue(false);
     mockExecutedRuleCreate({ rule: coldEmailRule });
   });
 
@@ -1607,6 +1612,17 @@ describe("runRules cold email pattern learning", () => {
 
   it("does not learn the sender when AI sender pattern learning is disabled", async () => {
     vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(false);
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("does not learn a sender another enabled rule already includes", async () => {
+    vi.mocked(hasIncludePatternOnAnotherRule).mockResolvedValue(true);
     mockMatchingRules([
       { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
     ]);

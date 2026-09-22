@@ -90,6 +90,34 @@ export async function removeAiLearnedPattern({
 }
 
 /**
+ * Whether another enabled rule already includes this sender, by a pattern the
+ * user wrote or one learned for that rule.
+ */
+export async function hasIncludePatternOnAnotherRule({
+  emailAccountId,
+  from,
+  ruleId,
+}: {
+  emailAccountId: string;
+  from: string;
+  ruleId: string;
+}) {
+  const match = await prisma.groupItem.findFirst({
+    where: {
+      type: GroupItemType.FROM,
+      value: normalizeGroupItemValue(from),
+      exclude: false,
+      group: {
+        emailAccountId,
+        rule: { is: { enabled: true, id: { not: ruleId } } },
+      },
+    },
+    select: { id: true },
+  });
+  return !!match;
+}
+
+/**
  * Saves multiple learned patterns for a rule
  * @param patterns An array of patterns to save
  */
