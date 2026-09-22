@@ -441,8 +441,8 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
       '@vercel/queue':
-        specifier: 0.5.1
-        version: 0.5.1(@opentelemetry/api@1.9.1)
+        specifier: 0.6.0
+        version: 0.6.0(@opentelemetry/api@1.9.1)
       '@vercel/speed-insights':
         specifier: 2.0.0
         version: 2.0.0(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
@@ -6842,8 +6842,8 @@ packages:
     resolution: {integrity: sha512-p0sKfHkfRmMaqqDwNL4tjnX9TgRrLMlEtUjIxfrEns8pOxz1R9ztqOVI+ehqiq93/2/HnfPe/UBZkfAZwnx0UA==}
     engines: {node: '>= 20'}
 
-  '@vercel/queue@0.5.1':
-    resolution: {integrity: sha512-7gO8hOtIh15UDzbjCg7oJDOwY1Hs3XC4xSK6HjMVo93Ge3oEhPZJ18ogamwZTXwcFRYwvgN1vp2w3+zgqfIpoA==}
+  '@vercel/queue@0.6.0':
+    resolution: {integrity: sha512-Le0A3ldZhnItV5f6zO101aBCL/Zty0RURD7b+RDA8+p6fuBhsiA2vSimbA2OysEIXYTEhANokGaSJrV6m7qpxw==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@opentelemetry/api': ^1.0.0
@@ -19655,7 +19655,7 @@ snapshots:
 
   '@vercel/oidc@3.4.0': {}
 
-  '@vercel/queue@0.5.1(@opentelemetry/api@1.9.1)':
+  '@vercel/queue@0.6.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@vercel/oidc': 3.4.0
       minimatch: 10.2.5
@@ -19768,7 +19768,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@27.3.0(supports-color@8.1.1))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -19822,7 +19822,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@27.3.0(supports-color@8.1.1))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   '@vitest/utils@4.1.10':
     dependencies:

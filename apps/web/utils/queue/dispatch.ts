@@ -13,10 +13,15 @@ export async function enqueueBackgroundJob<T>({
   topic,
   body,
   qstash,
+  vercel,
   logger,
 }: {
   topic: string;
   body: T;
+  vercel?: {
+    // Vercel Queues has no per-topic parallelism cap, so large fan-outs spread delivery out instead.
+    delaySeconds?: number;
+  };
   qstash: {
     queueName: string;
     parallelism: number;
@@ -28,7 +33,7 @@ export async function enqueueBackgroundJob<T>({
 }) {
   if (isVercelQueueDispatchEnabled()) {
     try {
-      await send(topic, body);
+      await send(topic, body, { delaySeconds: vercel?.delaySeconds });
       return "vercel";
     } catch (error) {
       logger.error("Failed to enqueue Vercel queue message", {
