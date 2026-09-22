@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { getAuthToken } from "@/utils/mcp/oauth";
-import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
+import type { ResolvedMcpIntegration } from "@/utils/mcp/resolve-integration";
+import { getMcpFetch } from "@/utils/mcp/safe-fetch";
 import { createMcpTransport } from "@/utils/mcp/transport";
 import { getMcpServerUrl } from "@/utils/mcp/server-url";
 import { createScopedLogger } from "@/utils/logger";
@@ -8,7 +9,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("mcp-list-tools");
 
 export async function listMcpTools(
-  integration: IntegrationKey,
+  integration: ResolvedMcpIntegration,
   emailAccountId: string,
 ): Promise<
   Array<{
@@ -18,19 +19,19 @@ export async function listMcpTools(
     readOnlyHint?: boolean;
   }>
 > {
-  const integrationConfig = getIntegration(integration);
-
-  const serverUrl = getMcpServerUrl(integrationConfig);
+  const serverUrl = getMcpServerUrl(integration);
   if (!serverUrl) {
-    throw new Error(`No server URL for integration: ${integration}`);
+    throw new Error(`No server URL for integration: ${integration.name}`);
   }
 
   const authToken = await getAuthToken({ integration, emailAccountId });
 
-  const transport = createMcpTransport(serverUrl, authToken);
+  const transport = createMcpTransport(serverUrl, authToken, {
+    fetch: getMcpFetch(integration),
+  });
 
   const client = new Client({
-    name: `inbox-zero-${integration}`,
+    name: `inbox-zero-${integration.name}`,
     version: "1.0.0",
   });
 
@@ -39,7 +40,7 @@ export async function listMcpTools(
     const result = await client.listTools();
 
     logger.info("Listed MCP tools", {
-      integration,
+      integration: integration.name,
       toolCount: result.tools.length,
     });
 
@@ -50,7 +51,10 @@ export async function listMcpTools(
       readOnlyHint: tool.annotations?.readOnlyHint,
     }));
   } catch (error) {
-    logger.error("Failed to list MCP tools", { error, integration });
+    logger.error("Failed to list MCP tools", {
+      error,
+      integration: integration.name,
+    });
     throw new Error(
       `Failed to list tools: ${error instanceof Error ? error.message : "Unknown error"}`,
     );

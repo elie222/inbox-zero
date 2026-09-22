@@ -4,6 +4,7 @@ import {
   refreshAuthorization,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import prisma from "@/utils/__mocks__/prisma";
+import { MCP_INTEGRATIONS } from "./integrations";
 import { getAuthToken, handleOAuthCallback } from "./oauth";
 
 vi.mock("@/utils/prisma");
@@ -11,6 +12,8 @@ vi.mock("@modelcontextprotocol/sdk/client/auth.js", () => ({
   exchangeAuthorization: vi.fn(),
   refreshAuthorization: vi.fn(),
 }));
+
+const notionIntegration = { ...MCP_INTEGRATIONS.notion, isCustom: false };
 
 describe("OAuth grant replacement", () => {
   beforeEach(() => {
@@ -60,7 +63,7 @@ describe("OAuth grant replacement", () => {
       expires_in: 1,
     });
     await handleOAuthCallback({
-      integration: "notion",
+      integration: notionIntegration,
       emailAccountId: "mailbox-1",
       code: "new-account-code",
       codeVerifier: "verifier",
@@ -68,14 +71,20 @@ describe("OAuth grant replacement", () => {
     });
 
     await expect(
-      getAuthToken({ integration: "notion", emailAccountId: "mailbox-1" }),
+      getAuthToken({
+        integration: notionIntegration,
+        emailAccountId: "mailbox-1",
+      }),
     ).rejects.toThrow("no refresh token is available");
     expect(refreshAuthorization).not.toHaveBeenCalled();
   });
 
   it("preserves an omitted refresh token when refreshing the same grant", async () => {
     await expect(
-      getAuthToken({ integration: "notion", emailAccountId: "mailbox-1" }),
+      getAuthToken({
+        integration: notionIntegration,
+        emailAccountId: "mailbox-1",
+      }),
     ).resolves.toBe("refreshed-old-account-access");
     expect(prisma.mcpConnection.update).toHaveBeenCalledWith(
       expect.objectContaining({

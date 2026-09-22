@@ -317,6 +317,11 @@ const parsedEnv = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     MCP_SERVER_URL_OVERRIDES: z.string().optional(),
+    // SECURITY: disables the SSRF guard for user-registered MCP servers
+    // (allows custom server URLs that point to / resolve to private IP ranges,
+    // and allows http). Defaults to false. Only enable on a trusted,
+    // single-tenant self-hosted deployment or against a local MCP emulator.
+    MCP_ALLOW_PRIVATE_IPS: booleanString.optional().default(false),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),

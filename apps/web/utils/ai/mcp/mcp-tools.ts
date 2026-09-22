@@ -1,9 +1,10 @@
 import { createMCPClient } from "@ai-sdk/mcp";
-import { findIntegration } from "@/utils/mcp/integrations";
+import { resolveMcpIntegration } from "@/utils/mcp/resolve-integration";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { getMcpFetch } from "@/utils/mcp/safe-fetch";
 import { getMcpServerUrl } from "@/utils/mcp/server-url";
 
 type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
@@ -63,7 +64,10 @@ export async function createMcpToolsForAgent(
 
     for (const connection of connections) {
       const integration = connection.integration;
-      const integrationConfig = findIntegration(integration.name);
+      const integrationConfig = await resolveMcpIntegration({
+        name: integration.name,
+        emailAccountId,
+      });
 
       if (!integrationConfig) {
         logger.warn("Integration config not found", {
@@ -83,11 +87,13 @@ export async function createMcpToolsForAgent(
 
       try {
         const authToken = await getAuthToken({
-          integration: integration.name,
+          integration: integrationConfig,
           emailAccountId,
         });
 
-        const transport = createMcpTransport(serverUrl, authToken);
+        const transport = createMcpTransport(serverUrl, authToken, {
+          fetch: getMcpFetch(integrationConfig),
+        });
 
         const mcpClient = await createMCPClient({ transport });
         clients.push(mcpClient);

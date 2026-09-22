@@ -9,7 +9,7 @@ const {
   mockIsOAuthCodeStoreConfigured,
   mockSetOAuthCodeResult,
   mockSyncMcpTools,
-  mockFindIntegration,
+  mockResolveMcpIntegration,
 } = vi.hoisted(() => ({
   mockClaimOAuthCodeAndWait: vi.fn(),
   mockClearOAuthCode: vi.fn(),
@@ -17,7 +17,11 @@ const {
   mockIsOAuthCodeStoreConfigured: vi.fn(),
   mockSetOAuthCodeResult: vi.fn(),
   mockSyncMcpTools: vi.fn(),
-  mockFindIntegration: vi.fn(() => ({ authType: "oauth" })),
+  mockResolveMcpIntegration: vi.fn(async () => ({
+    name: "notion",
+    authType: "oauth",
+    isCustom: false,
+  })),
 }));
 
 vi.mock("@/env", () => ({
@@ -37,8 +41,8 @@ vi.mock("@/utils/middleware", async () => {
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/mcp/integrations", () => ({
-  findIntegration: mockFindIntegration,
+vi.mock("@/utils/mcp/resolve-integration", () => ({
+  resolveMcpIntegration: mockResolveMcpIntegration,
 }));
 
 vi.mock("@/utils/mcp/oauth", () => ({
@@ -89,7 +93,11 @@ describe("mcp callback route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFindIntegration.mockReturnValue({ authType: "oauth" });
+    mockResolveMcpIntegration.mockResolvedValue({
+      name: integration,
+      authType: "oauth",
+      isCustom: false,
+    });
     prisma.emailAccount.findFirst.mockResolvedValue({
       id: "email-account-123",
     } as Awaited<ReturnType<typeof prisma.emailAccount.findFirst>>);
@@ -172,7 +180,7 @@ describe("mcp callback route", () => {
     expect(location).toContain("/email-account-123/integrations");
     expect(location).toContain("connected=notion");
     expect(mockHandleOAuthCallback).toHaveBeenCalledWith({
-      integration: "notion",
+      integration: expect.objectContaining({ name: "notion" }),
       code: "valid-auth-code",
       codeVerifier: "pkce-verifier",
       redirectUri: "http://localhost:3000/api/mcp/notion/callback",

@@ -65,6 +65,7 @@ describe("createMcpToolsForAgent", () => {
     expect(mockCreateMcpTransport).toHaveBeenCalledWith(
       "https://mcp.notion.com/mcp",
       "auth-token",
+      { fetch: undefined },
     );
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });

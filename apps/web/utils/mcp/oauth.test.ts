@@ -6,6 +6,7 @@ import {
   startAuthorization,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import prisma from "@/utils/__mocks__/prisma";
+import { MCP_INTEGRATIONS } from "./integrations";
 import { generateOAuthUrl } from "./oauth";
 
 vi.mock("@/utils/prisma");
@@ -102,7 +103,7 @@ describe("OAuth registration recovery", () => {
   // applying their default scopes
   it("omits scope during registration when the integration declares none", async () => {
     await generateOAuthUrl({
-      integration: "stripe",
+      integration: builtIn("stripe"),
       redirectUri: "https://example.com/oauth/callback",
       state: "oauth-state",
     });
@@ -113,7 +114,7 @@ describe("OAuth registration recovery", () => {
 
   it("registers with the integration's scopes when declared", async () => {
     await generateOAuthUrl({
-      integration: "attio",
+      integration: builtIn("attio"),
       redirectUri: "https://example.com/oauth/callback",
       state: "oauth-state",
     });
@@ -125,8 +126,12 @@ describe("OAuth registration recovery", () => {
 
 function startOAuth() {
   return generateOAuthUrl({
-    integration: "notion",
+    integration: builtIn("notion"),
     redirectUri: "https://example.com/oauth/callback",
     state: "oauth-state",
   });
+}
+
+function builtIn(name: keyof typeof MCP_INTEGRATIONS) {
+  return { ...MCP_INTEGRATIONS[name], isCustom: false };
 }

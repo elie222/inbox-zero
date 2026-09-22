@@ -9,14 +9,9 @@ import {
   getMcpOAuthStateType,
   generateSignedOAuthState,
 } from "@/utils/oauth/state";
-import { findIntegration } from "@/utils/mcp/integrations";
+import { resolveMcpIntegration } from "@/utils/mcp/resolve-integration";
 import { generateOAuthUrl } from "@/utils/mcp/oauth";
-import {
-  getUserTier,
-  hasTierAccess,
-  premiumEntitlementSelect,
-} from "@/utils/premium";
-import prisma from "@/utils/prisma";
+import { assertIntegrationsTierAccess } from "@/utils/mcp/tier-access";
 
 export type GetMcpAuthUrlResponse = { url: string };
 
@@ -31,26 +26,12 @@ export const GET = withEmailAccount(
       integration,
     });
 
-    // Check premium tier - integrations require Plus or higher
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        premium: {
-          select: premiumEntitlementSelect,
-        },
-      },
+    await assertIntegrationsTierAccess({ userId, logger });
+
+    const integrationConfig = await resolveMcpIntegration({
+      name: integration,
+      emailAccountId,
     });
-
-    const tier = getUserTier(user?.premium);
-
-    if (!hasTierAccess({ tier, minimumTier: "PLUS_MONTHLY" })) {
-      logger.warn("MCP auth URL rejected: tier too low", { tier });
-      throw new SafeError(
-        "Integrations require a Plus plan or higher. Please upgrade to continue.",
-      );
-    }
-
-    const integrationConfig = findIntegration(integration);
 
     if (!integrationConfig) {
       logger.warn("MCP auth URL rejected: unknown integration");
@@ -74,7 +55,7 @@ export const GET = withEmailAccount(
       });
 
       const { url, codeVerifier } = await generateOAuthUrl({
-        integration,
+        integration: integrationConfig,
         redirectUri,
         state,
       });

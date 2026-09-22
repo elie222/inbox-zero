@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
-import type { GetMcpAuthUrlResponse } from "@/app/api/mcp/[integration]/auth-url/route";
 import { Toggle } from "@/components/Toggle";
 import { MutedText, TypographyP } from "@/components/Typography";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +19,15 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import {
   disconnectMcpConnectionAction,
+  removeCustomMcpServerAction,
   toggleMcpConnectionAction,
   toggleMcpToolAction,
 } from "@/utils/actions/mcp";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
+import { startMcpOAuth } from "./startMcpOAuth";
 import { truncate } from "@/utils/string";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
-import { redirectToSafeUrl } from "@/utils/redirect";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -45,6 +44,7 @@ export function IntegrationRow({
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
+  const isCustom = integration.isCustom;
   const conn = integration.connection;
 
   const connected = !!conn;
@@ -75,20 +75,10 @@ export function IntegrationRow({
     setConnecting(true);
 
     try {
-      const response = await fetchWithAccount({
-        url: `/api/mcp/${integration.name}/auth-url`,
+      await startMcpOAuth({
+        integrationName: integration.name,
         emailAccountId,
       });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(
-          typeof body?.error === "string" ? body.error : undefined,
-        );
-      }
-
-      const data: GetMcpAuthUrlResponse = await response.json();
-      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       analytics.captureAction("integration_connect_failed", {
         integration: integration.name,
@@ -109,6 +99,16 @@ export function IntegrationRow({
       });
       setConnecting(false);
     }
+  };
+
+  const handleToggleToolsExpanded = () => {
+    analytics.captureAction("integration_tools_expanded", {
+      integration: integration.name,
+      expanded: !expandedTools,
+      enabled_tool_count: toolsCount,
+      total_tool_count: totalTools,
+    });
+    setExpandedTools(!expandedTools);
   };
 
   const handleTogglePause = async () => {
@@ -175,15 +175,13 @@ export function IntegrationRow({
   };
 
   const handleDisconnect = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to disconnect this integration? This will remove all associated tools.",
-      )
-    ) {
-      return;
-    }
+    const confirmMessage = connected
+      ? "Are you sure you want to disconnect this integration? This will remove all associated tools."
+      : "Are you sure you want to remove this server?";
 
-    if (!connectionId) return;
+    if (!confirm(confirmMessage)) return;
+
+    if (!isCustom && !connectionId) return;
 
     analytics.captureAction("integration_disconnect_started", {
       integration: integration.name,
@@ -191,9 +189,14 @@ export function IntegrationRow({
     setDisconnecting(true);
 
     try {
-      const result = await disconnectMcpConnectionAction(emailAccountId, {
-        connectionId,
-      });
+      const result =
+        !isCustom && connectionId
+          ? await disconnectMcpConnectionAction(emailAccountId, {
+              connectionId,
+            })
+          : await removeCustomMcpServerAction(emailAccountId, {
+              name: integration.name,
+            });
 
       if (result?.serverError) {
         toastError({
@@ -206,7 +209,9 @@ export function IntegrationRow({
         });
         toastSuccess({
           title: "Disconnected successfully",
-          description: `Disconnected from ${integration.displayName}`,
+          description: isCustom
+            ? `Removed ${integration.displayName}`
+            : `Disconnected from ${integration.displayName}`,
         });
         onConnectionChange();
       }
@@ -232,6 +237,7 @@ export function IntegrationRow({
                 {integration.comingSoon && (
                   <Badge variant="secondary">Coming soon</Badge>
                 )}
+                {isCustom && <Badge variant="secondary">Custom</Badge>}
               </div>
               <MutedText>{integration.description}</MutedText>
             </div>
@@ -271,7 +277,7 @@ export function IntegrationRow({
           )}
         </TableCell>
         <TableCell>
-          {connected && !integration.comingSoon && (
+          {(connected || isCustom) && !integration.comingSoon && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -283,35 +289,34 @@ export function IntegrationRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {tools.length > 0 && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      analytics.captureAction("integration_tools_expanded", {
-                        integration: integration.name,
-                        expanded: !expandedTools,
-                        enabled_tool_count: toolsCount,
-                        total_tool_count: totalTools,
-                      });
-                      setExpandedTools(!expandedTools);
-                    }}
-                  >
-                    {expandedTools
-                      ? "Hide tools"
-                      : `Manage tools (${toolsCount} of ${totalTools} on)`}
-                  </DropdownMenuItem>
+                {connected && (
+                  <>
+                    {tools.length > 0 && (
+                      <DropdownMenuItem onClick={handleToggleToolsExpanded}>
+                        {expandedTools
+                          ? "Hide tools"
+                          : `Manage tools (${toolsCount} of ${totalTools} on)`}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleTogglePause}>
+                      {isActive ? "Pause" : "Resume"}
+                    </DropdownMenuItem>
+                    {integration.authType === "oauth" && (
+                      <DropdownMenuItem
+                        onClick={handleConnect}
+                        disabled={connecting}
+                      >
+                        {connecting ? "Reconnecting..." : "Reconnect"}
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
-                <DropdownMenuItem onClick={handleTogglePause}>
-                  {isActive ? "Pause" : "Resume"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleConnect} disabled={connecting}>
-                  {connecting ? "Reconnecting..." : "Reconnect"}
-                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleDisconnect}
                   disabled={disconnecting}
                   className="text-red-600"
                 >
-                  {disconnecting ? "Disconnecting..." : "Disconnect"}
+                  {getDisconnectLabel({ connected, disconnecting })}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -324,6 +329,17 @@ export function IntegrationRow({
       )}
     </>
   );
+}
+
+function getDisconnectLabel({
+  connected,
+  disconnecting,
+}: {
+  connected: boolean;
+  disconnecting: boolean;
+}) {
+  if (!connected) return disconnecting ? "Removing..." : "Remove";
+  return disconnecting ? "Disconnecting..." : "Disconnect";
 }
 
 interface ToolsListProps {

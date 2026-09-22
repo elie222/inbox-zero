@@ -18,3 +18,22 @@ export const toggleMcpToolBody = z.object({
   isEnabled: z.boolean(),
 });
 export type ToggleMcpToolBody = z.infer<typeof toggleMcpToolBody>;
+
+export const createCustomMcpServerBody = z
+  .object({
+    displayName: z.string().trim().min(1, "Name is required").max(50),
+    serverUrl: z.string().trim().url("Enter a valid URL").max(2048),
+    authType: z.enum(["oauth", "api-token"]),
+    apiKey: z.string().trim().max(4096).optional(),
+  })
+  .refine((data) => data.authType !== "api-token" || !!data.apiKey, {
+    message: "API key is required",
+    path: ["apiKey"],
+  });
+export type CreateCustomMcpServerBody = z.infer<
+  typeof createCustomMcpServerBody
+>;
+
+export const removeCustomMcpServerBody = z.object({
+  name: z.string(),
+});
