@@ -101,6 +101,20 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
+  test("selects both team-comment flows for feature and lifecycle changes", () => {
+    for (const file of [
+      "apps/web/utils/team-comments/access.ts",
+      "apps/web/prisma/schema.prisma",
+      "apps/web/utils/actions/organization.ts",
+    ]) {
+      const selection = selectChangedPlaywrightTargets(file, appRoot);
+      expect(selection.targetFiles.sort()).toEqual([
+        "__tests__/playwright/emulated/mail/team-comments-access.spec.ts",
+        "__tests__/playwright/emulated/mail/team-comments.spec.ts",
+      ]);
+    }
+  });
+
   test("selects the mail area when the engine queue debug page changes", () => {
     const selection = selectChangedPlaywrightTargets(
       "apps/web/app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",

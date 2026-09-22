@@ -524,6 +524,9 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
+      dompurify:
+        specifier: 3.4.15
+        version: 3.4.15
       dub:
         specifier: 0.71.5
         version: 0.71.5
@@ -572,6 +575,9 @@ importers:
       jotai:
         specifier: 2.20.2
         version: 2.20.2(@babel/core@7.29.7(supports-color@8.1.1))(@babel/template@7.29.7)(@types/react@19.2.18)(react@19.3.0)
+      jsdom:
+        specifier: 27.3.0
+        version: 27.3.0(supports-color@8.1.1)
       jsonrepair:
         specifier: 3.15.0
         version: 3.15.0
@@ -816,9 +822,6 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      jsdom:
-        specifier: 27.3.0
-        version: 27.3.0(supports-color@8.1.1)
       pngjs:
         specifier: 7.0.0
         version: 7.0.0

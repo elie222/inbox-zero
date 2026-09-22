@@ -331,6 +331,22 @@ export function MailSidebar({
             emphasizeCount
             collapsed={collapsed}
           />
+          <NavRow
+            href="/shared"
+            active={false}
+            icon={<MessagesSquareIcon className="size-4 shrink-0" />}
+            name="Shared with me"
+            count={null}
+            collapsed={collapsed}
+          />
+          <NavRow
+            href="/shared/activity"
+            active={false}
+            icon={<BellIcon className="size-4 shrink-0" />}
+            name="Activity"
+            count={null}
+            collapsed={collapsed}
+          />
         </nav>
 
         {!unified && (!collapsed || showMailboxRows) && (

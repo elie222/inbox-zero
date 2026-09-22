@@ -23,6 +23,7 @@ import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -39,6 +40,7 @@ const SenderContextPanel = dynamic(
 const INLINE_SENDER_CONTEXT_MIN_WIDTH = 880;
 
 export type ThreadReaderProps = {
+  emailAccountId?: string;
   enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
@@ -85,6 +87,7 @@ export type ThreadReaderProps = {
 };
 
 export function ThreadReader({
+  emailAccountId,
   enableMessageNavigation,
   thread,
   threadId,
@@ -236,6 +239,13 @@ export function ThreadReader({
         />
       ) : (
         renderToolbar()
+      )}
+      {emailAccountId && threadId && (
+        <PublisherDiscussion
+          key={`${emailAccountId}:${threadId}`}
+          emailAccountId={emailAccountId}
+          providerConversationId={threadId}
+        />
       )}
     </MailReaderSurface>
   );

@@ -167,6 +167,13 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
   const productFiles = [];
 
   for (const file of changedFiles) {
+    if (isTeamCommentsSource(file)) {
+      targetFiles.add(getPlaywrightTargetPath("mail/team-comments.spec.ts"));
+      targetFiles.add(
+        getPlaywrightTargetPath("mail/team-comments-access.spec.ts"),
+      );
+      continue;
+    }
     if (
       /^(?:packages\/mail-(?:core|sqlite|react|ui)\/|apps\/desktop\/)/.test(
         file.repoPath,
@@ -283,6 +290,21 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
       : "The changed files do not affect emulated browser coverage.",
     targetFiles: [...targetFiles],
   };
+}
+
+function isTeamCommentsSource({ appPath }) {
+  return (
+    appPath.startsWith("utils/team-comments/") ||
+    appPath.startsWith("components/team-comments/") ||
+    appPath.startsWith("app/api/team-comments/") ||
+    appPath.startsWith("app/(app)/shared/") ||
+    appPath.startsWith("utils/actions/team-comments.") ||
+    appPath.startsWith("prisma/migrations/20260922150000_team_comments/") ||
+    appPath === "prisma/schema.prisma" ||
+    appPath === "utils/actions/organization.ts" ||
+    appPath === "utils/actions/user.ts" ||
+    appPath === "utils/user/delete.ts"
+  );
 }
 
 function getDirectlyAffectedSuites(appPath) {

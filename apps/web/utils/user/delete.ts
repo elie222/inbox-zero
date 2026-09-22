@@ -13,6 +13,7 @@ import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { publishConversationChange } from "@/utils/team-comments/events";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import {
@@ -186,7 +187,39 @@ async function deleteResources({
     await deleteExecutedRulesInBatches({ emailAccountId, logger });
 
     logger.info("Deleting user");
-    const deletedUser = await prisma.user.deleteMany({ where: { id: userId } });
+    const affectedConversations = await prisma.sharedConversation.findMany({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { publisherEmailAccount: { userId } },
+          {
+            participants: {
+              some: { member: { emailAccount: { userId } }, active: true },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    const [, , , deletedUser] = await prisma.$transaction([
+      prisma.sharedConversation.updateMany({
+        where: { publisherEmailAccount: { userId }, status: "ACTIVE" },
+        data: { status: "STOPPED", revision: { increment: 1 } },
+      }),
+      prisma.conversationParticipant.updateMany({
+        where: { member: { emailAccount: { userId } }, active: true },
+        data: { active: false },
+      }),
+      prisma.member.deleteMany({
+        where: { emailAccount: { userId } },
+      }),
+      prisma.user.deleteMany({ where: { id: userId } }),
+    ]);
+    await Promise.all(
+      affectedConversations.map((conversation) =>
+        publishConversationChange(conversation.id, logger),
+      ),
+    );
 
     // PostHog tracks the completed delete after the database delete succeeds.
     if (deletedUser.count > 0) await trackUserDeleted(userId);
