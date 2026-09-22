@@ -116,6 +116,18 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
       `/api/team-comments/conversations/${id}/messages?memberId=${team.memberIds.b}`,
     );
     expect(denied.ok()).toBe(false);
+    await publisherDiscussion
+      .getByRole("button", { name: "Stop sharing" })
+      .click();
+    await expect(
+      publisherDiscussion.getByRole("button", { name: "Share", exact: true }),
+    ).toBeVisible();
+    await expect(
+      publisherDiscussion.getByRole("group", { name: "Shared participants" }),
+    ).toHaveCount(0);
+    await expect(
+      publisherDiscussion.getByRole("heading", { name: "Internal discussion" }),
+    ).toHaveCount(0);
   } finally {
     await team.cleanup();
     await Promise.all([

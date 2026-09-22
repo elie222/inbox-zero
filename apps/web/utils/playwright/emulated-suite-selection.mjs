@@ -172,7 +172,6 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
       targetFiles.add(
         getPlaywrightTargetPath("mail/team-comments-access.spec.ts"),
       );
-      continue;
     }
     if (
       /^(?:packages\/mail-(?:core|sqlite|react|ui)\/|apps\/desktop\/)/.test(

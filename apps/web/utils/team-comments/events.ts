@@ -1,7 +1,8 @@
 import "server-only";
 import { EventEmitter } from "node:events";
-import { redis } from "@/utils/redis";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { RedisSubscriber } from "@/utils/redis/subscriber";
 
 declare global {
   var teamConversationEvents: EventEmitter | undefined;
@@ -19,10 +20,15 @@ export async function publishConversationChange(
   logger: Logger,
 ) {
   localEvents.emit(conversationChangeChannel(conversationId));
+  if (!env.REDIS_URL) return;
+  let publisher: ReturnType<typeof RedisSubscriber.createInstance> | undefined;
   try {
-    await redis.publish(conversationChangeChannel(conversationId), "{}");
+    publisher = RedisSubscriber.createInstance();
+    await publisher.publish(conversationChangeChannel(conversationId), "{}");
   } catch (error) {
     logger.warn("Unable to publish conversation invalidation", { error });
+  } finally {
+    publisher?.disconnect();
   }
 }
 

@@ -101,17 +101,32 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
-  test("selects both team-comment flows for feature and lifecycle changes", () => {
+  test("selects both team-comment flows for feature and lifecycle changes without narrowing general coverage", () => {
     for (const file of [
       "apps/web/utils/team-comments/access.ts",
       "apps/web/prisma/schema.prisma",
       "apps/web/utils/actions/organization.ts",
+      "apps/web/utils/actions/user.ts",
+      "apps/web/utils/user/delete.ts",
     ]) {
       const selection = selectChangedPlaywrightTargets(file, appRoot);
-      expect(selection.targetFiles.sort()).toEqual([
-        "__tests__/playwright/emulated/mail/team-comments-access.spec.ts",
-        "__tests__/playwright/emulated/mail/team-comments.spec.ts",
-      ]);
+      expect(selection.targetFiles).toEqual(
+        expect.arrayContaining([
+          "__tests__/playwright/emulated/mail/team-comments-access.spec.ts",
+          "__tests__/playwright/emulated/mail/team-comments.spec.ts",
+        ]),
+      );
+      if (
+        file.endsWith("organization.ts") ||
+        file.endsWith("user.ts") ||
+        file.endsWith("delete.ts")
+      ) {
+        expect(
+          selection.targetFiles.some(
+            (target) => !target.includes("team-comments"),
+          ),
+        ).toBe(true);
+      }
     }
   });
 

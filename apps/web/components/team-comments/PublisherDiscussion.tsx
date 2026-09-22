@@ -100,6 +100,10 @@ export function PublisherDiscussion({
             key={`${memberId}:${source.data.source.id}:${source.data.source.generation}`}
             memberId={memberId}
             conversationId={source.data.source.id}
+            onStopped={() => {
+              setExpanded(false);
+              source.mutate();
+            }}
           />
         ) : (
           <p className="text-muted-foreground text-sm">

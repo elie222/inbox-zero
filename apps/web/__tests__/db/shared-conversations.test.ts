@@ -35,6 +35,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let stopSharing: typeof import("@/utils/team-comments/conversations").stopSharing;
     let shareConversation: typeof import("@/utils/team-comments/conversations").shareConversation;
     let setParticipantAccess: typeof import("@/utils/team-comments/conversations").setParticipantAccess;
+    let getConversationActivity: typeof import("@/utils/team-comments/activity").getConversationActivity;
     let ids: Awaited<ReturnType<typeof seed>>;
     const logger = createScopedLogger("shared-conversation-db-test");
 
@@ -48,6 +49,9 @@ describe.skipIf(!RUN_DB_TESTS)(
       ));
       ({ stopSharing, shareConversation, setParticipantAccess } = await import(
         "@/utils/team-comments/conversations"
+      ));
+      ({ getConversationActivity } = await import(
+        "@/utils/team-comments/activity"
       ));
     });
 
@@ -166,6 +170,17 @@ describe.skipIf(!RUN_DB_TESTS)(
           where: { conversationId: results[0].id, kind: "INVITED" },
         }),
       ).toBe(1);
+      const activity = await getConversationActivity(
+        { userId: ids.cUserId, memberId: ids.cMemberId },
+        { limit: 10 },
+      );
+      expect(activity.items).toEqual([
+        expect.objectContaining({
+          conversationId: results[0].id,
+          kind: "INVITED",
+          unread: true,
+        }),
+      ]);
     });
 
     test("different concurrent mutations keep a consistent revision", async () => {
@@ -423,6 +438,28 @@ describe.skipIf(!RUN_DB_TESTS)(
           logger,
         ),
       ).rejects.toThrow("Sharing has changed");
+    });
+
+    test("restart reports when a selected teammate has left the organization", async () => {
+      const actor = { userId: ids.aUserId, memberId: ids.aMemberId };
+      await stopSharing(
+        actor,
+        ids.conversationId,
+        "stop-before-member-removal",
+        logger,
+      );
+      await prisma.member.delete({ where: { id: ids.cMemberId } });
+      await expect(
+        shareConversation(actor, {
+          source: {
+            emailAccountId: ids.aAccountId,
+            providerConversationId: "provider-thread",
+          },
+          participantMemberIds: [ids.cMemberId],
+          clientMutationId: "restart-missing-member",
+          logger,
+        }),
+      ).rejects.toThrow("Teammate is no longer a member");
     });
   },
 );

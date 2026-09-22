@@ -38,8 +38,8 @@ export function useConversationDiscussion(
   };
 
   useEffect(() => {
-    setRevoked(false);
     if (!generation) return;
+    setRevoked(false);
     const url = `/api/team-comments/stream?conversationId=${encodeURIComponent(conversationId)}&${query}`;
     const stream = new EventSource(url);
     const refresh = () => {
