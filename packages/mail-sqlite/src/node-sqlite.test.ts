@@ -2,12 +2,19 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { runDriverContract } from "../test-support/driver-contract";
 import {
   createNodeSqliteDriver,
   openOrQuarantineNodeMailbox,
   wipeNodeMailbox,
 } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
+
+describe("sqlite driver contract", () => {
+  it("commits writes and rolls them back on error", async () => {
+    await runDriverContract(createNodeSqliteDriver());
+  });
+});
 
 describe("node mailbox quarantine", () => {
   it("renames a damaged sqlite file and opens a fresh mailbox", async () => {
