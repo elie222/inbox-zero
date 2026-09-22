@@ -52,6 +52,7 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    MAIL_UPLOAD_DIR: z.string().min(1).optional(),
     INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),

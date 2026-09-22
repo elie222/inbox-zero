@@ -35,7 +35,18 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
     query.type === "trash" ||
     query.type === "spam"
   ) {
-    clauses.push({ kind: "role", role: query.type });
+    clauses.push({
+      kind: "mailbox",
+      mailbox: query.type === "draft" ? "drafts" : query.type,
+    });
+  } else if (query.type === "archive") {
+    clauses.push({ kind: "mailbox", mailbox: "archive" });
+  } else if (query.type === "starred") {
+    clauses.push({ kind: "mailbox", mailbox: "starred" });
+  } else if (query.type === "snoozed") {
+    clauses.push({ kind: "mailbox", mailbox: "snoozed" });
+  } else if (query.type === "all") {
+    clauses.push({ kind: "mailbox", mailbox: "all" });
   } else if (query.type?.startsWith("CATEGORY_")) {
     clauses.push(gmailTokenToPredicate(query.type));
   } else if (

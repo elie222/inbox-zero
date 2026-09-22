@@ -10,6 +10,7 @@ import {
   type BrowserEngineStart,
   type WorkerRequest,
 } from "./worker-protocol";
+import { createMemoryBlobStore } from "@inboxzero/mail-core/memory-blob-store";
 import { browserStoragePressure } from "./storage-pressure";
 import { createMailWorkerHost } from "./worker-session";
 import type { BrowserMailEngine } from "./create-browser-engine";
@@ -36,8 +37,12 @@ async function createWorkerEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
   const driver = await createWasmSqliteDriver({ persist: input.persist });
+  const runtime = createHostRuntime({
+    storagePressure: browserStoragePressure,
+  });
   const store = await createSqliteMailStore(driver, {
     maxPendingOperations: input.maxPendingOperations,
+    runtime,
   });
   const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
     await store.ensureAccount({
@@ -55,7 +60,8 @@ async function createWorkerEngine(
     source: ports.source,
     executor: ports.executor,
     assistant: ports.assistant,
-    runtime: createHostRuntime({ storagePressure: browserStoragePressure }),
+    runtime,
+    blobStore: createMemoryBlobStore(),
     ownerId: "browser-worker",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {

@@ -86,9 +86,13 @@ export function createMailWorkerHost(hooks: {
         });
         return;
       }
+      const args =
+        message.method === "stageDraftAttachment"
+          ? [stageDraftAttachmentArg(message.args[0])]
+          : message.args;
       const value = await (
         method as (...args: unknown[]) => Promise<unknown>
-      ).apply(engine, message.args);
+      ).apply(engine, args);
       hooks.post({ id: message.id, type: "ok", value });
     } catch (error) {
       hooks.post({
@@ -128,7 +132,15 @@ export function createMailWorkerHost(hooks: {
 
 function observe(
   client: MailEngine,
-  kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
+  kind:
+    | "mailbox"
+    | "mailboxWindow"
+    | "conversation"
+    | "operation"
+    | "accounts"
+    | "drafts"
+    | "outbox"
+    | "catalog",
   args: unknown[],
 ) {
   if (kind === "mailbox") {
@@ -143,5 +155,32 @@ function observe(
   if (kind === "conversation") {
     return client.observeConversation(args[0] as never, args[1] as never);
   }
+  if (kind === "accounts") {
+    return client.observeAccounts();
+  }
+  if (kind === "drafts") {
+    return client.observeDrafts(args[0] as never);
+  }
+  if (kind === "outbox") {
+    return client.observeOutbox(args[0] as never);
+  }
+  if (kind === "catalog") {
+    return client.observeMailboxCatalog(args[0] as never);
+  }
   return client.observeOperation(args[0] as never);
+}
+
+function stageDraftAttachmentArg(value: unknown) {
+  if (!value || typeof value !== "object") return value;
+  const input = value as { bytes?: unknown };
+  if (input.bytes instanceof Uint8Array) {
+    const bytes = input.bytes;
+    return {
+      ...input,
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+    };
+  }
+  return value;
 }

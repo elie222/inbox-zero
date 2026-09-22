@@ -23,6 +23,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
+import { createMemoryBlobStore } from "@inboxzero/mail-core/memory-blob-store";
 import { browserStoragePressure } from "@/utils/mail-engine/storage-pressure";
 
 export { browserMailEngineCapabilities };
@@ -57,8 +58,12 @@ async function createInTabEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
   const driver = await createWasmSqliteDriver({ persist: input.persist });
+  const runtime = createHostRuntime({
+    storagePressure: browserStoragePressure,
+  });
   const store = await createSqliteMailStore(driver, {
     maxPendingOperations: input.maxPendingOperations,
+    runtime,
   });
   const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
     await store.ensureAccount({
@@ -76,7 +81,8 @@ async function createInTabEngine(
     source: ports.source,
     executor: ports.executor,
     assistant: ports.assistant,
-    runtime: createHostRuntime({ storagePressure: browserStoragePressure }),
+    runtime,
+    blobStore: createMemoryBlobStore(),
     ownerId: "browser-owner",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {
@@ -157,7 +163,15 @@ async function createWorkerOwnedEngine(
   });
 
   function observe<T>(
-    kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
+    kind:
+      | "mailbox"
+      | "mailboxWindow"
+      | "conversation"
+      | "operation"
+      | "accounts"
+      | "drafts"
+      | "outbox"
+      | "catalog",
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
@@ -213,12 +227,22 @@ async function createWorkerOwnedEngine(
     },
     observeConversation: (key, page) => observe("conversation", [key, page]),
     observeOperation: (key) => observe("operation", [key]),
+    observeAccounts: () => observe("accounts", []),
+    observeDrafts: (accountIds) => observe("drafts", [accountIds]),
+    observeOutbox: (accountIds) => observe("outbox", [accountIds]),
+    observeMailboxCatalog: (accountId) => observe("catalog", [accountId]),
     submitMetadata: (payload) =>
       callWorker(worker, pending, "submitMetadata", [payload]),
     submitConversations: (payload) =>
       callWorker(worker, pending, "submitConversations", [payload]),
     saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
     readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
+    async stageDraftAttachment(input) {
+      const bytes = await collectWorkerBytes(input.bytes);
+      return callWorker(worker, pending, "stageDraftAttachment", [
+        { ...input, bytes },
+      ]);
+    },
     submitSend: (payload) =>
       callWorker(worker, pending, "submitSend", [payload]),
     cancelOperation: (payload) =>
@@ -231,6 +255,10 @@ async function createWorkerOwnedEngine(
       callWorker<void>(worker, pending, "ensureAccount", [account]),
     ensureMessageContent: (key) =>
       callWorker(worker, pending, "ensureMessageContent", [key]),
+    ensureConversation: (key) =>
+      callWorker(worker, pending, "ensureConversation", [key]),
+    referencedBlobIds: () =>
+      callWorker(worker, pending, "referencedBlobIds", []),
     getDiagnostics: (accountId) =>
       callWorker(worker, pending, "getDiagnostics", [accountId]),
     purgeAccount: (accountId) =>
@@ -286,4 +314,20 @@ function callWorker<T>(
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function collectWorkerBytes(bytes: AsyncIterable<Uint8Array>) {
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for await (const chunk of bytes) {
+    size += chunk.byteLength;
+    chunks.push(chunk);
+  }
+  const collected = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    collected.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return collected;
 }
