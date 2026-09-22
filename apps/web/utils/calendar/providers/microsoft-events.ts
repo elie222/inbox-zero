@@ -53,9 +53,6 @@ type MicrosoftEvent = {
   onlineMeetingUrl?: string;
   isOnlineMeeting?: boolean;
   onlineMeetingProvider?: string;
-};
-
-type MicrosoftInvitationEvent = MicrosoftEvent & {
   isCancelled?: boolean;
   singleValueExtendedProperties?: Array<{ id: string; value: string }>;
   responseStatus?: { response?: string };
@@ -218,7 +215,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       return (await client
         .api(`/me/events/${encodeURIComponent(eventId)}`)
         .query({ $expand: APPOINTMENT_SEQUENCE_EXPAND })
-        .get()) as MicrosoftInvitationEvent;
+        .get()) as MicrosoftEvent;
     } catch (error) {
       this.logger.warn("Failed to read the event linked to the invitation", {
         error,
@@ -236,7 +233,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         $expand: APPOINTMENT_SEQUENCE_EXPAND,
       })
       .get();
-    const events: MicrosoftInvitationEvent[] = result.value ?? [];
+    const events: MicrosoftEvent[] = result.value ?? [];
     if (events.length !== 1 || result["@odata.nextLink"]) return null;
     return events[0];
   }
