@@ -69,7 +69,7 @@ await Promise.all([
 ]);
 
 function publishDependencies(dependencies, version) {
-  if (!dependencies) return undefined;
+  if (!dependencies) return;
   return Object.fromEntries(
     Object.entries(dependencies).map(([name, range]) => [
       name,

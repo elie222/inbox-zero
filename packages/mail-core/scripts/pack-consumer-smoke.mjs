@@ -15,16 +15,16 @@ const portableForbidden = [
   "from 'node:",
   'require("node:',
   "require('node:",
-  "from \"react-dom",
+  'from "react-dom',
   "from 'react-dom",
-  "from \"next",
+  'from "next',
   "from 'next",
-  "from \"expo",
+  'from "expo',
   "from 'expo",
-  "from \"electron",
+  'from "electron',
   "from 'electron",
 ];
-const hermesForbidden = ["await using ", " using {", 'with {', "import assert"];
+const hermesForbidden = ["await using ", " using {", "with {", "import assert"];
 
 const directory = await mkdtemp(join(tmpdir(), "mail-pack-consumer-"));
 try {
@@ -32,15 +32,23 @@ try {
   for (const name of names) {
     const pkg = join(packagesRoot, name);
     await exec(process.execPath, ["scripts/clean-package.mjs"], { cwd: pkg });
-    await exec(join(pkg, "node_modules/.bin/tsc"), ["-p", "tsconfig.build.json"], {
-      cwd: pkg,
-    });
+    await exec(
+      join(pkg, "node_modules/.bin/tsc"),
+      ["-p", "tsconfig.build.json"],
+      {
+        cwd: pkg,
+      },
+    );
     await exec(process.execPath, ["scripts/prepare-package.mjs"], { cwd: pkg });
     const dist = join(pkg, "dist");
-    const packed = await exec("npm", ["pack", "--pack-destination", directory], {
-      cwd: dist,
-      env: process.env,
-    });
+    const packed = await exec(
+      "npm",
+      ["pack", "--pack-destination", directory],
+      {
+        cwd: dist,
+        env: process.env,
+      },
+    );
     const line = packed.stdout.trim().split("\n").at(-1) ?? "";
     const tarball = line.endsWith(".tgz")
       ? line.startsWith("/")
@@ -65,7 +73,9 @@ try {
     );
     for (const value of Object.values(manifest.dependencies ?? {})) {
       if (String(value).startsWith("workspace:")) {
-        throw new Error(`${name} packed dependencies still use workspace protocol`);
+        throw new Error(
+          `${name} packed dependencies still use workspace protocol`,
+        );
       }
     }
     await assertPortablePackedJs(name, tarball, listing.stdout);
@@ -114,11 +124,16 @@ if (!blobStore.stage || !createHostRuntime || !createMailEngine || !createSqlite
 console.log("pack consumer smoke ok");
 `,
   );
-  const ran = await exec("node", ["smoke.mjs"], { cwd: consumer, env: process.env });
+  const ran = await exec("node", ["smoke.mjs"], {
+    cwd: consumer,
+    env: process.env,
+  });
   if (!ran.stdout.includes("pack consumer smoke ok")) {
     throw new Error("consumer smoke did not print success");
   }
-  console.log("mail package consumer smoke passed (static/package + node import)");
+  console.log(
+    "mail package consumer smoke passed (static/package + node import)",
+  );
   console.log(
     "Hermes/Metro: portable packed JS was scanned; this is not a native runtime.",
   );
@@ -147,12 +162,16 @@ async function assertPortablePackedJs(name, tarball, listing) {
     for (const token of portableForbidden) {
       if (name === "mail-react" && token.includes("react-dom")) continue;
       if (source.includes(token)) {
-        throw new Error(`${name} ${file} contains portable-forbidden token ${token}`);
+        throw new Error(
+          `${name} ${file} contains portable-forbidden token ${token}`,
+        );
       }
     }
     for (const token of hermesForbidden) {
       if (source.includes(token)) {
-        throw new Error(`${name} ${file} contains Hermes-incompatible syntax ${token}`);
+        throw new Error(
+          `${name} ${file} contains Hermes-incompatible syntax ${token}`,
+        );
       }
     }
   }
