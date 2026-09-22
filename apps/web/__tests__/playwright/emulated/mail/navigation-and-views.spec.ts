@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
+import { playwrightMailProvider } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   conversationWithSubject,
@@ -8,6 +9,9 @@ import {
   openMailboxFromSidebar,
   readLatestMailMutation,
 } from "./mail-test-helpers";
+
+const openExternalLabel =
+  playwrightMailProvider === "microsoft" ? "Open in Outlook" : "Open in Gmail";
 
 test("opens a complete conversation and updates its read state", async ({
   page,
@@ -58,10 +62,10 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(move).toContainText("V");
   const markSpam = page.getByRole("menuitem", { name: "Mark as spam" });
   await expect(markSpam).toContainText("!");
-  const openInGmail = page.getByRole("menuitem", {
-    name: "Open in Gmail",
+  const openExternal = page.getByRole("menuitem", {
+    name: openExternalLabel,
   });
-  await expect(openInGmail).toContainText("G G");
+  await expect(openExternal).toContainText("G G");
   await page.keyboard.press("Escape");
   await expect(move).toBeHidden();
   await page.keyboard.press("KeyV");

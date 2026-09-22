@@ -1,7 +1,11 @@
 import { expect } from "@playwright/test";
+import { playwrightMailProvider } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+
+const openExternalLabel =
+  playwrightMailProvider === "microsoft" ? "Open in Outlook" : "Open in Gmail";
 
 test("uses the system dark theme when opening HTML emails", async ({
   page,
@@ -198,26 +202,26 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   const autoArchive = actionsMenu.getByRole("menuitem", {
     name: "Auto archive future emails",
   });
-  const openInGmail = actionsMenu.getByRole("menuitem", {
-    name: "Open in Gmail",
+  const openExternal = actionsMenu.getByRole("menuitem", {
+    name: openExternalLabel,
   });
   await expect(autoArchive).toBeVisible();
   await expect(autoArchive).toHaveAttribute("aria-disabled", "true");
   await actionsMenu.evaluate((menu) =>
     Promise.all(menu.getAnimations().map((animation) => animation.finished)),
   );
-  const openInGmailBeforeLoad = await openInGmail.boundingBox();
-  expect(openInGmailBeforeLoad).not.toBeNull();
+  const openExternalBeforeLoad = await openExternal.boundingBox();
+  expect(openExternalBeforeLoad).not.toBeNull();
   releaseSenderStats.resolve();
   expect((await senderStatsResponse).ok()).toBe(true);
   await expect(autoArchive).not.toHaveAttribute("aria-disabled", "true");
-  const openInGmailAfterLoad = await openInGmail.boundingBox();
-  expect(openInGmailAfterLoad?.y).toBe(openInGmailBeforeLoad?.y);
+  const openExternalAfterLoad = await openExternal.boundingBox();
+  expect(openExternalAfterLoad?.y).toBe(openExternalBeforeLoad?.y);
   await expect(
     actionsMenu.getByRole("menuitem", { name: "Mark as spam" }),
   ).toBeVisible();
   await expect(actionsMenu.getByRole("menuitem").last()).toHaveText(
-    /Open in Gmail/,
+    openExternalLabel,
   );
   await capturePlaywrightCheckpoint(
     page,

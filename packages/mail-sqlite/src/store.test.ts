@@ -354,6 +354,8 @@ describe("engine plus sqlite archive slice", () => {
         return source.readChanges(input);
       },
     };
+    let now = 1000;
+    const deadline = () => now + 2000;
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -383,10 +385,10 @@ describe("engine plus sqlite archive slice", () => {
           return { status: "uncertain", receiptId: null };
         },
       },
-      runtime: createHostRuntime(),
+      runtime: createHostRuntime({ nowMs: () => now }),
     });
     await engine.requestSync(["acc-1"]);
-    await engine.runUntil(Date.now() + 2000);
+    await engine.runUntil(deadline());
     expect((await engine.getDiagnostics("acc-1")).connection).toBe(
       "blocked_auth",
     );
@@ -395,7 +397,8 @@ describe("engine plus sqlite archive slice", () => {
     );
 
     changeStatus = "page";
-    await engine.runUntil(Date.now() + 2000);
+    now += 60_000;
+    await engine.runUntil(deadline());
     expect((await engine.getDiagnostics("acc-1")).connection).toBe("ready");
     expect(
       (await store.readMailboxView(inboxQuery)).view.counts
@@ -403,12 +406,14 @@ describe("engine plus sqlite archive slice", () => {
     ).toBe(2);
 
     messages.set("m1", messagePatch("m1", "c1", 1000, []));
-    await engine.runUntil(Date.now() + 2000);
+    now += 60_000;
+    await engine.runUntil(deadline());
     expect(
       (await store.readMailboxView(inboxQuery)).view.counts
         .matchingConversations,
     ).toBe(1);
-    await engine.runUntil(Date.now() + 2000);
+    now += 60_000;
+    await engine.runUntil(deadline());
     const inspection = await store.inspect();
     expect(inspection.accounts[0]?.connection).toBe("ready");
     expect(
