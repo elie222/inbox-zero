@@ -40,9 +40,9 @@ WHERE gi."groupId" = g."id"
   AND gi."source" = 'AI'
   AND gi."type" = 'FROM'
   AND NOT gi."exclude"
-  AND split_part(lower(coalesce(substring(gi."value" FROM '<([^>]+)>'), gi."value")), '@', 2) = split_part(lower(ea."email"), '@', 2)
+  AND split_part(lower(coalesce(substring(gi."value" FROM '<([^>]+)>'), gi."value")), '@', 2) = btrim(split_part(lower(ea."email"), '@', 2))
   AND lower(coalesce(substring(gi."value" FROM '<([^>]+)>'), gi."value")) <> lower(ea."email")
-  AND split_part(lower(ea."email"), '@', 2) NOT IN (
+  AND btrim(split_part(lower(ea."email"), '@', 2)) NOT IN (
     'gmail.com','googlemail.com','yahoo.com','ymail.com','rocketmail.com','hotmail.com',
     'outlook.com','live.com','msn.com','aol.com','icloud.com','me.com','mac.com',
     'proton.me','protonmail.com','protonmail.ch','pm.me','zoho.com','yandex.com',
