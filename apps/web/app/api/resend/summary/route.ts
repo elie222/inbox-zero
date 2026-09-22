@@ -32,6 +32,8 @@ import {
 
 export const maxDuration = 60;
 
+const COLD_EMAIL_DISPLAY_LIMIT = 100;
+
 export const GET = withEmailAccount("resend/summary", async (request) => {
   // send to self
   const emailAccountId = request.auth.emailAccountId;
@@ -172,47 +174,58 @@ async function sendEmail({
     ],
   } satisfies Prisma.ExecutedActionWhereInput;
 
-  const [coldExecutedRules, archivedEmailCount, archivedActions] =
-    await Promise.all([
-      // cold emails
-      coldEmailRule
-        ? prisma.executedRule.findMany({
-            where: {
-              ruleId: coldEmailRule.id,
-              automated: true,
-              createdAt: { gt: cutOffDate },
-            },
-            orderBy: { createdAt: "desc" },
-            select: {
-              messageId: true,
-              createdAt: true,
-            },
-          })
-        : Promise.resolve([]),
-      prisma.executedAction.count({
-        where: archivedActionWhere,
-      }),
-      prisma.executedAction.findMany({
-        where: archivedActionWhere,
-        orderBy: { createdAt: "desc" },
-        take: ARCHIVED_EMAIL_DISPLAY_LIMIT,
-        select: {
-          id: true,
-          createdAt: true,
-          executedRule: {
-            select: {
-              messageId: true,
-              rule: {
-                select: {
-                  name: true,
-                  systemType: true,
-                },
+  const coldExecutedRuleWhere = coldEmailRule
+    ? ({
+        ruleId: coldEmailRule.id,
+        automated: true,
+        createdAt: { gt: cutOffDate },
+      } satisfies Prisma.ExecutedRuleWhereInput)
+    : null;
+
+  const [
+    coldEmailCount,
+    coldExecutedRules,
+    archivedEmailCount,
+    archivedActions,
+  ] = await Promise.all([
+    coldExecutedRuleWhere
+      ? prisma.executedRule.count({ where: coldExecutedRuleWhere })
+      : Promise.resolve(0),
+    coldExecutedRuleWhere
+      ? prisma.executedRule.findMany({
+          where: coldExecutedRuleWhere,
+          orderBy: { createdAt: "desc" },
+          take: COLD_EMAIL_DISPLAY_LIMIT,
+          select: {
+            messageId: true,
+            createdAt: true,
+          },
+        })
+      : Promise.resolve([]),
+    prisma.executedAction.count({
+      where: archivedActionWhere,
+    }),
+    prisma.executedAction.findMany({
+      where: archivedActionWhere,
+      orderBy: { createdAt: "desc" },
+      take: ARCHIVED_EMAIL_DISPLAY_LIMIT,
+      select: {
+        id: true,
+        createdAt: true,
+        executedRule: {
+          select: {
+            messageId: true,
+            rule: {
+              select: {
+                name: true,
+                systemType: true,
               },
             },
           },
         },
-      }),
-    ]);
+      },
+    }),
+  ]);
 
   const messageIds = [
     ...coldExecutedRules.map((r) => r.messageId),
@@ -270,13 +283,14 @@ async function sendEmail({
     getEmailLinks,
   });
 
-  const shouldSendEmail = !!(archivedEmailCount || coldEmailers.length);
+  const shouldSendEmail = !!(archivedEmailCount || coldEmailCount);
 
   logger.info("Sending summary email to user", {
     shouldSendEmail,
     archivedEmailCount,
     archivedEmailsShown: archivedEmails.length,
-    coldEmailers: coldEmailers.length,
+    coldEmailCount,
+    coldEmailersShown: coldEmailers.length,
   });
 
   async function sendEmail({
@@ -295,6 +309,7 @@ async function sendEmail({
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         archivedEmailCount,
         archivedEmails,
+        coldEmailCount,
         coldEmailers,
         unsubscribeToken: token,
       },

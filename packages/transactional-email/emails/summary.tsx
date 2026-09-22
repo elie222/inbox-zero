@@ -33,6 +33,7 @@ export interface SummaryEmailProps {
   archivedEmailCount?: number;
   archivedEmails?: ArchivedEmailItem[];
   baseUrl: string;
+  coldEmailCount?: number;
   coldEmailers: EmailItem[];
   // End of the week being summarized. Defaults to now.
   periodEnd?: Date;
@@ -54,11 +55,11 @@ export default function SummaryEmail(props: SummaryEmailProps) {
     archivedEmailCount = 0,
     archivedEmails = [],
     coldEmailers,
+    coldEmailCount = coldEmailers.length,
     periodEnd = new Date(),
     unsubscribeToken,
   } = props;
 
-  const coldEmailCount = coldEmailers.length;
   const preview = [
     `${archivedEmailCount} ${pluralize(archivedEmailCount, "email")} archived`,
     `${coldEmailCount} cold ${pluralize(coldEmailCount, "email")} blocked`,
@@ -111,7 +112,11 @@ export default function SummaryEmail(props: SummaryEmailProps) {
               baseUrl={baseUrl}
             />
 
-            <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
+            <ColdEmails
+              coldEmailCount={coldEmailCount}
+              coldEmailers={coldEmailers}
+              baseUrl={baseUrl}
+            />
 
             <Section className="border-t border-solid border-[#EFEFEF] px-6 pt-4 text-center text-[13px] leading-5 text-[#848484]">
               <StatsEmailFooter
@@ -249,20 +254,29 @@ function ArchivedEmails({
 }
 
 function ColdEmails({
+  coldEmailCount,
   coldEmailers,
   baseUrl,
 }: {
+  coldEmailCount: number;
   coldEmailers: EmailItem[];
   baseUrl: string;
 }) {
-  if (!coldEmailers.length) return null;
+  if (!coldEmailCount) return null;
+
+  const hiddenCount = Math.max(coldEmailCount - coldEmailers.length, 0);
 
   return (
     <Card
       title="Cold Email Blocker"
-      badge={`${coldEmailers.length} blocked`}
+      badge={`${coldEmailCount} blocked`}
       badgeStyle={BADGES.blue}
       description="Unsolicited outreach kept out of your inbox."
+      footnote={
+        hiddenCount > 0
+          ? `And ${hiddenCount} more cold ${pluralize(hiddenCount, "email")}.`
+          : undefined
+      }
       cta={{ href: `${baseUrl}/cold-email-blocker`, label: "View cold emails" }}
     >
       <EmailList emails={coldEmailers} />
