@@ -46,6 +46,7 @@ export function conversationMessageToParsed(
     date,
     internalDate: String(message.metadata.receivedAtMs),
     historyId: "",
+    externalUrl: message.metadata.externalUrl ?? undefined,
     inline,
     snippet: message.metadata.preview,
     subject: message.metadata.subject,

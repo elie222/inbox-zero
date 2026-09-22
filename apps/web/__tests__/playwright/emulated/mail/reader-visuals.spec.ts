@@ -220,7 +220,7 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await expect(
     actionsMenu.getByRole("menuitem", { name: "Mark as spam" }),
   ).toBeVisible();
-  await expect(actionsMenu.getByRole("menuitem").last()).toHaveText(
+  await expect(actionsMenu.getByRole("menuitem").last()).toContainText(
     openExternalLabel,
   );
   await capturePlaywrightCheckpoint(

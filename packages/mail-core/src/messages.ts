@@ -23,6 +23,7 @@ export type MessageAttachmentDescriptor = z.infer<
 export const messageMetadataSchema = z.object({
   subject: z.string().max(16_384),
   preview: z.string().max(16_384),
+  externalUrl: z.string().max(16_384).nullable().optional(),
   from: z.string().max(4096),
   to: z.array(z.string().max(4096)).max(500),
   cc: z.array(z.string().max(4096)).max(500),

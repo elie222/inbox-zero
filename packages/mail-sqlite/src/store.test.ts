@@ -120,6 +120,88 @@ describe("sqlite mail store", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("persists provider external URLs through reader conversation projection", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
+    const path = join(directory, "mailbox.sqlite");
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const patch = messagePatch("m1", "c1", 1000, ["inbox"]);
+    const externalUrl = "https://outlook.office.com/mail/deeplink/read/m1";
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "external-url",
+        from: { streamId: "inbox", generation: "g1", checkpoint: null },
+        to: { streamId: "inbox", generation: "g1", checkpoint: "1" },
+        changes: [
+          {
+            ...patch,
+            reference: { ...patch.reference, provider: "microsoft" },
+            fields: { ...patch.fields, externalUrl },
+          },
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    await store.close();
+
+    const reopened = await createSqliteMailStore(createNodeSqliteDriver(path));
+    const conversation = await reopened.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { pageSize: 10, after: null },
+    );
+    expect(conversation.view.messages[0]?.metadata.externalUrl).toBe(
+      externalUrl,
+    );
+    await reopened.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("upgrades existing mailbox rows before storing provider external URLs", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
+    const path = join(directory, "mailbox.sqlite");
+    createLegacyMailboxWithoutExternalUrl(path);
+
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    let inspection = await store.inspect({ accountIds: ["acc-1"] });
+    expect(inspection.messages[0]?.confirmed.subject).toBe("Legacy subject");
+    expect(inspection.messages[0]?.confirmed.externalUrl).toBeUndefined();
+
+    const patch = messagePatch("m1", "c1", 1000, ["inbox"]);
+    const externalUrl = "https://outlook.office.com/mail/deeplink/read/m1";
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "external-url-upgrade",
+        from: { streamId: "inbox", generation: "g1", checkpoint: null },
+        to: { streamId: "inbox", generation: "g1", checkpoint: "1" },
+        changes: [
+          {
+            ...patch,
+            reference: { ...patch.reference, provider: "microsoft" },
+            fields: { ...patch.fields, externalUrl },
+          },
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    inspection = await store.inspect({ accountIds: ["acc-1"] });
+    expect(inspection.messages[0]?.confirmed.externalUrl).toBe(externalUrl);
+    expect(inspection.messages[0]?.effective.externalUrl).toBe(externalUrl);
+    await store.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
   it("rejects stale sync pages that do not start from the stored checkpoint", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -4125,6 +4207,108 @@ function messagePatchWithVersion(
       version,
     },
   };
+}
+
+function createLegacyMailboxWithoutExternalUrl(path: string) {
+  const db = new DatabaseSync(path);
+  try {
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      );
+      CREATE TABLE profile_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        database_epoch TEXT NOT NULL,
+        sequence INTEGER NOT NULL,
+        owner_fence TEXT
+      );
+      INSERT INTO profile_state(id, database_epoch, sequence, owner_fence)
+      VALUES (1, 'legacy', 0, NULL);
+      CREATE TABLE accounts (
+        account_id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+        generation TEXT NOT NULL,
+        assistant_cursor TEXT,
+        connection TEXT
+      );
+      INSERT INTO accounts(account_id, provider, generation, assistant_cursor, connection)
+      VALUES ('acc-1', 'microsoft', 'g1', NULL, 'ready');
+      CREATE TABLE messages (
+        account_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        conversation_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        version TEXT,
+        subject TEXT NOT NULL,
+        preview TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        to_json TEXT NOT NULL,
+        cc_json TEXT NOT NULL,
+        received_at_ms INTEGER NOT NULL,
+        read INTEGER NOT NULL CHECK (read IN (0, 1)),
+        starred INTEGER NOT NULL CHECK (starred IN (0, 1)),
+        folder_id TEXT,
+        label_ids_json TEXT NOT NULL,
+        category_ids_json TEXT NOT NULL,
+        roles_json TEXT NOT NULL,
+        in_inbox INTEGER NOT NULL CHECK (in_inbox IN (0, 1)),
+        in_sent INTEGER NOT NULL CHECK (in_sent IN (0, 1)),
+        in_draft INTEGER NOT NULL CHECK (in_draft IN (0, 1)),
+        in_trash INTEGER NOT NULL CHECK (in_trash IN (0, 1)),
+        in_spam INTEGER NOT NULL CHECK (in_spam IN (0, 1)),
+        has_attachments INTEGER NOT NULL CHECK (has_attachments IN (0, 1)),
+        deleted INTEGER NOT NULL DEFAULT 0 CHECK (deleted IN (0, 1)),
+        PRIMARY KEY (account_id, message_id)
+      );
+      CREATE TABLE effective_messages (
+        account_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        conversation_id TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        preview TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        to_json TEXT NOT NULL,
+        received_at_ms INTEGER NOT NULL,
+        read INTEGER NOT NULL,
+        starred INTEGER NOT NULL,
+        folder_id TEXT,
+        label_ids_json TEXT NOT NULL,
+        category_ids_json TEXT NOT NULL,
+        roles_json TEXT NOT NULL,
+        in_inbox INTEGER NOT NULL,
+        in_sent INTEGER NOT NULL,
+        in_draft INTEGER NOT NULL,
+        in_trash INTEGER NOT NULL,
+        in_spam INTEGER NOT NULL,
+        has_attachments INTEGER NOT NULL,
+        pending_operation_ids_json TEXT NOT NULL,
+        PRIMARY KEY (account_id, message_id)
+      );
+      INSERT INTO messages(
+        account_id, message_id, conversation_id, provider, version, subject, preview,
+        from_address, to_json, cc_json, received_at_ms, read, starred, folder_id,
+        label_ids_json, category_ids_json, roles_json, in_inbox, in_sent, in_draft,
+        in_trash, in_spam, has_attachments, deleted
+      ) VALUES (
+        'acc-1', 'm1', 'c1', 'microsoft', '1', 'Legacy subject', 'Legacy preview',
+        'ada@example.com', '["me@example.com"]', '[]', 1000, 0, 0, 'inbox',
+        '["INBOX"]', '[]', '["inbox"]', 1, 0, 0, 0, 0, 0, 0
+      );
+      INSERT INTO effective_messages(
+        account_id, message_id, conversation_id, subject, preview, from_address,
+        to_json, received_at_ms, read, starred, folder_id, label_ids_json,
+        category_ids_json, roles_json, in_inbox, in_sent, in_draft, in_trash,
+        in_spam, has_attachments, pending_operation_ids_json
+      ) VALUES (
+        'acc-1', 'm1', 'c1', 'Legacy subject', 'Legacy preview', 'ada@example.com',
+        '["me@example.com"]', 1000, 0, 0, 'inbox', '["INBOX"]',
+        '[]', '["inbox"]', 1, 0, 0, 0, 0, 0, '[]'
+      );
+    `);
+  } finally {
+    db.close();
+  }
 }
 
 async function claimPreparation(

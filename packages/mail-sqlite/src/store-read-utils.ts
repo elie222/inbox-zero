@@ -74,6 +74,8 @@ export function metadataFromEffective(
   return {
     subject: String(row.subject),
     preview: String(row.preview),
+    externalUrl:
+      row.external_url == null ? undefined : String(row.external_url),
     from: String(row.from_address),
     to: JSON.parse(String(row.to_json)) as string[],
     cc: [],

@@ -12,6 +12,7 @@ describe("conversationViewToThreadResponse", () => {
       threadId: "c-1",
       subject: "Hello",
       textPlain: "Hi there",
+      externalUrl: "https://outlook.office.com/mail/deeplink/read/m-1",
       labelIds: ["INBOX", "UNREAD"],
       headers: { from: "Ada <ada@example.com>" },
     });
@@ -86,6 +87,7 @@ function message(
     messageId?: string;
     roles?: Array<"inbox" | "sent" | "draft" | "trash" | "spam">;
     read?: boolean;
+    externalUrl?: string;
     attachments?: MessageAttachmentDescriptor[];
     isMeetingInvitation?: boolean;
   } = {},
@@ -98,6 +100,9 @@ function message(
     metadata: {
       subject: "Hello",
       preview: "Hi there",
+      externalUrl:
+        overrides.externalUrl ??
+        "https://outlook.office.com/mail/deeplink/read/m-1",
       from: "Ada <ada@example.com>",
       to: ["user@example.com"],
       cc: [],

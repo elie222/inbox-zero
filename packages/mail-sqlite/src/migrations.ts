@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS messages (
   version TEXT,
   subject TEXT NOT NULL,
   preview TEXT NOT NULL,
+  external_url TEXT,
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   cc_json TEXT NOT NULL,
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   conversation_id TEXT NOT NULL,
   subject TEXT NOT NULL,
   preview TEXT NOT NULL,
+  external_url TEXT,
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   received_at_ms INTEGER NOT NULL,
@@ -280,6 +282,18 @@ export async function migrateMailbox(
   }
   try {
     await tx.exec("ALTER TABLE accounts ADD COLUMN connection TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec("ALTER TABLE messages ADD COLUMN external_url TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN external_url TEXT",
+    );
   } catch {
     // column already exists on freshly created databases
   }

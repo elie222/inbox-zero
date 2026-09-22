@@ -35,12 +35,16 @@ describe("parsedMessageMetadata", () => {
       parentFolderId: "inbox",
       subject: "Hello",
       snippet: "Hi",
+      externalUrl: "https://outlook.office.com/mail/deeplink/read/m2",
       labelIds: ["UNREAD"],
       headers: { from: "ada@example.com", to: "me@example.com", date: "" },
       inline: [],
     } as ParsedMessage);
     expect(metadata.roles).toEqual(["inbox"]);
     expect(metadata.read).toBe(false);
+    expect(metadata.externalUrl).toBe(
+      "https://outlook.office.com/mail/deeplink/read/m2",
+    );
   });
 });
 

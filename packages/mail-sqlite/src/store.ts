@@ -2349,15 +2349,16 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   const flags = roleFlags(message.roles);
   await tx.execute(
     `INSERT INTO messages(
-       account_id, message_id, conversation_id, provider, version, subject, preview, from_address,
-       to_json, cc_json, received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json,
+       account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
+       from_address, to_json, cc_json, received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json,
        roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, deleted
-     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(account_id, message_id) DO UPDATE SET
        conversation_id = excluded.conversation_id,
        version = excluded.version,
        subject = excluded.subject,
        preview = excluded.preview,
+       external_url = excluded.external_url,
        from_address = excluded.from_address,
        to_json = excluded.to_json,
        cc_json = excluded.cc_json,
@@ -2383,6 +2384,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.version,
       message.subject,
       message.preview,
+      message.externalUrl ?? null,
       message.from,
       JSON.stringify(message.to),
       JSON.stringify(message.cc),
@@ -2445,14 +2447,15 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
     const flags = roleFlags(effective.roles);
     await tx.execute(
       `INSERT INTO effective_messages(
-         account_id, message_id, conversation_id, subject, preview, from_address, to_json,
+         account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json,
          received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
          in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, message_id) DO UPDATE SET
          conversation_id = excluded.conversation_id,
          subject = excluded.subject,
          preview = excluded.preview,
+         external_url = excluded.external_url,
          from_address = excluded.from_address,
          to_json = excluded.to_json,
          received_at_ms = excluded.received_at_ms,
@@ -2475,6 +2478,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         effective.conversationId,
         effective.subject,
         effective.preview,
+        effective.externalUrl ?? null,
         effective.from,
         JSON.stringify(effective.to),
         effective.receivedAtMs,
@@ -2662,6 +2666,8 @@ function confirmedFromRow(
     deleted: Number(row.deleted) === 1,
     subject: String(row.subject),
     preview: String(row.preview),
+    externalUrl:
+      row.external_url == null ? undefined : String(row.external_url),
     from: String(row.from_address),
     to: JSON.parse(String(row.to_json)) as string[],
     cc: JSON.parse(String(row.cc_json)) as string[],

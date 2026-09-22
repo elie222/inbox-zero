@@ -40,6 +40,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
   return {
     subject: message.subject || "",
     preview: message.snippet || "",
+    externalUrl: message.externalUrl ?? undefined,
     from: message.headers.from || "",
     to: splitAddresses(message.headers.to),
     cc: splitAddresses(message.headers.cc),

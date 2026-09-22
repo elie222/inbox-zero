@@ -23,7 +23,27 @@ microsoft:
       user_email: __PLAYWRIGHT_TEST_EMAIL__
       display_name: Project Alpha
       color: preset1
+    - id: Label_promotions
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      display_name: Promotions
+      color: preset2
   messages:
+    - id: msg_playwright_promotion
+      conversation_id: thr_playwright_promotion
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: offers@example.com
+        name: Offers
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Promotion Category Message
+      body_content: This conversation is visible in the promotions category.
+      body_content_type: text
+      parent_folder_id: inbox
+      is_read: false
+      categories:
+        - Promotions
+      received_date_time: "2026-01-01T17:00:00.000Z"
     - id: msg_playwright_1
       conversation_id: thr_playwright_1
       user_email: __PLAYWRIGHT_TEST_EMAIL__

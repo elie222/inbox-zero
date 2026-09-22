@@ -111,6 +111,8 @@ export function applyMetadataPatch(
   return {
     subject: patch.subject ?? current.subject,
     preview: patch.preview ?? current.preview,
+    externalUrl:
+      patch.externalUrl === undefined ? current.externalUrl : patch.externalUrl,
     from: patch.from ?? current.from,
     to: patch.to ?? current.to,
     cc: patch.cc ?? current.cc,
