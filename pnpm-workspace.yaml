@@ -19,6 +19,9 @@ overrides:
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
   fast-xml-parser: "5.8.0"
+  # One ioredis copy for BullMQ and @chat-adapter/state-ioredis. The adapter
+  # still declares ^5.4.1, but v6 keeps legacy reply mapping and closing the
+  # ioredis 5 advisory requires a single 6.x.
   ioredis: "6.0.0"
   js-yaml: "3.14.2"
   jws: "4.0.1"
