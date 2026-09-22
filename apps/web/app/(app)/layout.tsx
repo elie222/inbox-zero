@@ -31,7 +31,6 @@ const logger = createScopedLogger("AppLayout");
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  weight: ["400", "500", "600", "700"], // font-normal, font-medium, font-semibold, font-bold
   preload: true,
   display: "swap",
 });

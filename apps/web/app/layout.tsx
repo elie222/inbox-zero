@@ -32,7 +32,6 @@ const aeonikFont = localFont({
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
-  weight: ["400", "500", "600", "700"], // font-normal, font-medium, font-semibold, font-bold
   display: "swap",
 });
 
