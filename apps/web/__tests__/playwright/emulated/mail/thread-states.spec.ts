@@ -124,8 +124,7 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
-  await replyToSeededWorkflowMessage(page).click();
-  const editor = page.getByRole("textbox", { name: "Email message" });
+  const editor = await openSeededWorkflowReplyEditor(page);
   const text = "I can review the updated proposal on Thursday.";
   await editor.fill(text);
   await page.evaluate(() => {
@@ -320,4 +319,18 @@ function replyToSeededWorkflowMessage(page: Page) {
   return page
     .locator('[data-thread-message-id="msg_playwright_reply"]')
     .getByRole("button", { name: "Reply", exact: true });
+}
+
+async function openSeededWorkflowReplyEditor(page: Page) {
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  const collapsed = message.locator('[role="button"][aria-expanded="false"]');
+  if (await collapsed.count()) await collapsed.click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  if (!(await editor.count()) || !(await editor.first().isVisible())) {
+    await replyToSeededWorkflowMessage(page).click();
+  }
+  await expect(editor).toBeVisible();
+  return editor;
 }
