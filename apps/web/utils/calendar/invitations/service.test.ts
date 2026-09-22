@@ -104,6 +104,26 @@ describe("responding to calendar invitations", () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  it("responds through the calendar event the mailbox linked to the invitation", async () => {
+    mocks.connections.mockResolvedValue([
+      { provider: "microsoft", refreshToken: "refresh" },
+    ]);
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      calendarContent: content,
+      calendarEventId: "linked-event",
+    });
+    await expect(respondToCalendarInvitation(params)).resolves.toEqual({
+      response: "accepted",
+      calendarSynced: true,
+    });
+    expect(mocks.findEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "meeting@example.com" }),
+      "linked-event",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it("does not send an email fallback after a calendar write failure", async () => {
     mocks.connections.mockResolvedValue([
       { provider: "google", refreshToken: "refresh" },

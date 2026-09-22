@@ -28,6 +28,12 @@ export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},body,interne
 export const MESSAGE_EXPAND_ATTACHMENTS =
   "attachments($select=id,name,contentType,size,isInline,microsoft.graph.fileAttachment/contentId)";
 
+// Outlook keeps its own copy of the invitation on the user's calendar and links
+// the email to it. The calendar lookup needs that id to sync the RSVP. The type
+// cast scopes the expand to invitations, so plain messages are unaffected.
+const MESSAGE_EXPAND_LINKED_EVENT =
+  "microsoft.graph.eventMessage/event($select=id)";
+
 export async function getFolderIds(
   client: OutlookClient,
   logger: Logger,
@@ -869,10 +875,14 @@ export async function getMessage(
   logger: Logger,
   options?: { includeCalendarContent?: boolean },
 ): Promise<ParsedMessage> {
-  const message = await withMicrosoftGraphRetry(
-    () => createMessageRequest(client, messageId).get(),
-    logger,
-  );
+  const message: Message & { event?: { id?: string } } =
+    await withMicrosoftGraphRetry(
+      () =>
+        createMessageRequest(client, messageId, {
+          includeLinkedCalendarEvent: options?.includeCalendarContent,
+        }).get(),
+      logger,
+    );
 
   const [folderIds, categoryMap] = await Promise.all([
     getFolderIds(client, logger, { includeDrafts: false }),
@@ -922,6 +932,7 @@ export async function getMessage(
         error,
       });
     }
+    if (parsed.isMeetingInvitation) parsed.calendarEventId = message.event?.id;
   }
   return parsed;
 }
@@ -985,12 +996,20 @@ export function createMessagesRequest(
 /**
  * Helper to create a request for fetching a single message with standard fields selected.
  */
-export function createMessageRequest(client: OutlookClient, messageId: string) {
+export function createMessageRequest(
+  client: OutlookClient,
+  messageId: string,
+  options?: { includeLinkedCalendarEvent?: boolean },
+) {
   return client
     .getClient()
     .api(`/me/messages/${messageId}`)
     .select(MESSAGE_SELECT_FIELDS)
-    .expand(MESSAGE_EXPAND_ATTACHMENTS);
+    .expand(
+      options?.includeLinkedCalendarEvent
+        ? [MESSAGE_EXPAND_ATTACHMENTS, MESSAGE_EXPAND_LINKED_EVENT]
+        : MESSAGE_EXPAND_ATTACHMENTS,
+    );
 }
 
 /**

@@ -38,15 +38,17 @@ export async function getCalendarInvitation({
   messageId,
   logger,
 }: InvitationContext) {
-  const invitation = await getInvitationFromMessage(
+  const parsed = await getInvitationFromMessage(
     emailProvider,
     messageId,
     email,
   );
-  if (!invitation) return { invitation: null };
+  if (!parsed) return { invitation: null };
+  const { invitation, calendarEventId } = parsed;
   const match = await findInvitationEvent({
     emailAccountId,
     invitation,
+    calendarEventId,
     logger,
   });
   return {
@@ -68,18 +70,20 @@ export async function respondToCalendarInvitation({
   response,
   logger,
 }: InvitationContext & { response: InvitationResponse }) {
-  const invitation = await getInvitationFromMessage(
+  const parsed = await getInvitationFromMessage(
     emailProvider,
     messageId,
     email,
   );
-  if (!invitation)
+  if (!parsed)
     throw new SafeError(
       "This email does not contain an invitation you can respond to.",
     );
+  const { invitation, calendarEventId } = parsed;
   const match = await findInvitationEvent({
     emailAccountId,
     invitation,
+    calendarEventId,
     logger,
   });
   if (match) {
@@ -142,21 +146,25 @@ async function getInvitationFromMessage(
       return null;
     content ??= decoded;
   }
-  return content
-    ? parseCalendarInvitation(
-        normalizeCalendarInvitationContent(content),
-        email,
-      )
+  if (!content) return null;
+  const invitation = parseCalendarInvitation(
+    normalizeCalendarInvitationContent(content),
+    email,
+  );
+  return invitation
+    ? { invitation, calendarEventId: message.calendarEventId }
     : null;
 }
 
 async function findInvitationEvent({
   emailAccountId,
   invitation,
+  calendarEventId,
   logger,
 }: {
   emailAccountId: string;
   invitation: CalendarInvitation;
+  calendarEventId?: string;
   logger: Logger;
 }) {
   const connections = await prisma.calendarConnection.findMany({
@@ -179,7 +187,10 @@ async function findInvitationEvent({
       emailAccountId,
       logger,
     });
-    const event = await provider.findInvitationEvent(invitation);
+    const event = await provider.findInvitationEvent(
+      invitation,
+      calendarEventId,
+    );
     if (event) matches.push({ provider, event });
   }
   if (matches.length > 1)

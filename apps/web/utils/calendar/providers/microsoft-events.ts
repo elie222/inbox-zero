@@ -23,6 +23,7 @@ import { sleep } from "@/utils/sleep";
 // PidLidAppointmentSequence tracks the organizer's meeting revision.
 const APPOINTMENT_SEQUENCE_PROPERTY =
   "Integer {00062002-0000-0000-C000-000000000046} Id 0x8201";
+const APPOINTMENT_SEQUENCE_EXPAND = `singleValueExtendedProperties($filter=id eq '${APPOINTMENT_SEQUENCE_PROPERTY}')`;
 const ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
 const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
 
@@ -52,6 +53,12 @@ type MicrosoftEvent = {
   onlineMeetingUrl?: string;
   isOnlineMeeting?: boolean;
   onlineMeetingProvider?: string;
+};
+
+type MicrosoftInvitationEvent = MicrosoftEvent & {
+  isCancelled?: boolean;
+  singleValueExtendedProperties?: Array<{ id: string; value: string }>;
+  responseStatus?: { response?: string };
 };
 
 type MicrosoftCalendarOnlineMeetingSettings = {
@@ -161,26 +168,14 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
 
   async findInvitationEvent(
     invitation: CalendarInvitation,
+    mailboxEventId?: string,
   ): Promise<InvitationEvent | null> {
     if (invitation.recurrenceId) return null;
     const client = await this.getClient();
-    const result = await client
-      .api("/me/calendar/events")
-      .query({
-        $filter: `iCalUId eq '${escapeODataString(invitation.uid)}'`,
-        $top: 2,
-        $expand: `singleValueExtendedProperties($filter=id eq '${APPOINTMENT_SEQUENCE_PROPERTY}')`,
-      })
-      .get();
-    const events: Array<
-      MicrosoftEvent & {
-        isCancelled?: boolean;
-        singleValueExtendedProperties?: Array<{ id: string; value: string }>;
-        responseStatus?: { response?: string };
-      }
-    > = result.value ?? [];
-    if (events.length !== 1 || result["@odata.nextLink"]) return null;
-    const event = events[0];
+    const event = mailboxEventId
+      ? await this.getMailboxEvent(client, mailboxEventId)
+      : await this.findEventByUid(client, invitation.uid);
+    if (!event) return null;
     if (event.isCancelled)
       throw new SafeError("This event has been cancelled.");
     if (
@@ -213,6 +208,37 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       response:
         response === "tentativelyAccepted" ? "tentative" : (response ?? null),
     };
+  }
+
+  // Exchange rewrites the iCalUId of invitations that other calendar providers
+  // sent, so a UID lookup misses them. The mailbox links the invitation email to
+  // the event it created instead, which is the id the caller passes here.
+  private async getMailboxEvent(client: Client, eventId: string) {
+    try {
+      return (await client
+        .api(`/me/events/${encodeURIComponent(eventId)}`)
+        .query({ $expand: APPOINTMENT_SEQUENCE_EXPAND })
+        .get()) as MicrosoftInvitationEvent;
+    } catch (error) {
+      this.logger.warn("Failed to read the event linked to the invitation", {
+        error,
+      });
+      return null;
+    }
+  }
+
+  private async findEventByUid(client: Client, uid: string) {
+    const result = await client
+      .api("/me/calendar/events")
+      .query({
+        $filter: `iCalUId eq '${escapeODataString(uid)}'`,
+        $top: 2,
+        $expand: APPOINTMENT_SEQUENCE_EXPAND,
+      })
+      .get();
+    const events: MicrosoftInvitationEvent[] = result.value ?? [];
+    if (events.length !== 1 || result["@odata.nextLink"]) return null;
+    return events[0];
   }
 
   async respondToInvitation(
