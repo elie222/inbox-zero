@@ -355,6 +355,18 @@ function writeEmulateSeed({
   let seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_B_EMAIL__",
+      playwrightTestEmail.replace("playwright-test", "playwright-team-b"),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_C_EMAIL__",
+      playwrightTestEmail.replace("playwright-test", "playwright-team-c"),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_D_EMAIL__",
+      playwrightTestEmail.replace("playwright-test", "playwright-team-d"),
+    )
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
     .replaceAll("__PLAYWRIGHT_TEST_LINKING_URI__", linkingUri)
     .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())

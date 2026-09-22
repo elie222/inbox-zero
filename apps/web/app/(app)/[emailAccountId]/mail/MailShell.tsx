@@ -1157,6 +1157,9 @@ export function MailShell() {
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
+      openTeamComments: openThreadId
+        ? () => document.dispatchEvent(new Event("team-comments:open"))
+        : undefined,
       openExternal:
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
@@ -1804,6 +1807,7 @@ export function MailShell() {
                   onReady={setVisibleReaderThreadKey}
                 >
                   <ThreadReader
+                    emailAccountId={readerEmailAccount?.id}
                     enableMessageNavigation={!sidePanelThreadId}
                     thread={openThread ?? null}
                     threadId={openThreadId}

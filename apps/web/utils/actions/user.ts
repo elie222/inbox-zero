@@ -30,6 +30,7 @@ import {
 } from "@/utils/ai/draft-cleanup";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
+import { publishConversationChange } from "@/utils/team-comments/events";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
@@ -145,6 +146,20 @@ export const deleteEmailAccountAction = actionClientUser
       if (!emailAccount.accountId) throw new SafeError("Account id not found");
       const organizationIdsToDelete =
         await assertEmailAccountCanBeDeleted(emailAccountId);
+      const affectedConversations = await prisma.sharedConversation.findMany({
+        where: {
+          status: "ACTIVE",
+          OR: [
+            { publisherEmailAccountId: emailAccountId },
+            {
+              participants: {
+                some: { member: { emailAccountId }, active: true },
+              },
+            },
+          ],
+        },
+        select: { id: true },
+      });
 
       const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
       const deleteSoloOrganizationsOperation =
@@ -157,6 +172,16 @@ export const deleteEmailAccountAction = actionClientUser
           organizationId: { notIn: organizationIdsToDelete },
         },
       });
+      const revokePublishedConversationsOperation =
+        prisma.sharedConversation.updateMany({
+          where: { publisherEmailAccountId: emailAccountId, status: "ACTIVE" },
+          data: { status: "STOPPED", revision: { increment: 1 } },
+        });
+      const revokeConversationGrantsOperation =
+        prisma.conversationParticipant.updateMany({
+          where: { member: { emailAccountId }, active: true },
+          data: { active: false },
+        });
 
       if (isPrimaryAccount) {
         // Check if there are other email accounts
@@ -186,6 +211,8 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            revokePublishedConversationsOperation,
+            revokeConversationGrantsOperation,
             deleteRemainingMembershipsOperation,
             prisma.user.update({
               where: {
@@ -225,6 +252,8 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            revokePublishedConversationsOperation,
+            revokeConversationGrantsOperation,
             deleteRemainingMembershipsOperation,
             prisma.emailAccount.delete({
               where: {
@@ -248,6 +277,11 @@ export const deleteEmailAccountAction = actionClientUser
           emailAccountId,
         });
       });
+      await Promise.all(
+        affectedConversations.map((conversation) =>
+          publishConversationChange(conversation.id, logger),
+        ),
+      );
 
       await clearLastEmailAccountCookieIfMatching({
         userId,

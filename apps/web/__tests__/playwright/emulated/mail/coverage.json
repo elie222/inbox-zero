@@ -136,6 +136,16 @@
     "components/CommandK.tsx",
     "lib/shortcuts/registry.ts"
   ],
+  "team-comments-access.spec.ts": [
+    "utils/team-comments/access.ts",
+    "utils/team-comments/conversations.ts",
+    "components/team-comments/ConversationDiscussion.tsx"
+  ],
+  "team-comments.spec.ts": [
+    "components/team-comments/PublisherDiscussion.tsx",
+    "components/team-comments/ConversationDiscussion.tsx",
+    "app/(app)/shared/[conversationId]/SharedConversationReader.tsx"
+  ],
   "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
   "thread-navigation.spec.ts": [
     "components/email-list/EmailThread.tsx",

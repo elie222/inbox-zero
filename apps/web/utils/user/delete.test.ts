@@ -43,6 +43,10 @@ describe("deleteUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.member.findMany.mockResolvedValue([]);
+    prisma.sharedConversation.findMany.mockResolvedValue([]);
+    prisma.$transaction.mockImplementation(async (operations) =>
+      Promise.all(operations),
+    );
   });
 
   it("does not delete a user when their email accounts own an organization with remaining members", async () => {
@@ -126,6 +130,9 @@ describe("deleteUser", () => {
     });
     expect(prisma.user.deleteMany).toHaveBeenCalledWith({
       where: { id: "user-1" },
+    });
+    expect(prisma.member.deleteMany).toHaveBeenCalledWith({
+      where: { emailAccount: { userId: "user-1" } },
     });
     expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
       "email-account-1",
