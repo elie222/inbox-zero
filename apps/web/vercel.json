@@ -62,7 +62,8 @@
         {
           "type": "queue/v2beta",
           "topic": "resend-summary",
-          "retryAfterSeconds": 60
+          "retryAfterSeconds": 60,
+          "maxDeliveries": 5
         }
       ]
     },
