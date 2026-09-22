@@ -39,6 +39,7 @@ export interface SummaryEmailProps {
   unsubscribeToken: string;
 }
 
+const MAX_SUBJECTS_PER_SENDER = 3;
 const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 const ACCENT = "#2563EB";
 
@@ -382,36 +383,42 @@ function SenderRow({
   const [latest] = emails;
   const count = emails.length;
   const { name, address } = splitFrom(latest.from);
-  const href = count > 1 ? latest.senderUrl || latest.url : latest.url;
+  const senderHref = count > 1 ? latest.senderUrl || latest.url : latest.url;
+  const shownEmails = emails.slice(0, MAX_SUBJECTS_PER_SENDER);
+  const hiddenCount = count - shownEmails.length;
   const borderClass = `border-t border-solid border-[#EFEFEF] ${
     isLast ? "border-b" : ""
   }`;
 
-  const content = (
-    <>
-      <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
-        {name}
-        {address && (
-          <span className="font-normal text-[#848484]"> {address}</span>
-        )}
-      </Text>
-      {latest.subject && (
-        <Text className="m-0 pt-0.5 text-[14px] leading-5 text-[#3D3D3D]">
-          {latest.subject}
-        </Text>
+  const sender = (
+    <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
+      {name}
+      {address && (
+        <span className="font-normal text-[#848484]"> {address}</span>
       )}
-    </>
+    </Text>
   );
 
   return (
     <Row className={borderClass}>
       <Column className="py-3">
-        {href ? (
-          <Link href={href} className="block no-underline">
-            {content}
-          </Link>
-        ) : (
-          content
+        <OptionalLink href={senderHref}>{sender}</OptionalLink>
+        {shownEmails.map(
+          (email, index) =>
+            email.subject && (
+              <OptionalLink key={`${email.subject}-${index}`} href={email.url}>
+                <Text className="m-0 pt-0.5 text-[14px] leading-5 text-[#3D3D3D]">
+                  {email.subject}
+                </Text>
+              </OptionalLink>
+            ),
+        )}
+        {hiddenCount > 0 && (
+          <OptionalLink href={latest.senderUrl}>
+            <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+              +{hiddenCount} more
+            </Text>
+          </OptionalLink>
         )}
       </Column>
       <Column
@@ -428,6 +435,21 @@ function SenderRow({
         )}
       </Column>
     </Row>
+  );
+}
+
+function OptionalLink({
+  href,
+  children,
+}: {
+  href?: string;
+  children: ReactNode;
+}) {
+  if (!href) return children;
+  return (
+    <Link href={href} className="block no-underline">
+      {children}
+    </Link>
   );
 }
 
