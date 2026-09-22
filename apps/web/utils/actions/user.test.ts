@@ -9,10 +9,14 @@ import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
+import { publishConversationChange } from "@/utils/team-comments/events";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/team-comments/events", () => ({
+  publishConversationChange: vi.fn(),
+}));
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
   withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
 }));
@@ -72,6 +76,7 @@ describe("deleteEmailAccountAction", () => {
       Promise.all(operations as Promise<unknown>[]),
     );
     prisma.member.findMany.mockResolvedValue([]);
+    prisma.sharedConversation.findMany.mockResolvedValue([]);
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "primary@example.com",
       accountId: "account-1",
@@ -97,6 +102,9 @@ describe("deleteEmailAccountAction", () => {
   });
 
   it("promotes another account before deleting the primary account", async () => {
+    prisma.sharedConversation.findMany.mockResolvedValue([
+      { id: "shared-1" },
+    ] as Awaited<ReturnType<typeof prisma.sharedConversation.findMany>>);
     prisma.emailAccount.findMany.mockResolvedValue([
       {
         id: "alternate-email-account",
@@ -150,6 +158,10 @@ describe("deleteEmailAccountAction", () => {
     });
     expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
       "primary-email-account",
+    );
+    expect(publishConversationChange).toHaveBeenCalledWith(
+      "shared-1",
+      expect.anything(),
     );
     expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],

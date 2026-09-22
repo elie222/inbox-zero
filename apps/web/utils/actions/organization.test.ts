@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { publishConversationChange } from "@/utils/team-comments/events";
 import {
   removeMemberAction,
   transferOwnershipAction,
@@ -7,6 +8,9 @@ import {
 } from "@/utils/actions/organization";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/team-comments/events", () => ({
+  publishConversationChange: vi.fn(),
+}));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "admin@example.com" },
@@ -98,6 +102,10 @@ describe("updateMemberRoleAction", () => {
 describe("removeMemberAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.sharedConversation.findMany.mockResolvedValue([]);
+    prisma.$transaction.mockImplementation(async (operations) =>
+      Promise.all(operations),
+    );
   });
 
   it("deletes the member's org rule copies scoped to the organization, leaving personal rules untouched", async () => {
@@ -114,6 +122,9 @@ describe("removeMemberAction", () => {
     } as any);
     prisma.rule.deleteMany.mockResolvedValue({ count: 2 } as any);
     prisma.member.delete.mockResolvedValue({} as any);
+    prisma.sharedConversation.findMany.mockResolvedValue([
+      { id: "shared-1" },
+    ] as Awaited<ReturnType<typeof prisma.sharedConversation.findMany>>);
 
     const result = await removeMemberAction({ memberId: "member-2" });
 
@@ -127,6 +138,12 @@ describe("removeMemberAction", () => {
     expect(prisma.member.delete).toHaveBeenCalledWith({
       where: { id: "member-2" },
     });
+    expect(prisma.sharedConversation.updateMany).toHaveBeenCalled();
+    expect(prisma.conversationParticipant.updateMany).toHaveBeenCalled();
+    expect(publishConversationChange).toHaveBeenCalledWith(
+      "shared-1",
+      expect.anything(),
+    );
   });
 
   it("prevents callers from removing themselves", async () => {
