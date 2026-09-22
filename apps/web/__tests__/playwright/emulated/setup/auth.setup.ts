@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
@@ -47,6 +48,25 @@ test(`${playwrightMailProvider} emulator signs in and creates an app account`, a
   await expect
     .poll(() => page.url(), { timeout: 30_000 })
     .toContain(APP_BASE_URL);
+
+  if (playwrightMailProvider === "microsoft") {
+    const attachment = await readFile("public/splash_screens/icon.png");
+    const response = await page.request.post(
+      `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/msg_playwright_reader_visual_received/attachments`,
+      {
+        headers: {
+          Authorization: "Bearer playwright_microsoft_fixture_token",
+        },
+        data: {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: "reader-preview.png",
+          contentType: "image/png",
+          contentBytes: attachment.toString("base64"),
+        },
+      },
+    );
+    expect(response.ok(), await response.text()).toBe(true);
+  }
 
   await markOnboardingComplete(PLAYWRIGHT_TEST_EMAIL);
   const emailAccount = await getEmailAccount(page);

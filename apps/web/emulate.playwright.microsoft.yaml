@@ -1,3 +1,12 @@
+tokens:
+  playwright_microsoft_fixture_token:
+    login: __PLAYWRIGHT_TEST_EMAIL__
+    scopes:
+      - openid
+      - email
+      - profile
+      - User.Read
+      - Mail.ReadWrite
 microsoft:
   users:
     - email: __PLAYWRIGHT_TEST_EMAIL__
@@ -150,6 +159,52 @@ microsoft:
       is_draft: true
       is_read: true
       received_date_time: "2026-01-01T12:00:00.000Z"
+    - id: msg_draft_indicator_parent
+      conversation_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: sender@example.com
+        name: Sender Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Draft deletion example
+      body_content: Please review this proposal.
+      body_content_type: text
+      parent_folder_id: inbox
+      is_read: true
+      received_date_time: "2026-01-01T11:00:00.000Z"
+    - id: msg_draft_indicator_first
+      conversation_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: sender@example.com
+          name: Sender Example
+      subject: Draft deletion example
+      body_content: First draft reply.
+      body_content_type: text
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T10:59:00.000Z"
+    - id: msg_draft_indicator_second
+      conversation_id: thr_draft_indicator
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: sender@example.com
+          name: Sender Example
+      subject: Draft deletion example
+      body_content: Second draft reply.
+      body_content_type: text
+      parent_folder_id: drafts
+      is_draft: true
+      is_read: true
+      received_date_time: "2026-01-01T11:10:00.000Z"
     - id: msg_playwright_sent
       conversation_id: thr_playwright_sent
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -164,6 +219,57 @@ microsoft:
       parent_folder_id: sentitems
       is_read: true
       received_date_time: "2025-12-31T12:00:00.000Z"
+    - id: msg_playwright_reply
+      conversation_id: thr_playwright_reply
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: leslie@example.com
+        name: Leslie Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reply Workflow Message
+      body_content: Please reply to this seeded conversation.
+      body_content_type: text
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-31T11:00:00.000Z"
+    - id: msg_playwright_reader_visual_sent
+      conversation_id: thr_playwright_reader_visual
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: __PLAYWRIGHT_TEST_EMAIL__
+        name: Smoke Test User
+      to_recipients:
+        - address: morgan@example.com
+          name: Morgan Example
+      subject: Reader Visual Message
+      body_content: The earlier sent message keeps the conversation context visible.
+      body_content_type: text
+      parent_folder_id: sentitems
+      is_read: true
+      received_date_time: "2025-12-31T10:00:00.000Z"
+    - id: msg_playwright_reader_visual_received
+      conversation_id: thr_playwright_reader_visual
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from:
+        address: morgan@example.com
+        name: Morgan Example
+      to_recipients:
+        - address: __PLAYWRIGHT_TEST_EMAIL__
+      subject: "Re: Reader Visual Message"
+      body_content: |-
+        <!doctype html><html lang="en"><head><style>p { margin: 0 0 16px; }</style></head>
+        <body style="margin: 0; padding: 16px; background: #232326; color: #f4e9da; font-family: Arial, sans-serif">
+        <div><p>The current reply stays concise and easy to scan.</p>
+        <p>The attached image should appear as a preview below.</p>
+        </div>
+        <div id="divRplyFwdMsg"><hr><div><b>From:</b> Previous sender</div></div>
+        <div><p>This earlier quoted message is hidden until expanded.</p></div>
+        </body></html>
+      body_content_type: html
+      parent_folder_id: inbox
+      is_read: false
+      received_date_time: "2025-12-31T10:30:00.000Z"
     - id: msg_playwright_plain_links
       conversation_id: thr_playwright_plain_links
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -174,6 +280,7 @@ microsoft:
         - address: __PLAYWRIGHT_TEST_EMAIL__
       subject: Plain Text Links Message
       body_content: "Visit service.new/account\n\nhttps://staging.example.com/verify?token=value"
+      body_content_type: text
       parent_folder_id: inbox
       is_read: false
       received_date_time: "2025-12-30T18:00:00.000Z"
@@ -253,6 +360,7 @@ microsoft:
         - address: __PLAYWRIGHT_TEST_EMAIL__
       subject: Overflow Plain Message
       body_content: "Account details:\n\n__PLAYWRIGHT_LONG_LINK__\n\nEnd of message."
+      body_content_type: text
       parent_folder_id: sentitems
       is_read: true
       received_date_time: "2025-12-31T12:00:00.000Z"

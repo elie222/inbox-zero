@@ -1057,8 +1057,8 @@ export function convertMessage(
     threadId: message.conversationId || "",
     externalUrl: message.webLink || undefined,
     snippet: message.bodyPreview || "",
-    textPlain: bodyContent,
-    textHtml: bodyContent,
+    textPlain: bodyType === "text" ? bodyContent : undefined,
+    textHtml: bodyType === "html" ? bodyContent : undefined,
     bodyContentType: bodyType,
     headers: {
       from:

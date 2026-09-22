@@ -49,6 +49,7 @@ export function createEmailProviderMailboxSource(input: {
   accountId: string;
 }): MailboxSource {
   const { provider, accountId } = input;
+  const maxPageSize = provider.name === "microsoft" ? 20 : 50;
   const providerName: Provider =
     provider.name === "microsoft" ? "microsoft" : "google";
   return {
@@ -61,7 +62,7 @@ export function createEmailProviderMailboxSource(input: {
               ? "folder_delta"
               : "account_history",
           supportedChanges: [...SUPPORTED_CHANGES],
-          maxPageSize: 50,
+          maxPageSize,
           maxHydrationBatch: 20,
         },
       };
@@ -119,7 +120,7 @@ export function createEmailProviderMailboxSource(input: {
       try {
         const token = JSON.parse(page) as BootstrapToken;
         const syncPage = await provider.getMessagesWithPagination({
-          maxResults: pageSize,
+          maxResults: Math.min(pageSize, maxPageSize),
           folderId: token.folderId ?? undefined,
           pageToken: token.pageToken,
           includeDrafts: true,
@@ -299,7 +300,7 @@ export function createEmailProviderMailboxSource(input: {
       if (predicate.kind !== "text") return { status: "unsupported" };
       const result = await provider.searchMessages({
         query: predicate.value,
-        maxResults: pageSize,
+        maxResults: Math.min(pageSize, maxPageSize),
         pageToken: page ?? undefined,
       });
       return {

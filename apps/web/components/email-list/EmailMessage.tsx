@@ -619,7 +619,11 @@ function ReplyPanel({
 
       try {
         const result = await discardPromise;
-        if (result?.serverError || result?.validationErrors) {
+        if (
+          result &&
+          (result.serverError !== undefined ||
+            result.validationErrors !== undefined)
+        ) {
           toastError({
             description: getActionErrorMessage(result, {
               prefix: "Failed to discard draft",

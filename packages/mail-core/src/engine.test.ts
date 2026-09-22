@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createHostRuntime, createMailEngine } from "./engine";
-import type { MailStore } from "./ports/mail-store";
-import type { MailboxSource } from "./ports/mailbox-source";
+import type { AccountSyncState, MailStore } from "./ports/mail-store";
+import type { MailboxSource, ScopeDescriptor } from "./ports/mailbox-source";
+import type { AssistantStateSource } from "./ports/assistant-source";
 import type { OperationExecutor } from "./ports/operation-executor";
 import type { ConversationQuery, QueryHandle } from "./queries";
 
@@ -49,6 +50,92 @@ describe("mail engine mailbox windows", () => {
     expect(requestedPageCounts).toEqual([3, 4]);
     expect(handle.getSnapshot().data?.counts.matchingConversations).toBe(4);
     await engine.close();
+  });
+});
+
+describe("mail engine idle catch-up scheduling", () => {
+  it("checks every stream once, then waits for the idle interval", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox", "archive"] });
+    await harness.engine.runUntil(10_000);
+
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.discoveredScopeRequests).toBe(1);
+    expect(harness.readChangeStreams).toEqual(["inbox", "archive"]);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(70_000);
+
+    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.readChangeStreams).toEqual([
+      "inbox",
+      "archive",
+      "inbox",
+      "archive",
+    ]);
+    await harness.engine.close();
+  });
+
+  it("explicit sync bypasses the idle catch-up gate", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    await harness.engine.runUntil(10_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(11_000);
+
+    await harness.engine.requestSync(["acc-1"]);
+    await harness.engine.runUntil(11_000);
+
+    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
+  });
+
+  it("gates idle assistant catch-up and lets explicit sync wake it", async () => {
+    const assistantCursors: Array<string | null> = [];
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      assistant: assistantSource(assistantCursors),
+    });
+    await harness.engine.runUntil(10_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(11_000);
+
+    await harness.engine.requestSync(["acc-1"]);
+    await harness.engine.runUntil(11_000);
+
+    expect(assistantCursors).toEqual([null, null]);
+    await harness.engine.close();
+  });
+
+  it("continues assistant pages without waiting for the idle interval", async () => {
+    const assistantCursors: Array<string | null> = [];
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      assistant: pagedAssistantSource(assistantCursors),
+    });
+    await harness.engine.runUntil(10_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(11_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(12_000);
+
+    expect(assistantCursors).toEqual([null, "cursor-1", "cursor-2"]);
+    await harness.engine.close();
+  });
+
+  it("continues partial sync pages without waiting for the idle interval", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      partialPagesBeforeComplete: 1,
+    });
+    await harness.engine.runUntil(10_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(11_000);
+    harness.advance(1000);
+    await harness.engine.runUntil(12_000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
   });
 });
 
@@ -161,6 +248,178 @@ function idleExecutor(): OperationExecutor {
     },
     async inspect() {
       return { status: "uncertain", receiptId: null };
+    },
+  };
+}
+
+function idleCatchUpHarness(input: {
+  streamIds: string[];
+  partialPagesBeforeComplete?: number;
+  assistant?: AssistantStateSource;
+}) {
+  let nowMs = 0;
+  let nextId = 0;
+  const readChangeStreams: string[] = [];
+  const streams: Array<AccountSyncState["streams"][number]> =
+    input.streamIds.map((streamId) => ({
+      accountId: "acc-1",
+      streamId,
+      generation: "g1",
+      checkpoint: "start",
+    }));
+  let discoveredScopeRequests = 0;
+  let partialPagesRemaining = input.partialPagesBeforeComplete ?? 0;
+  const source: MailboxSource = {
+    ...idleSource(),
+    async discoverScopes() {
+      discoveredScopeRequests += 1;
+      return {
+        status: "ok",
+        value: {
+          scopes: input.streamIds.map((streamId) => ({
+            id: streamId,
+            kind: "folder" as const,
+            folderId: streamId,
+          })) satisfies ScopeDescriptor[],
+          nextPage: null,
+        },
+      };
+    },
+    async readChanges({ session, requestId, position }) {
+      readChangeStreams.push(position.streamId);
+      const roundComplete = partialPagesRemaining === 0;
+      if (partialPagesRemaining > 0) partialPagesRemaining -= 1;
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: {
+            ...position,
+            checkpoint: `${position.streamId}-${readChangeStreams.length}`,
+          },
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+          roundComplete,
+        },
+      };
+    },
+  };
+  const store = idleCatchUpStore(streams);
+  const engine = createMailEngine({
+    store,
+    source,
+    executor: idleExecutor(),
+    assistant: input.assistant,
+    runtime: createHostRuntime({
+      nowMs: () => nowMs,
+      randomId: () => {
+        nextId += 1;
+        return `id-${nextId}`;
+      },
+    }),
+  });
+  return {
+    engine,
+    readChangeStreams,
+    get discoveredScopeRequests() {
+      return discoveredScopeRequests;
+    },
+    advance(ms: number) {
+      nowMs += ms;
+    },
+  };
+}
+
+function idleCatchUpStore(
+  streams: Array<AccountSyncState["streams"][number]>,
+): MailStore {
+  let assistantCursor: string | null = null;
+  return {
+    async claimWork() {
+      return null;
+    },
+    async readAccountSyncStates() {
+      return [
+        {
+          accountId: "acc-1",
+          generation: "g1",
+          assistantCursor,
+          streams,
+          stream:
+            streams.find((stream) => stream.streamId === "primary") ?? null,
+        },
+      ];
+    },
+    async registerSyncScopes() {
+      return false;
+    },
+    async applyAssistantEntries(
+      input: Parameters<MailStore["applyAssistantEntries"]>[0],
+    ) {
+      assistantCursor = input.cursor ?? null;
+      return { databaseEpoch: "test", sequence: streams.length };
+    },
+    async applySyncPage(input: Parameters<MailStore["applySyncPage"]>[0]) {
+      const stream = streams.find(
+        (item) => item.streamId === input.page.to.streamId,
+      );
+      if (stream) stream.checkpoint = input.page.to.checkpoint;
+      return {
+        status: "committed",
+        revision: { databaseEpoch: "test", sequence: streams.length },
+      };
+    },
+    async recordConnection() {},
+    async releaseDeferredOperations() {},
+    async close() {},
+  } as unknown as MailStore;
+}
+
+function assistantSource(cursors: Array<string | null>): AssistantStateSource {
+  return {
+    async read({ session, cursor }) {
+      const currentCursor = cursor ?? null;
+      cursors.push(currentCursor);
+      return {
+        status: "ok",
+        page: {
+          session,
+          cursor: currentCursor,
+          entries: [],
+          nextCursor: currentCursor,
+          reset: false,
+        },
+      };
+    },
+  };
+}
+
+function pagedAssistantSource(
+  cursors: Array<string | null>,
+): AssistantStateSource {
+  return {
+    async read({ session, cursor }) {
+      const currentCursor = cursor ?? null;
+      cursors.push(currentCursor);
+      const nextCursor =
+        currentCursor === null
+          ? "cursor-1"
+          : currentCursor === "cursor-1"
+            ? "cursor-2"
+            : currentCursor;
+      return {
+        status: "ok",
+        page: {
+          session,
+          cursor: currentCursor,
+          entries: [],
+          nextCursor,
+          reset: false,
+        },
+      };
     },
   };
 }

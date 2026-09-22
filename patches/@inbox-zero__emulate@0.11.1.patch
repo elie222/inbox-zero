@@ -1,5 +1,5 @@
 diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
-index 8f3e6ed63256db303a769d8201df5c2bec28692b..8cfa38a30f0948e6475d99d2a951e5e5b3d9242b 100644
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc5674466902f663771 100644
 --- a/dist/dist-JYOXR3UP.js
 +++ b/dist/dist-JYOXR3UP.js
 @@ -241,6 +241,7 @@ function createMessageRecord(ms, input) {
@@ -110,7 +110,30 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..8cfa38a30f0948e6475d99d2a951e5e5
    app.get("/v1.0/me/mailFolders/:folderId/messages", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -3009,6 +3075,7 @@ function seedFromConfig(store, baseUrl, config) {
+@@ -1214,6 +1280,22 @@ function graphRoutes(ctx) {
+       return microsoftGraphError(c, 404, "ErrorItemNotFound", "Destination folder not found.");
+     }
+   });
++  app.get("/v1.0/me/messages/:messageId/attachments/:attachmentId/$value", (c) => {
++    const authEmail = requireAuthEmail(ctx, c);
++    if (authEmail instanceof Response) return authEmail;
++    const ms = getMicrosoftStore(ctx.store);
++    const message = resolveMessage(ctx, authEmail, c.req.param("messageId"));
++    if (!message) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Message not found.");
++    const attachment = ms.attachments.findBy("user_email", authEmail).find(
++      (entry) => entry.message_microsoft_id === message.microsoft_id && entry.microsoft_id === c.req.param("attachmentId")
++    );
++    if (!attachment) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Attachment not found.");
++    const bytes = Buffer.from(attachment.content_bytes ?? "", "base64");
++    return c.body(bytes, 200, {
++      "Content-Type": attachment.content_type ?? "application/octet-stream",
++      "Content-Length": String(bytes.byteLength)
++    });
++  });
+   app.get("/v1.0/me/messages/:messageId/attachments/:attachmentId", (c) => {
+     const authEmail = requireAuthEmail(ctx, c);
+     if (authEmail instanceof Response) return authEmail;
+@@ -3009,6 +3091,7 @@ function seedFromConfig(store, baseUrl, config) {
          received_date_time: message.received_date_time,
          is_draft: message.is_draft,
          is_read: message.is_read,

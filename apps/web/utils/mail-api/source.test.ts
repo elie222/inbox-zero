@@ -53,6 +53,40 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("caps Microsoft provider searches to Outlook list page size", async () => {
+    const searchMessages = vi.fn(
+      async ({ pageToken }: { pageToken?: string }) => ({
+        messages: [{ id: pageToken ? "second" : "first" }],
+        nextPageToken: pageToken ? undefined : "next-page",
+      }),
+    );
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        searchMessages,
+      } as unknown as EmailProvider,
+    });
+    await source.search({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "search-1",
+      signal: new AbortController().signal,
+      predicate: {
+        kind: "text",
+        field: "any",
+        value: "invoice",
+        match: "phrase",
+      },
+      page: null,
+      pageSize: 50,
+    });
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "invoice",
+      maxResults: 20,
+      pageToken: undefined,
+    });
+  });
+
   it("retries conversation membership when the provider is unavailable", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
@@ -294,7 +328,7 @@ describe("createEmailProviderMailboxSource", () => {
       },
     });
     expect(getMessagesWithPagination).toHaveBeenCalledWith({
-      maxResults: 25,
+      maxResults: 20,
       folderId: "archive",
       pageToken: undefined,
       includeDrafts: true,
@@ -516,6 +550,44 @@ describe("createEmailProviderMailboxSource", () => {
     });
     expect(getMessagesWithPagination).toHaveBeenCalledWith({
       maxResults: 50,
+      pageToken: undefined,
+      includeDrafts: true,
+    });
+  });
+
+  it("advertises and uses the Outlook list page size for Microsoft enumeration", async () => {
+    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+      messages: [],
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        getMessagesWithPagination,
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.describe({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "describe-1",
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { maxPageSize: 20 },
+    });
+    await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: JSON.stringify({ folderId: "inbox", scopeId: "inbox" }),
+      pageSize: 50,
+    });
+    expect(getMessagesWithPagination).toHaveBeenCalledWith({
+      maxResults: 20,
+      folderId: "inbox",
       pageToken: undefined,
       includeDrafts: true,
     });

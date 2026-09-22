@@ -16,6 +16,26 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it.each([
+    [
+      "text",
+      "Visit service.new/account",
+      "Visit service.new/account",
+      undefined,
+    ],
+    [
+      "html",
+      "<p>Visit service.new/account</p>",
+      undefined,
+      "<p>Visit service.new/account</p>",
+    ],
+  ] as const)("keeps %s bodies in their declared format", (contentType, content, textPlain, textHtml) => {
+    const result = convertMessage({ body: { contentType, content } });
+    expect(result.textPlain).toBe(textPlain);
+    expect(result.textHtml).toBe(textHtml);
+    expect(result.bodyContentType).toBe(contentType);
+  });
+
   it("preserves draft creation time when there is no received timestamp", () => {
     const createdDateTime = "2026-01-02T10:00:00.000Z";
     const result = convertMessage({

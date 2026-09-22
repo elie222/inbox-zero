@@ -12,6 +12,7 @@ import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
 import { closeAndWipeDesktopMailbox } from "../../src/mail-engine/wipe";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
+import { changesRequestSchema } from "@inboxzero/mail-core/protocol/mail-http";
 
 const PARTITION = "persist:inbox-zero";
 const PROOF = process.env.ELECTRON_PROOF ?? "search-archive";
@@ -898,6 +899,7 @@ function wrapBlockedAuthRequest(
         gate.changes += 1;
       }
       if (gate.resetOnce && !gate.resetFired) {
+        const { position } = changesRequestSchema.parse(input.body);
         gate.resetFired = true;
         return {
           status: 200,
@@ -905,7 +907,7 @@ function wrapBlockedAuthRequest(
             protocolVersion: 1,
             requestId: "hosted-electron-reset",
             status: "reset_required",
-            scopeId: "primary",
+            scopeId: position.streamId,
           },
         };
       }

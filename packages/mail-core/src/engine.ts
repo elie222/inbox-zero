@@ -34,6 +34,9 @@ import type { ConversationView } from "./ports/mail-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
+const IDLE_SCOPE_DISCOVERY_INTERVAL_MS = 60_000;
+const IDLE_STREAM_CATCH_UP_INTERVAL_MS = 60_000;
+const IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS = 60_000;
 
 export type WorkAdmission =
   | { status: "scheduled" | "already_satisfied" }
@@ -115,6 +118,7 @@ export function createMailEngine(input: {
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
+  const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
 
   async function refreshViews() {
     await queries.refreshAll();
@@ -207,6 +211,7 @@ export function createMailEngine(input: {
       if (accountIds.length === 0) {
         return { status: "rejected", code: "invalid_account" };
       }
+      for (const accountId of accountIds) idleCatchUpGates.delete(accountId);
       await store.releaseDeferredOperations({
         accountIds,
         nowMs: runtime.nowMs(),
@@ -221,6 +226,7 @@ export function createMailEngine(input: {
       return store.getDiagnostics(accountId);
     },
     async purgeAccount(accountId) {
+      idleCatchUpGates.delete(accountId);
       const revision = await store.purgeAccount(accountId);
       await refreshViews();
       return revision;
@@ -481,6 +487,7 @@ export function createMailEngine(input: {
     signal?: AbortSignal;
     requestId: string;
     scopeId?: string;
+    scope?: ScopeDescriptor;
   }) {
     const scopeId = input.scopeId ?? "primary";
     let scan = await store.readBootstrapScan({
@@ -492,7 +499,9 @@ export function createMailEngine(input: {
         session: input.session,
         requestId: input.requestId,
         signal: input.signal ?? new AbortController().signal,
-        scope: await resolveScope(input.session, scopeId, input.signal),
+        scope:
+          input.scope ??
+          (await resolveScope(input.session, scopeId, input.signal)),
         afterMs: null,
       });
       if (bootstrap.status !== "ok") {
@@ -593,7 +602,22 @@ export function createMailEngine(input: {
         accountId: account.accountId,
         generation: account.generation,
       };
-      const discoveredScopes = await discoverBootstrapScopes(session, signal);
+      const idleGate = idleCatchUpGateFor(
+        account.accountId,
+        account.generation,
+      );
+      const shouldDiscoverScopes = idleGateDue(
+        idleGate.nextScopeDiscoveryAtMs,
+        runtime.nowMs(),
+        IDLE_SCOPE_DISCOVERY_INTERVAL_MS,
+      );
+      const discoveredScopes = shouldDiscoverScopes
+        ? await discoverBootstrapScopes(session, signal)
+        : undefined;
+      if (shouldDiscoverScopes) {
+        idleGate.nextScopeDiscoveryAtMs =
+          runtime.nowMs() + IDLE_SCOPE_DISCOVERY_INTERVAL_MS;
+      }
       if (discoveredScopes) {
         const addedScopes = await store.registerSyncScopes({
           session,
@@ -601,15 +625,12 @@ export function createMailEngine(input: {
         });
         if (addedScopes) await refreshViews();
       }
-      if (!discoveredScopes && account.streams.length === 0) {
-        await catchUpAssistant(account, signal);
-        continue;
-      }
       const streamsById = new Map(
         account.streams.map((stream) => [stream.streamId, stream]),
       );
       for (const scope of discoveredScopes ?? []) {
         if (!streamsById.has(scope.id)) {
+          idleGate.activeBootstrapScopes.set(scope.id, scope);
           streamsById.set(scope.id, {
             accountId: account.accountId,
             streamId: scope.id,
@@ -617,6 +638,22 @@ export function createMailEngine(input: {
             checkpoint: null,
           });
         }
+      }
+      if (!shouldDiscoverScopes) {
+        for (const scopeId of idleGate.activeBootstrapScopes.keys()) {
+          if (!streamsById.has(scopeId)) {
+            streamsById.set(scopeId, {
+              accountId: account.accountId,
+              streamId: scopeId,
+              generation: account.generation,
+              checkpoint: null,
+            });
+          }
+        }
+      }
+      if (streamsById.size === 0) {
+        await catchUpAssistantIfDue(idleGate, account, signal);
+        continue;
       }
       const streams = [...streamsById.values()];
       for (const stream of streams) {
@@ -629,7 +666,24 @@ export function createMailEngine(input: {
             signal,
             requestId: runtime.randomId(),
             scopeId: stream.streamId,
+            scope: idleGate.activeBootstrapScopes.get(stream.streamId),
           });
+          await rememberBootstrapContinuation(
+            idleGate,
+            session,
+            stream.streamId,
+          );
+          continue;
+        }
+        const nextCatchUpAtMs =
+          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0;
+        if (
+          !idleGateDue(
+            nextCatchUpAtMs,
+            runtime.nowMs(),
+            IDLE_STREAM_CATCH_UP_INTERVAL_MS,
+          )
+        ) {
           continue;
         }
         const changes = await source.readChanges({
@@ -646,10 +700,21 @@ export function createMailEngine(input: {
             bodies: changes.page.bodies,
           });
           if (applied.status === "committed") {
+            if (changes.page.roundComplete) {
+              idleGate.nextStreamCatchUpAtMs.set(
+                stream.streamId,
+                runtime.nowMs() + IDLE_STREAM_CATCH_UP_INTERVAL_MS,
+              );
+            } else {
+              idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+            }
             await refreshViews();
             await noteConnection(account.accountId, "ok");
+          } else {
+            idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
           }
         } else if (changes.status === "reset_required") {
+          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
           const resetStream = { ...stream, streamId: changes.scopeId };
           await ingestBootstrap({
             session,
@@ -659,12 +724,57 @@ export function createMailEngine(input: {
             requestId: runtime.randomId(),
             scopeId: changes.scopeId,
           });
+          await rememberBootstrapContinuation(
+            idleGate,
+            session,
+            changes.scopeId,
+          );
         } else {
+          idleGate.nextStreamCatchUpAtMs.set(
+            stream.streamId,
+            runtime.nowMs() + IDLE_STREAM_CATCH_UP_INTERVAL_MS,
+          );
           await noteConnection(account.accountId, changes.status);
         }
       }
-      await catchUpAssistant(account, signal);
+      await catchUpAssistantIfDue(idleGate, account, signal);
     }
+  }
+
+  function idleCatchUpGateFor(accountId: string, generation: string) {
+    const existing = idleCatchUpGates.get(accountId);
+    if (existing?.generation === generation) return existing;
+    const created: IdleCatchUpGate = {
+      activeBootstrapScopes: new Map(),
+      generation,
+      nextAssistantCatchUpAtMs: 0,
+      nextScopeDiscoveryAtMs: 0,
+      nextStreamCatchUpAtMs: new Map(),
+    };
+    idleCatchUpGates.set(accountId, created);
+    return created;
+  }
+
+  async function rememberBootstrapContinuation(
+    idleGate: IdleCatchUpGate,
+    session: { accountId: string; generation: string },
+    scopeId: string,
+  ) {
+    const scan = await store.readBootstrapScan({ session, scopeId });
+    if (
+      scan?.page &&
+      (scan.nextAttemptAtMs === null || scan.nextAttemptAtMs <= runtime.nowMs())
+    ) {
+      if (!idleGate.activeBootstrapScopes.has(scopeId)) {
+        idleGate.activeBootstrapScopes.set(scopeId, {
+          id: scopeId,
+          kind: "account",
+          folderId: null,
+        });
+      }
+      return;
+    }
+    idleGate.activeBootstrapScopes.delete(scopeId);
   }
 
   async function discoverBootstrapScopes(
@@ -687,6 +797,29 @@ export function createMailEngine(input: {
     return [{ id: "primary", kind: "account", folderId: null }];
   }
 
+  async function catchUpAssistantIfDue(
+    idleGate: IdleCatchUpGate,
+    account: Pick<
+      AccountSyncState,
+      "accountId" | "generation" | "assistantCursor"
+    >,
+    signal?: AbortSignal,
+  ) {
+    if (
+      !idleGateDue(
+        idleGate.nextAssistantCatchUpAtMs,
+        runtime.nowMs(),
+        IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS,
+      )
+    ) {
+      return;
+    }
+    const advanced = await catchUpAssistant(account, signal);
+    idleGate.nextAssistantCatchUpAtMs = advanced
+      ? 0
+      : runtime.nowMs() + IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS;
+  }
+
   async function catchUpAssistant(
     account: Pick<
       AccountSyncState,
@@ -694,7 +827,7 @@ export function createMailEngine(input: {
     >,
     signal?: AbortSignal,
   ) {
-    if (!assistant) return;
+    if (!assistant) return false;
     const session = {
       accountId: account.accountId,
       generation: account.generation,
@@ -704,7 +837,7 @@ export function createMailEngine(input: {
       cursor: account?.assistantCursor ?? null,
       signal: signal ?? new AbortController().signal,
     });
-    if (page.status !== "ok") return;
+    if (page.status !== "ok") return false;
     await store.applyAssistantEntries({
       accountId: session.accountId,
       cursor: page.page.nextCursor,
@@ -718,6 +851,7 @@ export function createMailEngine(input: {
       })),
     });
     await refreshViews();
+    return page.page.nextCursor !== (account.assistantCursor ?? null);
   }
 
   async function resolveScope(
@@ -769,6 +903,18 @@ export function createMailEngine(input: {
       await refreshViews();
     }
   }
+}
+
+type IdleCatchUpGate = {
+  activeBootstrapScopes: Map<string, ScopeDescriptor>;
+  generation: string;
+  nextAssistantCatchUpAtMs: number;
+  nextScopeDiscoveryAtMs: number;
+  nextStreamCatchUpAtMs: Map<string, number>;
+};
+
+function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
+  return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;
 }
 
 function normalizePageCount(pageCount: number | undefined) {
