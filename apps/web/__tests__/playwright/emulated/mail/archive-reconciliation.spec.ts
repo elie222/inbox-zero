@@ -6,6 +6,7 @@ import {
   insertInboxMailInConversation,
   openMail,
   readLatestMailMutation,
+  requestMailSync,
 } from "./mail-test-helpers";
 
 const THREAD_ID = "thr_playwright_archive";
@@ -79,6 +80,7 @@ test("keeps a queued archive hidden after an OPFS reload", async ({
   const conversation = conversationWithSubject(page, conversations, SUBJECT);
   await expect(conversation).toHaveCount(1);
 
+  let archiveQueued = false;
   let releaseExecute = () => {};
   const held = new Promise<void>((resolve) => {
     releaseExecute = resolve;
@@ -111,6 +113,7 @@ test("keeps a queued archive hidden after an OPFS reload", async ({
       .toMatchObject({
         status: "reconciling",
       });
+    archiveQueued = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     const reloaded = page.getByRole("listbox", { name: "Conversations" });
     await expect(reloaded.getByRole("option").first()).toBeVisible({
@@ -126,6 +129,19 @@ test("keeps a queued archive hidden after an OPFS reload", async ({
     );
   } finally {
     releaseExecute();
+    if (archiveQueued) {
+      await expect
+        .poll(
+          () =>
+            readLatestMailMutation(page, {
+              emailAccountId,
+              kind: "archive",
+              threadId: THREAD_ID,
+            }),
+          { timeout: 60_000 },
+        )
+        .toMatchObject({ status: "succeeded" });
+    }
     await page.request
       .post(`/api/threads/${THREAD_ID}/unarchive`, {
         headers: { "X-Email-Account-ID": emailAccountId },
@@ -180,14 +196,13 @@ test("drops Inbox and Unread counts when an unread conversation is archived", as
           }),
         { timeout: 60_000 },
       )
-      .toMatchObject({
-        status: expect.stringMatching(/^(reconciling|succeeded)$/),
-      });
+      .toMatchObject({ status: "succeeded" });
     const unarchive = await page.request.post(
       `/api/threads/${threadId}/unarchive`,
       { headers: { "X-Email-Account-ID": emailAccountId } },
     );
     expect(unarchive.ok()).toBe(true);
+    await requestMailSync(page);
     await expect(conversation).toBeVisible({ timeout: 60_000 });
     await expect.poll(() => inboxUnreadBadge(page)).toBe(before);
     await page.getByRole("button", { name: "Unread", exact: true }).click();
@@ -246,6 +261,7 @@ test("returns an archived conversation when new mail arrives in it", async ({
       subject: SUBJECT,
       from: "Erin Example <erin@example.com>",
     });
+    await requestMailSync(page);
     await expect(conversation).toBeVisible({ timeout: 60_000 });
     await capturePlaywrightCheckpoint(page, testInfo, "archive-then-new-mail");
   } finally {

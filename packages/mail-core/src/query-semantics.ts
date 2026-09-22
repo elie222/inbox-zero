@@ -30,6 +30,8 @@ export function messageMatchesPredicate(
       return message.read === predicate.value;
     case "starred":
       return message.starred === predicate.value;
+    case "inbox_section":
+      return message.inboxSection === predicate.section;
     case "membership":
       if (predicate.accountId && message.accountId !== predicate.accountId) {
         return false;

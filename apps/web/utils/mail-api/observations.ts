@@ -48,6 +48,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
     read: !labels.includes("UNREAD"),
     starred: labels.includes("STARRED"),
     folderId: message.parentFolderId ?? null,
+    inboxSection: message.inboxSection ?? null,
     labelIds,
     categoryIds,
     roles,

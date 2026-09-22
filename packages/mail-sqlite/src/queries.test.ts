@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { compilePredicate } from "./queries";
 
 describe("compilePredicate", () => {
+  it("compiles Outlook inbox section predicates separately from categories", () => {
+    expect(
+      compilePredicate({ kind: "inbox_section", section: "focused" }),
+    ).toEqual({
+      sql: "e.inbox_section = ?",
+      bindings: ["focused"],
+    });
+  });
+
   it("guards scoped membership predicates by account", () => {
     expect(
       compilePredicate({

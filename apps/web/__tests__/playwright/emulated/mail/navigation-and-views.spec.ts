@@ -41,14 +41,14 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "First message in the reader conversation.",
+  );
+  await expectThreadReaderBody(
+    page,
+    "A second message proves the complete conversation is rendered.",
+  );
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
 
   const threadActions = page.getByRole("group", { name: "Thread actions" });
@@ -176,8 +176,11 @@ test("filters the mail list by state, category, and label", async ({
     conversationWithSubject(page, conversations, "Read Command Message"),
   ).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Categories" }).click();
-  await page.getByRole("link", { name: /^Promotions/ }).click();
+  const promotions = page.getByRole("link", { name: /^Promotions/ });
+  if (!(await promotions.isVisible())) {
+    await page.getByRole("button", { name: "Categories" }).click();
+  }
+  await promotions.click();
   await expect(
     conversationWithSubject(page, conversations, "Promotion Category Message"),
   ).toBeVisible();
@@ -194,6 +197,35 @@ test("filters the mail list by state, category, and label", async ({
   ).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(1);
   await expect(page).toHaveURL(/labelId=Label_project/);
+});
+
+test("separates Outlook Focused and Other inbox conversations", async ({
+  page,
+}) => {
+  test.skip(playwrightMailProvider !== "microsoft", "Outlook inbox sections");
+  const { conversations } = await openMail(page);
+  const focused = conversationWithSubject(
+    page,
+    conversations,
+    "Playwright Test Message",
+  );
+  const other = conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  );
+
+  await page.getByRole("link", { name: "Focused", exact: true }).click();
+  await expect(focused).toBeVisible();
+  await expect(other).toHaveCount(0);
+  await expect(conversations.getByRole("option")).toHaveCount(1);
+  await expect(page).toHaveURL(/type=focused/);
+
+  await page.getByRole("link", { name: "Other", exact: true }).click();
+  await expect(other).toBeVisible();
+  await expect(focused).toHaveCount(0);
+  await expect(conversations.getByRole("option")).toHaveCount(1);
+  await expect(page).toHaveURL(/type=other/);
 });
 
 test("navigates drafts and sent mail from the sidebar", async ({ page }) => {

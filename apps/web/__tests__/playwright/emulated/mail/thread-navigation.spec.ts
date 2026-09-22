@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { openMail } from "./mail-test-helpers";
+import { expectThreadReaderBody, openMail } from "./mail-test-helpers";
 
 test("expands unread messages when opening a thread", async ({
   page,
@@ -37,9 +37,7 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
       waitUntil: "domcontentloaded",
     },
   );
-  await expect(
-    page.getByText("Latest read message stays expanded."),
-  ).toBeVisible();
+  await expectThreadReaderBody(page, "Latest read message stays expanded.");
   const threadUrl = page.url();
   const messages = page.locator("li[data-thread-message-id]");
   const selected = page.locator('li[aria-current="true"]');
@@ -70,9 +68,7 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
     page.getByRole("button", { name: "Expand all messages", exact: true }),
   ).toHaveCount(1);
   await expand.click();
-  await expect(
-    page.getByText("First collapsed history message."),
-  ).toBeVisible();
+  await expectThreadReaderBody(page, "First collapsed history message.");
   await toolbar
     .getByRole("button", { name: "Collapse all messages", exact: true })
     .click();

@@ -2,6 +2,7 @@ import type {
   ConversationQuery,
   MailPredicate,
 } from "@inboxzero/mail-core/queries";
+import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export function threadsQueryToConversationQuery(input: {
@@ -44,6 +45,9 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
     !query.labelIds?.length
   ) {
     clauses.push({ kind: "role", role: "inbox" });
+  }
+  if (query.inboxSection) {
+    clauses.push({ kind: "inbox_section", section: query.inboxSection });
   }
   if (query.isUnread) clauses.push({ kind: "read", value: false });
   if (query.fromEmail) {
@@ -105,7 +109,11 @@ function leafToPredicate(leaf: {
   labelId?: string | null;
   fromEmail?: string | null;
   isUnread?: true | null;
+  inboxSection?: "focused" | "other" | null;
 }): MailPredicate {
+  if (leaf.inboxSection) {
+    return { kind: "inbox_section", section: leaf.inboxSection };
+  }
   if (leaf.labelId) return gmailTokenToPredicate(leaf.labelId);
   if (leaf.fromEmail) {
     return {
@@ -210,6 +218,13 @@ function splitFilterToPredicate(filter: {
       value: filter.value,
       match: "address",
     };
+  }
+  if (
+    filter.kind === "CATEGORY" &&
+    filter.value &&
+    isOutlookInboxSection(filter.value)
+  ) {
+    return { kind: "inbox_section", section: filter.value };
   }
   return gmailTokenToPredicate(filter.value || "INBOX");
 }

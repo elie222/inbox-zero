@@ -12,6 +12,36 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
+  it("maps Outlook inbox sections onto an inbox section predicate", () => {
+    expect(
+      threadsQueryToPredicate({ type: "inbox", inboxSection: "focused" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        { kind: "inbox_section", section: "focused" },
+      ],
+    });
+  });
+
+  it("maps match-any Outlook inbox section leaves without treating them as unread", () => {
+    expect(
+      threadsQueryToPredicate({
+        type: "inbox",
+        anyOf: [{ inboxSection: "other" }],
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        {
+          kind: "any",
+          predicates: [{ kind: "inbox_section", section: "other" }],
+        },
+      ],
+    });
+  });
+
   it("maps Gmail category types onto category membership", () => {
     expect(threadsQueryToPredicate({ type: "CATEGORY_PROMOTIONS" })).toEqual({
       kind: "membership",

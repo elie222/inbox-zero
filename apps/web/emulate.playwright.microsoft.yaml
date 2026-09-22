@@ -52,6 +52,7 @@ microsoft:
         name: Alice Example
       to_recipients:
         - address: __PLAYWRIGHT_TEST_EMAIL__
+      inference_classification: focused
       subject: Playwright Test Message
       body_content: "<p>Navigation body for thr_playwright_1</p>"
       parent_folder_id: inbox
@@ -65,6 +66,7 @@ microsoft:
         name: Bob Example
       to_recipients:
         - address: __PLAYWRIGHT_TEST_EMAIL__
+      inference_classification: other
       subject: Read Command Message
       body_content: "<p>Navigation body for thr_playwright_2</p>"
       parent_folder_id: inbox

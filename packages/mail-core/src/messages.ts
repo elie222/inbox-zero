@@ -9,6 +9,9 @@ export const mailboxRoleSchema = z.enum([
 ]);
 export type MailboxRole = z.infer<typeof mailboxRoleSchema>;
 
+export const inboxSectionSchema = z.enum(["focused", "other"]);
+export type InboxSection = z.infer<typeof inboxSectionSchema>;
+
 export const messageAttachmentDescriptorSchema = z.object({
   attachmentId: z.string().min(1).max(512),
   filename: z.string().max(1024),
@@ -31,6 +34,7 @@ export const messageMetadataSchema = z.object({
   read: z.boolean(),
   starred: z.boolean(),
   folderId: z.string().max(256).nullable(),
+  inboxSection: inboxSectionSchema.nullable().optional(),
   labelIds: z.array(z.string().max(256)).max(500),
   categoryIds: z.array(z.string().max(256)).max(500),
   roles: z.array(mailboxRoleSchema).max(8),

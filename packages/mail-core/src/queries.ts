@@ -4,7 +4,7 @@ import {
   conversationKeySchema,
   localRevisionSchema,
 } from "./identities";
-import { mailboxRoleSchema } from "./messages";
+import { inboxSectionSchema, mailboxRoleSchema } from "./messages";
 
 export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
   z.discriminatedUnion("kind", [
@@ -23,6 +23,10 @@ export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
     }),
     z.object({ kind: z.literal("read"), value: z.boolean() }),
     z.object({ kind: z.literal("starred"), value: z.boolean() }),
+    z.object({
+      kind: z.literal("inbox_section"),
+      section: inboxSectionSchema,
+    }),
     z.object({
       kind: z.literal("membership"),
       membership: z.enum(["folder", "label", "category"]),
@@ -57,6 +61,7 @@ export type MailPredicate =
   | { kind: "role"; role: "inbox" | "sent" | "draft" | "trash" | "spam" }
   | { kind: "read"; value: boolean }
   | { kind: "starred"; value: boolean }
+  | { kind: "inbox_section"; section: "focused" | "other" }
   | {
       kind: "membership";
       membership: "folder" | "label" | "category";

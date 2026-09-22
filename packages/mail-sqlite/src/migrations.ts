@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS messages (
   read INTEGER NOT NULL CHECK (read IN (0, 1)),
   starred INTEGER NOT NULL CHECK (starred IN (0, 1)),
   folder_id TEXT,
+  inbox_section TEXT CHECK (inbox_section IN ('focused', 'other') OR inbox_section IS NULL),
   label_ids_json TEXT NOT NULL,
   category_ids_json TEXT NOT NULL,
   roles_json TEXT NOT NULL,
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   read INTEGER NOT NULL,
   starred INTEGER NOT NULL,
   folder_id TEXT,
+  inbox_section TEXT CHECK (inbox_section IN ('focused', 'other') OR inbox_section IS NULL),
   label_ids_json TEXT NOT NULL,
   category_ids_json TEXT NOT NULL,
   roles_json TEXT NOT NULL,
@@ -293,6 +295,20 @@ export async function migrateMailbox(
   try {
     await tx.exec(
       "ALTER TABLE effective_messages ADD COLUMN external_url TEXT",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE messages ADD COLUMN inbox_section TEXT CHECK (inbox_section IN ('focused', 'other') OR inbox_section IS NULL)",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN inbox_section TEXT CHECK (inbox_section IN ('focused', 'other') OR inbox_section IS NULL)",
     );
   } catch {
     // column already exists on freshly created databases

@@ -2350,9 +2350,9 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   await tx.execute(
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
-       from_address, to_json, cc_json, received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json,
+       from_address, to_json, cc_json, received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json,
        roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, deleted
-     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(account_id, message_id) DO UPDATE SET
        conversation_id = excluded.conversation_id,
        version = excluded.version,
@@ -2366,6 +2366,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
        read = excluded.read,
        starred = excluded.starred,
        folder_id = excluded.folder_id,
+       inbox_section = excluded.inbox_section,
        label_ids_json = excluded.label_ids_json,
        category_ids_json = excluded.category_ids_json,
        roles_json = excluded.roles_json,
@@ -2392,6 +2393,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.read ? 1 : 0,
       message.starred ? 1 : 0,
       message.folderId,
+      message.inboxSection ?? null,
       JSON.stringify(message.labelIds),
       JSON.stringify(message.categoryIds),
       JSON.stringify(message.roles),
@@ -2448,9 +2450,9 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
     await tx.execute(
       `INSERT INTO effective_messages(
          account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json,
-         received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
+         received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json, roles_json,
          in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, message_id) DO UPDATE SET
          conversation_id = excluded.conversation_id,
          subject = excluded.subject,
@@ -2462,6 +2464,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
          read = excluded.read,
          starred = excluded.starred,
          folder_id = excluded.folder_id,
+         inbox_section = excluded.inbox_section,
          label_ids_json = excluded.label_ids_json,
          category_ids_json = excluded.category_ids_json,
          roles_json = excluded.roles_json,
@@ -2485,6 +2488,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         effective.read ? 1 : 0,
         effective.starred ? 1 : 0,
         effective.folderId,
+        effective.inboxSection ?? null,
         JSON.stringify(effective.labelIds),
         JSON.stringify(effective.categoryIds),
         JSON.stringify(effective.roles),
@@ -2647,6 +2651,10 @@ function folderIdForBootstrapScope(scopeId: string) {
     : scopeId;
 }
 
+function inboxSection(value: string): MessageMetadata["inboxSection"] {
+  return value === "focused" || value === "other" ? value : null;
+}
+
 function parseJsonValue(value: import("./driver").SqlValue): unknown {
   try {
     return JSON.parse(String(value));
@@ -2675,6 +2683,10 @@ function confirmedFromRow(
     read: Number(row.read) === 1,
     starred: Number(row.starred) === 1,
     folderId: row.folder_id === null ? null : String(row.folder_id),
+    inboxSection:
+      row.inbox_section == null
+        ? null
+        : inboxSection(String(row.inbox_section)),
     labelIds: JSON.parse(String(row.label_ids_json)) as string[],
     categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
     roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],

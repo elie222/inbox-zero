@@ -1,33 +1,62 @@
 diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
-index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc5674466902f663771 100644
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80ec1b9125 100644
 --- a/dist/dist-JYOXR3UP.js
 +++ b/dist/dist-JYOXR3UP.js
-@@ -241,6 +241,7 @@ function createMessageRecord(ms, input) {
+@@ -73,7 +73,23 @@ var OUTLOOK_COLORS = [
+   "preset6",
+   "preset7",
+   "preset8",
+-  "preset9"
++  "preset9",
++  "preset10",
++  "preset11",
++  "preset12",
++  "preset13",
++  "preset14",
++  "preset15",
++  "preset16",
++  "preset17",
++  "preset18",
++  "preset19",
++  "preset20",
++  "preset21",
++  "preset22",
++  "preset23",
++  "preset24",
++  "none"
+ ];
+ function generateOid() {
+   return randomUUID();
+@@ -241,6 +257,8 @@ function createMessageRecord(ms, input) {
      last_modified_date_time: now,
      is_draft: input.is_draft ?? false,
      is_read: input.is_read ?? false,
++    inference_classification: input.inference_classification === "focused" || input.inference_classification === "other" ? input.inference_classification : null,
 +    flag_status: input.flag_status === "flagged" || input.flag_status === "complete" ? input.flag_status : "notFlagged",
      importance: input.importance ?? "normal",
      categories: input.categories ?? [],
      parent_folder_id: input.parent_folder_id,
-@@ -419,6 +420,7 @@ function formatMessageResource(ms, message) {
+@@ -419,6 +437,8 @@ function formatMessageResource(ms, message) {
      lastModifiedDateTime: message.last_modified_date_time,
      isDraft: message.is_draft,
      isRead: message.is_read,
++    inferenceClassification: message.inference_classification ?? null,
 +    flag: { flagStatus: message.flag_status ?? "notFlagged" },
      importance: message.importance,
      categories: message.categories,
      parentFolderId: message.parent_folder_id,
-@@ -711,6 +713,8 @@ function messageField(message, field) {
+@@ -711,6 +731,10 @@ function messageField(message, field) {
        return message.has_attachments;
      case "isRead":
        return message.is_read;
++    case "inferenceClassification":
++      return message.inference_classification ?? null;
 +    case "flag/flagStatus":
 +      return message.flag_status ?? "notFlagged";
      case "from/emailAddress/address":
        return message.from_address;
      default:
-@@ -890,6 +894,26 @@ function resolveMessage(ctx, userEmail, messageId) {
+@@ -890,6 +914,26 @@ function resolveMessage(ctx, userEmail, messageId) {
  function resolveFolder(ctx, userEmail, folderId) {
    return getFolderByIdOrWellKnownName(getMicrosoftStore(ctx.store), userEmail, folderId);
  }
@@ -54,10 +83,13 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc567446690
  function resolveCalendar(ctx, userEmail, calendarId) {
    const ms = getMicrosoftStore(ctx.store);
    if (calendarId === "primary") {
-@@ -919,6 +943,13 @@ function patchMessageFromBody(ctx, messageId, body) {
+@@ -919,6 +963,16 @@ function patchMessageFromBody(ctx, messageId, body) {
      patch.categories = body.categories.filter((value) => typeof value === "string");
    }
    if (typeof body.isRead === "boolean") patch.is_read = body.isRead;
++  if (body.inferenceClassification === "focused" || body.inferenceClassification === "other" || body.inferenceClassification === null) {
++    patch.inference_classification = body.inferenceClassification;
++  }
 +  const flag = body.flag;
 +  if (flag && typeof flag === "object" && !Array.isArray(flag)) {
 +    const flagStatus = flag.flagStatus;
@@ -68,7 +100,7 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc567446690
    if (body.importance === "low" || body.importance === "normal" || body.importance === "high") {
      patch.importance = body.importance;
    }
-@@ -973,6 +1004,41 @@ function graphRoutes(ctx) {
+@@ -973,6 +1027,41 @@ function graphRoutes(ctx) {
        ...nextSkip != null ? { "@odata.nextLink": buildNextLink(c.req.url, nextSkip) } : {}
      });
    });
@@ -110,7 +142,7 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc567446690
    app.get("/v1.0/me/mailFolders/:folderId/messages", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -1214,6 +1280,22 @@ function graphRoutes(ctx) {
+@@ -1214,6 +1303,22 @@ function graphRoutes(ctx) {
        return microsoftGraphError(c, 404, "ErrorItemNotFound", "Destination folder not found.");
      }
    });
@@ -133,10 +165,31 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..3d1a92fb1d2165efa7c9ffc567446690
    app.get("/v1.0/me/messages/:messageId/attachments/:attachmentId", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -3009,6 +3091,7 @@ function seedFromConfig(store, baseUrl, config) {
+@@ -1413,6 +1518,19 @@ function graphRoutes(ctx) {
+     if (!category) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Category not found.");
+     return c.json(formatCategoryResource(category));
+   });
++  app.patch("/v1.0/me/outlook/masterCategories/:categoryId", async (c) => {
++    const authEmail = requireAuthEmail(ctx, c);
++    if (authEmail instanceof Response) return authEmail;
++    const ms = getMicrosoftStore(ctx.store);
++    const category = ms.categories.findBy("user_email", authEmail).find((entry) => entry.microsoft_id === c.req.param("categoryId"));
++    if (!category) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Category not found.");
++    const body = await parseJsonBody(c);
++    if (typeof body.color !== "string" || !OUTLOOK_COLORS.includes(body.color)) {
++      return microsoftGraphError(c, 400, "InvalidRequest", "A valid category color is required.");
++    }
++    const updated = ms.categories.update(category.id, { color: body.color });
++    return c.json(formatCategoryResource(updated));
++  });
+   app.delete("/v1.0/me/outlook/masterCategories/:categoryId", (c) => {
+     const authEmail = requireAuthEmail(ctx, c);
+     if (authEmail instanceof Response) return authEmail;
+@@ -3009,6 +3127,8 @@ function seedFromConfig(store, baseUrl, config) {
          received_date_time: message.received_date_time,
          is_draft: message.is_draft,
          is_read: message.is_read,
++        inference_classification: message.inference_classification,
 +        flag_status: message.flag_status ?? message.flag?.flagStatus,
          importance: message.importance,
          categories: message.categories,

@@ -120,6 +120,17 @@ export async function readLatestMailMutation(
   }
 }
 
+export async function requestMailSync(page: Page) {
+  await page
+    .evaluate(async () => {
+      await window.__inboxZeroMailInspect?.requestSync?.();
+    })
+    .catch((error) => {
+      if (!String(error).includes("Execution context was destroyed"))
+        throw error;
+    });
+}
+
 export async function seedDefaultSplitRule(emailAccountId: string) {
   await withClient(async (client) => {
     await deleteDefaultSplitRule(client, emailAccountId);

@@ -164,6 +164,72 @@ describe("sqlite mail store", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("filters Outlook focused and other inbox sections from canonical metadata", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "focused-other",
+        from: { streamId: "inbox", generation: "g1", checkpoint: null },
+        to: { streamId: "inbox", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "focused-c", 1000, ["inbox"], {
+            provider: "microsoft",
+            inboxSection: "focused",
+          }),
+          messagePatch("m2", "other-c", 2000, ["inbox"], {
+            provider: "microsoft",
+            inboxSection: "other",
+          }),
+          messagePatch("m3", "unclassified-c", 3000, ["inbox"], {
+            provider: "microsoft",
+          }),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const focused = await store.readMailboxView({
+      ...inboxQuery,
+      predicate: {
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          { kind: "inbox_section", section: "focused" },
+        ],
+      },
+    });
+    expect(
+      focused.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["focused-c"]);
+
+    const other = await store.readMailboxView({
+      ...inboxQuery,
+      predicate: {
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          { kind: "inbox_section", section: "other" },
+        ],
+      },
+    });
+    expect(
+      other.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["other-c"]);
+
+    const plainInbox = await store.readMailboxView(inboxQuery);
+    expect(plainInbox.view.counts.matchingConversations).toBe(3);
+    await store.close();
+  });
+
   it("upgrades existing mailbox rows before storing provider external URLs", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
     const path = join(directory, "mailbox.sqlite");
@@ -4164,12 +4230,16 @@ function messagePatch(
   conversationId: string,
   receivedAtMs: number,
   roles: Array<"inbox" | "sent" | "draft" | "trash" | "spam">,
+  options: {
+    provider?: "google" | "microsoft";
+    inboxSection?: "focused" | "other" | null;
+  } = {},
 ): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
     key: { accountId: "acc-1", messageId },
     reference: {
-      provider: "google",
+      provider: options.provider ?? "google",
       messageId,
       conversationId,
       version: "1",
@@ -4184,6 +4254,7 @@ function messagePatch(
       read: false,
       starred: false,
       folderId: roles.includes("inbox") ? "inbox" : "archive",
+      inboxSection: options.inboxSection ?? null,
       labelIds: roles.includes("inbox") ? ["INBOX"] : [],
       categoryIds: [],
       roles,

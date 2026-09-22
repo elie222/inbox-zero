@@ -90,6 +90,21 @@ describe("messageMatchesPredicate", () => {
     ).toBe(true);
   });
 
+  it("matches Outlook inbox sections without treating them as categories", () => {
+    expect(
+      messageMatchesPredicate(
+        { ...inboxUnread, inboxSection: "focused", categoryIds: [] },
+        { kind: "inbox_section", section: "focused" },
+      ),
+    ).toBe(true);
+    expect(
+      messageMatchesPredicate(
+        { ...inboxUnread, inboxSection: "other", categoryIds: ["focused"] },
+        { kind: "inbox_section", section: "focused" },
+      ),
+    ).toBe(false);
+  });
+
   it("scopes membership predicates to the requested account", () => {
     const predicate = {
       kind: "membership" as const,

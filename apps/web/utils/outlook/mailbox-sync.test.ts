@@ -40,6 +40,7 @@ describe("buildOutlookMailboxSyncPage", () => {
             receivedDateTime: "2026-07-31T10:00:00.000Z",
             isRead: false,
             hasAttachments: true,
+            inferenceClassification: "other",
             flag: { flagStatus: "flagged" },
             categories: ["To Reply"],
           },
@@ -72,9 +73,10 @@ describe("buildOutlookMailboxSyncPage", () => {
       },
     });
 
-    expect(parsedMessageMetadata(page.upsertedMessages[0]).hasAttachments).toBe(
-      true,
-    );
+    expect(parsedMessageMetadata(page.upsertedMessages[0])).toMatchObject({
+      hasAttachments: true,
+      inboxSection: "other",
+    });
     expect(page).toMatchObject({
       deletedMessageIds: ["message-2"],
       hasMore: false,

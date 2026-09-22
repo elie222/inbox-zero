@@ -83,11 +83,19 @@ export function metadataFromEffective(
     read: Number(row.read) === 1,
     starred: Number(row.starred) === 1,
     folderId: row.folder_id === null ? null : String(row.folder_id),
+    inboxSection:
+      row.inbox_section == null
+        ? null
+        : inboxSection(String(row.inbox_section)),
     labelIds: JSON.parse(String(row.label_ids_json)) as string[],
     categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
     roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],
     hasAttachments: Number(row.has_attachments) === 1,
   };
+}
+
+function inboxSection(value: string): MessageMetadata["inboxSection"] {
+  return value === "focused" || value === "other" ? value : null;
 }
 
 export function jsonStringArray(value: SqlValue) {

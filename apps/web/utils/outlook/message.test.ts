@@ -36,6 +36,15 @@ describe("convertMessage", () => {
     expect(result.bodyContentType).toBe(contentType);
   });
 
+  it("preserves Outlook inbox classification", () => {
+    const result = convertMessage({
+      id: "msg-focused",
+      inferenceClassification: "focused",
+    });
+
+    expect(result.inboxSection).toBe("focused");
+  });
+
   it("preserves draft creation time when there is no received timestamp", () => {
     const createdDateTime = "2026-01-02T10:00:00.000Z";
     const result = convertMessage({

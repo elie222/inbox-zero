@@ -191,19 +191,19 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "A second message proves the complete conversation is rendered.",
+  );
   await capturePlaywrightCheckpoint(page, testInfo, "01-collapsed-history");
   const collapsed = page
     .locator('[role="button"][aria-expanded="false"]')
     .filter({ hasText: "Dana Example" });
   if (await collapsed.count()) await collapsed.click();
-  await expect(
-    page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "First message in the reader conversation.",
+  );
   await capturePlaywrightCheckpoint(page, testInfo, "02-expanded-history");
   await page
     .getByRole("button", { name: "Show details", exact: true })
@@ -292,11 +292,10 @@ test("captures a longer thread and draft collapse", async ({
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "A second message proves the complete conversation is rendered.",
+  );
   await capturePlaywrightCheckpoint(page, testInfo, "14-long-thread");
   await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   const editor = page.locator("[contenteditable='true']");

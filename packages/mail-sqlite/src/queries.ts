@@ -49,6 +49,11 @@ export function compilePredicate(
         sql: `${alias}.starred = ?`,
         bindings: [predicate.value ? 1 : 0],
       };
+    case "inbox_section":
+      return {
+        sql: `${alias}.inbox_section = ?`,
+        bindings: [predicate.section],
+      };
     case "membership": {
       const accountSql = predicate.accountId
         ? `${alias}.account_id = ? AND `

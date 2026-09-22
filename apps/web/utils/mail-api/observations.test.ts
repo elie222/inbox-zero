@@ -36,6 +36,7 @@ describe("parsedMessageMetadata", () => {
       subject: "Hello",
       snippet: "Hi",
       externalUrl: "https://outlook.office.com/mail/deeplink/read/m2",
+      inboxSection: "focused",
       labelIds: ["UNREAD"],
       headers: { from: "ada@example.com", to: "me@example.com", date: "" },
       inline: [],
@@ -45,6 +46,7 @@ describe("parsedMessageMetadata", () => {
     expect(metadata.externalUrl).toBe(
       "https://outlook.office.com/mail/deeplink/read/m2",
     );
+    expect(metadata.inboxSection).toBe("focused");
   });
 });
 

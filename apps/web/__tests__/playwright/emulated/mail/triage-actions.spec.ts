@@ -34,19 +34,10 @@ test("archives a selected conversation and restores it with undo", async ({
   await page.getByRole("button", { name: "Archive", exact: true }).click();
 
   await expect(archiveConversation).toHaveCount(0);
-  await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "archive",
-        threadId: ARCHIVE_THREAD,
-      }),
-    )
-    .toMatchObject({
-      status: expect.stringMatching(/^(reconciling|succeeded)$/),
-    });
+  await expectEngineMutation(page, emailAccountId, "archive", ARCHIVE_THREAD);
   await undoLastTriage(page);
   await expect(archiveConversation).toBeVisible();
+  await expectEngineMutation(page, emailAccountId, "unarchive", ARCHIVE_THREAD);
 });
 
 test("shows a queue_full toast when a second archive cannot be admitted", async ({
@@ -84,7 +75,9 @@ test("shows a queue_full toast when a second archive cannot be admitted", async 
   );
 
   const cleanupErrors: unknown[] = [];
+  let archiveQueued = false;
   try {
+    await expect(first).toBeVisible();
     await first.getByRole("checkbox").click();
     await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(first).toHaveCount(0);
@@ -97,7 +90,9 @@ test("shows a queue_full toast when a second archive cannot be admitted", async 
         }),
       )
       .toMatchObject({ status: "reconciling" });
+    archiveQueued = true;
 
+    await expect(second).toBeVisible();
     await second.getByRole("checkbox").click();
     await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(second).toBeVisible();
@@ -109,6 +104,14 @@ test("shows a queue_full toast when a second archive cannot be admitted", async 
     await capturePlaywrightCheckpoint(page, testInfo, "queue-full-toast");
   } finally {
     releaseExecute();
+    if (archiveQueued) {
+      await expectEngineMutation(
+        page,
+        emailAccountId,
+        "archive",
+        ARCHIVE_THREAD,
+      );
+    }
     await page.request
       .post(`/api/threads/${ARCHIVE_THREAD}/unarchive`, {
         headers: { "X-Email-Account-ID": emailAccountId },

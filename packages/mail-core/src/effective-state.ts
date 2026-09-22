@@ -120,6 +120,10 @@ export function applyMetadataPatch(
     read: patch.read ?? current.read,
     starred: patch.starred ?? current.starred,
     folderId: patch.folderId === undefined ? current.folderId : patch.folderId,
+    inboxSection:
+      patch.inboxSection === undefined
+        ? current.inboxSection
+        : patch.inboxSection,
     labelIds: patch.labelIds ?? current.labelIds,
     categoryIds: patch.categoryIds ?? current.categoryIds,
     roles: patch.roles ?? current.roles,

@@ -863,8 +863,14 @@ export function MailShell() {
     [markRead, runOn],
   );
   const markUnreadTargets = useCallback(
-    () => runOn((ids) => setReadState(ids, false), true),
-    [runOn, setReadState],
+    () =>
+      runOn((ids) => {
+        if (openThreadKey && ids.includes(openThreadKey)) {
+          readAttemptedForOpenThread.current = openThreadKey;
+        }
+        return setReadState(ids, false);
+      }, true),
+    [openThreadKey, runOn, setReadState],
   );
   const allStarred =
     actionTargets.length > 0 &&
