@@ -99,10 +99,6 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.threadTracker.groupBy.mockResolvedValue([]);
-    prisma.threadTracker.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
     prisma.executedAction.count.mockResolvedValue(2);
     prisma.executedAction.findMany.mockResolvedValue([
       {
@@ -157,12 +153,18 @@ describe("summary email route", () => {
             subject: "Product update",
             sentAt: archivedAt,
             ruleName: "Marketing",
+            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-1",
+            senderUrl:
+              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=marketing%40example.com",
           },
           {
             from: "Newsletter <newsletter@example.com>",
             subject: "Newsletter snippet",
             sentAt: archivedAt,
             ruleName: "Newsletter",
+            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-2",
+            senderUrl:
+              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=newsletter%40example.com",
           },
         ],
         coldEmailers: [],
@@ -187,10 +189,6 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.threadTracker.groupBy.mockResolvedValue([]);
-    prisma.threadTracker.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
     prisma.executedAction.count.mockResolvedValue(0);
     prisma.executedAction.findMany.mockResolvedValue([]);
     prisma.emailAccount.update.mockResolvedValue({});
@@ -221,10 +219,6 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.threadTracker.groupBy.mockResolvedValue([]);
-    prisma.threadTracker.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
     prisma.executedAction.count.mockResolvedValue(1);
     prisma.executedAction.findMany.mockResolvedValue([
       {
@@ -269,10 +263,6 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.threadTracker.groupBy.mockResolvedValue([]);
-    prisma.threadTracker.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
     prisma.executedAction.count.mockResolvedValue(0);
     prisma.executedAction.findMany.mockResolvedValue([]);
     prisma.emailAccount.update.mockResolvedValue({});
