@@ -175,9 +175,9 @@ export function IntegrationRow({
   };
 
   const handleDisconnect = async () => {
-    const confirmMessage = connected
-      ? "Are you sure you want to disconnect this integration? This will remove all associated tools."
-      : "Are you sure you want to remove this server?";
+    const confirmMessage = isCustom
+      ? "Are you sure you want to remove this server? This permanently deletes its connection, credentials, and tools."
+      : "Are you sure you want to disconnect this integration? This will remove all associated tools.";
 
     if (!confirm(confirmMessage)) return;
 
@@ -208,7 +208,7 @@ export function IntegrationRow({
           integration: integration.name,
         });
         toastSuccess({
-          title: "Disconnected successfully",
+          title: isCustom ? "Server removed" : "Disconnected successfully",
           description: isCustom
             ? `Removed ${integration.displayName}`
             : `Disconnected from ${integration.displayName}`,
@@ -316,7 +316,7 @@ export function IntegrationRow({
                   disabled={disconnecting}
                   className="text-red-600"
                 >
-                  {getDisconnectLabel({ connected, disconnecting })}
+                  {getDisconnectLabel({ isCustom, disconnecting })}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -332,13 +332,13 @@ export function IntegrationRow({
 }
 
 function getDisconnectLabel({
-  connected,
+  isCustom,
   disconnecting,
 }: {
-  connected: boolean;
+  isCustom: boolean;
   disconnecting: boolean;
 }) {
-  if (!connected) return disconnecting ? "Removing..." : "Remove";
+  if (isCustom) return disconnecting ? "Removing..." : "Remove";
   return disconnecting ? "Disconnecting..." : "Disconnect";
 }
 

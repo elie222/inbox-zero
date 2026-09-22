@@ -110,11 +110,25 @@ export async function handleOAuthCallback({
     ...getResourceParam(integration),
   });
 
-  const dbIntegration = await prisma.mcpIntegration.upsert({
-    where: { name: integration.name },
-    update: {},
-    create: { name: integration.name },
-  });
+  // A custom server row is owned by the account and may have been removed while
+  // the user was on the provider's consent screen; never recreate it here
+  const dbIntegration = integration.isCustom
+    ? await prisma.mcpIntegration.findFirst({
+        where: { name: integration.name, emailAccountId },
+        select: { id: true },
+      })
+    : await prisma.mcpIntegration.upsert({
+        where: { name: integration.name },
+        update: {},
+        create: { name: integration.name },
+        select: { id: true },
+      });
+
+  if (!dbIntegration) {
+    throw new Error(
+      `Custom MCP server ${integration.name} was removed before the connection completed`,
+    );
+  }
 
   const expiresAt = calculateTokenExpiration(tokens.expires_in, {
     integration: integration.name,

@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   discoverAuthorizationServerMetadata,
   discoverOAuthProtectedResourceMetadata,
+  exchangeAuthorization,
   registerClient,
   startAuthorization,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import prisma from "@/utils/__mocks__/prisma";
 import { MCP_INTEGRATIONS } from "./integrations";
-import { generateOAuthUrl } from "./oauth";
+import { generateOAuthUrl, handleOAuthCallback } from "./oauth";
 
 vi.mock("@/utils/prisma");
 vi.mock("@modelcontextprotocol/sdk/client/auth.js", () => ({
@@ -135,3 +136,47 @@ function startOAuth() {
 function builtIn(name: keyof typeof MCP_INTEGRATIONS) {
   return { ...MCP_INTEGRATIONS[name], isCustom: false };
 }
+
+describe("handleOAuthCallback for custom servers", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.mcpIntegration.findUnique.mockResolvedValue({
+      id: "integration-custom",
+      name: "custom_abc",
+      oauthClientId: "registered-client",
+      oauthClientSecret: null,
+      registeredAuthorizationUrl: "https://kb.example.com/authorize",
+      registeredTokenUrl: "https://kb.example.com/token",
+      registeredServerUrl: "https://kb.example.com",
+    } as never);
+    vi.mocked(exchangeAuthorization).mockResolvedValue({
+      access_token: "access",
+      token_type: "bearer",
+      expires_in: 3600,
+    });
+  });
+
+  it("does not recreate a custom server that was removed mid-flow", async () => {
+    prisma.mcpIntegration.findFirst.mockResolvedValue(null);
+
+    await expect(
+      handleOAuthCallback({
+        integration: {
+          name: "custom_abc",
+          displayName: "Knowledge base",
+          serverUrl: "https://kb.example.com/mcp",
+          authType: "oauth",
+          scopes: [],
+          isCustom: true,
+        },
+        code: "code",
+        codeVerifier: "verifier",
+        redirectUri: "https://app.example.com/api/mcp/custom_abc/callback",
+        emailAccountId: "account-1",
+      }),
+    ).rejects.toThrow("removed before the connection completed");
+
+    expect(prisma.mcpIntegration.upsert).not.toHaveBeenCalled();
+    expect(prisma.mcpConnection.upsert).not.toHaveBeenCalled();
+  });
+});
