@@ -1,3 +1,4 @@
+import type { McpAuthType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { findIntegration } from "@/utils/mcp/integrations";
 
@@ -51,8 +52,20 @@ export async function resolveMcpIntegration({
     name: custom.name,
     displayName: custom.displayName || custom.name,
     serverUrl: custom.serverUrl,
-    authType: custom.authType === "API_TOKEN" ? "api-token" : "oauth",
+    authType: fromDbAuthType(custom.authType),
     scopes: [],
     isCustom: true,
   };
+}
+
+export function fromDbAuthType(
+  authType: McpAuthType,
+): ResolvedMcpIntegration["authType"] {
+  return authType === "API_TOKEN" ? "api-token" : "oauth";
+}
+
+export function toDbAuthType(
+  authType: ResolvedMcpIntegration["authType"],
+): McpAuthType {
+  return authType === "api-token" ? "API_TOKEN" : "OAUTH";
 }

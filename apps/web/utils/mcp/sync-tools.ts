@@ -3,6 +3,7 @@ import {
   resolveMcpIntegration,
   type ResolvedMcpIntegration,
 } from "@/utils/mcp/resolve-integration";
+import { isValidMcpToolName } from "@/utils/mcp/tool-name";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
@@ -49,13 +50,9 @@ export async function syncMcpTools(
 
     const allTools = await listMcpTools(integration, emailAccountId);
 
-    const existingEnabledByName = new Map(
-      mcpConnection.tools.map((tool) => [tool.name, tool.isEnabled]),
-    );
-
     const tools = integration.isCustom
-      ? buildCustomTools(allTools, existingEnabledByName, logger)
-      : buildBuiltInTools(integration, allTools, existingEnabledByName, logger);
+      ? buildCustomTools(allTools, logger)
+      : buildBuiltInTools(integration, allTools, logger);
 
     logger.info("Fetched and filtered tools from MCP server", {
       totalToolsAvailable: allTools.length,
@@ -64,6 +61,10 @@ export async function syncMcpTools(
 
     // Replace stored tools, preserving the user's enable/disable choices for
     // tools that already existed
+    const existingEnabledByName = new Map(
+      mcpConnection.tools.map((tool) => [tool.name, tool.isEnabled]),
+    );
+
     await prisma.$transaction([
       prisma.mcpTool.deleteMany({
         where: { connectionId: mcpConnection.id },
@@ -76,7 +77,8 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled: tool.isEnabled,
+                isEnabled:
+                  existingEnabledByName.get(tool.name) ?? tool.defaultEnabled,
                 isWrite: tool.isWrite,
               })),
             }),
@@ -107,12 +109,11 @@ export async function syncMcpTools(
 }
 
 type ListedTool = Awaited<ReturnType<typeof listMcpTools>>[number];
-type StoredTool = ListedTool & { isWrite: boolean; isEnabled: boolean };
+type StoredTool = ListedTool & { isWrite: boolean; defaultEnabled: boolean };
 
 function buildBuiltInTools(
   integration: ResolvedMcpIntegration,
   allTools: ListedTool[],
-  existingEnabledByName: Map<string, boolean>,
   logger: Logger,
 ): StoredTool[] {
   const writeToolNames = integration.ruleActionWriteTools ?? [];
@@ -143,27 +144,26 @@ function buildBuiltInTools(
     });
   }
 
+  const defaultEnabled = !integration.filterWriteTools;
+
   return [
-    ...readTools.map((tool) => ({
-      ...tool,
-      isWrite: false,
-      isEnabled:
-        existingEnabledByName.get(tool.name) ?? !integration.filterWriteTools,
-    })),
-    ...writeTools.map((tool) => ({
-      ...tool,
-      isWrite: true,
-      isEnabled:
-        existingEnabledByName.get(tool.name) ?? !integration.filterWriteTools,
-    })),
+    ...readTools.map((tool) => ({ ...tool, isWrite: false, defaultEnabled })),
+    ...writeTools.map((tool) => ({ ...tool, isWrite: true, defaultEnabled })),
   ];
 }
 
 function buildCustomTools(
-  allTools: ListedTool[],
-  existingEnabledByName: Map<string, boolean>,
+  listedTools: ListedTool[],
   logger: Logger,
 ): StoredTool[] {
+  const allTools = listedTools.filter((tool) => isValidMcpToolName(tool.name));
+
+  if (allTools.length < listedTools.length) {
+    logger.warn("Skipped custom MCP tools with unsupported names", {
+      skipped: listedTools.length - allTools.length,
+    });
+  }
+
   if (allTools.length > MAX_CUSTOM_TOOLS) {
     logger.warn("Custom MCP server exposes more tools than we store", {
       available: allTools.length,
@@ -184,8 +184,7 @@ function buildCustomTools(
     ...tool,
     description: tool.description?.slice(0, MAX_CUSTOM_TOOL_DESCRIPTION_LENGTH),
     isWrite: false,
-    isEnabled:
-      existingEnabledByName.get(tool.name) ?? tool.readOnlyHint === true,
+    defaultEnabled: tool.readOnlyHint === true,
   }));
 }
 

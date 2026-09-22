@@ -10,11 +10,13 @@ import {
   toggleMcpToolBody,
 } from "@/utils/actions/mcp.validation";
 import { SafeError } from "@/utils/error";
-import { env } from "@/env";
-import { CUSTOM_INTEGRATION_PREFIX } from "@/utils/mcp/resolve-integration";
+import {
+  CUSTOM_INTEGRATION_PREFIX,
+  toDbAuthType,
+} from "@/utils/mcp/resolve-integration";
 import { assertIntegrationsTierAccess } from "@/utils/mcp/tier-access";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { getCustomMcpServerUrlError } from "@/utils/mcp/safe-fetch";
 import prisma from "@/utils/prisma";
 
 const MAX_CUSTOM_SERVERS_PER_ACCOUNT = 10;
@@ -67,15 +69,8 @@ export const createCustomMcpServerAction = actionClient
     }) => {
       await assertIntegrationsTierAccess({ userId, logger });
 
-      const allowPrivateIps = env.MCP_ALLOW_PRIVATE_IPS;
-
-      if (!allowPrivateIps && !serverUrl.startsWith("https://")) {
-        throw new SafeError("The server URL must use https");
-      }
-
-      if (!isSafeExternalHttpUrl(serverUrl, { allowPrivateIps })) {
-        throw new SafeError("That server URL is not a public address");
-      }
+      const urlError = getCustomMcpServerUrlError(serverUrl);
+      if (urlError) throw new SafeError(urlError);
 
       const existingCount = await prisma.mcpIntegration.count({
         where: { emailAccountId },
@@ -94,7 +89,7 @@ export const createCustomMcpServerAction = actionClient
           name,
           displayName,
           serverUrl,
-          authType: authType === "api-token" ? "API_TOKEN" : "OAUTH",
+          authType: toDbAuthType(authType),
           emailAccountId,
         },
         select: { id: true },

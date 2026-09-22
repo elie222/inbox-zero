@@ -30,7 +30,7 @@ describe("getMcpFetch", () => {
 
   it("refuses private addresses", async () => {
     await expect(safeFetch()("https://10.0.0.1/mcp")).rejects.toThrow(
-      "not a public host",
+      "not a public address",
     );
   });
 

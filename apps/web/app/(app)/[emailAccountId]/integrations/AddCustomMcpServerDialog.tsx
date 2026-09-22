@@ -56,12 +56,12 @@ export function AddCustomMcpServerDialog() {
   const { execute, isExecuting } = useAction(
     createCustomMcpServerAction.bind(null, emailAccountId),
     {
-      onSuccess: async ({ data }) => {
+      onSuccess: async ({ data, input }) => {
         mutate();
         reset();
         onClose();
 
-        if (authType === "api-token") {
+        if (input.authType === "api-token") {
           toastSuccess({ description: "Server added" });
           return;
         }

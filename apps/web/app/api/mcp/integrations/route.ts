@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { fromDbAuthType } from "@/utils/mcp/resolve-integration";
 import prisma from "@/utils/prisma";
 
 export type GetIntegrationsResponse = Awaited<ReturnType<typeof getData>>;
@@ -62,10 +63,9 @@ async function getData(emailAccountId: string) {
       description: host,
       url: host,
       comingSoon: undefined,
-      authType:
-        integration.authType === "API_TOKEN"
-          ? ("api-token" as const)
-          : ("oauth" as const),
+      authType: integration.authType
+        ? fromDbAuthType(integration.authType)
+        : ("oauth" as const),
       isCustom: true,
       connection: findConnection(integration.name),
     };

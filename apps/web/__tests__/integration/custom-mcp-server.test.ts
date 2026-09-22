@@ -219,7 +219,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       await expect(
         syncMcpTools(name, TEST_ACCOUNT_ID, createTestLogger()),
-      ).rejects.toThrow("Custom MCP servers must use https");
+      ).rejects.toThrow("must use https");
 
       const { tools, cleanup } = await createMcpToolsForAgent(TEST_ACCOUNT_ID);
       await cleanup();

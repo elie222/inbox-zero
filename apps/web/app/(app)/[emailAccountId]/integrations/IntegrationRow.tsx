@@ -189,14 +189,13 @@ export function IntegrationRow({
     setDisconnecting(true);
 
     try {
-      const result =
-        !isCustom && connectionId
-          ? await disconnectMcpConnectionAction(emailAccountId, {
-              connectionId,
-            })
-          : await removeCustomMcpServerAction(emailAccountId, {
-              name: integration.name,
-            });
+      const result = isCustom
+        ? await removeCustomMcpServerAction(emailAccountId, {
+            name: integration.name,
+          })
+        : await disconnectMcpConnectionAction(emailAccountId, {
+            connectionId: connectionId!,
+          });
 
       if (result?.serverError) {
         toastError({

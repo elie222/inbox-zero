@@ -28,6 +28,24 @@ export function getMcpFetch(
   return integration.isCustom ? safeMcpFetch : undefined;
 }
 
+/**
+ * The URL policy for user-registered MCP servers, checked both when a server is
+ * added and on every request to it. Returns why the URL is refused, if it is.
+ */
+export function getCustomMcpServerUrlError(url: string): string | null {
+  const allowPrivateIps = env.MCP_ALLOW_PRIVATE_IPS;
+
+  if (!allowPrivateIps && !url.startsWith("https://")) {
+    return "The server URL must use https";
+  }
+
+  if (!isSafeExternalHttpUrl(url, { allowPrivateIps })) {
+    return "That server URL is not a public address";
+  }
+
+  return null;
+}
+
 const safeMcpAgent = new Agent({ connect: { lookup: safeLookup } });
 
 /**
@@ -42,16 +60,9 @@ const safeMcpAgent = new Agent({ connect: { lookup: safeLookup } });
 const safeMcpFetch: FetchLike = async (url, init) => {
   const target = url.toString();
 
-  const allowPrivateIps = env.MCP_ALLOW_PRIVATE_IPS;
-
-  if (!allowPrivateIps && !target.startsWith("https://")) {
-    throw new Error("Custom MCP servers must use https");
-  }
-
-  if (!isSafeExternalHttpUrl(target, { allowPrivateIps })) {
-    throw new Error(
-      `Refusing to call ${safeHost(target)}: the address is not a public host`,
-    );
+  const urlError = getCustomMcpServerUrlError(target);
+  if (urlError) {
+    throw new Error(`Refusing to call ${safeHost(target)}: ${urlError}`);
   }
 
   const response = await undiciFetch(target, {

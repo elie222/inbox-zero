@@ -208,6 +208,22 @@ describe("syncMcpTools", () => {
     });
   });
 
+  it("skips custom server tools whose names model providers reject", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue([
+      { name: "search_docs", readOnlyHint: true },
+      { name: "docs.fetch", readOnlyHint: true },
+      { name: "x".repeat(65), readOnlyHint: true },
+    ]);
+
+    await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ name: "search_docs" })],
+    });
+  });
+
   it("keeps read tools isWrite false", async () => {
     mockConnection([]);
     mockListMcpTools.mockResolvedValue([
