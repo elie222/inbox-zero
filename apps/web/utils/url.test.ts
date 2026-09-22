@@ -167,62 +167,37 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // Graph REST ids cannot be substituted into /drafts/id/ URLs; only the
-  // webLink's EWS ItemID can.
+  // The mail client selects the draft from the Graph id, the same id space its
+  // message URLs take.
   it.each([
     {
       name: "a business mailbox",
-      externalUrl:
-        "https://outlook.office365.com/owa/?ItemID=AAMkAG%2Bsynthetic%2Fid%3D&exvsurl=1&viewmodel=ReadMessageItem",
+      emailAddress: "user@contoso.com",
       expected:
-        "https://outlook.office.com/mail/drafts/id/AAMkAG%2Bsynthetic%2Fid%3D",
+        "https://outlook.office.com/mail/drafts/id/AAMkAG-synthetic_id%3D",
     },
     {
       name: "a personal mailbox",
-      externalUrl:
-        "https://outlook.live.com/owa/?ItemID=AQMkAD%2Bsynthetic%3D&exvsurl=1&viewmodel=ReadMessageItem",
+      emailAddress: "user@outlook.com",
       expected:
-        "https://outlook.live.com/mail/0/drafts/id/AQMkAD%2Bsynthetic%3D",
+        "https://outlook.live.com/mail/0/drafts/id/AAMkAG-synthetic_id%3D",
     },
-    {
-      name: "a link without an item id",
-      externalUrl:
-        "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=1",
-      expected:
-        "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=0",
-    },
-  ])("opens the draft within the full Outlook client for $name", ({
-    externalUrl,
+  ])("opens the draft itself within the full Outlook client for $name", ({
+    emailAddress,
     expected,
   }) => {
     expect(
       getEmailDraftUrl(
-        { id: "draft-123", externalUrl },
-        "user@example.com",
+        { id: "AAMkAG-synthetic_id=" },
+        emailAddress,
         "microsoft",
       ),
     ).toBe(expected);
   });
 
-  it.each([
-    {
-      name: "an unexpected host",
-      externalUrl: "https://evil.example.com/mail",
-    },
-    { name: "a non-https scheme", externalUrl: "http://outlook.office.com/x" },
-    {
-      name: "a non-default port",
-      externalUrl: "https://outlook.live.com:8443/evil",
-    },
-    { name: "an unparseable value", externalUrl: "not-a-url" },
-    { name: "no provider link", externalUrl: undefined },
-  ])("returns null for a draft link with $name", ({ externalUrl }) => {
+  it("returns null when the Outlook draft has no id to address it by", () => {
     expect(
-      getEmailDraftUrl(
-        { id: "draft-123", externalUrl },
-        "user@outlook.com",
-        "microsoft",
-      ),
+      getEmailDraftUrl({ id: "" }, "user@outlook.com", "microsoft"),
     ).toBeNull();
   });
 
