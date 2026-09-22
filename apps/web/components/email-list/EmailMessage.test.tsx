@@ -185,6 +185,40 @@ describe("EmailMessage draft recovery", () => {
   });
 });
 
+describe("EmailMessage reply", () => {
+  afterEach(cleanup);
+
+  it("expands a collapsed message so the reply composer can mount", () => {
+    const onToggle = vi.fn();
+    const view = render(
+      <EmailMessage
+        expanded={false}
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onToggle={onToggle}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(onToggle).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+
+    view.rerender(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onToggle={onToggle}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+});
+
 describe("EmailMessage forward", () => {
   afterEach(cleanup);
 

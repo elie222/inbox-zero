@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
 import { playwrightMailProvider } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -193,6 +193,12 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     testInfo,
     "mail-reader-reply-forward-shortcuts",
   );
+  // Leave the forward tooltip so it cannot steal collision space from the
+  // actions menu once sender stats resolve.
+  await page
+    .getByRole("heading", { name: "Re: Reader Visual Message" })
+    .hover();
+  await expect(forwardTooltip).toHaveCount(0);
 
   const senderStatsResponse = page.waitForResponse((response) =>
     response.url().includes("/api/user/stats/newsletters"),
@@ -210,13 +216,16 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await actionsMenu.evaluate((menu) =>
     Promise.all(menu.getAnimations().map((animation) => animation.finished)),
   );
-  const openExternalBeforeLoad = await openExternal.boundingBox();
-  expect(openExternalBeforeLoad).not.toBeNull();
+  const openExternalOffsetBeforeLoad = await menuItemOffset(
+    actionsMenu,
+    openExternal,
+  );
   releaseSenderStats.resolve();
   expect((await senderStatsResponse).ok()).toBe(true);
   await expect(autoArchive).not.toHaveAttribute("aria-disabled", "true");
-  const openExternalAfterLoad = await openExternal.boundingBox();
-  expect(openExternalAfterLoad?.y).toBe(openExternalBeforeLoad?.y);
+  expect(await menuItemOffset(actionsMenu, openExternal)).toBe(
+    openExternalOffsetBeforeLoad,
+  );
   await expect(
     actionsMenu.getByRole("menuitem", { name: "Mark as spam" }),
   ).toBeVisible();
@@ -425,4 +434,12 @@ for (const parent of ["none", "missing"] as const) {
     ).toContainText("This unsent draft should remain visible.");
     await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-draft-only");
   });
+}
+
+async function menuItemOffset(menu: Locator, item: Locator) {
+  const menuBox = await menu.boundingBox();
+  const itemBox = await item.boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(itemBox).not.toBeNull();
+  return itemBox!.y - menuBox!.y;
 }
