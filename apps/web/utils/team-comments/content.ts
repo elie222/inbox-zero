@@ -156,7 +156,9 @@ function sanitizeSharedHtml(
 ) {
   const window = new JSDOM("").window;
   try {
-    const purifier = createDOMPurify(window as unknown as Window);
+    const purifier = createDOMPurify(
+      window as unknown as Parameters<typeof createDOMPurify>[0],
+    );
     const sanitized = purifier.sanitize(html, {
       USE_PROFILES: { html: true },
       FORBID_ATTR: ["style", "srcset", "poster", "background"],
