@@ -182,6 +182,7 @@ async function sendEmail({
               automated: true,
               createdAt: { gt: cutOffDate },
             },
+            orderBy: { createdAt: "desc" },
             select: {
               messageId: true,
               createdAt: true,
