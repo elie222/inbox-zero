@@ -113,16 +113,7 @@ export function ShareConversationDialog({
               if (result?.data) {
                 close();
                 onShared();
-              } else
-                setError(
-                  getActionErrorMessage(
-                    result?.serverError
-                      ? { serverError: result.serverError }
-                      : result?.validationErrors
-                        ? { validationErrors: result.validationErrors }
-                        : undefined,
-                  ),
-                );
+              } else setError(getActionErrorMessage(result ?? {}));
             }}
           >
             {isExecuting ? "Sharing…" : "Share conversation"}
