@@ -24,7 +24,12 @@ const portableForbidden = [
   'from "electron',
   "from 'electron",
 ];
-const unsupportedSyntax = ["await using ", " using {", "with {", "import assert"];
+const unsupportedSyntax = [
+  "await using ",
+  " using {",
+  "with {",
+  "import assert",
+];
 
 const directory = await mkdtemp(join(tmpdir(), "mail-pack-consumer-"));
 try {
@@ -166,9 +171,7 @@ async function assertPortablePackedJs(name, tarball, listing) {
     }
     for (const token of unsupportedSyntax) {
       if (source.includes(token)) {
-        throw new Error(
-          `${name} ${file} contains unsupported syntax ${token}`,
-        );
+        throw new Error(`${name} ${file} contains unsupported syntax ${token}`);
       }
     }
   }
