@@ -143,8 +143,10 @@ async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
      )`,
     groupedBindings,
   );
+  const unreadOnSnoozedMessage =
+    mailbox === "snoozed" ? " AND IFNULL(e.snoozed_until_ms, 0) > ?" : "";
   const unreadHaving = having.sql
-    ? `HAVING ${having.sql} AND MAX(CASE WHEN e.read = 0 THEN 1 ELSE 0 END) = 1`
+    ? `HAVING ${having.sql} AND MAX(CASE WHEN e.read = 0${unreadOnSnoozedMessage} THEN 1 ELSE 0 END) = 1`
     : "";
   const unread = await tx.query(
     `SELECT COUNT(*) AS n FROM (
@@ -153,7 +155,9 @@ async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
        GROUP BY e.account_id, e.conversation_id
        ${unreadHaving}
      )`,
-    groupedBindings,
+    mailbox === "snoozed"
+      ? [...groupedBindings, ...having.bindings]
+      : groupedBindings,
   );
   return { rows, matching, unread };
 }

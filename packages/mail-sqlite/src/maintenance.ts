@@ -38,12 +38,6 @@ export async function listReferencedBlobIds(
         ids.add(blobId);
       }
     }
-    const staged = await tx.query(
-      "SELECT attachment_id FROM draft_attachments WHERE remote_status != 'uploaded'",
-    );
-    for (const row of staged) {
-      ids.add(String(row.attachment_id));
-    }
     const pending = ["preparing", ...PENDING_EFFECT_STATUSES];
     const operations = await tx.query(
       `SELECT payload_json, executable_payload_json FROM operations
