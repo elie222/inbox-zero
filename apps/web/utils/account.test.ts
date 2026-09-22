@@ -117,7 +117,7 @@ describe("redirectToEmailAccountPath", () => {
     );
   });
 
-  it("uses the last email account cookie without querying for an account", async () => {
+  it("uses the last email account cookie after confirming it still exists", async () => {
     mocks.cookies.mockResolvedValue({
       get: () => ({
         value: JSON.stringify({
@@ -126,12 +126,17 @@ describe("redirectToEmailAccountPath", () => {
         }),
       }),
     });
+    mocks.findFirst.mockResolvedValue({ id: "account_123" });
 
     await expect(redirectToEmailAccountPath("/setup")).rejects.toThrow(
       "redirect:/account_123/setup",
     );
 
-    expect(mocks.findFirst).not.toHaveBeenCalled();
+    expect(mocks.findFirst).toHaveBeenCalledTimes(1);
+    expect(mocks.findFirst).toHaveBeenCalledWith({
+      where: { id: "account_123", userId: "user_123" },
+      select: { id: true },
+    });
     expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({
         path: "/setup",
@@ -142,6 +147,43 @@ describe("redirectToEmailAccountPath", () => {
         stepDurationsMs: expect.not.objectContaining({
           "fallback-email-account-lookup": expect.any(Number),
         }),
+      }),
+    );
+  });
+
+  it("falls back to the first remaining account when the last-account cookie is stale", async () => {
+    mocks.cookies.mockResolvedValue({
+      get: () => ({
+        value: JSON.stringify({
+          userId: "user_123",
+          emailAccountId: "deleted_account",
+        }),
+      }),
+    });
+    mocks.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "account_remaining" });
+
+    await expect(redirectToEmailAccountPath("/mail")).rejects.toThrow(
+      "redirect:/account_remaining/mail",
+    );
+
+    expect(mocks.findFirst).toHaveBeenNthCalledWith(1, {
+      where: { id: "deleted_account", userId: "user_123" },
+      select: { id: true },
+    });
+    expect(mocks.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { userId: "user_123" },
+      select: { id: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
+      expect.objectContaining({
+        path: "/mail",
+        outcome: "account-path",
+        usedLastEmailAccountCookie: false,
+        usedFallbackAccountLookup: true,
+        foundEmailAccount: true,
       }),
     );
   });

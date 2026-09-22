@@ -1,36 +1,27 @@
 import { expect } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { openMail } from "./mail-test-helpers";
+
+const OVERFLOW_THREADS = {
+  plain: "thr_playwright_overflow_plain",
+  html: "thr_playwright_overflow_html",
+  "styled-html": "thr_playwright_overflow_styled",
+} as const;
 
 for (const format of ["plain", "html", "styled-html"] as const) {
   test(`wraps long links in ${format} messages`, async ({ page }, testInfo) => {
-    const url = `https://example.com/account?reference=${"abcdef0123456789".repeat(24)}`;
-    await page.route(
-      "**/api/threads/thr_playwright_reader?**",
-      async (route) => {
-        const response = await route.fetch();
-        const body: ThreadResponse = await response.json();
-        const message = body.thread.messages.at(-1);
-        if (!message) throw new Error("Reader fixture has no messages");
-        message.textPlain = `Account details:\n\n${url}\n\nEnd of message.`;
-        message.textHtml = "";
-        if (format !== "plain") {
-          const style =
-            format === "styled-html"
-              ? ' style="font-family: Arial; font-size: 16px"'
-              : "";
-          message.textHtml = `<div${style}><p>Account details:</p><a href="${url}">${url}</a><p>End of message.</p></div>`;
-        }
-        await route.fulfill({ response, json: body });
-      },
+    test.skip(
+      isMicrosoftPlaywright() && format === "plain",
+      "Outlook paints body_content as HTML, so the plain-text <pre> wrap is Gmail-only.",
     );
-
+    const url = `https://example.com/account?reference=${"abcdef0123456789".repeat(24)}`;
     const { emailAccountId } = await openMail(page);
-    await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(
+      `/${emailAccountId}/mail?thread-id=${OVERFLOW_THREADS[format]}`,
+      { waitUntil: "domcontentloaded" },
+    );
     const message = page.locator("li[data-thread-message-id]").last();
     const content =
       format === "plain"

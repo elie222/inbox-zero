@@ -87,7 +87,17 @@ async function getLastEmailAccountFromCookie(
   try {
     const cookieStore = await cookies();
     const cookieValue = cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value;
-    return parseLastEmailAccountCookieValue({ userId, cookieValue });
+    const lastEmailAccountId = parseLastEmailAccountCookieValue({
+      userId,
+      cookieValue,
+    });
+    if (!lastEmailAccountId) return null;
+
+    const emailAccount = await prisma.emailAccount.findFirst({
+      where: { id: lastEmailAccountId, userId },
+      select: { id: true },
+    });
+    return emailAccount?.id ?? null;
   } catch {
     return null;
   }

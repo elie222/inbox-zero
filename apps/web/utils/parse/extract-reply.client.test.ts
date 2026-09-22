@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
-import { extractEmailReply } from "./extract-reply.client";
+import {
+  extractDraftComposerContent,
+  extractEmailReply,
+} from "./extract-reply.client";
 
 // Setup JSDOM
 const dom = new JSDOM();
@@ -117,6 +120,38 @@ describe("extractEmailReply", () => {
     expect(result.draftHtml).toBe(
       '<div dir="ltr">hi,<div><br></div><div>this is a test</div></div>',
     );
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
+});
+
+describe("extractDraftComposerContent", () => {
+  it("keeps HTML replies that already have visible draft text", () => {
+    const html = `
+      <div dir="ltr">This is my reply</div>
+      <div class="gmail_quote">Original thread content</div>
+    `;
+    expect(extractDraftComposerContent(html, "unused plaintext")).toEqual(
+      extractEmailReply(html),
+    );
+  });
+
+  it("fills an empty quoted draft from plaintext", () => {
+    const html = `
+      <div dir="ltr"></div>
+      <div class="gmail_quote">Original thread content</div>
+    `;
+    const result = extractDraftComposerContent(html, "First saved reply");
+    expect(result.draftHtml).toBe("<p>First saved reply</p>");
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
+
+  it("fills a quoted draft whose reply part is only a break or nbsp", () => {
+    const html = `
+      <div dir="ltr">&nbsp;<br></div>
+      <div class="gmail_quote">Original thread content</div>
+    `;
+    const result = extractDraftComposerContent(html, "First saved reply");
+    expect(result.draftHtml).toBe("<p>First saved reply</p>");
     expect(result.originalHtml).toContain("gmail_quote");
   });
 });

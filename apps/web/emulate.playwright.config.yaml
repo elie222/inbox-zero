@@ -186,6 +186,65 @@ google:
         - INBOX
         - UNREAD
       internal_date: "1735038000000"
+    - id: msg_playwright_multi_draft_parent
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Leslie Example <leslie@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Multiple Server Drafts
+      body_text: Parent of two saved replies.
+      message_id: "<multi-draft-parent@example.com>"
+      label_ids:
+        - INBOX
+      internal_date: "1735038100000"
+    - id: msg_playwright_multi_draft_first
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Multiple Server Drafts
+      body_text: First saved reply
+      body_html: "<p>First saved reply</p>"
+      message_id: "<multi-draft-first@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038200000"
+    - id: msg_playwright_multi_draft_second
+      thread_id: thr_playwright_multi_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Multiple Server Drafts
+      body_text: Second saved reply
+      body_html: "<p>Second saved reply</p>"
+      message_id: "<multi-draft-second@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038300000"
+    - id: msg_playwright_draft_only_first
+      thread_id: thr_playwright_draft_only
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Drafts Without Parent
+      body_text: First saved reply
+      body_html: "<p>First saved reply</p>"
+      message_id: "<draft-only-first@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038400000"
+    - id: msg_playwright_draft_only_second
+      thread_id: thr_playwright_draft_only
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Drafts Without Parent
+      body_text: Second saved reply
+      body_html: "<p>Second saved reply</p>"
+      message_id: "<draft-only-second@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038500000"
     - id: msg_playwright_reader_visual_sent
       thread_id: thr_playwright_reader_visual
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -211,6 +270,7 @@ google:
       to: __PLAYWRIGHT_TEST_EMAIL__
       subject: Cleanup Block Candidate
       body_text: This sender is reserved for the bulk unsubscribe flow.
+      body_html: "<p>Navigation body for thr_playwright_cleanup_block</p>"
       label_ids:
         - INBOX
         - UNREAD
@@ -222,6 +282,7 @@ google:
       to: __PLAYWRIGHT_TEST_EMAIL__
       subject: Cleanup Category Archive Candidate
       body_text: This sender is reserved for the bulk archive flow.
+      body_html: "<p>Navigation body for thr_playwright_cleanup_archive</p>"
       label_ids:
         - INBOX
         - UNREAD
@@ -236,6 +297,203 @@ google:
       label_ids:
         - INBOX
       internal_date: "1786665600000"
+    - id: msg_playwright_calendar
+      thread_id: thr_playwright_calendar
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      raw: "__PLAYWRIGHT_CALENDAR_INVITE_RAW__"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734900000000"
+    - id: msg_playwright_plain_links
+      thread_id: thr_playwright_plain_links
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Plain Text Links Message
+      body_text: "Visit service.new/account\n\nhttps://staging.example.com/verify?token=value"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734890000000"
+    - id: msg_playwright_reader_html
+      thread_id: thr_playwright_reader_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Html Message
+      body_text: A rich email body for keyboard navigation.
+      body_html: "<p>A rich email body for keyboard navigation.</p>"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734880000000"
+    - id: msg_unread_expand_read
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: An earlier read message stays collapsed.
+      label_ids:
+        - INBOX
+      internal_date: "1734870000000"
+    - id: msg_unread_expand_open_1
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: Another unread message opens with the conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734871000000"
+    - id: msg_unread_expand_open_2
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Unread Expand Message
+      body_text: A third unread message also opens.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734872000000"
+    - id: msg_unread_expand_open_3
+      thread_id: thr_playwright_unread_expand
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Dana Example <dana@example.com>
+      subject: "Re: Unread Expand Message"
+      body_text: The latest unread message opens with the conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734873000000"
+    - id: msg_playwright_overflow_plain
+      thread_id: thr_playwright_overflow_plain
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Plain Message
+      body_text: "Account details:\n\n__PLAYWRIGHT_LONG_LINK__\n\nEnd of message."
+      label_ids:
+        - SENT
+      internal_date: "1735124400000"
+    - id: msg_playwright_overflow_html
+      thread_id: thr_playwright_overflow_html
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Html Message
+      body_text: Account details
+      body_html: "<div><p>Account details:</p><a href=\"__PLAYWRIGHT_LONG_LINK__\">__PLAYWRIGHT_LONG_LINK__</a><p>End of message.</p></div>"
+      label_ids:
+        - SENT
+      internal_date: "1735124400000"
+    - id: msg_playwright_overflow_styled
+      thread_id: thr_playwright_overflow_styled
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Overflow Styled Html Message
+      body_text: Account details
+      body_html: "<div style=\"font-family: Arial; font-size: 16px\"><p>Account details:</p><a href=\"__PLAYWRIGHT_LONG_LINK__\">__PLAYWRIGHT_LONG_LINK__</a><p>End of message.</p></div>"
+      label_ids:
+        - SENT
+      internal_date: "1735124400000"
+    - id: msg_playwright_theme_system
+      thread_id: thr_playwright_theme_system
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: System Theme Message
+      body_text: A simple message in the system theme.
+      body_html: "<p>A simple message in the system theme.</p>"
+      label_ids:
+        - SENT
+      internal_date: "1734880000000"
+    - id: msg_playwright_theme_designed
+      thread_id: thr_playwright_theme_designed
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Designed Html Message
+      body_text: Finish setup
+      body_html: "__PLAYWRIGHT_DESIGNED_HTML__"
+      label_ids:
+        - SENT
+      internal_date: "1734880000000"
+    - id: msg_playwright_matched_earlier
+      thread_id: thr_playwright_matched_reason
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Matched Reason Message
+      body_text: Earlier message body.
+      body_html: "<p>Earlier message body.</p>"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734951600000"
+    - id: msg_playwright_matched_later
+      thread_id: thr_playwright_matched_reason
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Matched Reason Message
+      body_text: Later message body.
+      body_html: "<p>Later message body.</p>"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734955200000"
+    - id: msg_playwright_draft_orphan
+      thread_id: thr_playwright_draft_orphan
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Draft Without Parent
+      body_text: This unsent draft should remain visible.
+      body_html: "<p>This unsent draft should remain visible.</p>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038400000"
+    - id: msg_playwright_draft_missing_parent
+      thread_id: thr_playwright_draft_missing_parent
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: recipient@example.com
+      subject: Draft Missing Parent
+      body_text: This unsent draft should remain visible.
+      body_html: "<p>This unsent draft should remain visible.</p>"
+      message_id: "<draft-missing-child@example.com>"
+      in_reply_to: "<missing-parent@example.com>"
+      label_ids:
+        - DRAFT
+      internal_date: "1735038500000"
+    - id: msg_playwright_reader_collapse_1
+      thread_id: thr_playwright_reader_collapse
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Collapsed Reader Message
+      body_text: First collapsed history message.
+      label_ids:
+        - INBOX
+      internal_date: "1735725600000"
+    - id: msg_playwright_reader_collapse_2
+      thread_id: thr_playwright_reader_collapse
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Dana Example <dana@example.com>
+      subject: "Re: Collapsed Reader Message"
+      body_text: Latest read message stays expanded.
+      label_ids:
+        - INBOX
+        - SENT
+      internal_date: "1735729200000"
   calendars:
     - id: primary
       user_email: __PLAYWRIGHT_TEST_EMAIL__

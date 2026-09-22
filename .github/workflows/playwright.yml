@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "packages/mail-*/**"
+      - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
@@ -17,6 +19,7 @@ on:
       - "apps/web/utils/playwright/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
+      - "apps/web/emulate.playwright.microsoft.yaml"
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
@@ -33,6 +36,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "packages/mail-*/**"
+      - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
@@ -43,6 +48,7 @@ on:
       - "apps/web/lib/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
+      - "apps/web/emulate.playwright.microsoft.yaml"
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
@@ -91,6 +97,7 @@ env:
   NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
   NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true"
   NEXT_PUBLIC_CONTACTS_ENABLED: "true"
+  NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: "true"
   NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
   NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
   NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
@@ -161,6 +168,7 @@ jobs:
         working-directory: apps/web
         run: |
           batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
+          batches="$(jq -c '[.[] | . as $batch | $batch + {provider: "google"}, (if any($batch.paths[]; startswith("__tests__/playwright/emulated/mail/")) then $batch + {provider: "microsoft"} else empty end)]' <<< "$batches")"
           echo "batches=$batches" >> "$GITHUB_OUTPUT"
 
       - name: Build browser app once
@@ -188,7 +196,7 @@ jobs:
           if-no-files-found: error
 
   playwright:
-    name: E2E ${{ matrix.batch.name }}
+    name: E2E ${{ matrix.batch.name }} (${{ matrix.batch.provider }})
     needs: select
     if: needs.select.outputs.batches != '[]'
     strategy:
@@ -229,6 +237,8 @@ jobs:
 
     env:
       PLAYWRIGHT_CHANGED_TEST_FILES: ${{ needs.select.outputs.changed_tests }}
+      PLAYWRIGHT_MAIL_PROVIDER: ${{ matrix.batch.provider }}
+      MAIL_REQUIRE_ELECTRON: ${{ contains(join(matrix.batch.paths, ' '), 'hosted-electron-archive.spec.ts') && '1' || '0' }}
 
     steps:
       - name: Checkout repository
@@ -243,9 +253,15 @@ jobs:
           node-version: "24"
 
       - name: Install dependencies
-        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        run: pnpm install --frozen-lockfile
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Install required Electron runtime
+        if: env.MAIL_REQUIRE_ELECTRON == '1'
+        working-directory: apps/desktop
+        run: node node_modules/electron/install.js
 
       - name: Setup Playwright cache
         uses: actions/cache@v4
@@ -276,7 +292,7 @@ jobs:
         shell: bash
         run: |
           mapfile -t targets < <(jq -r '.[]' <<< "$TEST_TARGETS")
-          pnpm -F inbox-zero-ai test:playwright:emulated "${targets[@]}"
+          xvfb-run -a pnpm -F inbox-zero-ai test:playwright:emulated "${targets[@]}"
         env:
           TEST_TARGETS: ${{ toJSON(matrix.batch.paths) }}
 
@@ -284,7 +300,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.batch.name }}
+          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.batch.name }}-${{ matrix.batch.provider }}
           path: |
             apps/web/.tmp/playwright/blob-report
             apps/web/test-results

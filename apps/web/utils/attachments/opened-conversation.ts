@@ -1,23 +1,14 @@
 import type { ParsedMessage } from "@/utils/types";
-import {
-  captureEmailCacheEpoch,
-  isEmailCacheEpochCurrent,
-} from "@/utils/email-cache/database";
 import { fetchAttachment, getAttachmentUrl } from "./download";
 import { getAttachmentImagePreview } from "./image-preview";
 import { queueAttachmentDownload } from "./download-queue";
-import { downloadLocalMailAttachment } from "@/utils/email-cache/local-mail-attachment-download";
-import {
-  getLocalMailAttachmentReference,
-  readLocalMailAttachment,
-} from "@/utils/email-cache/local-mail-attachments";
 
 const FILE_LIMIT = 1024 * 1024;
 const CONVERSATION_LIMIT = 3 * FILE_LIMIT;
 
 export function createOpenedConversationAttachments(
   emailAccountId: string,
-  threadId: string,
+  _threadId: string,
   allowUncached = false,
 ) {
   let controller = new AbortController();
@@ -46,10 +37,6 @@ export function createOpenedConversationAttachments(
       attachment?: ParsedMessage["inline"][number],
     ) {
       const key = JSON.stringify([messageId, attachmentId]);
-      // Consumers are replaced while bytes are still arriving: the reader
-      // re-renders a preview whenever the cached conversation changes under
-      // it. The session owns the transfer, so a newcomer joins the one in
-      // flight instead of cancelling it and paying for the download again.
       let operation = pending.get(key);
       if (!operation) {
         const transferSignal = controller.signal;
@@ -78,82 +65,54 @@ export function createOpenedConversationAttachments(
     attachment?: ParsedMessage["inline"][number],
   ) {
     const startedEpoch = epoch;
-    const accountEpoch = captureEmailCacheEpoch(emailAccountId);
     const transferSignal = controller.signal;
     transferSignal.throwIfAborted();
-    const reference = await getLocalMailAttachmentReference({
-      emailAccountId,
-      messageId,
-      attachmentId,
-    });
-    if (reference && reference.threadId !== threadId) return;
-    if (!reference && (!allowUncached || !attachment)) return;
-    const cached = reference
-      ? await readLocalMailAttachment(reference)
-      : undefined;
-    transferSignal.throwIfAborted();
-    if (cached) return cached;
-    const size = reference ? reference.reportedBytes : attachment?.size;
+    if (!allowUncached || !attachment) return;
+    const reportedSize = attachment.size;
+    const size =
+      Number.isSafeInteger(reportedSize) && reportedSize > 0
+        ? reportedSize
+        : undefined;
+    const reserved = size ?? FILE_LIMIT;
     if (
-      !size ||
-      !Number.isSafeInteger(size) ||
-      size < 0 ||
-      size > FILE_LIMIT ||
-      consumedBytes + size > CONVERSATION_LIMIT ||
+      reserved > FILE_LIMIT ||
+      consumedBytes + reserved > CONVERSATION_LIMIT ||
       !eligible()
     )
       return;
-    consumedBytes += size;
+    consumedBytes += reserved;
     let actualBytes = 0;
     try {
-      if (!reference && attachment) {
-        const blob = await queueAttachmentDownload({
-          priority: "speculative",
-          signal: transferSignal,
-          download: async (signal) => {
-            if (
-              !eligible() ||
-              !isEmailCacheEpochCurrent(emailAccountId, accountEpoch)
-            )
-              return;
-            return fetchAttachment({
-              url: getAttachmentUrl({ ...attachment, messageId }),
-              emailAccountId,
-              maxBytes: size,
-              signal,
-              onProgress: (bytes) => {
-                actualBytes = bytes;
-              },
-            });
-          },
-        });
-        transferSignal.throwIfAborted();
-        if (!isEmailCacheEpochCurrent(emailAccountId, accountEpoch)) return;
-        if (blob) actualBytes = blob.size;
-        return blob;
-      }
-      const result = await downloadLocalMailAttachment({
-        emailAccountId,
-        messageId,
-        attachmentId,
-        maxBytes: size,
+      const blob = await queueAttachmentDownload({
         priority: "speculative",
         signal: transferSignal,
-        onProgress: (bytes) => {
-          actualBytes = bytes;
+        download: async (signal) => {
+          if (!eligible()) return;
+          return fetchAttachment({
+            url: getAttachmentUrl({
+              accountId: emailAccountId,
+              messageId,
+              attachmentId,
+            }),
+            emailAccountId,
+            maxBytes: size ?? FILE_LIMIT,
+            signal,
+            onProgress: (bytes) => {
+              actualBytes = bytes;
+            },
+          });
         },
       });
       transferSignal.throwIfAborted();
-      if (result.status === "ready") {
-        actualBytes = result.blob.size;
-        return result.blob;
-      }
+      if (blob) actualBytes = blob.size;
+      return blob;
     } finally {
       if (startedEpoch === epoch)
-        consumedBytes -= size - Math.min(size, actualBytes);
+        consumedBytes -= reserved - Math.min(reserved, actualBytes);
     }
   }
 }
+
 function untilAborted<T>(operation: Promise<T>, signal: AbortSignal) {
   if (signal.aborted) return Promise.reject(signal.reason);
   return new Promise<T>((resolve, reject) => {
@@ -164,6 +123,7 @@ function untilAborted<T>(operation: Promise<T>, signal: AbortSignal) {
       .finally(() => signal.removeEventListener("abort", abort));
   });
 }
+
 function eligible() {
   const connection = (
     navigator as Navigator & { connection?: { saveData?: boolean } }

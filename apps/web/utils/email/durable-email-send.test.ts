@@ -128,4 +128,60 @@ describe("executeDurableEmailSend", () => {
     });
     expect(prisma.emailSendOperation.deleteMany).not.toHaveBeenCalled();
   });
+
+  it("stores staged attachment ids without folding them into the payload hash", async () => {
+    const provider = createMockEmailProvider({
+      sendEmailWithHtml: vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent", threadId: "thread" }),
+    });
+    prisma.emailSendOperation.update.mockResolvedValue({} as never);
+    const hashes: string[] = [];
+    prisma.emailSendOperation.create.mockImplementation((async ({
+      data,
+    }: {
+      data: { payloadHash: string };
+    }) => {
+      hashes.push(data.payloadHash);
+      return {
+        id: "operation",
+        status: EmailSendOperationStatus.PROCESSING,
+        ...data,
+      };
+    }) as never);
+    await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input,
+      provider: "google",
+      attachmentIds: ["blob-1"],
+    });
+    prisma.emailSendOperation.findUnique.mockResolvedValue(null);
+    await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: {
+        ...input,
+        mutationId: "8f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",
+      },
+      provider: "google",
+      attachmentIds: ["blob-2"],
+    });
+    expect(hashes).toHaveLength(2);
+    expect(hashes[0]).toBe(hashes[1]);
+    expect(prisma.emailSendOperation.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({ attachmentIds: ["blob-1"] }),
+      }),
+    );
+    expect(prisma.emailSendOperation.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({ attachmentIds: ["blob-2"] }),
+      }),
+    );
+  });
 });

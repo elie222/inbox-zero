@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { loadThreads, toListThreads } from "./load";
+import { loadThreadPlans, loadThreads, toListThreads } from "./load";
 
 vi.mock("@/utils/prisma");
 
@@ -130,6 +130,38 @@ describe("loadThreads", () => {
       "latest",
       "earlier-message",
     ]);
+  });
+
+  it("loads aggregated plans for one thread without fetching provider mail", async () => {
+    prisma.executedRule.findMany.mockResolvedValue([
+      {
+        ...executedRule("latest", new Date("2026-08-14T12:00:00Z")),
+        messageId: "message-2",
+        rule: { id: "rule-1" },
+      },
+      {
+        ...executedRule("earlier-message", new Date("2026-08-14T11:00:00Z")),
+        messageId: "message-1",
+        rule: { id: "rule-1" },
+      },
+      {
+        ...executedRule("superseded", new Date("2026-08-14T10:00:00Z")),
+        messageId: "message-2",
+        rule: { id: "rule-1" },
+      },
+    ] as never);
+
+    const plans = await loadThreadPlans({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+    });
+
+    expect(prisma.executedRule.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { emailAccountId: "account-1", threadId: "thread-1" },
+      }),
+    );
+    expect(plans.map((plan) => plan.id)).toEqual(["latest", "earlier-message"]);
   });
 
   it("keeps every provider message ID when ignored messages are hidden", async () => {

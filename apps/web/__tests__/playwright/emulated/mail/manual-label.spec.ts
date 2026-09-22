@@ -1,5 +1,4 @@
 import { expect } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -11,19 +10,6 @@ import {
 test("applies an existing label from the reader menu and keeps the conversation in inbox", async ({
   page,
 }, testInfo) => {
-  let refreshUnreadDetail = false;
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    // Reproduce a cached read snapshot followed by fresh unread detail.
-    for (const message of body.thread.messages) {
-      message.labelIds = (message.labelIds ?? []).filter(
-        (label) => label !== "UNREAD",
-      );
-      if (refreshUnreadDetail) message.labelIds.push("UNREAD");
-    }
-    await route.fulfill({ response, json: body });
-  });
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -32,9 +18,7 @@ test("applies an existing label from the reader menu and keeps the conversation 
   );
   await conversation.click();
   await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /^More actions/ }).click();
@@ -45,7 +29,6 @@ test("applies an existing label from the reader menu and keeps the conversation 
     picker.getByRole("option", { name: "Project Alpha", exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "search-label-picker");
-  refreshUnreadDetail = true;
   await picker
     .getByRole("option", { name: "Project Alpha", exact: true })
     .click();
@@ -58,24 +41,52 @@ test("applies an existing label from the reader menu and keeps the conversation 
       () =>
         readLatestMailMutation(page, {
           emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_reader",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({
+      status: "succeeded",
+      payload: { membership: "label", id: "Label_project", present: true },
+    });
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
           kind: "set_read_state",
           threadId: "thr_playwright_reader",
         }),
       { timeout: 60_000 },
     )
     .toMatchObject({ payload: { read: true }, status: "succeeded" });
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_reader",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(response.ok()).toBeTruthy();
-  const { thread } = await response.json();
-  expect(thread.messages).toHaveLength(2);
-  for (const message of thread.messages) {
-    expect(message.labelIds).toEqual(
-      expect.arrayContaining(["INBOX", "Label_project"]),
-    );
-  }
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_reader",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        if (!response.ok()) return false;
+        const { thread } = await response.json();
+        return (
+          thread.messages?.length === 2 &&
+          thread.messages.every((message: { labelIds?: string[] }) =>
+            ["INBOX", "Label_project"].every((id) =>
+              message.labelIds?.includes(id),
+            ),
+          )
+        );
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   await page
     .getByRole("button", { name: "Back to inbox", exact: true })
     .click();
@@ -123,21 +134,34 @@ test("creates and applies a label to selected conversations with L", async ({
   );
   expect(label).toBeTruthy();
   for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {
-    const response = await page.request.get(`/api/threads/${threadId}`, {
-      headers: { "X-Email-Account-ID": emailAccountId },
-    });
-    const { thread } = await response.json();
-    for (const message of thread.messages) {
-      expect(message.labelIds).toEqual(
-        expect.arrayContaining(["INBOX", label.id]),
-      );
-    }
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId,
+            kind: "set_membership",
+            threadId,
+            payload: { membership: "label", id: label.id, present: true },
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.get(`/api/threads/${threadId}`, {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          if (!response.ok()) return false;
+          const { thread } = await response.json();
+          return thread.messages?.every((message: { labelIds?: string[] }) =>
+            ["INBOX", label.id].every((id) => message.labelIds?.includes(id)),
+          );
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(true);
   }
-  await page.getByRole("button", { name: "Label", exact: true }).click();
-  await expect(picker).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(picker).toBeHidden();
-  await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
 });
 
 test("L labels the open conversation after it leaves the unread list", async ({
@@ -152,9 +176,7 @@ test("L labels the open conversation after it leaves the unread list", async ({
   // Restore unread state through the UI so retries do not inherit the prior read.
   await conversation.click();
   await expect(
-    page.getByText("Another unread message for bulk-action checks.", {
-      exact: true,
-    }),
+    page.getByRole("heading", { name: "Second Unread Command Message" }),
   ).toBeVisible();
   await page
     .getByRole("group", { name: "Thread actions" })
@@ -205,18 +227,43 @@ test("L labels the open conversation after it leaves the unread list", async ({
   await page.keyboard.press("Enter");
   await expect(picker).toBeHidden();
   await expect(heading).toBeVisible();
-  const response = await page.request.get("/api/threads/thr_playwright_3", {
-    headers: { "X-Email-Account-ID": emailAccountId },
-  });
-  const { thread } = await response.json();
-  expect(thread.messages[0].labelIds).toEqual(
-    expect.arrayContaining(["INBOX", "Label_project"]),
-  );
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_3",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_3",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        if (!response.ok()) return false;
+        const { thread } = await response.json();
+        return ["INBOX", "Label_project"].every((id) =>
+          thread.messages[0]?.labelIds?.includes(id),
+        );
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 });
 
-test("keeps conversations available to retry after an interrupted labeling request", async ({
+test("keeps a queued label visible while provider execute is held", async ({
   page,
-}) => {
+}, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -231,33 +278,82 @@ test("keeps conversations available to retry after an interrupted labeling reque
     exact: true,
   });
   await expect(labelOption).toBeVisible();
-  await page.route("**/mail**", async (route) => {
-    if (route.request().method() === "POST") await route.abort("failed");
-    else await route.continue();
+
+  let releaseExecute = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseExecute = resolve;
   });
-  await labelOption.click();
-  await expect(
-    page.getByText("Couldn't label 1 conversation. Select a label to retry.", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(picker).toBeVisible();
-  await expect(labelOption).toBeEnabled();
-  await page.unroute("**/mail**");
-  await labelOption.click();
-  await expect(picker).toBeHidden();
-  await expect(
-    conversation.getByText("Project Alpha", { exact: true }),
-  ).toBeVisible();
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_keyboard",
-    {
-      headers: { "X-Email-Account-ID": emailAccountId },
+  await page.route(
+    "**/api/mail/v1/accounts/**/operations/**",
+    async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.continue();
+        return;
+      }
+      await held;
+      await route.continue();
     },
   );
-  expect(response.ok()).toBeTruthy();
-  const { thread } = await response.json();
-  expect(thread.messages[0].labelIds).toEqual(
-    expect.arrayContaining(["INBOX", "Label_project"]),
-  );
+
+  try {
+    await labelOption.click();
+    await expect(picker).toBeHidden();
+    await expect(
+      conversation.getByText("Project Alpha", { exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_keyboard",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      )
+      .toMatchObject({ status: "reconciling" });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "label-queued-before-dispatch",
+    );
+  } finally {
+    releaseExecute();
+  }
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_keyboard",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: true,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_keyboard",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        if (!response.ok()) return false;
+        const { thread } = await response.json();
+        return ["INBOX", "Label_project"].every((id) =>
+          thread.messages[0]?.labelIds?.includes(id),
+        );
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 });

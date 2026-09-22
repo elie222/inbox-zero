@@ -5,7 +5,7 @@ import useSWR from "swr";
 import {
   getReplyDrafts,
   subscribeToReplyDrafts,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 
 export function useReplyDrafts(emailAccountId: string, threadId: string) {
   const { data, error, isLoading, mutate } = useSWR(

@@ -1,12 +1,6 @@
 "use client";
 
 import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
-import { downloadLocalMailAttachment } from "@/utils/email-cache/local-mail-attachment-download";
-import { getLocalMailAttachmentReference } from "@/utils/email-cache/local-mail-attachments";
-import {
-  captureEmailCacheEpoch,
-  isEmailCacheEpochCurrent,
-} from "@/utils/email-cache/database";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +10,10 @@ import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isPreviewableImageType } from "@/utils/attachments/image-preview";
-import { getAttachmentUrl } from "@/utils/attachments/download";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
@@ -32,58 +29,33 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const downloadAttachment = async ({
     filename,
     url,
-    attachmentId,
-    size,
   }: {
     filename: string;
     url: string;
-    attachmentId: string;
-    size: number;
   }) => {
     const signal = controller.current.signal;
-    const epoch = captureEmailCacheEpoch(emailAccountId);
     setIsDownloading(true);
 
     try {
-      const reference = await getLocalMailAttachmentReference({
+      const blob = await fetchAttachment({
+        url,
         emailAccountId,
-        messageId: message.id,
-        attachmentId,
+        signal,
       });
-      const result = reference
-        ? await downloadLocalMailAttachment({
-            emailAccountId,
-            messageId: message.id,
-            attachmentId,
-            priority: "requested",
-            signal,
-            maxBytes: size || undefined,
-          })
-        : { status: "external-download-required" as const };
       signal.throwIfAborted();
-      if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      let objectUrl: string | undefined;
-      if (result.status === "external-download-required") {
-        const downloadUrl = new URL(url, window.location.origin);
-        downloadUrl.searchParams.set("emailAccountId", emailAccountId);
-        link.href = downloadUrl.toString();
-      } else if (result.status === "ready") {
-        objectUrl = URL.createObjectURL(
-          result.blob.slice(0, result.blob.size, "application/octet-stream"),
-        );
-        link.href = objectUrl;
-      } else {
-        throw new Error("Attachment unavailable");
-      }
+      link.href = objectUrl;
       link.download = filename;
       document.body.appendChild(link);
       try {
         link.click();
       } finally {
         link.remove();
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        // click() can start the download after this turn; 0ms revoke drops the file.
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       }
+      signal.throwIfAborted();
     } catch {
       if (!signal.aborted)
         toastError({ description: "Failed to download attachment" });
@@ -95,12 +67,13 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
-        const url = getAttachmentUrl({
-          messageId: message.id,
-          attachmentId: attachment.attachmentId,
-          mimeType: attachment.mimeType,
-          filename: attachment.filename,
-        });
+        const url = emailAccountId
+          ? getAttachmentUrl({
+              accountId: emailAccountId,
+              messageId: message.id,
+              attachmentId: attachment.attachmentId,
+            })
+          : "";
 
         return (
           <CardBasic
@@ -139,8 +112,6 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                     downloadAttachment({
                       filename: attachment.filename,
                       url,
-                      attachmentId: attachment.attachmentId,
-                      size: attachment.size,
                     })
                   }
                 >

@@ -56,9 +56,11 @@ export interface ParsedMessage {
   conversationIndex?: string | null;
   date: string;
   externalUrl?: string;
+  hasAttachment?: boolean;
   headers: ParsedMessageHeaders;
   historyId: string;
   id: string;
+  inboxSection?: "focused" | "other" | null;
   inline: Inline[];
   internalDate?: string | null;
   isMeetingInvitation?: boolean;

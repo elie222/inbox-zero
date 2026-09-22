@@ -70,6 +70,8 @@ if (listTargets || listBatches) {
   process.exit(0);
 }
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
+const provider =
+  process.env.PLAYWRIGHT_MAIL_PROVIDER === "microsoft" ? "microsoft" : "google";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
 const htmlReportDir = path.resolve("playwright-report");
@@ -137,9 +139,9 @@ for (const target of targets) {
           : {}),
         PLAYWRIGHT_BLOB_REPORT_FILE: path.join(
           blobReportDir,
-          `${target.name}.zip`,
+          `${provider}-${target.name}.zip`,
         ),
-        PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, target.name),
+        PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, provider, target.name),
         PLAYWRIGHT_RUN_ID: targetRunId,
         ...(isIntegrationsTarget(target.path)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
@@ -173,7 +175,7 @@ for (const target of targets) {
   );
   if (!dryRun) {
     writeFileSync(
-      path.join(testResultsDir, `timings-${target.name}.json`),
+      path.join(testResultsDir, `timings-${provider}-${target.name}.json`),
       JSON.stringify([timing], null, 2),
     );
     if (process.env.GITHUB_STEP_SUMMARY) {

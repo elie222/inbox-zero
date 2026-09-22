@@ -1,0 +1,43 @@
+{
+  "name": "@inboxzero/mail-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared React DOM mail presentation for web and Electron",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/mail-ui#readme",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    "./MailApp": "./src/MailApp.tsx",
+    "./MailBody": "./src/MailBody.tsx",
+    "./MailProductFrame": "./src/MailProductFrame.tsx",
+    "./host": "./src/host.ts",
+    "./MailboxSurface": "./src/MailboxSurface.tsx",
+    "./MailThreadRow": "./src/MailThreadRow.tsx",
+    "./MailReaderSurface": "./src/MailReaderSurface.tsx",
+    "./sanitize-html": "./src/sanitize-html.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inboxzero/mail-core": "workspace:*",
+    "@inboxzero/mail-react": "workspace:*",
+    "dompurify": "3.4.15"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}

@@ -72,7 +72,7 @@ test("feature groups preserve every selected spec, including unassigned and nest
   const paths = [
     "mail/compose-and-reply.spec.ts",
     "mail/contact-autocomplete.spec.ts",
-    "mail/offline-outbox.spec.ts",
+    "mail/offline-loading.spec.ts",
     "mail/new-behavior.spec.ts",
     "mail/nested/new-behavior.spec.ts",
     "settings/appearance.spec.ts",

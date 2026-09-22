@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import {
   getReplyDraftForSession,
   type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 
 export function useLocalReplyDraft(
   identity: ReplyDraftIdentity | undefined,

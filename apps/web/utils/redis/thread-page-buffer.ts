@@ -4,7 +4,7 @@ import { Redis } from "@upstash/redis";
 import { env } from "@/env";
 import { encryptToken, decryptToken } from "@/utils/encryption";
 import { createScopedLogger } from "@/utils/logger";
-import { createThreadListCacheKey } from "@/utils/email-cache/keys";
+import { createThreadListCacheKey } from "@/utils/threads/thread-list-cache-key";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type {
   PageBuffer,

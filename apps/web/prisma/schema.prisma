@@ -916,6 +916,7 @@ model EmailSendOperation {
   status              EmailSendOperationStatus @default(PROCESSING)
   processingStartedAt DateTime                 @default(now())
   result              Json?
+  attachmentIds       String[]                 @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

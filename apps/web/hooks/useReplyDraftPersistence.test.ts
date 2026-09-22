@@ -3,16 +3,16 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useReplyDraftPersistence } from "./useReplyDraftPersistence";
-import type { ReplyDraftContent } from "@/utils/email-cache/reply-drafts";
+import type { ReplyDraftContent } from "@/utils/mail-engine/reply-drafts";
 
 const { save, clear } = vi.hoisted(() => ({
   save: vi.fn(),
   clear: vi.fn(),
 }));
 
-vi.mock("@/utils/email-cache/reply-drafts", async (importOriginal) => ({
+vi.mock("@/utils/mail-engine/reply-drafts", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("@/utils/email-cache/reply-drafts")
+    typeof import("@/utils/mail-engine/reply-drafts")
   >()),
   createReplyDraftWriter: () => ({ save, clear }),
 }));

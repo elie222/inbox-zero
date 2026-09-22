@@ -3,6 +3,7 @@ import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import { playwrightMailProvider } from "../mail-provider";
 import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupDefaultSplitRule,
@@ -11,6 +12,8 @@ import {
   seedDefaultSplitRule,
   withClient,
 } from "./mail-test-helpers";
+
+const isMicrosoft = playwrightMailProvider === "microsoft";
 
 let defaultSplitEmailAccountId: string | undefined;
 
@@ -97,7 +100,7 @@ test("restores a deleted All tab and protects it from removal", async ({
   );
   const tabs = page.locator("button[data-split-tab]");
   const original = await tabs.allTextContents();
-  expect(original).toHaveLength(MAX_MAIL_SPLITS + 2);
+  expect(original).toHaveLength(MAX_MAIL_SPLITS + (isMicrosoft ? 1 : 2));
   await page
     .getByRole("button", { name: "Move Unread down", exact: true })
     .click();
@@ -171,7 +174,10 @@ test("builds a split from conditions and shows only matching mail", async ({
   await page.getByRole("button", { name: "Build your own" }).click();
   await expect(page.getByText("Show mail matching")).toBeVisible();
 
-  await page.getByLabel("Condition field").first().selectOption("CATEGORY");
+  await page
+    .getByLabel("Condition field")
+    .first()
+    .selectOption(isMicrosoft ? "LABEL" : "CATEGORY");
   await page.getByLabel("Condition value").first().selectOption({
     label: "Promotions",
   });
@@ -195,7 +201,7 @@ test("builds a split from conditions and shows only matching mail", async ({
   await page.getByRole("menuitem", { name: "Edit filters and name" }).click();
   await expect(page.getByText("Edit split")).toBeVisible();
   await expect(page.getByLabel("Condition value").first()).toHaveValue(
-    /PROMOTIONS/,
+    isMicrosoft ? "Label_promotions" : "CATEGORY_PROMOTIONS",
   );
   await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-split-edit");
@@ -221,30 +227,32 @@ test("turns a prepared split on from the library", async ({
   await page.getByRole("button", { name: "New split" }).click();
   await page.getByRole("button", { name: "General", exact: true }).click();
 
-  // The library only offers label-backed entries when the account has that
-  // label; the fixture's label is "Project Alpha", so use one needing none.
-  const starredTile = page.getByRole("button", {
-    name: "Turn on the Starred split",
-  });
-  await expect(starredTile).toBeVisible();
+  const templateName = isMicrosoft ? "GitHub" : "Starred";
   // OTP is opt-in: offer it even when the account does not already have the label.
   await expect(
     page.getByRole("button", { name: "Turn on the OTP split" }),
   ).toBeVisible();
+  if (isMicrosoft) {
+    await page.getByRole("button", { name: "Apps", exact: true }).click();
+  }
+  const templateTile = page.getByRole("button", {
+    name: `Turn on the ${templateName} split`,
+  });
+  await expect(templateTile).toBeVisible();
   await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-split-library");
 
-  await starredTile.click();
+  await templateTile.click();
   await expect(
-    page.getByRole("button", { name: "Turn off the Starred split" }),
+    page.getByRole("button", { name: `Turn off the ${templateName} split` }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Close" }).click();
-  const starredSplit = page.getByRole("button", {
-    name: "Starred",
+  const templateSplit = page.getByRole("button", {
+    name: templateName,
     exact: true,
   });
-  await expect(starredSplit).toBeVisible();
+  await expect(templateSplit).toBeVisible();
   await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(
     page,
@@ -252,9 +260,9 @@ test("turns a prepared split on from the library", async ({
     "mail-rule-label-splits-added",
   );
 
-  await starredSplit.click({ button: "right" });
+  await templateSplit.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Turn off split" }).click();
-  await expect(starredSplit).toHaveCount(0);
+  await expect(templateSplit).toHaveCount(0);
 });
 
 test("reorders splits with arrows and dragging and persists tab order", async ({
@@ -292,6 +300,10 @@ test("reorders splits with arrows and dragging and persists tab order", async ({
 test("Other excludes enabled splits and restores mail when a split is disabled", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoft,
+    "The synthetic Other split is available only for Gmail; Outlook Other is an inbox classification.",
+  );
   const { conversations } = await openMail(page);
   // Remove Unread so category membership alone determines this partition.
   await page
