@@ -14,9 +14,21 @@ async function main() {
       cpu: cpus()[0]?.model,
     }),
   );
-  for (const count of [10_000, 100_000, 1_000_000]) {
+  const counts = (process.env.MAIL_BENCH_COUNTS ?? "10000,100000,1000000")
+    .split(",")
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  for (const count of counts) {
     const driver = createNodeSqliteDriver();
-    const store = await createSqliteMailStore(driver);
+    const store = await createSqliteMailStore(driver, {
+      runtime: {
+        randomId: () => "benchmark-id",
+        async sha256(bytes) {
+          const { createHash } = await import("node:crypto");
+          return new Uint8Array(createHash("sha256").update(bytes).digest());
+        },
+      },
+    });
     await store.ensureAccount({
       accountId: "benchmark",
       provider: "google",

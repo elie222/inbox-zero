@@ -51,6 +51,23 @@ describe("mail engine mailbox windows", () => {
     expect(handle.getSnapshot().data?.counts.matchingConversations).toBe(4);
     await engine.close();
   });
+
+  it("caps mailbox window page count", async () => {
+    const requestedPageCounts: number[] = [];
+    const engine = createMailEngine({
+      store: mailboxWindowStore(requestedPageCounts),
+      source: idleSource(),
+      executor: idleExecutor(),
+      runtime: createHostRuntime(),
+    });
+    const handle = engine.observeMailboxWindow?.(inboxQuery(), {
+      pageCount: 99,
+    });
+    if (!handle) throw new Error("missing mailbox window handle");
+    await waitForReady(handle);
+    expect(requestedPageCounts).toEqual([40]);
+    await engine.close();
+  });
 });
 
 describe("mail engine idle catch-up scheduling", () => {

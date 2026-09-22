@@ -27,16 +27,28 @@ import type { OperationExecutor } from "./ports/operation-executor";
 import type { AssistantStateSource } from "./ports/assistant-source";
 import type { ScopeDescriptor } from "./ports/mailbox-source";
 import type { HostRuntime } from "./ports/runtime";
+import { webCryptoSha256 } from "./canonical";
 import { extractTextPredicates } from "./query-semantics";
-import type { ConversationQuery, MailboxView, QueryHandle } from "./queries";
+import type {
+  AccountRecord,
+  ConversationQuery,
+  DraftSummary,
+  MailboxCatalog,
+  MailboxView,
+  OutboxItem,
+  QueryHandle,
+  WellKnownMailbox,
+} from "./queries";
 import { createQueryRegistry, mailboxQueryKey } from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
+import type { BlobStore } from "./ports/blob-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
 const IDLE_SCOPE_DISCOVERY_INTERVAL_MS = 60_000;
 const IDLE_STREAM_CATCH_UP_INTERVAL_MS = 60_000;
 const IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS = 60_000;
+const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
   | { status: "scheduled" | "already_satisfied" }
@@ -70,6 +82,18 @@ export type MailboxWindowOptions = {
   pageCount?: number;
 };
 
+export type DraftAttachmentInput = {
+  accountId: string;
+  draftId: string | null;
+  attachmentId: string;
+  filename: string;
+  contentType: string;
+  checksum: string;
+  sizeBytes: number;
+  bytes: AsyncIterable<Uint8Array>;
+  inline?: boolean;
+};
+
 export type MailClient = {
   observeMailbox(query: ConversationQuery): QueryHandle<MailboxView>;
   observeMailboxWindow?(
@@ -81,10 +105,17 @@ export type MailClient = {
     page: { after: string | null; pageSize: number },
   ): QueryHandle<ConversationView>;
   observeOperation(key: OperationKey): QueryHandle<OperationState>;
+  observeAccounts(): QueryHandle<{ accounts: AccountRecord[] }>;
+  observeDrafts(accountIds: string[]): QueryHandle<{ drafts: DraftSummary[] }>;
+  observeOutbox(accountIds: string[]): QueryHandle<{ items: OutboxItem[] }>;
+  observeMailboxCatalog(accountId: string): QueryHandle<MailboxCatalog>;
   submitMetadata(input: SubmitMetadataCommand): Promise<Admission>;
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
+  stageDraftAttachment(
+    input: DraftAttachmentInput,
+  ): Promise<{ status: "staged" } | { status: "rejected"; code: string }>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -94,8 +125,10 @@ export type MailClient = {
   >;
   requestSync(accountIds: string[]): Promise<WorkAdmission>;
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
+  ensureConversation(key: ConversationKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
+  referencedBlobIds(): Promise<string[]>;
   close?(): Promise<void>;
 };
 
@@ -112,16 +145,32 @@ export function createMailEngine(input: {
   runtime: HostRuntime;
   ownerId?: string;
   assistant?: AssistantStateSource;
+  blobStore?: BlobStore;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
+  const blobStore = input.blobStore;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
   const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
+  let refreshGate: Promise<void> | null = null;
+  let refreshQueued = false;
 
   async function refreshViews() {
-    await queries.refreshAll();
+    refreshQueued = true;
+    if (refreshGate) return refreshGate;
+    refreshGate = drainRefreshes().finally(() => {
+      refreshGate = null;
+    });
+    return refreshGate;
+  }
+
+  async function drainRefreshes() {
+    while (refreshQueued) {
+      refreshQueued = false;
+      await queries.refreshAll();
+    }
   }
 
   return {
@@ -181,6 +230,51 @@ export function createMailEngine(input: {
         },
       );
     },
+    observeAccounts() {
+      return queries.observe("accounts", () =>
+        store.readAccounts().then((result) => ({
+          revision: result.revision,
+          data: { accounts: result.accounts },
+        })),
+      );
+    },
+    observeDrafts(accountIds) {
+      const key = `drafts:${[...accountIds].sort().join(",")}`;
+      return queries.observe(key, () =>
+        store.readDrafts(accountIds).then((result) => ({
+          revision: result.revision,
+          data: { drafts: result.drafts },
+        })),
+      );
+    },
+    observeOutbox(accountIds) {
+      const key = `outbox:${[...accountIds].sort().join(",")}`;
+      return queries.observe(key, () =>
+        store.readOutbox(accountIds).then((result) => ({
+          revision: result.revision,
+          data: { items: result.items },
+        })),
+      );
+    },
+    observeMailboxCatalog(accountId) {
+      return queries.observe(`catalog:${accountId}`, async () => {
+        const accounts = await store.readAccounts();
+        const account = accounts.accounts.find(
+          (item) => item.accountId === accountId,
+        );
+        const catalog = await readMailboxCatalog(
+          source,
+          runtime,
+          accountId,
+          account?.provider ?? null,
+          account?.generation ?? accountId,
+        );
+        return {
+          revision: accounts.revision,
+          data: catalog,
+        };
+      });
+    },
     async submitMetadata(command) {
       const admission = await store.admitMetadata(command);
       await refreshViews();
@@ -196,6 +290,33 @@ export function createMailEngine(input: {
     },
     readDraft(key) {
       return store.readDraft(key);
+    },
+    async stageDraftAttachment(input) {
+      if (!blobStore) {
+        return { status: "rejected", code: "storage_unavailable" };
+      }
+      const stagedLocal = await blobStore.stage({
+        blobId: input.attachmentId,
+        bytes: input.bytes,
+        checksum: input.checksum,
+        sizeBytes: input.sizeBytes,
+      });
+      if (stagedLocal.status !== "staged") {
+        return { status: "rejected", code: stagedLocal.code };
+      }
+      const finalized = await blobStore.finalize(input.attachmentId);
+      if (!finalized)
+        return { status: "rejected", code: "storage_unavailable" };
+      return store.stageDraftAttachment({
+        accountId: input.accountId,
+        draftId: input.draftId,
+        attachmentId: input.attachmentId,
+        filename: input.filename,
+        contentType: input.contentType,
+        checksum: input.checksum,
+        sizeBytes: input.sizeBytes,
+        inline: input.inline,
+      });
     },
     async submitSend(send) {
       const admission = await store.admitSend(send);
@@ -221,6 +342,13 @@ export function createMailEngine(input: {
     async ensureMessageContent(key) {
       await store.enqueueHydration({ keys: [key], purpose: "body" });
       return { status: "scheduled" };
+    },
+    async ensureConversation(key) {
+      await store.enqueueConversation(key);
+      return { status: "scheduled" };
+    },
+    referencedBlobIds() {
+      return store.listReferencedBlobIds();
     },
     getDiagnostics(accountId) {
       return store.getDiagnostics(accountId);
@@ -279,6 +407,55 @@ export function createMailEngine(input: {
             attemptId: work.attemptId,
             operation: work.operation,
             result,
+          });
+          await refreshViews();
+          continue;
+        }
+        if (work.kind === "upload") {
+          await runAttachmentUpload({
+            work,
+            blobStore,
+            executor,
+            store,
+            runtime,
+            signal: signal ?? new AbortController().signal,
+          });
+          await refreshViews();
+          continue;
+        }
+        if (work.kind === "conversation") {
+          const membership = await source.readConversationMembership({
+            session: work.session,
+            requestId: work.jobId,
+            signal: signal ?? new AbortController().signal,
+            conversation: work.conversation,
+            resolutionId: work.jobId,
+            page: work.page,
+            pageSize: 100,
+          });
+          if (membership.status !== "ok") {
+            await store.completeJob({
+              jobId: work.jobId,
+              attemptId: work.attemptId,
+            });
+            await noteConnection(work.session.accountId, membership.status);
+            continue;
+          }
+          if (
+            membership.value.status === "page" &&
+            membership.value.page.changes.length > 0
+          ) {
+            await store.applyHydration({
+              session: work.session,
+              requestId: work.jobId,
+              attemptId: work.attemptId,
+              changes: membership.value.page.changes,
+              bodies: [],
+            });
+          }
+          await store.completeJob({
+            jobId: work.jobId,
+            attemptId: work.attemptId,
           });
           await refreshViews();
           continue;
@@ -919,7 +1096,7 @@ function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
 
 function normalizePageCount(pageCount: number | undefined) {
   if (!pageCount || !Number.isFinite(pageCount)) return 1;
-  return Math.max(1, Math.floor(pageCount));
+  return Math.min(MAX_MAILBOX_WINDOW_PAGES, Math.max(1, Math.floor(pageCount)));
 }
 
 export function createHostRuntime(
@@ -927,7 +1104,137 @@ export function createHostRuntime(
 ): HostRuntime {
   return {
     nowMs: overrides?.nowMs ?? (() => Date.now()),
-    randomId: overrides?.randomId ?? (() => crypto.randomUUID()),
+    randomId: overrides?.randomId ?? defaultRandomId,
+    sha256: overrides?.sha256 ?? webCryptoSha256,
     storagePressure: overrides?.storagePressure ?? (() => false),
   };
+}
+
+function defaultRandomId(): string {
+  const cryptoObj = globalThis.crypto;
+  if (typeof cryptoObj?.randomUUID === "function") {
+    return cryptoObj.randomUUID();
+  }
+  throw new Error(
+    "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
+  );
+}
+
+async function readMailboxCatalog(
+  source: MailboxSource,
+  runtime: HostRuntime,
+  accountId: string,
+  provider: "google" | "microsoft" | null,
+  generation: string,
+): Promise<MailboxCatalog> {
+  const catalog = source.readCatalog
+    ? await source.readCatalog({
+        session: { accountId, generation },
+        requestId: runtime.randomId(),
+        signal: new AbortController().signal,
+      })
+    : { status: "unsupported" as const };
+  if (catalog.status === "ok") return catalog.value;
+  return {
+    accountId,
+    provider,
+    coverage: "system_only",
+    items: systemCatalogItems(provider),
+  };
+}
+
+function systemCatalogItems(
+  provider: "google" | "microsoft" | null,
+): MailboxCatalog["items"] {
+  const mailboxes: WellKnownMailbox[] =
+    provider === "microsoft"
+      ? ["inbox", "sent", "drafts", "archive", "starred", "trash", "spam"]
+      : [
+          "inbox",
+          "sent",
+          "drafts",
+          "archive",
+          "all",
+          "starred",
+          "snoozed",
+          "trash",
+          "spam",
+        ];
+  return mailboxes.map((mailbox) => ({
+    id: mailbox,
+    name: mailboxLabel(mailbox),
+    kind: "system",
+    mailbox,
+  }));
+}
+
+function mailboxLabel(mailbox: WellKnownMailbox) {
+  switch (mailbox) {
+    case "inbox":
+      return "Inbox";
+    case "sent":
+      return "Sent";
+    case "drafts":
+      return "Drafts";
+    case "archive":
+      return "Archive";
+    case "all":
+      return "All Mail";
+    case "starred":
+      return "Starred";
+    case "snoozed":
+      return "Snoozed";
+    case "trash":
+      return "Trash";
+    case "spam":
+      return "Spam";
+  }
+}
+
+async function runAttachmentUpload(input: {
+  work: Extract<import("./ports/mail-store").ClaimedWork, { kind: "upload" }>;
+  blobStore?: BlobStore;
+  executor: OperationExecutor;
+  store: MailStore;
+  runtime: HostRuntime;
+  signal: AbortSignal;
+}) {
+  const { work, blobStore, executor, store } = input;
+  if (!blobStore || !executor.stageUpload) {
+    await store.failOperation(work.operation.key, "missing_attachment");
+    return;
+  }
+  const bytes = await blobStore.read(work.attachmentId);
+  if (!bytes) {
+    await store.failOperation(work.operation.key, "missing_attachment");
+    return;
+  }
+  const staged = await executor.stageUpload({
+    session: work.operation.session,
+    uploadId: work.attachmentId,
+    checksum: work.checksum,
+    sizeBytes: work.sizeBytes,
+    filename: work.filename,
+    contentType: work.contentType,
+    bytes,
+    signal: input.signal,
+  });
+  if (staged.status !== "staged") {
+    if (
+      staged.status === "rejected" &&
+      (staged.code === "missing" || staged.code === "too_large")
+    ) {
+      await store.failOperation(
+        work.operation.key,
+        staged.code === "too_large" ? "too_large" : "missing_attachment",
+      );
+    }
+    return;
+  }
+  await store.recordAttachmentUpload({
+    accountId: work.operation.key.accountId,
+    operationId: work.operation.key.operationId,
+    attachmentId: work.attachmentId,
+    remoteUploadId: staged.blobId,
+  });
 }

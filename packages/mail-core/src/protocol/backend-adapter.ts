@@ -360,6 +360,62 @@ export function createBackendOperationExecutor(input: {
       if (error) return mapExecutionError(error);
       return operationAdmitResultSchema.parse(response.json);
     },
+    async stageUpload({
+      session,
+      uploadId,
+      checksum,
+      sizeBytes,
+      filename,
+      contentType,
+      bytes,
+      signal,
+    }) {
+      const admit = await request({
+        method: "POST",
+        path: `${base}/uploads`,
+        body: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: uploadId,
+          session,
+          uploadId,
+          checksum,
+          sizeBytes,
+          filename,
+          contentType,
+        },
+        signal,
+      });
+      if (admit.status >= 400) {
+        const error = parseError(admit);
+        if (error?.error.code === "too_large") {
+          return { status: "rejected", code: "too_large" };
+        }
+        return { status: "unavailable" };
+      }
+      const collected = await collectBytes(bytes);
+      const put = await request({
+        method: "PUT",
+        path: `${base}/uploads/${encodeURIComponent(uploadId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: collected,
+        signal,
+      });
+      if (put.status >= 400) {
+        return { status: "unavailable" };
+      }
+      const hold = await request({
+        method: "POST",
+        path: `${base}/uploads/${encodeURIComponent(uploadId)}?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: `${uploadId}-hold`,
+          session,
+          held: true,
+        },
+        signal,
+      });
+      if (hold.status >= 400) return { status: "unavailable" };
+      return { status: "staged", blobId: uploadId };
+    },
   };
 }
 
@@ -473,4 +529,20 @@ function mapExecutionError(error: NonNullable<ReturnType<typeof parseError>>) {
     };
   }
   return { status: "uncertain" as const, receiptId: null };
+}
+
+async function collectBytes(bytes: AsyncIterable<Uint8Array>) {
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for await (const chunk of bytes) {
+    chunks.push(chunk);
+    size += chunk.byteLength;
+  }
+  const collected = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    collected.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return collected;
 }

@@ -1,6 +1,17 @@
 import { rename, rm, stat } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import type { HostRuntime } from "@inboxzero/mail-core/ports/runtime";
 import type { SqlTransaction, SqlValue, SqliteDriver } from "./driver";
+
+export function nodeMailCrypto(): Pick<HostRuntime, "randomId" | "sha256"> {
+  return {
+    randomId: () => randomUUID(),
+    async sha256(bytes) {
+      return new Uint8Array(createHash("sha256").update(bytes).digest());
+    },
+  };
+}
 
 export function createNodeSqliteDriver(path = ":memory:"): SqliteDriver {
   const database = new DatabaseSync(path);

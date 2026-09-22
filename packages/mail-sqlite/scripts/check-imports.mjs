@@ -13,6 +13,10 @@ const portableFiles = [
   "observations.ts",
   "drafts.ts",
   "maintenance.ts",
+  "capabilities.ts",
+  "client-reads.ts",
+  "mailbox-view-readers.ts",
+  "store-read-utils.ts",
 ];
 const forbidden = [
   /from\s+["']react/,
@@ -20,6 +24,8 @@ const forbidden = [
   /from\s+["']electron/,
   /from\s+["']better-sqlite3/,
   /from\s+["']@sqlite.org\/sqlite-wasm/,
+  /from\s+["']node:/,
+  /from\s+["']expo/,
 ];
 
 async function walk(directory) {
@@ -37,7 +43,7 @@ async function walk(directory) {
 }
 
 const files = (await walk(join(packageDirectory, "src"))).filter((file) =>
-  portableFiles.some((name) => file.endsWith(name)),
+  portableFiles.includes(file.split("/").at(-1) ?? ""),
 );
 const violations = [];
 for (const file of files) {

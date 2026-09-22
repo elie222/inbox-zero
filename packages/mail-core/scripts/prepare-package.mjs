@@ -1,6 +1,7 @@
 import { copyFile, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { rewriteRelativeImports } from "./rewrite-relative-imports.mjs";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryDirectory = resolve(packageDirectory, "../..");
@@ -24,6 +25,7 @@ const publishedExports = Object.fromEntries(
       {
         types: `./${output}.d.ts`,
         import: `./${output}.js`,
+        "react-native": `./${output}.js`,
         default: `./${output}.js`,
       },
     ];
@@ -41,9 +43,12 @@ const publishedPackageJson = {
   type: packageJson.type,
   sideEffects: packageJson.sideEffects,
   exports: publishedExports,
-  dependencies: packageJson.dependencies,
+  dependencies: rewriteWorkspaceDependencies(packageJson.dependencies),
+  peerDependencies: packageJson.peerDependencies,
   publishConfig: { access: "public" },
 };
+
+await rewriteRelativeImports(outputDirectory);
 
 await Promise.all([
   copyFile(
@@ -59,3 +64,13 @@ await Promise.all([
     `${JSON.stringify(publishedPackageJson, null, 2)}\n`,
   ),
 ]);
+
+function rewriteWorkspaceDependencies(dependencies) {
+  if (!dependencies) return;
+  return Object.fromEntries(
+    Object.entries(dependencies).map(([name, version]) => [
+      name,
+      version === "workspace:*" ? packageJson.version : version,
+    ]),
+  );
+}

@@ -104,6 +104,11 @@ export interface MailboxSource {
     | ReadResult<{ bytes: AsyncIterable<Uint8Array>; sizeBytes: number | null }>
     | { status: "not_found" }
   >;
+  readCatalog?(
+    input: SourceContext,
+  ): Promise<
+    ReadResult<import("../queries").MailboxCatalog> | { status: "unsupported" }
+  >;
   readChanges(input: {
     session: AccountSession;
     requestId: string;

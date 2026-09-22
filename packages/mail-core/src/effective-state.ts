@@ -22,12 +22,18 @@ export function applyMetadataChange(
 ): MessageMetadata {
   switch (change.kind) {
     case "archive":
-      return withRoles(metadata, withoutRole(metadata.roles, "inbox"));
+      return {
+        ...withRoles(metadata, withoutRole(metadata.roles, "inbox")),
+        snoozedUntilMs: null,
+      };
     case "unarchive":
-      return withRoles(
-        metadata,
-        uniqueRoles([...withoutRole(metadata.roles, "trash"), "inbox"]),
-      );
+      return {
+        ...withRoles(
+          metadata,
+          uniqueRoles([...withoutRole(metadata.roles, "trash"), "inbox"]),
+        ),
+        snoozedUntilMs: null,
+      };
     case "set_read":
       return { ...metadata, read: change.read };
     case "set_starred":
@@ -67,7 +73,10 @@ export function applyMetadataChange(
         ),
       };
     case "snooze":
-      return withRoles(metadata, withoutRole(metadata.roles, "inbox"));
+      return {
+        ...withRoles(metadata, withoutRole(metadata.roles, "inbox")),
+        snoozedUntilMs: change.untilMs,
+      };
     default: {
       const exhaustive: never = change;
       return exhaustive;
@@ -128,6 +137,10 @@ export function applyMetadataPatch(
     categoryIds: patch.categoryIds ?? current.categoryIds,
     roles: patch.roles ?? current.roles,
     hasAttachments: patch.hasAttachments ?? current.hasAttachments,
+    snoozedUntilMs:
+      patch.snoozedUntilMs === undefined
+        ? current.snoozedUntilMs
+        : patch.snoozedUntilMs,
   };
 }
 

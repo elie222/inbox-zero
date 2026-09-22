@@ -42,6 +42,8 @@ export function compilePredicate(
       }[predicate.role];
       return { sql: `${alias}.${column} = 1`, bindings: [] };
     }
+    case "mailbox":
+      return compileMailboxPredicate(predicate.mailbox, alias);
     case "read":
       return { sql: `${alias}.read = ?`, bindings: [predicate.value ? 1 : 0] };
     case "starred":
@@ -137,6 +139,41 @@ export function compilePredicate(
       const exhaustive: never = predicate;
       return exhaustive;
     }
+  }
+}
+
+function compileMailboxPredicate(
+  mailbox: Extract<MailPredicate, { kind: "mailbox" }>["mailbox"],
+  alias: string,
+): { sql: string; bindings: SqlValue[] } {
+  switch (mailbox) {
+    case "inbox":
+      return { sql: `${alias}.in_inbox = 1`, bindings: [] };
+    case "sent":
+      return { sql: `${alias}.in_sent = 1`, bindings: [] };
+    case "drafts":
+      return { sql: `${alias}.in_draft = 1`, bindings: [] };
+    case "trash":
+      return { sql: `${alias}.in_trash = 1`, bindings: [] };
+    case "spam":
+      return { sql: `${alias}.in_spam = 1`, bindings: [] };
+    case "starred":
+      return { sql: `${alias}.starred = 1`, bindings: [] };
+    case "archive":
+      return {
+        sql: `(${alias}.in_inbox = 0 AND ${alias}.in_trash = 0 AND ${alias}.in_spam = 0)`,
+        bindings: [],
+      };
+    case "all":
+      return {
+        sql: `(${alias}.in_trash = 0 AND ${alias}.in_spam = 0)`,
+        bindings: [],
+      };
+    case "snoozed":
+      return {
+        sql: `IFNULL(${alias}.snoozed_until_ms, 0) > ?`,
+        bindings: [Date.now()],
+      };
   }
 }
 

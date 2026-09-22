@@ -2,7 +2,7 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { runDriverContract } from "../test-support/driver-contract";
+import { runSqliteDriverContract } from "../test-support/driver-contract";
 import {
   createNodeSqliteDriver,
   openOrQuarantineNodeMailbox,
@@ -11,8 +11,24 @@ import {
 import { createSqliteMailStore } from "./store";
 
 describe("sqlite driver contract", () => {
-  it("commits writes and rolls them back on error", async () => {
-    await runDriverContract(createNodeSqliteDriver());
+  it("covers commit, rollback, serialization, blobs, savepoints, and reopen", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-driver-contract-"));
+    const path = join(directory, "mailbox.sqlite");
+    try {
+      const report = await runSqliteDriverContract({
+        open: async () => createNodeSqliteDriver(path),
+      });
+      expect(report.capabilities.jsonEach).toBe(true);
+      expect(report.capabilities.jsonExtract).toBe(true);
+      expect(report.capabilities.savepoints).toBe(true);
+      if (!report.capabilities.fts5) {
+        console.warn(
+          "FTS5 is unavailable; local search will use LIKE over downloaded bodies and must not be reported as complete indexed search",
+        );
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
 
