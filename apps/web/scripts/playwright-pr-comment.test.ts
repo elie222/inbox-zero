@@ -7,7 +7,7 @@ import {
 } from "./playwright-pr-comment";
 
 describe("selectPlaywrightPrFrames", () => {
-  it("orders failures, new checkpoints, changed specs, then the largest visual changes", () => {
+  it("orders failures, new checkpoints, and changed specs, keeping pixel diffs separate", () => {
     const selection = selectPlaywrightPrFrames({
       changedPaths: [
         "apps/web/__tests__/playwright/emulated/mail/split-tabs.spec.ts",
@@ -64,8 +64,10 @@ describe("selectPlaywrightPrFrames", () => {
       ["test failed 1", "failed"],
       ["new checkpoint", "new"],
       ["split tabs", "spec changed"],
-      ["reader", "visual change"],
-      ["dark mode", "visual change"],
+    ]);
+    expect(selection.visualChanges.map((frame) => frame.title)).toEqual([
+      "reader",
+      "dark mode",
     ]);
     expect(selection.omittedCount).toBe(0);
   });
@@ -105,7 +107,50 @@ describe("selectPlaywrightPrFrames", () => {
       "dark",
       "light",
     ]);
-    expect(selection.omittedCount).toBe(1);
+    expect(selection.omittedCount).toBe(0);
+    expect(selection.visualChanges.map((frame) => frame.title)).toEqual([
+      "reader",
+    ]);
+  });
+
+  it("treats a failure as flaky only when a later attempt of the test passed", () => {
+    const selection = selectPlaywrightPrFrames({
+      changedPaths: [],
+      screenshots: [
+        screenshot({
+          captureType: "failure",
+          fileName: "images/001-test-failed-1.png",
+          source: "mail_sreader.spec.ts/reader-emulated/test-failed-1.png",
+          title: "flaky failure",
+        }),
+        screenshot({
+          fileName: "images/002-final-state.png",
+          source: "mail_sreader.spec.ts/reader-emulated-retry1/final-state.png",
+          title: "retry final state",
+        }),
+        screenshot({
+          captureType: "failure",
+          fileName: "images/003-test-failed-1.png",
+          source: "mail_ssearch.spec.ts/search-emulated/test-failed-1.png",
+          title: "first failure",
+        }),
+        screenshot({
+          captureType: "failure",
+          fileName: "images/004-test-failed-1.png",
+          source:
+            "mail_ssearch.spec.ts/search-emulated-retry1/test-failed-1.png",
+          title: "retry failure",
+        }),
+      ],
+    });
+
+    expect(selection.flakyFailures.map((frame) => frame.title)).toEqual([
+      "flaky failure",
+    ]);
+    expect(selection.frames.map((frame) => frame.title)).toEqual([
+      "first failure",
+      "retry failure",
+    ]);
   });
 });
 
@@ -152,6 +197,51 @@ describe("buildPlaywrightPrComment", () => {
     );
     expect(comment).toContain(`[Open screenshot gallery](${links.galleryUrl})`);
     expect(comment).toContain("Updated for commit `0123456`.");
+  });
+
+  it("collapses pixel diffs and notes flaky failures instead of featuring them", () => {
+    const comment = buildPlaywrightPrComment({
+      ...links,
+      changedPaths: [],
+      screenshots: [
+        screenshot({
+          comparison: "changed",
+          difference: 0.17,
+          fileName: "images/001-final-state.png",
+          source: "mail_spalette.spec.ts/palette/final-state.png",
+          title: "final state",
+        }),
+        screenshot({
+          captureType: "failure",
+          fileName: "images/002-test-failed-1.png",
+          source: "mail_sreader.spec.ts/reader-emulated/test-failed-1.png",
+          title: "test failed 1",
+        }),
+        screenshot({
+          fileName: "images/003-final-state.png",
+          source: "mail_sreader.spec.ts/reader-emulated-retry1/final-state.png",
+          title: "final state",
+        }),
+      ],
+    });
+
+    expect(comment).toContain(
+      "3 screenshots captured: 0 new, 1 changed, 1 unchanged compared with main, 1 failure captures.",
+    );
+    expect(comment).not.toContain("#### Frames to review");
+    expect(comment).toContain(
+      "No failures, new captures, or captures from specs changed in this PR.",
+    );
+    expect(comment).toContain(
+      "1 flaky failure captures from tests that passed on retry: mail/reader.spec.ts.",
+    );
+    expect(comment).not.toContain("![test failed 1]");
+    expect(comment).toContain(
+      "<summary>Largest pixel differences from main (1).",
+    );
+    expect(comment).toContain(
+      "**final state** · mail/palette.spec.ts · 17% of pixels differ from main",
+    );
   });
 
   it("explains when no baseline exists and escapes markdown in titles", () => {
