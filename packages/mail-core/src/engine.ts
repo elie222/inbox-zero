@@ -174,7 +174,10 @@ export function createMailEngine(input: {
       const key = `mailbox-pages:${runtime.randomId()}`;
       const handle = queries.observe(key, () =>
         store.readMailboxWindow(query, pageCount).then((result) => ({
-          revision: result.revision,
+          revision: {
+            databaseEpoch: `${result.revision.databaseEpoch}:pages:${pageCount}`,
+            sequence: result.revision.sequence,
+          },
           data: result.view,
         })),
       );

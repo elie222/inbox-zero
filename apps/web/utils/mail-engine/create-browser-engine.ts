@@ -23,7 +23,6 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
-import { createMemoryBlobStore } from "@inboxzero/mail-core/memory-blob-store";
 import { browserStoragePressure } from "@/utils/mail-engine/storage-pressure";
 
 export { browserMailEngineCapabilities };
@@ -82,7 +81,6 @@ async function createInTabEngine(
     executor: ports.executor,
     assistant: ports.assistant,
     runtime,
-    blobStore: createMemoryBlobStore(),
     ownerId: "browser-owner",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {

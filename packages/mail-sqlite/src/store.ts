@@ -141,6 +141,7 @@ export async function createSqliteMailStore(
           "operation_targets",
           "operation_conversations",
           "operations",
+          "draft_attachments",
           "drafts",
           "sync_streams",
           "bootstrap_seen_messages",

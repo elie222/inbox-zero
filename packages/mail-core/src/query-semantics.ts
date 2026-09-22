@@ -217,7 +217,7 @@ function conversationMatchesMailbox(
     );
   }
   if (mailbox === "all") {
-    return messages.some((message) => messageMatchesMailbox(message, "all"));
+    return messages.every((message) => messageMatchesMailbox(message, "all"));
   }
   if (mailbox === "snoozed") {
     return messages.some((message) =>

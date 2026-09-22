@@ -24,8 +24,8 @@ describe("mail engine mailbox windows", () => {
 
     expect(requestedPageCounts).toEqual([1, 2]);
     expect(handle.getSnapshot().revision).toEqual({
-      databaseEpoch: "test",
-      sequence: 2,
+      databaseEpoch: "test:pages:2",
+      sequence: 1,
     });
     expect(handle.getSnapshot().data?.counts.matchingConversations).toBe(2);
     await engine.close();
@@ -171,7 +171,7 @@ function mailboxWindowStore(requestedPageCounts: number[]): MailStore {
     async readMailboxWindow(input: ConversationQuery, pageCount: number) {
       requestedPageCounts.push(pageCount);
       return {
-        revision: { databaseEpoch: "test", sequence: pageCount },
+        revision: { databaseEpoch: "test", sequence: 1 },
         view: {
           conversations: [
             {

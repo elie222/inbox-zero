@@ -92,6 +92,50 @@ describe("mail client queries", () => {
     }
   });
 
+  it("counts archive unreads from the whole conversation", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-archive-unread-"));
+    const store = await createSqliteMailStore(
+      createNodeSqliteDriver(join(directory, "mailbox.sqlite")),
+    );
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "bootstrap",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+          changes: [
+            messagePatch("m-arch-unread", "c-mixed", 3000, [], false),
+            messagePatch("m-inbox-read", "c-mixed", 2000, ["inbox"], true),
+            messagePatch("m-arch-only", "c-arch", 1000, [], false),
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+      const archive = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("archive"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        archive.view.conversations.map((item) => item.key.conversationId),
+      ).toEqual(["c-arch"]);
+      expect(archive.view.counts.unreadConversations).toBe(1);
+    } finally {
+      await store.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("keeps referenced local attachments across eviction", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-client-blobs-"));
     const store = await createSqliteMailStore(
@@ -128,6 +172,8 @@ describe("mail client queries", () => {
       expect(await store.listReferencedBlobIds()).toContain("att1");
       await store.evictReplaceableContent();
       expect(await store.listReferencedBlobIds()).toContain("att1");
+      await store.purgeAccount("acc-1");
+      expect(await store.listReferencedBlobIds()).not.toContain("att1");
     } finally {
       await store.close();
       await rm(directory, { recursive: true, force: true });
@@ -311,6 +357,7 @@ function messagePatch(
   conversationId: string,
   receivedAtMs: number,
   roles: Array<"inbox" | "sent" | "draft" | "trash" | "spam">,
+  read = false,
 ): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
@@ -328,7 +375,7 @@ function messagePatch(
       to: ["me@example.com"],
       cc: [],
       receivedAtMs,
-      read: false,
+      read,
       starred: false,
       folderId: roles.includes("inbox") ? "inbox" : "archive",
       inboxSection: null,

@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,7 +42,7 @@ async function walk(directory) {
 }
 
 const files = (await walk(join(packageDirectory, "src"))).filter((file) =>
-  portableFiles.includes(file.split("/").at(-1) ?? ""),
+  portableFiles.includes(basename(file)),
 );
 const violations = [];
 for (const file of files) {

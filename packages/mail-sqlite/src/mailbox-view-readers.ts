@@ -143,12 +143,15 @@ async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
      )`,
     groupedBindings,
   );
+  const unreadHaving = having.sql
+    ? `HAVING ${having.sql} AND MAX(CASE WHEN e.read = 0 THEN 1 ELSE 0 END) = 1`
+    : "";
   const unread = await tx.query(
     `SELECT COUNT(*) AS n FROM (
        SELECT 1 FROM effective_messages e
-       WHERE ${where} AND e.read = 0
+       WHERE ${where}${having.sql ? "" : " AND e.read = 0"}
        GROUP BY e.account_id, e.conversation_id
-       ${havingSql}
+       ${unreadHaving}
      )`,
     groupedBindings,
   );

@@ -10,7 +10,6 @@ import {
   type BrowserEngineStart,
   type WorkerRequest,
 } from "./worker-protocol";
-import { createMemoryBlobStore } from "@inboxzero/mail-core/memory-blob-store";
 import { browserStoragePressure } from "./storage-pressure";
 import { createMailWorkerHost } from "./worker-session";
 import type { BrowserMailEngine } from "./create-browser-engine";
@@ -61,7 +60,6 @@ async function createWorkerEngine(
     executor: ports.executor,
     assistant: ports.assistant,
     runtime,
-    blobStore: createMemoryBlobStore(),
     ownerId: "browser-worker",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {

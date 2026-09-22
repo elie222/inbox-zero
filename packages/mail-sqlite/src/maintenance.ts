@@ -39,7 +39,7 @@ export async function listReferencedBlobIds(
       }
     }
     const staged = await tx.query(
-      "SELECT attachment_id FROM draft_attachments",
+      "SELECT attachment_id FROM draft_attachments WHERE remote_status != 'uploaded'",
     );
     for (const row of staged) {
       ids.add(String(row.attachment_id));

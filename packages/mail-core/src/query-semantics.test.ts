@@ -20,6 +20,21 @@ describe("mailbox predicates", () => {
     ).toBe(false);
   });
 
+  it("keeps a conversation out of all mail when any message is trash or spam", () => {
+    expect(
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"] }), message({ roles: ["trash"] })],
+        { kind: "mailbox", mailbox: "all" },
+      ),
+    ).toBe(false);
+    expect(
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"] }), message({ roles: ["sent"] })],
+        { kind: "mailbox", mailbox: "all" },
+      ),
+    ).toBe(true);
+  });
+
   it("matches provider draft-role messages, not local composition drafts", () => {
     expect(
       conversationMatchesPredicate([message({ roles: ["draft"] })], {

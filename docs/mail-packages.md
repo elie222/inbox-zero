@@ -4,9 +4,11 @@
 are the mailbox engine used by web and desktop. `@inboxzero/mail-ui` is the
 React DOM presentation and stays in this app.
 
-Web and desktop pass `HostRuntime` into the store and the engine. Compose
-stages attachment bytes with `stageDraftAttachment` before `submitSend`, then
-watches that send with `observeOperation`.
+Web and desktop pass `HostRuntime` into the store and the engine. Desktop
+keeps attachment bytes in a file blob store and stages them before
+`submitSend`. The in-tab web engine uploads attachments through the server
+before queueing the send. Either way, the queued send is watched with
+`observeOperation`.
 
 ## Staged uploads
 
