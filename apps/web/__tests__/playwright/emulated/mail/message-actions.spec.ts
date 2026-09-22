@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import type { Client } from "pg";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
+import { playwrightMailProvider } from "../mail-provider";
 import { openMail, withClient } from "./mail-test-helpers";
 
 const THREAD_ID = "thr_playwright_matched_reason";
@@ -60,7 +61,12 @@ test("shows matched reasons only for the selected message", async ({
         page.getByText(otherReason, { exact: true }),
       ).not.toBeVisible();
       await expect(
-        page.getByText("Label as 'Needs response'", { exact: true }),
+        page.getByText(
+          playwrightMailProvider === "microsoft"
+            ? "Categorize as 'Needs response'"
+            : "Label as 'Needs response'",
+          { exact: true },
+        ),
       ).toBeVisible();
       await expect(
         page.getByText("Draft Reply", { exact: true }),

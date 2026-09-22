@@ -75,6 +75,7 @@ import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-co
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
+import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import {
@@ -1644,237 +1645,249 @@ export function MailShell() {
         </Sidebar>
       </div>
 
-      {showList && (
-        <section
-          className={
-            layout === "split"
-              ? "flex min-h-0 w-[clamp(258px,32vw,400px)] shrink-0 flex-col border-r border-border"
-              : // min-w-0 matters: a flex item won't shrink below its content
-                // width without it, so long snippets would widen the column
-                // past the viewport instead of truncating.
-                "flex min-h-0 min-w-0 flex-1 flex-col"
-          }
-        >
-          <ListToolbar
-            layout={layout}
-            searchQuery={searchParam ?? ""}
-            onSearch={setSearch}
-            searchValue={searchValue}
-            onSearchChange={(value) =>
-              setSearchDraft({ identity: searchEditIdentity, value })
-            }
-            searchInputRef={searchInputRef}
-            searchLabels={isAllAccounts ? [] : allLabels}
-            searchFolders={
-              isOutlook && !isAllAccounts ? getMailSearchFolders(folders) : []
-            }
-            searchVariant={getMailSearchVariant({ isAllAccounts, isOutlook })}
-            onToggleLayout={toggleLayout}
-            expandedPreview={expandedPreview}
-            onTogglePreview={togglePreview}
-            onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
-            showLayoutToggle={!isAllAccounts}
-            threadCount={threads.length}
-            selectedCount={selection.selectedCount}
-            onSelectAll={selection.selectAll}
-            onArchiveSelected={archiveTargets}
-            onDeleteSelected={trashTargets}
-            isUnreadSelected={actionTargets.some((target) =>
-              isThreadUnread(target.messages),
-            )}
-            onMarkReadSelected={markReadTargets}
-            onMarkUnreadSelected={markUnreadTargets}
-            onLabelSelected={canLabel ? openLabelPicker : undefined}
-            onClearSelection={selection.clear}
-          />
-          {!isScoped && !searchQuery && (
-            <SplitTabs
-              splits={splits.map((split) => ({
-                ...split,
-                deletable: split.filters.length > 0,
-              }))}
-              activeSplitId={displayedActiveSplitId}
-              onSelect={setActiveSplitId}
-              onDelete={onDeleteSplit}
-              onEdit={
-                isAllAccounts
-                  ? undefined
-                  : (splitId) => {
-                      setEditingSplitId(splitId);
-                      setIsNewSplitOpen(true);
-                    }
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <MailEngineConnectionBanner />
+        <div className="flex min-h-0 min-w-0 flex-1">
+          {showList && (
+            <section
+              className={
+                layout === "split"
+                  ? "flex min-h-0 w-[clamp(258px,32vw,400px)] shrink-0 flex-col border-r border-border"
+                  : // min-w-0 matters: a flex item won't shrink below its content
+                    // width without it, so long snippets would widen the column
+                    // past the viewport instead of truncating.
+                    "flex min-h-0 min-w-0 flex-1 flex-col"
               }
-              onNewSplit={() => {
-                setEditingSplitId(null);
-                setIsNewSplitOpen(true);
-              }}
-              canCreateSplits={!isAllAccounts}
-            />
-          )}
-          {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
-            <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
-              Some inboxes couldn&apos;t be loaded. Try again shortly or check
-              their connections.
-            </div>
-          ) : null}
-          {searchStatus ? (
-            <div
-              role="status"
-              className="border-b border-border px-3 py-2 text-muted-foreground text-xs"
             >
-              {searchStatus}
-            </div>
-          ) : null}
-          <MailPanelErrorBoundary
-            resetKey={JSON.stringify([
-              emailAccountId,
-              isAllAccounts,
-              query,
-              displayedActiveSplitId,
-              searchQuery,
-            ])}
-            title="Unable to show your mail list"
-          >
-            {isScheduledView ? (
-              <ScheduledEmailList />
-            ) : (
-              <LoadingContent
-                loading={
-                  !threads.length &&
-                  (isLoading || (!!searchQuery && !searchSettled))
-                }
-                error={searchQuery ? undefined : error}
-              >
-                <ThreadList
-                  threads={threads}
-                  emptyMessage={emptySearchMessage}
-                  layout={layout}
-                  expandedPreview={expandedPreview}
-                  userEmail={userEmail}
-                  userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                  labelsByAccount={labelsByAccount}
-                  focusedIndex={clampedIndex}
-                  isSelected={selection.isSelected}
-                  selectedCount={selection.selectedCount}
-                  onOpenThread={openAt}
-                  onToggleSelect={selection.toggle}
-                  onSelectRangeTo={selection.selectRangeTo}
-                  showLoadMore={hasMore}
-                  isLoadingMore={isLoadingMore}
-                  onLoadMore={loadMore}
-                  showSentOpenStatus={scopeType === "sent" && !isAllAccounts}
-                  listKey={
-                    isAllAccounts
-                      ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                      : JSON.stringify(query)
-                  }
-                />
-              </LoadingContent>
-            )}
-          </MailPanelErrorBoundary>
-        </section>
-      )}
-
-      {showReader && (!openThreadSelection || readerEmailAccount) ? (
-        <MailPanelErrorBoundary
-          resetKey={openReaderThreadKey ?? "empty"}
-          title="Unable to show this conversation"
-          onBack={closeReader}
-        >
-          <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
-            <BufferedThreadReader
-              key={readerEmailAccount?.id ?? "empty"}
-              threadKey={openReaderThreadKey ?? "empty"}
-              dataReady={
-                !openThreadSelection ||
-                (readerSelectionSettled &&
-                  Boolean(openThreadData || openThreadError))
-              }
-              onReady={setVisibleReaderThreadKey}
-            >
-              <ThreadReader
-                enableMessageNavigation={!sidePanelThreadId}
-                thread={openThread ?? null}
-                threadId={openThreadId}
-                detailSelectionSettled={readerSelectionSettled}
-                loading={
-                  Boolean(openThreadSelection) &&
-                  (!readerSelectionSettled || isOpenThreadLoading)
-                }
-                error={readerSelectionSettled ? openThreadError : undefined}
-                messages={openMessages}
-                localAvailability={
-                  readerSelectionSettled
-                    ? openThreadLocalAvailability
-                    : undefined
-                }
-                userLabels={readerUserLabels}
+              <ListToolbar
                 layout={layout}
-                labelHref={labelHref}
-                onRemoveLabel={onRemoveLabel}
-                onBackToInbox={closeReader}
-                onArchive={archiveTargets}
-                isUnread={isOpenThreadUnread}
-                onMarkRead={() => {
-                  if (!openThreadKey) return;
-                  setReadState([openThreadKey], true);
-                }}
-                onMarkUnread={markUnreadTargets}
-                refetch={refetchReader}
-                onSendSuccess={(_messageId, sentThreadId) => {
-                  if (
+                searchQuery={searchParam ?? ""}
+                onSearch={setSearch}
+                searchValue={searchValue}
+                onSearchChange={(value) =>
+                  setSearchDraft({ identity: searchEditIdentity, value })
+                }
+                searchInputRef={searchInputRef}
+                searchLabels={isAllAccounts ? [] : allLabels}
+                searchFolders={
+                  isOutlook && !isAllAccounts
+                    ? getMailSearchFolders(folders)
+                    : []
+                }
+                searchVariant={getMailSearchVariant({
+                  isAllAccounts,
+                  isOutlook,
+                })}
+                onToggleLayout={toggleLayout}
+                expandedPreview={expandedPreview}
+                onTogglePreview={togglePreview}
+                onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
+                showLayoutToggle={!isAllAccounts}
+                threadCount={threads.length}
+                selectedCount={selection.selectedCount}
+                onSelectAll={selection.selectAll}
+                onArchiveSelected={archiveTargets}
+                onDeleteSelected={trashTargets}
+                isUnreadSelected={actionTargets.some((target) =>
+                  isThreadUnread(target.messages),
+                )}
+                onMarkReadSelected={markReadTargets}
+                onMarkUnreadSelected={markUnreadTargets}
+                onLabelSelected={canLabel ? openLabelPicker : undefined}
+                onClearSelection={selection.clear}
+              />
+              {!isScoped && !searchQuery && (
+                <SplitTabs
+                  splits={splits.map((split) => ({
+                    ...split,
+                    deletable: split.filters.length > 0,
+                  }))}
+                  activeSplitId={displayedActiveSplitId}
+                  onSelect={setActiveSplitId}
+                  onDelete={onDeleteSplit}
+                  onEdit={
+                    isAllAccounts
+                      ? undefined
+                      : (splitId) => {
+                          setEditingSplitId(splitId);
+                          setIsNewSplitOpen(true);
+                        }
+                  }
+                  onNewSplit={() => {
+                    setEditingSplitId(null);
+                    setIsNewSplitOpen(true);
+                  }}
+                  canCreateSplits={!isAllAccounts}
+                />
+              )}
+              {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
+                <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
+                  Some inboxes couldn&apos;t be loaded. Try again shortly or
+                  check their connections.
+                </div>
+              ) : null}
+              {searchStatus ? (
+                <div
+                  role="status"
+                  className="border-b border-border px-3 py-2 text-muted-foreground text-xs"
+                >
+                  {searchStatus}
+                </div>
+              ) : null}
+              <MailPanelErrorBoundary
+                resetKey={JSON.stringify([
+                  emailAccountId,
+                  isAllAccounts,
+                  query,
+                  displayedActiveSplitId,
+                  searchQuery,
+                ])}
+                title="Unable to show your mail list"
+              >
+                {isScheduledView ? (
+                  <ScheduledEmailList />
+                ) : (
+                  <LoadingContent
+                    loading={
+                      !threads.length &&
+                      (isLoading || (!!searchQuery && !searchSettled))
+                    }
+                    error={searchQuery ? undefined : error}
+                  >
+                    <ThreadList
+                      threads={threads}
+                      emptyMessage={emptySearchMessage}
+                      layout={layout}
+                      expandedPreview={expandedPreview}
+                      userEmail={userEmail}
+                      userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                      labelsByAccount={labelsByAccount}
+                      focusedIndex={clampedIndex}
+                      isSelected={selection.isSelected}
+                      selectedCount={selection.selectedCount}
+                      onOpenThread={openAt}
+                      onToggleSelect={selection.toggle}
+                      onSelectRangeTo={selection.selectRangeTo}
+                      showLoadMore={hasMore}
+                      isLoadingMore={isLoadingMore}
+                      onLoadMore={loadMore}
+                      showSentOpenStatus={
+                        scopeType === "sent" && !isAllAccounts
+                      }
+                      listKey={
+                        isAllAccounts
+                          ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                          : JSON.stringify(query)
+                      }
+                    />
+                  </LoadingContent>
+                )}
+              </MailPanelErrorBoundary>
+            </section>
+          )}
+
+          {showReader && (!openThreadSelection || readerEmailAccount) ? (
+            <MailPanelErrorBoundary
+              resetKey={openReaderThreadKey ?? "empty"}
+              title="Unable to show this conversation"
+              onBack={closeReader}
+            >
+              <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
+                <BufferedThreadReader
+                  key={readerEmailAccount?.id ?? "empty"}
+                  threadKey={openReaderThreadKey ?? "empty"}
+                  dataReady={
                     !openThreadSelection ||
-                    !sentThreadId.trim() ||
-                    sentThreadId === openThreadSelection.threadId
-                  )
-                    return;
-                  setReplyToMessageId(undefined);
-                  setOpenThread({
-                    emailAccountId: openThreadSelection.emailAccountId,
-                    threadId: sentThreadId,
-                  });
-                }}
-                autoOpenReplyForMessageId={replyToMessageId}
-                autoOpenForwardForMessageId={forwardToMessageId}
-                renderMessageMenu={(message) => (
-                  <MessageActionsMenu
-                    message={message}
-                    plans={openThreadPlanData?.plans ?? []}
-                    setChatInput={setChatInput}
-                    showFixWithChat={
-                      !isAllAccounts ||
-                      openThreadSelection?.emailAccountId === emailAccountId
+                    (readerSelectionSettled &&
+                      Boolean(openThreadData || openThreadError))
+                  }
+                  onReady={setVisibleReaderThreadKey}
+                >
+                  <ThreadReader
+                    enableMessageNavigation={!sidePanelThreadId}
+                    thread={openThread ?? null}
+                    threadId={openThreadId}
+                    detailSelectionSettled={readerSelectionSettled}
+                    loading={
+                      Boolean(openThreadSelection) &&
+                      (!readerSelectionSettled || isOpenThreadLoading)
+                    }
+                    error={readerSelectionSettled ? openThreadError : undefined}
+                    messages={openMessages}
+                    localAvailability={
+                      readerSelectionSettled
+                        ? openThreadLocalAvailability
+                        : undefined
+                    }
+                    userLabels={readerUserLabels}
+                    layout={layout}
+                    labelHref={labelHref}
+                    onRemoveLabel={onRemoveLabel}
+                    onBackToInbox={closeReader}
+                    onArchive={archiveTargets}
+                    isUnread={isOpenThreadUnread}
+                    onMarkRead={() => {
+                      if (!openThreadKey) return;
+                      setReadState([openThreadKey], true);
+                    }}
+                    onMarkUnread={markUnreadTargets}
+                    refetch={refetchReader}
+                    onSendSuccess={(_messageId, sentThreadId) => {
+                      if (
+                        !openThreadSelection ||
+                        !sentThreadId.trim() ||
+                        sentThreadId === openThreadSelection.threadId
+                      )
+                        return;
+                      setReplyToMessageId(undefined);
+                      setOpenThread({
+                        emailAccountId: openThreadSelection.emailAccountId,
+                        threadId: sentThreadId,
+                      });
+                    }}
+                    autoOpenReplyForMessageId={replyToMessageId}
+                    autoOpenForwardForMessageId={forwardToMessageId}
+                    renderMessageMenu={(message) => (
+                      <MessageActionsMenu
+                        message={message}
+                        plans={openThreadPlanData?.plans ?? []}
+                        setChatInput={setChatInput}
+                        showFixWithChat={
+                          !isAllAccounts ||
+                          openThreadSelection?.emailAccountId === emailAccountId
+                        }
+                      />
+                    )}
+                    menu={
+                      <ThreadActionsMenu
+                        message={openMessages.at(-1) ?? null}
+                        isStarred={allStarred}
+                        onToggleStar={starTargets}
+                        onMarkSpam={markSpamTargets}
+                        onDelete={trashTargets}
+                        onLabel={canLabel ? openLabelPicker : undefined}
+                        onMove={canLabel ? openMovePicker : undefined}
+                        open={isMenuOpen}
+                        onOpenChange={setIsMenuOpen}
+                      />
                     }
                   />
-                )}
-                menu={
-                  <ThreadActionsMenu
-                    message={openMessages.at(-1) ?? null}
-                    isStarred={allStarred}
-                    onToggleStar={starTargets}
-                    onMarkSpam={markSpamTargets}
-                    onDelete={trashTargets}
-                    onLabel={canLabel ? openLabelPicker : undefined}
-                    onMove={canLabel ? openMovePicker : undefined}
-                    open={isMenuOpen}
-                    onOpenChange={setIsMenuOpen}
-                  />
-                }
-              />
-            </BufferedThreadReader>
-          </EmailAccountScopeProvider>
-        </MailPanelErrorBoundary>
-      ) : null}
+                </BufferedThreadReader>
+              </EmailAccountScopeProvider>
+            </MailPanelErrorBoundary>
+          ) : null}
 
-      {showReader && openThreadSelection && !readerEmailAccount ? (
-        <div
-          aria-label="Loading"
-          className="flex min-h-0 min-w-0 flex-1 items-center justify-center text-muted-foreground text-sm"
-          role="status"
-        >
-          Loading…
+          {showReader && openThreadSelection && !readerEmailAccount ? (
+            <div
+              aria-label="Loading"
+              className="flex min-h-0 min-w-0 flex-1 items-center justify-center text-muted-foreground text-sm"
+              role="status"
+            >
+              Loading…
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </MailProductFrame>
   );
 }

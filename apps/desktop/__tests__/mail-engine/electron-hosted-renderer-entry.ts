@@ -41,6 +41,8 @@ const DELETE_THREAD = "thr_playwright_delete";
 const LABEL_THREAD = "thr_playwright_reader";
 const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
 const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
+const HOSTED_IDLE_PROOF_TIMEOUT_MS = 90_000;
+const HOSTED_PROOF_POLL_MS = 500;
 
 if (process.env.ELECTRON_USER_DATA) {
   app.setPath("userData", process.env.ELECTRON_USER_DATA);
@@ -468,6 +470,7 @@ async function proveCursorReset(
   await waitForCoverage(window);
   gate.countCatchUp = true;
   gate.resetOnce = true;
+  await requestHostedSync(window);
   await waitForResetRebuild(gate);
   await waitForSubject(window, ARCHIVE_SUBJECT);
   const nativeInbox = await waitForNativeRoleSubject(
@@ -820,6 +823,7 @@ async function proveReconnect(
 ) {
   await waitForSubject(window, ARCHIVE_SUBJECT);
   gate.enabled = true;
+  await requestHostedSync(window);
   await waitForReconnectBanner(window);
   window.show();
   await delay(250);
@@ -1007,11 +1011,11 @@ function writeReadyFile() {
 }
 
 async function waitForResetRebuild(gate: BlockedAuthGate) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (gate.resetFired && gate.bootstrap > 0 && gate.enumeration > 0) {
-      return;
-    }
-    await delay(500);
+  const deadline = Date.now() + HOSTED_IDLE_PROOF_TIMEOUT_MS;
+  for (;;) {
+    if (gate.resetFired && gate.bootstrap > 0 && gate.enumeration > 0) return;
+    if (Date.now() >= deadline) break;
+    await delay(HOSTED_PROOF_POLL_MS);
   }
   throw new Error(
     `hosted reset never rebuilt bootstrap=${gate.bootstrap} enumeration=${gate.enumeration} resetFired=${gate.resetFired} changes=${gate.changes}`,
@@ -1050,7 +1054,8 @@ async function waitForMissingSubject(
   subject: string,
   stillPresent: string,
 ) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  const deadline = Date.now() + HOSTED_IDLE_PROOF_TIMEOUT_MS;
+  for (;;) {
     const subjects = await readSubjects(window);
     if (
       !subjects.some((text) => text.includes(subject)) &&
@@ -1058,7 +1063,8 @@ async function waitForMissingSubject(
     ) {
       return;
     }
-    await delay(500);
+    if (Date.now() >= deadline) break;
+    await delay(HOSTED_PROOF_POLL_MS);
   }
   throw new Error(`${subject} remained in the hosted inbox`);
 }
@@ -2268,7 +2274,8 @@ function electronSameSite(
 }
 
 async function waitForReconnectBanner(window: BrowserWindow) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  const deadline = Date.now() + HOSTED_IDLE_PROOF_TIMEOUT_MS;
+  for (;;) {
     const visible = (await window.webContents.executeJavaScript(`
       [...document.querySelectorAll("h2")].some(
         (heading) =>
@@ -2276,7 +2283,8 @@ async function waitForReconnectBanner(window: BrowserWindow) {
       )
     `)) as boolean;
     if (visible) return;
-    await delay(500);
+    if (Date.now() >= deadline) break;
+    await delay(HOSTED_PROOF_POLL_MS);
   }
   await captureWindow(window, process.env.ELECTRON_SCREENSHOT_PATH);
   const body = await readBodyText(window);
@@ -2294,6 +2302,21 @@ async function readInspectConnection(window: BrowserWindow) {
       return diagnostics?.connection ?? null;
     })()
   `)) as string | null;
+}
+
+async function requestHostedSync(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const result = (await window.webContents.executeJavaScript(`
+      (async () => {
+        const inspect = window.__inboxZeroMailInspect;
+        if (!inspect?.requestSync) return { status: "missing" };
+        return await inspect.requestSync();
+      })()
+    `)) as { status?: string; code?: string };
+    if (result.status !== "missing") return result;
+    await delay(250);
+  }
+  throw new Error("hosted mail inspect requestSync missing");
 }
 
 async function stubLinkingAuthUrl(

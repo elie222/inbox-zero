@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,7 +9,7 @@ import * as esbuild from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = join(here, "../..");
-const electronBin = join(desktopRoot, "node_modules/electron/dist/electron");
+const electronBin = createRequire(import.meta.url)("electron");
 
 const directory = await mkdtemp(join(tmpdir(), "electron-hosted-mail-"));
 const userData =
@@ -57,13 +58,18 @@ try {
 
 function runElectron(binary, script, extraEnv) {
   return new Promise((resolve, reject) => {
-    const child = spawn("xvfb-run", ["-a", binary, script, "--no-sandbox"], {
-      env: {
-        ...process.env,
-        ...extraEnv,
-        ELECTRON_ENABLE_LOGGING: "1",
+    const useXvfb = process.platform === "linux";
+    const child = spawn(
+      useXvfb ? "xvfb-run" : binary,
+      useXvfb ? ["-a", binary, script, "--no-sandbox"] : [script],
+      {
+        env: {
+          ...process.env,
+          ...extraEnv,
+          ELECTRON_ENABLE_LOGGING: "1",
+        },
       },
-    });
+    );
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => {

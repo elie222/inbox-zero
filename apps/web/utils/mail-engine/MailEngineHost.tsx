@@ -36,7 +36,6 @@ import {
   setActiveMailClient,
   subscribeMailEngineLogout,
 } from "@/utils/mail-engine/active-client";
-import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 
 type MailEngineRuntimeStatus = {
   client: MailClient | null;
@@ -271,10 +270,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     <MailEngineRuntimeStatusContext.Provider
       value={{ client, mounted: true, unavailable }}
     >
-      <MailEngineProvider client={client}>
-        <MailEngineConnectionBanner />
-        {children}
-      </MailEngineProvider>
+      <MailEngineProvider client={client}>{children}</MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>
   );
 }
