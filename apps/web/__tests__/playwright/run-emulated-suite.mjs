@@ -153,6 +153,12 @@ for (const target of targets) {
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
+        // The spec's knowledge base MCP emulator listens on local http
+        ...(/[\\/]integrations[\\/]custom-mcp-server\.spec\.ts$/.test(
+          target.path,
+        )
+          ? { MCP_ALLOW_PRIVATE_IPS: "true" }
+          : {}),
         ...(/[\\/]settings[\\/]mcp-access\.spec\.ts$/.test(target.path)
           ? { MCP_SERVER_ENABLED: "true" }
           : {}),

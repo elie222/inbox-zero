@@ -1,10 +1,15 @@
 import { createMCPClient } from "@ai-sdk/mcp";
-import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  CUSTOM_INTEGRATION_PREFIX,
+  resolveMcpIntegration,
+} from "@/utils/mcp/resolve-integration";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { getMcpFetch } from "@/utils/mcp/safe-fetch";
 import { getMcpServerUrl } from "@/utils/mcp/server-url";
+import { isValidMcpToolName } from "@/utils/mcp/tool-name";
 
 type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
 
@@ -58,12 +63,15 @@ export async function createMcpToolsForAgent(
 
     const toolsByIntegration: Map<
       string,
-      { integrationName: string; tools: Record<string, unknown> }
+      { toolPrefix: string; tools: Record<string, unknown> }
     > = new Map();
 
     for (const connection of connections) {
       const integration = connection.integration;
-      const integrationConfig = findIntegration(integration.name);
+      const integrationConfig = await resolveMcpIntegration({
+        name: integration.name,
+        emailAccountId,
+      });
 
       if (!integrationConfig) {
         logger.warn("Integration config not found", {
@@ -83,11 +91,13 @@ export async function createMcpToolsForAgent(
 
       try {
         const authToken = await getAuthToken({
-          integration: integration.name,
+          integration: integrationConfig,
           emailAccountId,
         });
 
-        const transport = createMcpTransport(serverUrl, authToken);
+        const transport = createMcpTransport(serverUrl, authToken, {
+          fetch: getMcpFetch(integrationConfig),
+        });
 
         const mcpClient = await createMCPClient({ transport });
         clients.push(mcpClient);
@@ -103,7 +113,11 @@ export async function createMcpToolsForAgent(
         );
 
         toolsByIntegration.set(integration.id, {
-          integrationName: integration.name,
+          // Custom names carry a 32-char id; a short slice keeps prefixed tool
+          // names within provider length limits
+          toolPrefix: integrationConfig.isCustom
+            ? integration.name.slice(0, CUSTOM_INTEGRATION_PREFIX.length + 8)
+            : integration.name,
           tools: filteredTools,
         });
       } catch (error) {
@@ -115,7 +129,10 @@ export async function createMcpToolsForAgent(
       }
     }
 
-    const allTools = mergeToolsWithConflictResolution(toolsByIntegration);
+    const allTools = mergeToolsWithConflictResolution(
+      toolsByIntegration,
+      logger,
+    );
 
     return {
       tools: allTools,
@@ -149,32 +166,42 @@ export async function createMcpToolsForAgent(
 function mergeToolsWithConflictResolution(
   toolsByIntegration: Map<
     string,
-    { integrationName: string; tools: Record<string, unknown> }
+    { toolPrefix: string; tools: Record<string, unknown> }
   >,
+  logger: Logger,
 ): Record<string, unknown> {
   const allTools: Record<string, unknown> = {};
   const toolNameToIntegrations = new Map<string, string[]>();
 
   // Build a map of tool names to their integrations
-  for (const [_, { integrationName, tools }] of toolsByIntegration) {
+  for (const [_, { toolPrefix, tools }] of toolsByIntegration) {
     for (const toolName of Object.keys(tools)) {
       if (!toolNameToIntegrations.has(toolName)) {
         toolNameToIntegrations.set(toolName, []);
       }
-      toolNameToIntegrations.get(toolName)!.push(integrationName);
+      toolNameToIntegrations.get(toolName)!.push(toolPrefix);
     }
   }
 
   // Merge tools, prefixing only when there's a conflict
-  for (const [__, { integrationName, tools }] of toolsByIntegration) {
+  for (const [__, { toolPrefix, tools }] of toolsByIntegration) {
     for (const [toolName, toolDef] of Object.entries(tools)) {
       const integrationsWithThisTool = toolNameToIntegrations.get(toolName)!;
 
       // Only prefix if this tool name appears in multiple integrations
       const finalToolName =
         integrationsWithThisTool.length > 1
-          ? `${integrationName}-${toolName}`
+          ? `${toolPrefix}-${toolName}`
           : toolName;
+
+      // One invalid name would fail the whole model call, not just this tool
+      if (!isValidMcpToolName(finalToolName)) {
+        logger.warn("Skipping MCP tool with an unsupported name", {
+          toolPrefix,
+          nameLength: finalToolName.length,
+        });
+        continue;
+      }
 
       allTools[finalToolName] = toolDef;
     }

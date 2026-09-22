@@ -247,6 +247,7 @@ model EmailAccount {
   bookingLinks           BookingLink[]
   bookings               Booking[]
   mcpConnections         McpConnection[]
+  mcpIntegrations        McpIntegration[]
   meetingBriefings       MeetingBriefing[]
   meetings               Meeting[]
   meetingRecordings      MeetingRecording[]
@@ -1957,7 +1958,21 @@ model McpIntegration {
   oauthClientId     String?
   oauthClientSecret String?
 
+  // Set only for custom servers registered by a user. Null for built-in integrations.
+  displayName    String?
+  serverUrl      String?
+  authType       McpAuthType?
+  emailAccountId String?
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   connections McpConnection[]
+
+  @@index([emailAccountId])
+}
+
+enum McpAuthType {
+  OAUTH
+  API_TOKEN
 }
 
 model McpConnection {
