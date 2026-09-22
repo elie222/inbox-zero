@@ -719,8 +719,6 @@ async function ensureLocalRedis() {
   env.REDIS_HTTP_BIND_HOST = LOCAL_REDIS_HOST;
   env.REDIS_HTTP_PORT = String(LOCAL_REDIS_HTTP_PORT);
   env.REDIS_HTTP_TOKEN = LOCAL_REDIS_TOKEN;
-  // Older Compose files still read this name for the HTTP proxy token.
-  env.UPSTASH_REDIS_TOKEN = LOCAL_REDIS_TOKEN;
 
   await runCommand(
     "docker",
