@@ -1038,10 +1038,12 @@ async function waitForConversations(window: BrowserWindow) {
 }
 
 async function waitForSubject(window: BrowserWindow, subject: string) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  const deadline = Date.now() + HOSTED_IDLE_PROOF_TIMEOUT_MS;
+  for (;;) {
     const subjects = await readSubjects(window);
     if (subjects.some((text) => text.includes(subject))) return subjects;
-    await delay(500);
+    if (Date.now() >= deadline) break;
+    await delay(HOSTED_PROOF_POLL_MS);
   }
   const body = await readBodyText(window);
   throw new Error(
