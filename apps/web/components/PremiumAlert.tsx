@@ -9,6 +9,8 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { PremiumTier } from "@/generated/prisma/enums";
 import { starterTierName } from "@/app/(app)/premium/config";
 import { ActionCard } from "@/components/ui/card";
+import { EndTrialButton } from "@/components/EndTrialButton";
+import { isActivePremium } from "@/utils/premium";
 
 export function PremiumAiAssistantAlert({
   showSetApiKey,
@@ -36,7 +38,12 @@ export function PremiumAiAssistantAlert({
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
           title="Active Subscription Required"
-          description="This feature is not available on trial plans."
+          description="This feature is not available during the free trial. Start your paid plan to use it."
+          action={
+            stripeSubscriptionStatus === "trialing" ? (
+              <EndTrialButton variant="primaryBlack" />
+            ) : undefined
+          }
         />
       </div>
     );
@@ -95,18 +102,18 @@ export function PremiumAlertWithData({
     isLoading: isLoadingPremium,
     isProPlanWithoutApiKey,
     tier,
-    data,
+    premium,
   } = usePremium();
 
-  if (!isLoadingPremium && !hasAiAccess) {
+  const needsActiveSubscription = activeOnly && !isActivePremium(premium);
+
+  if (!isLoadingPremium && (!hasAiAccess || needsActiveSubscription)) {
     return (
       <PremiumAiAssistantAlert
         showSetApiKey={isProPlanWithoutApiKey}
         className={className}
         tier={tier}
-        stripeSubscriptionStatus={
-          data?.premium?.stripeSubscriptionStatus || null
-        }
+        stripeSubscriptionStatus={premium?.stripeSubscriptionStatus || null}
         activeOnly={activeOnly}
       />
     );
