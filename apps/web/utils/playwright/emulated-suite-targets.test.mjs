@@ -85,7 +85,7 @@ test("feature groups preserve every selected spec, including unassigned and nest
   expect(batches.flatMap(({ paths }) => paths).sort()).toEqual(
     targets.map(({ path }) => path).sort(),
   );
-  expect(batches.find(({ name }) => name === "mail-compose")?.paths).toEqual(
+  expect(batches.find(({ name }) => name === "mail-send")?.paths).toEqual(
     targets.slice(0, 2).map(({ path }) => path),
   );
   expect(batches.find(({ name }) => name === "mail")?.paths).toEqual(
@@ -101,7 +101,7 @@ test("focused selections keep their feature names without adding unselected spec
     path: "__tests__/playwright/emulated/mail/contact-autocomplete.spec.ts",
   };
   expect(batchPlaywrightTargets([target])).toEqual([
-    { name: "mail-compose", paths: [target.path], timeoutMinutes: 12 },
+    { name: "mail-send", paths: [target.path], timeoutMinutes: 12 },
   ]);
 });
 

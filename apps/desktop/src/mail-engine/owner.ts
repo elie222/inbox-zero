@@ -27,6 +27,7 @@ export async function createDesktopMailOwner(input: {
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
+  idleCatchUpIntervalMs?: number;
 }) {
   let owned = await createOwnedEngine(input);
   const subscriptions = new Set<OwnerSubscription>();
@@ -95,6 +96,7 @@ async function createOwnedEngine(input: {
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
+  idleCatchUpIntervalMs?: number;
 }): Promise<{
   engine: MailEngine;
   store: Awaited<ReturnType<typeof createDesktopMailStore>>;
@@ -106,6 +108,7 @@ async function createOwnedEngine(input: {
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
+    idleCatchUpIntervalMs: input.idleCatchUpIntervalMs,
     runtime: createHostRuntime({
       ...nodeMailCrypto(),
       storagePressure: () => desktopStoragePressure(input.databasePath),

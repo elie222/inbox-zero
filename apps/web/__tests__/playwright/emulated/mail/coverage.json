@@ -41,6 +41,10 @@
     "components/email-list/ThreadDeliveryStatus.tsx",
     "components/ShortcutTooltipContent.tsx"
   ],
+  "composer-editing.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/ShortcutTooltipContent.tsx"
+  ],
   "compose-drafts.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "hooks/useProviderDraftAutosave.ts",

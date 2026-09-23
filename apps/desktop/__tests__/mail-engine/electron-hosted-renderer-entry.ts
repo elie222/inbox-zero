@@ -44,6 +44,8 @@ const DRAFT_TO = process.env.ELECTRON_DRAFT_TO ?? "recipient@example.com";
 const DRAFT_BODY = process.env.ELECTRON_DRAFT_BODY ?? "A hosted desktop draft.";
 const HOSTED_IDLE_PROOF_TIMEOUT_MS = 90_000;
 const HOSTED_PROOF_POLL_MS = 500;
+// Idle catch-up proofs would otherwise wait out the 60s production interval.
+const HOSTED_IDLE_CATCH_UP_INTERVAL_MS = 1000;
 
 if (process.env.ELECTRON_USER_DATA) {
   app.setPath("userData", process.env.ELECTRON_USER_DATA);
@@ -68,6 +70,7 @@ async function runHostedMail() {
   let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined =
     await createDesktopMailOwner({
       databasePath: sqlitePath,
+      idleCatchUpIntervalMs: HOSTED_IDLE_CATCH_UP_INTERVAL_MS,
       ...createRoutedBackendPorts(
         wrapBlockedAuthRequest(createSessionRequest(appOrigin), authGate),
       ),

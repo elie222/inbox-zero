@@ -1,7 +1,8 @@
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-// Keep related behavior together without reallocating specs when their timings change.
+// Keep related behavior together. Mail groups are sized to roughly equal CI
+// time because the slowest batch sets the wall-clock time for every PR.
 const featureGroups = [
   {
     name: "onboarding",
@@ -37,45 +38,78 @@ const featureGroups = [
     ],
   },
   {
-    name: "mail-compose",
+    name: "mail-desktop",
+    specs: [
+      "mail/hosted-electron-archive.spec.ts",
+      "mail/mail-engine-inspect.spec.ts",
+      "mail/mail-queue.spec.ts",
+    ],
+  },
+  {
+    name: "mail-send",
     specs: [
       "mail/compose-and-reply.spec.ts",
       "mail/contact-autocomplete.spec.ts",
-      "mail/scheduled-replies.spec.ts",
       "mail/calendar-invitation.spec.ts",
     ],
   },
   {
-    name: "mail-offline",
-    specs: ["mail/offline-loading.spec.ts", "mail/mail-queue.spec.ts"],
+    name: "mail-composer",
+    specs: [
+      "mail/composer-editing.spec.ts",
+      "mail/draft-send-recovery.spec.ts",
+      "mail/draft-deletion.spec.ts",
+      "mail/attachment-previews.spec.ts",
+    ],
+  },
+  {
+    name: "mail-drafts",
+    specs: [
+      "mail/scheduled-replies.spec.ts",
+      "mail/compose-drafts.spec.ts",
+      "mail/server-drafts.spec.ts",
+      "mail/message-actions.spec.ts",
+    ],
   },
   {
     name: "mail-navigation",
     specs: [
       "mail/command-palette.spec.ts",
       "mail/navigation-and-views.spec.ts",
-      "mail/split-tabs.spec.ts",
+    ],
+  },
+  {
+    name: "mail-search",
+    specs: [
       "mail/search.spec.ts",
+      "mail/split-tabs.spec.ts",
+      "mail/plain-text-links.spec.ts",
     ],
   },
   {
     name: "mail-reader",
     specs: [
-      "mail/reader-transition.spec.ts",
       "mail/reader-visuals.spec.ts",
-      "mail/thread-navigation.spec.ts",
       "mail/thread-states.spec.ts",
-      "mail/plain-text-links.spec.ts",
+      "mail/reader-transition.spec.ts",
     ],
   },
   {
     name: "mail-triage",
     specs: [
       "mail/archive-reconciliation.spec.ts",
+      "mail/triage-actions.spec.ts",
+      "mail/assistant-catch-up.spec.ts",
+      "mail/starring.spec.ts",
+    ],
+  },
+  {
+    name: "mail-threads",
+    specs: [
+      "mail/thread-navigation.spec.ts",
       "mail/manual-label.spec.ts",
       "mail/message-overflow.spec.ts",
-      "mail/starring.spec.ts",
-      "mail/triage-actions.spec.ts",
+      "mail/offline-loading.spec.ts",
     ],
   },
   {
@@ -85,6 +119,15 @@ const featureGroups = [
       "mail/cached-settings.spec.ts",
       "mail/layout.spec.ts",
       "mail/theme.spec.ts",
+    ],
+  },
+  {
+    name: "account-features",
+    specs: [
+      "billing/upgrade-to-paid.spec.ts",
+      "integrations/custom-mcp-server.spec.ts",
+      "chat/first-visit.spec.ts",
+      "chat/history-management.spec.ts",
     ],
   },
 ];
