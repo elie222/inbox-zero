@@ -26,7 +26,6 @@ COPY packages/email-editor/package.json packages/email-editor/package.json
 COPY packages/mail-core/package.json packages/mail-core/package.json
 COPY packages/mail-sqlite/package.json packages/mail-sqlite/package.json
 COPY packages/mail-react/package.json packages/mail-react/package.json
-COPY packages/mail-expo/package.json packages/mail-expo/package.json
 COPY packages/mail-ui/package.json packages/mail-ui/package.json
 COPY packages/image-proxy/package.json packages/image-proxy/package.json
 COPY packages/loops/package.json packages/loops/package.json

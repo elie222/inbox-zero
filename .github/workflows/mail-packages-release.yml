@@ -7,7 +7,6 @@ on:
       - "packages/mail-core/**"
       - "packages/mail-sqlite/**"
       - "packages/mail-react/**"
-      - "packages/mail-expo/**"
       - ".github/workflows/mail-packages-release.yml"
   workflow_dispatch:
 
@@ -39,14 +38,14 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
       - name: Build packages
-        run: pnpm -F @inboxzero/mail-core -F @inboxzero/mail-sqlite -F @inboxzero/mail-react -F @inboxzero/mail-expo run build
+        run: pnpm -F @inboxzero/mail-core -F @inboxzero/mail-sqlite -F @inboxzero/mail-react run build
 
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          for package_dir in mail-core mail-sqlite mail-react mail-expo; do
+          for package_dir in mail-core mail-sqlite mail-react; do
             cd "packages/${package_dir}/dist"
             name="$(node -p "require('./package.json').name")"
             version="$(node -p "require('./package.json').version")"
