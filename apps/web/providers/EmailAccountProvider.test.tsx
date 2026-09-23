@@ -120,7 +120,9 @@ describe("EmailAccountProvider", () => {
     await screen.findByText("ready with an account");
     expect(cookie.setLastAccount).not.toHaveBeenCalled();
     expect(screen.getByTestId("account-id").textContent).toBe("account-1");
-    expect(navigation.replace).toHaveBeenCalledWith("/account-1/mail");
+    await waitFor(() =>
+      expect(navigation.replace).toHaveBeenCalledWith("/account-1/mail"),
+    );
   });
 
   it("does not replace an owned account route", async () => {

@@ -60,7 +60,7 @@ export function useLabelCounts({
           unread: counts.unreadConversations,
         });
       }
-      setCountsById(next);
+      setCountsById((current) => (sameCounts(current, next) ? current : next));
     };
     const unsubscribers = subscriptions.map(({ handle }) =>
       handle.subscribe(apply),
@@ -82,4 +82,23 @@ export function useLabelCounts({
     isLoading: Boolean(client) && countsById.size === 0,
     mutate,
   };
+}
+
+function sameCounts(
+  left: Map<string, MailboxLabelCount>,
+  right: Map<string, MailboxLabelCount>,
+) {
+  if (left.size !== right.size) return false;
+  for (const [id, count] of right) {
+    const previous = left.get(id);
+    if (
+      !previous ||
+      previous.total !== count.total ||
+      previous.unread !== count.unread ||
+      previous.name !== count.name
+    ) {
+      return false;
+    }
+  }
+  return true;
 }

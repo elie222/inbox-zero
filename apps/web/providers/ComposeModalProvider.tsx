@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useModal } from "@/hooks/useModal";
@@ -38,13 +44,14 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     setIsExpanded(false);
     openModal();
   }, [openModal]);
+  const contextValue = useMemo(() => ({ onOpen: openCompose }), [openCompose]);
   const closeCompose = useCallback(() => {
     setIsExpanded(false);
     closeModal();
   }, [closeModal]);
 
   return (
-    <ComposeModalContext.Provider value={{ onOpen: openCompose }}>
+    <ComposeModalContext.Provider value={contextValue}>
       {props.children}
       <Dialog
         modal={false}

@@ -305,6 +305,9 @@ function createAppWindow(options?: {
     },
   });
 
+  // `closed` fires after the window is destroyed, when its webContents can no
+  // longer be read.
+  const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
   rememberWindowUrl(window, startUrl);
@@ -334,7 +337,7 @@ function createAppWindow(options?: {
   window.on("closed", () => {
     const index = windows.indexOf(window);
     if (index !== -1) windows.splice(index, 1);
-    unreadByContents.delete(window.webContents.id);
+    unreadByContents.delete(contentsId);
     applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
     if (!isQuitting && windows.length > 0) persistWindowsNow();
