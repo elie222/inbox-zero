@@ -70,6 +70,65 @@ describe("desktop mail owner", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("pushes changed snapshots to subscribers, across recovery, until unsubscribed", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "desktop-owner-push-"));
+    const owner = await createDesktopMailOwner({
+      databasePath: join(directory, "mailbox.sqlite"),
+      source: emptySource(),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+    });
+    const pushed: Array<{ data?: { status?: string } }> = [];
+    const unsubscribe = owner.subscribe(
+      {
+        protocolVersion: 1,
+        requestId: "sub",
+        method: "observeOperation",
+        payload: { accountId: "acc-1", operationId: "archive-push" },
+      },
+      (snapshot) => pushed.push(snapshot as { data?: { status?: string } }),
+    );
+    if (!unsubscribe) throw new Error("expected a subscription");
+    await expect.poll(() => pushed.at(-1)?.data?.status).toBe("failed");
+
+    const submit = (requestId: string, commandId: string) =>
+      owner.handleIpc({
+        protocolVersion: 1,
+        requestId,
+        method: "submitMetadata",
+        payload: {
+          accountId: "acc-1",
+          commandId,
+          targets: [{ accountId: "acc-1", messageId: "m1" }],
+          change: { kind: "archive" },
+        },
+      });
+    await submit("w1", "archive-push");
+    await expect.poll(() => pushed.at(-1)?.data?.status).toBe("queued");
+
+    await owner.recover();
+    const afterRecovery = pushed.length;
+    await expect.poll(() => pushed.length).toBeGreaterThan(afterRecovery);
+
+    unsubscribe();
+    const afterUnsubscribe = pushed.length;
+    await submit("w2", "archive-other");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pushed).toHaveLength(afterUnsubscribe);
+
+    expect(
+      owner.subscribe({ method: "submitMetadata" }, () => undefined),
+    ).toBeNull();
+    await owner.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
   it("returns mailbox snapshots over validated IPC", async () => {
     const directory = await mkdtemp(join(tmpdir(), "desktop-owner-view-"));
     const owner = await createDesktopMailOwner({

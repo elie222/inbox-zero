@@ -8,6 +8,7 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
+import { registerMailEnginePushIpc } from "../../src/mail-engine/push-ipc";
 import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
 import { closeAndWipeDesktopMailbox } from "../../src/mail-engine/wipe";
@@ -91,6 +92,7 @@ async function runHostedMail() {
       return owner.handleIpc(payload);
     },
   );
+  registerMailEnginePushIpc({ ipcMain, getOwner: () => owner });
   ipcMain.handle("mail-engine-wipe", async () => {
     const current = owner;
     owner = undefined;
@@ -822,6 +824,9 @@ async function proveReconnect(
   gate: BlockedAuthGate,
 ) {
   await waitForSubject(window, ARCHIVE_SUBJECT);
+  // Pushed snapshots show the subject before bootstrap finishes; only
+  // catch-up after the block should be counted.
+  await waitForCoverage(window);
   gate.enabled = true;
   await requestHostedSync(window);
   await waitForReconnectBanner(window);
