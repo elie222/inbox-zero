@@ -22,12 +22,7 @@ export type DesktopMailOwner = {
   close(): Promise<void>;
 };
 
-export async function createDesktopMailOwner(input: {
-  databasePath: string;
-  source: MailboxSource;
-  executor: OperationExecutor;
-  assistant?: AssistantStateSource;
-}) {
+export async function createDesktopMailOwner(input: OwnedEngineInput) {
   let owned = await createOwnedEngine(input);
   const subscriptions = new Set<OwnerSubscription>();
 
@@ -90,12 +85,16 @@ type OwnerSubscription = {
   close: () => void;
 };
 
-async function createOwnedEngine(input: {
+type OwnedEngineInput = {
   databasePath: string;
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
-}): Promise<{
+  /** The loop keeps retrying after a failed run; the host decides whether to report it. */
+  onEngineError?: (error: unknown) => void;
+};
+
+async function createOwnedEngine(input: OwnedEngineInput): Promise<{
   engine: MailEngine;
   store: Awaited<ReturnType<typeof createDesktopMailStore>>;
   stop(): Promise<void>;
@@ -114,7 +113,7 @@ async function createOwnedEngine(input: {
     ownerId: "desktop-owner",
   });
   const abort = new AbortController();
-  const loop = pumpEngine(engine, abort.signal);
+  const loop = pumpEngine(engine, abort.signal, input.onEngineError);
   return {
     engine,
     store,
@@ -126,12 +125,17 @@ async function createOwnedEngine(input: {
   };
 }
 
-async function pumpEngine(engine: MailEngine, signal: AbortSignal) {
+async function pumpEngine(
+  engine: MailEngine,
+  signal: AbortSignal,
+  onError: ((error: unknown) => void) | undefined,
+) {
   while (!signal.aborted) {
     try {
       await engine.runUntil(Date.now() + 2000, signal);
-    } catch {
+    } catch (error) {
       if (signal.aborted) return;
+      onError?.(error);
     }
     await delay(250, signal);
   }

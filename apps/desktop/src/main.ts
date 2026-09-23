@@ -47,6 +47,7 @@ import {
   shouldUseLocalMailRenderer,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
+import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { createDesktopMailOwner } from "./mail-engine/owner";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
@@ -101,6 +102,7 @@ if (!gotTheLock) {
 }
 
 function startDesktopApp() {
+  initDesktopSentry();
   nativeTheme.themeSource = "light";
   app.setAppUserModelId("com.getinboxzero.desktop");
   if (shouldSmokeLocalMail()) app.disableHardwareAcceleration();
@@ -667,6 +669,8 @@ function createDesktopMailProcess() {
   return createDesktopMailOwner({
     databasePath: desktopMailboxPath(),
     ...createRoutedBackendPorts(createDesktopMailRequest()),
+    onEngineError: (error) =>
+      captureDesktopError(error, { area: "mail-engine" }),
   });
 }
 

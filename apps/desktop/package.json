@@ -32,6 +32,7 @@
     "@inboxzero/mail-react": "workspace:*",
     "@inboxzero/mail-sqlite": "workspace:*",
     "@inboxzero/mail-ui": "workspace:*",
+    "@sentry/electron": "7.20.0",
     "electron-updater": "6.8.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"
