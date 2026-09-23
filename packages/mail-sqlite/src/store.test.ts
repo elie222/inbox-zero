@@ -2893,6 +2893,30 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("only bumps the revision when the connection state changes", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const revision = async () =>
+      (await store.getDiagnostics("acc-1")).revision.sequence;
+    const initial = await revision();
+    expect(
+      await store.recordConnection({ accountId: "acc-1", connection: "ready" }),
+    ).toBe(false);
+    expect(await revision()).toBe(initial);
+    expect(
+      await store.recordConnection({
+        accountId: "acc-1",
+        connection: "offline",
+      }),
+    ).toBe(true);
+    expect(await revision()).toBe(initial + 1);
+    await store.close();
+  });
+
   it("keeps conversation commands preparing until membership freeze", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({

@@ -955,31 +955,22 @@ export function createMailEngine(input: {
   }
 
   async function noteConnection(accountId: string, status: string) {
-    if (status === "blocked_auth") {
-      await store.recordConnection({
-        accountId,
-        connection: "blocked_auth",
-      });
-      await refreshViews();
-      return;
-    }
-    if (status === "paused") {
-      await store.recordConnection({
-        accountId,
-        connection: "offline",
-      });
-      await refreshViews();
-      return;
-    }
-    if (status === "ok" || status === "page") {
-      await store.recordConnection({
-        accountId,
-        connection: "ready",
-      });
+    const connection = CONNECTION_BY_SOURCE_STATUS[status];
+    if (!connection) return;
+    if (await store.recordConnection({ accountId, connection })) {
       await refreshViews();
     }
   }
 }
+
+const CONNECTION_BY_SOURCE_STATUS: Partial<
+  Record<string, "ready" | "offline" | "blocked_auth">
+> = {
+  blocked_auth: "blocked_auth",
+  paused: "offline",
+  ok: "ready",
+  page: "ready",
+};
 
 type IdleCatchUpGate = {
   activeBootstrapScopes: Map<string, ScopeDescriptor>;

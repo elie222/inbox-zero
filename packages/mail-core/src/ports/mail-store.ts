@@ -359,10 +359,11 @@ export interface MailStore {
     attachmentId: string;
     remoteUploadId: string;
   }): Promise<LocalRevision>;
+  /** Resolves `true` when the stored connection state changed. */
   recordConnection(input: {
     accountId: string;
     connection: "ready" | "offline" | "blocked_auth";
-  }): Promise<void>;
+  }): Promise<boolean>;
   registerSyncScopes(input: {
     session: AccountSession;
     scopeIds: string[];

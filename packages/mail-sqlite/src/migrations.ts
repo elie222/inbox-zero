@@ -1,5 +1,8 @@
 import type { SqlTransaction } from "./driver";
-import { migrateConversationIndex } from "./conversation-index";
+import {
+  migrateConversationIndex,
+  migrateMembershipIndex,
+} from "./conversation-index";
 
 export const MAILBOX_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -398,4 +401,5 @@ export async function migrateMailbox(
     );
   `);
   await migrateConversationIndex(tx);
+  await migrateMembershipIndex(tx);
 }
