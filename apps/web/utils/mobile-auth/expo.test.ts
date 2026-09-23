@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeExpo } from "./expo";
+import { isAllowedExpoAuthorizationUrl, safeExpo } from "./expo";
 
 describe("safe Expo Better Auth plugin", () => {
   it("does not install the stock cookie-in-callback redirect hook", () => {
@@ -20,5 +20,45 @@ describe("safe Expo Better Auth plugin", () => {
     const result = await plugin.onRequest(request);
 
     expect(result?.request.headers.get("origin")).toBe("inboxzero://");
+  });
+
+  it("keeps the Expo authorization proxy path", () => {
+    expect(safeExpo().endpoints.expoAuthorizationProxy.path).toBe(
+      "/expo-authorization-proxy",
+    );
+  });
+});
+
+describe("Expo authorization URL allowlist", () => {
+  const baseURL = "http://localhost:3001";
+
+  it("allows the local emulator only when local http is enabled", () => {
+    const emulator = new URL("http://localhost:3003/o/oauth2/v2/auth");
+    expect(isAllowedExpoAuthorizationUrl(emulator, baseURL, true)).toBe(true);
+    expect(isAllowedExpoAuthorizationUrl(emulator, baseURL, false)).toBe(false);
+  });
+
+  it("allows https providers and rejects same-origin or other http hosts", () => {
+    expect(
+      isAllowedExpoAuthorizationUrl(
+        new URL("https://accounts.google.com/o/oauth2/v2/auth"),
+        baseURL,
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedExpoAuthorizationUrl(
+        new URL(`${baseURL}/api/auth`),
+        baseURL,
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      isAllowedExpoAuthorizationUrl(
+        new URL("http://evil.example/o/oauth2/v2/auth"),
+        baseURL,
+        true,
+      ),
+    ).toBe(false);
   });
 });
