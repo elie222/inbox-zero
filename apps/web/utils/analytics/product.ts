@@ -6,7 +6,8 @@ export const PRODUCT_ANALYTICS_EVENTS = {
 
 /**
  * `$pageview` and `app_page_viewed` fire when the path or query changes, but
- * not for thread selection or search text; see `getPageViewSearch`.
+ * not for thread selection or search text; see `getPageViewSearch`. Every
+ * event's URLs drop those params too; see `stripUntrackedUrlParams`.
  *
  * Mail app usage and speed. Properties are only ids, counts, enums and
  * durations: never subjects, senders, search text or content.
@@ -286,6 +287,35 @@ export function getAppPageViewProperties({
  * J/K rewrites the thread params, which is not a new page, and ids and search
  * text don't belong in analytics URLs.
  */
+const URL_PROPERTY_KEYS = [
+  "$current_url",
+  "$referrer",
+  "$initial_current_url",
+  "$initial_referrer",
+];
+
+/**
+ * PostHog attaches the page URL to every event, including autocapture, so
+ * thread ids and search text in the query would otherwise reach it.
+ */
+export function stripUntrackedUrlParams<
+  T extends {
+    properties?: Record<string, unknown>;
+    $set?: Record<string, unknown>;
+    $set_once?: Record<string, unknown>;
+  } | null,
+>(event: T): T {
+  if (!event) return event;
+  for (const bag of [event.properties, event.$set, event.$set_once]) {
+    if (!bag) continue;
+    for (const key of URL_PROPERTY_KEYS) {
+      const value = bag[key];
+      if (typeof value === "string") bag[key] = withoutUntrackedParams(value);
+    }
+  }
+  return event;
+}
+
 export function getPageViewSearch(
   searchParams: Pick<URLSearchParams, "toString"> | null | undefined,
 ): string {
@@ -299,3 +329,14 @@ type StringLeaf<T> = T extends string
   : T extends Record<string, unknown>
     ? StringLeaf<T[keyof T]>
     : never;
+
+function withoutUntrackedParams(value: string) {
+  try {
+    const url = new URL(value);
+    for (const param of UNTRACKED_PAGE_VIEW_PARAMS)
+      url.searchParams.delete(param);
+    return url.toString();
+  } catch {
+    return value;
+  }
+}

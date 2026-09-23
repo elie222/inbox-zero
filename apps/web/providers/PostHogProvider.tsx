@@ -10,6 +10,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   getAppPageViewProperties,
   getPageViewSearch,
+  stripUntrackedUrlParams,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
 import { getClientAnalyticsProperties } from "@/utils/analytics/client";
@@ -94,6 +95,7 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
     disable_session_recording: true,
     disable_surveys: true,
+    before_send: stripUntrackedUrlParams,
   });
   posthog.register(getClientAnalyticsProperties());
 }
