@@ -1,6 +1,8 @@
 import {
+  canonicalizeCountsQuery,
   canonicalizeQuery,
   type ConversationQuery,
+  type MailboxCountsQuery,
   type QueryHandle,
   type QuerySnapshot,
 } from "./queries";
@@ -45,6 +47,10 @@ export function createQueryRegistry() {
 
 export function mailboxQueryKey(query: ConversationQuery): string {
   return `mailbox:${canonicalizeQuery(query)}`;
+}
+
+export function mailboxCountsQueryKey(query: MailboxCountsQuery): string {
+  return `counts:${canonicalizeCountsQuery(query)}`;
 }
 
 type QueryGroup<T> = {

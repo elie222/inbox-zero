@@ -2,6 +2,7 @@ import type { MailEngine } from "@inboxzero/mail-core/engine";
 import {
   workerStartFence,
   type BrowserEngineStart,
+  type WorkerObserveKind,
   type WorkerRequest,
   type WorkerResponse,
 } from "./worker-protocol";
@@ -130,13 +131,12 @@ export function createMailWorkerHost(hooks: {
   return { handle };
 }
 
-function observe(
-  client: MailEngine,
-  kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
-  args: unknown[],
-) {
+function observe(client: MailEngine, kind: WorkerObserveKind, args: unknown[]) {
   if (kind === "mailbox") {
     return client.observeMailbox(args[0] as never);
+  }
+  if (kind === "mailboxCounts") {
+    return client.observeMailboxCounts(args[0] as never);
   }
   if (kind === "mailboxWindow") {
     return (

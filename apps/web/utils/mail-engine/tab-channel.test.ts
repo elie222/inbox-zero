@@ -183,6 +183,7 @@ function stubClient(input: {
   }
   return {
     observeMailbox: () => handle(snapshot),
+    observeMailboxCounts: () => handle(snapshot as never),
     observeConversation: () => handle(snapshot as never),
     observeOperation: () => handle(snapshot as never),
     async submitMetadata(command) {

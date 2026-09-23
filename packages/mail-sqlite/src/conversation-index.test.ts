@@ -6,6 +6,7 @@ import {
   migrateMembershipIndex,
 } from "./conversation-index";
 import type { SqlTransaction } from "./driver";
+import type { MailboxCountsQuery } from "@inboxzero/mail-core/queries";
 
 describe("transactional conversation index", () => {
   it("shows the same conversation preview for equivalent inbox filters", async () => {
@@ -182,6 +183,90 @@ describe("transactional conversation index", () => {
         matchingConversations: 2,
         unreadConversations: 0,
       });
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("counts every target in one read exactly as the mailbox view does", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "m1", "c1", 1, 0, {
+          labels: ["Label_1"],
+          categories: ["CATEGORY_UPDATES"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m2", "c1", 3, 1, { labels: ["Label_1"] });
+        await insertMessage(tx, "m3", "c2", 2, 1, {
+          labels: ["Label_1"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m4", "c3", 4, 0, { draft: true });
+        await insertMessage(tx, "m5", "c4", 5, 0, { labels: ["Label_2"] });
+      });
+      const targets: MailboxCountsQuery["targets"] = [
+        { id: "inbox", predicate: { kind: "role", role: "inbox" } },
+        { id: "draft", predicate: { kind: "role", role: "draft" } },
+        {
+          id: "label",
+          predicate: { kind: "membership", membership: "label", id: "Label_1" },
+        },
+        {
+          id: "category",
+          predicate: {
+            kind: "membership",
+            membership: "category",
+            id: "CATEGORY_UPDATES",
+          },
+        },
+        {
+          id: "folder",
+          predicate: { kind: "membership", membership: "folder", id: "f1" },
+        },
+        {
+          id: "unread-inbox",
+          predicate: {
+            kind: "all",
+            predicates: [
+              { kind: "role", role: "inbox" },
+              { kind: "read", value: false },
+            ],
+          },
+        },
+        { id: "archive", predicate: { kind: "mailbox", mailbox: "archive" } },
+      ];
+
+      const result = await store.readMailboxCounts({
+        accountIds: ["a"],
+        targets,
+      });
+
+      const expected = [];
+      for (const target of targets) {
+        const { view } = await store.readMailboxView({
+          accountIds: ["a"],
+          predicate: target.predicate,
+          order: "newest_first",
+          pageSize: 1,
+          after: null,
+        });
+        expected.push({
+          id: target.id,
+          matchingConversations: view.counts.matchingConversations,
+          unreadConversations: view.counts.unreadConversations,
+        });
+      }
+      expect(result.view.counts).toEqual(expected);
+      expect(
+        result.view.counts.find((count) => count.id === "inbox"),
+      ).toMatchObject({ matchingConversations: 3, unreadConversations: 2 });
     } finally {
       await store.close();
     }

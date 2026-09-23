@@ -11,6 +11,7 @@ import {
 
 type TabObserveKind =
   | "mailbox"
+  | "mailboxCounts"
   | "mailboxWindow"
   | "conversation"
   | "operation";
@@ -293,6 +294,7 @@ export function createTabFollowerClient(input: {
 
   const client: MailClient = {
     observeMailbox: (query) => observeRemote("mailbox", [query]),
+    observeMailboxCounts: (query) => observeRemote("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {
       const handle = observeRemote<MailboxView>("mailboxWindow", [query]);
       return {
@@ -356,6 +358,9 @@ export function createBroadcastTabBus(channel: BroadcastChannel): TabMailBus {
 
 function observe(client: MailClient, kind: TabObserveKind, args: unknown[]) {
   if (kind === "mailbox") return client.observeMailbox(args[0] as never);
+  if (kind === "mailboxCounts") {
+    return client.observeMailboxCounts(args[0] as never);
+  }
   if (kind === "mailboxWindow") {
     return (
       client.observeMailboxWindow?.(args[0] as never) ??

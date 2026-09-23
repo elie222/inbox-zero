@@ -28,11 +28,10 @@ export function useLabelCounts({
   const targets = useMemo(
     () =>
       mailboxCountTargets({
-        accountId: emailAccountId,
         labels: resolvedLabels,
         folders: resolvedFolders,
       }),
-    [emailAccountId, resolvedFolders, resolvedLabels],
+    [resolvedFolders, resolvedLabels],
   );
   const [countsById, setCountsById] = useState(
     new Map<string, MailboxLabelCount>(),
@@ -43,34 +42,33 @@ export function useLabelCounts({
       setCountsById(new Map());
       return;
     }
-    const subscriptions = targets.map((target) => ({
-      target,
-      handle: client.observeMailbox(target.query),
-    }));
+    const handle = client.observeMailboxCounts({
+      accountIds: [emailAccountId],
+      targets: targets.map(({ id, predicate }) => ({ id, predicate })),
+    });
+    const targetsById = new Map(targets.map((target) => [target.id, target]));
     const apply = () => {
       const next = new Map<string, MailboxLabelCount>();
-      for (const { target, handle } of subscriptions) {
-        const counts = handle.getSnapshot().data?.counts;
-        if (!counts) continue;
+      for (const count of handle.getSnapshot().data?.counts ?? []) {
+        const target = targetsById.get(count.id);
+        if (!target) continue;
         next.set(target.id, {
           id: target.id,
           name: target.name,
           kind: target.kind,
-          total: counts.matchingConversations,
-          unread: counts.unreadConversations,
+          total: count.matchingConversations,
+          unread: count.unreadConversations,
         });
       }
       setCountsById((current) => (sameCounts(current, next) ? current : next));
     };
-    const unsubscribers = subscriptions.map(({ handle }) =>
-      handle.subscribe(apply),
-    );
+    const unsubscribe = handle.subscribe(apply);
     apply();
     return () => {
-      for (const unsubscribe of unsubscribers) unsubscribe();
-      for (const { handle } of subscriptions) handle.close();
+      unsubscribe();
+      handle.close();
     };
-  }, [client, targets]);
+  }, [client, emailAccountId, targets]);
 
   const mutate = useCallback(async () => {
     await client?.requestSync([emailAccountId]);

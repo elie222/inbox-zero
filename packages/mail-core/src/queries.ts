@@ -149,6 +149,32 @@ export const mailboxViewSchema = z.object({
 });
 export type MailboxView = z.infer<typeof mailboxViewSchema>;
 
+export const MAX_MAILBOX_COUNT_TARGETS = 500;
+
+export const mailboxCountsQuerySchema = z.object({
+  accountIds: z.array(accountIdSchema).min(1).max(50),
+  targets: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(256),
+        predicate: mailPredicateSchema,
+      }),
+    )
+    .max(MAX_MAILBOX_COUNT_TARGETS),
+});
+export type MailboxCountsQuery = z.infer<typeof mailboxCountsQuerySchema>;
+
+export const mailboxCountsViewSchema = z.object({
+  counts: z.array(
+    z.object({
+      id: z.string(),
+      matchingConversations: z.number().int().nonnegative(),
+      unreadConversations: z.number().int().nonnegative(),
+    }),
+  ),
+});
+export type MailboxCountsView = z.infer<typeof mailboxCountsViewSchema>;
+
 export const querySnapshotSchema = z.object({
   status: z.enum(["loading", "ready", "unavailable", "error"]),
   revision: localRevisionSchema.nullable(),
@@ -182,6 +208,13 @@ export function canonicalizeQuery(query: ConversationQuery): string {
     order: query.order,
     pageSize: query.pageSize,
     after: query.after,
+  });
+}
+
+export function canonicalizeCountsQuery(query: MailboxCountsQuery): string {
+  return JSON.stringify({
+    accountIds: [...query.accountIds].sort(),
+    targets: query.targets,
   });
 }
 

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { conversationQuerySchema, mailboxViewSchema } from "../queries";
+import {
+  conversationQuerySchema,
+  mailboxCountsQuerySchema,
+  mailboxViewSchema,
+} from "../queries";
 import {
   submitConversationCommandSchema,
   submitMetadataCommandSchema,
@@ -22,6 +26,12 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
     requestId: z.string().min(1).max(128),
     method: z.literal("observeMailbox"),
     payload: conversationQuerySchema,
+  }),
+  z.object({
+    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
+    requestId: z.string().min(1).max(128),
+    method: z.literal("observeMailboxCounts"),
+    payload: mailboxCountsQuerySchema,
   }),
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),

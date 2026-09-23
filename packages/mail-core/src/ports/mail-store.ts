@@ -26,6 +26,8 @@ import type {
   ConversationQuery,
   Coverage,
   MailPredicate,
+  MailboxCountsQuery,
+  MailboxCountsView,
   MailboxView,
   QuerySnapshot,
 } from "../queries";
@@ -338,6 +340,11 @@ export interface MailStore {
     page: { after: string | null; pageSize: number },
   ): Promise<{ revision: LocalRevision; view: ConversationView }>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
+  /** Counts only: reads no conversation summaries, coverage, or connection. */
+  readMailboxCounts(query: MailboxCountsQuery): Promise<{
+    revision: LocalRevision;
+    view: MailboxCountsView;
+  }>;
   readMailboxView(query: ConversationQuery): Promise<{
     revision: LocalRevision;
     view: MailboxView;

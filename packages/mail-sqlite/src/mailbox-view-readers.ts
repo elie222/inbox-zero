@@ -2,10 +2,13 @@ import type { LocalRevision } from "@inboxzero/mail-core/identities";
 import type { MessageMetadata } from "@inboxzero/mail-core/messages";
 import type {
   ConversationQuery,
+  MailboxCountsQuery,
+  MailboxCountsView,
   MailboxView,
+  MailPredicate,
   WellKnownMailbox,
 } from "@inboxzero/mail-core/queries";
-import type { SqlTransaction } from "./driver";
+import type { SqlTransaction, SqlValue } from "./driver";
 import { compilePredicate } from "./queries";
 import {
   connectionStatus,
@@ -22,9 +25,10 @@ export async function readMailboxViewFromSql(
 ): Promise<{ revision: LocalRevision; view: MailboxView }> {
   const revision = await readRevision(tx);
   const index = conversationIndexFor(query.predicate);
-  const { rows, matching, unread } = index
-    ? await readIndexedPage(tx, query, index)
-    : await readFilteredPage(tx, query);
+  const rows = index
+    ? await readIndexedRows(tx, query, index)
+    : await readFilteredRows(tx, query);
+  const { matching, unread } = await readCounts(tx, query);
   const page = rows.slice(0, query.pageSize);
   const summaries = await readConversationSummaries(tx, page);
   const coverage = await readCoverage(tx, query.accountIds);
@@ -38,8 +42,8 @@ export async function readMailboxViewFromSql(
     view: {
       conversations: summaries,
       counts: {
-        matchingConversations: Number(matching[0]?.n ?? 0),
-        unreadConversations: Number(unread[0]?.n ?? 0),
+        matchingConversations: matching,
+        unreadConversations: unread,
         extent: complete ? "complete_scope" : "local_coverage",
       },
       nextPage:
@@ -52,6 +56,26 @@ export async function readMailboxViewFromSql(
       ),
     },
   };
+}
+
+export async function readMailboxCountsFromSql(
+  tx: SqlTransaction,
+  query: MailboxCountsQuery,
+): Promise<{ revision: LocalRevision; view: MailboxCountsView }> {
+  const revision = await readRevision(tx);
+  const counts: MailboxCountsView["counts"] = [];
+  for (const target of query.targets) {
+    const { matching, unread } = await readCounts(tx, {
+      accountIds: query.accountIds,
+      predicate: target.predicate,
+    });
+    counts.push({
+      id: target.id,
+      matchingConversations: matching,
+      unreadConversations: unread,
+    });
+  }
+  return { revision, view: { counts } };
 }
 
 export const MAX_MAILBOX_WINDOW_PAGES = 40;
@@ -84,26 +108,44 @@ export async function readMailboxWindowFromSql(
   };
 }
 
-async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
+type CountScope = { accountIds: string[]; predicate: MailPredicate };
+
+async function readCounts(tx: SqlTransaction, scope: CountScope) {
+  const index = conversationIndexFor(scope.predicate);
+  const { matching, unread } = index
+    ? await readIndexedCounts(tx, scope, index)
+    : await readFilteredCounts(tx, scope);
+  return {
+    matching: Number(matching[0]?.n ?? 0),
+    unread: Number(unread[0]?.n ?? 0),
+  };
+}
+
+function filteredScope(scope: CountScope) {
   const mailbox =
-    query.predicate.kind === "mailbox" ? query.predicate.mailbox : null;
+    scope.predicate.kind === "mailbox" ? scope.predicate.mailbox : null;
   const compiled =
     mailbox === "archive" || mailbox === "all" || mailbox === "snoozed"
-      ? { sql: "1=1", bindings: [] as import("./driver").SqlValue[] }
-      : compilePredicate(query.predicate);
-  const accountPlaceholders = query.accountIds.map(() => "?").join(",");
+      ? { sql: "1=1", bindings: [] as SqlValue[] }
+      : compilePredicate(scope.predicate);
+  const accountPlaceholders = scope.accountIds.map(() => "?").join(",");
   const where = `e.account_id IN (${accountPlaceholders}) AND ${compiled.sql}`;
-  const bindings = [...query.accountIds, ...compiled.bindings];
+  const bindings = [...scope.accountIds, ...compiled.bindings];
   const having = mailboxConversationHaving(mailbox);
   const havingSql = having.sql ? `HAVING ${having.sql}` : "";
   const groupedBindings = [...bindings, ...having.bindings];
+  return { mailbox, where, having, havingSql, groupedBindings };
+}
+
+async function readFilteredRows(tx: SqlTransaction, query: ConversationQuery) {
+  const { where, havingSql, groupedBindings } = filteredScope(query);
   const cursor = query.after ? parseMailboxCursor(query.after) : null;
   const cursorSql = cursor
     ? `WHERE latest < ?
        OR (latest = ? AND account_id > ?)
        OR (latest = ? AND account_id = ? AND conversation_id > ?)`
     : "";
-  const rows = await tx.query(
+  return tx.query(
     `WITH grouped AS (
        SELECT e.account_id, e.conversation_id, MAX(e.received_at_ms) AS latest,
               MAX(CASE WHEN e.read = 0 THEN 1 ELSE 0 END) AS unread,
@@ -132,6 +174,11 @@ async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
       query.pageSize + 1,
     ],
   );
+}
+
+async function readFilteredCounts(tx: SqlTransaction, scope: CountScope) {
+  const { mailbox, where, having, havingSql, groupedBindings } =
+    filteredScope(scope);
   const matching = await tx.query(
     `SELECT COUNT(*) AS n FROM (
        SELECT 1 FROM effective_messages e WHERE ${where}
@@ -156,12 +203,12 @@ async function readFilteredPage(tx: SqlTransaction, query: ConversationQuery) {
       ? [...groupedBindings, ...having.bindings]
       : groupedBindings,
   );
-  return { rows, matching, unread };
+  return { matching, unread };
 }
 
 function mailboxConversationHaving(mailbox: WellKnownMailbox | null): {
   sql: string;
-  bindings: import("./driver").SqlValue[];
+  bindings: SqlValue[];
 } {
   if (mailbox === "archive") {
     return {
@@ -186,7 +233,7 @@ function mailboxConversationHaving(mailbox: WellKnownMailbox | null): {
 
 type ConversationIndex = {
   source: string;
-  sourceBindings: import("./driver").SqlValue[];
+  sourceBindings: SqlValue[];
 };
 
 // Single-role and single-membership views read trigger-maintained indexes
@@ -224,14 +271,12 @@ function roleIndex(role: MessageMetadata["roles"][number]): ConversationIndex {
   };
 }
 
-async function readIndexedPage(
+async function readIndexedRows(
   tx: SqlTransaction,
   query: ConversationQuery,
   index: ConversationIndex,
 ) {
-  const accountPlaceholders = query.accountIds.map(() => "?").join(",");
-  const where = `c.account_id IN (${accountPlaceholders})`;
-  const whereBindings = [...index.sourceBindings, ...query.accountIds];
+  const { where, whereBindings } = indexedScope(query, index);
   const cursor = query.after ? parseMailboxCursor(query.after) : null;
   const cursorSql = cursor
     ? `AND (
@@ -240,7 +285,7 @@ async function readIndexedPage(
          OR (c.latest_at_ms = ? AND c.account_id = ? AND c.conversation_id > ?)
        )`
     : "";
-  const rows = await tx.query(
+  return tx.query(
     `SELECT c.account_id, c.conversation_id, c.latest_at_ms AS latest, c.unread, c.starred
      FROM ${index.source} c
      WHERE ${where}
@@ -262,6 +307,14 @@ async function readIndexedPage(
       query.pageSize + 1,
     ],
   );
+}
+
+async function readIndexedCounts(
+  tx: SqlTransaction,
+  scope: CountScope,
+  index: ConversationIndex,
+) {
+  const { where, whereBindings } = indexedScope(scope, index);
   const matching = await tx.query(
     `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where}`,
     whereBindings,
@@ -270,7 +323,15 @@ async function readIndexedPage(
     `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where} AND c.unread = 1`,
     whereBindings,
   );
-  return { rows, matching, unread };
+  return { matching, unread };
+}
+
+function indexedScope(scope: CountScope, index: ConversationIndex) {
+  const accountPlaceholders = scope.accountIds.map(() => "?").join(",");
+  return {
+    where: `c.account_id IN (${accountPlaceholders})`,
+    whereBindings: [...index.sourceBindings, ...scope.accountIds],
+  };
 }
 
 function parseMailboxCursor(value: string) {
@@ -284,7 +345,7 @@ function parseMailboxCursor(value: string) {
 
 async function readConversationSummaries(
   tx: SqlTransaction,
-  page: Array<Record<string, import("./driver").SqlValue>>,
+  page: Array<Record<string, SqlValue>>,
 ) {
   if (page.length === 0) return [];
   const members = await tx.query(

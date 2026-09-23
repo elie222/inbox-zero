@@ -29,13 +29,20 @@ export function pageConnectivityOnline(): boolean | undefined {
   return navigator.onLine;
 }
 
+export type WorkerObserveKind =
+  | "mailbox"
+  | "mailboxCounts"
+  | "mailboxWindow"
+  | "conversation"
+  | "operation";
+
 export type WorkerRequest =
   | { id: string; type: "start"; input: BrowserEngineStart }
   | { id: string; type: "call"; method: string; args: unknown[] }
   | {
       id: string;
       type: "observe";
-      kind: "mailbox" | "mailboxWindow" | "conversation" | "operation";
+      kind: WorkerObserveKind;
       handleId: string;
       args: unknown[];
     }

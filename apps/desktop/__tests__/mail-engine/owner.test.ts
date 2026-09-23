@@ -159,6 +159,33 @@ describe("desktop mail owner", () => {
       status: "ok",
       result: { status: "ready" },
     });
+    const counts = await owner.handleIpc({
+      protocolVersion: 1,
+      requestId: "counts",
+      method: "observeMailboxCounts",
+      payload: {
+        accountIds: ["acc-1"],
+        targets: [
+          { id: "INBOX", predicate: { kind: "role", role: "inbox" } },
+          {
+            id: "Label_1",
+            predicate: { kind: "membership", membership: "label", id: "L1" },
+          },
+        ],
+      },
+    });
+    expect(counts).toMatchObject({
+      status: "ok",
+      result: {
+        status: "ready",
+        data: {
+          counts: [
+            { id: "INBOX", matchingConversations: 0, unreadConversations: 0 },
+            { id: "Label_1", matchingConversations: 0, unreadConversations: 0 },
+          ],
+        },
+      },
+    });
     const inspected = await owner.handleIpc({
       protocolVersion: 1,
       requestId: "inspect",
