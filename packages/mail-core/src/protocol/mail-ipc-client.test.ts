@@ -122,7 +122,10 @@ describe("createMailIpcClient", () => {
     push.send(String(second), snapshotWithConversations(2));
     await loadMore;
     expect(handle.getSnapshot().data?.conversations).toHaveLength(2);
+
+    const pendingLoadMore = handle.loadMore();
     handle.close();
+    await expect(pendingLoadMore).resolves.toBeUndefined();
   });
 });
 

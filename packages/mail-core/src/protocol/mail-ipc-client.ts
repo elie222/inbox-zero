@@ -182,18 +182,22 @@ function pushSource<T>(
   const router = context.push;
   let closed = false;
   let subscriptionId: string | null = null;
+  let settlePending: (() => void) | null = null;
 
   // A changed payload (loadMore) replaces the subscription; the promise
-  // settles once the host has delivered the first snapshot for it.
+  // settles once the host delivers its first snapshot, or when it is
+  // replaced or closed first.
   const refresh = () => {
     if (closed) return Promise.resolve();
     const previous = subscriptionId;
+    settlePending?.();
     const request = payload();
     const requestKey = JSON.stringify(request);
     const id = context.requestId();
     subscriptionId = id;
     if (previous) router.unsubscribe(previous);
     return new Promise<void>((resolve) => {
+      settlePending = resolve;
       router.subscribe(
         id,
         context.envelope(method, request),
@@ -215,6 +219,8 @@ function pushSource<T>(
     refresh,
     close() {
       closed = true;
+      settlePending?.();
+      settlePending = null;
       if (subscriptionId) router.unsubscribe(subscriptionId);
       subscriptionId = null;
     },

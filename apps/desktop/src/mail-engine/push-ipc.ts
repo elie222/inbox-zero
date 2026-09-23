@@ -26,13 +26,22 @@ export function registerMailEnginePushIpc(input: {
     if (existing) return existing;
     const created = new Map<string, () => void>();
     subscriptionsByContents.set(contents, created);
-    const closeAll = () => {
-      for (const unsubscribe of created.values()) unsubscribe();
-      created.clear();
+    const close = (ids: Iterable<string>) => {
+      for (const id of [...ids]) {
+        created.get(id)?.();
+        created.delete(id);
+      }
     };
-    contents.once("destroyed", closeAll);
+    // A navigation can be blocked after it starts, so the old page's
+    // subscriptions close only once it commits, and the new page's survive.
+    let leaving: string[] | null = null;
+    contents.once("destroyed", () => close(created.keys()));
     contents.on("did-start-navigation", ({ isMainFrame, isSameDocument }) => {
-      if (isMainFrame && !isSameDocument) closeAll();
+      if (isMainFrame && !isSameDocument) leaving = [...created.keys()];
+    });
+    contents.on("did-navigate", () => {
+      close(leaving ?? []);
+      leaving = null;
     });
     return created;
   }

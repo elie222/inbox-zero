@@ -6,7 +6,13 @@ import {
 } from "@/utils/mail-engine/worker-protocol";
 
 export function hasDesktopMailEngineIpc() {
-  return typeof getInboxZeroDesktopApp()?.mailEngine === "function";
+  const desktop = getInboxZeroDesktopApp();
+  return Boolean(
+    desktop?.mailEngine &&
+      desktop.mailEngineSubscribe &&
+      desktop.mailEngineUnsubscribe &&
+      desktop.onMailEngineSnapshot,
+  );
 }
 
 export function createDesktopIpcMailClient(input?: {

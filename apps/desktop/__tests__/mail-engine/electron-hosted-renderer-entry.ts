@@ -824,6 +824,9 @@ async function proveReconnect(
   gate: BlockedAuthGate,
 ) {
   await waitForSubject(window, ARCHIVE_SUBJECT);
+  // Pushed snapshots show the subject before bootstrap finishes; only
+  // catch-up after the block should be counted.
+  await waitForCoverage(window);
   gate.enabled = true;
   await requestHostedSync(window);
   await waitForReconnectBanner(window);
