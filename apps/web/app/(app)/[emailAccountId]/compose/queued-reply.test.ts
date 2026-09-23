@@ -252,9 +252,19 @@ describe("queueReaderEmail", () => {
 
   it("forwards staged attachment ids on held and offline queued sends", async () => {
     staging.mockResolvedValue(["blob-1"]);
+    const email = {
+      ...createEmail(),
+      attachments: [
+        {
+          filename: "note.txt",
+          content: "YQ==",
+          contentType: "text/plain",
+        },
+      ],
+    };
     const held = await queueReaderEmail({
       client: createClient(),
-      email: createEmail(),
+      email,
       emailAccountId: "account",
       holdForUndo: true,
       messageIds: ["message"],
@@ -267,7 +277,7 @@ describe("queueReaderEmail", () => {
     });
     const queued = await queueReaderEmail({
       client: createClient(),
-      email: createEmail(),
+      email,
       emailAccountId: "account",
       messageIds: ["message"],
       online: false,

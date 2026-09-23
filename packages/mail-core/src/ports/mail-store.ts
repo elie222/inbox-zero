@@ -106,6 +106,16 @@ export type ClaimedWork =
       session: AccountSession;
       predicate: MailPredicate;
       page: string | null;
+    }
+  | {
+      kind: "upload";
+      attemptId: string;
+      operation: PreparedOperation;
+      attachmentId: string;
+      checksum: string;
+      sizeBytes: number;
+      filename: string;
+      contentType: string;
     };
 
 export type SyncStreamPosition = {
@@ -316,6 +326,7 @@ export interface MailStore {
     }>;
   }>;
   inspect(input?: MailStoreInspectionInput): Promise<MailStoreInspection>;
+  listReferencedBlobIds(): Promise<string[]>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
   readAccountSyncStates(): Promise<AccountSyncState[]>;
   readBootstrapScan(input: {
@@ -342,6 +353,12 @@ export interface MailStore {
     revision: LocalRevision;
     operation: OperationState | null;
   }>;
+  recordAttachmentUpload(input: {
+    operationId: string;
+    accountId: string;
+    attachmentId: string;
+    remoteUploadId: string;
+  }): Promise<LocalRevision>;
   recordConnection(input: {
     accountId: string;
     connection: "ready" | "offline" | "blocked_auth";
@@ -376,6 +393,16 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
+  stageDraftAttachment(input: {
+    accountId: string;
+    draftId: string | null;
+    attachmentId: string;
+    filename: string;
+    contentType: string;
+    checksum: string;
+    sizeBytes: number;
+    inline?: boolean;
+  }): Promise<{ status: "staged" } | { status: "rejected"; code: "invalid" }>;
   startBootstrapScan(input: {
     session: AccountSession;
     scopeId: string;

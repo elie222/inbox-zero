@@ -9,6 +9,12 @@ import {
   requestSyncUnlessOffline,
 } from "@/utils/mail-engine/worker-protocol";
 
+type TabObserveKind =
+  | "mailbox"
+  | "mailboxWindow"
+  | "conversation"
+  | "operation";
+
 export const MAIL_ENGINE_OWNER_LOCK = "inbox-zero:mail-engine-owner";
 export const MAIL_ENGINE_TAB_CHANNEL = "inbox-zero:mail-engine-tabs";
 
@@ -32,7 +38,7 @@ export type TabMailMessage =
       id: string;
       accountId: string;
       handleId: string;
-      kind: "mailbox" | "mailboxWindow" | "conversation" | "operation";
+      kind: TabObserveKind;
       args: unknown[];
     }
   | { type: "loadMore"; id: string; handleId: string }
@@ -132,8 +138,12 @@ export function bindTabMailOwner(input: {
       });
       return;
     }
+    const args =
+      message.method === "stageDraftAttachment"
+        ? [wrapDraftAttachmentBytes(message.args[0])]
+        : message.args;
     (method as (...args: unknown[]) => Promise<unknown>)
-      .apply(input.client, message.args)
+      .apply(input.client, args)
       .then((value) => input.bus.post({ type: "ok", id: message.id, value }))
       .catch((error) =>
         input.bus.post({
@@ -235,7 +245,7 @@ export function createTabFollowerClient(input: {
   }
 
   function observeRemote<T>(
-    kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
+    kind: TabObserveKind,
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
@@ -298,6 +308,10 @@ export function createTabFollowerClient(input: {
       call("submitConversations", [payload]) as never,
     saveDraft: (payload) => call("saveDraft", [payload]) as never,
     readDraft: (payload) => call("readDraft", [payload]) as never,
+    async stageDraftAttachment(input) {
+      const bytes = await collectBytes(input.bytes);
+      return call("stageDraftAttachment", [{ ...input, bytes }]) as never;
+    },
     submitSend: (payload) => call("submitSend", [payload]) as never,
     cancelOperation: (payload) => call("cancelOperation", [payload]) as never,
     requestSync: (accountIds) =>
@@ -340,11 +354,7 @@ export function createBroadcastTabBus(channel: BroadcastChannel): TabMailBus {
   };
 }
 
-function observe(
-  client: MailClient,
-  kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
-  args: unknown[],
-) {
+function observe(client: MailClient, kind: TabObserveKind, args: unknown[]) {
   if (kind === "mailbox") return client.observeMailbox(args[0] as never);
   if (kind === "mailboxWindow") {
     return (
@@ -356,6 +366,37 @@ function observe(
     return client.observeConversation(args[0] as never, args[1] as never);
   }
   return client.observeOperation(args[0] as never);
+}
+
+function wrapDraftAttachmentBytes(value: unknown) {
+  if (!value || typeof value !== "object") return value;
+  const input = value as { bytes?: unknown };
+  if (input.bytes instanceof Uint8Array) {
+    const bytes = input.bytes;
+    return {
+      ...input,
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+    };
+  }
+  return value;
+}
+
+async function collectBytes(bytes: AsyncIterable<Uint8Array>) {
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for await (const chunk of bytes) {
+    size += chunk.byteLength;
+    chunks.push(chunk);
+  }
+  const collected = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    collected.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return collected;
 }
 
 function announceOwner(

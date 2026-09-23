@@ -24,7 +24,9 @@
     "./use-mailbox-window": "./src/use-mailbox-window.ts"
   },
   "scripts": {
-    "build": "node ../mail-core/scripts/clean-package.mjs && tsc -p tsconfig.build.json",
+    "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
+    "pack:smoke": "node ../mail-core/scripts/pack-consumer-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "check-imports": "node scripts/check-imports.mjs"
   },
@@ -32,7 +34,7 @@
     "@inboxzero/mail-core": "workspace:*"
   },
   "peerDependencies": {
-    "react": ">=19"
+    "react": ">=19.2.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",

@@ -222,6 +222,17 @@ describe("referenced blob ids", () => {
         })
       ).status,
     ).toBe("queued");
+    expect(
+      await store.stageDraftAttachment({
+        accountId: "acc-1",
+        draftId: "d-keep",
+        attachmentId: "orphan-local",
+        filename: "orphan.txt",
+        contentType: "text/plain",
+        checksum: "abc",
+        sizeBytes: 4,
+      }),
+    ).toEqual({ status: "staged" });
     expect((await listReferencedBlobIds(driver)).sort()).toEqual([
       "keep-draft",
       "keep-send",

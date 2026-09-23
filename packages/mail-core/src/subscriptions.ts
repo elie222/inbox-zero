@@ -4,91 +4,151 @@ import {
   type QueryHandle,
   type QuerySnapshot,
 } from "./queries";
-import type { LocalRevision } from "./identities";
+import { revisionEquals, type LocalRevision } from "./identities";
 
 export function createQueryRegistry() {
-  const handles = new Map<string, Set<MutableHandle<unknown>>>();
+  const groups = new Map<string, QueryGroup<unknown>>();
 
   return {
     observe<T>(
       key: string,
       load: () => Promise<{ revision: LocalRevision; data: T }>,
     ): QueryHandle<T> {
-      let latestRead = 0;
-      const handle = createHandle<T>(async () => {
-        const read = ++latestRead;
-        try {
-          const loaded = await load();
-          if (read !== latestRead) return;
-          handle.publish({
-            status: "ready",
-            revision: loaded.revision,
-            data: loaded.data,
-            refreshing: false,
-            error: null,
-          });
-        } catch {
-          if (read !== latestRead) return;
-          handle.publish({
-            status: "error",
-            revision: handle.getSnapshot().revision,
-            data: handle.getSnapshot().data,
-            refreshing: false,
-            error: { code: "unavailable", retryable: true },
-          });
-        }
-      });
-      let group = handles.get(key);
+      let group = groups.get(key) as QueryGroup<T> | undefined;
       if (!group) {
-        group = new Set();
-        handles.set(key, group);
+        group = createGroup(load, () => {
+          if (group && group.handles.size === 0) groups.delete(key);
+        });
+        groups.set(key, group as QueryGroup<unknown>);
       }
-      group.add(handle as MutableHandle<unknown>);
-      handle.refresh().catch(() => undefined);
-      return {
-        getSnapshot: () => handle.getSnapshot(),
-        subscribe: (listener) => handle.subscribe(listener),
-        close: () => {
-          handle.close();
-          group?.delete(handle as MutableHandle<unknown>);
-          if (group && group.size === 0) handles.delete(key);
-        },
-      };
+      return group.observe();
     },
     async refreshKey(key: string) {
+      await groups.get(key)?.refresh();
+    },
+    async refreshPrefix(prefix: string) {
       await Promise.all(
-        [...(handles.get(key) ?? [])].map((handle) => handle.refresh()),
+        [...groups.entries()]
+          .filter(([key]) => key.startsWith(prefix))
+          .map(([, group]) => group.refresh()),
       );
     },
     async refreshAll() {
-      await Promise.all(
-        [...handles.values()].flatMap((group) =>
-          [...group].map((handle) => handle.refresh()),
-        ),
-      );
+      await Promise.all([...groups.values()].map((group) => group.refresh()));
     },
     closeAll() {
-      for (const group of handles.values()) {
-        for (const handle of group) handle.close();
-      }
-      handles.clear();
+      for (const group of groups.values()) group.close();
+      groups.clear();
     },
   };
 }
 
 export function mailboxQueryKey(query: ConversationQuery): string {
-  return canonicalizeQuery(query);
+  return `mailbox:${canonicalizeQuery(query)}`;
 }
+
+type QueryGroup<T> = {
+  handles: Set<MutableHandle<T>>;
+  observe(): QueryHandle<T>;
+  refresh(): Promise<void>;
+  close(): void;
+};
 
 type MutableHandle<T> = {
   getSnapshot(): QuerySnapshot<T>;
   publish(snapshot: QuerySnapshot<T>): void;
   subscribe(listener: () => void): () => void;
-  refresh(): Promise<void>;
   close(): void;
 };
 
-function createHandle<T>(load: () => Promise<void>): MutableHandle<T> {
+function createGroup<T>(
+  load: () => Promise<{ revision: LocalRevision; data: T }>,
+  onEmpty: () => void,
+): QueryGroup<T> {
+  const handles = new Set<MutableHandle<T>>();
+  let latestRead = 0;
+  let inFlight: Promise<void> | null = null;
+  let queued = false;
+
+  async function runLoad() {
+    const read = ++latestRead;
+    try {
+      const loaded = await load();
+      if (read !== latestRead) return;
+      publishAll({
+        status: "ready",
+        revision: loaded.revision,
+        data: loaded.data,
+        refreshing: false,
+        error: null,
+      });
+    } catch {
+      if (read !== latestRead) return;
+      for (const handle of handles) {
+        const current = handle.getSnapshot();
+        handle.publish({
+          status: "error",
+          revision: current.revision,
+          data: current.data,
+          refreshing: false,
+          error: { code: "unavailable", retryable: true },
+        });
+      }
+    }
+  }
+
+  function publishAll(snapshot: QuerySnapshot<T>) {
+    for (const handle of handles) handle.publish(snapshot);
+  }
+
+  async function refresh() {
+    if (handles.size === 0) return;
+    queued = true;
+    if (inFlight) return inFlight;
+    inFlight = drainLoads().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  }
+
+  async function drainLoads() {
+    while (queued && handles.size > 0) {
+      queued = false;
+      for (const handle of handles) {
+        const current = handle.getSnapshot();
+        if (current.status === "loading" && !current.refreshing) {
+          handle.publish({ ...current, refreshing: true });
+        }
+      }
+      await runLoad();
+    }
+  }
+
+  return {
+    handles,
+    observe() {
+      const handle = createHandle<T>();
+      handles.add(handle);
+      refresh().catch(() => undefined);
+      return {
+        getSnapshot: () => handle.getSnapshot(),
+        subscribe: (listener) => handle.subscribe(listener),
+        close: () => {
+          handle.close();
+          handles.delete(handle);
+          if (handles.size === 0) onEmpty();
+        },
+      };
+    },
+    refresh,
+    close() {
+      for (const handle of handles) handle.close();
+      handles.clear();
+    },
+  };
+}
+
+function createHandle<T>(): MutableHandle<T> {
   let snapshot: QuerySnapshot<T> = {
     status: "loading",
     revision: null,
@@ -104,6 +164,7 @@ function createHandle<T>(load: () => Promise<void>): MutableHandle<T> {
     },
     publish(next) {
       if (closed) return;
+      if (snapshotEquals(snapshot, next)) return;
       snapshot = next;
       for (const listener of listeners) listener();
     },
@@ -111,15 +172,22 @@ function createHandle<T>(load: () => Promise<void>): MutableHandle<T> {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async refresh() {
-      if (closed) return;
-      snapshot = { ...snapshot, refreshing: true };
-      for (const listener of listeners) listener();
-      await load();
-    },
     close() {
       closed = true;
       listeners.clear();
     },
   };
+}
+
+function snapshotEquals<T>(left: QuerySnapshot<T>, right: QuerySnapshot<T>) {
+  if (left.status !== right.status) return false;
+  if (left.refreshing !== right.refreshing) return false;
+  if ((left.error?.code ?? null) !== (right.error?.code ?? null)) return false;
+  if (left.revision && right.revision) {
+    return (
+      revisionEquals(left.revision, right.revision) &&
+      left.status === right.status
+    );
+  }
+  return left.revision === right.revision && left.data === right.data;
 }

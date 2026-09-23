@@ -6,6 +6,19 @@ import {
 } from "./identities";
 import { inboxSectionSchema, mailboxRoleSchema } from "./messages";
 
+export const wellKnownMailboxSchema = z.enum([
+  "inbox",
+  "sent",
+  "drafts",
+  "archive",
+  "all",
+  "starred",
+  "trash",
+  "spam",
+  "snoozed",
+]);
+export type WellKnownMailbox = z.infer<typeof wellKnownMailboxSchema>;
+
 export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
   z.discriminatedUnion("kind", [
     z.object({
@@ -20,6 +33,10 @@ export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
     z.object({
       kind: z.literal("role"),
       role: z.enum(["inbox", "sent", "draft", "trash", "spam"]),
+    }),
+    z.object({
+      kind: z.literal("mailbox"),
+      mailbox: wellKnownMailboxSchema,
     }),
     z.object({ kind: z.literal("read"), value: z.boolean() }),
     z.object({ kind: z.literal("starred"), value: z.boolean() }),
@@ -59,6 +76,7 @@ export type MailPredicate =
   | { kind: "any"; predicates: MailPredicate[] }
   | { kind: "not"; predicate: MailPredicate }
   | { kind: "role"; role: "inbox" | "sent" | "draft" | "trash" | "spam" }
+  | { kind: "mailbox"; mailbox: WellKnownMailbox }
   | { kind: "read"; value: boolean }
   | { kind: "starred"; value: boolean }
   | { kind: "inbox_section"; section: "focused" | "other" }
@@ -165,4 +183,8 @@ export function canonicalizeQuery(query: ConversationQuery): string {
     pageSize: query.pageSize,
     after: query.after,
   });
+}
+
+export function mailboxPredicate(mailbox: WellKnownMailbox): MailPredicate {
+  return { kind: "mailbox", mailbox };
 }

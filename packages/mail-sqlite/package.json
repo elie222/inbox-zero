@@ -21,11 +21,14 @@
     "./migrations": "./src/migrations.ts",
     "./maintenance": "./src/maintenance.ts",
     "./node": "./src/node-sqlite.ts",
-    "./blob-store": "./src/blob-store.ts"
+    "./blob-store": "./src/blob-store.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./test-support/driver-contract": "./test-support/driver-contract.ts"
   },
   "scripts": {
     "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
     "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
+    "pack:smoke": "node ../mail-core/scripts/pack-consumer-smoke.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check-imports": "node scripts/check-imports.mjs"

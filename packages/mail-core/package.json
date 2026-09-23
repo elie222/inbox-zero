@@ -33,6 +33,7 @@
     "./ports/mail-store": "./src/ports/mail-store.ts",
     "./ports/assistant-source": "./src/ports/assistant-source.ts",
     "./ports/blob-store": "./src/ports/blob-store.ts",
+    "./memory-blob-store": "./src/memory-blob-store.ts",
     "./ports/runtime": "./src/ports/runtime.ts",
     "./protocol/mail-http": "./src/protocol/mail-http.ts",
     "./protocol/backend-adapter": "./src/protocol/backend-adapter.ts",
@@ -45,7 +46,7 @@
   "scripts": {
     "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
     "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
-    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "pack:smoke": "node scripts/pack-consumer-smoke.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check-imports": "node scripts/check-imports.mjs"

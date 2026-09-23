@@ -7,10 +7,10 @@
     "moduleResolution": "Bundler",
     "noEmit": false,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "test-support/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
 }

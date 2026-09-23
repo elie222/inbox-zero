@@ -7,6 +7,7 @@ export type EffectiveMessage = MessageMetadata & {
   conversationId: string;
   pendingOperationIds: string[];
   bodyText?: string | null;
+  snoozedUntilMs?: number | null;
 };
 
 export function messageMatchesPredicate(
@@ -26,6 +27,8 @@ export function messageMatchesPredicate(
       return !messageMatchesPredicate(message, predicate.predicate);
     case "role":
       return message.roles.includes(predicate.role);
+    case "mailbox":
+      return messageMatchesMailbox(message, predicate.mailbox);
     case "read":
       return message.read === predicate.value;
     case "starred":
@@ -84,6 +87,9 @@ export function conversationMatchesPredicate(
   messages: EffectiveMessage[],
   predicate: MailPredicate,
 ): boolean {
+  if (predicate.kind === "mailbox") {
+    return conversationMatchesMailbox(messages, predicate.mailbox);
+  }
   return messages.some((message) =>
     messageMatchesPredicate(message, predicate),
   );
@@ -166,4 +172,57 @@ function extractEmail(value: string): string {
     return value.slice(start + 1, end).trim();
   }
   return value.trim();
+}
+
+function messageMatchesMailbox(
+  message: EffectiveMessage,
+  mailbox: Extract<MailPredicate, { kind: "mailbox" }>["mailbox"],
+): boolean {
+  switch (mailbox) {
+    case "inbox":
+      return message.roles.includes("inbox");
+    case "sent":
+      return message.roles.includes("sent");
+    case "drafts":
+      return message.roles.includes("draft");
+    case "trash":
+      return message.roles.includes("trash");
+    case "spam":
+      return message.roles.includes("spam");
+    case "starred":
+      return message.starred;
+    case "archive":
+      return (
+        !message.roles.includes("inbox") &&
+        !message.roles.includes("trash") &&
+        !message.roles.includes("spam")
+      );
+    case "all":
+      return (
+        !message.roles.includes("trash") && !message.roles.includes("spam")
+      );
+    case "snoozed":
+      return (message.snoozedUntilMs ?? 0) > Date.now();
+  }
+}
+
+function conversationMatchesMailbox(
+  messages: EffectiveMessage[],
+  mailbox: Extract<MailPredicate, { kind: "mailbox" }>["mailbox"],
+): boolean {
+  if (messages.length === 0) return false;
+  if (mailbox === "archive") {
+    return messages.every((message) =>
+      messageMatchesMailbox(message, "archive"),
+    );
+  }
+  if (mailbox === "all") {
+    return messages.every((message) => messageMatchesMailbox(message, "all"));
+  }
+  if (mailbox === "snoozed") {
+    return messages.some((message) =>
+      messageMatchesMailbox(message, "snoozed"),
+    );
+  }
+  return messages.some((message) => messageMatchesMailbox(message, mailbox));
 }

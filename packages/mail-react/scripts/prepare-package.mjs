@@ -12,13 +12,10 @@ const packageJson = JSON.parse(
 
 const publishedExports = Object.fromEntries(
   Object.entries(packageJson.exports).map(([name, source]) => {
-    if (
-      typeof source !== "string" ||
-      !(source.startsWith("./src/") || source.startsWith("./test-support/"))
-    ) {
+    if (typeof source !== "string" || !source.startsWith("./src/")) {
       throw new Error(`Unsupported package export: ${name}`);
     }
-    const output = source.replace(/^\.\//u, "").replace(/\.ts$/u, "");
+    const output = source.slice("./src/".length).replace(/\.tsx?$/u, "");
     return [
       name,
       {
@@ -59,6 +56,7 @@ await Promise.all([
           packageJson.dependencies,
           packageJson.version,
         ),
+        peerDependencies: packageJson.peerDependencies,
         publishConfig: { access: "public" },
       },
       null,

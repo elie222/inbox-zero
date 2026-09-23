@@ -11,6 +11,8 @@ import {
   stageSendAttachments,
 } from "@/utils/mail-engine/stage-attachments";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+import { randomUuid } from "@/utils/uuid";
+import type { Attachment } from "@/utils/types/mail";
 import { getUndoSendHoldUntil } from "./undo-send";
 
 export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
@@ -59,13 +61,15 @@ export async function queueReaderEmail({
 }): Promise<ReaderEmailOutcome> {
   const commandId = mutationId ?? crypto.randomUUID();
   const draftId = commandId;
-  const attachmentIds = await stageSendAttachments(
+  const attachmentIds = await stageLocalSendAttachments(
+    client,
     emailAccountId,
+    draftId,
     email.attachments,
   );
   let queued = false;
   try {
-    const content = sendEmailToDraftContent(email, attachmentIds);
+    const content = sendEmailToDraftContent(email, attachmentIds, threadId);
     const draftRevision = await saveSendableDraft(client, {
       accountId: emailAccountId,
       draftId,
@@ -171,6 +175,65 @@ async function saveSendableDraft(
     expectedRevision = saved.currentDraftRevision;
   }
   throw new Error("Could not save this email on the device.");
+}
+
+async function stageLocalSendAttachments(
+  client: MailClient,
+  accountId: string,
+  draftId: string,
+  attachments: Attachment[] | undefined,
+) {
+  if (!attachments?.length) return [];
+  if (typeof client.stageDraftAttachment !== "function") {
+    return stageSendAttachments(accountId, attachments);
+  }
+  const ids: string[] = [];
+  for (const attachment of attachments) {
+    const bytes = decodeBase64(attachment.content);
+    const checksum = await sha256Hex(bytes);
+    const attachmentId = attachment.id || randomUuid();
+    const staged = await client.stageDraftAttachment({
+      accountId,
+      draftId,
+      attachmentId,
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      checksum,
+      sizeBytes: bytes.byteLength,
+      bytes: (async function* () {
+        yield bytes;
+      })(),
+      inline: attachment.disposition === "inline",
+    });
+    if (staged.status !== "staged") {
+      if (
+        staged.code === "storage_unavailable" ||
+        staged.code === "unsupported"
+      ) {
+        return stageSendAttachments(accountId, attachments);
+      }
+      throw new Error(`Could not stage ${attachment.filename} for sending.`);
+    }
+    ids.push(attachmentId);
+  }
+  return ids;
+}
+
+function decodeBase64(value: string) {
+  if (typeof Buffer !== "undefined") return Buffer.from(value, "base64");
+  const binary = globalThis.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+async function sha256Hex(bytes: Uint8Array) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes.slice());
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function waitForSettlement({

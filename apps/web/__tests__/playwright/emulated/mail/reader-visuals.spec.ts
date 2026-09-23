@@ -194,10 +194,10 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     "mail-reader-reply-forward-shortcuts",
   );
   // Leave the forward tooltip so it cannot steal collision space from the
-  // actions menu once sender stats resolve.
-  await page
-    .getByRole("heading", { name: "Re: Reader Visual Message" })
-    .hover();
+  // actions menu once sender stats resolve. Hovering the subject can land
+  // on the tooltip itself, which keeps it open.
+  await page.keyboard.press("Escape");
+  await page.mouse.move(0, 0);
   await expect(forwardTooltip).toHaveCount(0);
 
   const senderStatsResponse = page.waitForResponse((response) =>

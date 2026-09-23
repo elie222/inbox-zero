@@ -28,4 +28,21 @@ export interface OperationExecutor {
     receiptId: string | null;
     signal: AbortSignal;
   }): Promise<ExecutionResult>;
+  stageUpload?(input: {
+    session: import("../identities").AccountSession;
+    uploadId: string;
+    checksum: string;
+    sizeBytes: number;
+    filename: string;
+    contentType: string;
+    bytes: AsyncIterable<Uint8Array>;
+    signal: AbortSignal;
+  }): Promise<
+    | { status: "staged"; blobId: string }
+    | {
+        status: "rejected";
+        code: "too_large" | "checksum_mismatch" | "missing";
+      }
+    | { status: "unavailable" }
+  >;
 }

@@ -1,4 +1,5 @@
 import { hashCanonical } from "@inboxzero/mail-core/canonical";
+import type { HostRuntime } from "@inboxzero/mail-core/ports/runtime";
 import type {
   Admission,
   SubmitConversationCommand,
@@ -20,6 +21,7 @@ import type {
   LocalRevision,
   MessageKey,
 } from "@inboxzero/mail-core/identities";
+import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import {
   messageAttachmentDescriptorSchema,
   type MessageAttachmentDescriptor,
@@ -36,6 +38,7 @@ import type {
   MailStore,
   MailStoreInspectionInput,
   MailStoreInspection,
+  ClaimedWork,
 } from "@inboxzero/mail-core/ports/mail-store";
 import type {
   BodyObservation,
@@ -43,12 +46,16 @@ import type {
   SyncPage,
 } from "@inboxzero/mail-core/sync";
 import type { SqlTransaction, SqliteDriver } from "./driver";
-import { evictReplaceableMessageContent } from "./maintenance";
+import {
+  evictReplaceableMessageContent,
+  listReferencedBlobIds,
+} from "./maintenance";
 import {
   readMailboxViewFromSql,
   readMailboxWindowFromSql,
 } from "./mailbox-view-readers";
 import { migrateMailbox } from "./migrations";
+import { probeSqliteCapabilities } from "./capabilities";
 import {
   connectionStatus,
   metadataFromEffective,
@@ -71,6 +78,7 @@ const HYDRATION_JOB_KEY_LIMIT = 20;
 
 export type SqliteMailStoreOptions = {
   maxPendingOperations?: number;
+  runtime?: Pick<HostRuntime, "randomId" | "sha256" | "nowMs">;
 };
 
 export async function createSqliteMailStore(
@@ -80,9 +88,18 @@ export async function createSqliteMailStore(
   const maxPendingOperations = clampMaxPendingOperations(
     options.maxPendingOperations,
   );
+  const runtime = resolveStoreRuntime(options.runtime);
+  const digest = (value: unknown) => hashCanonical(value, runtime.sha256);
   await driver.write(async (tx) => {
-    await migrateMailbox(tx, crypto.randomUUID());
+    await migrateMailbox(tx, runtime.randomId());
   });
+  const capabilities = await probeSqliteCapabilities(driver);
+  if (!capabilities.savepoints) {
+    throw new Error("SQLite savepoints are required for mailbox migrations");
+  }
+  if (!capabilities.jsonEach) {
+    throw new Error("SQLite json_each is required for mailbox queries");
+  }
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -124,6 +141,7 @@ export async function createSqliteMailStore(
           "operation_targets",
           "operation_conversations",
           "operations",
+          "draft_attachments",
           "drafts",
           "sync_streams",
           "bootstrap_seen_messages",
@@ -145,11 +163,13 @@ export async function createSqliteMailStore(
       });
     },
     async admitMetadata(input) {
-      return driver.write((tx) => admitExact(tx, input, maxPendingOperations));
+      return driver.write((tx) =>
+        admitExact(tx, input, maxPendingOperations, digest),
+      );
     },
     async admitConversations(input) {
       return driver.write((tx) =>
-        admitConversations(tx, input, maxPendingOperations),
+        admitConversations(tx, input, maxPendingOperations, runtime, digest),
       );
     },
     async applyPreparationPage(input) {
@@ -289,7 +309,7 @@ export async function createSqliteMailStore(
           targets: messageTargets,
           change: payload.change,
         };
-        const executableHash = await hashCanonical(executable);
+        const executableHash = await digest(executable);
         await tx.execute(
           `UPDATE operations SET status = 'queued', executable_hash = ?, executable_payload_json = ?
            WHERE account_id = ? AND command_id = ?`,
@@ -329,7 +349,7 @@ export async function createSqliteMailStore(
           [input.nowMs, input.nowMs],
         );
         if (preparing[0]) {
-          const attemptId = crypto.randomUUID();
+          const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE operations
              SET attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
@@ -367,35 +387,30 @@ export async function createSqliteMailStore(
               : null,
           };
         }
+        const upload = await claimUploadWork(tx, input, runtime.randomId);
+        if (upload) return upload;
         const queued = await tx.query(
           `SELECT * FROM operations
            WHERE executable_hash IS NOT NULL
              AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
+             AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
              AND (
                status IN ('queued', 'retry_wait')
-               OR (
-                 status = 'executing'
-                 AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
-               )
+               OR status = 'executing'
              )
            ORDER BY created_at_ms`,
           [input.nowMs, input.nowMs],
         );
         for (const row of queued) {
           if (await hasUnsatisfiedDependency(tx, row)) continue;
-          const attemptId = crypto.randomUUID();
+          const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE operations
              SET status = 'executing', attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
              WHERE account_id = ? AND command_id = ?
                AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
-               AND (
-                 status IN ('queued', 'retry_wait')
-                 OR (
-                   status = 'executing'
-                   AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
-                 )
-               )`,
+               AND (claimed_by IS NULL OR claimed_until_ms IS NULL OR claimed_until_ms < ?)
+               AND status IN ('queued', 'retry_wait', 'executing')`,
             [
               input.ownerId,
               input.nowMs + input.leaseMs,
@@ -422,7 +437,7 @@ export async function createSqliteMailStore(
         );
         for (const row of inspectable) {
           if (await hasUnsatisfiedDependency(tx, row)) continue;
-          const attemptId = crypto.randomUUID();
+          const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE operations
              SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
@@ -462,7 +477,7 @@ export async function createSqliteMailStore(
           [input.nowMs, input.nowMs],
         );
         if (hydrate[0]) {
-          const attemptId = crypto.randomUUID();
+          const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
              WHERE job_id = ?
@@ -506,7 +521,7 @@ export async function createSqliteMailStore(
           [input.nowMs, input.nowMs],
         );
         if (search[0]) {
-          const attemptId = crypto.randomUUID();
+          const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
              WHERE job_id = ?
@@ -602,6 +617,7 @@ export async function createSqliteMailStore(
           changes: input.page.changes,
           requiredHydration: input.page.requiredHydration,
           bodies,
+          digest,
         });
         await tx.execute(
           `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
@@ -916,6 +932,62 @@ export async function createSqliteMailStore(
         }
       });
     },
+    listReferencedBlobIds() {
+      return listReferencedBlobIds(driver);
+    },
+    async stageDraftAttachment(input) {
+      const parsed = blobIdSchema.safeParse(input.attachmentId);
+      if (!parsed.success) return { status: "rejected", code: "invalid" };
+      return driver.write(async (tx) => {
+        await tx.execute(
+          `INSERT INTO draft_attachments(
+             account_id, attachment_id, draft_id, filename, content_type, size_bytes,
+             checksum, inline, remote_status, created_at_ms
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)
+           ON CONFLICT(account_id, attachment_id) DO UPDATE SET
+             draft_id = excluded.draft_id,
+             filename = excluded.filename,
+             content_type = excluded.content_type,
+             size_bytes = excluded.size_bytes,
+             checksum = excluded.checksum,
+             inline = excluded.inline,
+             remote_status = CASE
+               WHEN draft_attachments.remote_status = 'uploaded' THEN draft_attachments.remote_status
+               ELSE 'local'
+             END`,
+          [
+            input.accountId,
+            parsed.data,
+            input.draftId,
+            input.filename,
+            input.contentType,
+            input.sizeBytes,
+            input.checksum,
+            input.inline ? 1 : 0,
+            runtime.nowMs(),
+          ],
+        );
+        return { status: "staged" as const };
+      });
+    },
+    async recordAttachmentUpload(input) {
+      return driver.write(async (tx) => {
+        await tx.execute(
+          `UPDATE draft_attachments
+           SET remote_upload_id = ?, remote_status = 'uploaded'
+           WHERE account_id = ? AND attachment_id = ?`,
+          [input.remoteUploadId, input.accountId, input.attachmentId],
+        );
+        await tx.execute(
+          `UPDATE operations
+           SET claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL
+           WHERE account_id = ? AND command_id = ?
+             AND status IN ('queued', 'retry_wait')`,
+          [input.accountId, input.operationId],
+        );
+        return bumpRevision(tx);
+      });
+    },
     async admitSend(input) {
       return driver.write(async (tx) => {
         const draft = await tx.query(
@@ -960,7 +1032,7 @@ export async function createSqliteMailStore(
           replyToConversationId,
           queuedAtMs: Date.now(),
         };
-        const hash = await hashCanonical({ ...payload, queuedAtMs: 0 });
+        const hash = await digest({ ...payload, queuedAtMs: 0 });
         const existing = await loadOperation(
           tx,
           input.draft.accountId,
@@ -1020,11 +1092,19 @@ export async function createSqliteMailStore(
       });
     },
     async readMailboxView(query) {
-      return driver.read((tx) => readMailboxViewFromSql(tx, query));
+      return driver.read(async (tx) =>
+        withIndexedCoverage(
+          await readMailboxViewFromSql(tx, query),
+          capabilities,
+        ),
+      );
     },
     async readMailboxWindow(query, pageCount) {
-      return driver.read((tx) =>
-        readMailboxWindowFromSql(tx, query, pageCount),
+      return driver.read(async (tx) =>
+        withIndexedCoverage(
+          await readMailboxWindowFromSql(tx, query, pageCount),
+          capabilities,
+        ),
       );
     },
     async readConversation(key, page) {
@@ -1422,6 +1502,7 @@ export async function createSqliteMailStore(
           changes: input.changes,
           requiredHydration: input.requiredHydration,
           bodies,
+          digest,
         });
         if (input.nextPage) {
           await tx.execute(
@@ -1567,13 +1648,14 @@ export async function createSqliteMailStore(
         await enqueueHydrationJobs(tx, {
           keys: input.keys,
           purpose: input.purpose,
+          digest,
         });
         return bumpRevision(tx);
       });
     },
     async enqueueSearch(input) {
       return driver.write(async (tx) => {
-        const jobId = `search:${input.accountId}:${await hashCanonical({
+        const jobId = `search:${input.accountId}:${await digest({
           predicate: input.predicate,
           page: input.page,
         })}`;
@@ -1754,6 +1836,7 @@ async function admitExact(
   tx: SqlTransaction,
   input: SubmitMetadataCommand,
   maxPendingOperations: number,
+  digest: (value: unknown) => Promise<string>,
 ): Promise<Admission> {
   for (const target of input.targets) {
     if (target.accountId !== input.accountId) {
@@ -1765,7 +1848,7 @@ async function admitExact(
     targets: input.targets,
     change: input.change,
   };
-  const hash = await hashCanonical(payload);
+  const hash = await digest(payload);
   const existing = await loadOperation(tx, input.accountId, input.commandId);
   if (existing) {
     if (String(existing.intent_hash) === hash) {
@@ -1816,6 +1899,8 @@ async function admitConversations(
   tx: SqlTransaction,
   input: SubmitConversationCommand,
   maxPendingOperations: number,
+  runtime: Pick<HostRuntime, "randomId">,
+  digest: (value: unknown) => Promise<string>,
 ): Promise<Admission> {
   const revision = await readRevision(tx);
   if (revision.databaseEpoch !== input.observedRevision.databaseEpoch) {
@@ -1827,7 +1912,7 @@ async function admitConversations(
     conversations: input.conversations,
     change: input.change,
   };
-  const hash = await hashCanonical(payload);
+  const hash = await digest(payload);
   if (existing) {
     if (String(existing.intent_hash) === hash) {
       return {
@@ -1870,6 +1955,7 @@ async function admitConversations(
         change: input.change,
       },
       maxPendingOperations,
+      digest,
     );
   }
   const full = await rejectIfQueueFull(
@@ -1898,7 +1984,7 @@ async function admitConversations(
         input.accountId,
         input.commandId,
         conversation.conversationId,
-        crypto.randomUUID(),
+        runtime.randomId(),
       ],
     );
   }
@@ -1926,17 +2012,19 @@ async function saveDraftRow(
   }
   const next = (currentRevision ?? 0) + 1;
   await tx.execute(
-    `INSERT INTO drafts(account_id, draft_id, revision, content_json, frozen)
-     VALUES (?, ?, ?, ?, 0)
+    `INSERT INTO drafts(account_id, draft_id, revision, content_json, frozen, updated_at_ms)
+     VALUES (?, ?, ?, ?, 0, ?)
      ON CONFLICT(account_id, draft_id) DO UPDATE SET
        revision = excluded.revision,
-       content_json = excluded.content_json
+       content_json = excluded.content_json,
+       updated_at_ms = excluded.updated_at_ms
      WHERE frozen = 0`,
     [
       input.key.accountId,
       input.key.draftId,
       next,
       JSON.stringify(input.content),
+      Date.now(),
     ],
   );
   return {
@@ -2128,6 +2216,7 @@ async function applyPageFacts(
     changes: ProviderChange[];
     requiredHydration: MessageKey[];
     bodies: BodyObservation[];
+    digest: (value: unknown) => Promise<string>;
   },
 ) {
   for (const change of input.changes) {
@@ -2141,6 +2230,7 @@ async function applyPageFacts(
     keys: input.requiredHydration,
     purpose: "body",
     skipFreshContent: true,
+    digest: input.digest,
   });
 }
 
@@ -2150,6 +2240,7 @@ async function enqueueHydrationJobs(
     keys: MessageKey[];
     purpose: "metadata" | "body";
     skipFreshContent?: boolean;
+    digest: (value: unknown) => Promise<string>;
   },
 ) {
   const keysByAccount = new Map<string, MessageKey[]>();
@@ -2174,7 +2265,7 @@ async function enqueueHydrationJobs(
       );
     }
     for (const keys of chunkMessageKeys(sortedKeys, HYDRATION_JOB_KEY_LIMIT)) {
-      const jobId = `hydrate:${accountId}:${input.purpose}:${await hashCanonical(keys)}`;
+      const jobId = `hydrate:${accountId}:${input.purpose}:${await input.digest(keys)}`;
       await tx.execute(
         `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
          VALUES (?, ?, 'hydrate', ?)`,
@@ -2351,8 +2442,8 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
        from_address, to_json, cc_json, received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json,
-       roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, deleted
-     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms, deleted
+     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(account_id, message_id) DO UPDATE SET
        conversation_id = excluded.conversation_id,
        version = excluded.version,
@@ -2376,6 +2467,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
        in_trash = excluded.in_trash,
        in_spam = excluded.in_spam,
        has_attachments = excluded.has_attachments,
+       snoozed_until_ms = excluded.snoozed_until_ms,
        deleted = excluded.deleted`,
     [
       message.accountId,
@@ -2403,6 +2495,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       flags.trash,
       flags.spam,
       message.hasAttachments ? 1 : 0,
+      message.snoozedUntilMs ?? null,
       message.deleted ? 1 : 0,
     ],
   );
@@ -2451,8 +2544,8 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
       `INSERT INTO effective_messages(
          account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json,
          received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json, roles_json,
-         in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms, pending_operation_ids_json
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, message_id) DO UPDATE SET
          conversation_id = excluded.conversation_id,
          subject = excluded.subject,
@@ -2474,6 +2567,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
          in_trash = excluded.in_trash,
          in_spam = excluded.in_spam,
          has_attachments = excluded.has_attachments,
+         snoozed_until_ms = excluded.snoozed_until_ms,
          pending_operation_ids_json = excluded.pending_operation_ids_json`,
       [
         effective.accountId,
@@ -2498,6 +2592,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         flags.trash,
         flags.spam,
         effective.hasAttachments ? 1 : 0,
+        effective.snoozedUntilMs ?? null,
         JSON.stringify(effective.pendingOperationIds),
       ],
     );
@@ -2691,6 +2786,8 @@ function confirmedFromRow(
     categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
     roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],
     hasAttachments: Number(row.has_attachments) === 1,
+    snoozedUntilMs:
+      row.snoozed_until_ms == null ? null : Number(row.snoozed_until_ms),
   };
 }
 
@@ -2730,6 +2827,8 @@ async function hasUnsatisfiedDependency(
   tx: SqlTransaction,
   row: Record<string, import("./driver").SqlValue>,
 ) {
+  const attachmentBlock = await hasUnsatisfiedAttachments(tx, row);
+  if (attachmentBlock) return true;
   const blockers = await tx.query(
     `SELECT 1
      FROM operation_targets mine
@@ -2977,6 +3076,144 @@ export function clampMaxPendingOperations(value: number | undefined): number {
     return MAX_QUEUE;
   }
   return Math.min(Math.floor(value), MAX_QUEUE);
+}
+
+function withIndexedCoverage<
+  T extends {
+    view: { coverage: import("@inboxzero/mail-core/queries").Coverage[] };
+  },
+>(result: T, capabilities: { fts5: boolean }): T {
+  if (capabilities.fts5) return result;
+  return {
+    ...result,
+    view: {
+      ...result.view,
+      coverage: result.view.coverage.map((item) => ({
+        ...item,
+        indexedContent: "not_requested" as const,
+      })),
+    },
+  };
+}
+
+async function hasUnsatisfiedAttachments(
+  tx: SqlTransaction,
+  row: Record<string, import("./driver").SqlValue>,
+) {
+  const payload = row.executable_payload_json ?? row.payload_json;
+  if (payload == null) return false;
+  try {
+    const parsed = JSON.parse(String(payload)) as {
+      kind?: unknown;
+      attachmentIds?: unknown;
+    };
+    if (parsed.kind !== "send" || !Array.isArray(parsed.attachmentIds)) {
+      return false;
+    }
+    const ids = parsed.attachmentIds.filter(
+      (id): id is string => typeof id === "string",
+    );
+    if (ids.length === 0) return false;
+    const rows = await tx.query(
+      `SELECT attachment_id, remote_status FROM draft_attachments
+       WHERE account_id = ? AND attachment_id IN (${ids.map(() => "?").join(",")})`,
+      [String(row.account_id), ...ids],
+    );
+    if (rows.length === 0) return false;
+    const uploaded = new Set(
+      rows
+        .filter((item) => String(item.remote_status) === "uploaded")
+        .map((item) => String(item.attachment_id)),
+    );
+    return ids.some((id) => !uploaded.has(id));
+  } catch {
+    return false;
+  }
+}
+
+async function claimUploadWork(
+  tx: SqlTransaction,
+  input: { ownerId: string; nowMs: number; leaseMs: number },
+  randomId: () => string,
+): Promise<ClaimedWork | null> {
+  const rows = await tx.query(
+    `SELECT o.*, a.generation, d.attachment_id, d.checksum, d.size_bytes, d.filename, d.content_type
+     FROM operations o
+     JOIN accounts a ON a.account_id = o.account_id
+     JOIN draft_attachments d ON d.account_id = o.account_id
+     WHERE o.status IN ('queued', 'retry_wait')
+       AND o.executable_payload_json IS NOT NULL
+       AND (o.next_attempt_at_ms IS NULL OR o.next_attempt_at_ms <= ?)
+       AND d.remote_status = 'local'
+       AND EXISTS (
+         SELECT 1 FROM json_each(json_extract(o.executable_payload_json, '$.attachmentIds'))
+         WHERE value = d.attachment_id
+       )
+     ORDER BY o.created_at_ms
+     LIMIT 1`,
+    [input.nowMs],
+  );
+  if (!rows[0]) return null;
+  const attemptId = randomId();
+  const claimed = await tx.execute(
+    `UPDATE operations
+     SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+     WHERE account_id = ? AND command_id = ?
+       AND status IN ('queued', 'retry_wait')
+       AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)`,
+    [
+      input.ownerId,
+      input.nowMs + input.leaseMs,
+      attemptId,
+      rows[0].account_id,
+      rows[0].command_id,
+      input.nowMs,
+    ],
+  );
+  if (claimed.changedRows === 0) return null;
+  const prepared = await toPrepared(tx, rows[0]);
+  if (!prepared) return null;
+  return {
+    kind: "upload",
+    attemptId,
+    operation: prepared,
+    attachmentId: String(rows[0].attachment_id),
+    checksum: String(rows[0].checksum),
+    sizeBytes: Number(rows[0].size_bytes),
+    filename: String(rows[0].filename),
+    contentType: String(rows[0].content_type),
+  };
+}
+
+function resolveStoreRuntime(
+  runtime?: Pick<HostRuntime, "randomId" | "sha256" | "nowMs">,
+): Pick<HostRuntime, "randomId" | "sha256" | "nowMs"> {
+  return {
+    randomId: runtime?.randomId ?? defaultStoreRandomId,
+    sha256: runtime?.sha256 ?? defaultStoreSha256,
+    nowMs: runtime?.nowMs ?? (() => Date.now()),
+  };
+}
+
+function defaultStoreRandomId(): string {
+  const cryptoObj = globalThis.crypto;
+  if (typeof cryptoObj?.randomUUID === "function")
+    return cryptoObj.randomUUID();
+  throw new Error(
+    "createSqliteMailStore requires options.runtime.randomId when crypto.randomUUID is unavailable",
+  );
+}
+
+async function defaultStoreSha256(bytes: Uint8Array): Promise<Uint8Array> {
+  const subtle = globalThis.crypto?.subtle;
+  if (typeof subtle?.digest !== "function") {
+    throw new Error(
+      "createSqliteMailStore requires options.runtime.sha256 when crypto.subtle.digest is unavailable",
+    );
+  }
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return new Uint8Array(await subtle.digest("SHA-256", copy));
 }
 
 export type { SyncPage, ConversationKey };

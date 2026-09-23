@@ -39,6 +39,7 @@ export const messageMetadataSchema = z.object({
   categoryIds: z.array(z.string().max(256)).max(500),
   roles: z.array(mailboxRoleSchema).max(8),
   hasAttachments: z.boolean(),
+  snoozedUntilMs: z.number().int().nullable().optional(),
 });
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 

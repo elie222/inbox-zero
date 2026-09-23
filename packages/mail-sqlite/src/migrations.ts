@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS messages (
   in_trash INTEGER NOT NULL CHECK (in_trash IN (0, 1)),
   in_spam INTEGER NOT NULL CHECK (in_spam IN (0, 1)),
   has_attachments INTEGER NOT NULL CHECK (has_attachments IN (0, 1)),
+  snoozed_until_ms INTEGER,
   deleted INTEGER NOT NULL DEFAULT 0 CHECK (deleted IN (0, 1)),
   PRIMARY KEY (account_id, message_id),
   FOREIGN KEY (account_id) REFERENCES accounts(account_id)
@@ -86,6 +87,7 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   in_trash INTEGER NOT NULL,
   in_spam INTEGER NOT NULL,
   has_attachments INTEGER NOT NULL,
+  snoozed_until_ms INTEGER,
   pending_operation_ids_json TEXT NOT NULL,
   PRIMARY KEY (account_id, message_id)
 );
@@ -140,7 +142,23 @@ CREATE TABLE IF NOT EXISTS drafts (
   revision INTEGER NOT NULL,
   content_json TEXT NOT NULL,
   frozen INTEGER NOT NULL DEFAULT 0,
+  updated_at_ms INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (account_id, draft_id)
+);
+
+CREATE TABLE IF NOT EXISTS draft_attachments (
+  account_id TEXT NOT NULL,
+  attachment_id TEXT NOT NULL,
+  draft_id TEXT,
+  filename TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  checksum TEXT NOT NULL,
+  inline INTEGER NOT NULL DEFAULT 0,
+  remote_upload_id TEXT,
+  remote_status TEXT NOT NULL DEFAULT 'local',
+  created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY (account_id, attachment_id)
 );
 
 CREATE TABLE IF NOT EXISTS sync_streams (
@@ -344,5 +362,40 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  try {
+    await tx.exec("ALTER TABLE messages ADD COLUMN snoozed_until_ms INTEGER");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN snoozed_until_ms INTEGER",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE drafts ADD COLUMN updated_at_ms INTEGER NOT NULL DEFAULT 0",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  await tx.exec(`
+    CREATE TABLE IF NOT EXISTS draft_attachments (
+      account_id TEXT NOT NULL,
+      attachment_id TEXT NOT NULL,
+      draft_id TEXT,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      checksum TEXT NOT NULL,
+      inline INTEGER NOT NULL DEFAULT 0,
+      remote_upload_id TEXT,
+      remote_status TEXT NOT NULL DEFAULT 'local',
+      created_at_ms INTEGER NOT NULL,
+      PRIMARY KEY (account_id, attachment_id)
+    );
+  `);
   await migrateConversationIndex(tx);
 }

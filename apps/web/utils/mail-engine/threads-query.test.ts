@@ -18,7 +18,7 @@ describe("threadsQueryToPredicate", () => {
     ).toEqual({
       kind: "all",
       predicates: [
-        { kind: "role", role: "inbox" },
+        { kind: "mailbox", mailbox: "inbox" },
         { kind: "inbox_section", section: "focused" },
       ],
     });
@@ -33,7 +33,7 @@ describe("threadsQueryToPredicate", () => {
     ).toEqual({
       kind: "all",
       predicates: [
-        { kind: "role", role: "inbox" },
+        { kind: "mailbox", mailbox: "inbox" },
         {
           kind: "any",
           predicates: [{ kind: "inbox_section", section: "other" }],
@@ -115,7 +115,7 @@ describe("threadsQueryToPredicate", () => {
     ).toEqual({
       kind: "all",
       predicates: [
-        { kind: "role", role: "inbox" },
+        { kind: "mailbox", mailbox: "inbox" },
         {
           kind: "not",
           predicate: {

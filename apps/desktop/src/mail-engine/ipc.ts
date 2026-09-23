@@ -92,6 +92,31 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
       handle.close();
       return { status: "ok" as const, result: snapshot };
     }
+    case "observeOperation": {
+      const handle = engine.observeOperation(request.payload);
+      const snapshot = await waitForLoadedSnapshot(handle);
+      handle.close();
+      return { status: "ok" as const, result: snapshot };
+    }
+    case "stageDraftAttachment": {
+      const bytes = base64ToBytes(request.payload.contentBase64);
+      return {
+        status: "ok" as const,
+        result: await engine.stageDraftAttachment({
+          accountId: request.payload.accountId,
+          draftId: request.payload.draftId,
+          attachmentId: request.payload.attachmentId,
+          filename: request.payload.filename,
+          contentType: request.payload.contentType,
+          checksum: request.payload.checksum,
+          sizeBytes: request.payload.sizeBytes,
+          inline: request.payload.inline,
+          bytes: (async function* () {
+            yield bytes;
+          })(),
+        }),
+      };
+    }
     case "cancel":
       return { status: "unsupported" as const };
     default: {
@@ -117,4 +142,8 @@ async function waitForLoadedSnapshot<T>(handle: QueryHandle<T>) {
       resolve(snapshot);
     });
   });
+}
+
+function base64ToBytes(value: string) {
+  return new Uint8Array(Buffer.from(value, "base64"));
 }

@@ -91,6 +91,8 @@ export function metadataFromEffective(
     categoryIds: JSON.parse(String(row.category_ids_json)) as string[],
     roles: JSON.parse(String(row.roles_json)) as MessageMetadata["roles"],
     hasAttachments: Number(row.has_attachments) === 1,
+    snoozedUntilMs:
+      row.snoozed_until_ms == null ? null : Number(row.snoozed_until_ms),
   };
 }
 

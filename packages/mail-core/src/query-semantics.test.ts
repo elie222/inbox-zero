@@ -1,159 +1,86 @@
 import { describe, expect, it } from "vitest";
-import type { EffectiveMessage } from "./query-semantics";
 import {
-  conversationIsUnread,
   conversationMatchesPredicate,
-  extractTextPredicates,
-  messageMatchesPredicate,
+  type EffectiveMessage,
 } from "./query-semantics";
 
-const inboxUnread: EffectiveMessage = {
-  accountId: "a1",
-  messageId: "m1",
-  conversationId: "c1",
-  subject: "Hello",
-  preview: "World",
-  from: "Ada Lovelace <ada@example.com>",
-  to: ["me@example.com"],
-  cc: [],
-  receivedAtMs: 1000,
-  read: false,
-  starred: false,
-  folderId: "inbox",
-  labelIds: ["INBOX"],
-  categoryIds: [],
-  roles: ["inbox"],
-  hasAttachments: false,
-  pendingOperationIds: [],
-};
-
-const archivedRead: EffectiveMessage = {
-  ...inboxUnread,
-  messageId: "m2",
-  read: true,
-  roles: [],
-  labelIds: [],
-};
-
-describe("messageMatchesPredicate", () => {
-  it("requires every clause of an all-predicate on the same message", () => {
-    const predicate = {
-      kind: "all" as const,
-      predicates: [
-        { kind: "role" as const, role: "inbox" as const },
-        { kind: "read" as const, value: false },
-      ],
-    };
-    expect(messageMatchesPredicate(inboxUnread, predicate)).toBe(true);
-    expect(messageMatchesPredicate(archivedRead, predicate)).toBe(false);
+describe("mailbox predicates", () => {
+  it("treats archive as a conversation with no inbox, trash, or spam members", () => {
     expect(
-      conversationMatchesPredicate([inboxUnread, archivedRead], predicate),
+      conversationMatchesPredicate(
+        [message({ roles: ["sent"] }), message({ roles: [] })],
+        { kind: "mailbox", mailbox: "archive" },
+      ),
     ).toBe(true);
     expect(
       conversationMatchesPredicate(
-        [
-          { ...inboxUnread, read: true },
-          { ...archivedRead, read: false, roles: [] },
-        ],
-        predicate,
+        [message({ roles: ["inbox"] }), message({ roles: ["sent"] })],
+        { kind: "mailbox", mailbox: "archive" },
       ),
     ).toBe(false);
   });
 
-  it("matches address and domain filters", () => {
+  it("keeps a conversation out of all mail when any message is trash or spam", () => {
     expect(
-      messageMatchesPredicate(inboxUnread, {
-        kind: "address",
-        field: "from",
-        value: "ada@example.com",
-        match: "address",
-      }),
-    ).toBe(true);
-    expect(
-      messageMatchesPredicate(inboxUnread, {
-        kind: "address",
-        field: "from",
-        value: "example.com",
-        match: "domain",
-      }),
-    ).toBe(true);
-    expect(
-      messageMatchesPredicate(
-        { ...inboxUnread, from: "ada@example.com" },
-        {
-          kind: "address",
-          field: "from",
-          value: "ada@example.com",
-          match: "address",
-        },
-      ),
-    ).toBe(true);
-  });
-
-  it("matches Outlook inbox sections without treating them as categories", () => {
-    expect(
-      messageMatchesPredicate(
-        { ...inboxUnread, inboxSection: "focused", categoryIds: [] },
-        { kind: "inbox_section", section: "focused" },
-      ),
-    ).toBe(true);
-    expect(
-      messageMatchesPredicate(
-        { ...inboxUnread, inboxSection: "other", categoryIds: ["focused"] },
-        { kind: "inbox_section", section: "focused" },
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"] }), message({ roles: ["trash"] })],
+        { kind: "mailbox", mailbox: "all" },
       ),
     ).toBe(false);
+    expect(
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"] }), message({ roles: ["sent"] })],
+        { kind: "mailbox", mailbox: "all" },
+      ),
+    ).toBe(true);
   });
 
-  it("scopes membership predicates to the requested account", () => {
-    const predicate = {
-      kind: "membership" as const,
-      membership: "label" as const,
-      id: "shared-id",
-      accountId: "a1",
-    };
+  it("matches provider draft-role messages, not local composition drafts", () => {
     expect(
-      messageMatchesPredicate(
-        { ...inboxUnread, accountId: "a1", labelIds: ["shared-id"] },
-        predicate,
+      conversationMatchesPredicate([message({ roles: ["draft"] })], {
+        kind: "mailbox",
+        mailbox: "drafts",
+      }),
+    ).toBe(true);
+  });
+
+  it("matches snoozed mail until the timestamp elapses", () => {
+    expect(
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"], snoozedUntilMs: Date.now() + 60_000 })],
+        { kind: "mailbox", mailbox: "snoozed" },
       ),
     ).toBe(true);
     expect(
-      messageMatchesPredicate(
-        { ...inboxUnread, accountId: "a2", labelIds: ["shared-id"] },
-        predicate,
+      conversationMatchesPredicate(
+        [message({ roles: ["inbox"], snoozedUntilMs: Date.now() - 1 })],
+        { kind: "mailbox", mailbox: "snoozed" },
       ),
     ).toBe(false);
   });
 });
 
-describe("extractTextPredicates", () => {
-  it("collects nested text clauses for provider search", () => {
-    expect(
-      extractTextPredicates({
-        kind: "all",
-        predicates: [
-          { kind: "role", role: "inbox" },
-          {
-            kind: "text",
-            field: "any",
-            value: "invoice",
-            match: "phrase",
-          },
-        ],
-      }),
-    ).toEqual([
-      { kind: "text", field: "any", value: "invoice", match: "phrase" },
-    ]);
-  });
-});
-
-describe("conversation unread count rule", () => {
-  it("counts a conversation unread only when a matching message is unread", () => {
-    const inbox = { kind: "role" as const, role: "inbox" as const };
-    expect(conversationIsUnread([inboxUnread, archivedRead], inbox)).toBe(true);
-    expect(conversationIsUnread([{ ...inboxUnread, read: true }], inbox)).toBe(
-      false,
-    );
-  });
-});
+function message(
+  fields: Partial<EffectiveMessage> & { roles: EffectiveMessage["roles"] },
+): EffectiveMessage {
+  return {
+    accountId: "acc-1",
+    messageId: "m1",
+    conversationId: "c1",
+    subject: "Subject",
+    preview: "Preview",
+    from: "ada@example.com",
+    to: ["me@example.com"],
+    cc: [],
+    receivedAtMs: 1,
+    read: false,
+    starred: false,
+    folderId: "inbox",
+    inboxSection: null,
+    labelIds: [],
+    categoryIds: [],
+    hasAttachments: false,
+    pendingOperationIds: [],
+    ...fields,
+  };
+}

@@ -86,6 +86,22 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
     requestId: z.string().min(1).max(128),
+    method: z.literal("stageDraftAttachment"),
+    payload: z.object({
+      accountId: accountIdSchema,
+      draftId: z.string().min(1).max(128).nullable(),
+      attachmentId: z.string().min(1).max(128),
+      filename: z.string().max(1024),
+      contentType: z.string().max(256),
+      checksum: z.string().min(1).max(128),
+      sizeBytes: z.number().int().nonnegative(),
+      inline: z.boolean().optional(),
+      contentBase64: z.string().min(1),
+    }),
+  }),
+  z.object({
+    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
+    requestId: z.string().min(1).max(128),
     method: z.literal("getDiagnostics"),
     payload: z.object({ accountId: accountIdSchema }),
   }),
@@ -110,6 +126,12 @@ export const mailIpcRequestSchema = z.discriminatedUnion("method", [
       after: z.string().nullable(),
       pageSize: z.number().int().min(1).max(100),
     }),
+  }),
+  z.object({
+    protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),
+    requestId: z.string().min(1).max(128),
+    method: z.literal("observeOperation"),
+    payload: operationKeySchema,
   }),
   z.object({
     protocolVersion: z.literal(MAIL_IPC_PROTOCOL_VERSION),

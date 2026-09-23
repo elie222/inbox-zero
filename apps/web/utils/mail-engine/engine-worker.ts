@@ -36,8 +36,12 @@ async function createWorkerEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
   const driver = await createWasmSqliteDriver({ persist: input.persist });
+  const runtime = createHostRuntime({
+    storagePressure: browserStoragePressure,
+  });
   const store = await createSqliteMailStore(driver, {
     maxPendingOperations: input.maxPendingOperations,
+    runtime,
   });
   const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
     await store.ensureAccount({
@@ -55,7 +59,7 @@ async function createWorkerEngine(
     source: ports.source,
     executor: ports.executor,
     assistant: ports.assistant,
-    runtime: createHostRuntime({ storagePressure: browserStoragePressure }),
+    runtime,
     ownerId: "browser-worker",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {
