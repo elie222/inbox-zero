@@ -65,4 +65,31 @@ describe("Expo authorization URL allowlist", () => {
       ).toBe(false);
     }
   });
+
+  it("allows only the configured emulator origins", () => {
+    const google = new URL("https://mail.example:8443/o/oauth2/v2/auth");
+    const microsoft = new URL(
+      "https://mail.example:8444/common/oauth2/v2.0/authorize",
+    );
+    const origins = [
+      "https://mail.example:8443",
+      "https://mail.example:8444",
+      "http://evil.example:3003",
+    ];
+    expect(isAllowedExpoAuthorizationUrl(google, baseURL, false, origins)).toBe(
+      true,
+    );
+    expect(
+      isAllowedExpoAuthorizationUrl(microsoft, baseURL, false, origins),
+    ).toBe(true);
+    expect(
+      isAllowedExpoAuthorizationUrl(
+        new URL("http://evil.example:3003/o/oauth2/v2/auth"),
+        baseURL,
+        true,
+        origins,
+      ),
+    ).toBe(false);
+    expect(isAllowedExpoAuthorizationUrl(google, baseURL, false)).toBe(false);
+  });
 });

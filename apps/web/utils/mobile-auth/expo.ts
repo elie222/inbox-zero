@@ -28,16 +28,42 @@ export function isAllowedExpoAuthorizationUrl(
   url: URL,
   baseURL: string,
   allowLocalHttp: boolean,
+  emulatorOrigins: readonly string[] = [],
 ) {
   if (url.origin === new URL(baseURL).origin) return false;
+  if (configuredEmulatorOrigins(emulatorOrigins).has(url.origin)) return true;
   if (url.protocol === "https:") {
     return EXPO_AUTHORIZATION_HOSTS.has(url.hostname);
   }
   if (!allowLocalHttp || url.protocol !== "http:") return false;
+  return isLocalEmulatorHost(url.hostname);
+}
+
+function configuredEmulatorOrigins(values: readonly string[]) {
+  const origins = new Set<string>();
+  for (const value of values) {
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") continue;
+      if (
+        parsed.protocol === "http:" &&
+        !isLocalEmulatorHost(parsed.hostname)
+      ) {
+        continue;
+      }
+      origins.add(parsed.origin);
+    } catch {
+      // Ignore an unusable emulator base URL.
+    }
+  }
+  return origins;
+}
+
+function isLocalEmulatorHost(hostname: string) {
   return (
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname.endsWith(".localhost")
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".localhost")
   );
 }
 
@@ -72,6 +98,9 @@ function localExpoAuthorizationProxy() {
           url,
           ctx.context.baseURL,
           process.env.NODE_ENV === "development",
+          [process.env.GOOGLE_BASE_URL, process.env.MICROSOFT_BASE_URL].filter(
+            (value): value is string => Boolean(value),
+          ),
         )
       ) {
         throw new APIError("BAD_REQUEST", {
