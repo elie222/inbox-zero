@@ -2946,6 +2946,92 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("applies a preparing conversation command to locally known messages", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 2000, ["inbox"]),
+          messagePatch("m2", "c2", 1000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const listed = async () =>
+      (await store.readMailboxView(inboxQuery)).view.conversations.map(
+        (conversation) => conversation.key.conversationId,
+      );
+    const admission = await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: { kind: "archive" },
+      observedRevision: (await store.readMailboxView(inboxQuery)).revision,
+    });
+    expect(admission.status).toBe("preparing");
+    expect(await listed()).toEqual(["c2"]);
+
+    await store.cancelOperation({
+      accountId: "acc-1",
+      operationId: "archive-c1",
+    });
+    expect(await listed()).toEqual(["c1", "c2"]);
+    await store.close();
+  });
+
+  it("restores locally applied effects when conversation preparation fails", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: { kind: "archive" },
+      observedRevision: (await store.readMailboxView(inboxQuery)).revision,
+    });
+    const work = await claimPreparation(store, "archive-c1");
+    await store.failPreparation({
+      accountId: "acc-1",
+      commandId: "archive-c1",
+      attemptId: work.attemptId,
+      session: work.session,
+      code: "conversation_not_found",
+    });
+    expect(
+      (await store.readMailboxView(inboxQuery)).view.conversations.map(
+        (conversation) => conversation.key.conversationId,
+      ),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
   it("leases preparation work and reclaims it only after defer time", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
