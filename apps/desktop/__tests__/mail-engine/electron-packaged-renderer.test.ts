@@ -102,11 +102,18 @@ function runElectron(binary: string, extraArgs: string[], userData: string) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      child.kill();
       if (ok) {
-        resolve(stdout);
+        // The caller deletes the profile, which Electron keeps writing to
+        // until the process has actually exited.
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve(stdout);
+        } else {
+          child.once("exit", () => resolve(stdout));
+          child.kill();
+        }
         return;
       }
+      child.kill();
       reject(
         new Error(
           `electron packaged local mail exited ${code}\n${stdout}\n${stderr}`,
