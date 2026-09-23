@@ -69,19 +69,30 @@ function createGroup<T>(
   let latestRead = 0;
   let inFlight: Promise<void> | null = null;
   let queued = false;
+  let publishedData: string | null = null;
 
   async function runLoad() {
     const read = ++latestRead;
     try {
       const loaded = await load();
       if (read !== latestRead) return;
-      publishAll({
+      // The revision is database-wide, so most refreshes follow writes that
+      // did not touch this query. Republishing identical data would re-render
+      // every observer on each unrelated write.
+      const data = JSON.stringify(loaded.data);
+      const unchanged = data === publishedData;
+      publishedData = data;
+      const snapshot: QuerySnapshot<T> = {
         status: "ready",
         revision: loaded.revision,
         data: loaded.data,
         refreshing: false,
         error: null,
-      });
+      };
+      for (const handle of handles) {
+        if (unchanged && handle.getSnapshot().status === "ready") continue;
+        handle.publish(snapshot);
+      }
     } catch {
       if (read !== latestRead) return;
       for (const handle of handles) {
@@ -95,10 +106,6 @@ function createGroup<T>(
         });
       }
     }
-  }
-
-  function publishAll(snapshot: QuerySnapshot<T>) {
-    for (const handle of handles) handle.publish(snapshot);
   }
 
   async function refresh() {

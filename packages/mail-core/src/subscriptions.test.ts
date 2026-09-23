@@ -55,6 +55,31 @@ describe("query subscriptions", () => {
     registry.closeAll();
   });
 
+  it("does not notify listeners when a later revision returns the same data", async () => {
+    const registry = createQueryRegistry();
+    let sequence = 0;
+    const handle = registry.observe("inbox", async () => ({
+      revision: { databaseEpoch: "db", sequence: ++sequence },
+      data: { conversations: ["c1"] },
+    }));
+    await waitFor(() => handle.getSnapshot().status === "ready");
+    let notifications = 0;
+    handle.subscribe(() => {
+      notifications += 1;
+    });
+    await registry.refreshAll();
+    expect(notifications).toBe(0);
+
+    const joined = registry.observe("inbox", async () => ({
+      revision: { databaseEpoch: "db", sequence: ++sequence },
+      data: { conversations: ["c1"] },
+    }));
+    await waitFor(() => joined.getSnapshot().status === "ready");
+    expect(joined.getSnapshot().data).toEqual({ conversations: ["c1"] });
+    expect(notifications).toBe(0);
+    registry.closeAll();
+  });
+
   it("does not notify listeners when a refresh returns the same revision", async () => {
     const registry = createQueryRegistry();
     const requests: Array<ReturnType<typeof deferredSnapshot>> = [];
