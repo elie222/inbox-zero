@@ -72,7 +72,12 @@ async function launchLocalMailSmoke(binary: string, extraArgs: string[]) {
     ]),
   );
   const output = await runElectron(binary, extraArgs, userData);
-  await rm(userData, { recursive: true, force: true });
+  await rm(userData, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 200,
+  });
   const line = output
     .split("\n")
     .find((item) => item.startsWith("ELECTRON_PACKAGED_LOCAL_MAIL "));
@@ -103,14 +108,17 @@ function runElectron(binary: string, extraArgs: string[], userData: string) {
       settled = true;
       clearTimeout(timer);
       if (ok) {
-        // The caller deletes the profile, which Electron keeps writing to
-        // until the process has actually exited.
+        // The smoke exits the app itself. Killing the xvfb-run wrapper early
+        // leaves Electron's helpers writing into the profile the caller deletes.
         if (child.exitCode !== null || child.signalCode !== null) {
           resolve(stdout);
-        } else {
-          child.once("exit", () => resolve(stdout));
-          child.kill();
+          return;
         }
+        const fallback = setTimeout(() => child.kill(), 10_000);
+        child.once("exit", () => {
+          clearTimeout(fallback);
+          resolve(stdout);
+        });
         return;
       }
       child.kill();
