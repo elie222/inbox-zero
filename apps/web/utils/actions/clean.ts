@@ -45,7 +45,11 @@ export const cleanInboxAction = actionClient
 
       const premium = await getUserPremium({ userId });
       if (!premium) throw new SafeError("User not premium");
-      if (!isActivePremium(premium)) throw new SafeError("Premium not active");
+      if (!isActivePremium(premium)) {
+        throw new SafeError(
+          "Deep Clean requires an active paid subscription. It isn't available during the free trial.",
+        );
+      }
 
       const emailProvider = await createEmailProvider({
         emailAccountId,

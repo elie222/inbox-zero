@@ -208,6 +208,18 @@ describe("Models", () => {
       expect(result.modelName).toBe("gemini-1.5-pro-latest");
     });
 
+    it("disables OpenAI response storage for user API keys so Zero Data Retention orgs work", () => {
+      const userAi = defaultUserAi({
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.OPEN_AI,
+        aiModel: "gpt-5.6-luna",
+      });
+
+      const result = getModel(userAi);
+
+      expect(result.providerOptions?.openai?.store).toBe(false);
+    });
+
     it("should use user's API key with default provider when only API key is provided", () => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
