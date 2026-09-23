@@ -57,8 +57,6 @@ export type ThreadReaderProps = {
     hasMore: boolean;
     loadingMore: boolean;
     loadMore: () => unknown;
-    refreshing: boolean;
-    providerConfirmed: boolean;
   };
   userLabels: EmailLabels;
   layout: MailLayoutMode;
@@ -178,7 +176,6 @@ export function ThreadReader({
       detailSelectionSettled={detailSelectionSettled}
       layout={layout}
       localAvailability={localAvailability}
-      onRefresh={refetch}
       renderLoadMoreButton={({ disabled, loading, onClick }) => (
         <Button
           className="mb-4"
@@ -187,11 +184,6 @@ export function ThreadReader({
           variant="outline"
         >
           {loading ? "Loading messages…" : "Load older messages"}
-        </Button>
-      )}
-      renderRefreshButton={({ disabled, onClick }) => (
-        <Button disabled={disabled} onClick={onClick} size="sm" variant="ghost">
-          Refresh
         </Button>
       )}
       sidePanel={

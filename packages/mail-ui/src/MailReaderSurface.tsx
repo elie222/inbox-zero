@@ -143,14 +143,7 @@ export type MailReaderSurfaceProps = {
     hasMore: boolean;
     loadingMore: boolean;
     loadMore: () => unknown;
-    refreshing: boolean;
-    providerConfirmed: boolean;
   };
-  onRefresh: () => void;
-  renderRefreshButton?: (input: {
-    disabled: boolean;
-    onClick: () => void;
-  }) => ReactNode;
   renderLoadMoreButton?: (input: {
     disabled: boolean;
     loading: boolean;
@@ -165,12 +158,6 @@ export function MailReaderSurface({
   containerRef,
   sidePanel,
   localAvailability,
-  onRefresh,
-  renderRefreshButton = ({ disabled, onClick }) => (
-    <button disabled={disabled} onClick={onClick} type="button">
-      Refresh
-    </button>
-  ),
   renderLoadMoreButton = ({ disabled, loading, onClick }) => (
     <button disabled={disabled} onClick={onClick} type="button">
       {loading ? "Loading messages…" : "Load older messages"}
@@ -185,22 +172,6 @@ export function MailReaderSurface({
         data-testid="thread-reader"
       >
         <div className={readerMeasure({ layout })}>
-          {localAvailability && !localAvailability.providerConfirmed ? (
-            <div
-              className="mb-3 flex items-center justify-between gap-3 text-muted-foreground text-sm"
-              role="status"
-            >
-              <span>
-                {localAvailability.refreshing
-                  ? "Checking for more messages…"
-                  : "This conversation may be incomplete."}
-              </span>
-              {renderRefreshButton({
-                disabled: localAvailability.refreshing,
-                onClick: onRefresh,
-              })}
-            </div>
-          ) : null}
           {localAvailability?.hasMore
             ? renderLoadMoreButton({
                 disabled: localAvailability.loadingMore,
