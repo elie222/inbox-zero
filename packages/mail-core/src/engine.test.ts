@@ -389,7 +389,9 @@ function idleCatchUpStore(
         revision: { databaseEpoch: "test", sequence: streams.length },
       };
     },
-    async recordConnection() {},
+    async recordConnection() {
+      return false;
+    },
     async releaseDeferredOperations() {},
     async close() {},
   } as unknown as MailStore;

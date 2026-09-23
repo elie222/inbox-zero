@@ -1683,12 +1683,16 @@ export async function createSqliteMailStore(
       });
     },
     async recordConnection(input) {
-      await driver.write(async (tx) => {
-        await tx.execute(
-          "UPDATE accounts SET connection = ? WHERE account_id = ?",
-          [input.connection, input.accountId],
+      return driver.write(async (tx) => {
+        // Every sync request reports its connection; only a change should
+        // republish the views.
+        const updated = await tx.execute(
+          "UPDATE accounts SET connection = ? WHERE account_id = ? AND IFNULL(connection, 'ready') != ?",
+          [input.connection, input.accountId, input.connection],
         );
+        if (updated.changedRows === 0) return false;
         await bumpRevision(tx);
+        return true;
       });
     },
     async failOperation(key, code) {
@@ -2198,6 +2202,7 @@ async function resetAccountForGeneration(
     "message_content",
     "effective_messages",
     "effective_role_conversations",
+    "effective_message_memberships",
     "sync_streams",
     "bootstrap_seen_messages",
     "bootstrap_existing_messages",

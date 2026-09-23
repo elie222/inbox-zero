@@ -21,13 +21,10 @@ export async function readMailboxViewFromSql(
   query: ConversationQuery,
 ): Promise<{ revision: LocalRevision; view: MailboxView }> {
   const revision = await readRevision(tx);
-  const { rows, matching, unread } =
-    query.predicate.kind === "role" && query.predicate.role === "inbox"
-      ? await readIndexedRolePage(tx, query, query.predicate.role)
-      : query.predicate.kind === "mailbox" &&
-          query.predicate.mailbox === "inbox"
-        ? await readIndexedRolePage(tx, query, "inbox")
-        : await readFilteredPage(tx, query);
+  const index = conversationIndexFor(query.predicate);
+  const { rows, matching, unread } = index
+    ? await readIndexedPage(tx, query, index)
+    : await readFilteredPage(tx, query);
   const page = rows.slice(0, query.pageSize);
   const summaries = await readConversationSummaries(tx, page);
   const coverage = await readCoverage(tx, query.accountIds);
@@ -187,12 +184,54 @@ function mailboxConversationHaving(mailbox: WellKnownMailbox | null): {
   return { sql: "", bindings: [] };
 }
 
-async function readIndexedRolePage(
+type ConversationIndex = {
+  source: string;
+  sourceBindings: import("./driver").SqlValue[];
+};
+
+// Single-role and single-membership views read trigger-maintained indexes
+// instead of scanning every message.
+function conversationIndexFor(
+  predicate: ConversationQuery["predicate"],
+): ConversationIndex | null {
+  if (predicate.kind === "role") return roleIndex(predicate.role);
+  if (predicate.kind === "mailbox" && predicate.mailbox === "inbox") {
+    return roleIndex("inbox");
+  }
+  if (predicate.kind === "membership") {
+    const account = predicate.accountId ? " AND account_id = ?" : "";
+    return {
+      source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
+                       MAX(1 - read) AS unread, MAX(starred) AS starred
+                FROM effective_message_memberships
+                WHERE kind = ? AND membership_id = ?${account}
+                GROUP BY account_id, conversation_id)`,
+      sourceBindings: [
+        predicate.membership,
+        predicate.id,
+        ...(predicate.accountId ? [predicate.accountId] : []),
+      ],
+    };
+  }
+  return null;
+}
+
+function roleIndex(role: MessageMetadata["roles"][number]): ConversationIndex {
+  return {
+    source:
+      "(SELECT account_id, conversation_id, latest_at_ms, unread, starred FROM effective_role_conversations WHERE role = ?)",
+    sourceBindings: [role],
+  };
+}
+
+async function readIndexedPage(
   tx: SqlTransaction,
   query: ConversationQuery,
-  role: MessageMetadata["roles"][number],
+  index: ConversationIndex,
 ) {
   const accountPlaceholders = query.accountIds.map(() => "?").join(",");
+  const where = `c.account_id IN (${accountPlaceholders})`;
+  const whereBindings = [...index.sourceBindings, ...query.accountIds];
   const cursor = query.after ? parseMailboxCursor(query.after) : null;
   const cursorSql = cursor
     ? `AND (
@@ -203,14 +242,13 @@ async function readIndexedRolePage(
     : "";
   const rows = await tx.query(
     `SELECT c.account_id, c.conversation_id, c.latest_at_ms AS latest, c.unread, c.starred
-     FROM effective_role_conversations c
-     WHERE c.account_id IN (${accountPlaceholders}) AND c.role = ?
+     FROM ${index.source} c
+     WHERE ${where}
        ${cursorSql}
      ORDER BY c.latest_at_ms DESC, c.account_id ASC, c.conversation_id ASC
      LIMIT ?`,
     [
-      ...query.accountIds,
-      role,
+      ...whereBindings,
       ...(cursor
         ? [
             cursor.latest,
@@ -225,14 +263,12 @@ async function readIndexedRolePage(
     ],
   );
   const matching = await tx.query(
-    `SELECT COUNT(*) AS n FROM effective_role_conversations
-     WHERE account_id IN (${accountPlaceholders}) AND role = ?`,
-    [...query.accountIds, role],
+    `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where}`,
+    whereBindings,
   );
   const unread = await tx.query(
-    `SELECT COUNT(*) AS n FROM effective_role_conversations
-     WHERE account_id IN (${accountPlaceholders}) AND role = ? AND unread = 1`,
-    [...query.accountIds, role],
+    `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where} AND c.unread = 1`,
+    whereBindings,
   );
   return { rows, matching, unread };
 }

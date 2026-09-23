@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
-import { migrateConversationIndex } from "./conversation-index";
+import {
+  migrateConversationIndex,
+  migrateMembershipIndex,
+} from "./conversation-index";
 import type { SqlTransaction } from "./driver";
 
 describe("transactional conversation index", () => {
@@ -110,6 +113,118 @@ describe("transactional conversation index", () => {
     }
   });
 
+  it("serves label, category, folder, and draft views like the unindexed filter", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "m1", "c1", 1, 0, {
+          labels: ["Label_1"],
+          categories: ["CATEGORY_UPDATES"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m2", "c1", 3, 1, { labels: ["Label_1"] });
+        await insertMessage(tx, "m3", "c2", 2, 1, {
+          labels: ["Label_1", "Label_2"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m4", "c3", 4, 1, { draft: true });
+      });
+      const predicates = [
+        { kind: "membership", membership: "label", id: "Label_1" },
+        { kind: "membership", membership: "label", id: "Label_2" },
+        {
+          kind: "membership",
+          membership: "label",
+          id: "Label_1",
+          accountId: "a",
+        },
+        { kind: "membership", membership: "category", id: "CATEGORY_UPDATES" },
+        { kind: "membership", membership: "folder", id: "f1" },
+        { kind: "role", role: "draft" },
+      ] as const;
+      const compare = async () => {
+        for (const predicate of predicates) {
+          const query = {
+            accountIds: ["a"],
+            predicate,
+            order: "newest_first" as const,
+            pageSize: 25,
+            after: null,
+          };
+          const composed = await store.readMailboxView({
+            ...query,
+            predicate: { kind: "all", predicates: [predicate] },
+          });
+          expect(await store.readMailboxView(query)).toEqual(composed);
+        }
+      };
+      await compare();
+      await driver.write((tx) =>
+        tx.execute(
+          "UPDATE effective_messages SET label_ids_json = '[]' WHERE message_id = 'm1'",
+        ),
+      );
+      await compare();
+      const label = await store.readMailboxView({
+        accountIds: ["a"],
+        predicate: { kind: "membership", membership: "label", id: "Label_1" },
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(label.view.counts).toMatchObject({
+        matchingConversations: 2,
+        unreadConversations: 0,
+      });
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("backfills memberships for an existing mailbox once", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        for (const event of ["insert", "delete", "update"]) {
+          await tx.exec(`DROP TRIGGER effective_memberships_after_${event}`);
+        }
+        await tx.exec(
+          "DROP TABLE effective_message_memberships; DELETE FROM schema_migrations WHERE id = 3;",
+        );
+        await insertMessage(tx, "m1", "c1", 1, 0, { labels: ["Label_1"] });
+        await migrateMembershipIndex(tx);
+        await migrateMembershipIndex(tx);
+      });
+      const rows = await driver.read((tx) =>
+        tx.query(
+          "SELECT kind, membership_id, message_id, read FROM effective_message_memberships",
+        ),
+      );
+      expect(rows).toEqual([
+        {
+          kind: "label",
+          membership_id: "Label_1",
+          message_id: "m1",
+          read: 0,
+        },
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("backfills an existing mailbox once", async () => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
@@ -148,6 +263,12 @@ async function insertMessage(
   conversation: string,
   received: number,
   read: number,
+  memberships: {
+    labels?: string[];
+    categories?: string[];
+    folder?: string;
+    draft?: boolean;
+  } = {},
 ) {
   await tx.execute(
     `INSERT INTO effective_messages(
@@ -155,7 +276,18 @@ async function insertMessage(
       received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
       in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
     ) VALUES ('a', ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      NULL, '[]', '[]', '["inbox"]', 1, 0, 0, 0, 0, 0, '[]')`,
-    [id, conversation, received, read],
+      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, '[]')`,
+    [
+      id,
+      conversation,
+      received,
+      read,
+      memberships.folder ?? null,
+      JSON.stringify(memberships.labels ?? []),
+      JSON.stringify(memberships.categories ?? []),
+      memberships.draft ? '["draft"]' : '["inbox"]',
+      memberships.draft ? 0 : 1,
+      memberships.draft ? 1 : 0,
+    ],
   );
 }
