@@ -103,7 +103,7 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.6-luna";
+      const modelName = aiModel || "gpt-6-luna";
       // Zero Data Retention orgs reject follow-up steps that reference stored
       // reasoning items. We can't tell whether a user's own key belongs to such
       // an org, so user keys always skip storage.
@@ -127,7 +127,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5.6-luna";
+      const modelName = aiModel || "gpt-6-luna";
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {

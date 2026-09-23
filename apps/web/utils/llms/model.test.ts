@@ -545,7 +545,7 @@ describe("Models", () => {
     it("should configure AI Gateway draft models with medium reasoning effort", () => {
       const userAi = defaultUserAi();
 
-      setDraftLlms(Provider.AI_GATEWAY, "openai/gpt-5.6-luna");
+      setDraftLlms(Provider.AI_GATEWAY, "openai/gpt-6-luna");
 
       const result = getModel(userAi, "draft");
 
