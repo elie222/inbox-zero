@@ -4240,7 +4240,8 @@ describe("sqlite scale smoke", () => {
     expect(view.view.conversations).toHaveLength(25);
     expect(elapsedMs).toBeLessThan(5000);
     await store.close();
-  });
+    // Seeding 10k messages is setup; the budget above covers the read.
+  }, 30_000);
 
   it.skipIf(process.env.SCALE_TESTS !== "1")(
     "lists and counts 100k conversations under the local query budget",
