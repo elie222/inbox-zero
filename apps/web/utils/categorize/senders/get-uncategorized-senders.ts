@@ -26,7 +26,11 @@ export async function getUncategorizedSenders({
 
     const senderMap = new Map<string, string | null>();
     for (const sender of result) {
-      const email = extractEmailAddress(sender.from);
+      const extractedEmail = extractEmailAddress(sender.from);
+      // Unparseable from headers extract to "" and can never be categorized
+      if (!extractedEmail) continue;
+      // Normalize so case variants of the same address dedupe to one entry
+      const email = extractedEmail.toLowerCase();
       // Only set the name if we don't already have one (keep first non-null)
       if (!senderMap.has(email) || (!senderMap.get(email) && sender.fromName)) {
         senderMap.set(email, sender.fromName);
@@ -35,16 +39,21 @@ export async function getUncategorizedSenders({
 
     const allSenderEmails = Array.from(senderMap.keys());
 
+    // Sender records store canonicalized (lowercased) emails, while message
+    // from headers keep their original casing — compare case-insensitively so
+    // already-categorized senders aren't requeued forever.
     const existingSenders = await prisma.newsletter.findMany({
       where: {
-        email: { in: allSenderEmails },
+        email: { in: allSenderEmails, mode: "insensitive" },
         emailAccountId,
         category: { isNot: null },
       },
       select: { email: true },
     });
 
-    const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
+    const existingSenderEmails = new Set(
+      existingSenders.map((s) => s.email.toLowerCase()),
+    );
 
     uncategorizedSenders = allSenderEmails
       .filter((email) => !existingSenderEmails.has(email))
