@@ -1,6 +1,5 @@
 import {
   MAX_MAILBOX_COUNT_TARGETS,
-  type ConversationQuery,
   type MailPredicate,
 } from "@inboxzero/mail-core/queries";
 
@@ -68,16 +67,6 @@ export function mailboxCountTargets(input: {
   }
 
   return targets.slice(0, MAX_MAILBOX_COUNT_TARGETS);
-}
-
-export function inboxUnreadQuery(accountIds: string[]): ConversationQuery {
-  return {
-    accountIds,
-    predicate: { kind: "role", role: "inbox" },
-    order: "newest_first",
-    pageSize: 1,
-    after: null,
-  };
 }
 
 function userFolders(

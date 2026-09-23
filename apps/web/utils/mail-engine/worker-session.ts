@@ -1,8 +1,8 @@
 import type { MailEngine } from "@inboxzero/mail-core/engine";
 import {
+  observeByKind,
   workerStartFence,
   type BrowserEngineStart,
-  type WorkerObserveKind,
   type WorkerRequest,
   type WorkerResponse,
 } from "./worker-protocol";
@@ -61,7 +61,7 @@ export function createMailWorkerHost(hooks: {
         return;
       }
       if (message.type === "observe") {
-        const observed = observe(engine, message.kind, message.args);
+        const observed = observeByKind(engine, message.kind, message.args);
         handles.set(message.handleId, observed);
         observed.subscribe(() => {
           hooks.post({
@@ -129,25 +129,6 @@ export function createMailWorkerHost(hooks: {
   }
 
   return { handle };
-}
-
-function observe(client: MailEngine, kind: WorkerObserveKind, args: unknown[]) {
-  if (kind === "mailbox") {
-    return client.observeMailbox(args[0] as never);
-  }
-  if (kind === "mailboxCounts") {
-    return client.observeMailboxCounts(args[0] as never);
-  }
-  if (kind === "mailboxWindow") {
-    return (
-      client.observeMailboxWindow?.(args[0] as never) ??
-      client.observeMailbox(args[0] as never)
-    );
-  }
-  if (kind === "conversation") {
-    return client.observeConversation(args[0] as never, args[1] as never);
-  }
-  return client.observeOperation(args[0] as never);
 }
 
 function stageDraftAttachmentArg(value: unknown) {

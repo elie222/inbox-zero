@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_MAILBOX_COUNT_TARGETS } from "@inboxzero/mail-core/queries";
 import {
   mailboxCountTargets,
   MAX_MAILBOX_COUNT_LABELS,
@@ -78,6 +79,16 @@ describe("mailboxCountTargets", () => {
     const targets = mailboxCountTargets({ labels, folders: [] });
     expect(targets.filter((target) => target.kind === "label")).toHaveLength(
       MAX_MAILBOX_COUNT_LABELS,
+    );
+  });
+
+  it("clips targets to the engine cap so the counts request is not rejected", () => {
+    const folders = Array.from({ length: 600 }, (_, i) => ({
+      id: `folder-${i}`,
+      displayName: `Folder ${i}`,
+    }));
+    expect(mailboxCountTargets({ labels: [], folders })).toHaveLength(
+      MAX_MAILBOX_COUNT_TARGETS,
     );
   });
 });

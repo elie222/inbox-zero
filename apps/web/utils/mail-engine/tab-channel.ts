@@ -5,16 +5,11 @@ import type {
   QuerySnapshot,
 } from "@inboxzero/mail-core/queries";
 import {
+  observeByKind,
   pageConnectivityOnline,
   requestSyncUnlessOffline,
+  type WorkerObserveKind,
 } from "@/utils/mail-engine/worker-protocol";
-
-type TabObserveKind =
-  | "mailbox"
-  | "mailboxCounts"
-  | "mailboxWindow"
-  | "conversation"
-  | "operation";
 
 export const MAIL_ENGINE_OWNER_LOCK = "inbox-zero:mail-engine-owner";
 export const MAIL_ENGINE_TAB_CHANNEL = "inbox-zero:mail-engine-tabs";
@@ -39,7 +34,7 @@ export type TabMailMessage =
       id: string;
       accountId: string;
       handleId: string;
-      kind: TabObserveKind;
+      kind: WorkerObserveKind;
       args: unknown[];
     }
   | { type: "loadMore"; id: string; handleId: string }
@@ -112,7 +107,7 @@ export function bindTabMailOwner(input: {
       return;
     }
     if (message.type === "observe") {
-      const observed = observe(input.client, message.kind, message.args);
+      const observed = observeByKind(input.client, message.kind, message.args);
       handles.set(message.handleId, observed);
       observed.subscribe(() => {
         input.bus.post({
@@ -246,7 +241,7 @@ export function createTabFollowerClient(input: {
   }
 
   function observeRemote<T>(
-    kind: TabObserveKind,
+    kind: WorkerObserveKind,
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
@@ -354,23 +349,6 @@ export function createBroadcastTabBus(channel: BroadcastChannel): TabMailBus {
       return () => channel.removeEventListener("message", handler);
     },
   };
-}
-
-function observe(client: MailClient, kind: TabObserveKind, args: unknown[]) {
-  if (kind === "mailbox") return client.observeMailbox(args[0] as never);
-  if (kind === "mailboxCounts") {
-    return client.observeMailboxCounts(args[0] as never);
-  }
-  if (kind === "mailboxWindow") {
-    return (
-      client.observeMailboxWindow?.(args[0] as never) ??
-      client.observeMailbox(args[0] as never)
-    );
-  }
-  if (kind === "conversation") {
-    return client.observeConversation(args[0] as never, args[1] as never);
-  }
-  return client.observeOperation(args[0] as never);
 }
 
 function wrapDraftAttachmentBytes(value: unknown) {

@@ -28,7 +28,7 @@ export async function readMailboxViewFromSql(
   const rows = index
     ? await readIndexedRows(tx, query, index)
     : await readFilteredRows(tx, query);
-  const { matching, unread } = await readCounts(tx, query);
+  const { matching, unread } = await readCounts(tx, query, index);
   const page = rows.slice(0, query.pageSize);
   const summaries = await readConversationSummaries(tx, page);
   const coverage = await readCoverage(tx, query.accountIds);
@@ -65,10 +65,11 @@ export async function readMailboxCountsFromSql(
   const revision = await readRevision(tx);
   const counts: MailboxCountsView["counts"] = [];
   for (const target of query.targets) {
-    const { matching, unread } = await readCounts(tx, {
-      accountIds: query.accountIds,
-      predicate: target.predicate,
-    });
+    const { matching, unread } = await readCounts(
+      tx,
+      { accountIds: query.accountIds, predicate: target.predicate },
+      conversationIndexFor(target.predicate),
+    );
     counts.push({
       id: target.id,
       matchingConversations: matching,
@@ -110,15 +111,16 @@ export async function readMailboxWindowFromSql(
 
 type CountScope = { accountIds: string[]; predicate: MailPredicate };
 
-async function readCounts(tx: SqlTransaction, scope: CountScope) {
-  const index = conversationIndexFor(scope.predicate);
-  const { matching, unread } = index
-    ? await readIndexedCounts(tx, scope, index)
-    : await readFilteredCounts(tx, scope);
-  return {
-    matching: Number(matching[0]?.n ?? 0),
-    unread: Number(unread[0]?.n ?? 0),
-  };
+type Counts = { matching: number; unread: number };
+
+function readCounts(
+  tx: SqlTransaction,
+  scope: CountScope,
+  index: ConversationIndex | null,
+): Promise<Counts> {
+  return index
+    ? readIndexedCounts(tx, scope, index)
+    : readFilteredCounts(tx, scope);
 }
 
 function filteredScope(scope: CountScope) {
@@ -132,13 +134,12 @@ function filteredScope(scope: CountScope) {
   const where = `e.account_id IN (${accountPlaceholders}) AND ${compiled.sql}`;
   const bindings = [...scope.accountIds, ...compiled.bindings];
   const having = mailboxConversationHaving(mailbox);
-  const havingSql = having.sql ? `HAVING ${having.sql}` : "";
   const groupedBindings = [...bindings, ...having.bindings];
-  return { mailbox, where, having, havingSql, groupedBindings };
+  return { mailbox, where, having, groupedBindings };
 }
 
 async function readFilteredRows(tx: SqlTransaction, query: ConversationQuery) {
-  const { where, havingSql, groupedBindings } = filteredScope(query);
+  const { where, having, groupedBindings } = filteredScope(query);
   const cursor = query.after ? parseMailboxCursor(query.after) : null;
   const cursorSql = cursor
     ? `WHERE latest < ?
@@ -153,7 +154,7 @@ async function readFilteredRows(tx: SqlTransaction, query: ConversationQuery) {
        FROM effective_messages e
        WHERE ${where}
        GROUP BY e.account_id, e.conversation_id
-       ${havingSql}
+       ${having.sql ? `HAVING ${having.sql}` : ""}
      )
      SELECT * FROM grouped
      ${cursorSql}
@@ -176,14 +177,16 @@ async function readFilteredRows(tx: SqlTransaction, query: ConversationQuery) {
   );
 }
 
-async function readFilteredCounts(tx: SqlTransaction, scope: CountScope) {
-  const { mailbox, where, having, havingSql, groupedBindings } =
-    filteredScope(scope);
+async function readFilteredCounts(
+  tx: SqlTransaction,
+  scope: CountScope,
+): Promise<Counts> {
+  const { mailbox, where, having, groupedBindings } = filteredScope(scope);
   const matching = await tx.query(
     `SELECT COUNT(*) AS n FROM (
        SELECT 1 FROM effective_messages e WHERE ${where}
        GROUP BY e.account_id, e.conversation_id
-       ${havingSql}
+       ${having.sql ? `HAVING ${having.sql}` : ""}
      )`,
     groupedBindings,
   );
@@ -203,7 +206,10 @@ async function readFilteredCounts(tx: SqlTransaction, scope: CountScope) {
       ? [...groupedBindings, ...having.bindings]
       : groupedBindings,
   );
-  return { matching, unread };
+  return {
+    matching: Number(matching[0]?.n ?? 0),
+    unread: Number(unread[0]?.n ?? 0),
+  };
 }
 
 function mailboxConversationHaving(mailbox: WellKnownMailbox | null): {
@@ -313,17 +319,14 @@ async function readIndexedCounts(
   tx: SqlTransaction,
   scope: CountScope,
   index: ConversationIndex,
-) {
+): Promise<Counts> {
   const { where, whereBindings } = indexedScope(scope, index);
-  const matching = await tx.query(
-    `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where}`,
+  const [row] = await tx.query(
+    `SELECT COUNT(*) AS n, COALESCE(SUM(c.unread = 1), 0) AS u
+     FROM ${index.source} c WHERE ${where}`,
     whereBindings,
   );
-  const unread = await tx.query(
-    `SELECT COUNT(*) AS n FROM ${index.source} c WHERE ${where} AND c.unread = 1`,
-    whereBindings,
-  );
-  return { matching, unread };
+  return { matching: Number(row?.n ?? 0), unread: Number(row?.u ?? 0) };
 }
 
 function indexedScope(scope: CountScope, index: ConversationIndex) {

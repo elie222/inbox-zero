@@ -182,7 +182,7 @@ function stubClient(input: {
     };
   }
   return {
-    observeMailbox: () => handle(snapshot),
+    observeMailbox: () => handle(snapshot as never),
     observeMailboxCounts: () => handle(snapshot as never),
     observeConversation: () => handle(snapshot as never),
     observeOperation: () => handle(snapshot as never),
@@ -205,6 +205,9 @@ function stubClient(input: {
     },
     async readDraft() {
       return { status: "missing" };
+    },
+    async stageDraftAttachment() {
+      return { status: "rejected", code: "unsupported" };
     },
     async submitSend() {
       return { status: "rejected", code: "unsupported" };

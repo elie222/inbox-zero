@@ -1,4 +1,4 @@
-import type { WorkAdmission } from "@inboxzero/mail-core/engine";
+import type { MailClient, WorkAdmission } from "@inboxzero/mail-core/engine";
 import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
 
 export type BrowserEngineStart = {
@@ -35,6 +35,32 @@ export type WorkerObserveKind =
   | "mailboxWindow"
   | "conversation"
   | "operation";
+
+export function observeByKind(
+  client: MailClient,
+  kind: WorkerObserveKind,
+  args: unknown[],
+) {
+  switch (kind) {
+    case "mailbox":
+      return client.observeMailbox(args[0] as never);
+    case "mailboxCounts":
+      return client.observeMailboxCounts(args[0] as never);
+    case "mailboxWindow":
+      return (
+        client.observeMailboxWindow?.(args[0] as never) ??
+        client.observeMailbox(args[0] as never)
+      );
+    case "conversation":
+      return client.observeConversation(args[0] as never, args[1] as never);
+    case "operation":
+      return client.observeOperation(args[0] as never);
+    default: {
+      const exhaustive: never = kind;
+      throw new Error(`unsupported observe kind ${exhaustive}`);
+    }
+  }
+}
 
 export type WorkerRequest =
   | { id: string; type: "start"; input: BrowserEngineStart }

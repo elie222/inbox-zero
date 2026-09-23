@@ -74,12 +74,7 @@ export function useLabelCounts({
     await client?.requestSync([emailAccountId]);
   }, [client, emailAccountId]);
 
-  return {
-    countsById,
-    isPartial: countsById.size < targets.length,
-    isLoading: Boolean(client) && countsById.size === 0,
-    mutate,
-  };
+  return { countsById, mutate };
 }
 
 function sameCounts(
