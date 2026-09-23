@@ -22,6 +22,7 @@ const { autoUpdater, app, dialog } = vi.hoisted(() => ({
 
 vi.mock("electron", () => ({ app, dialog }));
 vi.mock("electron-updater", () => ({ autoUpdater }));
+vi.mock("./sentry", () => ({ captureDesktopError: vi.fn() }));
 
 describe("startDesktopAutoUpdate", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
