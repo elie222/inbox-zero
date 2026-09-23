@@ -72,17 +72,26 @@ export function conversationMessageToParsed(
 
 export const CONVERSATION_PAGE_SIZE = 50;
 
-/** `requested` spans one observation so each snapshot doesn't re-request. */
+/**
+ * `requested` spans one observation so each snapshot doesn't re-request. A
+ * rejected or failed request is forgotten so the next snapshot retries it.
+ */
 export function requestMissingMessageContent(
   client: Pick<MailClient, "ensureMessageContent">,
   view: ConversationView,
   requested: Set<string>,
 ) {
   for (const message of view.messages) {
+    const { messageId } = message.key;
     if (message.content.status === "available") continue;
-    if (requested.has(message.key.messageId)) continue;
-    requested.add(message.key.messageId);
-    client.ensureMessageContent(message.key).catch(() => undefined);
+    if (requested.has(messageId)) continue;
+    requested.add(messageId);
+    client
+      .ensureMessageContent(message.key)
+      .then((admission) => {
+        if (admission.status === "rejected") requested.delete(messageId);
+      })
+      .catch(() => requested.delete(messageId));
   }
 }
 

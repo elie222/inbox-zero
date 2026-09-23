@@ -20,7 +20,7 @@ type WarmObservation = {
   unsubscribe: () => void;
 };
 
-type WarmTarget = { key: string; selection: ThreadSelection; open: boolean };
+type WarmTarget = { key: string; selection: ThreadSelection };
 
 // Keeps the conversations around the open one observed so J/K lands on an
 // engine query that already has its snapshot and bodies. The open one is held
@@ -81,8 +81,6 @@ function observe(client: MailClient, target: WarmTarget): WarmObservation {
     },
     { after: null, pageSize: CONVERSATION_PAGE_SIZE },
   );
-  // The reader requests bodies for the open thread itself.
-  if (target.open) return { handle, unsubscribe: () => {} };
   const requested = new Set<string>();
   const warmContent = () => {
     const view = handle.getSnapshot().data;
@@ -112,7 +110,6 @@ function getWarmTargets(
       return {
         key: getThreadSelectionKey(selection) ?? getListThreadKey(thread),
         selection,
-        open: thread === threads[index],
       };
     });
 }
