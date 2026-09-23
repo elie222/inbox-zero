@@ -92,6 +92,8 @@ jobs:
       - name: Build and package
         working-directory: apps/desktop
         shell: bash
+        env:
+          INBOX_ZERO_SENTRY_DSN: ${{ secrets.DESKTOP_SENTRY_DSN }}
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD
