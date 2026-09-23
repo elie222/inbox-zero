@@ -18,13 +18,21 @@ export function safeExpo() {
   };
 }
 
+const EXPO_AUTHORIZATION_HOSTS = new Set([
+  "accounts.google.com",
+  "appleid.apple.com",
+  "login.microsoftonline.com",
+]);
+
 export function isAllowedExpoAuthorizationUrl(
   url: URL,
   baseURL: string,
   allowLocalHttp: boolean,
 ) {
   if (url.origin === new URL(baseURL).origin) return false;
-  if (url.protocol === "https:") return true;
+  if (url.protocol === "https:") {
+    return EXPO_AUTHORIZATION_HOSTS.has(url.hostname);
+  }
   if (!allowLocalHttp || url.protocol !== "http:") return false;
   return (
     url.hostname === "localhost" ||

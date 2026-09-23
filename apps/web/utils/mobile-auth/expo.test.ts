@@ -33,32 +33,36 @@ describe("Expo authorization URL allowlist", () => {
   const baseURL = "http://localhost:3001";
 
   it("allows the local emulator only when local http is enabled", () => {
-    const emulator = new URL("http://localhost:3003/o/oauth2/v2/auth");
-    expect(isAllowedExpoAuthorizationUrl(emulator, baseURL, true)).toBe(true);
-    expect(isAllowedExpoAuthorizationUrl(emulator, baseURL, false)).toBe(false);
+    for (const emulator of [
+      "http://localhost:3003/o/oauth2/v2/auth",
+      "http://127.0.0.1:3003/o/oauth2/v2/auth",
+      "http://google.localhost:3003/o/oauth2/v2/auth",
+    ]) {
+      const url = new URL(emulator);
+      expect(isAllowedExpoAuthorizationUrl(url, baseURL, true)).toBe(true);
+      expect(isAllowedExpoAuthorizationUrl(url, baseURL, false)).toBe(false);
+    }
   });
 
-  it("allows https providers and rejects same-origin or other http hosts", () => {
-    expect(
-      isAllowedExpoAuthorizationUrl(
-        new URL("https://accounts.google.com/o/oauth2/v2/auth"),
-        baseURL,
-        false,
-      ),
-    ).toBe(true);
-    expect(
-      isAllowedExpoAuthorizationUrl(
-        new URL(`${baseURL}/api/auth`),
-        baseURL,
-        true,
-      ),
-    ).toBe(false);
-    expect(
-      isAllowedExpoAuthorizationUrl(
-        new URL("http://evil.example/o/oauth2/v2/auth"),
-        baseURL,
-        true,
-      ),
-    ).toBe(false);
+  it("allows the mobile providers and rejects every other host", () => {
+    for (const provider of [
+      "https://accounts.google.com/o/oauth2/v2/auth",
+      "https://appleid.apple.com/auth/authorize",
+      "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    ]) {
+      expect(
+        isAllowedExpoAuthorizationUrl(new URL(provider), baseURL, false),
+      ).toBe(true);
+    }
+    for (const rejected of [
+      "https://evil.example/o/oauth2/v2/auth",
+      "https://accounts.google.com.evil.example/o/oauth2/v2/auth",
+      `${baseURL}/api/auth`,
+      "http://evil.example/o/oauth2/v2/auth",
+    ]) {
+      expect(
+        isAllowedExpoAuthorizationUrl(new URL(rejected), baseURL, true),
+      ).toBe(false);
+    }
   });
 });
