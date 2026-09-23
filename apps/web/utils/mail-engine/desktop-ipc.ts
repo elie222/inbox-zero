@@ -1,7 +1,4 @@
-import {
-  createMailIpcClient,
-  type MailIpcPushTransport,
-} from "@inboxzero/mail-core/protocol/mail-ipc-client";
+import { createMailIpcClient } from "@inboxzero/mail-core/protocol/mail-ipc-client";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import {
   pageConnectivityOnline,
@@ -17,12 +14,15 @@ export function createDesktopIpcMailClient(input?: {
 }) {
   const desktop = getInboxZeroDesktopApp();
   const invoke = desktop?.mailEngine;
-  if (typeof invoke !== "function") {
+  const subscribe = desktop?.mailEngineSubscribe;
+  const unsubscribe = desktop?.mailEngineUnsubscribe;
+  const onSnapshot = desktop?.onMailEngineSnapshot;
+  if (!invoke || !subscribe || !unsubscribe || !onSnapshot) {
     throw new Error("Desktop mail engine IPC is unavailable");
   }
   const client = createMailIpcClient(invoke, {
     provider: input?.provider,
-    push: desktopMailPush(desktop),
+    push: { subscribe, unsubscribe, onSnapshot },
   });
   const originalRequestSync = client.requestSync.bind(client);
   client.requestSync = (accountIds) =>
@@ -30,15 +30,4 @@ export function createDesktopIpcMailClient(input?: {
       originalRequestSync(accountIds),
     );
   return client;
-}
-
-// Older desktop builds only expose request/response IPC; the client polls there.
-function desktopMailPush(
-  desktop: ReturnType<typeof getInboxZeroDesktopApp>,
-): MailIpcPushTransport | undefined {
-  const subscribe = desktop?.mailEngineSubscribe;
-  const unsubscribe = desktop?.mailEngineUnsubscribe;
-  const onSnapshot = desktop?.onMailEngineSnapshot;
-  if (!subscribe || !unsubscribe || !onSnapshot) return;
-  return { subscribe, unsubscribe, onSnapshot };
 }

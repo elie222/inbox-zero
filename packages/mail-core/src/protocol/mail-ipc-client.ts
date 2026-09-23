@@ -5,15 +5,14 @@ import { MAIL_IPC_PROTOCOL_VERSION } from "./mail-ipc";
 
 export function createMailIpcClient(
   invoke: (payload: unknown) => Promise<unknown>,
-  options?: {
+  options: {
+    /** Observations subscribe to snapshots the host pushes when data changes. */
+    push: MailIpcPushTransport;
     requestId?: () => string;
-    pollMs?: number;
     provider?: "google" | "microsoft";
-    /** When the host pushes snapshots, observations subscribe instead of polling. */
-    push?: MailIpcPushTransport;
   },
 ): MailClient & { inspect(): Promise<unknown> } {
-  const requestId = options?.requestId ?? defaultRequestId;
+  const requestId = options.requestId ?? defaultRequestId;
   const handles = new Set<{ close(): void }>();
 
   function envelope(method: string, payload: unknown) {
@@ -37,12 +36,10 @@ export function createMailIpcClient(
   }
 
   const observation: ObservationContext = {
-    call,
     envelope,
     requestId,
-    pollMs: options?.pollMs ?? 750,
     handles,
-    push: options?.push ? createPushRouter(options.push) : null,
+    push: createPushRouter(options.push),
   };
 
   return {
@@ -80,7 +77,7 @@ export function createMailIpcClient(
     requestSync: (accountIds) =>
       call("requestSync", {
         accountIds,
-        ...(options?.provider ? { provider: options.provider } : {}),
+        ...(options.provider ? { provider: options.provider } : {}),
       }),
     ensureMessageContent: (key) => call("ensureMessageContent", key),
     getDiagnostics: (accountId) => call("getDiagnostics", { accountId }),
@@ -88,7 +85,7 @@ export function createMailIpcClient(
     inspect: () => call("inspect", {}),
     async close() {
       for (const handle of [...handles]) handle.close();
-      observation.push?.close();
+      observation.push.close();
     },
   };
 }
@@ -108,12 +105,10 @@ export type MailIpcPushTransport = {
 };
 
 type ObservationContext = {
-  call: (method: string, payload: unknown) => Promise<unknown>;
   envelope: (method: string, payload: unknown) => unknown;
   requestId: () => string;
-  pollMs: number;
   handles: Set<{ close(): void }>;
-  push: ReturnType<typeof createPushRouter> | null;
+  push: ReturnType<typeof createPushRouter>;
 };
 
 function observeSnapshot<T>(
@@ -132,8 +127,8 @@ function observeSnapshot<T>(
   let closed = false;
   let publishedPayload: string | null = null;
 
-  // Hosts mostly return or push the snapshot already held. Republishing it
-  // would re-render every subscriber each time.
+  // Engine recovery and resubscribes can resend the snapshot already held.
+  // Republishing it would re-render every subscriber.
   const accept = (requestKey: string, next: QuerySnapshot<T>) => {
     if (closed) return;
     if (requestKey === publishedPayload && sameSnapshot(snapshot, next)) return;
@@ -153,9 +148,7 @@ function observeSnapshot<T>(
     for (const listener of listeners) listener();
   };
 
-  const source = context.push
-    ? pushSource(context, method, payload, accept, fail)
-    : pollSource(context, method, payload, accept, fail);
+  const source = pushSource(context, method, payload, accept, fail);
 
   const handle: RefreshableQueryHandle<T> = {
     refresh: source.refresh,
@@ -179,69 +172,6 @@ function observeSnapshot<T>(
 
 type SnapshotSource = { refresh(): Promise<void>; close(): void };
 
-function pollSource<T>(
-  context: ObservationContext,
-  method: string,
-  payload: () => unknown,
-  accept: (requestKey: string, next: QuerySnapshot<T>) => void,
-  fail: () => void,
-): SnapshotSource {
-  let closed = false;
-  let inFlight = false;
-  let shouldRefresh = false;
-  let pendingRefreshes: Array<() => void> = [];
-
-  const refresh = () => {
-    if (closed) return Promise.resolve();
-    shouldRefresh = true;
-    const refreshPromise = new Promise<void>((resolve) => {
-      pendingRefreshes.push(resolve);
-    });
-    drainRefreshes().catch(() => undefined);
-    return refreshPromise;
-  };
-
-  async function drainRefreshes() {
-    if (inFlight) return;
-    inFlight = true;
-    try {
-      while (!closed && shouldRefresh) {
-        shouldRefresh = false;
-        const waitingForThisRun = pendingRefreshes;
-        pendingRefreshes = [];
-        try {
-          const request = payload();
-          const next = (await context.call(
-            method,
-            request,
-          )) as QuerySnapshot<T>;
-          accept(JSON.stringify(request), next);
-        } catch {
-          fail();
-        } finally {
-          for (const resolve of waitingForThisRun) resolve();
-        }
-      }
-    } finally {
-      inFlight = false;
-    }
-  }
-
-  const timer = setInterval(() => {
-    refresh().catch(() => undefined);
-  }, context.pollMs);
-  refresh().catch(() => undefined);
-  return {
-    refresh,
-    close() {
-      closed = true;
-      clearInterval(timer);
-      for (const resolve of pendingRefreshes) resolve();
-      pendingRefreshes = [];
-    },
-  };
-}
-
 function pushSource<T>(
   context: ObservationContext,
   method: string,
@@ -250,7 +180,6 @@ function pushSource<T>(
   fail: () => void,
 ): SnapshotSource {
   const router = context.push;
-  if (!router) throw new Error("push transport is unavailable");
   let closed = false;
   let subscriptionId: string | null = null;
 
