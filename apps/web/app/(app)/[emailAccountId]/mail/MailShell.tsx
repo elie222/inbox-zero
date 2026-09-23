@@ -77,6 +77,7 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import {
   MailLayout,
@@ -514,6 +515,7 @@ export function MailShell() {
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
   const readAttemptedForOpenThread = useRef<string | null>(null);
+  useWarmNeighbourThreads({ threads, openThreadKey, emailAccountId });
 
   // Defer the pair as one value: rendering a new id with the previous account
   // would be worse than fetching eagerly when J/K moves between account rows.

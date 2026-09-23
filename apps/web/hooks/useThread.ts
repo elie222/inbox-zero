@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuerySnapshot } from "@inboxzero/mail-react/use-query-snapshot";
 import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
@@ -6,8 +6,10 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
+  CONVERSATION_PAGE_SIZE,
   conversationViewToThreadResponse,
   missingConversationBodyIds,
+  requestMissingMessageContent,
 } from "@/utils/mail-engine/conversation-thread";
 
 const EMPTY_SNAPSHOT: QuerySnapshot<ConversationView> = {
@@ -36,12 +38,12 @@ export function useThread(
   const [pagination, setPagination] = useState({
     accountId: emailAccountId,
     id,
-    pageSize: 50,
+    pageSize: CONVERSATION_PAGE_SIZE,
   });
   const pageSize =
     pagination.accountId === emailAccountId && pagination.id === id
       ? pagination.pageSize
-      : 50;
+      : CONVERSATION_PAGE_SIZE;
   const createHandle = useCallback(() => {
     if (!client || !emailAccountId || !id) {
       return {
@@ -56,14 +58,21 @@ export function useThread(
     );
   }, [client, emailAccountId, id, pageSize]);
   const snapshot = useQuerySnapshot(createHandle);
+  const requestedContent = useRef({ createHandle, ids: new Set<string>() });
 
   useEffect(() => {
     if (!client || !snapshot.data) return;
-    for (const message of snapshot.data.messages) {
-      if (message.content.status === "available") continue;
-      client.ensureMessageContent(message.key).catch(() => undefined);
+    // The view can republish several times before bodies arrive; one request
+    // per message for each observation is enough.
+    if (requestedContent.current.createHandle !== createHandle) {
+      requestedContent.current = { createHandle, ids: new Set() };
     }
-  }, [client, snapshot.data]);
+    requestMissingMessageContent(
+      client,
+      snapshot.data,
+      requestedContent.current.ids,
+    );
+  }, [client, createHandle, snapshot.data]);
 
   const data = useMemo<ThreadResponse | undefined>(() => {
     if (!id || !snapshot.data) return;
@@ -97,12 +106,13 @@ export function useThread(
         ? {
             missingBodyIds: missingConversationBodyIds(snapshot.data),
             hasMore: Boolean(snapshot.data.nextPage),
-            loadingMore: snapshot.refreshing && pageSize > 50,
+            loadingMore:
+              snapshot.refreshing && pageSize > CONVERSATION_PAGE_SIZE,
             loadMore: () =>
               setPagination({
                 accountId: emailAccountId,
                 id,
-                pageSize: pageSize + 50,
+                pageSize: pageSize + CONVERSATION_PAGE_SIZE,
               }),
           }
         : undefined,

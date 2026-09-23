@@ -76,6 +76,9 @@ function createGroup<T>(
   let inFlight: Promise<void> | null = null;
   let queued = false;
   let publishedData: string | null = null;
+  // A late observer of a loaded query starts from its last ready snapshot
+  // instead of waiting for its own read.
+  let settled: QuerySnapshot<T> | null = null;
 
   async function runLoad() {
     const read = ++latestRead;
@@ -95,12 +98,15 @@ function createGroup<T>(
         refreshing: false,
         error: null,
       };
+      settled = snapshot;
       for (const handle of handles) {
         if (unchanged && handle.getSnapshot().status === "ready") continue;
         handle.publish(snapshot);
       }
     } catch {
       if (read !== latestRead) return;
+      // A late observer should load rather than start in the error state.
+      settled = null;
       for (const handle of handles) {
         const current = handle.getSnapshot();
         handle.publish({
@@ -140,7 +146,7 @@ function createGroup<T>(
   return {
     handles,
     observe() {
-      const handle = createHandle<T>();
+      const handle = createHandle<T>(settled);
       handles.add(handle);
       refresh().catch(() => undefined);
       return {
@@ -161,8 +167,8 @@ function createGroup<T>(
   };
 }
 
-function createHandle<T>(): MutableHandle<T> {
-  let snapshot: QuerySnapshot<T> = {
+function createHandle<T>(seed: QuerySnapshot<T> | null): MutableHandle<T> {
+  let snapshot: QuerySnapshot<T> = seed ?? {
     status: "loading",
     revision: null,
     data: null,
