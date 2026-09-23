@@ -20,6 +20,7 @@ import {
   requestSyncUnlessOffline,
   shouldReleaseDeferredOnStart,
   type BrowserEngineStart,
+  type WorkerObserveKind,
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
@@ -161,7 +162,7 @@ async function createWorkerOwnedEngine(
   });
 
   function observe<T>(
-    kind: "mailbox" | "mailboxWindow" | "conversation" | "operation",
+    kind: WorkerObserveKind,
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
@@ -203,6 +204,7 @@ async function createWorkerOwnedEngine(
 
   return {
     observeMailbox: (query) => observe("mailbox", [query]),
+    observeMailboxCounts: (query) => observe("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {
       const handle = observe<MailboxView>("mailboxWindow", [query]);
       return {

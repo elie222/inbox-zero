@@ -45,6 +45,8 @@ export function createMailIpcClient(
   return {
     observeMailbox: (query) =>
       observeSnapshot(observation, "observeMailbox", () => query),
+    observeMailboxCounts: (query) =>
+      observeSnapshot(observation, "observeMailboxCounts", () => query),
     observeMailboxWindow: (query) => observeMailboxWindow(observation, query),
     observeConversation: (key, page) =>
       observeSnapshot(observation, "observeConversation", () => ({

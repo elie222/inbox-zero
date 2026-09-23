@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { MAX_MAILBOX_COUNT_TARGETS } from "@inboxzero/mail-core/queries";
 import {
-  inboxUnreadQuery,
   mailboxCountTargets,
   MAX_MAILBOX_COUNT_LABELS,
 } from "./label-count-targets";
@@ -9,7 +9,6 @@ describe("mailboxCountTargets", () => {
   it("maps inbox, drafts, labels, and non-system folders onto engine predicates", () => {
     expect(
       mailboxCountTargets({
-        accountId: "account-1",
         labels: [{ id: "Label_1", name: "Work" }],
         folders: [
           {
@@ -36,72 +35,40 @@ describe("mailboxCountTargets", () => {
         id: "INBOX",
         name: "Inbox",
         kind: "system",
-        query: inboxUnreadQuery(["account-1"]),
+        predicate: { kind: "role", role: "inbox" },
       },
       {
         id: "DRAFT",
         name: "Drafts",
         kind: "system",
-        query: {
-          accountIds: ["account-1"],
-          predicate: { kind: "role", role: "draft" },
-          order: "newest_first",
-          pageSize: 1,
-          after: null,
-        },
+        predicate: { kind: "role", role: "draft" },
       },
       {
         id: "Label_1",
         name: "Work",
         kind: "label",
-        query: {
-          accountIds: ["account-1"],
-          predicate: {
-            kind: "membership",
-            membership: "label",
-            id: "Label_1",
-          },
-          order: "newest_first",
-          pageSize: 1,
-          after: null,
-        },
+        predicate: { kind: "membership", membership: "label", id: "Label_1" },
       },
       {
         id: "projects",
         name: "Projects",
         kind: "folder",
-        query: {
-          accountIds: ["account-1"],
-          predicate: {
-            kind: "membership",
-            membership: "folder",
-            id: "projects",
-          },
-          order: "newest_first",
-          pageSize: 1,
-          after: null,
-        },
+        predicate: { kind: "membership", membership: "folder", id: "projects" },
       },
       {
         id: "projects-q1",
         name: "Q1",
         kind: "folder",
-        query: {
-          accountIds: ["account-1"],
-          predicate: {
-            kind: "membership",
-            membership: "folder",
-            id: "projects-q1",
-          },
-          order: "newest_first",
-          pageSize: 1,
-          after: null,
+        predicate: {
+          kind: "membership",
+          membership: "folder",
+          id: "projects-q1",
         },
       },
     ]);
   });
 
-  it("caps user labels so a label-heavy mailbox does not open unbounded queries", () => {
+  it("caps user labels so a label-heavy mailbox does not count unbounded targets", () => {
     const labels = Array.from(
       { length: MAX_MAILBOX_COUNT_LABELS + 5 },
       (_, i) => ({
@@ -109,13 +76,19 @@ describe("mailboxCountTargets", () => {
         name: `Label ${i}`,
       }),
     );
-    const targets = mailboxCountTargets({
-      accountId: "account-1",
-      labels,
-      folders: [],
-    });
+    const targets = mailboxCountTargets({ labels, folders: [] });
     expect(targets.filter((target) => target.kind === "label")).toHaveLength(
       MAX_MAILBOX_COUNT_LABELS,
+    );
+  });
+
+  it("clips targets to the engine cap so the counts request is not rejected", () => {
+    const folders = Array.from({ length: 600 }, (_, i) => ({
+      id: `folder-${i}`,
+      displayName: `Folder ${i}`,
+    }));
+    expect(mailboxCountTargets({ labels: [], folders })).toHaveLength(
+      MAX_MAILBOX_COUNT_TARGETS,
     );
   });
 });

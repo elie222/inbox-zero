@@ -6,6 +6,7 @@ import {
   migrateMembershipIndex,
 } from "./conversation-index";
 import type { SqlTransaction } from "./driver";
+import type { MailboxCountsQuery } from "@inboxzero/mail-core/queries";
 
 describe("transactional conversation index", () => {
   it("shows the same conversation preview for equivalent inbox filters", async () => {
@@ -187,6 +188,112 @@ describe("transactional conversation index", () => {
     }
   });
 
+  it("counts every target for all requested accounts in one read", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      for (const accountId of ["a", "b"]) {
+        await store.ensureAccount({
+          accountId,
+          provider: "google",
+          generation: "g",
+        });
+      }
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "m1", "c1", 1, 0, {
+          labels: ["Label_1"],
+          categories: ["CATEGORY_UPDATES"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m2", "c1", 3, 1, { labels: ["Label_1"] });
+        await insertMessage(tx, "m3", "c2", 2, 1, {
+          labels: ["Label_1"],
+          folder: "f1",
+        });
+        await insertMessage(tx, "m4", "c3", 4, 0, { draft: true });
+        await insertMessage(tx, "m5", "c4", 5, 0, { labels: ["Label_2"] });
+        // Only the read message is snoozed, so the snoozed view shows the
+        // conversation but not as unread.
+        await insertMessage(tx, "m6", "c5", 6, 1, {
+          snoozedUntil: Date.now() + 60_000,
+        });
+        await insertMessage(tx, "m7", "c5", 7, 0);
+        await insertMessage(tx, "m8", "c1", 8, 0, {
+          account: "b",
+          labels: ["Label_1"],
+        });
+      });
+      const targets: MailboxCountsQuery["targets"] = [
+        { id: "inbox", predicate: { kind: "role", role: "inbox" } },
+        { id: "draft", predicate: { kind: "role", role: "draft" } },
+        {
+          id: "label",
+          predicate: { kind: "membership", membership: "label", id: "Label_1" },
+        },
+        {
+          id: "label-account-a",
+          predicate: {
+            kind: "membership",
+            membership: "label",
+            id: "Label_1",
+            accountId: "a",
+          },
+        },
+        {
+          id: "category",
+          predicate: {
+            kind: "membership",
+            membership: "category",
+            id: "CATEGORY_UPDATES",
+          },
+        },
+        {
+          id: "folder",
+          predicate: { kind: "membership", membership: "folder", id: "f1" },
+        },
+        {
+          id: "unread-inbox",
+          predicate: {
+            kind: "all",
+            predicates: [
+              { kind: "role", role: "inbox" },
+              { kind: "read", value: false },
+            ],
+          },
+        },
+        { id: "archive", predicate: { kind: "mailbox", mailbox: "archive" } },
+        { id: "snoozed", predicate: { kind: "mailbox", mailbox: "snoozed" } },
+      ];
+
+      const result = await store.readMailboxCounts({
+        accountIds: ["a", "b"],
+        targets,
+      });
+
+      expect(result.view.counts).toEqual([
+        { id: "inbox", matchingConversations: 5, unreadConversations: 4 },
+        { id: "draft", matchingConversations: 1, unreadConversations: 1 },
+        { id: "label", matchingConversations: 3, unreadConversations: 2 },
+        {
+          id: "label-account-a",
+          matchingConversations: 2,
+          unreadConversations: 1,
+        },
+        { id: "category", matchingConversations: 1, unreadConversations: 1 },
+        { id: "folder", matchingConversations: 2, unreadConversations: 1 },
+        {
+          id: "unread-inbox",
+          matchingConversations: 4,
+          unreadConversations: 4,
+        },
+        { id: "archive", matchingConversations: 1, unreadConversations: 1 },
+        { id: "snoozed", matchingConversations: 1, unreadConversations: 0 },
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("backfills memberships for an existing mailbox once", async () => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
@@ -263,31 +370,36 @@ async function insertMessage(
   conversation: string,
   received: number,
   read: number,
-  memberships: {
+  options: {
+    account?: string;
     labels?: string[];
     categories?: string[];
     folder?: string;
     draft?: boolean;
+    snoozedUntil?: number;
   } = {},
 ) {
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
       received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
-      in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, pending_operation_ids_json
-    ) VALUES ('a', ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, '[]')`,
+      in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms,
+      pending_operation_ids_json
+    ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
+      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?, '[]')`,
     [
+      options.account ?? "a",
       id,
       conversation,
       received,
       read,
-      memberships.folder ?? null,
-      JSON.stringify(memberships.labels ?? []),
-      JSON.stringify(memberships.categories ?? []),
-      memberships.draft ? '["draft"]' : '["inbox"]',
-      memberships.draft ? 0 : 1,
-      memberships.draft ? 1 : 0,
+      options.folder ?? null,
+      JSON.stringify(options.labels ?? []),
+      JSON.stringify(options.categories ?? []),
+      options.draft ? '["draft"]' : '["inbox"]',
+      options.draft ? 0 : 1,
+      options.draft ? 1 : 0,
+      options.snoozedUntil ?? null,
     ],
   );
 }

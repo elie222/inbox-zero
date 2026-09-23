@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { useAccounts } from "@/hooks/useAccounts";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
-import { inboxUnreadQuery } from "@/utils/mail-engine/label-count-targets";
 
 const MAX_INDICATOR_ACCOUNTS = 50;
 
@@ -28,10 +27,13 @@ export function DesktopMailIndicators() {
       return;
     }
 
-    const handle = client.observeMailbox(inboxUnreadQuery(ids));
+    const handle = client.observeMailboxCounts({
+      accountIds: ids,
+      targets: [{ id: "INBOX", predicate: { kind: "role", role: "inbox" } }],
+    });
     const apply = () => {
       desktop.setUnreadCount?.(
-        handle.getSnapshot().data?.counts.unreadConversations ?? 0,
+        handle.getSnapshot().data?.counts[0]?.unreadConversations ?? 0,
       );
     };
     const unsubscribe = handle.subscribe(apply);

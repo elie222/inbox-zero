@@ -72,6 +72,7 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         result: await engine.inspect(),
       };
     case "observeMailbox":
+    case "observeMailboxCounts":
     case "observeMailboxWindow":
     case "observeConversation":
     case "observeOperation": {
@@ -113,6 +114,7 @@ type ObservationRequest = Extract<
   {
     method:
       | "observeMailbox"
+      | "observeMailboxCounts"
       | "observeMailboxWindow"
       | "observeConversation"
       | "observeOperation";
@@ -124,6 +126,7 @@ export function isObservationRequest(
 ): request is ObservationRequest {
   return (
     request.method === "observeMailbox" ||
+    request.method === "observeMailboxCounts" ||
     request.method === "observeMailboxWindow" ||
     request.method === "observeConversation" ||
     request.method === "observeOperation"
@@ -137,6 +140,8 @@ export function openMailIpcObservation(
   switch (request.method) {
     case "observeMailbox":
       return engine.observeMailbox(request.payload);
+    case "observeMailboxCounts":
+      return engine.observeMailboxCounts(request.payload);
     case "observeMailboxWindow":
       return (
         engine.observeMailboxWindow?.(request.payload.query, {

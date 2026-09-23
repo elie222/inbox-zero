@@ -1,9 +1,8 @@
-import type {
-  ConversationQuery,
-  MailPredicate,
+import {
+  MAX_MAILBOX_COUNT_TARGETS,
+  type MailPredicate,
 } from "@inboxzero/mail-core/queries";
 
-export const MAILBOX_COUNT_PAGE_SIZE = 1;
 export const MAX_MAILBOX_COUNT_LABELS = 100;
 
 export type MailboxCountKind = "system" | "category" | "label" | "folder";
@@ -27,75 +26,47 @@ export type MailboxCountTarget = {
   id: string;
   name: string;
   kind: MailboxCountKind;
-  query: ConversationQuery;
+  predicate: MailPredicate;
 };
 
 export function mailboxCountTargets(input: {
-  accountId: string;
   labels: Array<{ id: string; name: string }>;
   folders: MailboxCountFolder[];
 }): MailboxCountTarget[] {
-  const accountIds = [input.accountId];
   const targets: MailboxCountTarget[] = [
-    countTarget({
+    {
       id: "INBOX",
       name: "Inbox",
       kind: "system",
-      accountIds,
       predicate: { kind: "role", role: "inbox" },
-    }),
-    countTarget({
+    },
+    {
       id: "DRAFT",
       name: "Drafts",
       kind: "system",
-      accountIds,
       predicate: { kind: "role", role: "draft" },
-    }),
+    },
   ];
 
   for (const label of input.labels.slice(0, MAX_MAILBOX_COUNT_LABELS)) {
-    targets.push(
-      countTarget({
-        id: label.id,
-        name: label.name,
-        kind: "label",
-        accountIds,
-        predicate: {
-          kind: "membership",
-          membership: "label",
-          id: label.id,
-        },
-      }),
-    );
+    targets.push({
+      id: label.id,
+      name: label.name,
+      kind: "label",
+      predicate: { kind: "membership", membership: "label", id: label.id },
+    });
   }
 
   for (const folder of userFolders(input.folders)) {
-    targets.push(
-      countTarget({
-        id: folder.id,
-        name: folder.displayName,
-        kind: "folder",
-        accountIds,
-        predicate: {
-          kind: "membership",
-          membership: "folder",
-          id: folder.id,
-        },
-      }),
-    );
+    targets.push({
+      id: folder.id,
+      name: folder.displayName,
+      kind: "folder",
+      predicate: { kind: "membership", membership: "folder", id: folder.id },
+    });
   }
 
-  return targets;
-}
-
-export function inboxUnreadQuery(accountIds: string[]): ConversationQuery {
-  return {
-    accountIds,
-    predicate: { kind: "role", role: "inbox" },
-    order: "newest_first",
-    pageSize: MAILBOX_COUNT_PAGE_SIZE,
-    after: null,
-  };
+  return targets.slice(0, MAX_MAILBOX_COUNT_TARGETS);
 }
 
 function userFolders(
@@ -107,25 +78,4 @@ function userFolders(
       : [{ id: folder.id, displayName: folder.displayName }]),
     ...userFolders(folder.childFolders ?? []),
   ]);
-}
-
-function countTarget(input: {
-  id: string;
-  name: string;
-  kind: MailboxCountKind;
-  accountIds: string[];
-  predicate: MailPredicate;
-}): MailboxCountTarget {
-  return {
-    id: input.id,
-    name: input.name,
-    kind: input.kind,
-    query: {
-      accountIds: input.accountIds,
-      predicate: input.predicate,
-      order: "newest_first",
-      pageSize: MAILBOX_COUNT_PAGE_SIZE,
-      after: null,
-    },
-  };
 }

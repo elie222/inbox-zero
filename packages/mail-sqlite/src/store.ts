@@ -51,6 +51,7 @@ import {
   listReferencedBlobIds,
 } from "./maintenance";
 import {
+  readMailboxCountsFromSql,
   readMailboxViewFromSql,
   readMailboxWindowFromSql,
 } from "./mailbox-view-readers";
@@ -1098,6 +1099,9 @@ export async function createSqliteMailStore(
           capabilities,
         ),
       );
+    },
+    async readMailboxCounts(query) {
+      return driver.read((tx) => readMailboxCountsFromSql(tx, query));
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>

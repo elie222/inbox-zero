@@ -29,8 +29,18 @@ import type { ScopeDescriptor } from "./ports/mailbox-source";
 import type { HostRuntime } from "./ports/runtime";
 import { webCryptoSha256 } from "./canonical";
 import { extractTextPredicates } from "./query-semantics";
-import type { ConversationQuery, MailboxView, QueryHandle } from "./queries";
-import { createQueryRegistry, mailboxQueryKey } from "./subscriptions";
+import type {
+  ConversationQuery,
+  MailboxCountsQuery,
+  MailboxCountsView,
+  MailboxView,
+  QueryHandle,
+} from "./queries";
+import {
+  createQueryRegistry,
+  mailboxCountsQueryKey,
+  mailboxQueryKey,
+} from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
 import type { BlobStore } from "./ports/blob-store";
 
@@ -87,6 +97,9 @@ export type DraftAttachmentInput = {
 
 export type MailClient = {
   observeMailbox(query: ConversationQuery): QueryHandle<MailboxView>;
+  observeMailboxCounts(
+    query: MailboxCountsQuery,
+  ): QueryHandle<MailboxCountsView>;
   observeMailboxWindow?(
     query: ConversationQuery,
     options?: MailboxWindowOptions,
@@ -163,6 +176,14 @@ export function createMailEngine(input: {
       enqueueSearches(query);
       return queries.observe(mailboxQueryKey(query), () =>
         store.readMailboxView(query).then((result) => ({
+          revision: result.revision,
+          data: result.view,
+        })),
+      );
+    },
+    observeMailboxCounts(query) {
+      return queries.observe(mailboxCountsQueryKey(query), () =>
+        store.readMailboxCounts(query).then((result) => ({
           revision: result.revision,
           data: result.view,
         })),
