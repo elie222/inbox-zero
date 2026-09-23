@@ -46,7 +46,7 @@ export default async function AdminConfigPage() {
       economyModel: economyLlm?.modelName ?? "not configured",
     },
     integrations: {
-      redis: !!env.UPSTASH_REDIS_URL || !!env.REDIS_URL,
+      redis: !!env.REDIS_HTTP_URL || !!env.REDIS_URL,
       qstash: !!env.QSTASH_TOKEN,
       tinybird: !!env.TINYBIRD_TOKEN,
       sentry: !!env.NEXT_PUBLIC_SENTRY_DSN,

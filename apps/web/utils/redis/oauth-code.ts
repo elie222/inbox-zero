@@ -37,7 +37,7 @@ type OAuthCodeClaimOutcome =
   | { status: "timeout" };
 
 export function isOAuthCodeStoreConfigured() {
-  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
+  return Boolean(env.REDIS_HTTP_URL && env.REDIS_HTTP_TOKEN);
 }
 
 export async function claimOAuthCode(

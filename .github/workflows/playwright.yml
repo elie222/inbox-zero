@@ -90,8 +90,8 @@ env:
   # LLM calls go to the in-repo emulator. playwright.config.mjs wires the
   # server env; this only satisfies env validation during the build.
   DEFAULT_LLMS: openai-compatible:emulated
-  UPSTASH_REDIS_URL: http://localhost:8079
-  UPSTASH_REDIS_TOKEN: playwright-token
+  REDIS_HTTP_URL: http://localhost:8079
+  REDIS_HTTP_TOKEN: playwright-token
   PLAYWRIGHT_PRODUCTION: "1"
   # Public flags are frozen into the shared build. Match the enabled production UI.
   NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"

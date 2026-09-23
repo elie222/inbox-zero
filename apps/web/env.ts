@@ -200,14 +200,18 @@ const parsedEnv = createEnv({
     VOICE_LIVE_MODEL: z.string().optional(),
     VOICE_LIVE_VOICE: z.string().optional(),
 
-    UPSTASH_REDIS_URL: z
-      .string()
-      .optional()
-      .transform((value) => value || process.env.KV_REST_API_URL),
-    UPSTASH_REDIS_TOKEN: z
-      .string()
-      .optional()
-      .transform((value) => value || process.env.KV_REST_API_TOKEN),
+    // HTTP Redis speaks the Upstash REST protocol, including your own
+    // serverless-redis-http proxy. Older self-hosted installs and Vercel KV
+    // still set the legacy names.
+    REDIS_HTTP_URL: z.preprocess(
+      (value) => redisHttpEnv(value, ["UPSTASH_REDIS_URL", "KV_REST_API_URL"]),
+      z.string().optional(),
+    ),
+    REDIS_HTTP_TOKEN: z.preprocess(
+      (value) =>
+        redisHttpEnv(value, ["UPSTASH_REDIS_TOKEN", "KV_REST_API_TOKEN"]),
+      z.string().optional(),
+    ),
     REDIS_URL: z
       .string()
       .optional()
@@ -633,3 +637,16 @@ if (process.env.DEFAULT_DECISION_MODEL && !process.env.TYPESAFE_API_KEY) {
 }
 
 export const env = parsedEnv;
+
+function redisHttpEnv(
+  value: unknown,
+  legacyNames: readonly string[],
+): string | undefined {
+  const primary = optionalEnvValue(value);
+  if (primary) return primary;
+
+  for (const name of legacyNames) {
+    const legacy = optionalEnvValue(process.env[name]);
+    if (legacy) return legacy;
+  }
+}

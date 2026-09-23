@@ -118,6 +118,8 @@
         "CODEX_CLI_PATH",
         "PERPLEXITY_API_KEY",
 
+        "REDIS_HTTP_URL",
+        "REDIS_HTTP_TOKEN",
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "KV_REST_API_URL",
