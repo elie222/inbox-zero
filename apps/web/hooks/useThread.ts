@@ -6,8 +6,10 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
+  CONVERSATION_PAGE_SIZE,
   conversationViewToThreadResponse,
   missingConversationBodyIds,
+  requestMissingMessageContent,
 } from "@/utils/mail-engine/conversation-thread";
 
 const EMPTY_SNAPSHOT: QuerySnapshot<ConversationView> = {
@@ -36,12 +38,12 @@ export function useThread(
   const [pagination, setPagination] = useState({
     accountId: emailAccountId,
     id,
-    pageSize: 50,
+    pageSize: CONVERSATION_PAGE_SIZE,
   });
   const pageSize =
     pagination.accountId === emailAccountId && pagination.id === id
       ? pagination.pageSize
-      : 50;
+      : CONVERSATION_PAGE_SIZE;
   const createHandle = useCallback(() => {
     if (!client || !emailAccountId || !id) {
       return {
@@ -59,10 +61,7 @@ export function useThread(
 
   useEffect(() => {
     if (!client || !snapshot.data) return;
-    for (const message of snapshot.data.messages) {
-      if (message.content.status === "available") continue;
-      client.ensureMessageContent(message.key).catch(() => undefined);
-    }
+    requestMissingMessageContent(client, snapshot.data);
   }, [client, snapshot.data]);
 
   const data = useMemo<ThreadResponse | undefined>(() => {
@@ -97,12 +96,13 @@ export function useThread(
         ? {
             missingBodyIds: missingConversationBodyIds(snapshot.data),
             hasMore: Boolean(snapshot.data.nextPage),
-            loadingMore: snapshot.refreshing && pageSize > 50,
+            loadingMore:
+              snapshot.refreshing && pageSize > CONVERSATION_PAGE_SIZE,
             loadMore: () =>
               setPagination({
                 accountId: emailAccountId,
                 id,
-                pageSize: pageSize + 50,
+                pageSize: pageSize + CONVERSATION_PAGE_SIZE,
               }),
           }
         : undefined,

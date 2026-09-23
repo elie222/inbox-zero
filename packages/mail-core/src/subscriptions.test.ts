@@ -80,6 +80,54 @@ describe("query subscriptions", () => {
     registry.closeAll();
   });
 
+  it("starts a joining observer from the group's ready snapshot and keeps it live", async () => {
+    const registry = createQueryRegistry();
+    const requests: Array<ReturnType<typeof deferredSnapshot>> = [];
+    const load = () => {
+      const request = deferredSnapshot();
+      requests.push(request);
+      return request.promise;
+    };
+    const first = registry.observe("conversation", load);
+    requests[0].resolve({
+      revision: { databaseEpoch: "db", sequence: 1 },
+      data: "warm",
+    });
+    await waitFor(() => first.getSnapshot().status === "ready");
+
+    const joined = registry.observe("conversation", load);
+    expect(joined.getSnapshot()).toMatchObject({
+      status: "ready",
+      data: "warm",
+    });
+
+    await waitFor(() => requests.length === 2);
+    requests[1].resolve({
+      revision: { databaseEpoch: "db", sequence: 2 },
+      data: "updated",
+    });
+    await waitFor(() => joined.getSnapshot().data === "updated");
+    expect(first.getSnapshot().data).toBe("updated");
+    registry.closeAll();
+  });
+
+  it("starts a new observer loading once the group has been released", async () => {
+    const registry = createQueryRegistry();
+    const first = registry.observe("conversation", async () => ({
+      revision: { databaseEpoch: "db", sequence: 1 },
+      data: "warm",
+    }));
+    await waitFor(() => first.getSnapshot().status === "ready");
+    first.close();
+
+    const next = registry.observe("conversation", async () => ({
+      revision: { databaseEpoch: "db", sequence: 1 },
+      data: "warm",
+    }));
+    expect(next.getSnapshot().status).toBe("loading");
+    registry.closeAll();
+  });
+
   it("does not notify listeners when a refresh returns the same revision", async () => {
     const registry = createQueryRegistry();
     const requests: Array<ReturnType<typeof deferredSnapshot>> = [];

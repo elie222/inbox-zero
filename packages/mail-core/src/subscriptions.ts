@@ -70,6 +70,10 @@ function createGroup<T>(
   let inFlight: Promise<void> | null = null;
   let queued = false;
   let publishedData: string | null = null;
+  // Last settled snapshot with data, so a handle joining a warm group (for
+  // example the reader opening a prefetched neighbour) renders immediately
+  // instead of waiting for its own read to finish.
+  let settled: QuerySnapshot<T> | null = null;
 
   async function runLoad() {
     const read = ++latestRead;
@@ -89,12 +93,20 @@ function createGroup<T>(
         refreshing: false,
         error: null,
       };
+      settled = snapshot;
       for (const handle of handles) {
         if (unchanged && handle.getSnapshot().status === "ready") continue;
         handle.publish(snapshot);
       }
     } catch {
       if (read !== latestRead) return;
+      if (settled) {
+        settled = {
+          ...settled,
+          status: "error",
+          error: { code: "unavailable", retryable: true },
+        };
+      }
       for (const handle of handles) {
         const current = handle.getSnapshot();
         handle.publish({
@@ -134,7 +146,7 @@ function createGroup<T>(
   return {
     handles,
     observe() {
-      const handle = createHandle<T>();
+      const handle = createHandle<T>(settled);
       handles.add(handle);
       refresh().catch(() => undefined);
       return {
@@ -155,8 +167,8 @@ function createGroup<T>(
   };
 }
 
-function createHandle<T>(): MutableHandle<T> {
-  let snapshot: QuerySnapshot<T> = {
+function createHandle<T>(seed: QuerySnapshot<T> | null): MutableHandle<T> {
+  let snapshot: QuerySnapshot<T> = seed ?? {
     status: "loading",
     revision: null,
     data: null,

@@ -1,4 +1,5 @@
 import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
+import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { messageLabelIds } from "@/utils/mail-engine/list-thread";
@@ -67,6 +68,21 @@ export function conversationMessageToParsed(
       subject: message.metadata.subject,
     },
   };
+}
+
+export const CONVERSATION_PAGE_SIZE = 50;
+
+export function requestMissingMessageContent(
+  client: Pick<MailClient, "ensureMessageContent">,
+  view: ConversationView,
+  requested?: Set<string>,
+) {
+  for (const message of view.messages) {
+    if (message.content.status === "available") continue;
+    if (requested?.has(message.key.messageId)) continue;
+    requested?.add(message.key.messageId);
+    client.ensureMessageContent(message.key).catch(() => undefined);
+  }
 }
 
 export function missingConversationBodyIds(view: ConversationView) {
