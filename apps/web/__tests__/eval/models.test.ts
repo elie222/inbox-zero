@@ -31,7 +31,7 @@ describe("shouldRunEvalTests", () => {
 
     expect(getEvalModels()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ model: "openai/gpt-5.6-luna" }),
+        expect.objectContaining({ model: "openai/gpt-6-luna" }),
         expect.objectContaining({ model: "openai/gpt-5.6-terra" }),
       ]),
     );

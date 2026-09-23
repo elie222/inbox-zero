@@ -144,10 +144,10 @@ function getLegacyProviderDefaultModel(
 ): string | undefined {
   const defaultModelByLegacyProvider: Record<string, string | undefined> = {
     anthropic: "claude-sonnet-5",
-    azure: "gpt-5.6-luna",
+    azure: "gpt-6-luna",
     vertex: "gemini-3.8-flash",
     google: "gemini-3.8-flash",
-    openai: "gpt-5.6-luna",
+    openai: "gpt-6-luna",
     bedrock: "global.anthropic.claude-sonnet-5",
     openrouter: "anthropic/claude-sonnet-5",
     groq: "llama-3.3-70b-versatile",
