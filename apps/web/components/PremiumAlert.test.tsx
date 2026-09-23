@@ -48,6 +48,18 @@ describe("PremiumAlertWithData", () => {
     expect(container.innerHTML).toBe("");
   });
 
+  it("offers an upgrade instead of trial copy when the subscription lapsed", () => {
+    mockUsePremium.mockReturnValue({
+      ...premiumState({ stripeSubscriptionStatus: "past_due" }),
+      hasAiAccess: false,
+    });
+
+    render(<PremiumAlertWithData activeOnly />);
+
+    expect(screen.queryByText("Active Subscription Required")).toBeNull();
+    expect(screen.getByText("Premium Feature")).toBeTruthy();
+  });
+
   it("shows nothing to active subscribers", () => {
     mockUsePremium.mockReturnValue(
       premiumState({ stripeSubscriptionStatus: "active" }),

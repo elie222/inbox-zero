@@ -29,21 +29,14 @@ export function PremiumAiAssistantAlert({
 
   const isBasicPlan = tier === "BASIC_MONTHLY" || tier === "BASIC_ANNUALLY";
 
-  const isStripeTrialing =
-    stripeSubscriptionStatus && stripeSubscriptionStatus !== "active";
-
-  if (activeOnly && isStripeTrialing) {
+  if (activeOnly && stripeSubscriptionStatus === "trialing") {
     return (
       <div className={className}>
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
           title="Active Subscription Required"
           description="This feature is not available during the free trial. Start your paid plan to use it."
-          action={
-            stripeSubscriptionStatus === "trialing" ? (
-              <EndTrialButton variant="primaryBlack" />
-            ) : undefined
-          }
+          action={<EndTrialButton variant="primaryBlack" />}
         />
       </div>
     );
