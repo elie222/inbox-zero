@@ -272,10 +272,6 @@ export function MailApp({
                   })
               : undefined
           }
-          onRefresh={() => {
-            if (selected)
-              client.requestSync([selected.accountId]).catch(() => undefined);
-          }}
           onArchive={() => {
             if (!selected) return;
             archiveConversation(client, selected)
@@ -394,7 +390,6 @@ function ConversationReader({
   conversation,
   onNextPage,
   onPreviousPage,
-  onRefresh,
   onArchive,
   onBack,
   onMarkRead,
@@ -402,7 +397,6 @@ function ConversationReader({
   conversation: ReturnType<typeof useConversation>;
   onNextPage: () => void;
   onPreviousPage?: () => void;
-  onRefresh: () => void;
   onArchive: () => void;
   onBack: () => void;
   onMarkRead: (read: boolean) => void;
@@ -425,17 +419,10 @@ function ConversationReader({
     <MailReaderSurface
       detailSelectionSettled
       layout="split"
-      onRefresh={onRefresh}
       localAvailability={{
         hasMore: Boolean(conversation.data?.nextPage),
         loadingMore: conversation.refreshing,
         loadMore: onNextPage,
-        refreshing: conversation.refreshing,
-        providerConfirmed:
-          Boolean(conversation.data?.coverage.length) &&
-          conversation.data!.coverage.every(
-            (scope) => scope.metadata === "complete",
-          ),
       }}
       renderLoadMoreButton={({ disabled, onClick }) => (
         <button disabled={disabled} onClick={onClick} type="button">

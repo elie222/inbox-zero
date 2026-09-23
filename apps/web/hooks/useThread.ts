@@ -9,7 +9,6 @@ import {
   conversationViewToThreadResponse,
   missingConversationBodyIds,
 } from "@/utils/mail-engine/conversation-thread";
-import { isMetadataCoverageComplete } from "@/utils/mail-engine/coverage";
 
 const EMPTY_SNAPSHOT: QuerySnapshot<ConversationView> = {
   status: "loading",
@@ -105,10 +104,6 @@ export function useThread(
                 id,
                 pageSize: pageSize + 50,
               }),
-            refreshing: snapshot.refreshing,
-            providerConfirmed: isMetadataCoverageComplete(
-              snapshot.data.coverage,
-            ),
           }
         : undefined,
   };
