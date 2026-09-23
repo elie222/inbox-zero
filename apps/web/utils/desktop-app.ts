@@ -1,3 +1,4 @@
+import type { MailIpcSnapshotEvent } from "@inboxzero/mail-core/protocol/mail-ipc-client";
 export type DesktopAuthProvider = "apple" | "google" | "microsoft";
 
 export const DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -17,6 +18,11 @@ export type InboxZeroDesktopApi = {
     options?: { callbackPath?: string },
   ) => Promise<void>;
   mailEngine?: (payload: unknown) => Promise<unknown>;
+  mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
+  mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;
+  onMailEngineSnapshot?: (
+    listener: (event: MailIpcSnapshotEvent) => void,
+  ) => () => void;
   wipeMailbox?: () => Promise<unknown>;
 };
 

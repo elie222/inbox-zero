@@ -48,6 +48,7 @@ import {
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
 import { createDesktopMailOwner } from "./mail-engine/owner";
+import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
 import { createRoutedBackendPorts } from "./mail-engine/backend";
 import { createOriginMailRequest } from "./mail-engine/request";
 import {
@@ -156,6 +157,11 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     const owner = await getDesktopMailOwner();
     return owner.handleIpc(payload);
+  });
+  registerMailEnginePushIpc({
+    ipcMain,
+    isTrusted: isTrustedDesktopEvent,
+    getOwner: getDesktopMailOwner,
   });
   ipcMain.handle("mail-engine-wipe", async (event) => {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };

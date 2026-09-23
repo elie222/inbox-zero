@@ -6,7 +6,12 @@ import {
 import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
-import { dispatchMailIpc, parseMailIpcRequest } from "./ipc";
+import {
+  dispatchMailIpc,
+  isObservationRequest,
+  openMailIpcObservation,
+  parseMailIpcRequest,
+} from "./ipc";
 import { createDesktopMailStore, nodeMailCrypto } from "./sqlite";
 import { desktopStoragePressure } from "./storage-pressure";
 import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
@@ -22,21 +27,68 @@ export async function createDesktopMailOwner(input: {
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
-}): Promise<DesktopMailOwner> {
+}) {
   let owned = await createOwnedEngine(input);
+  const subscriptions = new Set<OwnerSubscription>();
+
+  function open(subscription: OwnerSubscription) {
+    const handle = openMailIpcObservation(owned.engine, subscription.request);
+    const send = () => {
+      const snapshot = handle.getSnapshot();
+      if (snapshot.status !== "loading") subscription.onSnapshot(snapshot);
+    };
+    const unsubscribe = handle.subscribe(send);
+    send();
+    return () => {
+      unsubscribe();
+      handle.close();
+    };
+  }
+
   return {
-    handleIpc(payload) {
+    handleIpc(payload: unknown) {
       return handleOwnerIpc(owned, payload);
     },
+    /**
+     * Keeps an observation open and pushes each changed snapshot, so the
+     * renderer doesn't poll every query on a timer.
+     */
+    subscribe(payload: unknown, onSnapshot: (snapshot: unknown) => void) {
+      const parsed = parseMailIpcRequest(payload);
+      if (!parsed.success || !isObservationRequest(parsed.data)) return null;
+      const subscription: OwnerSubscription = {
+        request: parsed.data,
+        onSnapshot,
+        close: () => {},
+      };
+      subscription.close = open(subscription);
+      subscriptions.add(subscription);
+      return () => {
+        subscription.close();
+        subscriptions.delete(subscription);
+      };
+    },
     async recover() {
+      for (const subscription of subscriptions) subscription.close();
       await owned.stop();
       owned = await createOwnedEngine(input);
+      for (const subscription of subscriptions) {
+        subscription.close = open(subscription);
+      }
     },
     close() {
+      for (const subscription of subscriptions) subscription.close();
+      subscriptions.clear();
       return owned.stop();
     },
   };
 }
+
+type OwnerSubscription = {
+  request: Parameters<typeof openMailIpcObservation>[1];
+  onSnapshot: (snapshot: unknown) => void;
+  close: () => void;
+};
 
 async function createOwnedEngine(input: {
   databasePath: string;

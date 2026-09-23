@@ -92,6 +92,36 @@ describe("createMailIpcClient", () => {
     expect(invoke.mock.calls.length).toBe(calls);
   });
 
+  it("does not notify listeners when a poll returns the same revision", async () => {
+    const invoke = vi.fn(async () => ({
+      status: "ok",
+      result: snapshotWithConversations(1),
+    }));
+    const client = createMailIpcClient(invoke, {
+      requestId: () => crypto.randomUUID(),
+      pollMs: 5,
+    });
+    const handle = client.observeMailbox({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    await vi.waitFor(() => {
+      expect(handle.getSnapshot().status).toBe("ready");
+    });
+    const listener = vi.fn();
+    handle.subscribe(listener);
+    const calls = invoke.mock.calls.length;
+    await vi.waitFor(() => {
+      expect(invoke.mock.calls.length).toBeGreaterThan(calls + 2);
+    });
+    expect(listener).not.toHaveBeenCalled();
+    handle.close();
+    await client.close?.();
+  });
+
   it("stops mailbox polls when the client closes", async () => {
     const invoke = vi.fn(async () => ({
       status: "ok",
@@ -154,6 +184,70 @@ describe("createMailIpcClient", () => {
     expect(handle.getSnapshot().data?.conversations).toHaveLength(1);
     handle.close();
     await client.close?.();
+  });
+
+  it("subscribes to pushed snapshots instead of polling", async () => {
+    const push = createPushHost();
+    const invoke = vi.fn();
+    const client = createMailIpcClient(invoke, {
+      requestId: () => crypto.randomUUID(),
+      pollMs: 5,
+      push: push.transport,
+    });
+    const handle = client.observeMailbox({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    await vi.waitFor(() => expect(push.subscriptions.size).toBe(1));
+    const [subscriptionId, request] =
+      [...push.subscriptions.entries()][0] ?? [];
+    expect(request).toMatchObject({ method: "observeMailbox" });
+
+    push.send("someone-else", snapshotWithConversations(3));
+    push.send(String(subscriptionId), snapshotWithConversations(1));
+    await vi.waitFor(() => {
+      expect(handle.getSnapshot().data?.conversations).toHaveLength(1);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(invoke).not.toHaveBeenCalled();
+
+    handle.close();
+    expect(push.subscriptions.size).toBe(0);
+    await client.close?.();
+  });
+
+  it("replaces the pushed subscription when a mailbox window loads more", async () => {
+    const push = createPushHost();
+    const client = createMailIpcClient(vi.fn(), {
+      requestId: () => crypto.randomUUID(),
+      push: push.transport,
+    });
+    const handle = client.observeMailboxWindow?.({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    if (!handle) throw new Error("missing mailbox window handle");
+    await vi.waitFor(() => expect(push.subscriptions.size).toBe(1));
+    const first = [...push.subscriptions.keys()][0] ?? "";
+    push.send(first, snapshotWithConversations(1));
+
+    const loadMore = handle.loadMore();
+    await vi.waitFor(() => {
+      expect([...push.subscriptions.keys()]).not.toContain(first);
+      expect(push.subscriptions.size).toBe(1);
+    });
+    const [second, request] = [...push.subscriptions.entries()][0] ?? [];
+    expect(request).toMatchObject({ payload: { pageCount: 2 } });
+    push.send(String(second), snapshotWithConversations(2));
+    await loadMore;
+    expect(handle.getSnapshot().data?.conversations).toHaveLength(2);
+    handle.close();
   });
 
   it("serializes loadMore behind an active mailbox window refresh", async () => {
@@ -221,5 +315,36 @@ function snapshotWithConversations(count: number) {
     },
     refreshing: false,
     error: null,
+  };
+}
+
+function createPushHost() {
+  const subscriptions = new Map<string, unknown>();
+  let listener:
+    | ((event: { subscriptionId: string; snapshot: unknown }) => void)
+    | null = null;
+  return {
+    subscriptions,
+    send(subscriptionId: string, snapshot: unknown) {
+      listener?.({ subscriptionId, snapshot });
+    },
+    transport: {
+      async subscribe(input: { subscriptionId: string; request: unknown }) {
+        subscriptions.set(input.subscriptionId, input.request);
+        return { status: "ok" };
+      },
+      async unsubscribe(subscriptionId: string) {
+        subscriptions.delete(subscriptionId);
+        return { status: "ok" };
+      },
+      onSnapshot(
+        next: (event: { subscriptionId: string; snapshot: unknown }) => void,
+      ) {
+        listener = next;
+        return () => {
+          listener = null;
+        };
+      },
+    },
   };
 }

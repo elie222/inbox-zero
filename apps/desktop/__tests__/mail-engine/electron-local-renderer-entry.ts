@@ -6,6 +6,7 @@ import type { PreparedOperation } from "@inboxzero/mail-core/operations";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createDesktopMailOwner } from "../../src/mail-engine/owner";
+import { registerMailEnginePushIpc } from "../../src/mail-engine/push-ipc";
 import { createDesktopMailStore } from "../../src/mail-engine/sqlite";
 
 app.whenReady().then(() =>
@@ -57,6 +58,7 @@ async function runSmoke() {
       return result;
     },
   );
+  registerMailEnginePushIpc({ ipcMain, getOwner: () => owner });
   const renderer = requiredEnv("ELECTRON_RENDERER_HTML");
   const expectedSubjects = process.env.ELECTRON_EXPECTED_SUBJECTS
     ? process.env.ELECTRON_EXPECTED_SUBJECTS.split("|")

@@ -16,7 +16,13 @@ if (!ipc?.mailEngine) {
   throw new Error("Desktop mail engine IPC is unavailable");
 }
 
-const client = createMailIpcClient(ipc.mailEngine);
+const client = createMailIpcClient(ipc.mailEngine, {
+  push: {
+    subscribe: ipc.mailEngineSubscribe,
+    unsubscribe: ipc.mailEngineUnsubscribe,
+    onSnapshot: ipc.onMailEngineSnapshot,
+  },
+});
 
 const root = document.getElementById("root");
 if (root) {
