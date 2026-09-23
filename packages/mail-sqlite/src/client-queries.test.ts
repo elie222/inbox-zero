@@ -141,7 +141,7 @@ describe("mail client queries", () => {
     const store = await createSqliteMailStore(
       createNodeSqliteDriver(join(directory, "mailbox.sqlite")),
     );
-    const untilMs = Date.now() + 60_000;
+    const untilMs = Date.now() + 60 * 60 * 1000;
     try {
       await store.ensureAccount({
         accountId: "acc-1",
