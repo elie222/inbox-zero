@@ -76,10 +76,9 @@ function createGroup<T>(
     try {
       const loaded = await load();
       if (read !== latestRead) return;
-      // The revision is database-wide, so most refreshes follow writes that
-      // did not touch this query. Republishing identical data would re-render
-      // every observer on each unrelated write. Query data is plain schema
-      // data (no Map, Set, or Date), so its JSON form is a faithful comparison.
+      // The revision is database-wide, so most refreshes follow unrelated
+      // writes; skip republishing identical data. Query data is plain schema
+      // data (no Map, Set, or Date), so comparing its JSON form is faithful.
       const data = JSON.stringify(loaded.data);
       const unchanged = data === publishedData;
       publishedData = data;

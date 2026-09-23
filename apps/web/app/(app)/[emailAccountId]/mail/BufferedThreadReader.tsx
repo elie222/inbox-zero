@@ -21,17 +21,21 @@ export function BufferedThreadReader({
   onReady: (threadKey: string) => void;
 }) {
   const [visibleKey, setVisibleKey] = useState<string | null>(null);
-  // Only read while the next thread loads. Keeping it out of state means a
-  // parent re-render of the same thread doesn't render the reader twice.
+  // Kept out of state so a parent re-render of the same thread doesn't render
+  // the reader a second time.
   const visibleContent = useRef<ReactElement<ThreadReaderProps> | null>(null);
   const pendingRef = useRef<HTMLDivElement>(null);
   const readinessDeadline = useRef<{ key: string; expiresAt: number } | null>(
     null,
   );
+  const previous =
+    visibleKey !== null && visibleContent.current
+      ? { key: visibleKey, content: visibleContent.current }
+      : null;
   const replacing =
-    visibleKey !== null &&
-    visibleKey !== threadKey &&
-    visibleContent.current?.props.threadId != null;
+    previous !== null &&
+    previous.key !== threadKey &&
+    previous.content.props.threadId !== null;
   useLayoutEffect(() => {
     if (!replacing) onReady(threadKey);
     if (!dataReady) return;
@@ -78,14 +82,9 @@ export function BufferedThreadReader({
   const current = {
     key: threadKey,
     content:
-      !dataReady && visibleKey === threadKey && visibleContent.current
-        ? visibleContent.current
-        : children,
+      !dataReady && previous?.key === threadKey ? previous.content : children,
   };
-  const readers =
-    replacing && visibleContent.current
-      ? [{ key: visibleKey, content: visibleContent.current }, current]
-      : [current];
+  const readers = replacing ? [previous, current] : [current];
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1" aria-busy={replacing}>
