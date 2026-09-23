@@ -1751,6 +1751,17 @@ export async function createSqliteMailStore(
           [input.code, input.accountId, input.commandId, input.attemptId],
         );
         if (failed.changedRows === 0) return { status: "stale" as const };
+        const targets = await tx.query(
+          "SELECT message_id FROM operation_targets WHERE account_id = ? AND command_id = ?",
+          [input.accountId, input.commandId],
+        );
+        await recomputeTargets(
+          tx,
+          targets.map((row) => ({
+            accountId: input.accountId,
+            messageId: String(row.message_id),
+          })),
+        );
         return {
           status: "committed" as const,
           revision: await bumpRevision(tx),
@@ -1924,7 +1935,7 @@ async function admitConversations(
     return { status: "rejected", code: "invalid" };
   }
   let complete = true;
-  const knownTargets: MessageKey[] = [];
+  const knownTargets: Array<MessageKey & { conversationId: string }> = [];
   for (const conversation of input.conversations) {
     if (conversation.accountId !== input.accountId) {
       return { status: "rejected", code: "invalid" };
@@ -1942,6 +1953,7 @@ async function admitConversations(
       ...messages.map((row) => ({
         accountId: conversation.accountId,
         messageId: String(row.message_id),
+        conversationId: conversation.conversationId,
       })),
     );
   }
@@ -1951,7 +1963,10 @@ async function admitConversations(
       {
         accountId: input.accountId,
         commandId: input.commandId,
-        targets: knownTargets,
+        targets: knownTargets.map(({ accountId, messageId }) => ({
+          accountId,
+          messageId,
+        })),
         change: input.change,
       },
       maxPendingOperations,
@@ -1988,6 +2003,21 @@ async function admitConversations(
       ],
     );
   }
+  // Membership resolution needs the network, so apply the change to the
+  // messages already stored; preparation adds any the provider reports later.
+  for (const target of knownTargets) {
+    await tx.execute(
+      `INSERT INTO operation_targets(account_id, command_id, message_id, conversation_id)
+       VALUES (?, ?, ?, ?)`,
+      [
+        target.accountId,
+        input.commandId,
+        target.messageId,
+        target.conversationId,
+      ],
+    );
+  }
+  await recomputeTargets(tx, knownTargets);
   return {
     status: "preparing",
     operation: { accountId: input.accountId, operationId: input.commandId },
@@ -2512,30 +2542,33 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
       continue;
     }
     const pendingRows = await tx.query(
-      `SELECT o.command_id, o.executable_payload_json, o.status, t.outcome
+      `SELECT o.command_id, o.executable_payload_json, o.payload_json, o.status, t.outcome
        FROM operations o
        JOIN operation_targets t
          ON t.account_id = o.account_id AND t.command_id = o.command_id
-       WHERE t.account_id = ? AND t.message_id = ? AND o.executable_hash IS NOT NULL`,
+       WHERE t.account_id = ? AND t.message_id = ?
+         AND (o.executable_hash IS NOT NULL OR o.status = 'preparing')`,
       [target.accountId, target.messageId],
     );
     const pending = pendingRows
       .filter((row) => {
         const outcome = row.outcome == null ? null : String(row.outcome);
         if (outcome === "applied" || outcome === "rejected") return false;
-        return isPendingEffectStatus(
-          String(row.status) as OperationState["status"],
-        );
+        const status = String(row.status) as OperationState["status"];
+        return status === "preparing" || isPendingEffectStatus(status);
       })
       .map((row) => {
-        const payload = JSON.parse(String(row.executable_payload_json)) as {
+        const payload = JSON.parse(
+          String(row.executable_payload_json ?? row.payload_json),
+        ) as {
           change: SubmitMetadataCommand["change"];
-          targets: MessageKey[];
+          targets?: MessageKey[];
         };
         return {
           operationId: String(row.command_id),
           change: payload.change,
-          targets: payload.targets,
+          // Preparing payloads name conversations; the join scopes the row.
+          targets: payload.targets ?? [target],
         };
       });
     const effective = deriveEffectiveMessage(confirmed, pending);
