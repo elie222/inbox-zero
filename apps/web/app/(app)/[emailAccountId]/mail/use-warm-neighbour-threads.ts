@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
@@ -19,11 +20,12 @@ type WarmObservation = {
   unsubscribe: () => void;
 };
 
-// Holds engine observations for the conversations around the open one so J/K
-// lands on a group that already has a snapshot and body content, instead of
-// waiting on a fresh read and a body fetch. The open conversation is held too:
-// the reader follows a deferred selection, and releasing the newly opened
-// thread before the reader subscribes would drop its warm group.
+type WarmTarget = { key: string; selection: ThreadSelection; open: boolean };
+
+// Keeps the conversations around the open one observed so J/K lands on an
+// engine query that already has its snapshot and bodies. The open one is held
+// too: the reader follows a deferred selection and subscribes after this
+// effect runs, so releasing it here would drop the data it is about to read.
 export function useWarmNeighbourThreads({
   threads,
   openThreadKey,
@@ -34,70 +36,93 @@ export function useWarmNeighbourThreads({
   emailAccountId: string;
 }) {
   const client = useOptionalMailClient();
-  const warm = useRef(new Map<string, WarmObservation>());
-  const targetsJson = JSON.stringify(
-    getWarmTargets(threads, openThreadKey, emailAccountId),
+  const warm = useRef<{
+    client: MailClient | null;
+    observations: Map<string, WarmObservation>;
+  }>({ client: null, observations: new Map() });
+  const targets = useMemo(
+    () => getWarmTargets(threads, openThreadKey, emailAccountId),
+    [threads, openThreadKey, emailAccountId],
   );
 
   useEffect(() => {
-    const observations = warm.current;
-    const targets = client
-      ? (JSON.parse(targetsJson) as ThreadSelection[])
-      : [];
-    const keys = new Set(targets.map((target) => targetKey(target)));
+    // Observations belong to the engine that created them.
+    if (warm.current.client !== client) {
+      releaseAll(warm.current.observations);
+      warm.current.client = client;
+    }
+    // The open thread briefly leaves the list while an archive advances the
+    // reader; keeping what is held lets the next thread open warm.
+    if (!client || !targets) return;
+    const { observations } = warm.current;
+    const keys = new Set(targets.map((target) => target.key));
     for (const [key, observation] of observations) {
       if (keys.has(key)) continue;
       release(observation);
       observations.delete(key);
     }
-    if (!client) return;
     for (const target of targets) {
-      const key = targetKey(target);
-      if (observations.has(key)) continue;
-      const handle = client.observeConversation(
-        { accountId: target.emailAccountId, conversationId: target.threadId },
-        { after: null, pageSize: CONVERSATION_PAGE_SIZE },
-      );
-      const requested = new Set<string>();
-      const warmContent = () => {
-        const view = handle.getSnapshot().data;
-        if (view) requestMissingMessageContent(client, view, requested);
-      };
-      const unsubscribe = handle.subscribe(warmContent);
-      warmContent();
-      observations.set(key, { handle, unsubscribe });
+      if (observations.has(target.key)) continue;
+      observations.set(target.key, observe(client, target));
     }
-  }, [client, targetsJson]);
+  }, [client, targets]);
 
   useEffect(() => {
-    const observations = warm.current;
-    return () => {
-      for (const observation of observations.values()) release(observation);
-      observations.clear();
-    };
+    const held = warm.current;
+    return () => releaseAll(held.observations);
   }, []);
 }
 
+function observe(client: MailClient, target: WarmTarget): WarmObservation {
+  const handle = client.observeConversation(
+    {
+      accountId: target.selection.emailAccountId,
+      conversationId: target.selection.threadId,
+    },
+    { after: null, pageSize: CONVERSATION_PAGE_SIZE },
+  );
+  // The reader requests bodies for the open thread itself.
+  if (target.open) return { handle, unsubscribe: () => {} };
+  const requested = new Set<string>();
+  const warmContent = () => {
+    const view = handle.getSnapshot().data;
+    if (view) requestMissingMessageContent(client, view, requested);
+  };
+  const unsubscribe = handle.subscribe(warmContent);
+  warmContent();
+  return { handle, unsubscribe };
+}
+
+// Returns null when the open thread isn't in the list, meaning "keep what is
+// held"; an empty list means nothing is open.
 function getWarmTargets(
   threads: ListThread[],
   openThreadKey: string | null,
   emailAccountId: string,
-): ThreadSelection[] {
+): WarmTarget[] | null {
   if (!openThreadKey) return [];
   const index = threads.findIndex(
     (thread) => getListThreadKey(thread) === openThreadKey,
   );
-  if (index === -1) return [];
+  if (index === -1) return null;
   return [threads[index - 1], threads[index], threads[index + 1]]
     .filter((thread): thread is ListThread => Boolean(thread))
-    .map((thread) => getListThreadSelection(thread, emailAccountId));
-}
-
-function targetKey(target: ThreadSelection) {
-  return getThreadSelectionKey(target) ?? "";
+    .map((thread) => {
+      const selection = getListThreadSelection(thread, emailAccountId);
+      return {
+        key: getThreadSelectionKey(selection) ?? getListThreadKey(thread),
+        selection,
+        open: thread === threads[index],
+      };
+    });
 }
 
 function release(observation: WarmObservation) {
   observation.unsubscribe();
   observation.handle.close();
+}
+
+function releaseAll(observations: Map<string, WarmObservation>) {
+  for (const observation of observations.values()) release(observation);
+  observations.clear();
 }

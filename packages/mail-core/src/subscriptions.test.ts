@@ -128,6 +128,24 @@ describe("query subscriptions", () => {
     registry.closeAll();
   });
 
+  it("starts a new observer loading rather than in error after a failed refresh", async () => {
+    const registry = createQueryRegistry();
+    let fail = false;
+    const load = async () => {
+      if (fail) throw new Error("unavailable");
+      return { revision: { databaseEpoch: "db", sequence: 1 }, data: "warm" };
+    };
+    const first = registry.observe("conversation", load);
+    await waitFor(() => first.getSnapshot().status === "ready");
+    fail = true;
+    await registry.refreshAll();
+    expect(first.getSnapshot().status).toBe("error");
+
+    const next = registry.observe("conversation", load);
+    expect(next.getSnapshot().status).toBe("loading");
+    registry.closeAll();
+  });
+
   it("does not notify listeners when a refresh returns the same revision", async () => {
     const registry = createQueryRegistry();
     const requests: Array<ReturnType<typeof deferredSnapshot>> = [];

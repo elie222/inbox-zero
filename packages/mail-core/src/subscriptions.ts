@@ -70,9 +70,8 @@ function createGroup<T>(
   let inFlight: Promise<void> | null = null;
   let queued = false;
   let publishedData: string | null = null;
-  // Last settled snapshot with data, so a handle joining a warm group (for
-  // example the reader opening a prefetched neighbour) renders immediately
-  // instead of waiting for its own read to finish.
+  // A late observer of a loaded query starts from its last ready snapshot
+  // instead of waiting for its own read.
   let settled: QuerySnapshot<T> | null = null;
 
   async function runLoad() {
@@ -100,13 +99,8 @@ function createGroup<T>(
       }
     } catch {
       if (read !== latestRead) return;
-      if (settled) {
-        settled = {
-          ...settled,
-          status: "error",
-          error: { code: "unavailable", retryable: true },
-        };
-      }
+      // A late observer should load rather than start in the error state.
+      settled = null;
       for (const handle of handles) {
         const current = handle.getSnapshot();
         handle.publish({

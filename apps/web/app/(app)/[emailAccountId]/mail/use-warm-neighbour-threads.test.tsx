@@ -47,7 +47,50 @@ describe("useWarmNeighbourThreads", () => {
     expect(client.openKeys()).toEqual([]);
   });
 
-  it("requests missing bodies once per message across snapshot updates", () => {
+  it("keeps its neighbours while the open thread leaves the list, as when archiving advances the reader", () => {
+    const client = fakeClient();
+    const { rerender } = renderHook(
+      ({ threads }: { threads: ListThread[] }) =>
+        useWarmNeighbourThreads({
+          threads,
+          openThreadKey: "t2",
+          emailAccountId: "acc-1",
+        }),
+      {
+        initialProps: { threads: ["t1", "t2", "t3"].map(listThread) },
+        wrapper: client.wrapper,
+      },
+    );
+
+    rerender({ threads: ["t1", "t3"].map(listThread) });
+    expect(client.openKeys()).toEqual(["t1", "t2", "t3"]);
+  });
+
+  it("moves its observations to a new mail client", () => {
+    const first = fakeClient();
+    const second = fakeClient();
+    let client = first;
+    const { rerender } = renderHook(
+      () =>
+        useWarmNeighbourThreads({
+          threads: ["t1", "t2"].map(listThread),
+          openThreadKey: "t1",
+          emailAccountId: "acc-1",
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) =>
+          client.wrapper({ children }),
+      },
+    );
+    expect(first.openKeys()).toEqual(["t1", "t2"]);
+
+    client = second;
+    rerender();
+    expect(first.openKeys()).toEqual([]);
+    expect(second.openKeys()).toEqual(["t1", "t2"]);
+  });
+
+  it("requests a neighbour's missing bodies once per message across snapshot updates", () => {
     const client = fakeClient();
     renderHook(
       () =>

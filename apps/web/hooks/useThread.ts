@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuerySnapshot } from "@inboxzero/mail-react/use-query-snapshot";
 import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
@@ -58,11 +58,21 @@ export function useThread(
     );
   }, [client, emailAccountId, id, pageSize]);
   const snapshot = useQuerySnapshot(createHandle);
+  const requestedContent = useRef({ createHandle, ids: new Set<string>() });
 
   useEffect(() => {
     if (!client || !snapshot.data) return;
-    requestMissingMessageContent(client, snapshot.data);
-  }, [client, snapshot.data]);
+    // The view can republish several times before bodies arrive; one request
+    // per message for each observation is enough.
+    if (requestedContent.current.createHandle !== createHandle) {
+      requestedContent.current = { createHandle, ids: new Set() };
+    }
+    requestMissingMessageContent(
+      client,
+      snapshot.data,
+      requestedContent.current.ids,
+    );
+  }, [client, createHandle, snapshot.data]);
 
   const data = useMemo<ThreadResponse | undefined>(() => {
     if (!id || !snapshot.data) return;

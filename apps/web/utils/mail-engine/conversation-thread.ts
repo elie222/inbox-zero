@@ -72,15 +72,16 @@ export function conversationMessageToParsed(
 
 export const CONVERSATION_PAGE_SIZE = 50;
 
+/** `requested` spans one observation so each snapshot doesn't re-request. */
 export function requestMissingMessageContent(
   client: Pick<MailClient, "ensureMessageContent">,
   view: ConversationView,
-  requested?: Set<string>,
+  requested: Set<string>,
 ) {
   for (const message of view.messages) {
     if (message.content.status === "available") continue;
-    if (requested?.has(message.key.messageId)) continue;
-    requested?.add(message.key.messageId);
+    if (requested.has(message.key.messageId)) continue;
+    requested.add(message.key.messageId);
     client.ensureMessageContent(message.key).catch(() => undefined);
   }
 }
