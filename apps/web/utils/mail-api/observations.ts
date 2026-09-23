@@ -109,7 +109,11 @@ function parsedMessageAttachmentDescriptors(
     ...(message.inline ?? []).map((attachment) =>
       descriptorFromParsed(attachment, true),
     ),
-  ];
+  ].filter(
+    // Gmail omits the id when a small part's data is embedded in the message.
+    // It can't be fetched by id, and one missing id fails the whole sync page.
+    (descriptor) => Boolean(descriptor.attachmentId),
+  );
 }
 
 function descriptorFromParsed(
