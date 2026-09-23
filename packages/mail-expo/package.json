@@ -1,0 +1,44 @@
+{
+  "name": "@inboxzero/mail-expo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Expo SQLite, file, and runtime adapters for the shared mail engine",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/mail-expo#readme",
+  "bugs": {
+    "url": "https://github.com/elie222/inbox-zero/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
+    "directory": "packages/mail-expo"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./sqlite": "./src/sqlite.ts",
+    "./files": "./src/files.ts",
+    "./runtime": "./src/runtime.ts"
+  },
+  "scripts": {
+    "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check-imports": "node scripts/check-imports.mjs"
+  },
+  "dependencies": {
+    "@inboxzero/mail-core": "workspace:*",
+    "@inboxzero/mail-sqlite": "workspace:*"
+  },
+  "peerDependencies": {
+    "expo-file-system": ">=55",
+    "expo-sqlite": ">=55"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
