@@ -43,18 +43,18 @@ const DEFAULT_MODELS = {
     default: "claude-sonnet-5",
     economy: "claude-haiku-4-5",
   },
-  openai: { default: "gpt-5.6-luna", economy: "gpt-5.6-luna" },
+  openai: { default: "gpt-6-luna", economy: "gpt-6-luna" },
   google: {
     default: "gemini-3.8-flash",
     economy: "gemini-3.1-flash-lite",
   },
   openrouter: {
     default: "anthropic/claude-sonnet-5",
-    economy: "openai/gpt-5.6-luna",
+    economy: "openai/gpt-6-luna",
   },
   aigateway: {
     default: "anthropic/claude-sonnet-5",
-    economy: "openai/gpt-5.6-luna",
+    economy: "openai/gpt-6-luna",
   },
   bedrock: {
     default: "global.anthropic.claude-sonnet-5",

@@ -15,7 +15,7 @@ export const decisionModelEvalLogger = createScopedLogger(
   "eval-decision-model-comparison",
 );
 export const lunaEmailAccount = getEmailAccountForModel(
-  EVAL_MODEL_CATALOG["gpt-5.6-luna"],
+  EVAL_MODEL_CATALOG["gpt-6-luna"],
 );
 export const decisionModelConfig = {
   provider: "typesafe" as const,
@@ -42,7 +42,7 @@ export async function compareDecision<T>({
   recordResult({
     reporter,
     testName,
-    model: "GPT-5.6 Luna",
+    model: "GPT-6 Luna",
     actual: luna,
     expected,
   });

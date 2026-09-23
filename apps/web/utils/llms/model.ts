@@ -103,7 +103,7 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.6-luna";
+      const modelName = aiModel || "gpt-6-luna";
       // When Zero Data Retention is enabled, set store: false to avoid
       // "Items are not persisted for Zero Data Retention organizations" errors
       // See: https://github.com/vercel/ai/issues/10060
@@ -126,7 +126,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5.6-luna";
+      const modelName = aiModel || "gpt-6-luna";
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {

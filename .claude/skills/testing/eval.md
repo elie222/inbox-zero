@@ -86,7 +86,7 @@ pnpm test-ai eval/your-feature
 EVAL_MODELS=all pnpm test-ai eval/your-feature
 
 # Specific models
-EVAL_MODELS=gemini-3.8-flash,gpt-5.6-luna pnpm test-ai eval/your-feature
+EVAL_MODELS=gemini-3.8-flash,gpt-6-luna pnpm test-ai eval/your-feature
 
 # Save report to file
 EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-feature
