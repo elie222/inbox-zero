@@ -44,7 +44,7 @@ export async function startDesktopAutoUpdate(
   try {
     const autoUpdater = await getDesktopAutoUpdater(handlers);
     scheduleDesktopUpdateChecks(autoUpdater);
-    await autoUpdater.checkForUpdates();
+    observeDownload(await autoUpdater.checkForUpdates());
     return true;
   } catch (error) {
     logDesktopUpdateError(error);
@@ -85,6 +85,7 @@ export async function checkForDesktopUpdatesManually(
     reportDownloadProgress = true;
     const result = await autoUpdater.checkForUpdates();
     if (!result) throw new Error("Desktop updater is unavailable");
+    observeDownload(result, stopReportingDownloadProgress);
 
     if (downloadedVersion) {
       stopReportingDownloadProgress();
@@ -199,7 +200,20 @@ async function promptToInstallDownloadedUpdate(
 
 function scheduleDesktopUpdateChecks(autoUpdater: AppUpdater) {
   const timer = setInterval(() => {
-    autoUpdater.checkForUpdates().catch(logDesktopUpdateError);
+    autoUpdater
+      .checkForUpdates()
+      .then((result) => observeDownload(result))
+      .catch(logDesktopUpdateError);
   }, DESKTOP_UPDATE_INTERVAL_MS);
   timer.unref();
+}
+
+function observeDownload(
+  result: { downloadPromise?: Promise<unknown> | null } | null | undefined,
+  onFailure?: () => void,
+) {
+  result?.downloadPromise?.catch((error: unknown) => {
+    onFailure?.();
+    logDesktopUpdateError(error);
+  });
 }

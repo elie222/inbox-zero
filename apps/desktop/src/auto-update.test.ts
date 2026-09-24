@@ -253,6 +253,27 @@ describe("checkForDesktopUpdatesManually", () => {
     expect(onDownloadProgress).toHaveBeenCalledWith(41);
   });
 
+  it("clears progress when a background download fails", async () => {
+    const onDownloadProgress = vi.fn();
+    let rejectDownload: (error: Error) => void = () => {};
+    const downloadPromise = new Promise<string[]>((_, reject) => {
+      rejectDownload = reject;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue({
+      downloadPromise,
+      isUpdateAvailable: true,
+      updateInfo: { version: "0.2.0" },
+    });
+
+    await startDesktopAutoUpdate(true, { onDownloadProgress });
+    await checkForDesktopUpdatesManually(vi.fn(), true);
+    rejectDownload(new Error("download failed"));
+    await downloadPromise.catch(() => undefined);
+
+    expect(console.error).toHaveBeenCalledWith("download failed");
+    expect(onDownloadProgress).toHaveBeenCalledWith(null);
+  });
+
   it("restarts immediately when the update is already downloaded", async () => {
     const beforeInstall = vi.fn();
     let notifyDownloaded: ((info: { version: string }) => void) | undefined;
