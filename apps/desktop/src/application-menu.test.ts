@@ -85,6 +85,23 @@ describe("desktop application menu", () => {
     expect(update?.click).toBe(checkForUpdates);
   });
 
+  it("shows download progress in the menu while an update is downloading", () => {
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      downloadPercent: 42,
+      platform: "darwin",
+    });
+
+    const template = Menu.buildFromTemplate.mock.results[0].value;
+    const appMenu = template.find((item) => item.label === "Inbox Zero");
+    const submenu = appMenu?.submenu as MenuItemConstructorOptions[];
+    expect(
+      submenu.some((item) => item.label === "Downloading update… 42%"),
+    ).toBe(true);
+  });
+
   it.each([
     "darwin",
     "win32",

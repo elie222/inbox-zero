@@ -7,7 +7,10 @@ export const DESKTOP_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 let downloadedVersion: string | null = null;
 let updateEventsBound = false;
+let reportDownloadProgress = false;
+let lastReportedPercent: number | null = null;
 let onUpdateReady: ((version: string) => void) | undefined;
+let onDownloadProgress: ((percent: number | null) => void) | undefined;
 
 export function logDesktopUpdateError(error: unknown) {
   console.error(
@@ -19,7 +22,10 @@ export function logDesktopUpdateError(error: unknown) {
 export function resetDesktopAutoUpdateForTests() {
   downloadedVersion = null;
   updateEventsBound = false;
+  reportDownloadProgress = false;
+  lastReportedPercent = null;
   onUpdateReady = undefined;
+  onDownloadProgress = undefined;
 }
 
 export function isDesktopUpdateReady() {
@@ -28,12 +34,15 @@ export function isDesktopUpdateReady() {
 
 export async function startDesktopAutoUpdate(
   isPackaged = app.isPackaged,
-  notifyUpdateReady?: (version: string) => void,
+  handlers?: {
+    onUpdateReady?: (version: string) => void;
+    onDownloadProgress?: (percent: number | null) => void;
+  },
 ): Promise<boolean> {
   if (!isPackaged) return false;
 
   try {
-    const autoUpdater = await getDesktopAutoUpdater(notifyUpdateReady);
+    const autoUpdater = await getDesktopAutoUpdater(handlers);
     scheduleDesktopUpdateChecks(autoUpdater);
     await autoUpdater.checkForUpdates();
     return true;
@@ -73,14 +82,17 @@ export async function checkForDesktopUpdatesManually(
       return promptToInstallDownloadedUpdate(prepareToQuit, autoUpdater);
     }
 
+    reportDownloadProgress = true;
     const result = await autoUpdater.checkForUpdates();
     if (!result) throw new Error("Desktop updater is unavailable");
 
     if (downloadedVersion) {
+      stopReportingDownloadProgress();
       return promptToInstallDownloadedUpdate(prepareToQuit, autoUpdater);
     }
 
     if (!result.isUpdateAvailable) {
+      stopReportingDownloadProgress();
       await dialog.showMessageBox({
         type: "info",
         message: "You're up to date",
@@ -97,6 +109,7 @@ export async function checkForDesktopUpdatesManually(
     });
     return true;
   } catch (error) {
+    stopReportingDownloadProgress();
     logDesktopUpdateError(error);
     await dialog.showMessageBox({
       type: "error",
@@ -107,10 +120,14 @@ export async function checkForDesktopUpdatesManually(
   }
 }
 
-async function getDesktopAutoUpdater(
-  notifyUpdateReady?: (version: string) => void,
-): Promise<AppUpdater> {
-  if (notifyUpdateReady) onUpdateReady = notifyUpdateReady;
+async function getDesktopAutoUpdater(handlers?: {
+  onUpdateReady?: (version: string) => void;
+  onDownloadProgress?: (percent: number | null) => void;
+}): Promise<AppUpdater> {
+  if (handlers?.onUpdateReady) onUpdateReady = handlers.onUpdateReady;
+  if (handlers?.onDownloadProgress) {
+    onDownloadProgress = handlers.onDownloadProgress;
+  }
 
   const { autoUpdater } = await import("electron-updater");
   autoUpdater.setFeedURL({
@@ -126,12 +143,27 @@ async function getDesktopAutoUpdater(
 function bindUpdateDownloaded(autoUpdater: AppUpdater) {
   if (updateEventsBound) return;
   updateEventsBound = true;
+  autoUpdater.on("download-progress", (progress: { percent: number }) => {
+    if (!reportDownloadProgress) return;
+    const percent = Math.round(progress.percent);
+    if (percent === lastReportedPercent) return;
+    lastReportedPercent = percent;
+    onDownloadProgress?.(percent);
+  });
   autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
     if (downloadedVersion === info.version) return;
     downloadedVersion = info.version;
+    stopReportingDownloadProgress();
     notifyUpdateReady(info.version);
     onUpdateReady?.(info.version);
   });
+}
+
+function stopReportingDownloadProgress() {
+  if (!reportDownloadProgress && lastReportedPercent === null) return;
+  reportDownloadProgress = false;
+  lastReportedPercent = null;
+  onDownloadProgress?.(null);
 }
 
 function notifyUpdateReady(version: string) {

@@ -98,6 +98,8 @@ const localMailUrl = shouldUseLocalMailRenderer()
   : null;
 const trackNewMail = createMailNotificationTracker();
 const mailNotifications = new Map<string, Notification>();
+let downloadPercent: number | null = null;
+let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -262,6 +264,7 @@ function startDesktopApp() {
     const applyDesktopMenu = () => {
       configureDesktopApplicationMenu({
         updateReady: desktopUpdateReady,
+        downloadPercent,
         checkForUpdates: () => {
           if (desktopUpdateReady) {
             installUpdate();
@@ -280,6 +283,7 @@ function startDesktopApp() {
         },
       });
     };
+    refreshDesktopMenu = applyDesktopMenu;
     applyDesktopMenu();
     if (!shouldSmokeLocalMail()) {
       // Overlap TLS/socket setup with window creation and page load.
@@ -295,9 +299,12 @@ function startDesktopApp() {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
     if (!shouldSmokeLocalMail()) {
-      startDesktopAutoUpdate(undefined, () => {
-        desktopUpdateReady = true;
-        applyDesktopMenu();
+      startDesktopAutoUpdate(undefined, {
+        onUpdateReady: () => {
+          desktopUpdateReady = true;
+          setDownloadPercent(null);
+        },
+        onDownloadProgress: setDownloadPercent,
       }).catch(logDesktopUpdateError);
     }
   });
@@ -311,6 +318,25 @@ function startDesktopApp() {
   app.on("activate", () => {
     focusAppWindow();
   });
+}
+
+function setDownloadPercent(percent: number | null) {
+  downloadPercent = percent;
+  refreshDesktopMenu?.();
+  syncUpdateProgressBar();
+}
+
+function syncUpdateProgressBar() {
+  const onView = windows.some(
+    (window) => window.isFocused() && window.isVisible(),
+  );
+  const progress =
+    downloadPercent === null || !onView
+      ? -1
+      : Math.min(1, Math.max(0, downloadPercent / 100));
+  for (const window of windows) {
+    if (!window.isDestroyed()) window.setProgressBar(progress);
+  }
 }
 
 function restoreAppWindows() {
@@ -368,6 +394,10 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    syncUpdateProgressBar();
+  });
+  window.on("blur", () => {
+    syncUpdateProgressBar();
   });
   window.on("moved", schedulePersistWindows);
   window.on("resized", schedulePersistWindows);

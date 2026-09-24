@@ -7,12 +7,14 @@ export function configureDesktopApplicationMenu({
   createWindow,
   recordDiagnostics,
   updateReady = false,
+  downloadPercent = null,
   platform = process.platform,
 }: {
   checkForUpdates: () => void;
   createWindow: () => void;
   recordDiagnostics: () => void;
   updateReady?: boolean;
+  downloadPercent?: number | null;
   platform?: NodeJS.Platform;
 }) {
   app.setAboutPanelOptions({
@@ -21,7 +23,7 @@ export function configureDesktopApplicationMenu({
   });
 
   const checkForUpdatesItem: MenuItemConstructorOptions = {
-    label: updateReady ? "Restart to Update" : "Check for Updates…",
+    label: updateMenuLabel(updateReady, downloadPercent),
     click: checkForUpdates,
   };
   const recordDiagnosticsItem: MenuItemConstructorOptions = {
@@ -82,4 +84,10 @@ export function configureDesktopApplicationMenu({
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function updateMenuLabel(updateReady: boolean, downloadPercent: number | null) {
+  if (updateReady) return "Restart to Update";
+  if (downloadPercent === null) return "Check for Updates…";
+  return `Downloading update… ${downloadPercent}%`;
 }

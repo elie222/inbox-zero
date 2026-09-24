@@ -123,7 +123,7 @@ describe("startDesktopAutoUpdate", () => {
       if (event === "update-downloaded") notifyDownloaded = listener;
     });
 
-    await startDesktopAutoUpdate(true, onUpdateReady);
+    await startDesktopAutoUpdate(true, { onUpdateReady });
     notifyDownloaded?.({ version: "0.2.0" });
     notifyDownloaded?.({ version: "0.2.0" });
 
@@ -136,6 +136,20 @@ describe("startDesktopAutoUpdate", () => {
       },
     ]);
     expect(notificationShow).toHaveBeenCalledOnce();
+  });
+
+  it("hides background download progress", async () => {
+    const onDownloadProgress = vi.fn();
+    let reportProgress: ((progress: { percent: number }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
+      if (event === "download-progress") reportProgress = listener;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue(null);
+
+    await startDesktopAutoUpdate(true, { onDownloadProgress });
+    reportProgress?.({ percent: 40 });
+
+    expect(onDownloadProgress).not.toHaveBeenCalled();
   });
 });
 
@@ -217,6 +231,26 @@ describe("checkForDesktopUpdatesManually", () => {
     );
     expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
     expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it("reports progress only after someone checks for updates", async () => {
+    const onDownloadProgress = vi.fn();
+    let reportProgress: ((progress: { percent: number }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
+      if (event === "download-progress") reportProgress = listener;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue({
+      isUpdateAvailable: true,
+      updateInfo: { version: "0.2.0" },
+    });
+
+    await startDesktopAutoUpdate(true, { onDownloadProgress });
+    await checkForDesktopUpdatesManually(vi.fn(), true);
+    reportProgress?.({ percent: 41.2 });
+    reportProgress?.({ percent: 41.4 });
+
+    expect(onDownloadProgress).toHaveBeenCalledTimes(1);
+    expect(onDownloadProgress).toHaveBeenCalledWith(41);
   });
 
   it("restarts immediately when the update is already downloaded", async () => {
