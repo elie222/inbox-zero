@@ -78,9 +78,9 @@ test("restores a deleted All tab and protects it from removal", async ({
     }
   });
   await openMail(page);
-  const allTab = page
-    .locator("button[data-split-tab]")
-    .filter({ hasText: /^All$/ });
+  const allTab = page.locator("button[data-split-tab]").filter({
+    has: page.locator("[data-split-name]", { hasText: /^All$/ }),
+  });
   await expect(allTab).toBeVisible();
   await allTab.click({ button: "right" });
   await expect(
@@ -98,7 +98,7 @@ test("restores a deleted All tab and protects it from removal", async ({
     "draggable",
     "false",
   );
-  const tabs = page.locator("button[data-split-tab]");
+  const tabs = page.locator("[data-split-name]");
   const original = await tabs.allTextContents();
   expect(original).toHaveLength(MAX_MAIL_SPLITS + (isMicrosoft ? 1 : 2));
   await page
@@ -269,7 +269,7 @@ test("reorders splits with arrows and dragging and persists tab order", async ({
   page,
 }, testInfo) => {
   await openMail(page);
-  const tabs = page.locator("button[data-split-tab]");
+  const tabs = page.locator("[data-split-name]");
   const original = await tabs.allTextContents();
   expect(original.length).toBeGreaterThan(1);
   await page.getByRole("button", { name: "New split", exact: true }).click();

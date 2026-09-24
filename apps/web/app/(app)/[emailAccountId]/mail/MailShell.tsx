@@ -46,6 +46,7 @@ import {
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
+import { useSplitCounts } from "@/app/(app)/[emailAccountId]/mail/use-split-counts";
 import {
   NewSplitDialog,
   type ExistingSplit,
@@ -439,6 +440,20 @@ export function MailShell() {
     searchQuery: searchQuery ?? undefined,
   });
   const { labelsByAccount } = combinedThreadState;
+  const splitCountAccountIds = useMemo(
+    () =>
+      isAllAccounts
+        ? combinedAccounts.map((account) => account.id)
+        : [emailAccountId],
+    [combinedAccounts, emailAccountId, isAllAccounts],
+  );
+  const splitCounts = useSplitCounts({
+    accountIds: splitCountAccountIds,
+    splits,
+    enabled: !isScoped && !searchQuery,
+    portableLabelSplits: isAllAccounts ? combinedLabelSplits : undefined,
+    labelsByAccount: isAllAccounts ? labelsByAccount : undefined,
+  });
   const {
     threads: remoteThreads,
     isLoading,
@@ -1709,6 +1724,7 @@ export function MailShell() {
                     ...split,
                     deletable: split.filters.length > 0,
                   }))}
+                  countsById={splitCounts}
                   activeSplitId={displayedActiveSplitId}
                   onSelect={setActiveSplitId}
                   onDelete={onDeleteSplit}
