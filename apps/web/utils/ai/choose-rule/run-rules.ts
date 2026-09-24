@@ -538,33 +538,36 @@ async function executeMatchedRule(
       modelType,
     })
   ) {
-    const from =
-      extractEmailAddress(message.headers.from) || message.headers.from;
-
-    // A sender another enabled rule already files isn't cold outreach to this
-    // user. Pinning them here would outrank that rule on every later email,
-    // without the cold-email checks running again.
-    const claimedByAnotherRule = await hasIncludePatternOnAnotherRule({
-      emailAccountId: emailAccount.id,
-      from,
-      ruleId: rule.id,
-    });
-
-    if (claimedByAnotherRule) {
-      logger.info(
-        "Skipping cold email pattern for a sender another rule files",
-      );
-    } else {
-      await saveLearnedPattern({
+    // Learning is best-effort; the rule's actions below must still run.
+    try {
+      // A sender another enabled rule already files isn't cold outreach to this
+      // user. Pinning them here would outrank that rule on every later email,
+      // without the cold-email checks running again.
+      const claimedByAnotherRule = await hasIncludePatternOnAnotherRule({
         emailAccountId: emailAccount.id,
-        from,
+        from: message.headers.from,
         ruleId: rule.id,
-        logger,
-        reason,
-        messageId: message.id,
-        threadId: message.threadId,
-        source: GroupItemSource.AI,
       });
+
+      if (claimedByAnotherRule) {
+        logger.info(
+          "Skipping cold email pattern for a sender another rule files",
+        );
+      } else {
+        await saveLearnedPattern({
+          emailAccountId: emailAccount.id,
+          from:
+            extractEmailAddress(message.headers.from) || message.headers.from,
+          ruleId: rule.id,
+          logger,
+          reason,
+          messageId: message.id,
+          threadId: message.threadId,
+          source: GroupItemSource.AI,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to learn cold email sender pattern", { error });
     }
   }
 

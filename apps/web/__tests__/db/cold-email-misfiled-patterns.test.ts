@@ -83,6 +83,15 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
         expect(await claimed("other@example.com")).toBe(false);
       });
 
+      it("matches the way rules do, including domain patterns and full From headers", async () => {
+        await insertPatterns(`
+        ('domain', 'newsletter-group', '@news.example.org', false, 'USER')
+      `);
+
+        expect(await claimed("Weekly <digest@news.example.org>")).toBe(true);
+        expect(await claimed("someone@example.org")).toBe(false);
+      });
+
       it("ignores exclusions and disabled rules", async () => {
         await insertPatterns(`
         ('excluded', 'newsletter-group', 'excluded@example.com', true, 'USER'),

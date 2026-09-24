@@ -1632,6 +1632,28 @@ describe("runRules cold email pattern learning", () => {
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
+  it("still runs the rule's actions when the ownership lookup fails", async () => {
+    vi.mocked(hasIncludePatternOnAnotherRule).mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue(
+      coldEmailRule.actions,
+    );
+    mockExecutedRuleCreate({
+      rule: coldEmailRule,
+      actionItems: coldEmailRule.actions,
+    });
+    vi.mocked(executeAct).mockResolvedValue(ExecutedRuleStatus.APPLIED);
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(executeAct).toHaveBeenCalled();
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
   it("does not re-save a pattern that was itself the match", async () => {
     mockMatchingRules([
       {
