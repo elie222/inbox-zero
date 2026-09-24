@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { availableParallelism, homedir, totalmem } from "node:os";
 import path from "node:path";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import type { MailDiagnostics } from "@inboxzero/mail-core/engine";
@@ -142,11 +143,29 @@ export function stripTraceUrlQueries(json: string) {
   return json.replace(/"(https?:\/\/[^"?#\\]*)[?#](?:[^"\\]|\\.)*"/gi, '"$1"');
 }
 
-/** Local file paths in a trace include the OS username. */
-export function redactHomeDirectory(json: string, home: string) {
+/**
+ * Local file paths in a trace include the OS username, as plain paths,
+ * JSON-escaped paths, and file URL paths (forward slashes, `%20` for spaces).
+ */
+export function redactHomeDirectory(
+  json: string,
+  home: string,
+  platform: NodeJS.Platform = process.platform,
+) {
   if (!home) return json;
-  const escaped = JSON.stringify(home).slice(1, -1);
-  return json.split(escaped).join("~").split(home).join("~");
+  const windows = platform === "win32";
+  const fileUrlPath = pathToFileURL(home, { windows }).pathname.replace(
+    /^\/(?=[A-Za-z]:)/,
+    "",
+  );
+  const forms = [
+    ...new Set([home, JSON.stringify(home).slice(1, -1), fileUrlPath]),
+  ].sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(
+    forms.map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+    windows ? "gi" : "g",
+  );
+  return json.replace(pattern, "~");
 }
 
 async function recordDiagnostics({
@@ -182,12 +201,17 @@ async function recordDiagnostics({
   );
   const stoppedAt = new Date();
 
-  await mkdir(folder, { recursive: true });
-  const trace = redactHomeDirectory(
-    stripTraceUrlQueries(await readFile(rawTracePath, "utf8")),
-    homedir(),
-  );
-  await rm(rawTracePath, { force: true });
+  let trace: string;
+  try {
+    await mkdir(folder, { recursive: true });
+    trace = redactHomeDirectory(
+      stripTraceUrlQueries(await readFile(rawTracePath, "utf8")),
+      homedir(),
+    );
+  } finally {
+    // The raw trace still has URL queries and home paths in it.
+    await rm(rawTracePath, { force: true });
+  }
   const traceData = await promisify(gzip)(trace);
   const snapshotData = Buffer.from(
     JSON.stringify(

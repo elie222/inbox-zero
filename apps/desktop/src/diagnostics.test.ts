@@ -177,16 +177,27 @@ describe("diagnosticsFolderName", () => {
 });
 
 describe("redactHomeDirectory", () => {
-  it("replaces the home directory in plain and JSON-escaped paths", () => {
-    const trace = JSON.stringify({
-      mac: "file:///Users/jane/Library/app.asar/dist/main.js",
-      windows: "C:\\Users\\jane\\AppData\\main.js",
+  it("replaces plain, JSON-escaped, and file URL forms of the home directory", () => {
+    const mac = JSON.stringify({
+      path: "/Users/jane doe/Library/log.txt",
+      url: "file:///Users/jane%20doe/Library/app.asar/main.js",
     });
-    expect(JSON.parse(redactHomeDirectory(trace, "/Users/jane")).mac).toBe(
-      "file://~/Library/app.asar/dist/main.js",
-    );
     expect(
-      JSON.parse(redactHomeDirectory(trace, "C:\\Users\\jane")).windows,
-    ).toBe("~\\AppData\\main.js");
+      JSON.parse(redactHomeDirectory(mac, "/Users/jane doe", "darwin")),
+    ).toEqual({
+      path: "~/Library/log.txt",
+      url: "file://~/Library/app.asar/main.js",
+    });
+
+    const windows = JSON.stringify({
+      path: "C:\\Users\\Jane\\AppData\\main.js",
+      url: "file:///c:/users/jane/AppData/main.js",
+    });
+    expect(
+      JSON.parse(redactHomeDirectory(windows, "C:\\Users\\Jane", "win32")),
+    ).toEqual({
+      path: "~\\AppData\\main.js",
+      url: "file:///~/AppData/main.js",
+    });
   });
 });
