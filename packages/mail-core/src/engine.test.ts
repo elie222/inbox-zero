@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createHostRuntime, createMailEngine } from "./engine";
 import type { AccountSyncState, MailStore } from "./ports/mail-store";
 import type { MailboxSource, ScopeDescriptor } from "./ports/mailbox-source";
@@ -90,6 +90,29 @@ describe("mail engine idle catch-up scheduling", () => {
       "inbox",
       "archive",
     ]);
+    await harness.engine.close();
+  });
+
+  it("lets host work run between streams in one idle catch-up", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox", "archive"] });
+    harness.onReadChanges = (streamId) => {
+      if (streamId !== "inbox") return;
+      setTimeout(() => harness.readChangeStreams.push("host"), 0);
+    };
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "host", "archive"]);
+    await harness.engine.close();
+  });
+
+  it("does not claim work once the deadline passes while yielding", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    const claimWork = vi.spyOn(harness.store, "claimWork");
+    setTimeout(() => harness.advance(10_000), 0);
+    await harness.engine.runUntil(5000);
+
+    expect(claimWork).not.toHaveBeenCalled();
+    expect(harness.readChangeStreams).toEqual([]);
     await harness.engine.close();
   });
 
@@ -304,6 +327,7 @@ function idleCatchUpHarness(input: {
     },
     async readChanges({ session, requestId, position }) {
       readChangeStreams.push(position.streamId);
+      harness.onReadChanges(position.streamId);
       const roundComplete = partialPagesRemaining === 0;
       if (partialPagesRemaining > 0) partialPagesRemaining -= 1;
       return {
@@ -338,9 +362,11 @@ function idleCatchUpHarness(input: {
       },
     }),
   });
-  return {
+  const harness = {
     engine,
+    store,
     readChangeStreams,
+    onReadChanges: (_streamId: string) => {},
     get discoveredScopeRequests() {
       return discoveredScopeRequests;
     },
@@ -348,6 +374,7 @@ function idleCatchUpHarness(input: {
       nowMs += ms;
     },
   };
+  return harness;
 }
 
 function idleCatchUpStore(

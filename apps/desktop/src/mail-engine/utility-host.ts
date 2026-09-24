@@ -76,15 +76,20 @@ export function createDesktopMailProcessOwner(input: {
         child.postMessage({ type: "subscribe", subscriptionId, payload });
       }
     });
-    // A child that cannot open the mailbox is restarted with backoff.
+    // A child that cannot open the mailbox is restarted with backoff. An exit
+    // or close before start replies clears `current` or sets `closed` first,
+    // and the exit handler already reports a crash.
     ready.catch((error: unknown) => {
+      if (closed || running !== current) return;
       input.onEngineError(asError(error));
+      running.exitReported = true;
       child.kill();
     });
     const running: RunningChild = {
       ...channel,
       startedAt: Date.now(),
       isReady: false,
+      exitReported: false,
       ready,
       exited,
     };
@@ -162,9 +167,11 @@ export function createDesktopMailProcessOwner(input: {
     if (running !== current) return;
     current = undefined;
     if (closed) return;
-    input.onEngineError(
-      new Error(`mail engine process exited unexpectedly with code ${code}`),
-    );
+    if (!running.exitReported) {
+      input.onEngineError(
+        new Error(`mail engine process exited unexpectedly with code ${code}`),
+      );
+    }
     consecutiveCrashes =
       Date.now() - running.startedAt >= STABLE_UPTIME_MS
         ? 1
@@ -251,6 +258,8 @@ type ChildChannel = {
 type RunningChild = ChildChannel & {
   startedAt: number;
   isReady: boolean;
+  /** Set when the reason for the exit was already reported. */
+  exitReported: boolean;
   ready: Promise<void>;
   exited: Promise<void>;
 };

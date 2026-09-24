@@ -94,6 +94,60 @@ describe("desktop mail process owner", () => {
     await owner.close();
   });
 
+  it("reports a failed start once and restarts the child", async () => {
+    vi.useFakeTimers();
+    const children: FakeChild[] = [];
+    const errors: string[] = [];
+    createOwner({
+      fork: () => {
+        const child = new FakeChild();
+        child.startError = children.length === 0 ? "database is locked" : null;
+        children.push(child);
+        return child;
+      },
+      onEngineError: (error) => errors.push(error.message),
+    });
+
+    await vi.waitFor(() => expect(children[0].exited).toBe(true));
+    expect(errors).toEqual(["database is locked"]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(children).toHaveLength(2);
+  });
+
+  it("reports a child that exits before starting only as a crash", async () => {
+    const child = new FakeChild();
+    child.holdReplies = true;
+    const errors: string[] = [];
+    const owner = createOwner({
+      fork: () => child,
+      onEngineError: (error) => errors.push(error.message),
+    });
+
+    child.exit(9);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(errors).toEqual([
+      "mail engine process exited unexpectedly with code 9",
+    ]);
+    await owner.close();
+  });
+
+  it("does not report closing before the child has started as an error", async () => {
+    vi.useFakeTimers();
+    const child = new FakeChild();
+    child.holdReplies = true;
+    const errors: string[] = [];
+    const owner = createOwner({
+      fork: () => child,
+      onEngineError: (error) => errors.push(error.message),
+    });
+
+    const closed = owner.close();
+    await vi.advanceTimersByTimeAsync(5000);
+    await closed;
+    expect(child.exited).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
   it("only gives session cookies to requests for the app origin", async () => {
     const child = new FakeChild();
     const cookieHeader = vi.fn(async () => "session=abc");
@@ -198,11 +252,24 @@ function createOwner(
 class FakeChild extends EventEmitter {
   sent: MainToChildMessage[] = [];
   holdReplies = false;
+  startError: string | null = null;
   exited = false;
 
   postMessage(message: MainToChildMessage) {
     this.sent.push(message);
     if (this.holdReplies || !("id" in message)) return;
+    const { startError } = this;
+    if (message.type === "start" && startError) {
+      queueMicrotask(() =>
+        this.reply({
+          type: "reply",
+          id: message.id,
+          status: "error",
+          message: startError,
+        }),
+      );
+      return;
+    }
     const result =
       message.type === "ipc" ? { status: "ok", result: "inspect" } : null;
     queueMicrotask(() =>

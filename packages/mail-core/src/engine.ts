@@ -332,7 +332,7 @@ export function createMailEngine(input: {
       }
       while (runtime.nowMs() < deadlineMs) {
         await yieldToHost();
-        if (signal?.aborted) return;
+        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
@@ -696,6 +696,7 @@ export function createMailEngine(input: {
 
   async function catchUpIdleAccounts(deadlineMs: number, signal?: AbortSignal) {
     const accounts = await store.readAccountSyncStates();
+    let visitedStreams = 0;
     for (const account of accounts) {
       if (runtime.nowMs() >= deadlineMs) return;
       const session = {
@@ -757,7 +758,9 @@ export function createMailEngine(input: {
       }
       const streams = [...streamsById.values()];
       for (const stream of streams) {
-        if (runtime.nowMs() >= deadlineMs) return;
+        if (visitedStreams > 0) await yieldToHost();
+        visitedStreams += 1;
+        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         if (!stream.checkpoint) {
           await ingestBootstrap({
             session,
