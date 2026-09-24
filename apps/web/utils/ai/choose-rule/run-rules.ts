@@ -45,7 +45,10 @@ import {
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  hasIncludePatternOnAnotherRule,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
@@ -535,18 +538,37 @@ async function executeMatchedRule(
       modelType,
     })
   ) {
-    const from =
-      extractEmailAddress(message.headers.from) || message.headers.from;
-    await saveLearnedPattern({
-      emailAccountId: emailAccount.id,
-      from,
-      ruleId: rule.id,
-      logger,
-      reason,
-      messageId: message.id,
-      threadId: message.threadId,
-      source: GroupItemSource.AI,
-    });
+    // Learning is best-effort; the rule's actions below must still run.
+    try {
+      // A sender another enabled rule already files isn't cold outreach to this
+      // user. Pinning them here would outrank that rule on every later email,
+      // without the cold-email checks running again.
+      const claimedByAnotherRule = await hasIncludePatternOnAnotherRule({
+        emailAccountId: emailAccount.id,
+        from: message.headers.from,
+        ruleId: rule.id,
+      });
+
+      if (claimedByAnotherRule) {
+        logger.info(
+          "Skipping cold email pattern for a sender another rule files",
+        );
+      } else {
+        await saveLearnedPattern({
+          emailAccountId: emailAccount.id,
+          from:
+            extractEmailAddress(message.headers.from) || message.headers.from,
+          ruleId: rule.id,
+          logger,
+          reason,
+          messageId: message.id,
+          threadId: message.threadId,
+          source: GroupItemSource.AI,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to learn cold email sender pattern", { error });
+    }
   }
 
   if (isConversationStatusType(rule.systemType)) {
