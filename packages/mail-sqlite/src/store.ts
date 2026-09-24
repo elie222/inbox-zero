@@ -56,6 +56,10 @@ import {
   readMailboxWindowFromSql,
 } from "./mailbox-view-readers";
 import { migrateMailbox } from "./migrations";
+import {
+  deleteAccountSearchIndex,
+  indexMessageContent,
+} from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
 import {
   connectionStatus,
@@ -130,7 +134,7 @@ export async function createSqliteMailStore(
     },
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
-        await deleteAccountFts(tx, accountId);
+        await deleteAccountSearchIndex(tx, accountId);
         const existing = await tx.query(
           "SELECT 1 AS n FROM accounts WHERE account_id = ?",
           [accountId],
@@ -2201,7 +2205,7 @@ async function resetAccountForGeneration(
     generation: string;
   },
 ) {
-  await deleteAccountFts(tx, input.accountId);
+  await deleteAccountSearchIndex(tx, input.accountId);
   const derivedTables = [
     "message_content",
     "effective_messages",
@@ -2712,22 +2716,6 @@ async function bumpRevision(tx: SqlTransaction): Promise<LocalRevision> {
   return readRevision(tx);
 }
 
-async function deleteAccountFts(tx: SqlTransaction, accountId: string) {
-  try {
-    await tx.exec("SAVEPOINT purge_fts");
-    await tx.execute("DELETE FROM message_fts WHERE account_id = ?", [
-      accountId,
-    ]);
-    await tx.exec("RELEASE purge_fts");
-  } catch {
-    try {
-      await tx.exec("ROLLBACK TO purge_fts");
-    } catch {
-      // savepoint missing
-    }
-  }
-}
-
 async function accountGenerationMatches(
   tx: SqlTransaction,
   session: { accountId: string; generation: string },
@@ -2915,20 +2903,7 @@ async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
       body.isMeetingInvitation ? 1 : 0,
     ],
   );
-  try {
-    await tx.execute(
-      "DELETE FROM message_fts WHERE account_id = ? AND message_id = ?",
-      [body.key.accountId, body.key.messageId],
-    );
-    await tx.execute(
-      `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
-       SELECT account_id, message_id, subject, preview, from_address, ?
-       FROM messages WHERE account_id = ? AND message_id = ?`,
-      [body.text ?? body.html ?? "", body.key.accountId, body.key.messageId],
-    );
-  } catch {
-    // FTS is optional when the runtime SQLite build omits it.
-  }
+  await indexMessageContent(tx, body.key, body.text ?? body.html ?? "");
 }
 
 async function isStaleMessageVersion(
