@@ -11,10 +11,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Thread } from "./types";
 import { EmailList } from "./EmailList";
 
-const outbox = vi.hoisted(() => ({ enqueue: vi.fn(), retain: vi.fn() }));
 const query = vi.hoisted(() => ({ setThreadId: vi.fn() }));
-const overlay = vi.hoisted(() => ({ ready: true }));
 const source = vi.hoisted(() => ({ refetch: vi.fn() }));
+const mail = vi.hoisted(() => ({
+  client: {
+    getDiagnostics: vi.fn(),
+    submitConversations: vi.fn(),
+  },
+}));
 
 vi.mock("nuqs", () => ({
   useQueryState: () => [null, query.setThreadId],
@@ -26,17 +30,8 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
     userEmail: "user@example.com",
   }),
 }));
-vi.mock("@/hooks/useMailMutationOverlay", () => ({
-  applyMailMutationOverlayToThreads: ({ threads }: { threads: Thread[] }) =>
-    threads,
-  useRetainedMailMutationOverlay: () => ({
-    isReady: overlay.ready,
-    mutations: [],
-    retainMutations: outbox.retain,
-  }),
-}));
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
-  enqueueThreadMailMutationBatch: outbox.enqueue,
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => mail.client,
 }));
 vi.mock("@/utils/queue/email-actions", () => ({ runAiRules: vi.fn() }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
@@ -87,15 +82,12 @@ describe("EmailList durable actions", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    overlay.ready = true;
     source.refetch.mockResolvedValue(undefined);
-    outbox.enqueue.mockResolvedValue({
-      batchId: "batch",
-      mutations: [{ id: "mutation" }],
-    });
+    mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
+    mail.client.submitConversations.mockResolvedValue({ status: "queued" });
   });
 
-  it("persists exact archive and read snapshots and injects their overlays", async () => {
+  it("archives and marks unread threads read through the engine", async () => {
     const thread = {
       id: "thread-1",
       messages: [
@@ -110,27 +102,28 @@ describe("EmailList durable actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Archive thread-1" }));
     await waitFor(() =>
-      expect(outbox.enqueue).toHaveBeenCalledWith({
-        emailAccountId: "account-1",
-        payload: { kind: "archive" },
-        threads: [thread],
-      }),
+      expect(mail.client.submitConversations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: "account-1",
+          conversations: [
+            { accountId: "account-1", conversationId: "thread-1" },
+          ],
+          change: { kind: "archive" },
+        }),
+      ),
     );
-    expect(outbox.retain).toHaveBeenCalledWith([{ id: "mutation" }]);
-
-    outbox.enqueue.mockResolvedValue({
-      batchId: "read-batch",
-      mutations: [{ id: "read-mutation" }],
+    expect(source.refetch).toHaveBeenCalledWith({
+      removedThreadIds: ["thread-1"],
     });
+
     fireEvent.click(screen.getByRole("button", { name: "Open thread-1" }));
     await waitFor(() =>
-      expect(outbox.enqueue).toHaveBeenLastCalledWith({
-        emailAccountId: "account-1",
-        payload: { kind: "set_read_state", read: true },
-        threads: [thread],
-      }),
+      expect(mail.client.submitConversations).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          change: { kind: "set_read", read: true },
+        }),
+      ),
     );
-    expect(outbox.retain).toHaveBeenLastCalledWith([{ id: "read-mutation" }]);
   });
 
   it("does not queue a read mutation for an already-read thread", () => {
@@ -139,11 +132,10 @@ describe("EmailList durable actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open thread-1" }));
 
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
   });
 
-  it("does not show an empty state before the mutation overlay is ready", () => {
-    overlay.ready = false;
+  it("shows an empty state immediately", () => {
     render(
       <EmailList
         threads={[]}
@@ -153,7 +145,7 @@ describe("EmailList durable actions", () => {
       />,
     );
 
-    expect(screen.queryByText("No emails")).toBeNull();
+    expect(screen.getByText("No emails")).toBeTruthy();
   });
 });
 

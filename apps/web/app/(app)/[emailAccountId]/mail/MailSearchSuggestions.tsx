@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HistoryIcon } from "lucide-react";
 import useSWR from "swr";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
-import { matchRecentSearches } from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
+import { matchRecentSearches } from "@/store/mail-search-history";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { env } from "@/env";
 import { cn } from "@/utils";

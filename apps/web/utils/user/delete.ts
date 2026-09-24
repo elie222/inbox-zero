@@ -13,6 +13,7 @@ import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
@@ -189,6 +190,12 @@ async function deleteResources({
 
     // PostHog tracks the completed delete after the database delete succeeds.
     if (deletedUser.count > 0) await trackUserDeleted(userId);
+    await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
+      logger.error("Failed to delete account mail uploads", {
+        error,
+        emailAccountId,
+      });
+    });
   } catch (error) {
     if (
       isOrganizationOwnerInvariantError(error) ||

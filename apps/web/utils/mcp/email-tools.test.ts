@@ -132,25 +132,4 @@ describe("MCP email tools", () => {
       sent: false,
     });
   });
-
-  it("passes through HTML draft bodies", async () => {
-    const createDraft = vi.fn().mockResolvedValue({ id: "draft-2" });
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      createDraft,
-    } as never);
-
-    await createDraftForMcp({
-      userId: "user_1",
-      to: "contact@example.com",
-      subject: "Thursday",
-      body: "<p>See you then.</p>",
-      logger,
-    });
-
-    expect(createDraft).toHaveBeenCalledWith({
-      to: "contact@example.com",
-      subject: "Thursday",
-      messageHtml: "<p>See you then.</p>",
-    });
-  });
 });

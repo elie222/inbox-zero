@@ -49,14 +49,11 @@ export function formatShortDate(
     date.getFullYear() === today.getFullYear();
 
   if (isToday) {
-    // Use hour: 'numeric' to avoid leading zeros (e.g., 3:44 PM instead of 03:44 PM)
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return shortDateFormatter("time").format(date);
   }
-  const formattedDate = date.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: options.includeYear ? "numeric" : undefined,
-  });
+  const formattedDate = shortDateFormatter(
+    options.includeYear ? "dateWithYear" : "date",
+  ).format(date);
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();
 }
@@ -281,4 +278,26 @@ function getNextZonedMidnight(date: Date, timezone: string) {
     0,
     timezone,
   );
+}
+
+const shortDateFormats = {
+  // Numeric hours avoid leading zeros (3:44 PM, not 03:44 PM).
+  time: { hour: "numeric", minute: "2-digit" },
+  date: { month: "short", day: "numeric" },
+  dateWithYear: { month: "short", day: "numeric", year: "numeric" },
+} satisfies Record<string, Intl.DateTimeFormatOptions>;
+// Mail lists format a date per row on every render, and building an Intl
+// formatter each time dominated that cost.
+const shortDateFormatters = new Map<
+  keyof typeof shortDateFormats,
+  Intl.DateTimeFormat
+>();
+
+function shortDateFormatter(kind: keyof typeof shortDateFormats) {
+  let formatter = shortDateFormatters.get(kind);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(undefined, shortDateFormats[kind]);
+    shortDateFormatters.set(kind, formatter);
+  }
+  return formatter;
 }

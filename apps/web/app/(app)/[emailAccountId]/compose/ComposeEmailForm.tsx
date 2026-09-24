@@ -66,6 +66,8 @@ import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
@@ -84,15 +86,14 @@ import {
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
-import { getMailMutation } from "@/utils/email-cache/mail-mutations";
+import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -124,11 +125,7 @@ import {
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
-import {
-  beginUndoSend,
-  getUndoSendHoldUntil,
-  UNDO_SEND_DELAY_MS,
-} from "./undo-send";
+import { beginUndoSend, UNDO_SEND_DELAY_MS } from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 
 export type ReplyingToEmail = {
@@ -291,6 +288,7 @@ function ComposeEmailFormContent({
   const canScheduleDelivery = isInlineReply || isComposeWindow;
   const isNewCompose = !replyingToEmail && !providerDraftMessageId;
   const { mutate } = useSWRConfig();
+  const client = useOptionalMailClient() ?? getActiveMailClient();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
   const [remindAt, setRemindAt] = useState(
     storedDraft?.content?.remindAt ?? "",
@@ -532,6 +530,13 @@ function ComposeEmailFormContent({
                 "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
               );
             draftId = created.data.draftId;
+            if (created.data.messageId) {
+              await ingestMailboxDraft(
+                client,
+                selectedEmailAccountId,
+                created.data.messageId,
+              );
+            }
           }
         }
         providerDraftId.current = draftId;
@@ -552,6 +557,13 @@ function ComposeEmailFormContent({
         });
         if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
         savedAttachments.current = attachmentSnapshot;
+        if (result.data.messageId) {
+          await ingestMailboxDraft(
+            client,
+            selectedEmailAccountId,
+            result.data.messageId,
+          );
+        }
         return;
       }
       if (!providerDraftMessageId) return;
@@ -890,28 +902,29 @@ function ComposeEmailFormContent({
           localDraftIdentity?.messageId ??
           requestId;
         const online = navigator.onLine;
-        const holdUntil = getUndoSendHoldUntil(online);
+        if (!client) {
+          setSubmissionError(
+            "Mail is still starting. Try sending again in a moment.",
+          );
+          toastError({
+            description:
+              "Mail is still starting. Try sending again in a moment.",
+          });
+          return;
+        }
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
         try {
           outcome = await queueReaderEmail({
+            client,
             email: enrichedData,
             mutationId: requestId,
             emailAccountId: selectedEmailAccountId,
-            holdUntil,
-            messageIds: [readerMessageId],
+            holdForUndo: online,
+            messageIds: isNewCompose ? [] : [readerMessageId],
             online,
             threadId: readerThreadId,
             onQueued: async () => {
               deliveryAccepted = true;
-              try {
-                await clearLocalDraft();
-              } catch {
-                toastError({
-                  description: isInlineReply
-                    ? "Reply queued, but its local draft copy could not be cleared."
-                    : "Email queued, but its local draft copy could not be cleared.",
-                });
-              }
               if (replyingToEmail?.threadId?.trim()) {
                 await mutate([
                   "thread-deliveries",
@@ -932,27 +945,37 @@ function ComposeEmailFormContent({
           toastError({ description });
           return;
         }
+        const discardLocalDraft = async () => {
+          try {
+            await clearLocalDraft();
+          } catch {
+            toastError({
+              description: isInlineReply
+                ? "Reply queued, but its local draft copy could not be cleared."
+                : "Email queued, but its local draft copy could not be cleared.",
+            });
+          }
+        };
         if (outcome.status === "held") {
-          const draftIdentity = localDraftIdentity ?? {
-            emailAccountId: selectedEmailAccountId,
-            threadId: outcome.threadId,
-            messageId: readerMessageId,
-          };
           beginUndoSend({
-            mutationId: outcome.mutationId,
+            client,
+            operationId: outcome.mutationId,
             emailAccountId: selectedEmailAccountId,
+            attachmentIds: outcome.attachmentIds,
             holdUntil: outcome.holdUntil,
-            identity: draftIdentity,
             restoreComposer: () => onRestore?.(),
           });
           waitForReaderEmailSettlement({
+            client,
+            accountId: selectedEmailAccountId,
             mutationId: outcome.mutationId,
             settlementTimeoutMs:
               UNDO_SEND_DELAY_MS + READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
             threadId: outcome.threadId,
           })
             .then(async (settled) => {
-              if (!(await getMailMutation(outcome.mutationId))) return;
+              if (settled.status === "cancelled") return;
+              await discardLocalDraft();
               if (settled.status === "sent") {
                 if (markDoneAfterSend) onMarkDone?.();
                 onSuccess?.(settled.messageId, settled.threadId);
@@ -974,6 +997,7 @@ function ComposeEmailFormContent({
             .catch(() => {});
           return;
         }
+        await discardLocalDraft();
         if (outcome.status === "sent") {
           if (!isInlineReply) toastSuccess({ description: "Email sent!" });
           if (markDoneAfterSend) onMarkDone?.();
@@ -994,7 +1018,7 @@ function ComposeEmailFormContent({
             });
           }
           onClose?.();
-        } else if (outcome.ownsNotification) {
+        } else if (outcome.status === "failed" && outcome.ownsNotification) {
           toastError({ description: outcome.error });
         }
       } catch (error) {
@@ -1015,6 +1039,7 @@ function ComposeEmailFormContent({
       canScheduleDelivery,
       initialDraft,
       isInlineReply,
+      isNewCompose,
       localDraftIdentity,
       sendAt,
       remindAt,
@@ -1022,6 +1047,7 @@ function ComposeEmailFormContent({
       draftKeyMessageId,
       captureDraft,
       clearLocalDraft,
+      client,
       flushDraft,
       mutate,
       onClose,
@@ -1137,6 +1163,7 @@ function ComposeEmailFormContent({
           );
           if (!result?.data)
             throw new Error(getActionErrorMessage(result ?? {}));
+          await client?.requestSync([selectedEmailAccountId]);
         }
         if (
           !providerDraftId.current &&
@@ -1163,6 +1190,7 @@ function ComposeEmailFormContent({
     }
   }, [
     clearLocalDraft,
+    client,
     isSubmitting,
     isNewCompose,
     selectedEmailAccountId,
@@ -1867,6 +1895,19 @@ function isShortcutForForm(
       .closest("[data-compose-shortcut-owner]")
       ?.getAttribute("data-compose-shortcut-owner") === shortcutOwnerId
   );
+}
+
+async function ingestMailboxDraft(
+  client: ReturnType<typeof useOptionalMailClient>,
+  emailAccountId: string,
+  messageId: string,
+) {
+  if (!client) return;
+  await client.ensureMessageContent({
+    accountId: emailAccountId,
+    messageId,
+  });
+  await client.requestSync([emailAccountId]);
 }
 
 function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {

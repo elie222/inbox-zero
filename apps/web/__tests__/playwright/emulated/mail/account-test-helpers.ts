@@ -22,7 +22,7 @@ export async function createSecondEmailAccount(
          "providerAccountId", refresh_token, "refreshTokenExpiresAt",
          access_token, expires_at, token_type, scope)
        SELECT $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, email_account."userId",
-         'google', 'oidc', $2, account.refresh_token,
+         account.provider, 'oidc', $2, account.refresh_token,
          account."refreshTokenExpiresAt", account.access_token,
          account.expires_at, account.token_type, account.scope
        FROM "EmailAccount" email_account

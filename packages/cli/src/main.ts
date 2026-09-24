@@ -604,8 +604,8 @@ async function runSetupQuick(options: { name?: string }) {
     REDIS_HTTP_PORT: redisHttpPort,
     WEB_PORT: webPort,
     DATABASE_URL: `postgresql://postgres:${encodeURIComponent(dbPassword)}@db:5432/inboxzero`,
-    UPSTASH_REDIS_TOKEN: redisToken,
-    UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    REDIS_HTTP_TOKEN: redisToken,
+    REDIS_HTTP_URL: "http://serverless-redis-http:80",
     QUEUE_BACKEND: "internal",
     INTERNAL_API_URL: "http://web:3000",
     // Secrets
@@ -1132,28 +1132,28 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.REDIS_PORT = redisPort;
     env.REDIS_HTTP_PORT = redisHttpPort;
     env.WEB_PORT = webPort;
-    env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.REDIS_HTTP_TOKEN = redisToken;
     env.QUEUE_BACKEND = "internal";
 
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
       env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@db:5432/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+      env.REDIS_HTTP_URL = "http://serverless-redis-http:80";
       env.INTERNAL_API_URL = "http://web:3000";
     } else {
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
+      env.REDIS_HTTP_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
     // External infrastructure - set placeholders for user to fill in
     env.DATABASE_URL = "postgresql://user:password@your-host:5432/inboxzero";
     env.DIRECT_URL = env.DATABASE_URL;
-    env.UPSTASH_REDIS_URL = "https://your-redis-url";
-    env.UPSTASH_REDIS_TOKEN = "your-redis-token";
+    env.REDIS_HTTP_URL = "https://your-redis-url";
+    env.REDIS_HTTP_TOKEN = "your-redis-token";
   }
 
   // Secrets (same for both modes)
@@ -1255,7 +1255,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (!useDockerInfra) {
     p.log.warn(
       "You selected external infrastructure.\n" +
-        "Please update DATABASE_URL and UPSTASH_REDIS_URL in your .env file.",
+        "Please update DATABASE_URL and REDIS_HTTP_URL in your .env file.",
     );
   }
 
@@ -1615,6 +1615,8 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "DATABASE_URL",
       "DIRECT_URL",
+      "REDIS_HTTP_URL",
+      "REDIS_HTTP_TOKEN",
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
     ],

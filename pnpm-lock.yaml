@@ -12,7 +12,7 @@ overrides:
   '@xmldom/xmldom': 0.8.13
   axios: 1.16.1
   fast-xml-parser: 5.8.0
-  ioredis: 5.10.1
+  ioredis: 6.0.0
   js-yaml: 3.14.2
   jws: 4.0.1
   linkify-it: 5.0.2
@@ -30,7 +30,7 @@ packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
 
 patchedDependencies:
   '@better-auth/oauth-provider@1.7.4': f3e7e8d12056b3b4c2a2a4154041f666a87ec5e12419a2e2dfa5b56d573b346e
-  '@inbox-zero/emulate@0.11.1': a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306
+  '@inbox-zero/emulate@0.11.1': 411fbb0b530af7c807007696f160744754f5849b10deedf432621369c1d63ef3
   '@sqlite.org/sqlite-wasm@3.53.4-build1': 0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855
 
 importers:
@@ -73,13 +73,40 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
+      '@sentry/electron':
+        specifier: 7.20.0
+        version: 7.20.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(supports-color@10.2.2)
       electron-updater:
         specifier: 6.8.9
         version: 6.8.9(supports-color@10.2.2)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
       electron:
         specifier: 43.4.0
         version: 43.4.0(supports-color@10.2.2)
@@ -254,6 +281,18 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../../packages/mail-react
+      '@inboxzero/mail-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/mail-sqlite
+      '@inboxzero/mail-ui':
+        specifier: workspace:*
+        version: link:../../packages/mail-ui
       '@inboxzero/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -441,8 +480,8 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
       '@vercel/queue':
-        specifier: 0.5.1
-        version: 0.5.1(@opentelemetry/api@1.9.1)
+        specifier: 0.6.0
+        version: 0.6.0(@opentelemetry/api@1.9.1)
       '@vercel/speed-insights':
         specifier: 2.0.0
         version: 2.0.0(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
@@ -456,8 +495,8 @@ importers:
         specifier: 3.32.0
         version: 3.32.0(@aws-sdk/credential-provider-web-identity@3.972.77)(supports-color@8.1.1)(zod@4.2.1)
       bullmq:
-        specifier: 5.79.2
-        version: 5.79.2(supports-color@8.1.1)
+        specifier: 6.3.8
+        version: 6.3.8(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.0)
       capital-case:
         specifier: 2.0.0
         version: 2.0.0
@@ -488,9 +527,6 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
-      dompurify:
-        specifier: 3.4.15
-        version: 3.4.15
       dub:
         specifier: 0.71.5
         version: 0.71.5
@@ -530,12 +566,9 @@ importers:
       ical.js:
         specifier: 2.2.1
         version: 2.2.1
-      idb:
-        specifier: 8.0.3
-        version: 8.0.3
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1(supports-color@8.1.1)
+        specifier: 6.0.0
+        version: 6.0.0(supports-color@8.1.1)
       jose:
         specifier: 6.2.3
         version: 6.2.3
@@ -782,13 +815,10 @@ importers:
         version: 11.0.0
       emulate:
         specifier: npm:@inbox-zero/emulate@0.11.1
-        version: '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)'
+        version: '@inbox-zero/emulate@0.11.1(patch_hash=411fbb0b530af7c807007696f160744754f5849b10deedf432621369c1d63ef3)'
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      fake-indexeddb:
-        specifier: 6.2.5
-        version: 6.2.5
       jsdom:
         specifier: 27.3.0
         version: 27.3.0(supports-color@8.1.1)
@@ -842,11 +872,11 @@ importers:
   apps/worker:
     dependencies:
       bullmq:
-        specifier: 5.79.2
-        version: 5.79.2(supports-color@10.2.2)
+        specifier: 6.3.8
+        version: 6.3.8(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0)
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1(supports-color@10.2.2)
+        specifier: 6.0.0
+        version: 6.0.0(supports-color@10.2.2)
 
   packages/api:
     dependencies:
@@ -963,6 +993,85 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+
+  packages/mail-core:
+    dependencies:
+      zod:
+        specifier: 4.2.1
+        version: 4.2.1
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-react:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-sqlite:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/mail-ui:
+    dependencies:
+      '@inboxzero/mail-core':
+        specifier: workspace:*
+        version: link:../mail-core
+      '@inboxzero/mail-react':
+        specifier: workspace:*
+        version: link:../mail-react
+      dompurify:
+        specifier: 3.4.15
+        version: 3.4.15
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/scheduling:
     dependencies:
@@ -3559,8 +3668,8 @@ packages:
   '@internationalized/string@3.2.8':
     resolution: {integrity: sha512-NdbMQUSfXLYIQol5VyMtinm9pZDciiMfN7RtmSuSB78io1hqwJ0naYfxyW6vgxWBkzWymQa/3uLDlbfmshtCaA==}
 
-  '@ioredis/commands@1.5.1':
-    resolution: {integrity: sha512-JH8ZL/ywcJyR9MmJ5BNqZllXNZQqQbnVZOqpPQqE1vHiFgAw4NHbvE0FOduNU8IX9babitBT46571OnPTT0Zcw==}
+  '@ioredis/commands@2.0.0':
+    resolution: {integrity: sha512-vrx0AE/T0h7cRZwfo1M39Cr+ZhZrkf0V8mQN75wucKCxCLD9l/VX6no3gFvrLqD1IlG/1LtzWovqEw3t0Vr9zg==}
 
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
@@ -5854,12 +5963,20 @@ packages:
     resolution: {integrity: sha512-/Rh3WH4i2nStdOqHpaWocbpSMFPjKhlxKQgp9vkJBSolqjJzXlIpLYXOrldZHHZLG1iDoX3PFBQkNDYcPXCg0A==}
     engines: {node: '>=18'}
 
+  '@sentry/browser-utils@10.75.0':
+    resolution: {integrity: sha512-yZfdQ87RLat/7retF8zA6Z9zCAT12IyaPvIiu+bbi1E1V1OqDpS8MKNa/6LF69Ap7DVTORi9ITEgjlAqTXF0xQ==}
+    engines: {node: '>=18'}
+
   '@sentry/browser@10.62.0':
     resolution: {integrity: sha512-uJi0yPssB3Nt/cZ8/S8opW42gaM59/6IyNtPFYD7C0ciudi/nIo5QMVpCYBBI3jnKFOIQLlsMT4pDlOLuxxNuQ==}
     engines: {node: '>=18'}
 
   '@sentry/browser@10.74.0':
     resolution: {integrity: sha512-U6Zn+YcAgnR7bXZmpjMxivptPSsOeDKV+SlSqbJZqViOaCcZSG/vJiQr50UrdTccCwiU1LnwuOOoclJOvW+cLQ==}
+    engines: {node: '>=18'}
+
+  '@sentry/browser@10.75.0':
+    resolution: {integrity: sha512-CKGSJLWISQ6LgMaGnMpY+XvwWQ2iiHTayUs6SGLIvYeaGo2GTjS/Z4pnbCVHb2t1VxLZksyehgcC6ZYGJeQpzQ==}
     engines: {node: '>=18'}
 
   '@sentry/bundler-plugin-core@5.3.0':
@@ -5930,12 +6047,28 @@ packages:
     resolution: {integrity: sha512-u9rY8vcZfktccwm6LznfCZlqP5C9A+p76r4/pFS1grqpuTO0m21Cl8rosnlESrDGP/Xd9tfr91rWYk0jPH8jeQ==}
     engines: {node: '>=18'}
 
+  '@sentry/core@10.75.0':
+    resolution: {integrity: sha512-5wDQpQqjJ6RHdPR+z6Q+47XlwoxRKBv0yyB0LKHqL/1azPOQbR+nllyLmmQDcoJpaksuLSmLA1q6hFX7gjDT2w==}
+    engines: {node: '>=18'}
+
+  '@sentry/electron@7.20.0':
+    resolution: {integrity: sha512-K6vb4Wht4DxWFYol9KH9S/M28t2l81Je104jlFgTUplMj2Ny0SHM6Z1z5a9t8vrZGDry3NvxL90k3xgbOsOqgQ==}
+    peerDependencies:
+      '@sentry/node-native': 10.75.0
+    peerDependenciesMeta:
+      '@sentry/node-native':
+        optional: true
+
   '@sentry/feedback@10.62.0':
     resolution: {integrity: sha512-d0BVjJVny6qpBgGJgWL0fbcoQHjtD3z3R8EK/KzTS3RO92JX5n3A536n5D/rh0gZFgcIwiUzBXegmyPOSQn9ng==}
     engines: {node: '>=18'}
 
   '@sentry/feedback@10.74.0':
     resolution: {integrity: sha512-WwUao9K2XgRIxTUTaBhm7aglhsyP7LQTGi2lxvFbXzlSagUzwew/EL2c5oqQ23Mjn94i5SY+rM4wMdgyWdtpAw==}
+    engines: {node: '>=18'}
+
+  '@sentry/feedback@10.75.0':
+    resolution: {integrity: sha512-YLVAFQXELJAOg7ke4oLkd8t5l0fJUockLlTQJg/2Trh7SB5Q4mkSwlnAkEAqDQ618vnpFsG/tnYMwtfZeffHjA==}
     engines: {node: '>=18'}
 
   '@sentry/nextjs@10.74.0':
@@ -5965,12 +6098,45 @@ packages:
       '@opentelemetry/sdk-trace-base':
         optional: true
 
+  '@sentry/node-core@10.75.0':
+    resolution: {integrity: sha512-+E3KSX1oMqhpWQ23hj6NblIVUzLy3T2oceU7DfMX1s1ar+npaQZxR5K0/cMGcQgS1LLm8Jqwqo/lrZlKTCDm5A==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+      '@opentelemetry/core': ^1.30.1 || ^2.1.0
+      '@opentelemetry/exporter-trace-otlp-http': '>=0.57.0 <1'
+      '@opentelemetry/instrumentation': '>=0.57.1 <1'
+      '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@opentelemetry/core':
+        optional: true
+      '@opentelemetry/exporter-trace-otlp-http':
+        optional: true
+      '@opentelemetry/instrumentation':
+        optional: true
+      '@opentelemetry/sdk-trace-base':
+        optional: true
+
   '@sentry/node@10.74.0':
     resolution: {integrity: sha512-u1wsarTOWHn9CCev81Da5T4IQHZgdcosXRfX2+4DMII/lVJMBYesKixTQuMwXexjVG2+pkf16zTmgjZDa+75jA==}
     engines: {node: '>=18'}
 
+  '@sentry/node@10.75.0':
+    resolution: {integrity: sha512-XdYW+SEiscQnuugh1hMldfnHurmleKSTSDqgfro6Y1yd7s0r2csnZ5/SEYxIeL4lSl1QXg1lIA1pBmAXjcdnKA==}
+    engines: {node: '>=18'}
+
   '@sentry/opentelemetry@10.74.0':
     resolution: {integrity: sha512-ua5mt0NDBfye+/ACKjAw9Ad2i+y42lOLvhxXZepZXjszblMz80MEsIZflMB7uLZUCTNH7MbZN8tlzCy8KsJKmQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+      '@opentelemetry/core': ^1.30.1 || ^2.1.0
+      '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
+
+  '@sentry/opentelemetry@10.75.0':
+    resolution: {integrity: sha512-reJoMtuHMuaiztoDVoaeitc22eHlTAvz2qpFhibWyzukJlF8oXB+o8EvDN9mmDDMedU89c//cXRcnPBlJvUxcw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -5997,6 +6163,10 @@ packages:
     resolution: {integrity: sha512-HAdu4ViRsuOD5ifphQR24HugL0geZXV8LnGQVkA8vlzZWiuYgGNqDRoUWI75IgVcCYLYSaVBoKN+jTimdzG/sQ==}
     engines: {node: '>=18'}
 
+  '@sentry/replay-canvas@10.75.0':
+    resolution: {integrity: sha512-LNokI5Ud22nZ/o2il/2SfbNIARupWrbS6Mh9jZroZTjD38FN0Oi9vIexj6h1HN81C6+lP2Tmpaj+fl3/wOizzA==}
+    engines: {node: '>=18'}
+
   '@sentry/replay@10.62.0':
     resolution: {integrity: sha512-rWp4hBhZOmdQhisxcKzAwTGiRk/LvWnNaElWe7nbRhjsM/usp2095yfjq4iJ47v9MtO7xxY6eUz++fLBycqXKg==}
     engines: {node: '>=18'}
@@ -6005,8 +6175,16 @@ packages:
     resolution: {integrity: sha512-amIu0zKzhQJZoWmlwfFnn/uKRGyF+Tikph3lBgYwj5XbHv4U94PQXi9Ll8CYzzLVS7BkrCVc2Hl7RvpRg5M2Yg==}
     engines: {node: '>=18'}
 
+  '@sentry/replay@10.75.0':
+    resolution: {integrity: sha512-p4xxEo/ayiMZG9tygr09YjqYAd52uq8Qi0EVoRRgUe70nQda0HVPVW519JLq0G+Th/5O5sKME9y1layLU3xlPg==}
+    engines: {node: '>=18'}
+
   '@sentry/server-utils@10.74.0':
     resolution: {integrity: sha512-AHmPIGE8yVRyywpZRhAkm/H0cHTgsQSPhFZFbaeQLcYHFE/eOP9bAMh8Nj/Apr7WMagFXYHd04tR/63BxtLgKw==}
+    engines: {node: '>=18'}
+
+  '@sentry/server-utils@10.75.0':
+    resolution: {integrity: sha512-7fIa9vFGNzB13hmxl8Sip3xImSkqpc4wETzuQ7CLzVOwPvwI6y/gVEm0pxRhtJSq8SzfOp26eJWl80u8v78Osg==}
     engines: {node: '>=18'}
 
   '@sentry/vercel-edge@10.74.0':
@@ -6842,8 +7020,8 @@ packages:
     resolution: {integrity: sha512-p0sKfHkfRmMaqqDwNL4tjnX9TgRrLMlEtUjIxfrEns8pOxz1R9ztqOVI+ehqiq93/2/HnfPe/UBZkfAZwnx0UA==}
     engines: {node: '>= 20'}
 
-  '@vercel/queue@0.5.1':
-    resolution: {integrity: sha512-7gO8hOtIh15UDzbjCg7oJDOwY1Hs3XC4xSK6HjMVo93Ge3oEhPZJ18ogamwZTXwcFRYwvgN1vp2w3+zgqfIpoA==}
+  '@vercel/queue@0.6.0':
+    resolution: {integrity: sha512-Le0A3ldZhnItV5f6zO101aBCL/Zty0RURD7b+RDA8+p6fuBhsiA2vSimbA2OysEIXYTEhANokGaSJrV6m7qpxw==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@opentelemetry/api': ^1.0.0
@@ -7531,12 +7709,21 @@ packages:
     resolution: {integrity: sha512-q2hn7Mbo2nFNkVekPiHFx6Nfo3hURmES3tfBn+k5Pqxl2RkmP3QGqZUhH/q9Pch/4G05NRhPjDlVj1O8q4Txvw==}
     engines: {node: '>=14.0.0'}
 
-  bullmq@5.79.2:
-    resolution: {integrity: sha512-FebD+8XCZl/hnS1R4to24L4EAN70XSndKZO0776M36vGRk5MKVhKlNFM8/34zXLXKyYB4QaeIPFhVXSYYGTHpQ==}
-    engines: {node: '>=12.22.0'}
+  bullmq@6.3.8:
+    resolution: {integrity: sha512-09zcOQ1uycyCK2C9iY2Pm+/JPa/gIXiZqGBUiIlO1v3VshwBgarmAgWRTWDL/IAvI8NFE1zqrkdKFgRfXHHM5A==}
+    engines: {node: '>=14.17.0'}
     peerDependencies:
+      bullmq-otel: '>=2.0.0'
+      ioredis: 6.0.0
+      pg: '>=8.0.0'
       redis: '>=5.0.0'
     peerDependenciesMeta:
+      bullmq-otel:
+        optional: true
+      ioredis:
+        optional: true
+      pg:
+        optional: true
       redis:
         optional: true
 
@@ -7754,8 +7941,8 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
-  cluster-key-slot@1.1.2:
-    resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
+  cluster-key-slot@1.1.1:
+    resolution: {integrity: sha512-rwHwUfXL40Chm1r08yrhU3qpUvdVlgkKNeyeGPOxnW8/SyVDvgRaed/Uz54AqWNaTCAThlj6QAs3TZcKI0xDEw==}
     engines: {node: '>=0.10.0'}
 
   cmdk@1.1.1:
@@ -7904,6 +8091,10 @@ packages:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
     deprecated: v4 is no longer maintained, upgrade to v5
+
+  cron-parser@5.10.1:
+    resolution: {integrity: sha512-pKRrRagItwk9rGIStcUyMxFX34x56zoX3KDf9HJ4ttwkXIK1qxK63EvXvEDmlxI9AdPJ+Y7TEKRftRlW5eSS7A==}
+    engines: {node: '>=18'}
 
   cronstrue@3.25.0:
     resolution: {integrity: sha512-PAPaioNXHMLiUSM8V5sC0bIx5MALUQjjtuDZZWBir5Tau8D676Aoj3Oju/SCaggi4eLG+QPC3IU+dCo30AzDIA==}
@@ -8603,10 +8794,6 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fake-indexeddb@6.2.5:
-    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
-    engines: {node: '>=18'}
-
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
@@ -9254,9 +9441,9 @@ packages:
     resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
     engines: {node: '>=12'}
 
-  ioredis@5.10.1:
-    resolution: {integrity: sha512-HuEDBTI70aYdx1v6U97SbNx9F1+svQKBDo30o0b9fw055LMepzpOOd0Ccg9Q6tbqmBSJaMuY0fB7yw9/vjBYCA==}
-    engines: {node: '>=12.22.0'}
+  ioredis@6.0.0:
+    resolution: {integrity: sha512-f+Dtubxfpf6KYFq7WVXJoOLn0bk4TJrMrN9SzeE+jrWrCWj7XX3fA6vkryafhADX+GMymRxgDJDOI33COkJc0w==}
+    engines: {node: '>=20.0.0'}
 
   ip-address@10.2.0:
     resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
@@ -9831,17 +10018,11 @@ packages:
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
-  lodash.defaults@4.2.0:
-    resolution: {integrity: sha512-qjxPLHd3r5DnsdGacqOMU6pb/avJzdh9tFX2ymgoZE27BmjXrNy/y4LoaiTeAb+O3gL8AfpJGtqfX/ae2leYYQ==}
-
   lodash.escaperegexp@4.1.2:
     resolution: {integrity: sha512-TM9YBvyC84ZxE3rgfefxUWiQKLilstD6k7PTGt6wfbtXF8ixIJLOL3VYyV/z+ZiPLsVxAsKAFVwWlWeb2Y8Yyw==}
 
   lodash.includes@4.3.0:
     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
-
-  lodash.isarguments@3.1.0:
-    resolution: {integrity: sha512-chi4NHZlZqZD18a0imDHnZPrDeBbTtVN7GXMwuGdRH9qotxAjYs3aVLKc7zNOG9eddR5Ksd8rvFEBc9SsggPpg==}
 
   lodash.isboolean@3.0.3:
     resolution: {integrity: sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==}
@@ -10315,8 +10496,8 @@ packages:
     resolution: {integrity: sha512-4kmO/MdyUIkLIvTPr8VHLil4AtoKIoniWPIEk5+CDy0xnWC84azhSFmuJ7PxZdsYtiP5kEeQsORAVIeMgxT+Hw==}
     hasBin: true
 
-  msgpackr@2.0.4:
-    resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
+  msgpackr@2.1.0:
+    resolution: {integrity: sha512-p/pBCVO63CsvvpkomUnNNag6+n38rULuDA6HHe70o2gtC8ODI52foF/4ko2qQcp6OiErJXTmrZeXmsGGHsIQNQ==}
 
   mustache@4.2.0:
     resolution: {integrity: sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ==}
@@ -11529,10 +11710,6 @@ packages:
 
   redis-errors@1.2.0:
     resolution: {integrity: sha512-1qny3OExCf0UvUV/5wpYKf2YwPcOqXzkwKKSmKHiE6ZMQs5heeE/c8eXK+PNllPvmjgAbfnsbpkGZWy8cBpn9w==}
-    engines: {node: '>=4'}
-
-  redis-parser@3.0.0:
-    resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
 
   reflect-metadata@0.2.2:
@@ -14630,7 +14807,7 @@ snapshots:
   '@chat-adapter/state-ioredis@4.28.1(supports-color@8.1.1)':
     dependencies:
       chat: 4.28.1(supports-color@8.1.1)
-      ioredis: 5.10.1(supports-color@8.1.1)
+      ioredis: 6.0.0(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -15519,7 +15696,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@inbox-zero/emulate@0.11.1(patch_hash=a32289f4058cf1c3c86feb5930cd035b4e1057b6274a24c65ebb22dd98e24306)':
+  '@inbox-zero/emulate@0.11.1(patch_hash=411fbb0b530af7c807007696f160744754f5849b10deedf432621369c1d63ef3)':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
@@ -15902,7 +16079,7 @@ snapshots:
     dependencies:
       '@swc/helpers': 0.5.21
 
-  '@ioredis/commands@1.5.1': {}
+  '@ioredis/commands@2.0.0': {}
 
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
@@ -16421,6 +16598,15 @@ snapshots:
       '@opentelemetry/otlp-transformer': 0.221.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace': 2.10.0(@opentelemetry/api@1.9.1)
     optional: true
+
+  '@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/api-logs': 0.220.0
+      import-in-the-middle: 3.0.1
+      require-in-the-middle: 8.0.1(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - supports-color
 
   '@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)':
     dependencies:
@@ -18605,6 +18791,11 @@ snapshots:
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.74.0
 
+  '@sentry/browser-utils@10.75.0':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
+
   '@sentry/browser@10.62.0':
     dependencies:
       '@sentry/browser-utils': 10.62.0
@@ -18621,6 +18812,15 @@ snapshots:
       '@sentry/feedback': 10.74.0
       '@sentry/replay': 10.74.0
       '@sentry/replay-canvas': 10.74.0
+
+  '@sentry/browser@10.75.0':
+    dependencies:
+      '@sentry/browser-utils': 10.75.0
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
+      '@sentry/feedback': 10.75.0
+      '@sentry/replay': 10.75.0
+      '@sentry/replay-canvas': 10.75.0
 
   '@sentry/bundler-plugin-core@5.3.0(encoding@0.1.13)(supports-color@8.1.1)':
     dependencies:
@@ -18687,6 +18887,21 @@ snapshots:
     dependencies:
       '@sentry/conventions': 0.16.0
 
+  '@sentry/core@10.75.0':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+
+  '@sentry/electron@7.20.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(supports-color@10.2.2)':
+    dependencies:
+      '@sentry/browser': 10.75.0
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
+      '@sentry/node': 10.75.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - '@opentelemetry/core'
+      - '@opentelemetry/exporter-trace-otlp-http'
+      - supports-color
+
   '@sentry/feedback@10.62.0':
     dependencies:
       '@sentry/core': 10.62.0
@@ -18694,6 +18909,10 @@ snapshots:
   '@sentry/feedback@10.74.0':
     dependencies:
       '@sentry/core': 10.74.0
+
+  '@sentry/feedback@10.75.0':
+    dependencies:
+      '@sentry/core': 10.75.0
 
   '@sentry/nextjs@10.74.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(encoding@0.1.13)(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
@@ -18734,6 +18953,19 @@ snapshots:
       '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
 
+  '@sentry/node-core@10.75.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
+      '@sentry/opentelemetry': 10.75.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+      import-in-the-middle: 3.0.1
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http': 0.221.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2)
+      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
+
   '@sentry/node@10.74.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -18750,6 +18982,22 @@ snapshots:
       - '@opentelemetry/exporter-trace-otlp-http'
       - supports-color
 
+  '@sentry/node@10.75.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(supports-color@10.2.2)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2)
+      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
+      '@sentry/node-core': 10.75.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+      '@sentry/opentelemetry': 10.75.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+      '@sentry/server-utils': 10.75.0
+      import-in-the-middle: 3.0.1
+    transitivePeerDependencies:
+      - '@opentelemetry/core'
+      - '@opentelemetry/exporter-trace-otlp-http'
+      - supports-color
+
   '@sentry/opentelemetry@10.74.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -18757,6 +19005,14 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.74.0
+
+  '@sentry/opentelemetry@10.75.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
 
   '@sentry/react@10.62.0(react@19.3.0)':
     dependencies:
@@ -18781,6 +19037,11 @@ snapshots:
       '@sentry/core': 10.74.0
       '@sentry/replay': 10.74.0
 
+  '@sentry/replay-canvas@10.75.0':
+    dependencies:
+      '@sentry/core': 10.75.0
+      '@sentry/replay': 10.75.0
+
   '@sentry/replay@10.62.0':
     dependencies:
       '@sentry/browser-utils': 10.62.0
@@ -18791,10 +19052,20 @@ snapshots:
       '@sentry/browser-utils': 10.74.0
       '@sentry/core': 10.74.0
 
+  '@sentry/replay@10.75.0':
+    dependencies:
+      '@sentry/browser-utils': 10.75.0
+      '@sentry/core': 10.75.0
+
   '@sentry/server-utils@10.74.0':
     dependencies:
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.74.0
+
+  '@sentry/server-utils@10.75.0':
+    dependencies:
+      '@sentry/conventions': 0.16.0
+      '@sentry/core': 10.75.0
 
   '@sentry/vercel-edge@10.74.0':
     dependencies:
@@ -19655,7 +19926,7 @@ snapshots:
 
   '@vercel/oidc@3.4.0': {}
 
-  '@vercel/queue@0.5.1(@opentelemetry/api@1.9.1)':
+  '@vercel/queue@0.6.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@vercel/oidc': 3.4.0
       minimatch: 10.2.5
@@ -20458,27 +20729,27 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  bullmq@5.79.2(supports-color@10.2.2):
+  bullmq@6.3.8(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0):
     dependencies:
-      cron-parser: 4.9.0
-      ioredis: 5.10.1(supports-color@10.2.2)
-      msgpackr: 2.0.4
+      cron-parser: 5.10.1
+      msgpackr: 2.1.0
       node-abort-controller: 3.1.1
       semver: 7.8.5
       tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
+    optionalDependencies:
+      ioredis: 6.0.0(supports-color@10.2.2)
+      pg: 8.23.0
 
-  bullmq@5.79.2(supports-color@8.1.1):
+  bullmq@6.3.8(ioredis@6.0.0(supports-color@8.1.1))(pg@8.23.0):
     dependencies:
-      cron-parser: 4.9.0
-      ioredis: 5.10.1(supports-color@8.1.1)
-      msgpackr: 2.0.4
+      cron-parser: 5.10.1
+      msgpackr: 2.1.0
       node-abort-controller: 3.1.1
       semver: 7.8.5
       tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
+    optionalDependencies:
+      ioredis: 6.0.0(supports-color@8.1.1)
+      pg: 8.23.0
 
   bundle-name@4.1.0:
     dependencies:
@@ -20707,7 +20978,7 @@ snapshots:
 
   clsx@2.1.1: {}
 
-  cluster-key-slot@1.1.2: {}
+  cluster-key-slot@1.1.1: {}
 
   cmdk@1.1.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
@@ -20842,6 +21113,10 @@ snapshots:
   crisp-sdk-web@1.2.0: {}
 
   cron-parser@4.9.0:
+    dependencies:
+      luxon: 3.7.2
+
+  cron-parser@5.10.1:
     dependencies:
       luxon: 3.7.2
 
@@ -21665,8 +21940,6 @@ snapshots:
 
   extend@3.0.2: {}
 
-  fake-indexeddb@6.2.5: {}
-
   fast-check@3.23.2:
     dependencies:
       pure-rand: 6.1.0
@@ -22465,30 +22738,24 @@ snapshots:
 
   internmap@2.0.3: {}
 
-  ioredis@5.10.1(supports-color@10.2.2):
+  ioredis@6.0.0(supports-color@10.2.2):
     dependencies:
-      '@ioredis/commands': 1.5.1
-      cluster-key-slot: 1.1.2
+      '@ioredis/commands': 2.0.0
+      cluster-key-slot: 1.1.1
       debug: 4.4.3(supports-color@10.2.2)
       denque: 2.1.0
-      lodash.defaults: 4.2.0
-      lodash.isarguments: 3.1.0
       redis-errors: 1.2.0
-      redis-parser: 3.0.0
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
 
-  ioredis@5.10.1(supports-color@8.1.1):
+  ioredis@6.0.0(supports-color@8.1.1):
     dependencies:
-      '@ioredis/commands': 1.5.1
-      cluster-key-slot: 1.1.2
+      '@ioredis/commands': 2.0.0
+      cluster-key-slot: 1.1.1
       debug: 4.4.3(supports-color@8.1.1)
       denque: 2.1.0
-      lodash.defaults: 4.2.0
-      lodash.isarguments: 3.1.0
       redis-errors: 1.2.0
-      redis-parser: 3.0.0
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
@@ -23005,13 +23272,9 @@ snapshots:
 
   lodash.debounce@4.0.8: {}
 
-  lodash.defaults@4.2.0: {}
-
   lodash.escaperegexp@4.1.2: {}
 
   lodash.includes@4.3.0: {}
-
-  lodash.isarguments@3.1.0: {}
 
   lodash.isboolean@3.0.3: {}
 
@@ -23721,7 +23984,7 @@ snapshots:
       '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.4
     optional: true
 
-  msgpackr@2.0.4:
+  msgpackr@2.1.0:
     optionalDependencies:
       msgpackr-extract: 3.0.4
 
@@ -25023,10 +25286,6 @@ snapshots:
 
   redis-errors@1.2.0: {}
 
-  redis-parser@3.0.0:
-    dependencies:
-      redis-errors: 1.2.0
-
   reflect-metadata@0.2.2: {}
 
   refractor@5.0.0:
@@ -25153,6 +25412,13 @@ snapshots:
   require-directory@2.1.1: {}
 
   require-from-string@2.0.2: {}
+
+  require-in-the-middle@8.0.1(supports-color@10.2.2):
+    dependencies:
+      debug: 4.4.3(supports-color@10.2.2)
+      module-details-from-path: 1.0.4
+    transitivePeerDependencies:
+      - supports-color
 
   require-in-the-middle@8.0.1(supports-color@8.1.1):
     dependencies:

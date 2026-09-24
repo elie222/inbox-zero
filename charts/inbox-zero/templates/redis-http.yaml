@@ -67,11 +67,28 @@ spec:
           env:
             - name: SRH_MODE
               value: env
-            - name: SRH_TOKEN
+            {{- if .Values.existingSecret }}
+            # The chart does not create this secret, so an existing install may
+            # still store the token under the old key.
+            - name: REDIS_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_HTTP_TOKEN
+                  optional: true
+            - name: UPSTASH_REDIS_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "inbox-zero.secretName" . }}
                   key: UPSTASH_REDIS_TOKEN
+                  optional: true
+            {{- else }}
+            - name: SRH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_HTTP_TOKEN
+            {{- end }}
             - name: SRH_CONNECTION_STRING
               {{- if .Values.existingSecret }}
               valueFrom:
@@ -81,6 +98,20 @@ spec:
               {{- else }}
               value: {{ include "inbox-zero.redisUrl" . | quote }}
               {{- end }}
+          {{- if .Values.existingSecret }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              token="${REDIS_HTTP_TOKEN:-${UPSTASH_REDIS_TOKEN:-}}"
+              if [ -z "$token" ]; then
+                echo "REDIS_HTTP_TOKEN or UPSTASH_REDIS_TOKEN is required" >&2
+                exit 1
+              fi
+              export SRH_TOKEN="$token"
+              exec "$0" "$@"
+            - _build/prod/rel/prod/bin/prod
+            - start
+          {{- end }}
           resources:
             {{- toYaml .Values.redisHttp.resources | nindent 12 }}
           securityContext:

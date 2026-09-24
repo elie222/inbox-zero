@@ -20,7 +20,7 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_LIST_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
 export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},body,internetMessageHeaders`;
 
 // contentId belongs to fileAttachment, so selecting it without this type cast
@@ -504,6 +504,7 @@ export async function queryBatchMessages(
     fromEmail?: string;
     readState?: "read" | "unread";
     categoryNames?: string[];
+    includeDrafts?: boolean;
   },
   logger: Logger,
 ) {
@@ -525,9 +526,13 @@ export async function queryBatchMessages(
   }
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger, { includeDrafts: false }),
+    getFolderIds(client, logger, {
+      includeDrafts: Boolean(options.includeDrafts),
+    }),
     getCategoryMap(client, logger),
   ]);
+  const parseMessages = (messages: Message[]) =>
+    convertMessages(messages, folderIds, categoryMap, options.includeDrafts);
 
   const metadataSearch = createOutlookMetadataFilters({
     searchQuery,
@@ -553,11 +558,7 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await convertMessages(
-      filteredMessages,
-      folderIds,
-      categoryMap,
-    );
+    const messages = await parseMessages(filteredMessages);
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
@@ -619,11 +620,7 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await convertMessages(
-      filteredMessages,
-      folderIds,
-      categoryMap,
-    );
+    const messages = await parseMessages(filteredMessages);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -677,11 +674,7 @@ export async function queryBatchMessages(
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
-    const messages = await convertMessages(
-      response.value,
-      folderIds,
-      categoryMap,
-    );
+    const messages = await parseMessages(response.value);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -798,9 +791,10 @@ async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
   categoryMap?: Map<string, string>,
+  includeDrafts = false,
 ): Promise<ParsedMessage[]> {
   return messages
-    .filter((message: Message) => !message.isDraft) // Filter out drafts
+    .filter((message: Message) => includeDrafts || !message.isDraft)
     .map((message: Message) => convertMessage(message, folderIds, categoryMap));
 }
 
@@ -1063,8 +1057,8 @@ export function convertMessage(
     threadId: message.conversationId || "",
     externalUrl: message.webLink || undefined,
     snippet: message.bodyPreview || "",
-    textPlain: bodyContent,
-    textHtml: bodyContent,
+    textPlain: bodyType === "text" ? bodyContent : undefined,
+    textHtml: bodyType === "html" ? bodyContent : undefined,
     bodyContentType: bodyType,
     headers: {
       from:
@@ -1087,11 +1081,13 @@ export function convertMessage(
     subject: message.subject || "",
     date,
     labelIds,
+    inboxSection: normalizeInboxSection(message.inferenceClassification),
     parentFolderId: message.parentFolderId || undefined,
     internalDate: date,
     historyId: "",
     inline: convertInlineAttachments(message.attachments),
     attachments: convertAttachments(message.attachments),
+    hasAttachment: message.hasAttachments ?? undefined,
     conversationIndex: message.conversationIndex,
     rawRecipients: {
       from: message.from,
@@ -1099,6 +1095,10 @@ export function convertMessage(
       ccRecipients: message.ccRecipients,
     },
   };
+}
+
+function normalizeInboxSection(value: unknown): ParsedMessage["inboxSection"] {
+  return value === "focused" || value === "other" ? value : null;
 }
 
 function convertAttachments(

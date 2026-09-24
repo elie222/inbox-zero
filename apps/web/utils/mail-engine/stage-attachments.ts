@@ -1,0 +1,192 @@
+import { MAIL_PROTOCOL_VERSION } from "@inboxzero/mail-core/identities";
+import { createMailHttpRequest } from "@/utils/mail-engine/http";
+import type { Attachment } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+
+export async function stageSendAttachments(
+  accountId: string,
+  attachments: Attachment[] | undefined,
+) {
+  if (!attachments?.length) return [];
+  const request = createMailHttpRequest(accountId);
+  const stagedIds: string[] = [];
+  const cancelIds: string[] = [];
+  const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
+  try {
+    for (const attachment of attachments) {
+      const bytes = decodeBase64(attachment.content);
+      const checksum = await sha256Hex(bytes);
+      const uploadId = randomUuid();
+      cancelIds.push(uploadId);
+      const admitted = await request({
+        method: "POST",
+        path: base,
+        body: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: randomUuid(),
+          session: { accountId, generation: "local" },
+          uploadId,
+          sizeBytes: bytes.byteLength,
+          checksum,
+          contentType: attachment.contentType,
+          filename: attachment.filename,
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
+      const blobId =
+        admitted.json &&
+        typeof admitted.json === "object" &&
+        "blobId" in admitted.json &&
+        typeof admitted.json.blobId === "string"
+          ? admitted.json.blobId
+          : null;
+      if (admitted.status >= 400 || !blobId) {
+        throw new Error(
+          admissionRejectionCopy(httpErrorCode(admitted.json)) ??
+            `Could not stage ${attachment.filename} for sending.`,
+        );
+      }
+      if (blobId !== uploadId) cancelIds.push(blobId);
+      stagedIds.push(blobId);
+      const staged = await request({
+        method: "PUT",
+        path: `${base}/${encodeURIComponent(blobId)}/content?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: bytes,
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (staged.status >= 400) {
+        throw new Error(
+          admissionRejectionCopy(httpErrorCode(staged.json)) ??
+            `Could not stage ${attachment.filename} for sending.`,
+        );
+      }
+    }
+    await holdStagedUploads(request, accountId, base, stagedIds);
+    return stagedIds;
+  } catch (error) {
+    await cancelStagedUploads(request, base, cancelIds);
+    throw error;
+  }
+}
+
+export async function releaseSendAttachmentHolds(
+  accountId: string,
+  blobIds: string[],
+) {
+  if (blobIds.length === 0) return;
+  const request = createMailHttpRequest(accountId);
+  const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
+  await releaseStagedHolds(request, accountId, base, blobIds);
+}
+
+export async function cancelSendAttachments(
+  accountId: string,
+  blobIds: string[],
+) {
+  if (blobIds.length === 0) return;
+  const request = createMailHttpRequest(accountId);
+  const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/uploads`;
+  await releaseStagedHolds(request, accountId, base, blobIds);
+  await cancelStagedUploads(request, base, blobIds);
+}
+
+function decodeBase64(value: string) {
+  if (typeof Buffer !== "undefined") return Buffer.from(value, "base64");
+  const binary = globalThis.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+async function sha256Hex(bytes: Uint8Array) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes.slice());
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function holdBody(accountId: string, held: boolean) {
+  return {
+    protocolVersion: MAIL_PROTOCOL_VERSION,
+    requestId: randomUuid(),
+    session: { accountId, generation: "local" },
+    held,
+  };
+}
+
+function httpErrorCode(json: unknown) {
+  if (!json || typeof json !== "object" || !("error" in json)) return;
+  const error = json.error;
+  if (!error || typeof error !== "object" || !("code" in error)) return;
+  return typeof error.code === "string" ? error.code : undefined;
+}
+
+async function holdStagedUploads(
+  request: ReturnType<typeof createMailHttpRequest>,
+  accountId: string,
+  base: string,
+  blobIds: string[],
+) {
+  const held: string[] = [];
+  try {
+    for (const blobId of blobIds) {
+      const result = await request({
+        method: "POST",
+        path: `${base}/${encodeURIComponent(blobId)}?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: holdBody(accountId, true),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (result.status >= 400) {
+        throw new Error(
+          admissionRejectionCopy(httpErrorCode(result.json)) ??
+            "Could not keep staged attachments for sending.",
+        );
+      }
+      held.push(blobId);
+    }
+  } catch (error) {
+    await releaseStagedHolds(request, accountId, base, held);
+    throw error;
+  }
+}
+
+async function releaseStagedHolds(
+  request: ReturnType<typeof createMailHttpRequest>,
+  accountId: string,
+  base: string,
+  blobIds: string[],
+) {
+  for (const blobId of blobIds) {
+    try {
+      await request({
+        method: "POST",
+        path: `${base}/${encodeURIComponent(blobId)}?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        body: holdBody(accountId, false),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      // Best-effort release; DELETE remains the backstop once the hold drops.
+    }
+  }
+}
+
+async function cancelStagedUploads(
+  request: ReturnType<typeof createMailHttpRequest>,
+  base: string,
+  blobIds: string[],
+) {
+  for (const blobId of blobIds) {
+    try {
+      await request({
+        method: "DELETE",
+        path: `${base}/${encodeURIComponent(blobId)}?protocolVersion=${MAIL_PROTOCOL_VERSION}`,
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch {
+      // Best-effort cancel; tmpdir cleanup remains the backstop.
+    }
+  }
+}

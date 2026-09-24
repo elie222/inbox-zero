@@ -21,8 +21,8 @@ const {
 
 vi.mock("@/env", () => ({
   env: {
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "token",
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "token",
     EMAIL_ENCRYPT_SALT: "test-hmac-salt",
   },
 }));

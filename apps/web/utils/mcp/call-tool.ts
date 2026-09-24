@@ -36,7 +36,10 @@ export async function callMcpTool({
     throw new Error(`Tool ${toolName} is not callable for ${integration}`);
   }
 
-  const authToken = await getAuthToken({ integration, emailAccountId });
+  const authToken = await getAuthToken({
+    integration: { ...integrationConfig, isCustom: false },
+    emailAccountId,
+  });
 
   const transport = createMcpTransport(serverUrl, authToken);
 

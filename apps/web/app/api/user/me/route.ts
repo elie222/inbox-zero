@@ -4,9 +4,9 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
 import {
-  isClassifierAvailable,
-  isClassifierEnabledForUser,
-} from "@/utils/classifier/classify";
+  isDecisionModelAvailable,
+  isDecisionModelEnabledForUser,
+} from "@/utils/decision-model/decision-model";
 import {
   getRemainingUnsubscribeCredits,
   premiumEntitlementSelect,
@@ -34,7 +34,7 @@ async function getUser({
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      classifierEnabled: true,
+      decisionModelEnabled: true,
       webhookSecret: true,
       announcementDismissedAt: true,
       dismissedHints: true,
@@ -105,8 +105,8 @@ async function getUser({
     createdAt: user.createdAt,
     aiProvider: user.aiProvider,
     aiModel: user.aiModel,
-    isClassifierAvailable: isClassifierAvailable(),
-    classifierEnabled: isClassifierEnabledForUser(user),
+    isDecisionModelAvailable: isDecisionModelAvailable(),
+    decisionModelEnabled: isDecisionModelEnabledForUser(user),
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
     premium,

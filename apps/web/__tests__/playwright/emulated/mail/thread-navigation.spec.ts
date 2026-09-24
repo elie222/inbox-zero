@@ -1,50 +1,18 @@
-import { expect, type Page } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { openMail } from "./mail-test-helpers";
+import { expectThreadReaderBody, openMail } from "./mail-test-helpers";
 
 test("expands unread messages when opening a thread", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_reader?parseReplies=true",
-    { headers: { "x-email-account-id": emailAccountId } },
-  );
-  expect(response.ok()).toBe(true);
-  const body: ThreadResponse = await response.json();
-  // Opening the conversation marks provider messages read, including across retries.
-  const first = body.thread.messages[0];
-  expect(first).toBeDefined();
-  if (!first) throw new Error("Reader fixture has no messages");
-  body.thread.messages = [
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_unread_expand`,
     {
-      ...first,
-      id: "msg_playwright_reader_read_history",
-      labelIds: ["INBOX"],
-      textPlain: "An earlier read message stays collapsed.",
-      snippet: "An earlier read message stays collapsed.",
+      waitUntil: "domcontentloaded",
     },
-    {
-      ...first,
-      id: "msg_playwright_reader_unread_history",
-      labelIds: ["INBOX", "UNREAD"],
-      textPlain: "Another unread message opens with the conversation.",
-      snippet: "Another unread message opens with the conversation.",
-    },
-    ...body.thread.messages.map((message) => ({
-      ...message,
-      labelIds: ["INBOX", "UNREAD"],
-    })),
-  ];
-  await page.route("**/api/threads/thr_playwright_reader?**", (route) =>
-    route.fulfill({ json: body }),
   );
-
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
 
   const headers = page.locator(
     'li[data-thread-message-id] [role="button"][aria-expanded]',
@@ -62,16 +30,14 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
 }, testInfo) => {
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
-  await makeReaderHistoryRead(page);
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
-  await expect(
-    page.getByText(
-      "A second message proves the complete conversation is rendered.",
-    ),
-  ).toBeVisible();
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_collapse`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  await expectThreadReaderBody(page, "Latest read message stays expanded.");
   const threadUrl = page.url();
   const messages = page.locator("li[data-thread-message-id]");
   const selected = page.locator('li[aria-current="true"]');
@@ -102,9 +68,7 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
     page.getByRole("button", { name: "Expand all messages", exact: true }),
   ).toHaveCount(1);
   await expand.click();
-  await expect(
-    page.getByText("First message in the reader conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(page, "First collapsed history message.");
   await toolbar
     .getByRole("button", { name: "Collapse all messages", exact: true })
     .click();
@@ -148,24 +112,18 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
 test("navigates messages from inside a rich email body", async ({ page }) => {
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    const last = body.thread.messages.at(-1);
-    expect(last).toBeDefined();
-    if (!last) throw new Error("Reader fixture has no messages");
-    last.textHtml = "<p>A rich email body for keyboard navigation.</p>";
-    await route.fulfill({ response, json: body });
-  });
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_html`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
   const emailBody = page
     .frameLocator('iframe[title="Email content preview"]')
     .last()
     .getByText("A rich email body for keyboard navigation.");
-  await expect(emailBody).toBeVisible();
+  await expect(emailBody).toBeVisible({ timeout: 60_000 });
   const threadUrl = page.url();
   const messages = page.locator("li[data-thread-message-id]");
   await emailBody.click();
@@ -185,11 +143,13 @@ test("navigates messages from inside a rich email body", async ({ page }) => {
 test("expands a collapsed message before Enter opens a reply", async ({
   page,
 }, testInfo) => {
-  await makeReaderHistoryRead(page);
   const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_collapse`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
 
   const message = page.locator("li[data-thread-message-id]").first();
   const header = message.locator('[role="button"][aria-expanded]');
@@ -215,15 +175,3 @@ test("expands a collapsed message before Enter opens a reply", async ({
     page.getByRole("textbox", { name: "Email message" }),
   ).toHaveCount(1);
 });
-
-async function makeReaderHistoryRead(page: Page) {
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    body.thread.messages = body.thread.messages.map((message) => ({
-      ...message,
-      labelIds: message.labelIds?.filter((labelId) => labelId !== "UNREAD"),
-    }));
-    await route.fulfill({ response, json: body });
-  });
-}

@@ -5,7 +5,7 @@ import {
   createReplyDraftWriter,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 
 type DraftDeliveryTimes = { sendAt?: string; remindAt?: string };
 

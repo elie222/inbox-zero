@@ -1,10 +1,11 @@
 import { build } from "esbuild";
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import { MAIL_ENGINE_OPFS_DIRECTORY } from "@/utils/mail-engine/wasm-sqlite";
 
 test("preserves bootstrap fragments for precached workers online and offline", async ({
   page,
@@ -80,7 +81,21 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   page,
   context,
 }, testInfo) => {
-  const { conversations, emailAccountId } = await openMail(page);
+  const extraAssets = new Set<string>();
+  const onResponse = (response: {
+    url(): string;
+    status(): number;
+    request(): { resourceType(): string };
+  }) => {
+    if (response.status() !== 200) return;
+    collectMailEngineAsset(
+      extraAssets,
+      response.url(),
+      response.request().resourceType(),
+    );
+  };
+  context.on("response", onResponse);
+  const { conversations } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
   ).toBeVisible();
@@ -89,24 +104,37 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
   const workerFile = path.resolve("public", workerName);
   try {
     // Dev mode has no precache manifest; production uses the worker built for CI.
+    // Dedicated workers import sqlite-wasm JS off the page resource timeline.
+    const origin = new URL(page.url()).origin;
+    let precacheUrls: string[] = [];
     if (!production) {
-      const assets = await page.evaluate(() =>
+      await expect.poll(() => [...extraAssets].some(isWasmUrl)).toBe(true);
+      const pageAssets = await page.evaluate(() =>
         performance
           .getEntriesByType("resource")
           .map((entry) => entry.name)
-          .filter(
-            (url) =>
-              new URL(url).origin === location.origin &&
-              new URL(url).pathname.startsWith("/_next/static/"),
-          ),
+          .filter((url) => {
+            const parsed = new URL(url);
+            return (
+              parsed.origin === location.origin &&
+              parsed.pathname.startsWith("/_next/static/")
+            );
+          }),
       );
+      precacheUrls = [
+        ...new Set(
+          [...pageAssets, ...extraAssets]
+            .map((url) => toPrecacheUrl(url, origin))
+            .filter((url): url is string => Boolean(url)),
+        ),
+      ];
       await build({
         entryPoints: ["app/sw.ts"],
         bundle: true,
         define: {
           "process.env.NODE_ENV": JSON.stringify("production"),
           "self.__SW_MANIFEST": JSON.stringify(
-            [...new Set(assets)].map((url) => ({ url, revision: null })),
+            precacheUrls.map((url) => ({ url, revision: null })),
           ),
         },
         outfile: workerFile,
@@ -125,10 +153,36 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
           ),
         );
       }
+    }, workerName);
+    if (!production) {
+      await page.evaluate(async (urls) => {
+        await Promise.all(
+          urls.map((url) =>
+            fetch(url, { credentials: "same-origin", cache: "reload" }).catch(
+              () => undefined,
+            ),
+          ),
+        );
+      }, precacheUrls);
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          for (const name of await caches.keys()) {
+            const cache = await caches.open(name);
+            for (const request of await cache.keys()) {
+              if (new URL(request.url).pathname.endsWith(".wasm")) return true;
+            }
+          }
+          return false;
+        }),
+      )
+      .toBe(true);
+    await page.evaluate(() => {
       navigator.serviceWorker.controller?.postMessage({
         type: "inbox-zero:save-offline-mail",
       });
-    }, workerName);
+    });
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -147,71 +201,20 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       )
       .toBe(true);
 
-    // Source coverage and the asynchronous index must both be durable before going offline.
+    // Wait for the engine mailbox to have metadata coverage before going offline.
     await expect
       .poll(
-        () =>
-          page.evaluate(
-            (accountId) =>
-              new Promise<boolean>((resolve) => {
-                const request = indexedDB.open("inbox-zero-email-cache");
-                request.onerror = () => resolve(false);
-                request.onupgradeneeded = () => request.transaction?.abort();
-                request.onsuccess = () => {
-                  const database = request.result;
-                  if (
-                    !database.objectStoreNames.contains("localMailSyncStates")
-                  ) {
-                    database.close();
-                    resolve(false);
-                    return;
-                  }
-                  const transaction = database.transaction([
-                    "localMailSyncStates",
-                    "searchIndexAccounts",
-                    "searchIndexWork",
-                    "localMailMessages",
-                  ]);
-                  const state = transaction
-                    .objectStore("localMailSyncStates")
-                    .get(accountId);
-                  const account = transaction
-                    .objectStore("searchIndexAccounts")
-                    .get(accountId);
-                  const work = transaction
-                    .objectStore("searchIndexWork")
-                    .index("byAccount")
-                    .count(accountId);
-                  const messages = transaction
-                    .objectStore("localMailMessages")
-                    .getAll();
-                  transaction.oncomplete = () => {
-                    database.close();
-                    resolve(
-                      messages.result.some(
-                        (message) =>
-                          message.emailAccountId === accountId &&
-                          message.data.headers.subject ===
-                            "Archive Action Message",
-                      ) &&
-                        Boolean(state.result?.coverage) &&
-                        account.result?.generation ===
-                          state.result?.generation &&
-                        !account.result?.seed &&
-                        work.result === 0,
-                    );
-                  };
-                  transaction.onerror = () => {
-                    database.close();
-                    resolve(false);
-                  };
-                };
-              }),
-            emailAccountId,
-          ),
-        // Draining the index takes the same order of time as the sibling
-        // searchIndexWork polls in local-search.spec.ts, now that sync covers
-        // the seeded mail rather than windowing past it.
+        async () =>
+          page.evaluate(async () => {
+            const inspect = window.__inboxZeroMailInspect;
+            if (!inspect?.read) return false;
+            const diagnostics = (await inspect.read()) as {
+              coverage?: Array<{ metadata?: string }>;
+            };
+            return diagnostics.coverage?.some(
+              (item) => item.metadata === "complete",
+            );
+          }),
         { timeout: 90_000 },
       )
       .toBe(true);
@@ -272,15 +275,16 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
-    const signOutStatus = await page.evaluate(async () => {
-      const response = await fetch("/api/auth/sign-out", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      return response.status;
-    });
-    expect(signOutStatus).toBe(200);
+    await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
+    await signOutFromAppNav(page);
+    await expect(
+      page
+        .getByRole("link", { name: "Log in" })
+        .or(page.getByText("Logged out", { exact: true })),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(() => mailEngineOpfsExists(page), { timeout: 30_000 })
+      .toBe(false);
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -297,7 +301,82 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       )
       .toBe(0);
   } finally {
+    context.off("response", onResponse);
     await context.setOffline(false);
     if (!production) await rm(workerFile, { force: true });
   }
 });
+
+function collectMailEngineAsset(
+  extraAssets: Set<string>,
+  url: string,
+  resourceType: string,
+) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+  if (
+    parsed.pathname.includes("hot-update") ||
+    parsed.pathname.endsWith(".map")
+  )
+    return;
+  if (
+    parsed.pathname.startsWith("/_next/static/") ||
+    parsed.pathname.endsWith(".wasm") ||
+    parsed.pathname.endsWith(".mjs") ||
+    resourceType === "worker" ||
+    resourceType === "script" ||
+    resourceType === "stylesheet"
+  ) {
+    extraAssets.add(url);
+  }
+}
+
+function toPrecacheUrl(url: string, origin: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== origin) return null;
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function isWasmUrl(url: string) {
+  try {
+    return new URL(url).pathname.endsWith(".wasm");
+  } catch {
+    return false;
+  }
+}
+
+async function mailEngineOpfsExists(page: Page) {
+  return page.evaluate(async (directory) => {
+    const root = await navigator.storage.getDirectory();
+    try {
+      await root.getDirectoryHandle(directory);
+      return true;
+    } catch {
+      return false;
+    }
+  }, MAIL_ENGINE_OPFS_DIRECTORY);
+}
+
+// Mail hides SideNav. NavUser / Sign out only render on non-mail routes.
+async function signOutFromAppNav(page: Page) {
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  const trigger = page.getByRole("button", {
+    name: /Smoke Test User Smoke Test User/,
+  });
+  const signOut = page.getByRole("menuitem", { name: "Sign out" });
+  await trigger.click();
+  await expect(signOut).toBeVisible();
+  await signOut.click();
+}

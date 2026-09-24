@@ -33,9 +33,21 @@ beforeEach(() => {
 });
 
 it("returns the provider reference before attempting attachment updates", async () => {
-  expect(await saveComposeDraft({ provider, content })).toBe("draft-1");
+  expect(await saveComposeDraft({ provider, content })).toEqual({
+    draftId: "draft-1",
+    messageId: "message-1",
+    threadId: null,
+  });
   expect(provider.createDraft).toHaveBeenCalledOnce();
   expect(provider.updateDraft).not.toHaveBeenCalled();
+});
+it("keeps the confirmed draft id when the mailbox message cannot be loaded yet", async () => {
+  vi.mocked(provider.getDraft).mockRejectedValueOnce(new Error("timeout"));
+  expect(await saveComposeDraft({ provider, content })).toEqual({
+    draftId: "draft-1",
+    messageId: null,
+    threadId: null,
+  });
 });
 it("retries updates using the existing provider draft and clears omitted recipients", async () => {
   vi.mocked(provider.updateDraft).mockRejectedValueOnce(
@@ -46,7 +58,11 @@ it("retries updates using the existing provider draft and clears omitted recipie
   ).rejects.toThrow("Upload failed");
   expect(
     await saveComposeDraft({ provider, draftId: "draft-1", content }),
-  ).toBe("draft-1");
+  ).toEqual({
+    draftId: "draft-1",
+    messageId: "message-1",
+    threadId: null,
+  });
   expect(provider.createDraft).not.toHaveBeenCalled();
   expect(provider.updateDraft).toHaveBeenLastCalledWith("draft-1", {
     ...content,

@@ -1,3 +1,4 @@
+import type { MailIpcSnapshotEvent } from "@inboxzero/mail-core/protocol/mail-ipc-client";
 export type DesktopAuthProvider = "apple" | "google" | "microsoft";
 
 export const DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -16,6 +17,38 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  mailEngine?: (payload: unknown) => Promise<unknown>;
+  mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
+  mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;
+  onMailEngineSnapshot?: (
+    listener: (event: MailIpcSnapshotEvent) => void,
+  ) => () => void;
+  wipeMailbox?: () => Promise<unknown>;
+  getDesktopHealth?: () => Promise<DesktopHealth | null>;
+};
+
+type DesktopDurationSummary = {
+  count: number;
+  p50Ms: number;
+  p95Ms: number;
+  maxMs: number;
+};
+
+/** Aggregated since the previous call from any window. */
+export type DesktopHealth = {
+  version: string;
+  intervalMs: number;
+  mainEventLoopDelayMs: DesktopDurationSummary | null;
+  engine: {
+    running: boolean;
+    restarts: number;
+    child: {
+      eventLoopDelayMs: DesktopDurationSummary | null;
+      sqliteReadMs: DesktopDurationSummary | null;
+      sqliteWriteMs: DesktopDurationSummary | null;
+    } | null;
+  } | null;
+  mailboxBytes: number;
 };
 
 declare global {

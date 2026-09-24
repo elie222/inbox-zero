@@ -1,7 +1,11 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  expectThreadReaderBody,
+  openMail,
+} from "./mail-test-helpers";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
@@ -18,8 +22,10 @@ test("refreshes date groups after midnight when the tab resumes", async ({
   });
   await expect(today).toBeVisible();
   await expect(today.getByText("Today", { exact: true })).toHaveCount(0);
-  const todayCount = await today.getByRole("option").count();
-  expect(todayCount).toBeGreaterThan(0);
+  const todaySubjects = await today
+    .locator("[data-mail-thread-subject]")
+    .allTextContents();
+  expect(todaySubjects.length).toBeGreaterThan(0);
 
   const afterMidnight = await page.evaluate(() => {
     const nextDay = new Date();
@@ -31,12 +37,14 @@ test("refreshes date groups after midnight when the tab resumes", async ({
   await page.clock.setSystemTime(afterMidnight);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
 
-  await expect(today).toHaveCount(0);
   const yesterday = conversations.getByRole("group", {
     name: "Yesterday",
     exact: true,
   });
-  await expect(yesterday.getByRole("option")).toHaveCount(todayCount);
+  for (const subject of todaySubjects) {
+    await expect(yesterday.getByText(subject, { exact: true })).toBeVisible();
+    await expect(today.getByText(subject, { exact: true })).toHaveCount(0);
+  }
   await expect(yesterday.getByText("Yesterday", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-date-rollover");
 });
@@ -62,12 +70,10 @@ test("switches between list and split reading layouts", async ({
   await expect(
     page.getByRole("heading", { name: "Project Label Message" }),
   ).toBeVisible();
-  const messageBody = page
-    .locator("pre")
-    .getByText("This conversation is visible in the seeded project label.", {
-      exact: true,
-    });
-  await expect(messageBody).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "This conversation is visible in the seeded project label.",
+  );
   await expect(conversations).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,

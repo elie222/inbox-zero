@@ -2,8 +2,8 @@ import { env } from "@/env";
 import { Redis } from "@upstash/redis";
 
 export const redis = new Redis({
-  url: env.UPSTASH_REDIS_URL,
-  token: env.UPSTASH_REDIS_TOKEN,
+  url: env.REDIS_HTTP_URL,
+  token: env.REDIS_HTTP_TOKEN,
 });
 
 export async function expire(key: string, seconds: number) {

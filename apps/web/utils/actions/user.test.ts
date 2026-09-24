@@ -5,7 +5,10 @@ import prisma from "@/utils/__mocks__/prisma";
 import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { betterAuthConfig } from "@/utils/auth";
+import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
+import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
+import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
 import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
@@ -22,12 +25,20 @@ vi.mock("@/utils/auth", () => ({
     },
   },
 }));
+const { cookiesGet } = vi.hoisted(() => ({
+  cookiesGet: vi.fn(),
+}));
+
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
+  cookies: vi.fn(async () => ({ get: cookiesGet })),
 }));
 vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 vi.mock("@/utils/cookies.server", () => ({
   clearLastEmailAccountCookie: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/utils/mail-api/upload-blobs", () => ({
+  deleteAccountUploadDirectory: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/user/delete", () => ({
   deleteUser: vi.fn(),
@@ -46,6 +57,7 @@ vi.mock("@/utils/ai/draft-cleanup", () => ({
 describe("deleteEmailAccountAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cookiesGet.mockReset();
     prisma.emailAccount.delete.mockResolvedValue({
       id: "primary-email-account",
     } as any);
@@ -77,6 +89,7 @@ describe("deleteEmailAccountAction", () => {
     });
     expect(result?.serverError).toBeDefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("promotes another account before deleting the primary account", async () => {
@@ -131,6 +144,12 @@ describe("deleteEmailAccountAction", () => {
     expect(prisma.account.delete).toHaveBeenCalledWith({
       where: { id: "account-1", userId: "user-1" },
     });
+    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
+      "primary-email-account",
+    );
+    expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],
+    );
     expect(aliasPosthogUser).toHaveBeenCalledWith({
       oldEmail: "primary@example.com",
       newEmail: "alternate@example.com",
@@ -156,6 +175,7 @@ describe("deleteEmailAccountAction", () => {
     expect(result?.serverError).toBe("Email account already changed");
     expect(aliasPosthogUser).not.toHaveBeenCalled();
     expect(updateAccountSeats).not.toHaveBeenCalled();
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("does not delete a promoted account with a stale non-primary request", async () => {
@@ -180,6 +200,147 @@ describe("deleteEmailAccountAction", () => {
       },
     });
     expect(updateAccountSeats).not.toHaveBeenCalled();
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
+  });
+
+  it("deletes staged mail uploads after a successful non-primary account delete", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
+      "secondary-account",
+    );
+    expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],
+    );
+    expect(clearLastEmailAccountCookie).not.toHaveBeenCalled();
+  });
+
+  it("clears the last-account cookie after deleting the account it names", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    cookiesGet.mockReturnValue({
+      name: LAST_EMAIL_ACCOUNT_COOKIE,
+      value: JSON.stringify({
+        userId: "user-1",
+        emailAccountId: "secondary-account",
+      }),
+    });
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(clearLastEmailAccountCookie).mock.invocationCallOrder[0],
+    );
+    expect(clearLastEmailAccountCookie).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the last-account cookie when it names a remaining account", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    cookiesGet.mockReturnValue({
+      name: LAST_EMAIL_ACCOUNT_COOKIE,
+      value: JSON.stringify({
+        userId: "user-1",
+        emailAccountId: "primary-email-account",
+      }),
+    });
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(clearLastEmailAccountCookie).not.toHaveBeenCalled();
+  });
+
+  it("does not clear the last-account cookie when the delete transaction fails", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    cookiesGet.mockReturnValue({
+      name: LAST_EMAIL_ACCOUNT_COOKIE,
+      value: JSON.stringify({
+        userId: "user-1",
+        emailAccountId: "secondary-account",
+      }),
+    });
+    prisma.$transaction.mockRejectedValue(newPrismaNotFoundError());
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBe("Email account already changed");
+    expect(clearLastEmailAccountCookie).not.toHaveBeenCalled();
+  });
+
+  it("still deletes the account when the last-account cookie cannot be cleared", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    cookiesGet.mockReturnValue({
+      name: LAST_EMAIL_ACCOUNT_COOKIE,
+      value: JSON.stringify({
+        userId: "user-1",
+        emailAccountId: "secondary-account",
+      }),
+    });
+    vi.mocked(clearLastEmailAccountCookie).mockRejectedValueOnce(
+      new Error("cookie store unavailable"),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
+      "secondary-account",
+    );
+    expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
+  });
+
+  it("still deletes the account when staged mail uploads cannot be removed", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    vi.mocked(deleteAccountUploadDirectory).mockRejectedValueOnce(
+      new Error("ENOSPC"),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
+      "secondary-account",
+    );
+    expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
   });
 
   it("shows a specific error when the remaining email is already in use", async () => {

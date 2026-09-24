@@ -120,7 +120,7 @@ describe("Google webhook route", () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true });
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
-      { emailAddress: "user@example.com", historyId: 123 },
+      { emailAddress: "user@example.com", historyId: "123" },
       { preloadedEmailAccount: null },
       expect.anything(),
     );
@@ -146,8 +146,28 @@ describe("Google webhook route", () => {
     );
     expect(runWithBackgroundLoggerFlushMock).toHaveBeenCalledTimes(1);
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
-      { emailAddress: "user@example.com", historyId: 123 },
+      { emailAddress: "user@example.com", historyId: "123" },
       { preloadedEmailAccount: { id: "account-1" } },
+      expect.anything(),
+    );
+  });
+
+  it("preserves large Gmail history IDs as opaque strings", async () => {
+    const request = createRequest({
+      token: "test-google-webhook-token",
+      emailAddress: "user@example.com",
+      historyId: "90071992547409931234",
+    });
+
+    const response = await POST(request as any);
+
+    expect(response.status).toBe(200);
+    expect(processHistoryForUserMock).toHaveBeenCalledWith(
+      {
+        emailAddress: "user@example.com",
+        historyId: "90071992547409931234",
+      },
+      { preloadedEmailAccount: null },
       expect.anything(),
     );
   });
@@ -191,7 +211,7 @@ function createRequest({
 }: {
   token?: string;
   emailAddress?: string;
-  historyId?: number;
+  historyId?: number | string;
 }) {
   const requestUrl = new URL("https://example.com/api/google/webhook");
   if (token) requestUrl.searchParams.set("token", token);

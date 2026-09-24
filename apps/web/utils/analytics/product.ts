@@ -4,6 +4,68 @@ export const PRODUCT_ANALYTICS_EVENTS = {
   pageAction: "app_page_action",
 } as const;
 
+/**
+ * `$pageview` and `app_page_viewed` fire when the path or query changes, but
+ * not for thread selection or search text; see `getPageViewSearch`. Every
+ * event's URLs drop those params too; see `stripUntrackedUrlParams`.
+ *
+ * Mail app usage and speed. Properties are only ids, counts, enums and
+ * durations: never subjects, senders, search text or content.
+ *
+ * Super properties on every event (registered at PostHog init):
+ * - `client`: "desktop" (Electron shell) | "web".
+ * - `desktop_version`: desktop app version, desktop only, parsed from the
+ *   Electron user agent.
+ * - `mail_engine_transport`: "desktop-ipc" | "browser" | "unavailable".
+ *
+ * `mail_action`: a mail command run from the keyboard or the command palette.
+ * Clicks are covered by autocapture.
+ * - `action`: shortcut id from `lib/shortcuts/registry.ts` (e.g. "archive",
+ *   "reply", "snooze") or command palette command id (e.g. "mail-archive",
+ *   "nav-inbox", "rule-<ruleId>").
+ * - `source`: "shortcut" | "palette".
+ * - `shortcut`: the registry key combo that fired, e.g. "e", "mod+k", "g>a".
+ *   Shortcuts only.
+ *
+ * `mail_navigation_summary`: list navigation shortcuts (J/K, arrows, extend
+ * selection) are counted rather than sent per press. Flushed every 5 minutes
+ * and when the page is hidden, only when a count is non-zero.
+ * - `<shortcutId>_count` per shortcut pressed: `next_count`, `previous_count`,
+ *   `extendSelectionDown_count`, `extendSelectionUp_count`.
+ * - `total_count`: sum of the counts.
+ *
+ * `mail_performance_summary`: real-user speed, sent by a random 5% of page
+ * loads (`sample_rate`) from the first mail visit onwards. Flushed every 5
+ * minutes and when the page is hidden, only when there is data. Each metric
+ * has `<metric>_count`, `_p50_ms`, `_p75_ms`, `_p95_ms` and `_max_ms`:
+ * - `input_event`: keydown/pointerdown/click event duration (input to next
+ *   paint), for events of at least 40ms.
+ * - `long_task`: main-thread tasks over 50ms, plus
+ *   `long_task_total_blocking_ms` (sum of the time past 50ms).
+ * - `thread_switch`: from the open thread changing (J/K, arrows, Enter,
+ *   click) to the reader showing it.
+ *
+ * `desktop_health_summary`: desktop app health, sent by each desktop window
+ * about 2 minutes after load and then hourly. Covers the time since the
+ * previous summary from any window (`interval_ms`), so windows never count
+ * the same stretch twice. Duration metrics have `<metric>_count`, `_p50_ms`,
+ * `_p95_ms` and `_max_ms`, and are left out when there were no samples:
+ * - `main_loop_delay`: Electron main-process event-loop delay. High values
+ *   mean window input and IPC were blocked.
+ * - `engine_loop_delay`: the same for the local mail engine process.
+ * - `sqlite_read` / `sqlite_write`: mail database transactions, timed from
+ *   the call so reads include time queued behind writes.
+ * - `engine_running`, `engine_restarts` (engine crashes recovered from since
+ *   the app started), `mailbox_bytes` (local database size) and
+ *   `desktop_version`.
+ */
+export const MAIL_ANALYTICS_EVENTS = {
+  action: "mail_action",
+  desktopHealthSummary: "desktop_health_summary",
+  navigationSummary: "mail_navigation_summary",
+  performanceSummary: "mail_performance_summary",
+} as const;
+
 export const PRODUCT_ANALYTICS_ACTIONS = {
   chat: {
     attachButtonClicked: "chat_attach_button_clicked",
@@ -146,6 +208,13 @@ const APP_ROUTE_SEGMENTS: Array<{ segment: string; page: AppPage }> = [
   { segment: "integrations", page: "integrations" },
 ];
 
+const UNTRACKED_PAGE_VIEW_PARAMS = [
+  "thread-id",
+  "thread-account-id",
+  "side-panel-thread-id",
+  "q",
+];
+
 const NAV_ITEM_PAGES: Record<string, AppPage> = {
   Inbox: "mail",
   Drafts: "mail",
@@ -228,8 +297,61 @@ export function getAppPageViewProperties({
   };
 }
 
+/**
+ * The query string a page view is keyed on. Opening a thread or moving with
+ * J/K rewrites the thread params, which is not a new page, and ids and search
+ * text don't belong in analytics URLs.
+ */
+const URL_PROPERTY_KEYS = [
+  "$current_url",
+  "$referrer",
+  "$initial_current_url",
+  "$initial_referrer",
+];
+
+/**
+ * PostHog attaches the page URL to every event, including autocapture, so
+ * thread ids and search text in the query would otherwise reach it.
+ */
+export function stripUntrackedUrlParams<
+  T extends {
+    properties?: Record<string, unknown>;
+    $set?: Record<string, unknown>;
+    $set_once?: Record<string, unknown>;
+  } | null,
+>(event: T): T {
+  if (!event) return event;
+  for (const bag of [event.properties, event.$set, event.$set_once]) {
+    if (!bag) continue;
+    for (const key of URL_PROPERTY_KEYS) {
+      const value = bag[key];
+      if (typeof value === "string") bag[key] = withoutUntrackedParams(value);
+    }
+  }
+  return event;
+}
+
+export function getPageViewSearch(
+  searchParams: Pick<URLSearchParams, "toString"> | null | undefined,
+): string {
+  const params = new URLSearchParams(searchParams?.toString());
+  for (const param of UNTRACKED_PAGE_VIEW_PARAMS) params.delete(param);
+  return params.toString();
+}
+
 type StringLeaf<T> = T extends string
   ? T
   : T extends Record<string, unknown>
     ? StringLeaf<T[keyof T]>
     : never;
+
+function withoutUntrackedParams(value: string) {
+  try {
+    const url = new URL(value);
+    for (const param of UNTRACKED_PAGE_VIEW_PARAMS)
+      url.searchParams.delete(param);
+    return url.toString();
+  } catch {
+    return value;
+  }
+}

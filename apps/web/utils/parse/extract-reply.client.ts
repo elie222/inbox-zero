@@ -1,3 +1,5 @@
+import { textToHtmlParagraphs } from "@/utils/string";
+
 export function extractEmailReply(html: string): {
   draftHtml: string;
   originalHtml: string;
@@ -64,4 +66,21 @@ export function extractEmailReply(html: string): {
     console.error("Error parsing email HTML:", error);
     return { draftHtml: html, originalHtml: "" };
   }
+}
+
+export function extractDraftComposerContent(
+  html: string | undefined,
+  textPlain?: string,
+) {
+  const split = extractEmailReply(html || "");
+  if (htmlHasVisibleText(split.draftHtml)) return split;
+  const fromPlain = textToHtmlParagraphs(textPlain);
+  if (!fromPlain) return split;
+  return { draftHtml: fromPlain, originalHtml: split.originalHtml };
+}
+
+function htmlHasVisibleText(html: string) {
+  if (!html.trim()) return false;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent ?? "").replace(/\u00a0/g, " ").trim().length > 0;
 }

@@ -47,12 +47,14 @@ import {
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
-import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
-import { applyMailMutationOverlayToMessages } from "@/utils/email-cache/mail-mutation-overlay";
 import { useThread } from "@/hooks/useThread";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { mutationPayloadToChange } from "@/utils/mail-engine/mutation-change";
+import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
+import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -133,34 +135,10 @@ function CommandPaletteContent({
   const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
+  const client = useOptionalMailClient();
   const { threadId, showEmail } = displayedEmail;
-  const {
-    data: rawDisplayedThread,
-    isLoading: isDisplayedThreadLoading,
-    mutate: mutateDisplayedThread,
-  } = useThread({ id: threadId });
-  const { mutations } = useRetainedMailMutationOverlay({
-    emailAccountId,
-    enabled: Boolean(threadId),
-    onReconcile: () => mutateDisplayedThread(),
-  });
-  const displayedThread = React.useMemo(
-    () =>
-      rawDisplayedThread
-        ? {
-            ...rawDisplayedThread,
-            thread: {
-              ...rawDisplayedThread.thread,
-              messages: applyMailMutationOverlayToMessages({
-                emailAccountId,
-                messages: rawDisplayedThread.thread.messages,
-                mutations,
-              }),
-            },
-          }
-        : undefined,
-    [emailAccountId, rawDisplayedThread, mutations],
-  );
+  const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
+    useThread({ id: threadId });
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
@@ -185,11 +163,24 @@ function CommandPaletteContent({
             return;
           }
           try {
-            await enqueueThreadMailMutationBatch({
-              emailAccountId,
-              payload: { kind: "archive" },
-              threads: [displayedThread.thread],
+            const change = mutationPayloadToChange({ kind: "archive" });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
             });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn't queue archiving this email",
+              });
+              return;
+            }
             showEmail(null);
           } catch {
             toastError({
@@ -209,14 +200,26 @@ function CommandPaletteContent({
             return;
           }
           try {
-            await enqueueThreadMailMutationBatch({
-              emailAccountId,
-              payload: {
-                kind: "set_starred_state",
-                starred: !isThreadStarred(displayedThread.thread.messages),
-              },
-              threads: [displayedThread.thread],
+            const change = mutationPayloadToChange({
+              kind: "set_starred_state",
+              starred: !isThreadStarred(displayedThread.thread.messages),
             });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
+            });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn’t update the star for this email",
+              });
+            }
           } catch {
             toastError({
               description: "Couldn’t update the star for this email",
@@ -338,6 +341,7 @@ function CommandPaletteContent({
       setPage("root");
     }
     command.action();
+    trackMailAction({ action: command.id, source: "palette" });
   };
 
   const handleOpenChange = (isOpen: boolean) => {

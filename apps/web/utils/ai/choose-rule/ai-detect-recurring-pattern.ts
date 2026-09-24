@@ -9,6 +9,8 @@ import {
   getUserInfoPrompt,
   getUserRulesPrompt,
 } from "@/utils/ai/helpers";
+import { decideRecurringPattern } from "@/utils/decision-model/recurring-pattern";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
 
 // const braintrust = new Braintrust("recurring-pattern-detection");
 
@@ -48,6 +50,73 @@ export async function aiDetectRecurringPattern({
       sampledEmailCount: MAX_PATTERN_SAMPLE_EMAILS,
     });
   }
+
+  return runDecisionModelOrFallback({
+    emailAccount,
+    logger,
+    feature: "recurring pattern detection",
+    decide: (config) =>
+      decideRecurringPattern({
+        config,
+        emails,
+        emailAccount,
+        rules,
+        consistentRuleName,
+        logger,
+      }),
+    fallback: () =>
+      detectRecurringPatternWithLlm({
+        emails,
+        emailAccount,
+        rules,
+        consistentRuleName,
+        logger,
+      }),
+  });
+}
+
+export async function detectRecurringPatternWithLlm({
+  emails,
+  emailAccount,
+  rules,
+  consistentRuleName,
+  logger,
+}: {
+  emails: EmailForLLM[];
+  emailAccount: EmailAccountWithAI;
+  rules: { name: string; instructions: string }[];
+  consistentRuleName?: string;
+  logger: Logger;
+}): Promise<DetectPatternResult | null> {
+  const senderEmail = emails[0]?.from;
+  if (!senderEmail) return null;
+
+  try {
+    return await detectRecurringPatternWithLlmStrict({
+      emails,
+      emailAccount,
+      rules,
+      consistentRuleName,
+    });
+  } catch (error) {
+    logger.error("Error detecting recurring pattern", { error });
+    return null;
+  }
+}
+
+export async function detectRecurringPatternWithLlmStrict({
+  emails,
+  emailAccount,
+  rules,
+  consistentRuleName,
+}: {
+  emails: EmailForLLM[];
+  emailAccount: EmailAccountWithAI;
+  rules: { name: string; instructions: string }[];
+  consistentRuleName?: string;
+}): Promise<DetectPatternResult | null> {
+  const senderEmail = emails[0]?.from;
+  if (!senderEmail) return null;
 
   const system = `You are an AI assistant that helps analyze if a sender's emails should consistently be matched to a specific rule.
 
@@ -106,43 +175,38 @@ ${getEmailListPrompt({
 })}
 </sample_emails>`;
 
-  try {
-    const modelOptions = getModelForUseCase(
-      emailAccount.user,
-      LlmUseCase.DetectRecurringPattern,
-    );
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.DetectRecurringPattern,
+  );
 
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Detect recurring pattern",
-      modelOptions,
-      promptHardening: { trust: "untrusted", level: "compact" },
-    });
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Detect recurring pattern",
+    modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
+  });
 
-    const aiResponse = await generateObject({
-      ...modelOptions,
-      instructions: system,
-      prompt,
-      schema,
-    });
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    instructions: system,
+    prompt,
+    schema,
+  });
 
-    // braintrust.insertToDataset({
-    //   id: emails[0].id,
-    //   input: {
-    //     senderEmail,
-    //     emailCount: emails.length,
-    //     sampleEmails: emails.map((email) => ({
-    //       from: email.from,
-    //       subject: email.subject,
-    //     })),
-    //     rules: rules.map((rule) => rule.name),
-    //   },
-    //   expected: aiResponse.object.matchedRule,
-    // });
+  // braintrust.insertToDataset({
+  //   id: emails[0].id,
+  //   input: {
+  //     senderEmail,
+  //     emailCount: emails.length,
+  //     sampleEmails: emails.map((email) => ({
+  //       from: email.from,
+  //       subject: email.subject,
+  //     })),
+  //     rules: rules.map((rule) => rule.name),
+  //   },
+  //   expected: aiResponse.object.matchedRule,
+  // });
 
-    return aiResponse.object;
-  } catch (error) {
-    logger.error("Error detecting recurring pattern", { error });
-    return null;
-  }
+  return aiResponse.object;
 }

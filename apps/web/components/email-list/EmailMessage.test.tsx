@@ -110,6 +110,40 @@ describe("EmailMessage draft recovery", () => {
     expect(screen.getByTestId("composer")).toBeTruthy();
   });
 
+  it("restores a provider draft when discard returns an empty server error", async () => {
+    let resolveDiscard: (result: { serverError: string }) => void = () => {};
+    mocks.executeAsync.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDiscard = resolve;
+      }),
+    );
+    const refetch = vi.fn();
+
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={refetch}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(screen.queryByTestId("composer")).toBeNull();
+
+    await act(async () => {
+      resolveDiscard({ serverError: "" });
+    });
+
+    expect(screen.getByTestId("composer")).toBeTruthy();
+    expect(mocks.toastError).toHaveBeenCalledWith({
+      description: "Failed to discard draft",
+    });
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps a newer compose mode open when an earlier discard fails", async () => {
     let rejectDiscard: (error: Error) => void = () => {};
     mocks.executeAsync.mockReturnValue(
@@ -148,6 +182,40 @@ describe("EmailMessage draft recovery", () => {
       description: "Failed to discard draft",
     });
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EmailMessage reply", () => {
+  afterEach(cleanup);
+
+  it("expands a collapsed message so the reply composer can mount", () => {
+    const onToggle = vi.fn();
+    const view = render(
+      <EmailMessage
+        expanded={false}
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onToggle={onToggle}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(onToggle).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+
+    view.rerender(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onToggle={onToggle}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
 });
 

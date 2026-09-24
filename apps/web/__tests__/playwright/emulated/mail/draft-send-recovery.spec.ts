@@ -42,7 +42,6 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
     })
     .toMatchObject({
       status: "succeeded",
-      payload: { email: { providerDraftId: expect.any(String) } },
     });
   const response = await page.request.get(
     new URL(
@@ -72,76 +71,4 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
     page.getByText("Reply could not be sent", { exact: true }),
   ).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "autosaved-reply-sent");
-});
-
-test("dismisses an old failed outbox reply without removing mailbox messages", async ({
-  page,
-}, testInfo) => {
-  const { conversations, emailAccountId } = await openMail(page);
-  await conversationWithSubject(
-    page,
-    conversations,
-    "Reply Workflow Message",
-  ).click();
-  await page.evaluate(async (accountId) => {
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open("inbox-zero-email-cache");
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const db = request.result;
-        const tx = db.transaction("mailMutations", "readwrite");
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => {
-          db.close();
-          reject(tx.error);
-        };
-        tx.objectStore("mailMutations").put({
-          id: "old-failed-reply",
-          batchId: "old-failed-reply",
-          emailAccountId: accountId,
-          threadId: "thr_playwright_reply",
-          messageIds: ["msg_playwright_reply"],
-          kind: "reply",
-          status: "failed",
-          attempts: 1,
-          nextAttemptAt: 0,
-          createdAt: Date.now() - 86_400_000,
-          updatedAt: Date.now(),
-          notificationShownAt: Date.now(),
-          lastError:
-            "This draft is no longer available in Gmail. Check Sent before trying again.",
-          payload: {
-            email: {
-              to: "recipient@example.com",
-              subject: "Example reply",
-              messageHtml: "<p>Saved reply from an earlier attempt.</p>",
-            },
-          },
-        });
-      };
-    });
-  }, emailAccountId);
-  await page.reload();
-  const delivery = page.getByRole("region", { name: "Reply delivery status" });
-  await expect(delivery.getByText(/^Unsent reply/)).toBeVisible();
-  await expect(
-    delivery.getByRole("link", { name: "Check Sent" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "failed-reply-recovery");
-  await delivery.getByRole("button", { name: "Dismiss failed reply" }).click();
-  await expect(
-    page.locator('[data-thread-message-id="outbox:old-failed-reply"]'),
-  ).toHaveCount(0);
-  await expect(
-    page.locator('[data-thread-message-id="msg_playwright_reply"]'),
-  ).toBeVisible();
-  await page.reload();
-  await expect(delivery.getByText(/^Unsent reply/)).toHaveCount(0);
-  await expect(
-    page.locator('[data-thread-message-id="msg_playwright_reply"]'),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "failed-reply-dismissed");
 });

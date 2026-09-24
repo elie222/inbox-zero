@@ -3,7 +3,7 @@
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
-  saveClassifierSettingsBody,
+  saveDecisionModelSettingsBody,
   saveSensitiveDataPolicyBody,
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
@@ -114,19 +114,21 @@ export const updateAiSettingsAction = actionClientUser
     },
   );
 
-export const updateClassifierSettingsAction = actionClientUser
-  .metadata({ name: "updateClassifierSettings" })
-  .inputSchema(saveClassifierSettingsBody)
-  .action(async ({ ctx: { userId }, parsedInput: { classifierEnabled } }) => {
-    if (env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED) {
-      throw new SafeError("AI model settings are managed by the deployment.");
-    }
+export const updateDecisionModelSettingsAction = actionClientUser
+  .metadata({ name: "updateDecisionModelSettings" })
+  .inputSchema(saveDecisionModelSettingsBody)
+  .action(
+    async ({ ctx: { userId }, parsedInput: { decisionModelEnabled } }) => {
+      if (env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED) {
+        throw new SafeError("AI model settings are managed by the deployment.");
+      }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { classifierEnabled },
-    });
-  });
+      await prisma.user.update({
+        where: { id: userId },
+        data: { decisionModelEnabled },
+      });
+    },
+  );
 
 export const updateSensitiveDataPolicyAction = actionClient
   .metadata({ name: "updateSensitiveDataPolicy" })

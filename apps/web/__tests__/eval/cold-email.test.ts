@@ -11,7 +11,7 @@ import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 // pnpm test-ai eval/cold-email
-// Multi-model: EVAL_MODELS=gpt-5.6-luna,deepseek-v4-flash pnpm test-ai eval/cold-email
+// Multi-model: EVAL_MODELS=gpt-6-luna,deepseek-v4-flash pnpm test-ai eval/cold-email
 //
 // Every case runs under two prompts so a prompt change can be measured:
 //   current  = DEFAULT_COLD_EMAIL_PROMPT (what the code ships; asserted)

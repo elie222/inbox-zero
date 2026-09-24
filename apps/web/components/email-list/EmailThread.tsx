@@ -14,8 +14,8 @@ import {
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
@@ -165,6 +165,7 @@ export function EmailThread({
     // White regardless of the surface it is dropped on: an email body renders
     // on white inside its iframe, so anything else leaves each message boxed.
     <OpenedConversationAttachments
+      allowUncached
       emailAccountId={emailAccountId}
       threadId={threadId}
     >
@@ -230,6 +231,7 @@ export function EmailThread({
             return (
               <EmailMessage
                 bodyAvailable={!missingBodyIds?.has(message.id)}
+                missingBodyIds={missingBodyIds}
                 onNavigateMessage={
                   enableMessageNavigation
                     ? (direction) =>

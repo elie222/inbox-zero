@@ -21,17 +21,23 @@ export async function saveComposeDraft({
       messageHtml: content.messageHtml,
     });
     if (!draft.id) throw new SafeError("Could not confirm the mailbox draft.");
-    return draft.id;
+    draftId = draft.id;
+  } else {
+    await provider.updateDraft(draftId, {
+      to: content.to,
+      cc: content.cc ?? "",
+      bcc: content.bcc ?? "",
+      subject: content.subject,
+      messageHtml: content.messageHtml,
+      attachments: content.attachments,
+    });
   }
-  await provider.updateDraft(draftId, {
-    to: content.to,
-    cc: content.cc ?? "",
-    bcc: content.bcc ?? "",
-    subject: content.subject,
-    messageHtml: content.messageHtml,
-    attachments: content.attachments,
-  });
-  return draftId;
+  const message = await provider.getDraft(draftId).catch(() => null);
+  return {
+    draftId,
+    messageId: message?.id ?? null,
+    threadId: message?.threadId ?? null,
+  };
 }
 
 export async function discardComposeDraft({

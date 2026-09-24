@@ -9,6 +9,7 @@ import {
 import dynamic from "next/dynamic";
 import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { MailReaderSurface } from "@inboxzero/mail-ui/MailReaderSurface";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
   ListThread,
@@ -56,8 +57,6 @@ export type ThreadReaderProps = {
     hasMore: boolean;
     loadingMore: boolean;
     loadMore: () => unknown;
-    refreshing: boolean;
-    providerConfirmed: boolean;
   };
   userLabels: EmailLabels;
   layout: MailLayoutMode;
@@ -172,89 +171,65 @@ export function ThreadReader({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1" ref={readerRef}>
-      {/* White, unlike the list: the reader is its own surface, and it has to
-      match `EmailThread` below or the toolbar reads as a separate band. */}
-      <div
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card"
-        data-detail-selection-settled={detailSelectionSettled}
-        data-testid="thread-reader"
-      >
-        <div className={readerMeasure({ layout })}>
-          {localAvailability && !localAvailability.providerConfirmed && (
-            <div
-              className="mb-3 flex items-center justify-between gap-3 text-muted-foreground text-sm"
-              role="status"
-            >
-              <span>
-                {localAvailability.refreshing
-                  ? "Checking for more messages…"
-                  : "This conversation may be incomplete."}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={localAvailability.refreshing}
-                onClick={refetch}
-              >
-                Refresh
-              </Button>
-            </div>
-          )}
-          {localAvailability?.hasMore && (
-            <Button
-              className="mb-4"
-              variant="outline"
-              disabled={localAvailability.loadingMore}
-              onClick={() => localAvailability.loadMore()}
-            >
-              {localAvailability.loadingMore
-                ? "Loading messages…"
-                : "Load older messages"}
-            </Button>
-          )}
-          {messages.length > 0 ? (
-            <EmailThread
-              renderToolbar={renderToolbar}
-              renderMessageMenu={renderMessageMenu}
-              enableMessageNavigation={enableMessageNavigation}
-              autoOpenReplyForMessageId={autoOpenReplyForMessageId}
-              autoOpenForwardForMessageId={autoOpenForwardForMessageId}
-              key={threadId}
-              messages={messages}
-              missingBodyIds={localAvailability?.missingBodyIds}
-              onMarkDone={onArchive}
-              onOpenSenderContext={(message) => {
-                const senderEmail = extractEmailAddress(message.headers.from);
-                setSenderContext({
-                  messageId: message.id,
-                  senderEmail,
-                  senderName:
-                    extractNameFromEmail(message.headers.from) || senderEmail,
-                });
-              }}
-              refetch={refetch}
-              onSendSuccess={onSendSuccess}
-              showReplyButton
-            />
-          ) : (
-            renderToolbar()
-          )}
-        </div>
-      </div>
-
-      {senderContext ? (
-        <SenderContextPanel
-          messageId={senderContext.messageId}
-          onClose={() => setSenderContext(null)}
-          senderEmail={senderContext.senderEmail}
-          senderName={senderContext.senderName}
-          variant={
-            readerWidth >= INLINE_SENDER_CONTEXT_MIN_WIDTH ? "inline" : "sheet"
-          }
+    <MailReaderSurface
+      containerRef={readerRef}
+      detailSelectionSettled={detailSelectionSettled}
+      layout={layout}
+      localAvailability={localAvailability}
+      renderLoadMoreButton={({ disabled, loading, onClick }) => (
+        <Button
+          className="mb-4"
+          disabled={disabled}
+          onClick={onClick}
+          variant="outline"
+        >
+          {loading ? "Loading messages…" : "Load older messages"}
+        </Button>
+      )}
+      sidePanel={
+        senderContext ? (
+          <SenderContextPanel
+            messageId={senderContext.messageId}
+            onClose={() => setSenderContext(null)}
+            senderEmail={senderContext.senderEmail}
+            senderName={senderContext.senderName}
+            variant={
+              readerWidth >= INLINE_SENDER_CONTEXT_MIN_WIDTH
+                ? "inline"
+                : "sheet"
+            }
+          />
+        ) : null
+      }
+    >
+      {messages.length > 0 ? (
+        <EmailThread
+          renderToolbar={renderToolbar}
+          renderMessageMenu={renderMessageMenu}
+          enableMessageNavigation={enableMessageNavigation}
+          autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+          autoOpenForwardForMessageId={autoOpenForwardForMessageId}
+          key={threadId}
+          messages={messages}
+          missingBodyIds={localAvailability?.missingBodyIds}
+          onMarkDone={onArchive}
+          onOpenSenderContext={(message) => {
+            const senderEmail = extractEmailAddress(message.headers.from);
+            setSenderContext({
+              messageId: message.id,
+              senderEmail,
+              senderName:
+                extractNameFromEmail(message.headers.from) || senderEmail,
+            });
+          }}
+          refetch={refetch}
+          onSendSuccess={onSendSuccess}
+          showReplyButton
         />
-      ) : null}
-    </div>
+      ) : (
+        renderToolbar()
+      )}
+    </MailReaderSurface>
   );
 }
 
@@ -302,10 +277,4 @@ function useElementWidth() {
   }, []);
 
   return [ref, width] as const;
-}
-
-/** A readable measure, centred whenever the reader owns the full width. */
-function readerMeasure({ layout }: { layout: MailLayoutMode }) {
-  if (layout === "split") return "px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
-  return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
 }

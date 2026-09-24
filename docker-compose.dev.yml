@@ -35,7 +35,7 @@ services:
       - "${REDIS_HTTP_PORT:-8079}:80"
     environment:
       SRH_MODE: env
-      SRH_TOKEN: ${UPSTASH_REDIS_TOKEN:-dev_token}
+      SRH_TOKEN: ${REDIS_HTTP_TOKEN:-${UPSTASH_REDIS_TOKEN:-dev_token}}
       SRH_CONNECTION_STRING: "redis://redis:6379"
     depends_on:
       - redis

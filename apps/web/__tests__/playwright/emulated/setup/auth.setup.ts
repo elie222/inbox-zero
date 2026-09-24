@@ -1,13 +1,19 @@
+import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
+import { playwrightMailProvider } from "../mail-provider";
 
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 const APP_BASE_URL =
   process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3100";
+const authorizeUrl =
+  playwrightMailProvider === "microsoft"
+    ? /\/oauth2\/v2\.0\/authorize(?:\?.*)?$/
+    : /\/o\/oauth2\/v2\/auth(?:\?.*)?$/;
 
-test("google emulator signs in and creates an app account", async ({
+test(`${playwrightMailProvider} emulator signs in and creates an app account`, async ({
   page,
 }) => {
   await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue", {
@@ -15,14 +21,14 @@ test("google emulator signs in and creates an app account", async ({
   });
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
 
-  const signInPayload = await page.evaluate(async () => {
+  const signInPayload = await page.evaluate(async (provider) => {
     const response = await fetch("/api/auth/sign-in/social", {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        provider: "google",
+        provider,
         callbackURL: "/welcome-redirect?force=true",
         errorCallbackURL: "/login/error",
       }),
@@ -33,15 +39,34 @@ test("google emulator signs in and creates an app account", async ({
     }
 
     return (await response.json()) as { url: string };
-  });
+  }, playwrightMailProvider);
 
   await page.goto(signInPayload.url);
-  await expect(page).toHaveURL(/\/o\/oauth2\/v2\/auth(?:\?.*)?$/);
+  await expect(page).toHaveURL(authorizeUrl);
   await page.getByRole("button", { name: PLAYWRIGHT_TEST_EMAIL }).click();
 
   await expect
     .poll(() => page.url(), { timeout: 30_000 })
     .toContain(APP_BASE_URL);
+
+  if (playwrightMailProvider === "microsoft") {
+    const attachment = await readFile("public/splash_screens/icon.png");
+    const response = await page.request.post(
+      `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/msg_playwright_reader_visual_received/attachments`,
+      {
+        headers: {
+          Authorization: "Bearer playwright_microsoft_fixture_token",
+        },
+        data: {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: "reader-preview.png",
+          contentType: "image/png",
+          contentBytes: attachment.toString("base64"),
+        },
+      },
+    );
+    expect(response.ok(), await response.text()).toBe(true);
+  }
 
   await markOnboardingComplete(PLAYWRIGHT_TEST_EMAIL);
   const emailAccount = await getEmailAccount(page);

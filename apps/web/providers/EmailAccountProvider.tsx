@@ -1,10 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
-import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
+import { unownedAccountRedirectUrl } from "@/utils/account-switch-url";
+import { ownedLastEmailAccountId } from "@/utils/cookies";
+import {
+  fetchEmailAccounts,
+  subscribeEmailAccounts,
+} from "@/utils/fetch-email-accounts";
 
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
@@ -37,44 +42,67 @@ export function EmailAccountProvider({
 }) {
   const params = useParams<{ emailAccountId: string | undefined }>();
   const emailAccountId = params.emailAccountId;
+  const router = useRouter();
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const lastKnownEmailAccountId = data?.lastEmailAccountId ?? null;
+  const accountIds = data?.emailAccounts.map((account) => account.id) ?? [];
+  const ownedRouteId = ownedLastEmailAccountId(
+    emailAccountId ?? null,
+    accountIds,
+  );
+  const lastKnownEmailAccountId = ownedLastEmailAccountId(
+    data?.lastEmailAccountId ?? null,
+    accountIds,
+  );
 
   useEffect(() => {
-    async function fetchAccounts() {
-      try {
-        const result = await fetchEmailAccounts();
-        setData(result);
-      } catch (error) {
+    // This provider wraps SWRProvider, so it cannot useAccounts(). SWR mutate
+    // still revalidates through fetchEmailAccounts, which notifies listeners.
+    const unsubscribe = subscribeEmailAccounts(setData);
+    fetchEmailAccounts()
+      .then(setData)
+      .catch((error) => {
         console.error("Error fetching accounts:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchAccounts();
+      })
+      .finally(() => setIsLoading(false));
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (data && emailAccountId && emailAccountId !== lastKnownEmailAccountId) {
-      setLastEmailAccountAction({ emailAccountId }).catch(() => {});
+    if (ownedRouteId && ownedRouteId !== lastKnownEmailAccountId) {
+      setLastEmailAccountAction({ emailAccountId: ownedRouteId }).catch(
+        () => {},
+      );
     }
-  }, [data, emailAccountId, lastKnownEmailAccountId]);
+  }, [ownedRouteId, lastKnownEmailAccountId]);
 
   const emailAccount = useMemo(() => {
-    if (data?.emailAccounts) {
-      // Priority: URL param > last known from cookie > first account
-      const currentEmailAccount =
-        data.emailAccounts.find((acc) => acc.id === emailAccountId) ??
-        data.emailAccounts.find((acc) => acc.id === lastKnownEmailAccountId) ??
-        data.emailAccounts[0];
+    if (!data?.emailAccounts.length) return;
+    return (
+      data.emailAccounts.find((account) => account.id === ownedRouteId) ??
+      data.emailAccounts.find(
+        (account) => account.id === lastKnownEmailAccountId,
+      ) ??
+      data.emailAccounts[0]
+    );
+  }, [data, ownedRouteId, lastKnownEmailAccountId]);
 
-      return currentEmailAccount;
-    }
-  }, [data, emailAccountId, lastKnownEmailAccountId]);
+  useEffect(() => {
+    if (!data) return;
+    // Pathname is read here so this app-wide provider does not re-render on
+    // every account-scoped navigation.
+    const next = unownedAccountRedirectUrl({
+      pathname: window.location.pathname,
+      routeAccountId: emailAccountId,
+      ownedRouteId,
+      fallbackAccountId: emailAccount?.id,
+      tab: null,
+    });
+    if (next) router.replace(next);
+  }, [data, emailAccount?.id, emailAccountId, ownedRouteId, router]);
 
-  const resolvedEmailAccountId = emailAccountId ?? emailAccount?.id ?? "";
+  const resolvedEmailAccountId =
+    ownedRouteId ?? (data ? (emailAccount?.id ?? "") : (emailAccountId ?? ""));
 
   return (
     <EmailAccountContext.Provider

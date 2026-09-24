@@ -43,7 +43,7 @@ function languageModelUsage({
 }
 
 describe("calculateUsageCost", () => {
-  it("prices classifier calls by input tokens only", () => {
+  it("prices decision-model calls by input tokens only", () => {
     const usage = languageModelUsage({
       inputTokens: 1_000_000_000,
       outputTokens: 5,

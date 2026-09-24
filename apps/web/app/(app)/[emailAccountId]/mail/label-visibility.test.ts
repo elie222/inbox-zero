@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { LabelCount } from "@/app/api/labels/counts/route";
+import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
 import { splitLabelsByListVisibility } from "./label-visibility";
 
 function counts(entries: Array<{ id: string; unread: number }>) {
-  return new Map<string, LabelCount>(
+  return new Map<string, MailboxLabelCount>(
     entries.map(({ id, unread }) => [
       id,
       { id, name: id, kind: "label", total: unread, unread },

@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { playwrightMailProvider } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -25,6 +26,8 @@ const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 const SIDE_PANEL_ARCHIVE_MESSAGE_ID = "msg_playwright_archive";
 const SIDE_PANEL_ARCHIVE_SUBJECT = "Archive Action Message";
 const SIDE_PANEL_ARCHIVE_THREAD_ID = "thr_playwright_archive";
+const openExternalLabel =
+  playwrightMailProvider === "microsoft" ? "Open in Outlook" : "Open in Gmail";
 const SEEDED_THREAD_IDS = [
   "thr_playwright_1",
   "thr_playwright_2",
@@ -226,6 +229,17 @@ test("Command K acts on highlighted and selected conversations", async ({
 
   await palette.getByRole("option", { name: "Mark 2 as read" }).click();
   await expect(palette).toBeHidden();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_1",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded", payload: { read: true } });
   await conversations
     .getByRole("checkbox", { name: "Select conversation with Alice Example" })
     .click();
@@ -411,7 +425,7 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
     palette.getByRole("option", { name: /auto archive/i }),
   ).toBeVisible();
   await expect(
-    palette.getByRole("option", { name: "Open in Gmail G G" }),
+    palette.getByRole("option", { name: `${openExternalLabel} G G` }),
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
