@@ -19,6 +19,7 @@ import {
 } from "electron";
 import { installDesktopLoadRecovery } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
   logDesktopUpdateError,
@@ -241,6 +242,12 @@ function startDesktopApp() {
         }).catch(logDesktopUpdateError);
       },
       createWindow: () => createAppWindow(),
+      recordDiagnostics: () => {
+        recordDesktopDiagnostics({
+          getMailOwner: () => desktopMailOwner,
+          databasePath: desktopMailboxPath(),
+        });
+      },
     });
     if (!shouldSmokeLocalMail()) {
       // Overlap TLS/socket setup with window creation and page load.

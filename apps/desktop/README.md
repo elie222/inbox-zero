@@ -32,6 +32,15 @@ New unread inbox mail produces a native notification while the app is in the bac
 
 The app must remain running; hiding the Mac window is supported, fully quitting stops updates. macOS notifications require a signed app and notification permission in System Settings. Use the OS notification settings to disable alerts or sounds. Both the desktop release and hosted web changes are needed; older desktop versions safely ignore the new integration.
 
+## Record diagnostics
+
+Help → Record Diagnostics… captures 30 seconds of performance data while the user reproduces a slowdown (clicking the progress notification stops early). It writes an `Inbox-Zero-Diagnostics-<timestamp>` folder to Downloads and reveals it:
+
+- `trace.json.gz`: a Chromium trace of the main and renderer processes (timeline, task, IPC, and sampled JS stack categories). Open it in the DevTools Performance panel or [Perfetto](https://ui.perfetto.dev). Paint, layer, and screenshot categories are excluded, and URL query strings are stripped.
+- `diagnostics.json`: app, Electron, and OS versions, per-process CPU and memory, system memory, mail database file sizes, and local mail engine sync and queue counts. It contains no messages, subjects, or addresses.
+
+When Sentry is configured, the app offers to send both files as attachments on a `User diagnostics` event (tag `area: diagnostics`) and shows the event ID for the user to quote to support.
+
 ## Package
 
 ```sh
