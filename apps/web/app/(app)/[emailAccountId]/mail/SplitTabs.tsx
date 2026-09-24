@@ -1,7 +1,7 @@
 "use client";
 
 import { PlusIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -20,6 +20,8 @@ export type MailSplitTab = {
 export type SplitTabsProps = {
   splits: MailSplitTab[];
   activeSplitId: string | null;
+  /** Conversations currently in each split. Missing entries stay blank. */
+  countsById?: ReadonlyMap<string, number>;
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
   onEdit?: (splitId: string) => void;
@@ -32,6 +34,7 @@ export type SplitTabsProps = {
 export function SplitTabs({
   splits,
   activeSplitId,
+  countsById,
   onSelect,
   onDelete,
   onEdit,
@@ -70,17 +73,10 @@ export function SplitTabs({
     >
       {splits.map((split) => {
         const active = split.id === activeSplitId;
+        const countLabel = splitCountLabel(countsById?.get(split.id));
 
         return (
-          <div
-            key={split.id}
-            className={cn(
-              "relative flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
-              active
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
+          <Fragment key={split.id}>
             <ContextMenu>
               <ContextMenuTrigger asChild disabled={!split.deletable}>
                 <button
@@ -89,9 +85,22 @@ export function SplitTabs({
                   data-split-tab
                   onClick={() => onSelect(split.id)}
                   aria-current={active ? "true" : undefined}
-                  className="py-0.5 pr-1.5 after:pointer-events-none after:absolute after:inset-0 after:rounded-full focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                  aria-describedby={
+                    countLabel ? `split-count-${split.id}` : undefined
+                  }
+                  className={cn(
+                    "flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
                 >
-                  {split.name}
+                  <span data-split-name>{split.name}</span>
+                  {countLabel ? (
+                    <span aria-hidden="true" className="tabular-nums">
+                      {countLabel}
+                    </span>
+                  ) : null}
                 </button>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
@@ -108,7 +117,12 @@ export function SplitTabs({
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-          </div>
+            {countLabel ? (
+              <span id={`split-count-${split.id}`} className="sr-only">
+                {countLabel} in this view
+              </span>
+            ) : null}
+          </Fragment>
         );
       })}
 
@@ -124,4 +138,9 @@ export function SplitTabs({
       )}
     </div>
   );
+}
+
+function splitCountLabel(count: number | undefined): string | null {
+  if (count == null || !Number.isFinite(count) || count < 0) return null;
+  return count.toLocaleString("en-US");
 }
