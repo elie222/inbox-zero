@@ -12,17 +12,27 @@ import {
   openMailIpcObservation,
   parseMailIpcRequest,
 } from "./ipc";
-import { createDesktopMailStore, nodeMailCrypto } from "./sqlite";
+import {
+  createDesktopMailStore,
+  nodeMailCrypto,
+  type SqliteTransactionTimer,
+} from "./sqlite";
 import { desktopStoragePressure } from "./storage-pressure";
 import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
 export type DesktopMailOwner = {
-  handleIpc(payload: unknown): Promise<unknown>;
+  handleIpc(payload: unknown): ReturnType<typeof dispatchMailIpc>;
+  subscribe(
+    payload: unknown,
+    onSnapshot: (snapshot: unknown) => void,
+  ): (() => void) | null;
   recover(): Promise<void>;
   close(): Promise<void>;
 };
 
-export async function createDesktopMailOwner(input: OwnedEngineInput) {
+export async function createDesktopMailOwner(
+  input: OwnedEngineInput,
+): Promise<DesktopMailOwner> {
   let owned = await createOwnedEngine(input);
   const subscriptions = new Set<OwnerSubscription>();
 
@@ -93,6 +103,7 @@ type OwnedEngineInput = {
   idleCatchUpIntervalMs?: number;
   /** The loop keeps retrying after a failed run; the host decides whether to report it. */
   onEngineError?: (error: unknown) => void;
+  onSqliteTransaction?: SqliteTransactionTimer;
 };
 
 async function createOwnedEngine(input: OwnedEngineInput): Promise<{
@@ -100,7 +111,10 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
   store: Awaited<ReturnType<typeof createDesktopMailStore>>;
   stop(): Promise<void>;
 }> {
-  const store = await createDesktopMailStore(input.databasePath);
+  const store = await createDesktopMailStore(
+    input.databasePath,
+    input.onSqliteTransaction,
+  );
   const engine = createMailEngine({
     store,
     source: input.source,

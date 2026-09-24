@@ -21,4 +21,5 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
     };
   },
   wipeMailbox: () => ipcRenderer.invoke("mail-engine-wipe"),
+  getDesktopHealth: () => ipcRenderer.invoke("desktop:health"),
 });

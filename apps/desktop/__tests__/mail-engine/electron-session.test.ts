@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { describe, expect, it } from "vitest";
+import { desktopEsbuildShared } from "../../esm-main-banner.mjs";
 import {
   electronBinaryPath,
   electronCommand,
@@ -12,12 +13,18 @@ import {
 } from "./electron-binary";
 
 describe.skipIf(!hasElectronBinary())("desktop electron mail session", () => {
-  it("starts a real Electron process that owns native SQLite", async () => {
+  it("runs native SQLite in a utility process behind the main-process owner", async () => {
     const directory = await mkdtemp(join(tmpdir(), "electron-session-"));
-    const entry = join(
-      dirname(fileURLToPath(import.meta.url)),
-      "electron-session-entry.ts",
-    );
+    const here = dirname(fileURLToPath(import.meta.url));
+    const entry = join(here, "electron-session-entry.ts");
+    const childOutfile = join(directory, "mail-engine-child.js");
+    await esbuild.build({
+      ...desktopEsbuildShared,
+      entryPoints: [join(here, "../../src/mail-engine/utility-child-entry.ts")],
+      outfile: childOutfile,
+      format: "esm",
+      sourcemap: false,
+    });
     const outfile = join(directory, "electron-session.mjs");
     await esbuild.build({
       entryPoints: [entry],
@@ -27,7 +34,7 @@ describe.skipIf(!hasElectronBinary())("desktop electron mail session", () => {
       format: "esm",
       external: ["electron"],
     });
-    const output = await runElectron(electronBinaryPath, outfile);
+    const output = await runElectron(electronBinaryPath, outfile, childOutfile);
     expect(output).toContain("ELECTRON_MAIL_SMOKE");
     const line = output
       .split("\n")
@@ -41,20 +48,32 @@ describe.skipIf(!hasElectronBinary())("desktop electron mail session", () => {
       status: "ok",
       result: { status: "queued" },
     });
+    expect(payload.duplicate).toMatchObject({
+      status: "ok",
+      result: { status: "already_recorded" },
+    });
+    expect(payload.health).toMatchObject({
+      running: true,
+      child: { sqliteWriteMs: { count: expect.any(Number) } },
+    });
+    // Recovered from a killed child: restarted, resubscribed, same database.
+    expect(payload.restarted).toBe(true);
     expect(payload.diagnostics).toMatchObject({
       status: "ok",
       result: { accountId: "acc-1" },
     });
+    expect(payload.wiped).toBe(true);
     await rm(directory, { recursive: true, force: true });
   }, 60_000);
 });
 
-function runElectron(binary: string, script: string) {
+function runElectron(binary: string, script: string, childModule: string) {
   return new Promise<string>((resolve, reject) => {
     const child = spawn(...electronCommand(binary, [script, "--no-sandbox"]), {
       env: {
         ...process.env,
         ELECTRON_ENABLE_LOGGING: "1",
+        ELECTRON_MAIL_CHILD: childModule,
       },
     });
     let stdout = "";

@@ -44,9 +44,24 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  *   `long_task_total_blocking_ms` (sum of the time past 50ms).
  * - `thread_switch`: from the open thread changing (J/K, arrows, Enter,
  *   click) to the reader showing it.
+ *
+ * `desktop_health_summary`: desktop app health, sent by each desktop window
+ * about 2 minutes after load and then hourly. Covers the time since the
+ * previous summary from any window (`interval_ms`), so windows never count
+ * the same stretch twice. Duration metrics have `<metric>_count`, `_p50_ms`,
+ * `_p95_ms` and `_max_ms`, and are left out when there were no samples:
+ * - `main_loop_delay`: Electron main-process event-loop delay. High values
+ *   mean window input and IPC were blocked.
+ * - `engine_loop_delay`: the same for the local mail engine process.
+ * - `sqlite_read` / `sqlite_write`: mail database transactions, timed from
+ *   the call so reads include time queued behind writes.
+ * - `engine_running`, `engine_restarts` (engine crashes recovered from since
+ *   the app started), `mailbox_bytes` (local database size) and
+ *   `desktop_version`.
  */
 export const MAIL_ANALYTICS_EVENTS = {
   action: "mail_action",
+  desktopHealthSummary: "desktop_health_summary",
   navigationSummary: "mail_navigation_summary",
   performanceSummary: "mail_performance_summary",
 } as const;

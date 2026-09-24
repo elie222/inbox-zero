@@ -12,6 +12,7 @@ import {
   screen,
   session,
   shell,
+  utilityProcess,
   type Session,
   type WebContents,
   type IpcMainEvent,
@@ -49,10 +50,12 @@ import {
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
-import { createDesktopMailOwner } from "./mail-engine/owner";
+import { startEventLoopDelayMonitor } from "./health";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
-import { createRoutedBackendPorts } from "./mail-engine/backend";
-import { createOriginMailRequest } from "./mail-engine/request";
+import {
+  createDesktopMailProcessOwner,
+  type DesktopMailProcessOwner,
+} from "./mail-engine/utility-host";
 import {
   closeAndWipeDesktopMailbox,
   closeDesktopMailbox,
@@ -156,10 +159,9 @@ function startDesktopApp() {
       return;
     openAppWindow(url, { navigate: true });
   });
-  ipcMain.handle("mail-engine", async (event, payload: unknown) => {
+  ipcMain.handle("mail-engine", (event, payload: unknown) => {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
-    const owner = await getDesktopMailOwner();
-    return owner.handleIpc(payload);
+    return getDesktopMailOwner().handleIpc(payload);
   });
   registerMailEnginePushIpc({
     ipcMain,
@@ -170,6 +172,21 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     await wipeDesktopMailOwner();
     return { status: "ok" };
+  });
+  const mainEventLoopDelay = startEventLoopDelayMonitor();
+  let lastHealthReadAt = Date.now();
+  ipcMain.handle("desktop:health", async (event) => {
+    if (!isTrustedDesktopEvent(event)) return null;
+    const now = Date.now();
+    const intervalMs = now - lastHealthReadAt;
+    lastHealthReadAt = now;
+    return {
+      version: app.getVersion(),
+      intervalMs,
+      mainEventLoopDelayMs: mainEventLoopDelay.drain(),
+      engine: (await desktopMailOwner?.health()) ?? null,
+      mailboxBytes: readMailboxBytes(),
+    };
   });
 
   app.on("second-instance", (_event, argv) => {
@@ -660,7 +677,7 @@ function showSignInError(error: unknown) {
   );
 }
 
-let desktopMailOwner: ReturnType<typeof createDesktopMailOwner> | undefined;
+let desktopMailOwner: DesktopMailProcessOwner | undefined;
 
 function getDesktopMailOwner() {
   desktopMailOwner ??= createDesktopMailProcess();
@@ -672,53 +689,53 @@ function desktopMailboxPath() {
 }
 
 function createDesktopMailProcess() {
-  // Session cookies live on this process; the utility child cannot read them.
-  return createDesktopMailOwner({
-    databasePath: desktopMailboxPath(),
-    ...createRoutedBackendPorts(createDesktopMailRequest()),
-    onEngineError: (error) =>
-      captureDesktopError(error, { area: "mail-engine" }),
-  });
-}
-
-async function closeDesktopMailOwner() {
-  const ownerPromise = desktopMailOwner;
-  desktopMailOwner = undefined;
-  let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined;
-  try {
-    owner = ownerPromise ? await ownerPromise : undefined;
-  } catch {
-    owner = undefined;
-  }
-  await closeDesktopMailbox(owner);
-}
-
-async function wipeDesktopMailOwner() {
-  const ownerPromise = desktopMailOwner;
-  desktopMailOwner = undefined;
-  let owner: Awaited<ReturnType<typeof createDesktopMailOwner>> | undefined;
-  try {
-    owner = ownerPromise ? await ownerPromise : undefined;
-  } catch {
-    owner = undefined;
-  }
-  await closeAndWipeDesktopMailbox({
-    owner,
-    databasePath: desktopMailboxPath(),
-  });
-}
-
-function createDesktopMailRequest() {
   const ses = session.fromPartition(PARTITION);
-  return createOriginMailRequest({
+  return createDesktopMailProcessOwner({
+    databasePath: desktopMailboxPath(),
     origin: appOrigin,
+    fork: () =>
+      utilityProcess.fork(
+        path.join(import.meta.dirname, "mail-engine-child.js"),
+        [],
+        { serviceName: "Inbox Zero Mail Engine" },
+      ),
     cookieHeader: async (url) => {
       const cookies = await ses.cookies.get({ url });
       return cookies
         .map((cookie) => `${cookie.name}=${cookie.value}`)
         .join("; ");
     },
+    onEngineError: (error) =>
+      captureDesktopError(error, { area: "mail-engine" }),
   });
+}
+
+async function closeDesktopMailOwner() {
+  const owner = desktopMailOwner;
+  desktopMailOwner = undefined;
+  await closeDesktopMailbox(owner);
+}
+
+async function wipeDesktopMailOwner() {
+  const owner = desktopMailOwner;
+  desktopMailOwner = undefined;
+  await closeAndWipeDesktopMailbox({
+    owner,
+    databasePath: desktopMailboxPath(),
+  });
+}
+
+function readMailboxBytes() {
+  const databasePath = desktopMailboxPath();
+  let bytes = 0;
+  for (const file of [databasePath, `${databasePath}-wal`]) {
+    try {
+      bytes += fs.statSync(file).size;
+    } catch {
+      // The WAL file only exists while the database is open.
+    }
+  }
+  return bytes;
 }
 
 function installLocalMailSmoke(window: BrowserWindow) {
@@ -736,10 +753,11 @@ function installLocalMailSmoke(window: BrowserWindow) {
     if (!url.startsWith("file:")) return;
     window.webContents.off("did-finish-load", onFinish);
     waitForLocalMailReady(window)
-      .then((ready) => {
+      .then(async (ready) => {
+        const engine = ready && (await isLocalMailEngineReady());
         clearTimeout(deadline);
-        writeLocalMailSmoke({ url, ready });
-        finishLocalMailSmoke(ready ? 0 : 1);
+        writeLocalMailSmoke({ url, ready, engine });
+        finishLocalMailSmoke(ready && engine ? 0 : 1);
       })
       .catch(() => {
         clearTimeout(deadline);
@@ -764,7 +782,23 @@ async function waitForLocalMailReady(window: BrowserWindow) {
   return false;
 }
 
-function writeLocalMailSmoke(payload: { url: string; ready: boolean }) {
+async function isLocalMailEngineReady() {
+  const result = await getDesktopMailOwner()
+    .handleIpc({
+      protocolVersion: 1,
+      requestId: "local-mail-smoke",
+      method: "inspect",
+      payload: {},
+    })
+    .catch(() => null);
+  return result?.status === "ok";
+}
+
+function writeLocalMailSmoke(payload: {
+  url: string;
+  ready: boolean;
+  engine?: boolean;
+}) {
   process.stdout.write(
     `ELECTRON_PACKAGED_LOCAL_MAIL ${JSON.stringify(payload)}\n`,
   );

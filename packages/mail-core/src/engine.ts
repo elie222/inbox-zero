@@ -331,7 +331,8 @@ export function createMailEngine(input: {
         if (evictedBodies > 0) await refreshViews();
       }
       while (runtime.nowMs() < deadlineMs) {
-        if (signal?.aborted) return;
+        await yieldToHost();
+        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
@@ -634,6 +635,7 @@ export function createMailEngine(input: {
     }
     let processedPages = 0;
     while (scan.page) {
+      if (processedPages > 0) await yieldToHost();
       if (input.signal?.aborted) return;
       if (processedPages > 0 && runtime.nowMs() >= input.deadlineMs) return;
       if (processedPages >= MAX_BOOTSTRAP_PAGES_PER_RUN) return;
@@ -694,6 +696,7 @@ export function createMailEngine(input: {
 
   async function catchUpIdleAccounts(deadlineMs: number, signal?: AbortSignal) {
     const accounts = await store.readAccountSyncStates();
+    let visitedStreams = 0;
     for (const account of accounts) {
       if (runtime.nowMs() >= deadlineMs) return;
       const session = {
@@ -755,7 +758,9 @@ export function createMailEngine(input: {
       }
       const streams = [...streamsById.values()];
       for (const stream of streams) {
-        if (runtime.nowMs() >= deadlineMs) return;
+        if (visitedStreams > 0) await yieldToHost();
+        visitedStreams += 1;
+        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         if (!stream.checkpoint) {
           await ingestBootstrap({
             session,
@@ -1074,4 +1079,13 @@ async function runAttachmentUpload(input: {
     attachmentId: work.attachmentId,
     remoteUploadId: staged.blobId,
   });
+}
+
+/**
+ * Lets queued host work run between store transactions. Synchronous SQLite
+ * drivers otherwise keep every read (opening a conversation) waiting until a
+ * whole run of sync pages and jobs finishes.
+ */
+function yieldToHost() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
