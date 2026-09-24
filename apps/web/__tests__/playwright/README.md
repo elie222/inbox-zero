@@ -36,6 +36,10 @@ need a particular answer register one with `POST /__emulator/replies` on
 app asked from `GET /__emulator/requests`. Run it outside Playwright with
 `pnpm emulate:llm`.
 
+Native clients that need a long-lived base URL, both providers, and a disposable
+database use `scripts/native-emulator/README.md`. That runner is separate from
+the ephemeral Playwright server started below.
+
 The package-level emulated command runs each spec with a fresh Next process,
 emulator, and authenticated mailbox, then merges the reports. Tests inside a
 spec remain serial. This avoids state leaking between specs and bounds the

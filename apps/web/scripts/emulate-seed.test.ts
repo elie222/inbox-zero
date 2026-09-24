@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { saasFounderMixedInbox } from "../__tests__/fixtures/inboxes/demo-inboxes";
-import { buildEmulateSeed } from "./emulate-seed";
+import { buildEmulateSeed, buildNativeEmulatorSeed } from "./emulate-seed";
 
 describe("buildEmulateSeed", () => {
   it("includes the demo inbox messages and labels", () => {
@@ -29,5 +29,19 @@ describe("buildEmulateSeed", () => {
       redirectUris.every((uri) => uri.startsWith("https://workspace.test/")),
     ).toBe(true);
     expect(redirectUris.every((uri) => !uri.includes("//api/"))).toBe(true);
+  });
+
+  it("adds a second mailbox on each provider for the native runner", () => {
+    const seed = buildNativeEmulatorSeed("http://127.0.0.1:3000");
+
+    expect(seed.google.users.map((user) => user.email)).toEqual([
+      "developer@example.com",
+      "teammate@example.com",
+    ]);
+    expect(seed.microsoft.users.map((user) => user.email)).toEqual([
+      "developer@outlook.test",
+      "teammate@outlook.test",
+    ]);
+    expect(seed.google.messages?.length).toBeGreaterThan(0);
   });
 });

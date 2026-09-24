@@ -48,6 +48,10 @@ jobs:
         if: matrix.shard == 1
         run: node --test .claude/skills/pr-watch/pr-digest.test.mjs
 
+      - name: Check native emulator runner
+        if: matrix.shard == 1
+        run: pnpm -F inbox-zero-ai test:native-emulator
+
       - name: Run lint check
         if: matrix.shard == 1
         run: pnpm check

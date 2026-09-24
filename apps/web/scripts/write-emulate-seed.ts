@@ -10,19 +10,25 @@ const DEFAULT_OUTPUT_PATH = resolve(
 );
 
 async function main() {
-  const { baseUrl, outputPath } = parseOptions(process.argv.slice(2));
-  await writeEmulateSeed(outputPath, baseUrl);
+  const { baseUrl, native, outputPath } = parseOptions(process.argv.slice(2));
+  await writeEmulateSeed(outputPath, baseUrl, native);
   console.log(`Wrote emulator seed to ${relativeToRoot(outputPath)}`);
 }
 
 function parseOptions(args: string[]) {
   let baseUrl: string | undefined;
+  let native = false;
   let outputPath = DEFAULT_OUTPUT_PATH;
 
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
-    const value = args[index + 1];
 
+    if (option === "--native") {
+      native = true;
+      continue;
+    }
+
+    const value = args[index + 1];
     if (!value) throw new Error(`Missing value for ${option}`);
 
     switch (option) {
@@ -39,7 +45,7 @@ function parseOptions(args: string[]) {
     }
   }
 
-  return { baseUrl, outputPath };
+  return { baseUrl, native, outputPath };
 }
 
 function relativeToRoot(path: string) {
