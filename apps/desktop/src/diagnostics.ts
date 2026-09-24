@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { availableParallelism, totalmem } from "node:os";
+import { availableParallelism, homedir, totalmem } from "node:os";
 import path from "node:path";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
@@ -142,6 +142,13 @@ export function stripTraceUrlQueries(json: string) {
   return json.replace(/"(https?:\/\/[^"?#\\]*)[?#](?:[^"\\]|\\.)*"/gi, '"$1"');
 }
 
+/** Local file paths in a trace include the OS username. */
+export function redactHomeDirectory(json: string, home: string) {
+  if (!home) return json;
+  const escaped = JSON.stringify(home).slice(1, -1);
+  return json.split(escaped).join("~").split(home).join("~");
+}
+
 async function recordDiagnostics({
   getMailOwner,
   databasePath,
@@ -176,7 +183,10 @@ async function recordDiagnostics({
   const stoppedAt = new Date();
 
   await mkdir(folder, { recursive: true });
-  const trace = stripTraceUrlQueries(await readFile(rawTracePath, "utf8"));
+  const trace = redactHomeDirectory(
+    stripTraceUrlQueries(await readFile(rawTracePath, "utf8")),
+    homedir(),
+  );
   await rm(rawTracePath, { force: true });
   const traceData = await promisify(gzip)(trace);
   const snapshotData = Buffer.from(

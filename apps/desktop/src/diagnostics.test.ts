@@ -3,6 +3,7 @@ import type { MailStoreInspection } from "@inboxzero/mail-core/ports/mail-store"
 import { describe, expect, it, vi } from "vitest";
 import {
   diagnosticsFolderName,
+  redactHomeDirectory,
   stripTraceUrlQueries,
   summarizeMailEngine,
 } from "./diagnostics";
@@ -172,5 +173,20 @@ describe("diagnosticsFolderName", () => {
     expect(diagnosticsFolderName(new Date("2026-09-24T10:11:12.345Z"))).toBe(
       "Inbox-Zero-Diagnostics-2026-09-24T10-11-12",
     );
+  });
+});
+
+describe("redactHomeDirectory", () => {
+  it("replaces the home directory in plain and JSON-escaped paths", () => {
+    const trace = JSON.stringify({
+      mac: "file:///Users/jane/Library/app.asar/dist/main.js",
+      windows: "C:\\Users\\jane\\AppData\\main.js",
+    });
+    expect(JSON.parse(redactHomeDirectory(trace, "/Users/jane")).mac).toBe(
+      "file://~/Library/app.asar/dist/main.js",
+    );
+    expect(
+      JSON.parse(redactHomeDirectory(trace, "C:\\Users\\jane")).windows,
+    ).toBe("~\\AppData\\main.js");
   });
 });
