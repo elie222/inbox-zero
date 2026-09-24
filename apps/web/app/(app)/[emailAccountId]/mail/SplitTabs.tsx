@@ -84,6 +84,9 @@ export function SplitTabs({
                   ref={active ? activeTabRef : undefined}
                   data-split-tab
                   onClick={() => onSelect(split.id)}
+                  // The count sits in this button, so innerText includes it.
+                  // The accessible name stays the split itself.
+                  aria-label={split.name}
                   aria-current={active ? "true" : undefined}
                   aria-describedby={
                     countLabel ? `split-count-${split.id}` : undefined
