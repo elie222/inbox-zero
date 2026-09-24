@@ -90,6 +90,7 @@ type OwnedEngineInput = {
   source: MailboxSource;
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
+  idleCatchUpIntervalMs?: number;
   /** The loop keeps retrying after a failed run; the host decides whether to report it. */
   onEngineError?: (error: unknown) => void;
 };
@@ -105,6 +106,7 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
+    idleCatchUpIntervalMs: input.idleCatchUpIntervalMs,
     runtime: createHostRuntime({
       ...nodeMailCrypto(),
       storagePressure: () => desktopStoragePressure(input.databasePath),

@@ -46,9 +46,7 @@ import type { BlobStore } from "./ports/blob-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
-const IDLE_SCOPE_DISCOVERY_INTERVAL_MS = 60_000;
-const IDLE_STREAM_CATCH_UP_INTERVAL_MS = 60_000;
-const IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS = 60_000;
+const IDLE_CATCH_UP_INTERVAL_MS = 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
@@ -144,8 +142,11 @@ export function createMailEngine(input: {
   ownerId?: string;
   assistant?: AssistantStateSource;
   blobStore?: BlobStore;
+  idleCatchUpIntervalMs?: number;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
+  const idleCatchUpIntervalMs =
+    input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
   const blobStore = input.blobStore;
@@ -706,14 +707,14 @@ export function createMailEngine(input: {
       const shouldDiscoverScopes = idleGateDue(
         idleGate.nextScopeDiscoveryAtMs,
         runtime.nowMs(),
-        IDLE_SCOPE_DISCOVERY_INTERVAL_MS,
+        idleCatchUpIntervalMs,
       );
       const discoveredScopes = shouldDiscoverScopes
         ? await discoverBootstrapScopes(session, signal)
         : undefined;
       if (shouldDiscoverScopes) {
         idleGate.nextScopeDiscoveryAtMs =
-          runtime.nowMs() + IDLE_SCOPE_DISCOVERY_INTERVAL_MS;
+          runtime.nowMs() + idleCatchUpIntervalMs;
       }
       if (discoveredScopes) {
         const addedScopes = await store.registerSyncScopes({
@@ -775,11 +776,7 @@ export function createMailEngine(input: {
         const nextCatchUpAtMs =
           idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0;
         if (
-          !idleGateDue(
-            nextCatchUpAtMs,
-            runtime.nowMs(),
-            IDLE_STREAM_CATCH_UP_INTERVAL_MS,
-          )
+          !idleGateDue(nextCatchUpAtMs, runtime.nowMs(), idleCatchUpIntervalMs)
         ) {
           continue;
         }
@@ -800,7 +797,7 @@ export function createMailEngine(input: {
             if (changes.page.roundComplete) {
               idleGate.nextStreamCatchUpAtMs.set(
                 stream.streamId,
-                runtime.nowMs() + IDLE_STREAM_CATCH_UP_INTERVAL_MS,
+                runtime.nowMs() + idleCatchUpIntervalMs,
               );
             } else {
               idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
@@ -829,7 +826,7 @@ export function createMailEngine(input: {
         } else {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
-            runtime.nowMs() + IDLE_STREAM_CATCH_UP_INTERVAL_MS,
+            runtime.nowMs() + idleCatchUpIntervalMs,
           );
           await noteConnection(account.accountId, changes.status);
         }
@@ -906,7 +903,7 @@ export function createMailEngine(input: {
       !idleGateDue(
         idleGate.nextAssistantCatchUpAtMs,
         runtime.nowMs(),
-        IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS,
+        idleCatchUpIntervalMs,
       )
     ) {
       return;
@@ -914,7 +911,7 @@ export function createMailEngine(input: {
     const advanced = await catchUpAssistant(account, signal);
     idleGate.nextAssistantCatchUpAtMs = advanced
       ? 0
-      : runtime.nowMs() + IDLE_ASSISTANT_CATCH_UP_INTERVAL_MS;
+      : runtime.nowMs() + idleCatchUpIntervalMs;
   }
 
   async function catchUpAssistant(
