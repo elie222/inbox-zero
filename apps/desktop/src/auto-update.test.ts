@@ -2,25 +2,52 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkForDesktopUpdatesManually,
   DESKTOP_UPDATE_INTERVAL_MS,
+  installDownloadedDesktopUpdate,
+  resetDesktopAutoUpdateForTests,
   startDesktopAutoUpdate,
 } from "./auto-update";
 
-const { autoUpdater, app, dialog } = vi.hoisted(() => ({
-  app: { getVersion: vi.fn(() => "0.1.0"), isPackaged: true },
-  autoUpdater: {
-    autoDownload: false,
-    autoInstallOnAppQuit: false,
-    checkForUpdates: vi.fn(),
-    checkForUpdatesAndNotify: vi.fn(),
-    downloadUpdate: vi.fn(),
-    once: vi.fn(),
-    quitAndInstall: vi.fn(),
-    setFeedURL: vi.fn(),
-  },
-  dialog: { showMessageBox: vi.fn() },
-}));
+const {
+  autoUpdater,
+  app,
+  dialog,
+  notificationOptions,
+  notificationShow,
+  Notification,
+} = vi.hoisted(() => {
+  const notificationShow = vi.fn();
+  const notificationOptions: Array<{ title: string; body: string }> = [];
+  class Notification {
+    static isSupported() {
+      return true;
+    }
+    constructor(options: { title: string; body: string }) {
+      notificationOptions.push(options);
+    }
+    show() {
+      notificationShow();
+    }
+  }
+  return {
+    app: { getVersion: vi.fn(() => "0.1.0"), isPackaged: true },
+    autoUpdater: {
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      checkForUpdates: vi.fn(),
+      downloadUpdate: vi.fn(),
+      on: vi.fn(),
+      once: vi.fn(),
+      quitAndInstall: vi.fn(),
+      setFeedURL: vi.fn(),
+    },
+    dialog: { showMessageBox: vi.fn() },
+    notificationOptions,
+    notificationShow,
+    Notification,
+  };
+});
 
-vi.mock("electron", () => ({ app, dialog }));
+vi.mock("electron", () => ({ app, dialog, Notification }));
 vi.mock("electron-updater", () => ({ autoUpdater }));
 vi.mock("./sentry", () => ({ captureDesktopError: vi.fn() }));
 
@@ -28,13 +55,16 @@ describe("startDesktopAutoUpdate", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    resetDesktopAutoUpdateForTests();
     autoUpdater.checkForUpdates.mockReset();
-    autoUpdater.checkForUpdatesAndNotify.mockReset();
     autoUpdater.downloadUpdate.mockReset();
+    autoUpdater.on.mockReset();
     autoUpdater.once.mockReset();
     autoUpdater.quitAndInstall.mockReset();
     autoUpdater.setFeedURL.mockReset();
     dialog.showMessageBox.mockReset();
+    notificationShow.mockReset();
+    notificationOptions.length = 0;
     dialog.showMessageBox.mockResolvedValue({
       checkboxChecked: false,
       response: 1,
@@ -49,11 +79,11 @@ describe("startDesktopAutoUpdate", () => {
 
   it("skips the update check in development", async () => {
     await expect(startDesktopAutoUpdate(false)).resolves.toBe(false);
-    expect(autoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
+    expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
   });
 
   it("records updater failures instead of reporting success", async () => {
-    autoUpdater.checkForUpdatesAndNotify.mockRejectedValueOnce(
+    autoUpdater.checkForUpdates.mockRejectedValueOnce(
       new Error("feed unavailable"),
     );
 
@@ -68,40 +98,44 @@ describe("startDesktopAutoUpdate", () => {
 
     await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
     expect(console.error).toHaveBeenCalledWith("invalid feed URL");
-    expect(autoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
+    expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
   });
 
   it("keeps checking for updates while the app remains open", async () => {
     vi.useFakeTimers();
-    autoUpdater.checkForUpdatesAndNotify.mockResolvedValue(null);
+    autoUpdater.checkForUpdates.mockResolvedValue(null);
 
     try {
       await expect(startDesktopAutoUpdate(true)).resolves.toBe(true);
       await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_INTERVAL_MS);
 
-      expect(autoUpdater.checkForUpdatesAndNotify).toHaveBeenCalledTimes(2);
+      expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("stops periodic checks after an update downloads", async () => {
-    vi.useFakeTimers();
-    autoUpdater.checkForUpdatesAndNotify.mockResolvedValue(null);
-    let notifyDownloaded: (() => void) | undefined;
-    autoUpdater.once.mockImplementation((event, listener) => {
+  it("notifies once when a background download is ready to restart", async () => {
+    const onUpdateReady = vi.fn();
+    autoUpdater.checkForUpdates.mockResolvedValue(null);
+    let notifyDownloaded: ((info: { version: string }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
       if (event === "update-downloaded") notifyDownloaded = listener;
     });
 
-    try {
-      await startDesktopAutoUpdate(true);
-      notifyDownloaded?.();
-      await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_INTERVAL_MS);
+    await startDesktopAutoUpdate(true, onUpdateReady);
+    notifyDownloaded?.({ version: "0.2.0" });
+    notifyDownloaded?.({ version: "0.2.0" });
 
-      expect(autoUpdater.checkForUpdatesAndNotify).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(onUpdateReady).toHaveBeenCalledOnce();
+    expect(onUpdateReady).toHaveBeenCalledWith("0.2.0");
+    expect(notificationOptions).toEqual([
+      {
+        body: "Restart Inbox Zero to finish updating to 0.2.0.",
+        title: "Update ready to install",
+      },
+    ]);
+    expect(notificationShow).toHaveBeenCalledOnce();
   });
 });
 
@@ -109,8 +143,10 @@ describe("checkForDesktopUpdatesManually", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    resetDesktopAutoUpdateForTests();
     autoUpdater.checkForUpdates.mockReset();
     autoUpdater.downloadUpdate.mockReset();
+    autoUpdater.on.mockReset();
     autoUpdater.once.mockReset();
     autoUpdater.quitAndInstall.mockReset();
     autoUpdater.setFeedURL.mockReset();
@@ -161,35 +197,58 @@ describe("checkForDesktopUpdatesManually", () => {
     );
   });
 
-  it("downloads an available update and restarts when requested", async () => {
-    const beforeInstall = vi.fn();
-    const downloadPromise = Promise.resolve(["update.zip"]);
+  it("keeps the app usable while an update downloads", async () => {
     autoUpdater.checkForUpdates.mockResolvedValue({
-      downloadPromise,
+      downloadPromise: new Promise(() => {}),
       isUpdateAvailable: true,
       updateInfo: { version: "0.2.0" },
     });
-    dialog.showMessageBox
-      .mockResolvedValueOnce({ checkboxChecked: false, response: 0 })
-      .mockResolvedValueOnce({ checkboxChecked: false, response: 0 });
+
+    await expect(checkForDesktopUpdatesManually(vi.fn(), true)).resolves.toBe(
+      true,
+    );
+
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail:
+          "You can keep using Inbox Zero. Restart to Update will appear in the app menu when it's ready.",
+        message: "Downloading Inbox Zero 0.2.0",
+      }),
+    );
+    expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it("restarts immediately when the update is already downloaded", async () => {
+    const beforeInstall = vi.fn();
+    let notifyDownloaded: ((info: { version: string }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
+      if (event === "update-downloaded") notifyDownloaded = listener;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue({
+      isUpdateAvailable: false,
+      updateInfo: { version: "0.1.0" },
+    });
+    dialog.showMessageBox.mockResolvedValue({
+      checkboxChecked: false,
+      response: 0,
+    });
+
+    await startDesktopAutoUpdate(true);
+    notifyDownloaded?.({ version: "0.2.0" });
 
     await expect(
       checkForDesktopUpdatesManually(beforeInstall, true),
     ).resolves.toBe(true);
 
-    expect(dialog.showMessageBox).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ message: "Downloading Inbox Zero 0.2.0" }),
-    );
-    expect(dialog.showMessageBox).toHaveBeenNthCalledWith(
-      2,
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
       expect.objectContaining({
         buttons: ["Restart to Update", "Later"],
         message: "An update is ready to install",
       }),
     );
     expect(beforeInstall).toHaveBeenCalledOnce();
-    expect(autoUpdater.quitAndInstall).toHaveBeenCalledOnce();
+    expect(autoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
     expect(beforeInstall.mock.invocationCallOrder[0]).toBeLessThan(
       autoUpdater.quitAndInstall.mock.invocationCallOrder[0],
     );
@@ -211,5 +270,39 @@ describe("checkForDesktopUpdatesManually", () => {
         type: "error",
       }),
     );
+  });
+});
+
+describe("installDownloadedDesktopUpdate", () => {
+  beforeEach(() => {
+    resetDesktopAutoUpdateForTests();
+    autoUpdater.checkForUpdates.mockReset();
+    autoUpdater.on.mockReset();
+    autoUpdater.quitAndInstall.mockReset();
+    autoUpdater.setFeedURL.mockReset();
+  });
+
+  it("applies a downloaded update without another prompt", async () => {
+    const beforeInstall = vi.fn();
+    let notifyDownloaded: ((info: { version: string }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
+      if (event === "update-downloaded") notifyDownloaded = listener;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue(null);
+
+    await startDesktopAutoUpdate(true);
+    notifyDownloaded?.({ version: "0.2.0" });
+
+    await expect(installDownloadedDesktopUpdate(beforeInstall)).resolves.toBe(
+      true,
+    );
+
+    expect(beforeInstall).toHaveBeenCalledOnce();
+    expect(autoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
+  });
+
+  it("does nothing when no update has been downloaded", async () => {
+    await expect(installDownloadedDesktopUpdate(vi.fn())).resolves.toBe(false);
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
   });
 });

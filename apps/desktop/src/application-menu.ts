@@ -6,11 +6,13 @@ export function configureDesktopApplicationMenu({
   checkForUpdates,
   createWindow,
   recordDiagnostics,
+  updateReady = false,
   platform = process.platform,
 }: {
   checkForUpdates: () => void;
   createWindow: () => void;
   recordDiagnostics: () => void;
+  updateReady?: boolean;
   platform?: NodeJS.Platform;
 }) {
   app.setAboutPanelOptions({
@@ -19,7 +21,7 @@ export function configureDesktopApplicationMenu({
   });
 
   const checkForUpdatesItem: MenuItemConstructorOptions = {
-    label: "Check for Updates…",
+    label: updateReady ? "Restart to Update" : "Check for Updates…",
     click: checkForUpdates,
   };
   const recordDiagnosticsItem: MenuItemConstructorOptions = {

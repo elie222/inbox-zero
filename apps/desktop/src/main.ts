@@ -23,6 +23,7 @@ import { configureDesktopApplicationMenu } from "./application-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
+  installDownloadedDesktopUpdate,
   logDesktopUpdateError,
   startDesktopAutoUpdate,
 } from "./auto-update";
@@ -252,20 +253,34 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
-    configureDesktopApplicationMenu({
-      checkForUpdates: () => {
-        checkForDesktopUpdatesManually(() => {
-          isQuitting = true;
-        }).catch(logDesktopUpdateError);
-      },
-      createWindow: () => createAppWindow(),
-      recordDiagnostics: () => {
-        recordDesktopDiagnostics({
-          getMailOwner: () => desktopMailOwner,
-          databasePath: desktopMailboxPath(),
-        });
-      },
-    });
+    let desktopUpdateReady = false;
+    const installUpdate = () => {
+      installDownloadedDesktopUpdate(() => {
+        isQuitting = true;
+      }).catch(logDesktopUpdateError);
+    };
+    const applyDesktopMenu = () => {
+      configureDesktopApplicationMenu({
+        updateReady: desktopUpdateReady,
+        checkForUpdates: () => {
+          if (desktopUpdateReady) {
+            installUpdate();
+            return;
+          }
+          checkForDesktopUpdatesManually(() => {
+            isQuitting = true;
+          }).catch(logDesktopUpdateError);
+        },
+        createWindow: () => createAppWindow(),
+        recordDiagnostics: () => {
+          recordDesktopDiagnostics({
+            getMailOwner: () => desktopMailOwner,
+            databasePath: desktopMailboxPath(),
+          });
+        },
+      });
+    };
+    applyDesktopMenu();
     if (!shouldSmokeLocalMail()) {
       // Overlap TLS/socket setup with window creation and page load.
       session
@@ -280,7 +295,10 @@ function startDesktopApp() {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
     if (!shouldSmokeLocalMail()) {
-      startDesktopAutoUpdate().catch(logDesktopUpdateError);
+      startDesktopAutoUpdate(undefined, () => {
+        desktopUpdateReady = true;
+        applyDesktopMenu();
+      }).catch(logDesktopUpdateError);
     }
   });
 

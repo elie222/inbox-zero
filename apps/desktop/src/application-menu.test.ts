@@ -68,6 +68,23 @@ describe("desktop application menu", () => {
     expect(createWindow).toHaveBeenCalledOnce();
   });
 
+  it("offers Restart to Update once a download is ready", () => {
+    const checkForUpdates = vi.fn();
+    configureDesktopApplicationMenu({
+      checkForUpdates,
+      createWindow: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      updateReady: true,
+      platform: "darwin",
+    });
+
+    const template = Menu.buildFromTemplate.mock.results[0].value;
+    const appMenu = template.find((item) => item.label === "Inbox Zero");
+    const submenu = appMenu?.submenu as MenuItemConstructorOptions[];
+    const update = submenu.find((item) => item.label === "Restart to Update");
+    expect(update?.click).toBe(checkForUpdates);
+  });
+
   it.each([
     "darwin",
     "win32",
