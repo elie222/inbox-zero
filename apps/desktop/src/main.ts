@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   app,
   BrowserWindow,
@@ -11,6 +12,7 @@ import {
   screen,
   session,
   shell,
+  utilityProcess,
   type Session,
   type WebContents,
   type IpcMainEvent,
@@ -18,6 +20,7 @@ import {
 } from "electron";
 import { installDesktopLoadRecovery } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
   logDesktopUpdateError,
@@ -29,6 +32,7 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
+  getDesktopLocalMailUrl,
   getDesktopMailAccountId,
   getDesktopPostAuthUrl,
   getDesktopSessionRestoreUrl,
@@ -37,10 +41,25 @@ import {
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
+  isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  resolveDesktopStartUrl,
+  shouldSmokeLocalMail,
+  shouldUseLocalMailRenderer,
 } from "./desktop";
 import { createMailNotificationTracker } from "./mail-notifications";
+import { captureDesktopError, initDesktopSentry } from "./sentry";
+import { startEventLoopDelayMonitor } from "./health";
+import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
+import {
+  createDesktopMailProcessOwner,
+  type DesktopMailProcessOwner,
+} from "./mail-engine/utility-host";
+import {
+  closeAndWipeDesktopMailbox,
+  closeDesktopMailbox,
+} from "./mail-engine/wipe";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -69,6 +88,13 @@ let pendingCallbackPath: string | null = null;
 let isQuitting = false;
 const appOrigin = getDesktopAppOrigin();
 const homeUrl = getDesktopHomeUrl(appOrigin);
+const localMailRendererFile = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "renderer/index.html",
+);
+const localMailUrl = shouldUseLocalMailRenderer()
+  ? getDesktopLocalMailUrl(localMailRendererFile)
+  : null;
 const trackNewMail = createMailNotificationTracker();
 const mailNotifications = new Map<string, Notification>();
 
@@ -80,8 +106,10 @@ if (!gotTheLock) {
 }
 
 function startDesktopApp() {
+  initDesktopSentry();
   nativeTheme.themeSource = "light";
   app.setAppUserModelId("com.getinboxzero.desktop");
+  if (shouldSmokeLocalMail()) app.disableHardwareAcceleration();
 
   ipcMain.on("desktop:unread-count", (event, count: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -127,8 +155,38 @@ function startDesktopApp() {
     const callbackPath = normalizeDesktopCallbackPath(path);
     if (!callbackPath) return;
     const url = new URL(callbackPath, appOrigin).toString();
-    if (!isAllowedDesktopNavigation(url, appOrigin)) return;
+    if (!isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile))
+      return;
     openAppWindow(url, { navigate: true });
+  });
+  ipcMain.handle("mail-engine", (event, payload: unknown) => {
+    if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
+    return getDesktopMailOwner().handleIpc(payload);
+  });
+  registerMailEnginePushIpc({
+    ipcMain,
+    isTrusted: isTrustedDesktopEvent,
+    getOwner: getDesktopMailOwner,
+  });
+  ipcMain.handle("mail-engine-wipe", async (event) => {
+    if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
+    await wipeDesktopMailOwner();
+    return { status: "ok" };
+  });
+  const mainEventLoopDelay = startEventLoopDelayMonitor();
+  let lastHealthReadAt = Date.now();
+  ipcMain.handle("desktop:health", async (event) => {
+    if (!isTrustedDesktopEvent(event)) return null;
+    const now = Date.now();
+    const intervalMs = now - lastHealthReadAt;
+    lastHealthReadAt = now;
+    return {
+      version: app.getVersion(),
+      intervalMs,
+      mainEventLoopDelayMs: mainEventLoopDelay.drain(),
+      engine: (await desktopMailOwner?.health()) ?? null,
+      mailboxBytes: readMailboxBytes(),
+    };
   });
 
   app.on("second-instance", (_event, argv) => {
@@ -190,6 +248,7 @@ function startDesktopApp() {
     isQuitting = true;
     // Skip if windows already closed; last-window `close` already wrote the snapshot.
     if (windows.length > 0) persistWindowsNow();
+    closeDesktopMailOwner().catch(() => undefined);
   });
 
   app.whenReady().then(async () => {
@@ -200,11 +259,19 @@ function startDesktopApp() {
         }).catch(logDesktopUpdateError);
       },
       createWindow: () => createAppWindow(),
+      recordDiagnostics: () => {
+        recordDesktopDiagnostics({
+          getMailOwner: () => desktopMailOwner,
+          databasePath: desktopMailboxPath(),
+        });
+      },
     });
-    // Overlap TLS/socket setup with window creation and page load.
-    session
-      .fromPartition(PARTITION)
-      .preconnect({ url: appOrigin, numSockets: 2 });
+    if (!shouldSmokeLocalMail()) {
+      // Overlap TLS/socket setup with window creation and page load.
+      session
+        .fromPartition(PARTITION)
+        .preconnect({ url: appOrigin, numSockets: 2 });
+    }
     restoreAppWindows();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
@@ -212,7 +279,9 @@ function startDesktopApp() {
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
-    startDesktopAutoUpdate().catch(logDesktopUpdateError);
+    if (!shouldSmokeLocalMail()) {
+      startDesktopAutoUpdate().catch(logDesktopUpdateError);
+    }
   });
 
   app.on("window-all-closed", () => {
@@ -243,7 +312,12 @@ function createAppWindow(options?: {
     return existing;
   }
 
-  const startUrl = options?.url ?? homeUrl;
+  const startUrl = resolveDesktopStartUrl({
+    requestedUrl: options?.url,
+    localMailUrl,
+    homeUrl,
+    rendererFile: localMailRendererFile,
+  });
   const bounds = resolveWindowBounds(options?.bounds);
   const window = new BrowserWindow({
     width: bounds?.width ?? DEFAULT_DESKTOP_WINDOW_WIDTH,
@@ -263,6 +337,9 @@ function createAppWindow(options?: {
     },
   });
 
+  // `closed` fires after the window is destroyed, when its webContents can no
+  // longer be read.
+  const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
   rememberWindowUrl(window, startUrl);
@@ -292,7 +369,7 @@ function createAppWindow(options?: {
   window.on("closed", () => {
     const index = windows.indexOf(window);
     if (index !== -1) windows.splice(index, 1);
-    unreadByContents.delete(window.webContents.id);
+    unreadByContents.delete(contentsId);
     applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
     if (!isQuitting && windows.length > 0) persistWindowsNow();
@@ -311,6 +388,7 @@ function createAppWindow(options?: {
     appOrigin,
     () => lastUrlByWindow.get(window) ?? startUrl,
   );
+  if (shouldSmokeLocalMail()) installLocalMailSmoke(window);
   window.loadURL(startUrl).catch(() => {});
   return window;
 }
@@ -393,11 +471,14 @@ function persistWindowsNow() {
 }
 
 function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
-  return (
-    windows.some((window) => event.sender === window.webContents) &&
-    event.senderFrame === event.sender.mainFrame &&
-    event.senderFrame.origin === appOrigin
-  );
+  if (
+    !windows.some((window) => event.sender === window.webContents) ||
+    event.senderFrame !== event.sender.mainFrame
+  ) {
+    return false;
+  }
+  if (event.senderFrame.origin === appOrigin) return true;
+  return isDesktopLocalMailUrl(event.sender.getURL(), localMailRendererFile);
 }
 
 function applyUnreadBadge() {
@@ -439,7 +520,7 @@ function applyDesktopWindowDragRegion(contents: WebContents) {
 
 function applyNavigationPolicy(contents: WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedDesktopNavigation(url, appOrigin)) {
+    if (isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile)) {
       openAppWindow(url, { navigate: true });
     } else {
       openExternal(url).catch(showSignInError);
@@ -452,7 +533,7 @@ function applyNavigationPolicy(contents: WebContents) {
 }
 
 function guardNavigation(event: { preventDefault: () => void }, url: string) {
-  if (isAllowedDesktopNavigation(url, appOrigin)) return;
+  if (isAllowedDesktopNavigation(url, appOrigin, localMailRendererFile)) return;
   event.preventDefault();
   openExternal(url).catch(showSignInError);
 }
@@ -594,4 +675,139 @@ function showSignInError(error: unknown) {
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
   );
+}
+
+let desktopMailOwner: DesktopMailProcessOwner | undefined;
+
+function getDesktopMailOwner() {
+  desktopMailOwner ??= createDesktopMailProcess();
+  return desktopMailOwner;
+}
+
+function desktopMailboxPath() {
+  return path.join(app.getPath("userData"), "mailbox.sqlite");
+}
+
+function createDesktopMailProcess() {
+  const ses = session.fromPartition(PARTITION);
+  return createDesktopMailProcessOwner({
+    databasePath: desktopMailboxPath(),
+    origin: appOrigin,
+    fork: () =>
+      utilityProcess.fork(
+        path.join(import.meta.dirname, "mail-engine-child.js"),
+        [],
+        { serviceName: "Inbox Zero Mail Engine" },
+      ),
+    cookieHeader: async (url) => {
+      const cookies = await ses.cookies.get({ url });
+      return cookies
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join("; ");
+    },
+    onEngineError: (error) =>
+      captureDesktopError(error, { area: "mail-engine" }),
+  });
+}
+
+async function closeDesktopMailOwner() {
+  const owner = desktopMailOwner;
+  desktopMailOwner = undefined;
+  await closeDesktopMailbox(owner);
+}
+
+async function wipeDesktopMailOwner() {
+  const owner = desktopMailOwner;
+  desktopMailOwner = undefined;
+  await closeAndWipeDesktopMailbox({
+    owner,
+    databasePath: desktopMailboxPath(),
+  });
+}
+
+function readMailboxBytes() {
+  const databasePath = desktopMailboxPath();
+  let bytes = 0;
+  for (const file of [databasePath, `${databasePath}-wal`]) {
+    try {
+      bytes += fs.statSync(file).size;
+    } catch {
+      // The WAL file only exists while the database is open.
+    }
+  }
+  return bytes;
+}
+
+function installLocalMailSmoke(window: BrowserWindow) {
+  const deadline = setTimeout(() => {
+    writeLocalMailSmoke({
+      url: window.isDestroyed() ? "" : window.webContents.getURL(),
+      ready: false,
+    });
+    finishLocalMailSmoke(1);
+  }, 20_000);
+
+  const onFinish = () => {
+    if (window.isDestroyed()) return;
+    const url = window.webContents.getURL();
+    if (!url.startsWith("file:")) return;
+    window.webContents.off("did-finish-load", onFinish);
+    waitForLocalMailReady(window)
+      .then(async (ready) => {
+        const engine = ready && (await isLocalMailEngineReady());
+        clearTimeout(deadline);
+        writeLocalMailSmoke({ url, ready, engine });
+        finishLocalMailSmoke(ready && engine ? 0 : 1);
+      })
+      .catch(() => {
+        clearTimeout(deadline);
+        writeLocalMailSmoke({ url, ready: false });
+        finishLocalMailSmoke(1);
+      });
+  };
+  window.webContents.on("did-finish-load", onFinish);
+}
+
+async function waitForLocalMailReady(window: BrowserWindow) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (window.isDestroyed()) return false;
+    const text = String(
+      await window.webContents
+        .executeJavaScript('document.body ? document.body.innerText : ""')
+        .catch(() => ""),
+    );
+    if (text.includes("Inbox Zero")) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+async function isLocalMailEngineReady() {
+  const result = await getDesktopMailOwner()
+    .handleIpc({
+      protocolVersion: 1,
+      requestId: "local-mail-smoke",
+      method: "inspect",
+      payload: {},
+    })
+    .catch(() => null);
+  return result?.status === "ok";
+}
+
+function writeLocalMailSmoke(payload: {
+  url: string;
+  ready: boolean;
+  engine?: boolean;
+}) {
+  process.stdout.write(
+    `ELECTRON_PACKAGED_LOCAL_MAIL ${JSON.stringify(payload)}\n`,
+  );
+}
+
+function finishLocalMailSmoke(code: number) {
+  isQuitting = true;
+  app.exit(code);
+  setTimeout(() => {
+    process.exit(code);
+  }, 250);
 }

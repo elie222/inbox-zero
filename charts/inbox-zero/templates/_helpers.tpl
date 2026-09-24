@@ -110,16 +110,59 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef:
       name: {{ .Values.externalRedis.existingSecret.name }}
       key: {{ .Values.externalRedis.existingSecret.redisUrlKey }}
+{{- $secretName := .Values.externalRedis.existingSecret.name }}
+{{- $urlKey := .Values.externalRedis.existingSecret.redisHttpUrlKey }}
+{{- $tokenKey := .Values.externalRedis.existingSecret.redisHttpTokenKey }}
+{{- $legacyUrlKey := .Values.externalRedis.existingSecret.upstashRedisUrlKey }}
+{{- $legacyTokenKey := .Values.externalRedis.existingSecret.upstashRedisTokenKey }}
+{{ if or $urlKey $tokenKey }}
+- name: REDIS_HTTP_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: {{ $urlKey | default "REDIS_HTTP_URL" }}
+- name: REDIS_HTTP_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: {{ $tokenKey | default "REDIS_HTTP_TOKEN" }}
+{{ else if or $legacyUrlKey $legacyTokenKey }}
 - name: UPSTASH_REDIS_URL
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.externalRedis.existingSecret.name }}
-      key: {{ .Values.externalRedis.existingSecret.upstashRedisUrlKey }}
+      name: {{ $secretName }}
+      key: {{ $legacyUrlKey | default "UPSTASH_REDIS_URL" }}
 - name: UPSTASH_REDIS_TOKEN
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.externalRedis.existingSecret.name }}
-      key: {{ .Values.externalRedis.existingSecret.upstashRedisTokenKey }}
+      name: {{ $secretName }}
+      key: {{ $legacyTokenKey | default "UPSTASH_REDIS_TOKEN" }}
+{{ else }}
+- name: REDIS_HTTP_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: REDIS_HTTP_URL
+      optional: true
+- name: REDIS_HTTP_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: REDIS_HTTP_TOKEN
+      optional: true
+- name: UPSTASH_REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: UPSTASH_REDIS_URL
+      optional: true
+- name: UPSTASH_REDIS_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secretName }}
+      key: UPSTASH_REDIS_TOKEN
+      optional: true
+{{ end }}
 {{- end }}
 {{- end -}}
 

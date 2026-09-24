@@ -41,12 +41,12 @@ import {
 } from "@/utils/cold-email/cold-email-rule";
 import {
   checkColdEmailGuards,
-  checkColdEmailWithAi,
+  checkColdEmailWithLlm,
   type ColdEmailPatternMatch,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
-import { classifierChooseRule } from "@/utils/ai/choose-rule/classifier-choose-rule";
-import { getClassifierConfig } from "@/utils/classifier/classify";
+import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
+import { getDecisionModelConfig } from "@/utils/decision-model/decision-model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 import {
@@ -97,11 +97,11 @@ export async function findMatchingRules({
   const logger = log.with({ module: MODULE });
   const isThread = provider.isReplyInThread(message);
   const email = getEmailForLLM(message);
-  const classifier = await getClassifierConfig(emailAccount);
+  const decisionModel = await getDecisionModelConfig(emailAccount);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // With a classifier, only the deterministic cold-email guards run here; the
-  // classifier is asked the question the guards could not settle.
+  // With a decision model, only the deterministic cold-email guards run here. When
+  // they can't decide, ask it about cold email alongside rule selection.
   let pendingColdEmailRule: typeof coldEmailRule = null;
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -112,7 +112,7 @@ export async function findMatchingRules({
       coldEmailRule,
       logger,
     };
-    const coldEmailResult = classifier
+    const coldEmailResult = decisionModel
       ? await checkColdEmailGuards(coldEmailInput)
       : await isColdEmail({ ...coldEmailInput, modelType });
 
@@ -154,9 +154,9 @@ export async function findMatchingRules({
         })
       : null;
 
-  if (classifier && (potentialAiMatches.length || pendingColdEmailRule)) {
-    const selection = await classifierChooseRule({
-      classifier,
+  if (decisionModel && (potentialAiMatches.length || pendingColdEmailRule)) {
+    const selection = await decisionModelChooseRule({
+      decisionModel,
       message,
       emailAccount,
       rules: potentialAiMatches,
@@ -165,7 +165,7 @@ export async function findMatchingRules({
       logger,
     }).catch((error) => {
       logger.warn(
-        "Classifier rule selection failed, falling back to LLM path",
+        "Decision-model rule selection failed, falling back to LLM path",
         {
           error,
         },
@@ -182,7 +182,6 @@ export async function findMatchingRules({
           selectionMetadata,
         });
       }
-
       // Settled, so the LLM check below must not re-ask it.
       pendingColdEmailRule = null;
 
@@ -194,15 +193,15 @@ export async function findMatchingRules({
         });
       }
 
-      logger.info("Classifier deferred the rule choice to the LLM path", {
+      logger.info("Decision model deferred the rule choice to the LLM path", {
         reason: selection.reason,
       });
     }
   }
 
-  // Only reached with a pending cold-email rule when the classifier failed.
+  // Only reached with a pending cold-email rule when the decision model failed.
   if (pendingColdEmailRule) {
-    const coldEmailResult = await checkColdEmailWithAi({
+    const coldEmailResult = await checkColdEmailWithLlm({
       email,
       emailAccount,
       modelType,

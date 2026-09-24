@@ -1,0 +1,47 @@
+{
+  "name": "@inboxzero/mail-sqlite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared SQLite mailbox schema, queries, and transactional store",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/mail-sqlite#readme",
+  "bugs": {
+    "url": "https://github.com/elie222/inbox-zero/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
+    "directory": "packages/mail-sqlite"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./driver": "./src/driver.ts",
+    "./store": "./src/store.ts",
+    "./migrations": "./src/migrations.ts",
+    "./maintenance": "./src/maintenance.ts",
+    "./node": "./src/node-sqlite.ts",
+    "./blob-store": "./src/blob-store.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./test-support/driver-contract": "./test-support/driver-contract.ts"
+  },
+  "scripts": {
+    "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
+    "pack:smoke": "node ../mail-core/scripts/pack-consumer-smoke.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check-imports": "node scripts/check-imports.mjs"
+  },
+  "dependencies": {
+    "@inboxzero/mail-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

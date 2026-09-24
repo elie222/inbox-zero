@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
-import { extractEmailReply } from "@/utils/parse/extract-reply.client";
+import { extractDraftComposerContent } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
@@ -43,7 +43,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import {
   getReplyDraftSessionId,
   type ReplyDraftMode,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 import {
   SentMessageOpenStatus,
   type SentMessageOpenState,
@@ -54,6 +54,7 @@ type ComposeSession = { id: number; mode: ReplyDraftMode };
 export function EmailMessage({
   message,
   bodyAvailable = true,
+  missingBodyIds,
   menu,
   refetch,
   showReplyButton,
@@ -72,6 +73,7 @@ export function EmailMessage({
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
+  missingBodyIds?: Set<string>;
   menu?: React.ReactNode;
   draftMessages?: ThreadMessage[];
   refetch: () => void;
@@ -275,6 +277,7 @@ export function EmailMessage({
             <ReplyPanel
               key={draft.id}
               autoScroll={!composeMode && index === visibleDrafts.length - 1}
+              draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
               message={message}
               onCloseCompose={() => setDraftDismissed(draft.id, true)}
@@ -548,6 +551,7 @@ function ReplyPanel({
   onStartDiscard,
   composeMode,
   draftMessage,
+  draftBodyAvailable = true,
   autoScroll = false,
   bodyAvailable = true,
 }: {
@@ -561,6 +565,7 @@ function ReplyPanel({
   onStartDiscard: () => ComposeSession | undefined;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  draftBodyAvailable?: boolean;
   autoScroll?: boolean;
   bodyAvailable?: boolean;
 }) {
@@ -614,7 +619,11 @@ function ReplyPanel({
 
       try {
         const result = await discardPromise;
-        if (result?.serverError || result?.validationErrors) {
+        if (
+          result &&
+          (result.serverError !== undefined ||
+            result.validationErrors !== undefined)
+        ) {
           toastError({
             description: getActionErrorMessage(result, {
               prefix: "Failed to discard draft",
@@ -642,6 +651,14 @@ function ReplyPanel({
       refetch,
     ],
   );
+
+  if (draftMessage && !draftBodyAvailable) {
+    return (
+      <p className="mt-5 text-muted-foreground text-sm">
+        This message hasn’t loaded yet.
+      </p>
+    );
+  }
 
   if (!replyingToEmail)
     return (
@@ -764,7 +781,10 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
 });
 
 function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
-  const splitHtml = extractEmailReply(draft.textHtml || "");
+  const splitHtml = extractDraftComposerContent(
+    draft.textHtml,
+    draft.textPlain,
+  );
 
   return {
     to: draft.headers.to,

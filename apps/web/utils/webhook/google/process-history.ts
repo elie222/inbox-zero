@@ -30,7 +30,7 @@ const GMAIL_HISTORY_PAGE_SIZE = 500;
 export async function processHistoryForUser(
   decodedData: {
     emailAddress: string;
-    historyId: number;
+    historyId: number | string;
   },
   options: {
     startHistoryId?: string;
@@ -38,7 +38,8 @@ export async function processHistoryForUser(
   },
   logger: Logger,
 ) {
-  const { emailAddress, historyId } = decodedData;
+  const { emailAddress } = decodedData;
+  const historyId = normalizeHistoryId(decodedData.historyId);
   // All emails in the database are stored in lowercase
   // But it's possible that the email address in the webhook is not
   // So we need to convert it to lowercase
@@ -139,7 +140,7 @@ export async function processHistoryForUser(
         if (historyResult.status === "expired") {
           await updateLastSyncedHistoryId({
             emailAccountId: validatedEmailAccount.id,
-            lastSyncedHistoryId: historyId.toString(),
+            lastSyncedHistoryId: historyId,
           });
           return NextResponse.json({ ok: true });
         }
@@ -189,7 +190,7 @@ export async function processHistoryForUser(
           // important to save this or we can get into a loop with never receiving history
           await updateLastSyncedHistoryId({
             emailAccountId: validatedEmailAccount.id,
-            lastSyncedHistoryId: historyId.toString(),
+            lastSyncedHistoryId: historyId,
           });
         }
 
@@ -367,7 +368,7 @@ async function fetchGmailHistoryResilient({
 }: {
   gmail: gmail_v1.Gmail;
   emailAccount: ValidatedWebhookAccountData;
-  webhookHistoryId: number;
+  webhookHistoryId: string;
   options: { startHistoryId?: string };
   logger: Logger;
 }): Promise<
@@ -382,23 +383,31 @@ async function fetchGmailHistoryResilient({
     }
   | { status: "expired" }
 > {
-  const lastSyncedHistoryId = Number.parseInt(
+  const lastSyncedHistoryId = normalizeHistoryId(
     emailAccount?.lastSyncedHistoryId || "0",
   );
+  const lastSyncedHistoryIdBig = BigInt(lastSyncedHistoryId);
+  const webhookHistoryIdBig = BigInt(webhookHistoryId);
+  const maxGap = BigInt(MAX_GMAIL_HISTORY_ID_GAP);
 
-  const historyIdGap = Math.max(0, webhookHistoryId - lastSyncedHistoryId);
+  const historyIdGap = boundedHistoryCount(
+    maxBigInt(BigInt(0), webhookHistoryIdBig - lastSyncedHistoryIdBig),
+  );
 
   // History IDs are not item counts, so keep this window large enough for normal
   // active-account bursts while still bounding old/disconnected-account catch-up.
-  const startHistoryIdNum = Math.max(
-    lastSyncedHistoryId,
-    webhookHistoryId - MAX_GMAIL_HISTORY_ID_GAP,
+  const startHistoryIdBig = maxBigInt(
+    lastSyncedHistoryIdBig,
+    webhookHistoryIdBig - maxGap,
   );
-  const startHistoryId =
-    options?.startHistoryId || startHistoryIdNum.toString();
+  const startHistoryId = options?.startHistoryId
+    ? normalizeHistoryId(options.startHistoryId)
+    : startHistoryIdBig.toString();
   const skippedHistoryIds = options?.startHistoryId
     ? 0
-    : Math.max(0, startHistoryIdNum - lastSyncedHistoryId);
+    : boundedHistoryCount(
+        maxBigInt(BigInt(0), startHistoryIdBig - lastSyncedHistoryIdBig),
+      );
 
   // Log if we are intentionally skipping Gmail history IDs to keep the system stable.
   if (skippedHistoryIds > 0) {
@@ -407,7 +416,7 @@ async function fetchGmailHistoryResilient({
       webhookHistoryId,
       historyIdGap,
       maxHistoryIdGap: MAX_GMAIL_HISTORY_ID_GAP,
-      effectiveStartHistoryId: startHistoryIdNum,
+      effectiveStartHistoryId: startHistoryId,
       skippedHistoryIds,
     });
   }
@@ -474,4 +483,20 @@ async function fetchGmailHistoryResilient({
     }
     throw error;
   }
+}
+
+function normalizeHistoryId(historyId: number | string) {
+  const normalized =
+    typeof historyId === "number" ? historyId.toString() : historyId.trim();
+  if (!/^\d+$/.test(normalized)) throw new Error("Invalid historyId");
+  return normalized;
+}
+
+function maxBigInt(a: bigint, b: bigint) {
+  return a > b ? a : b;
+}
+
+function boundedHistoryCount(value: bigint) {
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) return Number.MAX_SAFE_INTEGER;
+  return Number(value);
 }

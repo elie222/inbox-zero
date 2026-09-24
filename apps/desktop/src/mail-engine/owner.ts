@@ -1,0 +1,194 @@
+import {
+  createMailEngine,
+  createHostRuntime,
+  type MailEngine,
+} from "@inboxzero/mail-core/engine";
+import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
+import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
+import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
+import {
+  dispatchMailIpc,
+  isObservationRequest,
+  openMailIpcObservation,
+  parseMailIpcRequest,
+} from "./ipc";
+import {
+  createDesktopMailStore,
+  nodeMailCrypto,
+  type SqliteTransactionTimer,
+} from "./sqlite";
+import { desktopStoragePressure } from "./storage-pressure";
+import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
+
+export type DesktopMailOwner = {
+  handleIpc(payload: unknown): ReturnType<typeof dispatchMailIpc>;
+  subscribe(
+    payload: unknown,
+    onSnapshot: (snapshot: unknown) => void,
+  ): (() => void) | null;
+  recover(): Promise<void>;
+  close(): Promise<void>;
+};
+
+export async function createDesktopMailOwner(
+  input: OwnedEngineInput,
+): Promise<DesktopMailOwner> {
+  let owned = await createOwnedEngine(input);
+  const subscriptions = new Set<OwnerSubscription>();
+
+  function open(subscription: OwnerSubscription) {
+    const handle = openMailIpcObservation(owned.engine, subscription.request);
+    const send = () => {
+      const snapshot = handle.getSnapshot();
+      if (snapshot.status !== "loading") subscription.onSnapshot(snapshot);
+    };
+    const unsubscribe = handle.subscribe(send);
+    send();
+    return () => {
+      unsubscribe();
+      handle.close();
+    };
+  }
+
+  return {
+    handleIpc(payload: unknown) {
+      return handleOwnerIpc(owned, payload);
+    },
+    /**
+     * Keeps an observation open and pushes each changed snapshot, so the
+     * renderer doesn't poll every query on a timer.
+     */
+    subscribe(payload: unknown, onSnapshot: (snapshot: unknown) => void) {
+      const parsed = parseMailIpcRequest(payload);
+      if (!parsed.success || !isObservationRequest(parsed.data)) return null;
+      const subscription: OwnerSubscription = {
+        request: parsed.data,
+        onSnapshot,
+        close: () => {},
+      };
+      subscription.close = open(subscription);
+      subscriptions.add(subscription);
+      return () => {
+        subscription.close();
+        subscriptions.delete(subscription);
+      };
+    },
+    async recover() {
+      for (const subscription of subscriptions) subscription.close();
+      await owned.stop();
+      owned = await createOwnedEngine(input);
+      for (const subscription of subscriptions) {
+        subscription.close = open(subscription);
+      }
+    },
+    close() {
+      for (const subscription of subscriptions) subscription.close();
+      subscriptions.clear();
+      return owned.stop();
+    },
+  };
+}
+
+type OwnerSubscription = {
+  request: Parameters<typeof openMailIpcObservation>[1];
+  onSnapshot: (snapshot: unknown) => void;
+  close: () => void;
+};
+
+type OwnedEngineInput = {
+  databasePath: string;
+  source: MailboxSource;
+  executor: OperationExecutor;
+  assistant?: AssistantStateSource;
+  idleCatchUpIntervalMs?: number;
+  /** The loop keeps retrying after a failed run; the host decides whether to report it. */
+  onEngineError?: (error: unknown) => void;
+  onSqliteTransaction?: SqliteTransactionTimer;
+};
+
+async function createOwnedEngine(input: OwnedEngineInput): Promise<{
+  engine: MailEngine;
+  store: Awaited<ReturnType<typeof createDesktopMailStore>>;
+  stop(): Promise<void>;
+}> {
+  const store = await createDesktopMailStore(
+    input.databasePath,
+    input.onSqliteTransaction,
+  );
+  const engine = createMailEngine({
+    store,
+    source: input.source,
+    executor: input.executor,
+    assistant: input.assistant,
+    idleCatchUpIntervalMs: input.idleCatchUpIntervalMs,
+    runtime: createHostRuntime({
+      ...nodeMailCrypto(),
+      storagePressure: () => desktopStoragePressure(input.databasePath),
+    }),
+    blobStore: createFileBlobStore(`${input.databasePath}.blobs`),
+    ownerId: "desktop-owner",
+  });
+  const abort = new AbortController();
+  const loop = pumpEngine(engine, abort.signal, input.onEngineError);
+  return {
+    engine,
+    store,
+    async stop() {
+      abort.abort();
+      await loop;
+      await engine.close();
+    },
+  };
+}
+
+async function pumpEngine(
+  engine: MailEngine,
+  signal: AbortSignal,
+  onError: ((error: unknown) => void) | undefined,
+) {
+  while (!signal.aborted) {
+    try {
+      await engine.runUntil(Date.now() + 2000, signal);
+    } catch (error) {
+      if (signal.aborted) return;
+      onError?.(error);
+    }
+    await delay(250, signal);
+  }
+}
+
+function delay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+async function handleOwnerIpc(
+  owned: Awaited<ReturnType<typeof createOwnedEngine>>,
+  payload: unknown,
+) {
+  const parsed = parseMailIpcRequest(payload);
+  if (parsed.success && parsed.data.method === "requestSync") {
+    const provider = parsed.data.payload.provider ?? "google";
+    for (const accountId of parsed.data.payload.accountIds) {
+      await owned.store.ensureAccount({
+        accountId,
+        provider,
+        generation: accountId,
+      });
+    }
+  }
+  return dispatchMailIpc(owned.engine, payload);
+}

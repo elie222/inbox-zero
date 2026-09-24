@@ -1,0 +1,48 @@
+{
+  "name": "@inboxzero/mail-react",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Thin React bindings for the shared mail engine facade",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/mail-react#readme",
+  "bugs": {
+    "url": "https://github.com/elie222/inbox-zero/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
+    "directory": "packages/mail-react"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./MailEngineProvider": "./src/MailEngineProvider.tsx",
+    "./use-mailbox-view": "./src/use-mailbox-view.ts",
+    "./use-conversation": "./src/use-conversation.ts",
+    "./use-query-snapshot": "./src/use-query-snapshot.ts",
+    "./use-operation": "./src/use-operation.ts",
+    "./use-mailbox-window": "./src/use-mailbox-window.ts"
+  },
+  "scripts": {
+    "build": "node scripts/clean-package.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "pack:check": "pnpm run build && cd dist && pnpm pack --dry-run",
+    "pack:smoke": "node ../mail-core/scripts/pack-consumer-smoke.mjs",
+    "typecheck": "tsc --noEmit",
+    "check-imports": "node scripts/check-imports.mjs"
+  },
+  "dependencies": {
+    "@inboxzero/mail-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "react": "19.3.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -54,6 +54,6 @@ it("rejects an HTTP error without exposing its response body as attachment bytes
   } as unknown as OutlookClient;
   await expect(
     getOutlookAttachmentStream(client, "message", "file"),
-  ).rejects.toThrow();
+  ).rejects.toMatchObject({ status: 404, statusCode: 404 });
   expect(cancelled).toBe(true);
 });

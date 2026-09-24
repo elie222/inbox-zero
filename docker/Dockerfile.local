@@ -33,6 +33,10 @@ COPY apps/image-proxy-aws/package.json apps/image-proxy-aws/package.json
 COPY packages/api/package.json packages/api/package.json
 COPY packages/cli/package.json packages/cli/package.json
 COPY packages/email-editor/package.json packages/email-editor/package.json
+COPY packages/mail-core/package.json packages/mail-core/package.json
+COPY packages/mail-sqlite/package.json packages/mail-sqlite/package.json
+COPY packages/mail-react/package.json packages/mail-react/package.json
+COPY packages/mail-ui/package.json packages/mail-ui/package.json
 COPY packages/image-proxy/package.json packages/image-proxy/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/transactional-email/package.json packages/transactional-email/package.json
@@ -92,8 +96,8 @@ ENV GOOGLE_PUBSUB_VERIFICATION_TOKEN="dummy_pubsub_token_for_build"
 ENV DEFAULT_LLMS="anthropic:claude-sonnet-4-6"
 ENV INTERNAL_API_KEY="dummy_apikey_for_build_only"
 ENV API_KEY_SALT="dummy_salt_for_build_only"
-ENV UPSTASH_REDIS_URL="http://dummy-redis-for-build:6379"
-ENV UPSTASH_REDIS_TOKEN="dummy_redis_token_for_build"
+ENV REDIS_HTTP_URL="http://dummy-redis-for-build:6379"
+ENV REDIS_HTTP_TOKEN="dummy_redis_token_for_build"
 ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"

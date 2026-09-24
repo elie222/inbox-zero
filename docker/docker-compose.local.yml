@@ -25,8 +25,8 @@ services:
       DATABASE_URL: postgresql://postgres:password@db:5432/inboxzero?schema=public
       DIRECT_URL: postgresql://postgres:password@db:5432/inboxzero?schema=public
       REDIS_URL: redis://redis:6379
-      UPSTASH_REDIS_URL: http://redis-http:80
-      UPSTASH_REDIS_TOKEN: dev_token
+      REDIS_HTTP_URL: http://redis-http:80
+      REDIS_HTTP_TOKEN: dev_token
     depends_on:
       db:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Upstash-compatible Redis HTTP interface
+  # Redis HTTP interface (Upstash REST protocol)
   redis-http:
     image: hiett/serverless-redis-http:latest
     environment:

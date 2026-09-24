@@ -21,6 +21,7 @@ import {
   type PlaywrightScreenshot,
   renderPlaywrightDashboard,
   renderScreenshotGallery,
+  screenshotBaselineKey,
   shouldPublishStableMainBaseline,
   updatePlaywrightHistory,
 } from "./playwright-report-dashboard";
@@ -270,7 +271,7 @@ async function measureDifferences(
   }
   const baselineFileNames = new Map(
     baseline.screenshots.map((screenshot, index) => [
-      screenshot.source,
+      screenshotBaselineKey(screenshot.source),
       galleryFileName(index, screenshot.source),
     ]),
   );
@@ -278,7 +279,9 @@ async function measureDifferences(
   // holding them all at once would exhaust the runner's memory.
   const measured: PlaywrightScreenshot[] = [];
   for (const screenshot of screenshots) {
-    const baselineFileName = baselineFileNames.get(screenshot.source);
+    const baselineFileName = baselineFileNames.get(
+      screenshotBaselineKey(screenshot.source),
+    );
     if (screenshot.comparison !== "changed" || !baselineFileName) {
       measured.push(screenshot);
       continue;

@@ -77,7 +77,7 @@ describe("getEnvFileName", () => {
 describe("generateEnvFile", () => {
   const baseTemplate = `# Test template
 DATABASE_URL=placeholder
-UPSTASH_REDIS_URL=placeholder
+REDIS_HTTP_URL=placeholder
 AUTH_SECRET=
 GOOGLE_CLIENT_ID=
 MICROSOFT_CLIENT_ID=
@@ -91,8 +91,8 @@ LLM_API_KEY=
 
   const baseEnv: EnvConfig = {
     DATABASE_URL: "postgresql://user:pass@db:5432/test",
-    UPSTASH_REDIS_URL: "http://redis:80",
-    UPSTASH_REDIS_TOKEN: "token123",
+    REDIS_HTTP_URL: "http://redis:80",
+    REDIS_HTTP_TOKEN: "token123",
     AUTH_SECRET: "secret123",
     GOOGLE_CLIENT_ID: "google-id",
     GOOGLE_CLIENT_SECRET: "google-secret",
@@ -369,7 +369,7 @@ AUTH_SECRET=
 # POSTGRES_PASSWORD=password
 # POSTGRES_DB=inboxzero
 # DATABASE_URL="postgresql://postgres:password@localhost:5432/inboxzero"
-# UPSTASH_REDIS_URL="http://localhost:8079"
+# REDIS_HTTP_URL="http://localhost:8079"
 
 # =============================================================================
 # App Configuration
@@ -416,7 +416,7 @@ LLM_API_KEY=
 # =============================================================================
 # Redis
 # =============================================================================
-UPSTASH_REDIS_TOKEN=
+REDIS_HTTP_TOKEN=
 REDIS_URL= # used for subscriptions and BullMQ worker
 QUEUE_BACKEND= # bullmq | qstash | internal
 `;
@@ -428,8 +428,8 @@ QUEUE_BACKEND= # bullmq | qstash | internal
       POSTGRES_DB: "inboxzero",
       DATABASE_URL:
         "postgresql://postgres:supersecretpassword123@db:5432/inboxzero",
-      UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
-      UPSTASH_REDIS_TOKEN: "redis-token-abc123",
+      REDIS_HTTP_URL: "http://serverless-redis-http:80",
+      REDIS_HTTP_TOKEN: "redis-token-abc123",
       QUEUE_BACKEND: "internal",
       // App
       NEXT_PUBLIC_BASE_URL: "https://mail.example.com",
@@ -471,7 +471,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=supersecretpassword123
 POSTGRES_DB=inboxzero
 DATABASE_URL="postgresql://postgres:supersecretpassword123@db:5432/inboxzero"
-UPSTASH_REDIS_URL="http://serverless-redis-http:80"
+REDIS_HTTP_URL="http://serverless-redis-http:80"
 
 # =============================================================================
 # App Configuration
@@ -518,7 +518,7 @@ LLM_API_KEY=sk-ant-api-key-value
 # =============================================================================
 # Redis
 # =============================================================================
-UPSTASH_REDIS_TOKEN=redis-token-abc123
+REDIS_HTTP_TOKEN=redis-token-abc123
 REDIS_URL= # used for subscriptions and BullMQ worker
 QUEUE_BACKEND=internal
 `;
@@ -528,16 +528,16 @@ QUEUE_BACKEND=internal
 
   it("should not write undefined string when env values are undefined", () => {
     const template = `DATABASE_URL=placeholder
-UPSTASH_REDIS_URL=placeholder
+REDIS_HTTP_URL=placeholder
 AUTH_SECRET=
 `;
 
-    // Only set AUTH_SECRET, leave DATABASE_URL and UPSTASH_REDIS_URL undefined
+    // Only set AUTH_SECRET, leave DATABASE_URL and REDIS_HTTP_URL undefined
     const result = generateEnvFile({
       env: {
         AUTH_SECRET: "secret123",
         DATABASE_URL: undefined,
-        UPSTASH_REDIS_URL: undefined,
+        REDIS_HTTP_URL: undefined,
       },
       useDockerInfra: false,
       llmProvider: "anthropic",
@@ -549,7 +549,7 @@ AUTH_SECRET=
     expect(result).not.toContain("=undefined");
     // Original placeholders should remain since we didn't set them
     expect(result).toContain("DATABASE_URL=placeholder");
-    expect(result).toContain("UPSTASH_REDIS_URL=placeholder");
+    expect(result).toContain("REDIS_HTTP_URL=placeholder");
     expect(result).toContain("AUTH_SECRET=secret123");
   });
 });
@@ -972,7 +972,7 @@ describe("Compose environment selection", () => {
     const content = generateEnvFile({
       env: {
         AUTH_SECRET: "staging-secret",
-        UPSTASH_REDIS_TOKEN: "staging-token",
+        REDIS_HTTP_TOKEN: "staging-token",
       },
       useDockerInfra: true,
       llmProvider: "openai",
@@ -982,7 +982,7 @@ describe("Compose environment selection", () => {
     expect(parseEnvFile(content)).toMatchObject({
       INBOX_ZERO_ENV_FILE: composeEnvFile,
       AUTH_SECRET: "staging-secret",
-      UPSTASH_REDIS_TOKEN: "staging-token",
+      REDIS_HTTP_TOKEN: "staging-token",
     });
   });
 

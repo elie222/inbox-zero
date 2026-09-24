@@ -1,38 +1,20 @@
 import { expect } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { getEmailAccountId } from "../account-test-helpers";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { test } from "../playwright-test";
 
+test.skip(
+  isMicrosoftPlaywright(),
+  "Calendar MIME invites are seeded in the Google emulator.",
+);
+
 test.afterEach(async ({ page }) => {
-  // Background revalidation can still be fetching when the assertions finish.
   await page.unrouteAll({ behavior: "wait" });
 });
 
 test("shows inline calendar responses with the current RSVP", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    const message = body.thread.messages.at(0);
-    if (!message) throw new Error("Reader fixture has no messages");
-    message.isMeetingInvitation = true;
-    message.attachments = ["text/calendar", "application/ics"].map(
-      (mimeType, index) => ({
-        attachmentId: `calendar-${index}`,
-        filename: "invite.ics",
-        mimeType,
-        size: 100,
-        headers: {
-          "content-description": "",
-          "content-id": "",
-          "content-transfer-encoding": "base64",
-          "content-type": mimeType,
-        },
-      }),
-    );
-    await route.fulfill({ response, json: body });
-  });
   await page.route("**/api/messages/calendar-invitation?**", (route) =>
     route.fulfill({
       json: {
@@ -47,16 +29,12 @@ test("shows inline calendar responses with the current RSVP", async ({
     }),
   );
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  const invitationHeader = page
-    .locator('li[data-thread-message-id="msg_playwright_reader_1"]')
-    .locator('[role="button"][aria-expanded]');
-  await expect(invitationHeader).toBeVisible();
-  if ((await invitationHeader.getAttribute("aria-expanded")) === "false") {
-    await invitationHeader.click();
-  }
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_calendar`);
+  await expect(
+    page.locator('li[data-thread-message-id="msg_playwright_calendar"]'),
+  ).toBeVisible({ timeout: 60_000 });
   const card = page.getByLabel("Calendar invitation", { exact: true });
-  await expect(card).toBeVisible();
+  await expect(card).toBeVisible({ timeout: 60_000 });
   await expect(
     card.getByRole("button", { name: "Yes", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");

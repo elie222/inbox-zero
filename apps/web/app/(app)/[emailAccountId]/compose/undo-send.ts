@@ -1,21 +1,22 @@
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import { cancelPendingMailMutation } from "@/utils/email-cache/mail-mutations";
-import {
-  restoreReplyFromOutbox,
-  type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
+import type { MailClient } from "@inboxzero/mail-core/engine";
+import { canCancelOperation } from "@inboxzero/mail-core/operations";
+import { cancelSendAttachments } from "@/utils/mail-engine/stage-attachments";
 
 export const UNDO_SEND_DELAY_MS = 5000;
 const UNDO_SEND_TOAST_ID = "undo-send";
 
 type PendingUndoSend = {
-  mutationId: string;
+  client: MailClient;
+  operationId: string;
   emailAccountId: string;
-  identity: ReplyDraftIdentity;
+  attachmentIds: string[];
   restoreComposer: () => void;
   undone: boolean;
+  release: () => void;
+  toastId: string;
 };
 
 let pending: PendingUndoSend | null = null;
@@ -25,59 +26,111 @@ export function getUndoSendHoldUntil(online: boolean, now = Date.now()) {
 }
 
 export function beginUndoSend({
-  mutationId,
+  client,
+  operationId,
   emailAccountId,
-  identity,
+  attachmentIds = [],
   restoreComposer,
   holdUntil,
 }: {
-  mutationId: string;
+  client: MailClient;
+  operationId: string;
   emailAccountId: string;
-  identity: ReplyDraftIdentity;
+  attachmentIds?: string[];
   restoreComposer: () => void;
   holdUntil: number;
 }) {
-  pending = {
-    mutationId,
+  const duration = holdUntil - Date.now();
+  if (duration <= 0) return;
+  releasePreviousOffer();
+  const handle = client.observeOperation({
+    accountId: emailAccountId,
+    operationId,
+  });
+  let unsubscribe = () => {};
+  const toastId = undoSendToastId(operationId);
+  const current: PendingUndoSend = {
+    client,
+    operationId,
     emailAccountId,
-    identity,
+    attachmentIds,
     restoreComposer,
     undone: false,
+    toastId,
+    release: () => {
+      clearTimeout(timeout);
+      unsubscribe();
+      handle.close();
+    },
   };
+  const timeout = setTimeout(() => clearUndoSendOffer(current), duration);
+  pending = current;
+  const inspect = () => {
+    if (pending !== current || current.undone) return;
+    const status = handle.getSnapshot().data?.status;
+    if (status && !canCancelOperation(status)) clearUndoSendOffer(current);
+  };
+  unsubscribe = handle.subscribe(inspect);
   toastUndo({
-    id: UNDO_SEND_TOAST_ID,
+    id: toastId,
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
-    duration: Math.max(0, holdUntil - Date.now()),
+    duration,
     onUndo: async () => {
       await undoPendingSend();
     },
   });
+  inspect();
 }
 
 export async function undoPendingSend() {
   const current = pending;
   if (!current || current.undone) return false;
   current.undone = true;
-  try {
-    await restoreReplyFromOutbox(
-      current.mutationId,
-      current.emailAccountId,
-      current.identity,
-    );
-  } catch {
-    if (!(await cancelPendingMailMutation(current.mutationId))) {
-      current.undone = false;
-      if (pending === current) pending = null;
-      toastError({ description: "Couldn't undo send" });
-      return false;
+  const result = await current.client.cancelOperation({
+    accountId: current.emailAccountId,
+    operationId: current.operationId,
+  });
+  if (result.status !== "cancelled") {
+    current.undone = false;
+    if (pending === current) {
+      pending = null;
+      current.release();
     }
-    if (pending === current) pending = null;
-    toast.dismiss(UNDO_SEND_TOAST_ID);
-    return true;
+    toast.dismiss(current.toastId);
+    toastError({ description: "Couldn't undo send" });
+    return false;
   }
-  if (pending === current) pending = null;
-  toast.dismiss(UNDO_SEND_TOAST_ID);
+  if (pending === current) {
+    pending = null;
+    current.release();
+  }
+  toast.dismiss(current.toastId);
   current.restoreComposer();
+  try {
+    await cancelSendAttachments(current.emailAccountId, current.attachmentIds);
+  } catch {
+    // The send is already cancelled; tmpdir cleanup remains the backstop.
+  }
   return true;
+}
+
+function releasePreviousOffer() {
+  const previous = pending;
+  if (!previous) return;
+  previous.undone = true;
+  pending = null;
+  previous.release();
+  toast.dismiss(previous.toastId);
+}
+
+function clearUndoSendOffer(offer: PendingUndoSend) {
+  if (pending !== offer || offer.undone) return;
+  pending = null;
+  offer.release();
+  toast.dismiss(offer.toastId);
+}
+
+function undoSendToastId(operationId: string) {
+  return `${UNDO_SEND_TOAST_ID}:${operationId}`;
 }

@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
+import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/mail-api/upload-blobs", () => ({
+  deleteAccountUploadDirectory: vi.fn(() => Promise.resolve()),
+}));
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
   withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
 }));
@@ -74,6 +78,7 @@ describe("deleteUser", () => {
     );
 
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("deletes solo organizations before deleting the user", async () => {
@@ -122,6 +127,9 @@ describe("deleteUser", () => {
     expect(prisma.user.deleteMany).toHaveBeenCalledWith({
       where: { id: "user-1" },
     });
+    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
+      "email-account-1",
+    );
   });
 
   it("deletes ownerless solo organizations before deleting the user", async () => {
@@ -196,6 +204,7 @@ describe("deleteUser", () => {
     await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
       "Transfer organization ownership before deleting your account.",
     );
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("surfaces the ownership transfer message when membership blocks raced user deletion", async () => {
@@ -227,5 +236,6 @@ describe("deleteUser", () => {
     await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
       "Transfer organization ownership before deleting your account.",
     );
+    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import {
   normalizeGroupItemValue,
   saveGroupItem,
@@ -87,6 +88,34 @@ export async function removeAiLearnedPattern({
     },
   });
   return count;
+}
+
+/**
+ * Whether another enabled rule already includes this sender, by a pattern the
+ * user wrote or one learned for that rule. Uses the rule matcher's own FROM
+ * semantics, so a domain pattern like "@example.com" counts.
+ */
+export async function hasIncludePatternOnAnotherRule({
+  emailAccountId,
+  from,
+  ruleId,
+}: {
+  emailAccountId: string;
+  from: string;
+  ruleId: string;
+}) {
+  const items = await prisma.groupItem.findMany({
+    where: {
+      type: GroupItemType.FROM,
+      exclude: false,
+      group: {
+        emailAccountId,
+        rule: { is: { enabled: true, id: { not: ruleId } } },
+      },
+    },
+    select: { type: true, value: true, exclude: true },
+  });
+  return !!findMatchingGroupItem({ from, subject: "" }, items);
 }
 
 /**

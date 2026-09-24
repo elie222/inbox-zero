@@ -5,10 +5,12 @@ const PRODUCT_NAME = "Inbox Zero";
 export function configureDesktopApplicationMenu({
   checkForUpdates,
   createWindow,
+  recordDiagnostics,
   platform = process.platform,
 }: {
   checkForUpdates: () => void;
   createWindow: () => void;
+  recordDiagnostics: () => void;
   platform?: NodeJS.Platform;
 }) {
   app.setAboutPanelOptions({
@@ -20,6 +22,22 @@ export function configureDesktopApplicationMenu({
     label: "Check for Updates…",
     click: checkForUpdates,
   };
+  const recordDiagnosticsItem: MenuItemConstructorOptions = {
+    label: "Record Diagnostics…",
+    click: recordDiagnostics,
+  };
+  const helpSubmenu: MenuItemConstructorOptions[] =
+    platform === "darwin"
+      ? [recordDiagnosticsItem]
+      : [
+          checkForUpdatesItem,
+          recordDiagnosticsItem,
+          { type: "separator" },
+          {
+            label: `About ${PRODUCT_NAME}`,
+            click: () => app.showAboutPanel(),
+          },
+        ];
   const template: MenuItemConstructorOptions[] = [
     ...(platform === "darwin"
       ? [
@@ -58,21 +76,7 @@ export function configureDesktopApplicationMenu({
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
-    ...(platform === "darwin"
-      ? []
-      : [
-          {
-            role: "help",
-            submenu: [
-              checkForUpdatesItem,
-              { type: "separator" },
-              {
-                label: `About ${PRODUCT_NAME}`,
-                click: () => app.showAboutPanel(),
-              },
-            ],
-          } satisfies MenuItemConstructorOptions,
-        ]),
+    { role: "help", submenu: helpSubmenu },
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));

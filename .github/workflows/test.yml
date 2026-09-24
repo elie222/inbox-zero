@@ -108,3 +108,25 @@ jobs:
           EMAIL_ENCRYPT_SALT: "salt"
           INTERNAL_API_KEY: "secret"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+
+  electron:
+    name: Electron mail runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAIL_REQUIRE_ELECTRON: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Electron runtime
+        working-directory: apps/desktop
+        run: node node_modules/electron/install.js
+      - name: Install runtime libraries
+        run: pnpm -F inbox-zero-ai exec playwright install-deps chromium
+      - name: Test actual Electron processes and SQLite
+        run: xvfb-run -a pnpm -F @inboxzero/desktop test

@@ -94,7 +94,7 @@ model User {
   aiProvider        String?
   aiModel           String?
   aiApiKey          String?
-  classifierEnabled Boolean? // null follows DEFAULT_CLASSIFIER_ENABLED
+  decisionModelEnabled Boolean? // null follows DEFAULT_DECISION_MODEL_ENABLED
   webhookSecret     String?
 
   // referral system
@@ -247,6 +247,7 @@ model EmailAccount {
   bookingLinks           BookingLink[]
   bookings               Booking[]
   mcpConnections         McpConnection[]
+  mcpIntegrations        McpIntegration[]
   meetingBriefings       MeetingBriefing[]
   meetings               Meeting[]
   meetingRecordings      MeetingRecording[]
@@ -916,6 +917,7 @@ model EmailSendOperation {
   status              EmailSendOperationStatus @default(PROCESSING)
   processingStartedAt DateTime                 @default(now())
   result              Json?
+  attachmentIds       String[]                 @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1956,7 +1958,21 @@ model McpIntegration {
   oauthClientId     String?
   oauthClientSecret String?
 
+  // Set only for custom servers registered by a user. Null for built-in integrations.
+  displayName    String?
+  serverUrl      String?
+  authType       McpAuthType?
+  emailAccountId String?
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   connections McpConnection[]
+
+  @@index([emailAccountId])
+}
+
+enum McpAuthType {
+  OAUTH
+  API_TOKEN
 }
 
 model McpConnection {

@@ -167,6 +167,16 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
   const productFiles = [];
 
   for (const file of changedFiles) {
+    if (
+      /^(?:packages\/mail-(?:core|sqlite|react|ui)\/|apps\/desktop\/)/.test(
+        file.repoPath,
+      ) &&
+      !isNonRuntimeFile(file.repoPath)
+    ) {
+      targetFiles.add(getPlaywrightTargetPath("mail"));
+      continue;
+    }
+
     if (isEmulatedSpecFile(file.appPath)) {
       if (existsSync(path.join(appRoot, file.appPath))) {
         targetFiles.add(file.appPath);
@@ -441,6 +451,7 @@ function isFullSuiteFile({ repoPath, appPath }) {
   return (
     repoPath === ".github/workflows/playwright.yml" ||
     repoPath === "apps/web/emulate.playwright.config.yaml" ||
+    repoPath === "apps/web/emulate.playwright.microsoft.yaml" ||
     repoPath === "apps/web/playwright.config.mjs" ||
     repoPath === "apps/web/env.ts" ||
     repoPath === "apps/web/instrumentation.ts" ||

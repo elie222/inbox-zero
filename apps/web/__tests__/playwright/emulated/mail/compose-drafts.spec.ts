@@ -51,7 +51,7 @@ test("saves a closed new message with attachments in Drafts and discards it from
     conversations,
     "Mailbox draft example",
   );
-  await expect(draft).toBeVisible();
+  await expect(draft).toBeVisible({ timeout: 60_000 });
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

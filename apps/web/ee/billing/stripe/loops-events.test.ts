@@ -465,7 +465,7 @@ describe("handleLoopsEvents", () => {
   });
 
   describe("Complex scenarios", () => {
-    it("should handle trial start and not trigger payment events", async () => {
+    it("should send the upgraded event with tier when a trial starts", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: null,
@@ -483,11 +483,13 @@ describe("handleLoopsEvents", () => {
         logger,
       });
 
-      // Should create contact for trial start
       expect(createContact).toHaveBeenCalledWith("user@example.com", "John");
-      // Should NOT trigger payment events since still trialing
+      // Sets tier so the Loops "Non Premium" segment excludes trial users
+      expect(startedTrial).toHaveBeenCalledWith(
+        "user@example.com",
+        "STARTER_MONTHLY",
+      );
       expect(completedTrial).not.toHaveBeenCalled();
-      expect(startedTrial).not.toHaveBeenCalled();
     });
 
     it("should handle user with multiple spaces in name", async () => {

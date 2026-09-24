@@ -105,7 +105,7 @@ function hashKeyPart(part: string) {
 function isRedisRateLimitConfigured() {
   return (
     env.NODE_ENV === "test" ||
-    Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN)
+    Boolean(env.REDIS_HTTP_URL && env.REDIS_HTTP_TOKEN)
   );
 }
 

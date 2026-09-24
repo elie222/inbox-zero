@@ -1,8 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAccount } from "@/utils/fetch";
-import { fetchAttachment } from "./download";
+import { fetchAttachment, getAttachmentUrl } from "./download";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
+
+describe("getAttachmentUrl", () => {
+  it("points at mail v1 attachment-content for the account", () => {
+    expect(
+      getAttachmentUrl({
+        accountId: "acc/slash",
+        messageId: "message-id",
+        attachmentId: "file-1",
+      }),
+    ).toBe(
+      "/api/mail/v1/accounts/acc%2Fslash/attachment-content?messageId=message-id&attachmentId=file-1&protocolVersion=1",
+    );
+  });
+});
 
 describe("fetchAttachment", () => {
   beforeEach(() => {
@@ -17,13 +31,13 @@ describe("fetchAttachment", () => {
 
     await expect(
       fetchAttachment({
-        url: "/api/messages/attachment?messageId=message-id",
+        url: "/api/mail/v1/accounts/account-id/attachment-content?messageId=message-id",
         emailAccountId: "account-id",
       }),
     ).resolves.toEqual(blob);
 
     expect(fetchWithAccount).toHaveBeenCalledWith({
-      url: "/api/messages/attachment?messageId=message-id",
+      url: "/api/mail/v1/accounts/account-id/attachment-content?messageId=message-id",
       emailAccountId: "account-id",
     });
   });
@@ -36,7 +50,7 @@ describe("fetchAttachment", () => {
 
     await expect(
       fetchAttachment({
-        url: "/api/messages/attachment?messageId=message-id",
+        url: "/api/mail/v1/accounts/account-id/attachment-content?messageId=message-id",
         emailAccountId: "account-id",
       }),
     ).rejects.toThrow("Failed to download attachment");
@@ -46,7 +60,7 @@ describe("fetchAttachment", () => {
   it("rejects before fetching when the email account is unavailable", async () => {
     await expect(
       fetchAttachment({
-        url: "/api/messages/attachment?messageId=message-id",
+        url: "/api/mail/v1/accounts/account-id/attachment-content?messageId=message-id",
         emailAccountId: "",
       }),
     ).rejects.toThrow("Email account ID is required");
@@ -69,7 +83,7 @@ describe("fetchAttachment", () => {
     const progress = vi.fn();
     await expect(
       fetchAttachment({
-        url: "/api/messages/attachment",
+        url: "/api/mail/v1/accounts/account-id/attachment-content",
         emailAccountId: "account-id",
         maxBytes: 5,
         onProgress: progress,
@@ -88,7 +102,7 @@ describe("fetchAttachment", () => {
     );
     await expect(
       fetchAttachment({
-        url: "/api/messages/attachment",
+        url: "/api/mail/v1/accounts/account-id/attachment-content",
         emailAccountId: "account-id",
         maxBytes: 5,
       }),
@@ -104,7 +118,7 @@ describe("fetchAttachment", () => {
     );
     const progress = vi.fn();
     const result = await fetchAttachment({
-      url: "/api/messages/attachment",
+      url: "/api/mail/v1/accounts/account-id/attachment-content",
       emailAccountId: "account-id",
       maxBytes: 3,
       onProgress: progress,
@@ -123,7 +137,7 @@ describe("fetchAttachment", () => {
       new Response(new ReadableStream({ cancel })),
     );
     const download = fetchAttachment({
-      url: "/api/messages/attachment",
+      url: "/api/mail/v1/accounts/account-id/attachment-content",
       emailAccountId: "account-id",
       maxBytes: 5,
       signal: controller.signal,
@@ -156,7 +170,7 @@ describe("fetchAttachment", () => {
     });
     vi.mocked(fetchWithAccount).mockResolvedValue(new Response(stream));
     const result = await fetchAttachment({
-      url: "/api/messages/attachment",
+      url: "/api/mail/v1/accounts/account-id/attachment-content",
       emailAccountId: "account-id",
       maxBytes: expected.length,
     });

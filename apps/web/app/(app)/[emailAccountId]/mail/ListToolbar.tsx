@@ -25,11 +25,10 @@ import {
 import {
   readRecentSearches,
   rememberRecentSearch,
-} from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
+} from "@/store/mail-search-history";
 import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-search-query";
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
-import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,7 +37,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 
@@ -347,7 +345,7 @@ function MailSearchInput({
       <PopoverAnchor asChild>
         <div
           className={cn(
-            "group relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
+            "relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
             filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
           )}
         >
@@ -436,10 +434,6 @@ function MailSearchInput({
               >
                 <XIcon className="size-3.5" />
               </button>
-            ) : !filtersOpen ? (
-              <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
-                {getShortcutHint("search")}
-              </Kbd>
             ) : null}
           </form>
           <PopoverTrigger asChild>

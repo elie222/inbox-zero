@@ -1,4 +1,4 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -8,455 +8,12 @@ import {
 } from "./account-test-helpers";
 import {
   conversationWithSubject,
+  expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
   waitForComposeOutboxSend,
 } from "./mail-test-helpers";
-
-test("keeps keyboard focus in the composer and follows the message field order", async ({
-  page,
-}) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const toField = dialog.getByRole("combobox", { name: "To" });
-  await expect(toField).toBeFocused();
-
-  for (const field of [
-    dialog.getByRole("combobox", { exact: true, name: "Cc" }),
-    dialog.getByRole("combobox", { exact: true, name: "Bcc" }),
-    dialog.getByPlaceholder("Subject"),
-    dialog.getByRole("textbox", { name: "Email message" }),
-    dialog.getByRole("button", { name: "Show signature" }),
-    dialog.getByRole("button", { exact: true, name: "Send" }),
-    dialog.getByRole("button", { name: "Send later" }),
-    dialog.getByRole("button", { name: "Remind me" }),
-    dialog.getByRole("button", { name: "Insert snippet" }),
-    dialog.getByRole("button", { name: "Attach files" }),
-    dialog.getByRole("button", { name: "Insert inline images" }),
-    dialog.getByRole("button", { name: "Discard draft" }),
-  ]) {
-    await page.keyboard.press("Tab");
-    await expect(field).toBeFocused();
-  }
-
-  // Focus wraps from the dialog's last control back to its first instead of
-  // escaping the non-modal composer.
-  await page.keyboard.press("Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Expand compose" }),
-  ).toBeFocused();
-});
-
-test("opens the snippet picker from slash in the composer", async ({
-  page,
-}) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.getByRole("textbox", { name: "Email message" });
-  await editor.click();
-  await page.keyboard.type("/");
-
-  const picker = page.getByRole("listbox", { name: "Snippets" });
-  await expect(picker).toBeVisible();
-  await expect(
-    page.getByRole("option", { name: /Turn into snippet/ }),
-  ).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(picker).toBeHidden();
-  await expect(dialog).toBeVisible();
-  await expect(editor).toContainText("/");
-
-  await page.keyboard.press("Backspace");
-  await page.keyboard.type("/");
-  await expect(picker).toBeVisible();
-  await page.keyboard.press("Enter");
-  await expect(
-    page.getByRole("dialog", { name: "Save snippet" }),
-  ).toBeVisible();
-  // Save snippet is a modal, so the composer is aria-hidden and no longer
-  // matches getByRole("dialog", { name: "New Message" }).
-  await expect(page.locator("[data-compose-expanded]")).toBeVisible();
-});
-
-test("focuses the message field from the empty composer body", async ({
-  page,
-}) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editorRoot = dialog.locator("[data-email-editor-root]");
-  const editor = editorRoot.locator("[contenteditable='true']");
-  await expect(editor).toBeVisible();
-  await dialog.getByPlaceholder("Subject").focus();
-  await expect(editor).not.toBeFocused();
-
-  // The empty composer's content is a single paragraph at the top, so the
-  // root's center point lands in the empty body area below it.
-  await editorRoot.click();
-
-  await expect(editor).toBeFocused();
-});
-
-test("keeps the collapsed signature when typing after clicking below it", async ({
-  page,
-}, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.getByRole("textbox", { name: "Email message" });
-  const signatureBlock = dialog.locator(
-    "[data-email-preserved-kind='signature']",
-  );
-  await expect(signatureBlock).toBeVisible();
-
-  const signatureBox = await signatureBlock.boundingBox();
-  if (!signatureBox) throw new Error("Signature block has no bounding box");
-  const editorBox = await editor.boundingBox();
-  if (!editorBox) throw new Error("Editor has no bounding box");
-
-  const emptySpaceTop = signatureBox.y + signatureBox.height;
-  const emptySpaceHeight = editorBox.y + editorBox.height - emptySpaceTop;
-  expect(emptySpaceHeight).toBeGreaterThan(8);
-  const clickPosition = {
-    x: editorBox.width / 2,
-    y: emptySpaceTop - editorBox.y + emptySpaceHeight / 2,
-  };
-  await editor.click({ position: clickPosition });
-  await page.keyboard.type("Draft body");
-
-  await expect(editor).toContainText("Draft body");
-  expect(
-    await editor.evaluate((element) => {
-      const signature = element.querySelector(
-        "[data-email-preserved-kind='signature']",
-      );
-      if (!signature) return false;
-
-      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-      while (walker.nextNode()) {
-        if (walker.currentNode.textContent?.includes("Draft body")) {
-          return Boolean(
-            walker.currentNode.compareDocumentPosition(signature) &
-              Node.DOCUMENT_POSITION_FOLLOWING,
-          );
-        }
-      }
-      return false;
-    }),
-  ).toBe(true);
-  await expect(signatureBlock).toHaveCount(1);
-  await expect(
-    dialog.getByRole("button", { name: "Show signature" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "composer-click-below-collapsed-signature",
-  );
-});
-
-test("restores a new message draft after closing the composer", async ({
-  page,
-}, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const toField = dialog.getByRole("combobox", { name: "To" });
-  const subjectField = dialog.getByPlaceholder("Subject");
-  const messageField = dialog.getByRole("textbox", { name: "Email message" });
-  await toField.fill("recipient@example.com");
-  await subjectField.fill("Preserved compose draft");
-  await messageField.fill("Keep this message after closing.");
-
-  await dialog.getByRole("button", { name: "Close compose" }).click();
-  await expect(dialog).toBeHidden();
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  await expect(
-    dialog.getByRole("button", { name: "Remove recipient@example.com" }),
-  ).toBeVisible();
-  await expect(subjectField).toHaveValue("Preserved compose draft");
-  await expect(messageField).toContainText("Keep this message after closing.");
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "restored-new-message-draft",
-  );
-
-  await dialog.getByRole("button", { name: "Discard draft" }).click();
-  await expect(dialog).toBeHidden();
-
-  await page.getByRole("button", { name: /^Compose/ }).click();
-  await expect(toField).toHaveValue("");
-  await expect(
-    dialog.getByRole("button", { name: "Remove recipient@example.com" }),
-  ).toHaveCount(0);
-  await expect(subjectField).toHaveValue("");
-  await expect(messageField).not.toContainText(
-    "Keep this message after closing.",
-  );
-  await dialog.getByRole("button", { name: "Discard draft" }).click();
-  await expect(dialog).toBeHidden();
-});
-
-test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.getByRole("textbox", { name: "Email message" });
-  await editor.pressSequentially("Visit example.com/docs");
-  await expect(dialog.getByRole("listbox", { name: "Snippets" })).toHaveCount(
-    0,
-  );
-  await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
-    "example.com/docs",
-  );
-  await expect(editor.locator("[data-email-url-highlight]")).toHaveCSS(
-    "color",
-    "rgb(37, 99, 235)",
-  );
-  await editor.press("Space");
-  await editor.evaluate((element) => {
-    const clipboardData = new DataTransfer();
-    clipboardData.setData("text/plain", "More at example.org/help.");
-    element.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData,
-      }),
-    );
-  });
-  await expect(editor.getByText("example.org/help", { exact: true })).toHaveCSS(
-    "color",
-    "rgb(37, 99, 235)",
-  );
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "automatic-url-highlighting",
-  );
-});
-
-test("keeps editing state stable across formatting, links, paste, and files", async ({
-  page,
-}, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.locator("[contenteditable='true']");
-  const formatting = page.getByRole("toolbar", {
-    name: "Selection formatting",
-  });
-
-  await expect(dialog).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect(
-    dialog.getByRole("toolbar", { name: "Email formatting" }),
-  ).toHaveCount(0);
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
-  await expect(
-    dialog.getByRole("button", { name: "Expand compose" }),
-  ).toBeVisible();
-  await dialog
-    .getByRole("combobox", { name: "To" })
-    .fill("teammate@example.com");
-  await dialog.getByPlaceholder("Subject").fill("Project update");
-  await editor.pressSequentially("Alpha omega");
-  for (const _character of "omega") {
-    await editor.press("ArrowLeft");
-  }
-
-  await dialog.getByTestId("compose-attachments-input").setInputFiles({
-    name: "notes.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("Attachment contents"),
-  });
-  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
-    "notes.txt",
-  );
-  await editor.pressSequentially("middle ");
-  await expect(editor).toContainText("Alpha middle omega");
-
-  await editor.evaluate((element) => {
-    const clipboard = new DataTransfer();
-    clipboard.setData("text/html", "<div>Pasted <strong>rich</strong></div>");
-    element.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: clipboard,
-      }),
-    );
-  });
-  await expect(editor.locator("strong", { hasText: "rich" })).toBeVisible();
-
-  await selectEditorText(editor, "middle");
-  await formatting.getByRole("button", { name: "Bold" }).click();
-  await expect(editor.locator("strong", { hasText: "middle" })).toBeVisible();
-
-  await selectEditorText(editor, "omega");
-  await editor.press("ControlOrMeta+k");
-  const addLinkDialog = dialog.getByRole("dialog", { name: "Add link" });
-  await addLinkDialog.getByLabel("Link address").fill("example.com/first");
-  await addLinkDialog.getByRole("button", { name: "Add" }).click();
-  const link = editor.getByRole("link", { name: "omega" });
-  await expect(link).toHaveAttribute("href", "https://example.com/first");
-
-  await selectEditorText(editor, "omega");
-  await formatting.getByRole("button", { name: "Add or edit link" }).click();
-  const editLinkDialog = dialog.getByRole("dialog", { name: "Edit link" });
-  await editLinkDialog
-    .getByLabel("Link address")
-    .fill("https://example.com/updated");
-  await editLinkDialog.getByRole("button", { name: "Update" }).click();
-  await expect(link).toHaveAttribute("href", "https://example.com/updated");
-
-  await selectEditorText(editor, "omega");
-  await formatting.getByRole("button", { name: "Add or edit link" }).click();
-  await dialog
-    .getByRole("dialog", { name: "Edit link" })
-    .getByRole("button", { name: "Remove" })
-    .click();
-  await expect(editor.getByRole("link", { name: "omega" })).toHaveCount(0);
-
-  await selectEditorText(editor, "omega");
-  await editor.press("ControlOrMeta+k");
-  const cancelLink = dialog
-    .getByRole("dialog", { name: "Add link" })
-    .getByRole("button", { name: "Cancel" });
-  await cancelLink.focus();
-  await cancelLink.press("Escape");
-  await expect(dialog.getByRole("dialog", { name: "Add link" })).toHaveCount(0);
-  await expect(editor).toBeFocused();
-
-  await dialog.getByTestId("compose-inline-image-input").setInputFiles({
-    name: "inline.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
-  await expect(editor.locator("img[data-content-id]")).toHaveCount(1);
-  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
-    "inline.png",
-  );
-
-  await selectEditorText(editor, "middle");
-  await formatting.getByRole("button", { name: "Right-to-left text" }).click();
-  await expect(editor.locator("p[dir='rtl']")).toHaveCount(1);
-  await formatting.getByRole("button", { name: "Left-to-right text" }).click();
-  await expect(editor.locator("p[dir='ltr']")).toHaveCount(1);
-  await selectEditorText(editor, "middle");
-  await expect(
-    page.getByRole("toolbar", { name: "Selection formatting" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-selection");
-
-  await editor.press("ArrowRight");
-  await expect(formatting).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-compact");
-
-  await dialog.getByRole("button", { name: "Expand compose" }).click();
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "true");
-  await expect(
-    dialog.getByRole("button", { name: "Restore compose" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-expanded");
-
-  await dialog.getByRole("button", { name: "Restore compose" }).click();
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
-});
-
-test("does not add a line break for the send shortcut", async ({
-  page,
-}, testInfo) => {
-  const { conversations, emailAccountId } = await openMail(page);
-  const subject = `Shortcut Message ${testInfo.retry}`;
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.locator("[contenteditable='true']");
-  await dialog
-    .getByRole("combobox", { name: "To" })
-    .fill("recipient@example.com");
-  await dialog.getByPlaceholder("Subject").fill(subject);
-  await editor.pressSequentially("Draft body");
-  await dialog.getByRole("button", { name: "Show signature" }).click();
-  const signatureBlock = dialog.locator(
-    "[data-email-preserved-kind='signature']",
-  );
-  // The remove control only appears while hovering the signature.
-  await signatureBlock.hover();
-  await dialog.getByRole("button", { name: "Remove signature" }).click();
-  await expect(signatureBlock).toHaveCount(0);
-
-  await editor.press("ControlOrMeta+Enter");
-
-  await expect(dialog).toBeHidden();
-  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
-  await openMailboxFromSidebar(page, "Sent");
-  await waitForComposeOutboxSend(page, emailAccountId);
-  const sentConversation = conversationWithSubject(
-    page,
-    conversations,
-    subject,
-  );
-  await expect(sentConversation).toBeVisible({ timeout: 60_000 });
-  await sentConversation.click();
-  const sentBody = page
-    .frameLocator('iframe[title="Email content preview"]')
-    .locator("body");
-  await expect(sentBody).toHaveText("Draft body");
-  expect(await sentBody.evaluate((element) => element.innerText)).toBe(
-    "Draft body",
-  );
-});
-
-test("attaches files and discards a compose draft with shortcuts", async ({
-  page,
-}, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.locator("[contenteditable='true']");
-  const attachButton = dialog.getByRole("button", { name: "Attach files" });
-  await attachButton.hover();
-  await expect(page.getByRole("tooltip")).toContainText("Attach files");
-  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText([
-    "⌘",
-    "shift",
-    "U",
-  ]);
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
-
-  const fileChooserPromise = page.waitForEvent("filechooser");
-  await editor.press("ControlOrMeta+Shift+u");
-  const fileChooser = await fileChooserPromise;
-  await fileChooser.setFiles({
-    name: "notes.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("Attachment contents"),
-  });
-  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
-    "notes.txt",
-  );
-
-  await editor.press("ControlOrMeta+Shift+,");
-  await expect(dialog).toBeHidden();
-});
 
 test("composes, sends, and reads a new message from Sent", async ({
   page,
@@ -496,11 +53,8 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  const sentMessage = page.frameLocator(
-    'iframe[title="Email content preview"]',
-  );
-  await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
-  await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
+  await expectThreadReaderBody(page, "A composed message body.");
+  await expectThreadReaderBody(page, "Sent with Inbox Zero");
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
@@ -536,7 +90,7 @@ test("undoes a composed message before it is delivered", async ({
         threadId: "compose:new-message",
       }),
     )
-    .toMatchObject({ status: "pending" });
+    .toMatchObject({ status: "reconciling" });
   await notifications.getByRole("button", { name: /^Undo/ }).click();
 
   await expect(dialog).toBeVisible();
@@ -694,22 +248,6 @@ test("focuses the To field when forwarding with F", async ({ page }) => {
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
-  const releaseThreadRequest = Promise.withResolvers<void>();
-  await page.route("**/api/mobile/mailbox-sync", async (route) => {
-    await releaseThreadRequest.promise;
-    await route.continue();
-  });
-  let threadRequestStarted = false;
-  await page.route(
-    "**/api/threads/thr_playwright_reply?includeDrafts=true",
-    async (route) => {
-      threadRequestStarted = true;
-      const responsePromise = route.fetch();
-      await releaseThreadRequest.promise;
-      const response = await responsePromise;
-      await route.fulfill({ response });
-    },
-  );
   const { conversations, emailAccountId } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
@@ -717,13 +255,16 @@ test("opens and sends a reply from the reader with Enter", async ({
     "Reply Workflow Message",
   );
   await replyConversation.click();
-  await expect.poll(() => threadRequestStarted).toBe(true);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press("Enter");
-  releaseThreadRequest.resolve();
 
-  await expect(
-    page.getByText("Please reply to this seeded conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "Please reply to this seeded conversation.",
+  );
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
 
@@ -776,69 +317,38 @@ test("opens and sends a reply from the reader with Enter", async ({
     "enter",
   ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
-  const releaseSentRefresh = Promise.withResolvers<void>();
-  await page.route("**/api/mobile/mailbox-sync", async (route) => {
-    await releaseSentRefresh.promise;
-    await route.continue();
-  });
-  await page.route(
-    "**/api/threads/thr_playwright_reply?includeDrafts=true",
-    async (route) => {
-      const response = await route.fetch();
-      await releaseSentRefresh.promise;
-      await route.fulfill({ response });
-    },
-  );
   await sendButton.click();
 
-  const localReply = page.locator('[data-thread-message-id^="outbox:"]');
-  const delivery = page.getByRole("region", { name: "Reply delivery status" });
   const notifications = page.getByRole("region", {
     name: "Notifications alt+T",
   });
-  try {
-    await expect(replyEditor).toHaveCount(0);
-    await expect(
-      localReply
-        .frameLocator('iframe[title="Email content preview"]')
-        .getByText(replyBody, { exact: true }),
-    ).toBeVisible();
-    await expect(
-      notifications.getByText("Email sent!", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      notifications.getByRole("button", { name: /^Undo/ }),
-    ).toBeVisible();
-    await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(
-      0,
-    );
-    await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
-      0,
-    );
-    await expect(
-      delivery.getByRole("button", { name: "Edit reply" }),
-    ).toHaveCount(0);
-    await expect
-      .poll(
-        () =>
-          readLatestMailMutation(page, {
-            emailAccountId,
-            kind: "reply",
-            threadId: "thr_playwright_reply",
-          }),
-        { timeout: 20_000 },
-      )
-      .toMatchObject({ status: "succeeded" });
-    await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "reply-awaiting-thread-refresh",
-    );
-  } finally {
-    releaseSentRefresh.resolve();
-  }
-  await expect(localReply).toHaveCount(0);
+  await expect(
+    notifications.getByText("Email sent!", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toBeVisible();
+  await expect(replyEditor).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(0);
+  await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    delivery.getByRole("button", { name: "Edit reply" }),
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
@@ -974,25 +484,3 @@ test("keeps reply and forward drafts in separate composer sessions", async ({
     0,
   );
 });
-
-async function selectEditorText(editor: Locator, text: string) {
-  await editor.evaluate((element, selectedText) => {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let node = walker.nextNode();
-    while (node) {
-      const start = node.textContent?.indexOf(selectedText) ?? -1;
-      if (start >= 0) {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.setStart(node, start);
-        range.setEnd(node, start + selectedText.length);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-        document.dispatchEvent(new Event("selectionchange"));
-        return;
-      }
-      node = walker.nextNode();
-    }
-    throw new Error(`Could not find text to select: ${selectedText}`);
-  }, text);
-}

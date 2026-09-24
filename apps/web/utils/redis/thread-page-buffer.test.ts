@@ -8,8 +8,8 @@ const { redisConfig } = vi.hoisted(() => ({
   redisConfig: {
     EMAIL_ENCRYPT_SECRET: "test-encryption-secret",
     EMAIL_ENCRYPT_SALT: "test-encryption-salt",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "test-token" as string | undefined,
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "test-token" as string | undefined,
   },
 }));
 vi.mock("@/env", () => ({ env: redisConfig }));
@@ -304,22 +304,22 @@ describe("thread page buffers", () => {
   });
 
   it("does not send buffered mail over cleartext HTTP", () => {
-    const url = redisConfig.UPSTASH_REDIS_URL;
-    redisConfig.UPSTASH_REDIS_URL = "http://redis.example.com";
+    const url = redisConfig.REDIS_HTTP_URL;
+    redisConfig.REDIS_HTTP_URL = "http://redis.example.com";
     try {
       expect(createPageBuffer(scope())).toBeUndefined();
     } finally {
-      redisConfig.UPSTASH_REDIS_URL = url;
+      redisConfig.REDIS_HTTP_URL = url;
     }
   });
 
   it("disables buffering when Redis is not configured", () => {
-    const token = redisConfig.UPSTASH_REDIS_TOKEN;
-    redisConfig.UPSTASH_REDIS_TOKEN = undefined;
+    const token = redisConfig.REDIS_HTTP_TOKEN;
+    redisConfig.REDIS_HTTP_TOKEN = undefined;
     try {
       expect(createPageBuffer(scope())).toBeUndefined();
     } finally {
-      redisConfig.UPSTASH_REDIS_TOKEN = token;
+      redisConfig.REDIS_HTTP_TOKEN = token;
     }
   });
 });

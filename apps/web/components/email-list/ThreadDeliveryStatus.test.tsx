@@ -11,15 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
 import { cancelScheduledEmailAction } from "@/utils/actions/scheduled-email";
 import { ThreadDeliveryStatus } from "./ThreadDeliveryStatus";
+import type { MailClient } from "@inboxzero/mail-core/engine";
 
-vi.mock("@/utils/email-cache/database", () => ({
-  getEmailCacheDatabase: async () => undefined,
+const { mailClient, restoreDraft } = vi.hoisted(() => ({
+  mailClient: { current: null as MailClient | null },
+  restoreDraft: vi.fn(),
 }));
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  subscribeToMailMutations: () => () => {},
+
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => mailClient.current,
 }));
-vi.mock("@/utils/email-cache/reply-drafts", () => ({
-  restoreReplyFromOutbox: vi.fn(),
+vi.mock("@/utils/mail-engine/reply-drafts", () => ({
+  restoreCancelledSendDraft: restoreDraft,
 }));
 vi.mock("@/utils/actions/scheduled-email", () => ({
   cancelScheduledEmailAction: vi.fn(),
@@ -32,7 +35,12 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 vi.mock("./EmailMessage", () => ({ EmailMessage: () => null }));
 
 describe("offline scheduled delivery status", () => {
-  beforeEach(() => setOnline(true));
+  beforeEach(() => {
+    setOnline(true);
+    mailClient.current = null;
+    restoreDraft.mockReset();
+    restoreDraft.mockResolvedValue(undefined);
+  });
   afterEach(() => {
     cleanup();
     setOnline(true);
@@ -140,6 +148,74 @@ describe("offline scheduled delivery status", () => {
       "textContent",
       "Could not cancel send.",
     );
+  });
+});
+
+describe("queued engine reply restore", () => {
+  beforeEach(() => {
+    mailClient.current = null;
+    restoreDraft.mockReset();
+    restoreDraft.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    setOnline(true);
+  });
+
+  it("restores Edit reply through the provider client when the singleton is missing", async () => {
+    setOnline(false);
+    const client = {
+      getDiagnostics: vi.fn(async () => ({
+        commands: [
+          {
+            operationId: "send-1",
+            status: "queued",
+            kind: "send",
+            conversationIds: ["thread-1"],
+            messageIds: ["msg_playwright_reply"],
+          },
+        ],
+      })),
+      cancelOperation: vi.fn(async () => ({ status: "cancelled" })),
+    } as unknown as MailClient;
+    mailClient.current = client;
+    const onEditReply = vi.fn();
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+          shouldRetryOnError: false,
+          dedupingInterval: 0,
+        }}
+      >
+        <ThreadDeliveryStatus
+          emailAccountId="account-1"
+          threadId="thread-1"
+          messageIds={["msg_playwright_reply"]}
+          onEditReply={onEditReply}
+          refetch={vi.fn()}
+          canEditReply
+        />
+      </SWRConfig>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit reply" }));
+
+    await waitFor(() =>
+      expect(restoreDraft).toHaveBeenCalledWith({
+        client,
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "msg_playwright_reply",
+        operationId: "send-1",
+      }),
+    );
+    expect(client.cancelOperation).toHaveBeenCalledWith({
+      accountId: "account-1",
+      operationId: "send-1",
+    });
+    expect(onEditReply).toHaveBeenCalledWith("msg_playwright_reply", "reply");
   });
 });
 

@@ -104,6 +104,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 1.25 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
   },
+  "gpt-6-luna": {
+    input: 0.1 / 1_000_000,
+    output: 0.5 / 1_000_000,
+    cachedInput: 0.01 / 1_000_000,
+  },
   "gpt-5.6-luna": {
     input: 0.2 / 1_000_000,
     output: 1.2 / 1_000_000,
@@ -254,7 +259,7 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.35 / 1_000_000,
     output: 0.75 / 1_000_000,
   },
-  // TypeSafe classifier: $42 per billion input tokens, output free
+  // TypeSafe decision model: $42 per billion input tokens, output free
   "jev-latest": {
     input: 42 / 1_000_000_000,
     output: 0,
@@ -273,6 +278,7 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gpt-5.4": "openai/gpt-5.4",
   "gpt-5.4-mini": "openai/gpt-5.4-mini",
   "gpt-5.4-nano": "openai/gpt-5.4-nano",
+  "gpt-6-luna": "openai/gpt-6-luna",
   "gpt-5.6-luna": "openai/gpt-5.6-luna",
   "gpt-5.6-terra": "openai/gpt-5.6-terra",
   "gpt-5.6-sol": "openai/gpt-5.6-sol",

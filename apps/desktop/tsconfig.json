@@ -7,6 +7,7 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": ["node"],
+    "jsx": "react-jsx",
     "noEmit": true
   },
   "include": ["src"]

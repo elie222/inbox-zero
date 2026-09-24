@@ -96,7 +96,7 @@ externalRedis:
 
 `inbox-zero-database` should contain `DATABASE_URL` and `DIRECT_URL`.
 
-`inbox-zero-redis` should contain `REDIS_URL`, `UPSTASH_REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
+`inbox-zero-redis` should contain `REDIS_URL`, `REDIS_HTTP_URL`, and `REDIS_HTTP_TOKEN`. Secrets that still use `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN` keep working: leave `redisHttpUrlKey` and `redisHttpTokenKey` empty, or point those keys at the legacy names.
 
 You can use plain Kubernetes Secrets, External Secrets, Sealed Secrets, SOPS, or a cloud secret controller.
 

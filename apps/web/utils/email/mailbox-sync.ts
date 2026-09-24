@@ -14,6 +14,7 @@ const microsoftCursorSchema = z.object({
   version: z.literal(1),
   provider: z.literal("microsoft"),
   deltaLink: z.string().url(),
+  folderId: z.string().min(1).optional(),
   after: z.string().datetime(),
   snapshot: z.boolean(),
 });
@@ -67,6 +68,8 @@ export function compactMailboxSyncMessage(
 ): ParsedMessage {
   return {
     ...message,
+    hasAttachment:
+      message.hasAttachment ?? Boolean(message.attachments?.length),
     attachments: undefined,
     inline: [],
     rawRecipients: undefined,

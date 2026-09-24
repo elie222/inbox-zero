@@ -17,9 +17,9 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 
 ## Environment file
 The app reads `apps/web/.env.local`. Required non-obvious env vars beyond `.env.example` defaults:
-- `DEFAULT_LLMS` (e.g. `openai:gpt-5.6-luna`) — app crashes at startup without this.
+- `DEFAULT_LLMS` (e.g. `openai:gpt-6-luna`) — app crashes at startup without this.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — hard-required by `env.ts` validation. Use Google emulator credentials for local dev (see below).
-- `UPSTASH_REDIS_TOKEN` must be set to `dev_token` to match the `SRH_TOKEN` default in `docker-compose.dev.yml`.
+- `REDIS_HTTP_TOKEN` must be set to `dev_token` to match the `SRH_TOKEN` default in `docker-compose.dev.yml`. `UPSTASH_REDIS_TOKEN` is still accepted.
 - `MICROSOFT_WEBHOOK_CLIENT_STATE` — required if `MICROSOFT_CLIENT_ID` is set.
 
 ## Google emulator for local dev

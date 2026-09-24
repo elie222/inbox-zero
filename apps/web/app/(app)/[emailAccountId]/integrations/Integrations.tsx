@@ -13,17 +13,18 @@ import {
   TableHead,
 } from "@/components/ui/table";
 import { useIntegrations } from "@/hooks/useIntegrations";
+import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 import { IntegrationRow } from "@/app/(app)/[emailAccountId]/integrations/IntegrationRow";
 import { Card } from "@/components/ui/card";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
-import { findIntegration } from "@/utils/mcp/integrations";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function Integrations() {
-  useIntegrationNotifications();
   const { data, isLoading, error, mutate } = useIntegrations();
 
   const integrations = data?.integrations || [];
+
+  useIntegrationNotifications(data?.integrations);
 
   return (
     <Card>
@@ -59,7 +60,9 @@ export function Integrations() {
   );
 }
 
-function useIntegrationNotifications() {
+function useIntegrationNotifications(
+  integrations: GetIntegrationsResponse["integrations"] | undefined,
+) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -71,27 +74,7 @@ function useIntegrationNotifications() {
     const errorParam = searchParams.get("error");
     if (!connectedParam && !pendingParam && !errorParam) return;
 
-    if (connectedParam) {
-      const displayName =
-        findIntegration(connectedParam)?.displayName || connectedParam;
-      toastSuccess({
-        title: "Integration connected",
-        description: `Connected to ${displayName}`,
-      });
-      analytics.captureAction("integration_connected", {
-        integration: connectedParam,
-      });
-    } else if (pendingParam) {
-      const displayName =
-        findIntegration(pendingParam)?.displayName || pendingParam;
-      toastInfo({
-        title: "Connection is still finishing",
-        description: `We're still connecting to ${displayName}. Refresh in a moment to see the latest status.`,
-      });
-      analytics.captureAction("integration_connection_pending", {
-        integration: pendingParam,
-      });
-    } else if (errorParam) {
+    if (errorParam) {
       const errorMessages: Record<
         string,
         { title: string; description: string }
@@ -133,8 +116,39 @@ function useIntegrationNotifications() {
       analytics.captureAction("integration_connect_failed", {
         error_code: errorParam,
       });
+    } else if (!integrations) {
+      // The success toasts name the integration, so they wait for the list
+      return;
+    } else if (connectedParam) {
+      const displayName = getDisplayName(connectedParam, integrations);
+      toastSuccess({
+        title: "Integration connected",
+        description: `Connected to ${displayName}`,
+      });
+      analytics.captureAction("integration_connected", {
+        integration: connectedParam,
+      });
+    } else if (pendingParam) {
+      const displayName = getDisplayName(pendingParam, integrations);
+      toastInfo({
+        title: "Connection is still finishing",
+        description: `We're still connecting to ${displayName}. Refresh in a moment to see the latest status.`,
+      });
+      analytics.captureAction("integration_connection_pending", {
+        integration: pendingParam,
+      });
     }
 
     router.replace(pathname);
-  }, [analytics, pathname, router, searchParams]);
+  }, [analytics, integrations, pathname, router, searchParams]);
+}
+
+function getDisplayName(
+  name: string,
+  integrations: GetIntegrationsResponse["integrations"],
+) {
+  return (
+    integrations.find((integration) => integration.name === name)
+      ?.displayName || name
+  );
 }

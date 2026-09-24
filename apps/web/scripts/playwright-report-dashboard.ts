@@ -77,6 +77,14 @@ export function createScreenshotManifest(
   };
 }
 
+/**
+ * Playwright writes a retried test to `<test>-retryN/`, so the attempt suffix is
+ * dropped to line a capture up with the same capture from another run.
+ */
+export function screenshotBaselineKey(source: string): string {
+  return source.replace(/-retry\d+(?=[\\/][^\\/]+$)/, "");
+}
+
 export function compareScreenshotsWithBaseline(
   screenshots: Array<Omit<PlaywrightScreenshot, "comparison">>,
   baseline: unknown,
@@ -93,14 +101,16 @@ export function compareScreenshotsWithBaseline(
 
   const baselineHashes = new Map(
     baseline.screenshots.map((screenshot) => [
-      screenshot.source,
+      screenshotBaselineKey(screenshot.source),
       screenshot.hash,
     ]),
   );
   return {
     baselineAvailable: true,
     screenshots: screenshots.map((screenshot) => {
-      const baselineHash = baselineHashes.get(screenshot.source);
+      const baselineHash = baselineHashes.get(
+        screenshotBaselineKey(screenshot.source),
+      );
       return {
         ...screenshot,
         comparison:

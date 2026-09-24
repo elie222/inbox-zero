@@ -86,6 +86,8 @@ async function expectCompletedStarMutation(
       readLatestMailMutation(page, {
         emailAccountId,
         kind: "set_starred_state",
+        threadId: "thr_playwright_3",
+        payload: { starred },
       }),
     )
     .toMatchObject({ status: "succeeded", payload: { starred } });

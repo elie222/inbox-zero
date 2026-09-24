@@ -384,6 +384,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_012,
     cachedInput: 2e-7,
   },
+  "gpt-6-luna": {
+    input: 1e-7,
+    output: 5e-7,
+    cachedInput: 1e-8,
+  },
   "gpt-oss-120b": {
     input: 3.7e-8,
     output: 1.7e-7,

@@ -3,6 +3,8 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createScopedLogger } from "@/utils/logger";
+import { decideUnsubscribePageState } from "@/utils/decision-model/unsubscribe-page";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
 
 const logger = createScopedLogger("unsubscribe-page");
 
@@ -40,35 +42,63 @@ export async function aiCheckUnsubscribePageState({
   const text = pageText.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT_LENGTH);
   if (!text) return "not_confirmed";
 
+  try {
+    return await runDecisionModelOrFallback({
+      emailAccount,
+      logger,
+      feature: "unsubscribe-page classification",
+      decide: (config) =>
+        decideUnsubscribePageState({
+          config,
+          pageText: text,
+          emailAccount,
+          logger,
+        }),
+      fallback: () =>
+        checkUnsubscribePageStateWithLlm({
+          pageText: text,
+          emailAccount,
+        }),
+    });
+  } catch (error) {
+    logger.error("Failed to classify unsubscribe page", { error });
+    return "not_confirmed";
+  }
+}
+
+export async function checkUnsubscribePageStateWithLlm({
+  pageText,
+  emailAccount,
+}: {
+  pageText: string;
+  emailAccount: EmailAccountWithAI;
+}): Promise<"confirmed" | "not_confirmed"> {
+  const text = pageText.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT_LENGTH);
+
   const prompt = `Classify the state of this unsubscribe page.
 
 <page_text>
 ${text}
 </page_text>`;
 
-  try {
-    const modelOptions = getModelForUseCase(
-      emailAccount.user,
-      LlmUseCase.UnsubscribePageState,
-    );
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.UnsubscribePageState,
+  );
 
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Unsubscribe page state",
-      modelOptions,
-      promptHardening: { trust: "untrusted", level: "compact" },
-    });
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Unsubscribe page state",
+    modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
+  });
 
-    const result = await generateObject({
-      ...modelOptions,
-      system,
-      prompt,
-      schema: z.object({ state: z.enum(["confirmed", "not_confirmed"]) }),
-    });
+  const result = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({ state: z.enum(["confirmed", "not_confirmed"]) }),
+  });
 
-    return result.object.state;
-  } catch (error) {
-    logger.error("Failed to classify unsubscribe page", { error });
-    return "not_confirmed";
-  }
+  return result.object.state;
 }
