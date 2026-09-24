@@ -18,12 +18,15 @@ export async function migrateMessageSearchKeys(tx: SqlTransaction) {
       PRIMARY KEY (account_id, message_id)
     );
   `);
-  await withSearchIndex(tx, "backfill_fts_keys", () =>
+  const backfilled = await withSearchIndex(tx, "backfill_fts_keys", () =>
     tx.execute(
       `INSERT OR REPLACE INTO message_fts_keys(account_id, message_id, fts_rowid)
        SELECT account_id, message_id, rowid FROM message_fts`,
     ),
   );
+  // An existing index opened without FTS5 retries on a later open, so its
+  // rows still get keys once the index is readable.
+  if (!backfilled) return;
   await tx.execute(
     "INSERT INTO schema_migrations(id, name) VALUES (4, '0004-message-search-keys')",
   );
@@ -67,21 +70,24 @@ export async function deleteAccountSearchIndex(
   tx: SqlTransaction,
   accountId: string,
 ) {
-  await withSearchIndex(tx, "purge_fts", () =>
+  const purged = await withSearchIndex(tx, "purge_fts", () =>
     tx.execute(
       "DELETE FROM message_fts WHERE rowid IN (SELECT fts_rowid FROM message_fts_keys WHERE account_id = ?)",
       [accountId],
     ),
   );
+  // The keys are the only way back to rows a failed delete left behind.
+  if (!purged) return;
   await tx.execute("DELETE FROM message_fts_keys WHERE account_id = ?", [
     accountId,
   ]);
 }
 
 export async function clearSearchIndex(tx: SqlTransaction) {
-  await withSearchIndex(tx, "clear_fts", () =>
+  const cleared = await withSearchIndex(tx, "clear_fts", () =>
     tx.execute("DELETE FROM message_fts"),
   );
+  if (!cleared) return;
   await tx.execute("DELETE FROM message_fts_keys");
 }
 
@@ -93,16 +99,17 @@ function deleteKey(tx: SqlTransaction, key: MessageKey) {
 }
 
 // FTS is optional when the runtime SQLite build omits it; a failure must not
-// abort the surrounding write.
+// abort the surrounding write. Resolves whether the index work succeeded.
 async function withSearchIndex(
   tx: SqlTransaction,
   savepoint: string,
   run: () => Promise<unknown>,
-) {
+): Promise<boolean> {
   try {
     await tx.exec(`SAVEPOINT ${savepoint}`);
     await run();
     await tx.exec(`RELEASE ${savepoint}`);
+    return true;
   } catch {
     try {
       await tx.exec(`ROLLBACK TO ${savepoint}`);
@@ -110,5 +117,6 @@ async function withSearchIndex(
     } catch {
       // savepoint missing
     }
+    return false;
   }
 }

@@ -34,6 +34,28 @@ describe("message search index", () => {
     await close();
   });
 
+  it("keeps keys and retries the migration when the search index is unavailable", async () => {
+    const { driver, close } = await mailbox(["acc-1"]);
+    const state = await driver.write(async (tx) => {
+      await indexMessageContent(tx, key("acc-1", "m1"), "quarterly invoice");
+      await tx.exec(
+        "DROP TABLE message_fts; DELETE FROM schema_migrations WHERE id = 4;",
+      );
+      await deleteAccountSearchIndex(tx, "acc-1");
+      await migrateMessageSearchKeys(tx);
+      return {
+        keys: await tx.query("SELECT message_id FROM message_fts_keys"),
+        migrations: await tx.query(
+          "SELECT id FROM schema_migrations WHERE id = 4",
+        ),
+      };
+    });
+
+    expect(state.keys).toEqual([{ message_id: "m1" }]);
+    expect(state.migrations).toEqual([]);
+    await close();
+  });
+
   it("backfills keys for rows indexed before the key table existed", async () => {
     const { driver, close } = await mailbox(["acc-1"]);
     await driver.write(async (tx) => {
