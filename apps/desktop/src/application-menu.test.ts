@@ -28,6 +28,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      recordDiagnostics: vi.fn(),
       platform: "win32",
     });
 
@@ -54,6 +55,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow,
+      recordDiagnostics: vi.fn(),
       platform: "darwin",
     });
 
@@ -64,5 +66,24 @@ describe("desktop application menu", () => {
     expect(newWindow?.accelerator).toBe("CommandOrControl+N");
     newWindow?.click?.({} as never, {} as never, {} as never);
     expect(createWindow).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "darwin",
+    "win32",
+  ] as const)("offers Record Diagnostics in the Help menu on %s", (platform) => {
+    const recordDiagnostics = vi.fn();
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      recordDiagnostics,
+      platform,
+    });
+
+    const template = Menu.buildFromTemplate.mock.results[0].value;
+    const help = template.find((item) => item.role === "help");
+    const submenu = help?.submenu as MenuItemConstructorOptions[];
+    const record = submenu.find((item) => item.label === "Record Diagnostics…");
+    expect(record?.click).toBe(recordDiagnostics);
   });
 });

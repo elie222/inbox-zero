@@ -8,6 +8,7 @@ const DSN = process.env.INBOX_ZERO_SENTRY_DSN;
 // would otherwise report on every attempt.
 const REPEAT_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 const lastReportedAt = new Map<string, number>();
+const DIAGNOSTICS_UPLOAD_TIMEOUT_MS = 60_000;
 
 /**
  * Reports main-process errors, renderer/GPU process crashes, and native
@@ -37,6 +38,24 @@ export function captureDesktopError(
   if (lastReportedAt.size >= 200) lastReportedAt.clear();
   lastReportedAt.set(key, now);
   Sentry.captureException(error, { tags });
+}
+
+export function isDesktopSentryEnabled() {
+  return Boolean(DSN);
+}
+
+/** Resolves to the event id to quote to support, or null if it didn't send. */
+export async function sendDesktopDiagnostics(
+  attachments: Array<{ filename: string; data: Uint8Array }>,
+) {
+  if (!DSN) return null;
+  const eventId = Sentry.withScope((scope) => {
+    scope.setTag("area", "diagnostics");
+    for (const attachment of attachments) scope.addAttachment(attachment);
+    return Sentry.captureMessage("User diagnostics", "info");
+  });
+  const sent = await Sentry.flush(DIAGNOSTICS_UPLOAD_TIMEOUT_MS);
+  return sent ? eventId : null;
 }
 
 // Native renderer crashes carry the crashed page URL, which can include query
