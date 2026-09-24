@@ -6,28 +6,44 @@
 -- Older patterns stored the whole From header ("Name <sender@example.com>"), so
 -- every comparison below reads the address out of the value first.
 
--- 1. Sender is already an include pattern on another enabled rule.
-DELETE FROM "GroupItem" gi
-USING "Group" g, "Rule" r
-WHERE gi."groupId" = g."id"
-  AND r."groupId" = g."id"
-  AND r."systemType" = 'COLD_EMAIL'
-  AND gi."source" = 'AI'
-  AND gi."type" = 'FROM'
-  AND NOT gi."exclude"
-  AND EXISTS (
-    SELECT 1
+-- 1. Another enabled rule already includes the sender. Rules match FROM
+-- patterns as substrings (see findMatchingGroupItem); here that is covered for
+-- the pattern shapes used in practice (full address, "@domain", "domain") as
+-- equality keys, so it stays a hash join on large installs. Rarer partial
+-- patterns are left alone, which only keeps a pattern, never deletes extra.
+DELETE FROM "GroupItem"
+WHERE "id" IN (
+  SELECT cold."id"
+  FROM (
+    SELECT gi."id", g."emailAccountId", r."id" AS "ruleId",
+      lower(coalesce(substring(gi."value" FROM '<([^>]+)>'), gi."value")) AS "address"
+    FROM "GroupItem" gi
+    JOIN "Group" g ON gi."groupId" = g."id"
+    JOIN "Rule" r ON r."groupId" = g."id"
+    WHERE r."systemType" = 'COLD_EMAIL'
+      AND gi."source" = 'AI'
+      AND gi."type" = 'FROM'
+      AND NOT gi."exclude"
+  ) cold
+  CROSS JOIN LATERAL (VALUES
+    (cold."address"),
+    ('@' || split_part(cold."address", '@', 2)),
+    (split_part(cold."address", '@', 2))
+  ) AS candidate("key")
+  JOIN (
+    SELECT og."emailAccountId", orule."id" AS "ruleId",
+      lower(coalesce(substring(other."value" FROM '<([^>]+)>'), other."value")) AS "pattern"
     FROM "GroupItem" other
     JOIN "Group" og ON other."groupId" = og."id"
     JOIN "Rule" orule ON orule."groupId" = og."id"
-    WHERE og."emailAccountId" = g."emailAccountId"
-      AND orule."id" <> r."id"
-      AND orule."enabled"
+    WHERE orule."enabled"
       AND other."type" = 'FROM'
       AND NOT other."exclude"
-      AND lower(coalesce(substring(other."value" FROM '<([^>]+)>'), other."value"))
-        = lower(coalesce(substring(gi."value" FROM '<([^>]+)>'), gi."value"))
-  );
+  ) claim
+    ON claim."emailAccountId" = cold."emailAccountId"
+    AND claim."pattern" = candidate."key"
+    AND claim."ruleId" <> cold."ruleId"
+);
 
 -- 2. Sender is a colleague on the account's own domain. Public providers are
 -- excluded, matching isPublicEmailDomain in apps/web/utils/email.ts.

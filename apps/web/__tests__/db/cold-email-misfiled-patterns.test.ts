@@ -120,10 +120,12 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       ('user-authored', 'cold-group', 'sender@example.com2', false, 'USER'),
       ('excluded', 'cold-group', 'excluded@example.com', true, 'AI'),
       ('real-cold', 'cold-group', 'stranger@example.com', false, 'AI'),
+      ('claimed-by-domain', 'cold-group', 'digest@news.example.org', false, 'AI'),
       ('claim-1', 'newsletter-group', 'sender@example.com', false, 'AI'),
       ('claim-2', 'newsletter-group', 'sender2@example.com', false, 'USER'),
       ('claim-3', 'newsletter-group', 'sender@example.com2', false, 'USER'),
       ('claim-4', 'newsletter-group', 'excluded@example.com', false, 'USER'),
+      ('claim-domain', 'newsletter-group', '@news.example.org', false, 'USER'),
       ('claim-disabled', 'disabled-group', 'disabled@example.com', false, 'USER')
     `);
 
