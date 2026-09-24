@@ -9,8 +9,11 @@ import { env } from "@/env";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   getAppPageViewProperties,
+  getPageViewSearch,
+  stripUntrackedUrlParams,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
+import { getClientAnalyticsProperties } from "@/utils/analytics/client";
 import { clearPendingAuthProvider } from "@/utils/analytics/auth-funnel";
 import { ONE_DAY_MS } from "@/utils/date";
 import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
@@ -21,25 +24,24 @@ export function PostHogPageview() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    if (pathname) {
-      let url = window.origin + pathname;
-      if (searchParams?.toString()) {
-        url = `${url}?${searchParams.toString()}`;
-      }
-      posthog.capture("$pageview", {
-        $current_url: url,
-      });
+  const pageViewSearch = getPageViewSearch(searchParams);
 
-      const appPageProperties = getAppPageViewProperties({
-        pathname,
-        searchParams,
-      });
-      if (appPageProperties) {
-        posthog.capture(PRODUCT_ANALYTICS_EVENTS.pageViewed, appPageProperties);
-      }
+  useEffect(() => {
+    if (!pathname) return;
+
+    const query = pageViewSearch ? `?${pageViewSearch}` : "";
+    posthog.capture("$pageview", {
+      $current_url: `${window.origin}${pathname}${query}`,
+    });
+
+    const appPageProperties = getAppPageViewProperties({
+      pathname,
+      searchParams: new URLSearchParams(pageViewSearch),
+    });
+    if (appPageProperties) {
+      posthog.capture(PRODUCT_ANALYTICS_EVENTS.pageViewed, appPageProperties);
     }
-  }, [pathname, searchParams]);
+  }, [pathname, pageViewSearch]);
 
   return null;
 }
@@ -93,7 +95,9 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
     disable_session_recording: true,
     disable_surveys: true,
+    before_send: stripUntrackedUrlParams,
   });
+  posthog.register(getClientAnalyticsProperties());
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {

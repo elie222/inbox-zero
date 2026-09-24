@@ -78,6 +78,7 @@ import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
+import { useMailPerformanceTelemetry } from "@/app/(app)/[emailAccountId]/mail/use-mail-performance-telemetry";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import {
   MailLayout,
@@ -528,6 +529,10 @@ export function MailShell() {
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
   const [visibleReaderThreadKey, setVisibleReaderThreadKey] =
     useState<string>();
+  useMailPerformanceTelemetry({
+    openThreadKey: openReaderThreadKey,
+    visibleThreadKey: visibleReaderThreadKey,
+  });
   const {
     data: openThreadData,
     error: openThreadError,
