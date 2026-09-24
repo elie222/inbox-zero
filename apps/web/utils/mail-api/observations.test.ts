@@ -49,6 +49,23 @@ describe("parsedMessageMetadata", () => {
     );
     expect(metadata.inboxSection).toBe("focused");
   });
+
+  it("does not keep the inbox role on archived mail", () => {
+    const metadata = parsedMessageMetadata({
+      id: "m3",
+      threadId: "t3",
+      historyId: "1",
+      date: "2026-01-01T00:00:00.000Z",
+      parentFolderId: "AAMk-inbox-archive",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["ARCHIVE", "UNREAD"],
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      inline: [],
+    } as ParsedMessage);
+    expect(metadata.roles).toEqual([]);
+    expect(metadata.read).toBe(false);
+  });
 });
 
 describe("parsedMessageBodyObservation", () => {
