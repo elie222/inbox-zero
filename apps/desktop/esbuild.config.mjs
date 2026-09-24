@@ -33,7 +33,7 @@ await esbuild.build({
 
 await esbuild.build({
   ...desktopEsbuildShared,
-  entryPoints: ["src/mail-engine/utility-child.ts"],
+  entryPoints: ["src/mail-engine/utility-child-entry.ts"],
   outfile: "dist/mail-engine-child.js",
   format: "esm",
 });

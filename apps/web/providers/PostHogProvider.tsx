@@ -15,6 +15,7 @@ import {
 } from "@/utils/analytics/product";
 import { getClientAnalyticsProperties } from "@/utils/analytics/client";
 import { clearPendingAuthProvider } from "@/utils/analytics/auth-funnel";
+import { startDesktopHealthReporting } from "@/utils/analytics/desktop-health";
 import { ONE_DAY_MS } from "@/utils/date";
 import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
 
@@ -98,6 +99,7 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     before_send: stripUntrackedUrlParams,
   });
   posthog.register(getClientAnalyticsProperties());
+  startDesktopHealthReporting();
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {

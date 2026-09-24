@@ -41,6 +41,7 @@ describe.skipIf(!hasElectronBinary())(
       expect(payload.url).toContain("renderer/index.html");
       expect(payload.url).not.toContain("getinboxzero.com");
       expect(payload.ready).toBe(true);
+      expect(payload.engine).toBe(true);
     }, 90_000);
 
     it.skipIf(!existsSync(packagedBin))(
@@ -83,7 +84,7 @@ async function launchLocalMailSmoke(binary: string, extraArgs: string[]) {
     .find((item) => item.startsWith("ELECTRON_PACKAGED_LOCAL_MAIL "));
   return JSON.parse(
     line?.slice("ELECTRON_PACKAGED_LOCAL_MAIL ".length) ?? "{}",
-  ) as { url?: string; ready?: boolean };
+  ) as { url?: string; ready?: boolean; engine?: boolean };
 }
 
 function runElectron(binary: string, extraArgs: string[], userData: string) {

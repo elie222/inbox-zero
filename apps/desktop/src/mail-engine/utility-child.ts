@@ -1,102 +1,150 @@
-import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
+import { randomUUID } from "node:crypto";
+import {
+  createDurationRecorder,
+  type DurationSummary,
+  startEventLoopDelayMonitor,
+} from "../health";
 import { createRoutedBackendPorts } from "./backend";
+import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createOriginMailRequest } from "./request";
 
-export type UtilityChildMessage =
-  | { id: string; type: "start"; databasePath: string; origin: string }
-  | { id: string; type: "ipc"; payload: unknown }
-  | { id: string; type: "recover" }
-  | { id: string; type: "close" };
+export type MainToChildMessage =
+  | { type: "start"; id: string; databasePath: string; origin: string }
+  | { type: "ipc"; id: string; payload: unknown }
+  | { type: "subscribe"; subscriptionId: string; payload: unknown }
+  | { type: "unsubscribe"; subscriptionId: string }
+  | { type: "recover"; id: string }
+  | { type: "close"; id: string }
+  | { type: "health"; id: string }
+  | { type: "cookieHeader"; requestId: string; cookieHeader: string };
 
-export type UtilityChildReply = {
-  id: string;
-  status: "ok" | "error";
-  result: unknown;
+export type ChildToMainMessage =
+  | { type: "reply"; id: string; status: "ok"; result: unknown }
+  | { type: "reply"; id: string; status: "error"; message: string }
+  | { type: "snapshot"; subscriptionId: string; snapshot: unknown }
+  | { type: "engineError"; message: string; stack?: string }
+  | { type: "cookieHeaderRequest"; requestId: string; url: string };
+
+export type ChildHealth = {
+  eventLoopDelayMs: DurationSummary | null;
+  /** From the call, so including time queued behind other transactions. */
+  sqliteReadMs: DurationSummary | null;
+  sqliteWriteMs: DurationSummary | null;
 };
 
-export function createUtilityChildRuntime() {
+/**
+ * Owns SQLite and the engine loop in the mail utility process, so long
+ * synchronous database work never blocks the main process's window input.
+ */
+export function createUtilityChildRuntime(
+  post: (message: ChildToMainMessage) => void,
+) {
   let owner: DesktopMailOwner | undefined;
-  return {
-    async handle(message: UtilityChildMessage): Promise<UtilityChildReply> {
-      try {
-        if (message.type === "start") {
-          owner = await createDesktopMailOwner({
-            databasePath: message.databasePath,
-            ...createRoutedBackendPorts(createOriginRequest(message.origin)),
-          });
-          return { id: message.id, status: "ok", result: { started: true } };
-        }
-        if (!owner) {
-          return {
-            id: message.id,
-            status: "error",
-            result: { message: "owner not started" },
-          };
-        }
-        if (message.type === "ipc") {
-          return {
-            id: message.id,
-            status: "ok",
-            result: await owner.handleIpc(message.payload),
-          };
-        }
-        if (message.type === "recover") {
-          await owner.recover();
-          return { id: message.id, status: "ok", result: { recovered: true } };
-        }
-        await owner.close();
+  const subscriptions = new Map<string, () => void>();
+  const cookieRequests = new Map<string, (cookieHeader: string) => void>();
+  const eventLoopDelay = startEventLoopDelayMonitor();
+  const sqliteReads = createDurationRecorder();
+  const sqliteWrites = createDurationRecorder();
+
+  // Session cookies stay in the main process; it answers per request.
+  function requestCookieHeader(url: string) {
+    const requestId = randomUUID();
+    return new Promise<string>((resolve) => {
+      cookieRequests.set(requestId, resolve);
+      post({ type: "cookieHeaderRequest", requestId, url });
+    });
+  }
+
+  function requireOwner() {
+    if (!owner) throw new Error("mail engine is not started");
+    return owner;
+  }
+
+  function health(): ChildHealth {
+    return {
+      eventLoopDelayMs: eventLoopDelay.drain(),
+      sqliteReadMs: sqliteReads.drain(),
+      sqliteWriteMs: sqliteWrites.drain(),
+    };
+  }
+
+  async function run(message: MainToChildMessage): Promise<unknown> {
+    switch (message.type) {
+      case "start":
+        owner = await createDesktopMailOwner({
+          databasePath: message.databasePath,
+          ...createRoutedBackendPorts(
+            createOriginMailRequest({
+              origin: message.origin,
+              cookieHeader: requestCookieHeader,
+            }),
+          ),
+          onEngineError: (error) => post(engineErrorMessage(error)),
+          onSqliteTransaction: (kind, durationMs) =>
+            (kind === "read" ? sqliteReads : sqliteWrites).record(durationMs),
+        });
+        return null;
+      case "ipc":
+        return requireOwner().handleIpc(message.payload);
+      case "subscribe": {
+        const { subscriptionId } = message;
+        const unsubscribe = requireOwner().subscribe(
+          message.payload,
+          (snapshot) => post({ type: "snapshot", subscriptionId, snapshot }),
+        );
+        if (unsubscribe) subscriptions.set(subscriptionId, unsubscribe);
+        return null;
+      }
+      case "unsubscribe":
+        subscriptions.get(message.subscriptionId)?.();
+        subscriptions.delete(message.subscriptionId);
+        return null;
+      case "recover":
+        await requireOwner().recover();
+        return null;
+      case "close":
+        for (const unsubscribe of subscriptions.values()) unsubscribe();
+        subscriptions.clear();
+        await owner?.close();
         owner = undefined;
-        return { id: message.id, status: "ok", result: { closed: true } };
+        return null;
+      case "health":
+        return health();
+      case "cookieHeader":
+        cookieRequests.get(message.requestId)?.(message.cookieHeader);
+        cookieRequests.delete(message.requestId);
+        return null;
+      default: {
+        const exhaustive: never = message;
+        return exhaustive;
+      }
+    }
+  }
+
+  return {
+    async handle(message: MainToChildMessage) {
+      const id = "id" in message ? message.id : null;
+      try {
+        const result = await run(message);
+        if (id !== null) post({ type: "reply", id, status: "ok", result });
       } catch (error) {
-        return {
-          id: message.id,
+        if (id === null) {
+          post(engineErrorMessage(error));
+          return;
+        }
+        post({
+          type: "reply",
+          id,
           status: "error",
-          result: {
-            message: error instanceof Error ? error.message : "child_error",
-          },
-        };
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     },
   };
 }
 
-function createOriginRequest(origin: string) {
-  return createOriginMailRequest({ origin });
+function engineErrorMessage(error: unknown): ChildToMainMessage {
+  return error instanceof Error
+    ? { type: "engineError", message: error.message, stack: error.stack }
+    : { type: "engineError", message: String(error) };
 }
-
-export function bindUtilityChildTransport(
-  childRuntime: ReturnType<typeof createUtilityChildRuntime>,
-  processLike: {
-    send?: (message: unknown) => boolean;
-    on?(event: "message", listener: (message: unknown) => void): unknown;
-    parentPort?: {
-      on(
-        event: "message",
-        listener: (event: { data: unknown } | unknown) => void,
-      ): unknown;
-      postMessage(message: unknown): void;
-    };
-  },
-) {
-  if (typeof processLike.send === "function" && processLike.on) {
-    processLike.on("message", (message) => {
-      childRuntime
-        .handle(message as UtilityChildMessage)
-        .then((reply) => processLike.send?.(reply));
-    });
-    return;
-  }
-  if (!processLike.parentPort) return;
-  processLike.parentPort.on("message", (event) => {
-    const message =
-      event && typeof event === "object" && "data" in event
-        ? event.data
-        : event;
-    childRuntime
-      .handle(message as UtilityChildMessage)
-      .then((reply) => processLike.parentPort?.postMessage(reply));
-  });
-}
-
-const runtime = createUtilityChildRuntime();
-bindUtilityChildTransport(runtime, process);

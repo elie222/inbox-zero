@@ -331,6 +331,7 @@ export function createMailEngine(input: {
         if (evictedBodies > 0) await refreshViews();
       }
       while (runtime.nowMs() < deadlineMs) {
+        await yieldToHost();
         if (signal?.aborted) return;
         const work = await store.claimWork({
           ownerId,
@@ -634,6 +635,7 @@ export function createMailEngine(input: {
     }
     let processedPages = 0;
     while (scan.page) {
+      if (processedPages > 0) await yieldToHost();
       if (input.signal?.aborted) return;
       if (processedPages > 0 && runtime.nowMs() >= input.deadlineMs) return;
       if (processedPages >= MAX_BOOTSTRAP_PAGES_PER_RUN) return;
@@ -1074,4 +1076,13 @@ async function runAttachmentUpload(input: {
     attachmentId: work.attachmentId,
     remoteUploadId: staged.blobId,
   });
+}
+
+/**
+ * Lets queued host work run between store transactions. Synchronous SQLite
+ * drivers otherwise keep every read (opening a conversation) waiting until a
+ * whole run of sync pages and jobs finishes.
+ */
+function yieldToHost() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
 }

@@ -207,6 +207,44 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
+  it("lets a read queued during a sync run in between bootstrap pages", async () => {
+    const events: string[] = [];
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => undefined,
+        onEnumerate: (page) => {
+          events.push(page);
+          if (page !== "page-1") return;
+          // Stands in for a window request arriving while page 1 is applied.
+          setTimeout(() => {
+            store.getDiagnostics("acc-1").then(() => events.push("read"));
+          }, 0);
+        },
+        pages: ["page-1", "page-2", "page-3"],
+      }),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(2000);
+    expect(events).toEqual(["page-1", "read", "page-2", "page-3"]);
+    await engine.close();
+  });
+
   it("passes the discovered folder scope descriptor into bootstrap", async () => {
     let receivedScope: ScopeDescriptor | null = null;
     const store = await createSqliteMailStore(createNodeSqliteDriver());

@@ -24,6 +24,31 @@ export type InboxZeroDesktopApi = {
     listener: (event: MailIpcSnapshotEvent) => void,
   ) => () => void;
   wipeMailbox?: () => Promise<unknown>;
+  getDesktopHealth?: () => Promise<DesktopHealth | null>;
+};
+
+type DesktopDurationSummary = {
+  count: number;
+  p50Ms: number;
+  p95Ms: number;
+  maxMs: number;
+};
+
+/** Aggregated since the previous call from any window. */
+export type DesktopHealth = {
+  version: string;
+  intervalMs: number;
+  mainEventLoopDelayMs: DesktopDurationSummary | null;
+  engine: {
+    running: boolean;
+    restarts: number;
+    child: {
+      eventLoopDelayMs: DesktopDurationSummary | null;
+      sqliteReadMs: DesktopDurationSummary | null;
+      sqliteWriteMs: DesktopDurationSummary | null;
+    } | null;
+  } | null;
+  mailboxBytes: number;
 };
 
 declare global {
