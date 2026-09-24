@@ -8,8 +8,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Kbd } from "@/components/Kbd";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
 export type MailSplitTab = {
@@ -124,9 +122,6 @@ export function SplitTabs({
           <PlusIcon className="size-3.5" />
         </button>
       )}
-
-      <div className="flex-1" />
-      <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>
     </div>
   );
 }
