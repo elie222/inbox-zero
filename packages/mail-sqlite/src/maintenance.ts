@@ -1,6 +1,7 @@
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import { PENDING_EFFECT_STATUSES } from "@inboxzero/mail-core/operations";
 import type { SqliteDriver } from "./driver";
+import { clearSearchIndex } from "./message-search-index";
 
 export async function evictReplaceableMessageContent(
   driver: SqliteDriver,
@@ -10,11 +11,7 @@ export async function evictReplaceableMessageContent(
     const evictedBodies = Number(before[0]?.n ?? 0);
     if (evictedBodies === 0) return { evictedBodies: 0 };
     await tx.execute("DELETE FROM message_content");
-    try {
-      await tx.execute("DELETE FROM message_fts");
-    } catch {
-      // FTS is optional when the runtime SQLite build omits it.
-    }
+    await clearSearchIndex(tx);
     await tx.execute(
       `UPDATE coverage SET content = 'partial', indexed_content = 'partial'`,
     );
