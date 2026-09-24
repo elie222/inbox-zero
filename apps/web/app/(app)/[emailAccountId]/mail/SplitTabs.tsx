@@ -20,7 +20,7 @@ export type MailSplitTab = {
 export type SplitTabsProps = {
   splits: MailSplitTab[];
   activeSplitId: string | null;
-  /** Conversations currently in each split. Missing entries stay blank. */
+  /** Conversations currently in each split. Missing entries and zeros stay blank. */
   countsById?: ReadonlyMap<string, number>;
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
@@ -100,7 +100,13 @@ export function SplitTabs({
                 >
                   <span data-split-name>{split.name}</span>
                   {countLabel ? (
-                    <span aria-hidden="true" className="tabular-nums">
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "font-normal tabular-nums",
+                        active ? "text-primary/70" : "opacity-70",
+                      )}
+                    >
                       {countLabel}
                     </span>
                   ) : null}
@@ -144,6 +150,6 @@ export function SplitTabs({
 }
 
 function splitCountLabel(count: number | undefined): string | null {
-  if (count == null || !Number.isFinite(count) || count < 0) return null;
+  if (count == null || !Number.isFinite(count) || count <= 0) return null;
   return count.toLocaleString("en-US");
 }
