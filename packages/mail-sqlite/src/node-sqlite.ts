@@ -14,56 +14,45 @@ export function nodeMailCrypto(): Pick<HostRuntime, "randomId" | "sha256"> {
 }
 
 export function createNodeSqliteDriver(path = ":memory:"): SqliteDriver {
-  const database = new DatabaseSync(path);
+  const writer = new DatabaseSync(path);
+  // An in-memory database is private to its connection, so it reads through
+  // the writer.
+  let reader = writer;
   try {
-    database.exec("PRAGMA foreign_keys=ON");
+    writer.exec("PRAGMA foreign_keys=ON");
     if (path !== ":memory:") {
-      database.exec("PRAGMA journal_mode=WAL");
-      database.exec("PRAGMA synchronous=NORMAL");
+      writer.exec("PRAGMA journal_mode=WAL");
+      writer.exec("PRAGMA synchronous=NORMAL");
+      // WAL lets a second connection read the last committed state while a
+      // write transaction is open, so reads never queue behind writes.
+      reader = new DatabaseSync(path, { readOnly: true });
     }
   } catch (error) {
-    database.close();
+    writer.close();
     throw error;
   }
-  let chain = Promise.resolve();
+  const writes = createTransactionQueue(writer);
+  const reads = reader === writer ? writes : createTransactionQueue(reader);
   let closed = false;
 
-  function runExclusive<T>(
+  function run<T>(
+    queue: TransactionQueue,
     work: (tx: SqlTransaction) => Promise<T>,
-    write: boolean,
+    begin: string,
   ) {
     if (closed) return Promise.reject(new Error("sqlite driver is closed"));
-    const run = chain.then(async () => {
-      if (write) database.exec("BEGIN IMMEDIATE");
-      else database.exec("BEGIN");
-      const tx = createTransaction(database);
-      try {
-        const result = await work(tx);
-        database.exec("COMMIT");
-        return result;
-      } catch (error) {
-        try {
-          database.exec("ROLLBACK");
-        } catch {
-          // already rolled back
-        }
-        throw error;
-      }
-    });
-    chain = run.then(
-      () => undefined,
-      () => undefined,
-    );
-    return run;
+    return queue.run(work, begin);
   }
 
   return {
-    read: (work) => runExclusive(work, false),
-    write: (work) => runExclusive(work, true),
+    read: (work) => run(reads, work, "BEGIN"),
+    write: (work) => run(writes, work, "BEGIN IMMEDIATE"),
     async close() {
       closed = true;
-      await chain;
-      database.close();
+      await Promise.all([reads.idle(), writes.idle()]);
+      // The writer closes last so it checkpoints and removes the WAL.
+      if (reader !== writer) reader.close();
+      writer.close();
     },
   };
 }
@@ -98,6 +87,39 @@ export async function wipeNodeMailbox(path: string): Promise<void> {
   await Promise.all(
     mailboxSidecars(path).map((file) => rm(file, { force: true })),
   );
+}
+
+type TransactionQueue = ReturnType<typeof createTransactionQueue>;
+
+// A connection holds one transaction at a time, and work awaits between
+// statements, so each connection runs its transactions one after another.
+function createTransactionQueue(database: DatabaseSync) {
+  let tail = Promise.resolve();
+  return {
+    run<T>(work: (tx: SqlTransaction) => Promise<T>, begin: string) {
+      const run = tail.then(async () => {
+        database.exec(begin);
+        try {
+          const result = await work(createTransaction(database));
+          database.exec("COMMIT");
+          return result;
+        } catch (error) {
+          try {
+            database.exec("ROLLBACK");
+          } catch {
+            // already rolled back
+          }
+          throw error;
+        }
+      });
+      tail = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
+    },
+    idle: () => tail,
+  };
 }
 
 function createTransaction(database: DatabaseSync): SqlTransaction {

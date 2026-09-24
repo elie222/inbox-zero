@@ -32,6 +32,48 @@ describe("sqlite driver contract", () => {
   });
 });
 
+describe("node sqlite reads", () => {
+  it("read the last committed state while a write transaction is still open", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-reads-"));
+    const driver = createNodeSqliteDriver(join(directory, "mailbox.sqlite"));
+    try {
+      await driver.write(async (tx) => {
+        await tx.exec("CREATE TABLE items(name TEXT NOT NULL)");
+        await tx.execute("INSERT INTO items(name) VALUES (?)", ["committed"]);
+      });
+      let finishWrite = () => {};
+      const writeHeld = new Promise<void>((resolve) => {
+        finishWrite = resolve;
+      });
+      const write = driver.write(async (tx) => {
+        await tx.execute("INSERT INTO items(name) VALUES (?)", ["pending"]);
+        await writeHeld;
+        return names(await tx.query("SELECT name FROM items ORDER BY rowid"));
+      });
+
+      const read = driver.read(async (tx) =>
+        names(await tx.query("SELECT name FROM items ORDER BY rowid")),
+      );
+      const readDuringWrite = await Promise.race([
+        read,
+        new Promise((resolve) => setTimeout(resolve, 500, "queued")),
+      ]);
+      finishWrite();
+
+      expect(readDuringWrite).toEqual(["committed"]);
+      expect(await write).toEqual(["committed", "pending"]);
+      expect(
+        await driver.read(async (tx) =>
+          names(await tx.query("SELECT name FROM items ORDER BY rowid")),
+        ),
+      ).toEqual(["committed", "pending"]);
+    } finally {
+      await driver.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("node mailbox quarantine", () => {
   it("renames a damaged sqlite file and opens a fresh mailbox", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-corrupt-"));
@@ -146,6 +188,10 @@ describe("wipeNodeMailbox", () => {
     await expect(wipeNodeMailbox(":memory:")).resolves.toBeUndefined();
   });
 });
+
+function names(rows: Array<Record<string, unknown>>) {
+  return rows.map((row) => String(row.name));
+}
 
 async function mailboxFileExists(path: string) {
   try {

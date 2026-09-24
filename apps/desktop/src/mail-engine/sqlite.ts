@@ -25,8 +25,8 @@ export async function createDesktopMailStore(
 
 export { nodeMailCrypto };
 
-// Timed from the call, so a read queued behind a long sync write counts the
-// wait the caller actually felt.
+// Timed from the call, so a transaction queued behind others on its connection
+// counts the wait the caller actually felt.
 function timeTransactions(
   driver: SqliteDriver,
   onTransaction: SqliteTransactionTimer,
