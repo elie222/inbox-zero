@@ -38,6 +38,7 @@ import { syncMcpTools } from "@/utils/mcp/sync-tools";
 const TEST_USER_ID = "kb-user-1";
 const TEST_EMAIL = "kb-owner@example.com";
 const TEST_ACCOUNT_ID = "kb-account-1";
+const TEST_API_KEY = "kb-secret-key";
 
 const { envOverrides, db } = vi.hoisted(() => ({
   envOverrides: { MCP_ALLOW_PRIVATE_IPS: true } as Record<string, unknown>,
@@ -79,7 +80,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     beforeAll(async () => {
       emulator = await createKnowledgeBaseMcpEmulator({
-        apiKey: "kb-secret-key",
+        apiKey: TEST_API_KEY,
       });
     });
 
@@ -154,7 +155,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         {
           name: KNOWLEDGE_BASE_TOOL_NAMES.search,
           args: { query: "refund" },
-          authorization: "Bearer kb-secret-key",
+          authorization: `Bearer ${TEST_API_KEY}`,
         },
       ]);
     });
@@ -175,6 +176,43 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(emulator.unauthorizedRequests).toBeGreaterThan(unauthorizedBefore);
       expect(db.integrations).toHaveLength(0);
       expect(db.connections).toHaveLength(0);
+    });
+
+    test("a public server without authentication syncs and is called without credentials", async () => {
+      const publicEmulator = await createKnowledgeBaseMcpEmulator({
+        apiKey: null,
+      });
+
+      try {
+        const result = await createCustomMcpServerAction(TEST_ACCOUNT_ID, {
+          displayName: "Public knowledge base",
+          serverUrl: publicEmulator.url,
+          authType: "none",
+        });
+        expect(result?.serverError).toBeUndefined();
+        expect(db.connections).toHaveLength(1);
+        expect(db.connections[0].apiKey).toBeNull();
+
+        const { tools, cleanup } =
+          await createMcpToolsForAgent(TEST_ACCOUNT_ID);
+        try {
+          await executeTool(tools[KNOWLEDGE_BASE_TOOL_NAMES.search], {
+            query: "refund",
+          });
+        } finally {
+          await cleanup();
+        }
+
+        expect(publicEmulator.toolCalls).toEqual([
+          {
+            name: KNOWLEDGE_BASE_TOOL_NAMES.search,
+            args: { query: "refund" },
+            authorization: undefined,
+          },
+        ]);
+      } finally {
+        await publicEmulator.close();
+      }
     });
 
     test("a removed server can no longer be resolved or called", async () => {
@@ -206,7 +244,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         displayName: "Team knowledge base",
         serverUrl: emulator.url,
         authType: "api-token",
-        apiKey: emulator.apiKey,
+        apiKey: TEST_API_KEY,
       });
 
       expect(result?.serverError).toBe("The server URL must use https");
@@ -234,7 +272,7 @@ async function addServer(emulator: KnowledgeBaseMcpEmulator) {
     displayName: "Team knowledge base",
     serverUrl: emulator.url,
     authType: "api-token",
-    apiKey: emulator.apiKey,
+    apiKey: TEST_API_KEY,
   });
 
   expect(result?.serverError).toBeUndefined();

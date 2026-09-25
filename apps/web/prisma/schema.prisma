@@ -1973,6 +1973,7 @@ model McpIntegration {
 enum McpAuthType {
   OAUTH
   API_TOKEN
+  NONE
 }
 
 model McpConnection {

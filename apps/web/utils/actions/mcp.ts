@@ -103,7 +103,7 @@ export const createCustomMcpServerAction = actionClient
             name: displayName,
             emailAccountId,
             integrationId: integration.id,
-            apiKey,
+            apiKey: authType === "api-token" ? apiKey : null,
             isActive: true,
           },
         });
@@ -113,7 +113,9 @@ export const createCustomMcpServerAction = actionClient
         logger.error("Failed to connect custom MCP server", { error });
         await prisma.mcpIntegration.delete({ where: { id: integration.id } });
         throw new SafeError(
-          "Could not connect to the server. Check the URL and API key.",
+          authType === "api-token"
+            ? "Could not connect to the server. Check the URL and API key."
+            : "Could not connect to the server. Check the URL, or choose an authentication method if the server requires one.",
         );
       }
 
