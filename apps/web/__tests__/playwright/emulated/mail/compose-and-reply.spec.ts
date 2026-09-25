@@ -356,16 +356,14 @@ test("opens and sends a reply from the reader with Enter", async ({
 test("pops a reply out of the thread into its own window", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
-  await conversationWithSubject(
-    page,
-    conversations,
-    "Reply Workflow Message",
-  ).click();
-  await expect(
-    page.locator('[data-thread-message-id="msg_playwright_reply"]'),
-  ).toBeVisible({ timeout: 60_000 });
-  await page.keyboard.press("Enter");
+  const { emailAccountId } = await openMail(page);
+  // An earlier test replies in this thread, so open it directly.
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
 
   const inlineEditor = page.locator(
     "[data-thread-message-id] [contenteditable='true']",
