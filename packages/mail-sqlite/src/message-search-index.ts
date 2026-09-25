@@ -1,5 +1,6 @@
 import type { MessageKey } from "@inboxzero/mail-core/identities";
 import type { SqlTransaction, SqlValue } from "./driver";
+import { decodeMessageBody, type MessageBodyCodec } from "./message-body-codec";
 import { searchableBody, searchableText } from "./search-text";
 
 const BACKLOG_BATCH_ROWS = 100;
@@ -54,6 +55,7 @@ export async function indexMessageContent(
 // last key, or null once none remain or the index is unavailable.
 export async function indexSearchBacklog(
   tx: SqlTransaction,
+  codec: MessageBodyCodec,
   after: MessageKey | null,
 ): Promise<MessageKey | null> {
   let last: MessageKey | null = null;
@@ -81,16 +83,18 @@ export async function indexSearchBacklog(
       "SELECT rowid FROM message_fts ORDER BY rowid DESC LIMIT 1",
     );
     const base = Number(top?.rowid ?? 0);
+    const columns = await Promise.all(
+      batch.map(async (row) =>
+        searchColumns(row, {
+          text: await decodeMessageBody(codec, row.text),
+          html: await decodeMessageBody(codec, row.html),
+        }),
+      ),
+    );
     await tx.execute(
       `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
        VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
-      batch.flatMap((row, index) => [
-        base + index + 1,
-        ...searchColumns(row, {
-          text: nullableString(row.text),
-          html: nullableString(row.html),
-        }),
-      ]),
+      columns.flatMap((row, index) => [base + index + 1, ...row]),
     );
     await tx.execute(
       `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
@@ -180,10 +184,6 @@ function searchColumns(
     searchableText(String(message.from_address ?? "")),
     searchableBody(content),
   ];
-}
-
-function nullableString(value: SqlValue) {
-  return value == null ? null : String(value);
 }
 
 function deleteKey(tx: SqlTransaction, key: MessageKey) {

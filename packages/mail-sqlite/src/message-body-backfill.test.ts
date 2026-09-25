@@ -86,9 +86,76 @@ describe("compressed message bodies", () => {
     expect(await finished.compressBodyBacklog()).toEqual({ remaining: false });
     await finished.close();
   });
+
+  it("keeps body terms searchable when the index is rebuilt from legacy and compressed rows", async () => {
+    const { driver, store } = await mailbox();
+    const messages = [
+      {
+        messageId: "html",
+        conversationId: "c-html",
+        html: `${HTML}<p>zephyr</p>`,
+        text: "zephyr",
+      },
+      {
+        messageId: "plain",
+        conversationId: "c-plain",
+        html: null,
+        text: "quokka sighting",
+      },
+    ];
+    await applyBodies(store, messages);
+    await storeAsLegacyText(driver, messages);
+
+    await rebuildSearchIndex(driver);
+    expect(await searchBody(driver, "zephyr")).toEqual(["c-html"]);
+    expect(await searchBody(driver, "quokka")).toEqual(["c-plain"]);
+
+    const reopened = await createSqliteMailStore(driver, {
+      bodyCodec: nodeBodyCodec,
+    });
+    while ((await reopened.compressBodyBacklog()).remaining) {
+      // keep compressing
+    }
+    await rebuildSearchIndex(driver);
+    expect(await searchBody(driver, "zephyr")).toEqual(["c-html"]);
+    expect(await searchBody(driver, "quokka")).toEqual(["c-plain"]);
+    await reopened.close();
+  });
 });
 
-type Body = { messageId: string; html: string | null; text: string | null };
+async function rebuildSearchIndex(driver: SqliteDriver) {
+  await driver.write(async (tx) => {
+    await tx.exec("INSERT INTO message_fts(message_fts) VALUES ('delete-all')");
+    await tx.exec("DELETE FROM message_fts_keys");
+  });
+  const store = await createSqliteMailStore(driver, {
+    bodyCodec: nodeBodyCodec,
+  });
+  while ((await store.indexSearchBacklog()).remaining) {
+    // keep indexing
+  }
+}
+
+async function searchBody(driver: SqliteDriver, value: string) {
+  const store = await createSqliteMailStore(driver, {
+    bodyCodec: nodeBodyCodec,
+  });
+  const { view } = await store.readMailboxView({
+    accountIds: [ACCOUNT],
+    predicate: { kind: "text", field: "body", value, match: "term" },
+    order: "newest_first",
+    pageSize: 10,
+    after: null,
+  });
+  return view.conversations.map((row) => row.key.conversationId);
+}
+
+type Body = {
+  messageId: string;
+  conversationId?: string;
+  html: string | null;
+  text: string | null;
+};
 
 async function mailbox(driver: SqliteDriver = createNodeSqliteDriver()) {
   const store = await createSqliteMailStore(driver, {
@@ -110,7 +177,9 @@ async function applyBodies(store: MailStore, bodies: Body[]) {
       requestId: "bootstrap",
       from: { streamId: "primary", generation: "g1", checkpoint: null },
       to: { streamId: "primary", generation: "g1", checkpoint: "1" },
-      changes: bodies.map((body) => messagePatch(body.messageId)),
+      changes: bodies.map((body) =>
+        messagePatch(body.messageId, body.conversationId),
+      ),
       requiredHydration: [],
       roundComplete: true,
     },
@@ -164,6 +233,7 @@ async function storedColumns(driver: SqliteDriver) {
 
 function messagePatch(
   messageId: string,
+  conversationId = "c1",
 ): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
@@ -171,7 +241,7 @@ function messagePatch(
     reference: {
       provider: "google",
       messageId,
-      conversationId: "c1",
+      conversationId,
       version: "1",
     },
     fields: {

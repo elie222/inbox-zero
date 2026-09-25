@@ -172,7 +172,9 @@ export async function createSqliteMailStore(
     async indexSearchBacklog() {
       if (!searchBacklog) return { remaining: false };
       const { after } = searchBacklog;
-      const last = await driver.write((tx) => indexSearchBacklog(tx, after));
+      const last = await driver.write((tx) =>
+        indexSearchBacklog(tx, bodyCodec, after),
+      );
       searchBacklog = last ? { after: last } : null;
       return { remaining: last !== null };
     },
@@ -2962,6 +2964,10 @@ async function insertMessageContent(
   body: BodyObservation,
   codec: MessageBodyCodec,
 ) {
+  const stored = {
+    html: body.html,
+    text: storedTextPart(body.html, body.text),
+  };
   await tx.execute(
     `INSERT INTO message_content(account_id, message_id, version, html, text, attachments_json, is_meeting_invitation)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -2973,13 +2979,15 @@ async function insertMessageContent(
       body.key.accountId,
       body.key.messageId,
       body.version,
-      await encodeMessageBody(codec, body.html),
-      await encodeMessageBody(codec, storedTextPart(body.html, body.text)),
+      await encodeMessageBody(codec, stored.html),
+      await encodeMessageBody(codec, stored.text),
       JSON.stringify(body.attachments ?? []),
       body.isMeetingInvitation ? 1 : 0,
     ],
   );
-  await indexMessageContent(tx, body.key, body);
+  // Indexed from what is stored, so a later rebuild from the stored body
+  // produces the same search row.
+  await indexMessageContent(tx, body.key, stored);
 }
 
 async function isStaleMessageVersion(
