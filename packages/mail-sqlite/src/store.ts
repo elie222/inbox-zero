@@ -2471,11 +2471,23 @@ async function applyChange(tx: SqlTransaction, change: ProviderChange) {
   if (change.kind === "removed_from_scope") {
     const current = await loadConfirmed(tx, change.key);
     if (!current) return;
-    if (change.scopeId === "inbox" || change.scopeId.endsWith(":inbox")) {
-      const next = applyMetadataChange(current, { kind: "archive" });
-      await upsertConfirmed(tx, { ...current, ...next });
-      await recomputeTargets(tx, [change.key]);
+    const scopeFolderId = folderIdForBootstrapScope(change.scopeId);
+    const namedInbox =
+      change.scopeId === "inbox" || change.scopeId.endsWith(":inbox");
+    const leftItsFolder =
+      current.folderId != null &&
+      (current.folderId === scopeFolderId ||
+        current.folderId === change.scopeId);
+    if (!namedInbox && !(leftItsFolder && current.roles.includes("inbox"))) {
+      return;
     }
+    const next = applyMetadataChange(current, { kind: "archive" });
+    await upsertConfirmed(tx, {
+      ...current,
+      ...next,
+      folderId: leftItsFolder ? null : current.folderId,
+    });
+    await recomputeTargets(tx, [change.key]);
   }
 }
 

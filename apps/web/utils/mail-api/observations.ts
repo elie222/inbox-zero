@@ -19,6 +19,7 @@ const ROLE_LABELS = {
 
 export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
   const labels = message.labelIds ?? [];
+  const archived = labels.includes("ARCHIVE");
   const roles = [
     ...new Set([
       ...labels.flatMap((label) => {
@@ -27,7 +28,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
       }),
       ...rolesFromFolder(message.parentFolderId),
     ]),
-  ];
+  ].filter((role) => role !== "inbox" || !archived);
   const categoryIds = labels.filter((label) => label.startsWith("CATEGORY_"));
   const labelIds = labels.filter(
     (label) =>
@@ -158,7 +159,9 @@ function rolesFromFolder(
 ): Array<"inbox" | "sent" | "draft" | "trash" | "spam"> {
   if (!folderId) return [];
   const folder = folderId.toLowerCase();
-  if (folder.includes("inbox")) return ["inbox"];
+  // Folder ids are often opaque. A substring match treated archive folders
+  // whose id happened to contain "inbox" as the inbox itself.
+  if (folder === "inbox") return ["inbox"];
   if (folder.includes("sent")) return ["sent"];
   if (folder.includes("draft")) return ["draft"];
   if (folder.includes("deleted") || folder.includes("trash")) return ["trash"];

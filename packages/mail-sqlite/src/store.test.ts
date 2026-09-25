@@ -34,6 +34,73 @@ const inboxQuery = {
 };
 
 describe("sqlite mail store", () => {
+  it("drops inbox unread when a message leaves its inbox folder", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    const session = { accountId: "acc-1", generation: "g1" };
+    const leaving = messagePatch("m-left", "c-left", 1000, ["inbox"]);
+    leaving.fields.folderId = "AAMk-inbox-folder";
+    const staying = messagePatch("m-stay", "c-stay", 2000, ["inbox"]);
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session,
+        requestId: "seed",
+        from: {
+          streamId: "AAMk-inbox-folder",
+          generation: "g1",
+          checkpoint: null,
+        },
+        to: {
+          streamId: "AAMk-inbox-folder",
+          generation: "g1",
+          checkpoint: "1",
+        },
+        changes: [leaving, staying],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session,
+        requestId: "archive",
+        from: {
+          streamId: "AAMk-inbox-folder",
+          generation: "g1",
+          checkpoint: "1",
+        },
+        to: {
+          streamId: "AAMk-inbox-folder",
+          generation: "g1",
+          checkpoint: "2",
+        },
+        changes: [
+          {
+            kind: "removed_from_scope",
+            key: { accountId: "acc-1", messageId: "m-left" },
+            scopeId: "AAMk-inbox-folder",
+          },
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const counts = await store.readMailboxCounts({
+      accountIds: ["acc-1"],
+      targets: [{ id: "INBOX", predicate: { kind: "role", role: "inbox" } }],
+    });
+    expect(counts.view.counts).toEqual([
+      { id: "INBOX", matchingConversations: 1, unreadConversations: 1 },
+    ]);
+    await store.close();
+  });
+
   it("keeps two inbox queries and counts aligned across archive, new mail, and reopen", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
     const path = join(directory, "mailbox.sqlite");

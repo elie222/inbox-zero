@@ -204,42 +204,28 @@ describe("SSO management authorization", () => {
   });
 });
 
-async function setup(
-  email?: string,
-  { existingProvider = false, domainVerificationEnabled = true } = {},
-) {
-  const secret = "local-sso-tests-secret-with-sufficient-length";
-  const database: Record<string, Record<string, unknown>[]> = {
-    user: email
-      ? [
-          {
-            id: "user",
-            email,
-            name: "Test User",
-            emailVerified: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ]
-      : [],
+const secret = "local-sso-tests-secret-with-sufficient-length";
+const issuerOrigin = "https://idp.example.com";
+
+function emptyDatabase(): Record<string, Record<string, unknown>[]> {
+  return {
+    user: [],
     session: [],
     account: [],
     verification: [],
-    ssoProvider: existingProvider
-      ? [
-          {
-            id: "provider",
-            ...registration,
-            oidcConfig: JSON.stringify(registration.oidcConfig),
-            userId: "user",
-          },
-        ]
-      : [],
+    ssoProvider: [],
   };
-  const auth = betterAuth({
+}
+
+function createAuth(
+  database: Record<string, Record<string, unknown>[]>,
+  domainVerificationEnabled: boolean,
+) {
+  return betterAuth({
     baseURL: "http://localhost:3000",
     secret,
     database: memoryAdapter(database),
+    trustedOrigins: [issuerOrigin],
     plugins: [
       adminSso({
         disableImplicitSignUp: false,
@@ -249,6 +235,48 @@ async function setup(
     ],
     rateLimit: { enabled: false },
   });
+}
+
+function createHarness(domainVerificationEnabled: boolean) {
+  const database = emptyDatabase();
+  return {
+    database,
+    auth: createAuth(database, domainVerificationEnabled),
+  };
+}
+
+const harnesses = {
+  verified: createHarness(true),
+  unverified: createHarness(false),
+};
+
+async function setup(
+  email?: string,
+  { existingProvider = false, domainVerificationEnabled = true } = {},
+) {
+  const { auth, database } = domainVerificationEnabled
+    ? harnesses.verified
+    : harnesses.unverified;
+  // The adapter keeps this object. Replace rows in place so cases stay isolated.
+  for (const rows of Object.values(database)) rows.length = 0;
+  if (email) {
+    database.user.push({
+      id: "user",
+      email,
+      name: "Test User",
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+  if (existingProvider) {
+    database.ssoProvider.push({
+      id: "provider",
+      ...registration,
+      oidcConfig: JSON.stringify(registration.oidcConfig),
+      userId: "user",
+    });
+  }
   const headers = new Headers({
     "content-type": "application/json",
     origin: "http://localhost:3000",
