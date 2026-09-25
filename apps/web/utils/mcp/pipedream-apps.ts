@@ -85,14 +85,18 @@ export const PIPEDREAM_APPS = [
   },
 ];
 
-// Pipedream tool names start with the app slug, which can carry a variant
-// suffix (e.g. "slack_v2-list-channels", "airtable_oauth-list-bases")
+// Pipedream tool names start with the app slug, sometimes with a variant
+// suffix (e.g. "slack_v2-list-channels", "airtable_oauth-list-bases").
+// Other suffixes are separate apps, like "jira_service_desk".
 export function isPipedreamAppConnected(
   appSlug: string,
   toolNames: string[],
 ): boolean {
   return toolNames.some((toolName) => {
     const toolApp = toolName.toLowerCase().split("-")[0];
-    return toolApp === appSlug || toolApp.startsWith(`${appSlug}_`);
+    if (!toolApp.startsWith(appSlug)) return false;
+    return PIPEDREAM_APP_VARIANT_SUFFIX.test(toolApp.slice(appSlug.length));
   });
 }
+
+const PIPEDREAM_APP_VARIANT_SUFFIX = /^(_v\d+|_oauth|_rest_api)?$/;

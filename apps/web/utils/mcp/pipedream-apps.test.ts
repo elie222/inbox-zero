@@ -12,12 +12,20 @@ describe("isPipedreamAppConnected", () => {
     expect(
       isPipedreamAppConnected("airtable", ["airtable_oauth-list-bases"]),
     ).toBe(true);
+    expect(
+      isPipedreamAppConnected("salesforce", [
+        "salesforce_rest_api-search-records",
+      ]),
+    ).toBe(true);
   });
 
-  it("does not match apps whose slug only shares a prefix", () => {
+  it("does not match other apps that share a prefix", () => {
     expect(isPipedreamAppConnected("asana", ["asanaplus-list-tasks"])).toBe(
       false,
     );
+    expect(
+      isPipedreamAppConnected("jira", ["jira_service_desk-list-sites"]),
+    ).toBe(false);
     expect(isPipedreamAppConnected("hubspot", ["slack_v2-list-users"])).toBe(
       false,
     );
