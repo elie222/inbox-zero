@@ -35,6 +35,8 @@ export type PoppedOutReply = {
   draftMode: ReplyDraftMode;
   providerDraftMessageId?: string;
   replyingToEmail: ReplyingToEmail;
+  /** Puts the reply back in its thread when the window is dismissed unsent. */
+  onReturn?: () => void;
 };
 
 type Context = {
@@ -66,18 +68,24 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const isAllAccountsMailView =
     pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
   const { data: accountsData } = useAccounts(isAllAccountsMailView);
+  const isOpen = isModalOpen && (!poppedOutReply || Boolean(reply));
+  const returnOpenReply = useCallback(() => {
+    if (isOpen) reply?.onReturn?.();
+  }, [isOpen, reply]);
   const openCompose = useCallback(() => {
+    returnOpenReply();
     setIsExpanded(false);
     setPoppedOutReply(undefined);
     openModal();
-  }, [openModal]);
+  }, [openModal, returnOpenReply]);
   const popOutReply = useCallback(
     (nextReply: PoppedOutReply) => {
+      returnOpenReply();
       setIsExpanded(false);
       setPoppedOutReply(nextReply);
       openModal();
     },
-    [openModal],
+    [openModal, returnOpenReply],
   );
   // Keeps the popped-out reply so undo send can reopen it.
   const closeCompose = useCallback(() => {
@@ -116,7 +124,6 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     },
     [reply, closeCompose],
   );
-  const isOpen = isModalOpen && (!poppedOutReply || Boolean(reply));
   const contextValue = useMemo(
     () => ({
       onOpen: openCompose,
@@ -133,7 +140,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
         modal={false}
         open={isOpen}
         onOpenChange={(open) => {
-          if (!open) closeCompose();
+          if (open) return;
+          returnOpenReply();
+          closeCompose();
         }}
       >
         <DialogContent

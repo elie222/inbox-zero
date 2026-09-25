@@ -728,6 +728,7 @@ function ReplyPanel({
             providerDraftMessageId:
               composeMode === "reply" ? draftMessage?.id : undefined,
             replyingToEmail,
+            onReturn: onRestore,
           });
           onCloseCompose();
         }}

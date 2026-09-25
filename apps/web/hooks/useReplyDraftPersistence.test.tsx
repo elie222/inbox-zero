@@ -62,6 +62,28 @@ describe("useReplyDraftPersistence", () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
+  it("reports a failed save to a flush waiting on it", async () => {
+    let rejectSave!: (error: Error) => void;
+    save.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectSave = reject;
+      }),
+    );
+    const { result } = renderHook(() =>
+      useReplyDraftPersistence({ identity, getContent: () => content }),
+    );
+
+    act(() => result.current.capture());
+    const inFlight = result.current.flush();
+    const waiting = result.current.flush();
+    rejectSave(new Error("Draft changed in another tab"));
+
+    await act(async () => {
+      await expect(inFlight).resolves.toBe(false);
+      await expect(waiting).resolves.toBe(false);
+    });
+  });
+
   it("flushes the latest draft when the composer closes before the debounce", async () => {
     vi.useFakeTimers();
     save.mockResolvedValue({});

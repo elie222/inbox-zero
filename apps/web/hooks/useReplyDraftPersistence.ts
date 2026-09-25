@@ -40,6 +40,7 @@ export function useReplyDraftPersistence({
   );
   const latest = useRef<ReplyDraftContent | undefined>(undefined);
   const queuedSnapshot = useRef<string | undefined>(undefined);
+  const queuedSave = useRef<Promise<boolean> | undefined>(undefined);
   const mounted = useRef(true);
   const getContentRef = useRef(getContent);
   getContentRef.current = getContent;
@@ -53,36 +54,43 @@ export function useReplyDraftPersistence({
     latest.current = content;
   }, []);
 
-  const flush = useCallback(async () => {
+  /** Resolves `false` when the latest edits could not be saved. */
+  const flush = useCallback(async (): Promise<boolean> => {
     clearTimeout(timer.current);
-    if (!writer || stopped.current) return;
+    if (!writer || stopped.current) return false;
     readPendingContent();
     const content = latest.current;
-    if (!content) return;
+    if (!content) return true;
     const snapshot = getReplyDraftSnapshot(content);
-    if (snapshot === queuedSnapshot.current) return;
+    if (snapshot === queuedSnapshot.current) return queuedSave.current ?? true;
 
     queuedSnapshot.current = snapshot;
-    try {
-      await writer.save(content);
-      if (
-        mounted.current &&
-        !stopped.current &&
-        queuedSnapshot.current === snapshot
-      ) {
-        setSaveError("");
-      }
-    } catch (error) {
-      if (queuedSnapshot.current === snapshot)
-        queuedSnapshot.current = undefined;
-      if (mounted.current) {
-        setSaveError(
-          error instanceof Error
-            ? error.message
-            : "Could not save draft on this device.",
-        );
-      }
-    }
+    const save = writer.save(content).then(
+      () => {
+        if (
+          mounted.current &&
+          !stopped.current &&
+          queuedSnapshot.current === snapshot
+        ) {
+          setSaveError("");
+        }
+        return true;
+      },
+      (error: unknown) => {
+        if (queuedSnapshot.current === snapshot)
+          queuedSnapshot.current = undefined;
+        if (mounted.current) {
+          setSaveError(
+            error instanceof Error
+              ? error.message
+              : "Could not save draft on this device.",
+          );
+        }
+        return false;
+      },
+    );
+    queuedSave.current = save;
+    return save;
   }, [readPendingContent, writer]);
 
   const capture = useCallback(

@@ -1214,11 +1214,11 @@ function ComposeEmailFormContent({
     resumeProviderAutosave,
   ]);
 
-  // The popped-out composer reopens from the local draft, so save it first.
+  // The popped-out composer reopens from the local draft, so keep writing
+  // here if the latest edits could not be saved.
   const handlePopOut = async () => {
     if (!onPopOut || isSubmitting) return;
-    await flushDraft();
-    onPopOut();
+    if (await flushDraft()) onPopOut();
   };
   const popOutButton = onPopOut && (
     <Tooltip shortcuts={["popOutDraft"]}>

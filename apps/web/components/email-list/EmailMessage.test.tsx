@@ -242,7 +242,7 @@ describe("EmailMessage pop out", () => {
     vi.clearAllMocks();
   });
 
-  it("moves a reply into its own window", () => {
+  it("moves a reply into its own window and back when it is dismissed", () => {
     render(
       <EmailMessage
         defaultComposeMode="reply"
@@ -266,6 +266,11 @@ describe("EmailMessage pop out", () => {
       }),
     );
     expect(screen.queryByTestId("composer")).toBeNull();
+
+    act(() => {
+      mocks.popOutReply.mock.calls[0][0].onReturn();
+    });
+    expect(screen.getByTestId("composer")).toBeTruthy();
   });
 
   it("keeps a popped-out draft out of the thread when it remounts", () => {
