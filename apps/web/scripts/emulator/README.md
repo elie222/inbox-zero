@@ -1,45 +1,41 @@
-# Native emulator runner
+# Local emulator
 
-Run this repository as a fully local backend for a native client. Nothing here
-talks to production. The same Next.js app serves `mail/v1` and Better Auth.
-Google and Microsoft come from `@inbox-zero/emulate`. Postgres and Redis are
-disposable containers with tmpfs data disks.
+Runs the real web backend with the Google and Microsoft emulators and throwaway
+Postgres and Redis. Use it for local development, agents, and any client.
+Nothing here talks to production.
 
-Playwright's `webServer` is a different lifecycle: it starts one provider, runs
-a spec, and exits. This runner stays up until you stop it.
+Playwright's `webServer` starts one provider for a spec and exits. This stack
+stays up until you stop it.
 
-## Mac worker
+## Run
 
-From a clone of this repo, with Docker running and no production env vars
-exported:
+Docker must be running. From a clone of this repo:
 
 ```sh
 pnpm install
-pnpm -F inbox-zero-ai native-emulator:up
+pnpm -F inbox-zero-ai emulator:up
 ```
 
 The command prints:
 
 ```text
 BASE_URL=http://127.0.0.1:<port>
-CONTROL_URL=http://127.0.0.1:<port>
 GOOGLE_BASE_URL=http://127.0.0.1:<port>
 MICROSOFT_BASE_URL=http://127.0.0.1:<port>
 ```
 
-Point the native client at `BASE_URL`. The simulator on that Mac can use the
-loopback address directly. Do not substitute a deployed host.
+Point a client at `BASE_URL`.
 
 Stop it, including the database volume:
 
 ```sh
-pnpm -F inbox-zero-ai native-emulator:down
+pnpm -F inbox-zero-ai emulator:down
 ```
 
 `up` refuses to start when `DATABASE_URL`, `GOOGLE_BASE_URL`,
 `MICROSOFT_BASE_URL`, or `NEXT_PUBLIC_BASE_URL` already point off loopback.
-The Next process receives only the runner's local URLs and the emulator client
-ids (`emulate-google-client.apps.googleusercontent.com` /
+The Next process receives only local URLs and the emulator client ids
+(`emulate-google-client.apps.googleusercontent.com` /
 `emulate-microsoft-client-id`). Those are not production credentials.
 
 `up --foreground` stays attached and tears the stack down on Ctrl-C.
@@ -56,36 +52,15 @@ each provider so two users can sign in:
 | Microsoft | `developer@outlook.test` | Empty mailbox |
 | Microsoft | `teammate@outlook.test` | Empty mailbox |
 
-OAuth client secrets are the emulator fixtures in that seed file. A new `up`
-after `down` migrates a fresh database and reloads that seed. There is no
-shared volume to clean by hand.
-
-## Response loss
-
-`@inbox-zero/emulate` does not drop a response after it applies a write. The
-runner puts a proxy on `GOOGLE_BASE_URL` and `MICROSOFT_BASE_URL`. Reads pass
-through. The next successful `POST`, `PUT`, `PATCH`, or `DELETE` can be hidden
-from the client after the emulator has accepted it:
-
-```sh
-curl -X POST "$CONTROL_URL/response-loss" \
-  -H 'content-type: application/json' \
-  -d '{"provider":"google","count":1}'
-```
-
-`provider` is `google`, `microsoft`, or `both`. `GET $CONTROL_URL/response-loss`
-shows the remaining count. `DELETE $CONTROL_URL/response-loss` disarms it.
-A non-2xx upstream response does not consume a count, because the write did
-not apply. The client observes a dropped successful write as a connection
-reset and must reconcile provider state instead of sending a second copy.
+A new `up` after `down` migrates a fresh database and reloads that seed.
 
 ## Scheduled send and drafts
 
-Native clients call these with the Better Auth session cookie and the
-`X-Email-Account-ID` header. The same Next.js app still serves the server
-actions used by the web composer.
+Call these with the Better Auth session cookie and the `X-Email-Account-ID`
+header. The same Next.js app still serves the server actions used by the web
+composer.
 
-The runner sets a local `CRON_SECRET` and polls
+The stack sets a local `CRON_SECRET` and polls
 `GET /api/cron/scheduled-actions` with `Authorization: Bearer $CRON_SECRET`
 every few seconds. A future `sendAt` is delivered by that timer. There is no
 QStash process.
@@ -176,17 +151,17 @@ curl -X PUT "$BASE_URL/api/mail/v1/accounts/$EMAIL_ACCOUNT_ID/operations/$OPERAT
   -H "X-Email-Account-ID: $EMAIL_ACCOUNT_ID" \
   -d '{
     "protocolVersion": 1,
-    "requestId": "native-send-draft",
-    "session": { "accountId": "'"$EMAIL_ACCOUNT_ID"'", "generation": "native" },
+    "requestId": "send-draft",
+    "session": { "accountId": "'"$EMAIL_ACCOUNT_ID"'", "generation": "local" },
     "attemptId": "attempt-1",
     "operation": {
       "key": {
         "accountId": "'"$EMAIL_ACCOUNT_ID"'",
         "operationId": "'"$OPERATION_ID"'"
       },
-      "session": { "accountId": "'"$EMAIL_ACCOUNT_ID"'", "generation": "native" },
+      "session": { "accountId": "'"$EMAIL_ACCOUNT_ID"'", "generation": "local" },
       "authority": "client",
-      "payloadHash": "native",
+      "payloadHash": "local",
       "intent": {
         "kind": "send",
         "frozenDraftId": "local-draft",
@@ -210,14 +185,4 @@ curl -X PUT "$BASE_URL/api/mail/v1/accounts/$EMAIL_ACCOUNT_ID/operations/$OPERAT
 `POST /api/messages/send` accepts the same id on `sendEmailBody.providerDraftId`
 when the client is not using `mail/v1`.
 
-## Smoke
-
-```sh
-pnpm -F inbox-zero-ai test:native-emulator
-pnpm -F inbox-zero-ai native-emulator:smoke
-```
-
-The first command checks the proxy and the loopback guard. The second starts
-the stack, requires `/api/auth/ok` plus both provider discovery documents and
-the control server, then tears it down. Logs from a failed run stay under
-`apps/web/.tmp/native-emulator/`.
+Logs from a failed run stay under `apps/web/.tmp/emulator/`.

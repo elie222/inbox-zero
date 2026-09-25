@@ -12,9 +12,9 @@ const GOOGLE_EMAIL = "developer@example.com";
 const GOOGLE_NAME = "Developer";
 const MICROSOFT_EMAIL = "developer@outlook.test";
 const MICROSOFT_NAME = "Developer";
-const NATIVE_TEAMMATE_GOOGLE_EMAIL = "teammate@example.com";
-const NATIVE_TEAMMATE_MICROSOFT_EMAIL = "teammate@outlook.test";
-const NATIVE_TEAMMATE_NAME = "Teammate";
+const TEAMMATE_GOOGLE_EMAIL = "teammate@example.com";
+const TEAMMATE_MICROSOFT_EMAIL = "teammate@outlook.test";
+const TEAMMATE_NAME = "Teammate";
 
 export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/u, "");
@@ -77,7 +77,7 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
   };
 }
 
-export function buildNativeEmulatorSeed(baseUrl = DEFAULT_BASE_URL) {
+export function buildEmulateSeedWithTeammates(baseUrl = DEFAULT_BASE_URL) {
   const seed = buildEmulateSeed(baseUrl);
   return {
     ...seed,
@@ -85,17 +85,14 @@ export function buildNativeEmulatorSeed(baseUrl = DEFAULT_BASE_URL) {
       ...seed.google,
       users: [
         ...seed.google.users,
-        { email: NATIVE_TEAMMATE_GOOGLE_EMAIL, name: NATIVE_TEAMMATE_NAME },
+        { email: TEAMMATE_GOOGLE_EMAIL, name: TEAMMATE_NAME },
       ],
     },
     microsoft: {
       ...seed.microsoft,
       users: [
         ...seed.microsoft.users,
-        {
-          email: NATIVE_TEAMMATE_MICROSOFT_EMAIL,
-          name: NATIVE_TEAMMATE_NAME,
-        },
+        { email: TEAMMATE_MICROSOFT_EMAIL, name: TEAMMATE_NAME },
       ],
     },
   };
@@ -104,11 +101,11 @@ export function buildNativeEmulatorSeed(baseUrl = DEFAULT_BASE_URL) {
 export async function writeEmulateSeed(
   outputPath: string,
   baseUrl?: string,
-  native = false,
+  teammates = false,
 ) {
   await mkdir(dirname(outputPath), { recursive: true });
-  const seed = native
-    ? buildNativeEmulatorSeed(baseUrl)
+  const seed = teammates
+    ? buildEmulateSeedWithTeammates(baseUrl)
     : buildEmulateSeed(baseUrl);
   await writeFile(outputPath, `${JSON.stringify(seed, null, 2)}\n`);
 }

@@ -46,7 +46,7 @@ export const GET = withEmailAccount(async (request) => {
 
 /**
  * REST equivalent of `scheduleEmailAction`. A null `sendAt` sends now,
- * matching the action, so native clients do not grow a second send path.
+ * matching the action, so clients share that send path.
  */
 export const POST = withEmailAccount(
   "user/scheduled-emails",
