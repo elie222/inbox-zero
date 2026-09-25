@@ -44,6 +44,16 @@ describe("isTransientNetworkError", () => {
       ),
     ).toBe(false);
     expect(
+      isTransientNetworkError(
+        new TypeError("fetch failed", {
+          cause: new AggregateError(
+            [socketError("ETIMEDOUT"), socketError("CERT_HAS_EXPIRED")],
+            "connect failed",
+          ),
+        }),
+      ),
+    ).toBe(false);
+    expect(
       isTransientNetworkError(new Error("net::ERR_CERT_AUTHORITY_INVALID")),
     ).toBe(false);
     expect(isTransientNetworkError(new Error("fetch failed"))).toBe(false);

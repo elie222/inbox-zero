@@ -43,11 +43,11 @@ export function isTransientNetworkError(error: unknown): boolean {
     if (typeof code === "string" && TRANSIENT_NODE_CODES.has(code)) return true;
     if (TRANSIENT_CHROMIUM_ERRORS.has(current.message)) return true;
     // Connecting to every address of a host fails with one error per address.
-    if (
-      current instanceof AggregateError &&
-      current.errors.some(isTransientNetworkError)
-    ) {
-      return true;
+    if (current instanceof AggregateError) {
+      return (
+        current.errors.length > 0 &&
+        current.errors.every(isTransientNetworkError)
+      );
     }
     current = current.cause;
   }
