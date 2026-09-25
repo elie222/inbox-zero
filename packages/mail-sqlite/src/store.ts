@@ -57,9 +57,13 @@ import {
 } from "./mailbox-view-readers";
 import { migrateMailbox } from "./migrations";
 import {
+  completeSearchIndexIfFull,
   deleteAccountSearchIndex,
   indexMessageContent,
+  indexMessageMetadata,
+  indexMetadataBacklog,
   indexSearchBacklog,
+  readSearchIndexComplete,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
 import {
@@ -121,20 +125,23 @@ export async function createSqliteMailStore(
   // A build with FTS5 can still lack the index if creating it failed (for
   // example, SQLite older than contentless_delete); search then falls back
   // to substring matching instead of failing.
-  const search = {
-    fts5:
-      capabilities.fts5 &&
-      (
-        await driver.read((tx) =>
-          tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
-        )
-      ).length > 0,
-  };
-  // Each open walks the bodies once, so rows missed while the index was
-  // rebuilt or unavailable are indexed without a durable cursor.
-  let searchBacklog: { after: MessageKey | null } | null = search.fts5
-    ? { after: null }
-    : null;
+  const fts5 =
+    capabilities.fts5 &&
+    (
+      await driver.read((tx) =>
+        tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
+      )
+    ).length > 0;
+  // Whenever the index is marked incomplete (a rebuild, eviction, or a failed
+  // write), a pass walks the bodies, then the messages still missing a search
+  // row, in engine-paced batches, and ends by checking every message has one.
+  let searchBacklog: SearchBacklog | null = null;
+  // Until the index is complete, text search also checks the messages without
+  // a search row by substring.
+  const searchSupport = async (tx: SqlTransaction) => ({
+    fts5,
+    complete: fts5 && (await readSearchIndexComplete(tx)),
+  });
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -163,13 +170,44 @@ export async function createSqliteMailStore(
       return evictReplaceableMessageContent(driver);
     },
     async indexSearchBacklog() {
-      if (!searchBacklog) return { remaining: false };
-      const { after } = searchBacklog;
-      const last = await driver.write((tx) =>
-        indexSearchBacklog(tx, bodyCodec, after),
-      );
-      searchBacklog = last ? { after: last } : null;
-      return { remaining: last !== null };
+      if (!fts5) return { remaining: false };
+      if (!searchBacklog) {
+        if (await driver.read(readSearchIndexComplete)) {
+          return { remaining: false };
+        }
+        searchBacklog = { phase: "content", after: null, progressed: false };
+      }
+      while (searchBacklog) {
+        const current: SearchBacklog = searchBacklog;
+        const { phase, after, progressed } = current;
+        const batch = await driver.write((tx) =>
+          phase === "content"
+            ? indexSearchBacklog(tx, bodyCodec, after)
+            : indexMetadataBacklog(tx, after),
+        );
+        // A failed batch leaves the index incomplete; a later call retries.
+        if (!batch.indexed) {
+          searchBacklog = null;
+          return { remaining: false };
+        }
+        if (batch.last) {
+          searchBacklog = { phase, after: batch.last, progressed: true };
+          return { remaining: true };
+        }
+        if (phase === "content") {
+          searchBacklog = { phase: "metadata", after: null, progressed };
+          continue;
+        }
+        const complete = await driver.write(completeSearchIndexIfFull);
+        // Rows dropped behind the cursor during the pass get another one,
+        // unless this pass could not index anything.
+        searchBacklog =
+          complete || !progressed
+            ? null
+            : { phase: "content", after: null, progressed: false };
+        return { remaining: searchBacklog !== null };
+      }
+      return { remaining: false };
     },
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
@@ -1139,19 +1177,26 @@ export async function createSqliteMailStore(
     async readMailboxView(query) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxViewFromSql(tx, query, search),
-          search,
+          await readMailboxViewFromSql(tx, query, await searchSupport(tx)),
+          { fts5 },
         ),
       );
     },
     async readMailboxCounts(query) {
-      return driver.read((tx) => readMailboxCountsFromSql(tx, query, search));
+      return driver.read(async (tx) =>
+        readMailboxCountsFromSql(tx, query, await searchSupport(tx)),
+      );
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxWindowFromSql(tx, query, pageCount, search),
-          search,
+          await readMailboxWindowFromSql(
+            tx,
+            query,
+            pageCount,
+            await searchSupport(tx),
+          ),
+          { fts5 },
         ),
       );
     },
@@ -2539,6 +2584,10 @@ async function applyChange(tx: SqlTransaction, change: ProviderChange) {
 
 async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   const flags = roleFlags(message.roles);
+  const [previous] = await tx.query(
+    "SELECT subject, preview, from_address FROM messages WHERE account_id = ? AND message_id = ?",
+    [message.accountId, message.messageId],
+  );
   await tx.execute(
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
@@ -2600,6 +2649,16 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.deleted ? 1 : 0,
     ],
   );
+  if (
+    previous?.subject !== message.subject ||
+    previous?.preview !== message.preview ||
+    previous?.from_address !== message.from
+  ) {
+    await indexMessageMetadata(tx, {
+      accountId: message.accountId,
+      messageId: message.messageId,
+    });
+  }
 }
 
 async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
@@ -3162,6 +3221,12 @@ export function clampMaxPendingOperations(value: number | undefined): number {
   }
   return Math.min(Math.floor(value), MAX_QUEUE);
 }
+
+type SearchBacklog = {
+  phase: "content" | "metadata";
+  after: MessageKey | null;
+  progressed: boolean;
+};
 
 function withIndexedCoverage<
   T extends {

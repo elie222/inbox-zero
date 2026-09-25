@@ -33,6 +33,7 @@ export async function migrateMessageSearchIndex(tx: SqlTransaction) {
     await tx.exec("DROP TABLE IF EXISTS message_fts");
     await tx.exec(MESSAGE_FTS_SQL);
     await tx.execute("DELETE FROM message_fts_keys");
+    await markSearchIndexIncomplete(tx);
   });
   if (!rebuilt) return;
   await tx.execute(
@@ -45,19 +46,20 @@ export async function indexMessageContent(
   key: MessageKey,
   content: MessageBody,
 ) {
-  await withSearchIndex(tx, "index_content", () =>
+  const indexed = await withSearchIndex(tx, "index_content", () =>
     writeSearchRow(tx, key, content),
   );
+  if (!indexed) await abandonSearchRow(tx, key);
 }
 
 // Indexes the next batch of stored bodies that have no search row, such as
 // those left by a rebuild, in key order after `after`. Resolves the batch's
-// last key, or null once none remain or the index is unavailable.
+// last key, or null once none remain.
 export async function indexSearchBacklog(
   tx: SqlTransaction,
   codec: MessageBodyCodec,
   after: MessageKey | null,
-): Promise<MessageKey | null> {
+): Promise<BacklogBatch> {
   let last: MessageKey | null = null;
   const indexed = await withSearchIndex(tx, "index_backlog", async () => {
     const batch = await tx.query(
@@ -74,43 +76,100 @@ export async function indexSearchBacklog(
        LIMIT ?`,
       [after?.accountId ?? "", after?.messageId ?? "", BACKLOG_BATCH_ROWS],
     );
-    const tail = batch.at(-1);
-    if (!tail) return;
-    // Rowids are assigned above the current maximum up front so the whole
-    // batch indexes in one multi-row INSERT; row-at-a-time inserts were
-    // several times slower through the drivers.
-    const [top] = await tx.query(
-      "SELECT rowid FROM message_fts ORDER BY rowid DESC LIMIT 1",
+    const bodies = await Promise.all(
+      batch.map(async (row) => ({
+        text: await decodeMessageBody(codec, row.text),
+        html: await decodeMessageBody(codec, row.html),
+      })),
     );
-    const base = Number(top?.rowid ?? 0);
-    const columns = await Promise.all(
-      batch.map(async (row) =>
-        searchColumns(row, {
-          text: await decodeMessageBody(codec, row.text),
-          html: await decodeMessageBody(codec, row.html),
-        }),
-      ),
-    );
-    await tx.execute(
-      `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
-       VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
-      columns.flatMap((row, index) => [base + index + 1, ...row]),
-    );
-    await tx.execute(
-      `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
-       VALUES ${batch.map(() => "(?, ?, ?)").join(", ")}`,
-      batch.flatMap((row, index) => [
-        row.account_id,
-        row.message_id,
-        base + index + 1,
-      ]),
-    );
-    last = {
-      accountId: String(tail.account_id),
-      messageId: String(tail.message_id),
-    };
+    last = await insertSearchRows(tx, batch, bodies);
   });
-  return indexed ? last : null;
+  return indexed ? { indexed: true, last } : { indexed: false };
+}
+
+// Re-indexes a message whose subject, preview, or sender is new or changed.
+// Without a stored body its metadata is indexed directly. With one, its row is
+// dropped for the body backlog to rebuild with the text, and search leans on
+// the substring fallback until then.
+export async function indexMessageMetadata(
+  tx: SqlTransaction,
+  key: MessageKey,
+) {
+  const [stored] = await tx.query(
+    "SELECT 1 FROM message_content WHERE account_id = ? AND message_id = ?",
+    [key.accountId, key.messageId],
+  );
+  const indexed = await withSearchIndex(tx, "index_metadata", () =>
+    stored
+      ? dropSearchRow(tx, key)
+      : writeSearchRow(tx, key, { text: null, html: null }),
+  );
+  if (!indexed) await abandonSearchRow(tx, key);
+  else if (stored) await markSearchIndexIncomplete(tx);
+}
+
+// Indexes the metadata of the next batch of messages that still have no
+// search row once the body backlog is done, such as mail synced without its
+// body before metadata was indexed. Messages with a stored body are left to the
+// body backlog. Resolves like indexSearchBacklog.
+export async function indexMetadataBacklog(
+  tx: SqlTransaction,
+  after: MessageKey | null,
+): Promise<BacklogBatch> {
+  let last: MessageKey | null = null;
+  const indexed = await withSearchIndex(
+    tx,
+    "index_metadata_backlog",
+    async () => {
+      const batch = await tx.query(
+        `SELECT m.account_id, m.message_id, m.subject, m.preview, m.from_address
+         FROM messages m
+         WHERE (m.account_id, m.message_id) > (?, ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM message_fts_keys k
+             WHERE k.account_id = m.account_id AND k.message_id = m.message_id
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM message_content c
+             WHERE c.account_id = m.account_id AND c.message_id = m.message_id
+           )
+         ORDER BY m.account_id, m.message_id
+         LIMIT ?`,
+        [after?.accountId ?? "", after?.messageId ?? "", BACKLOG_BATCH_ROWS],
+      );
+      last = await insertSearchRows(
+        tx,
+        batch,
+        batch.map(() => ({ text: null, html: null })),
+      );
+    },
+  );
+  return indexed ? { indexed: true, last } : { indexed: false };
+}
+
+// Marks the index complete once every message has a search row, which lets
+// search start from index matches. Resolves whether it is complete.
+export async function completeSearchIndexIfFull(tx: SqlTransaction) {
+  const [missing] = await tx.query(
+    `SELECT 1 FROM messages m
+     WHERE NOT EXISTS (
+       SELECT 1 FROM message_fts_keys k
+       WHERE k.account_id = m.account_id AND k.message_id = m.message_id
+     )
+     LIMIT 1`,
+  );
+  if (missing) return false;
+  await tx.execute(
+    "INSERT OR REPLACE INTO search_index_state(id, complete) VALUES (1, 1)",
+  );
+  return true;
+}
+
+export async function readSearchIndexComplete(tx: SqlTransaction) {
+  const [state] = await tx.query(
+    "SELECT complete FROM search_index_state WHERE id = 1",
+  );
+  return Number(state?.complete) === 1;
 }
 
 export async function deleteAccountSearchIndex(
@@ -136,9 +195,14 @@ export async function clearSearchIndex(tx: SqlTransaction) {
   );
   if (!cleared) return;
   await tx.execute("DELETE FROM message_fts_keys");
+  await markSearchIndexIncomplete(tx);
 }
 
 type MessageBody = { text: string | null; html: string | null };
+
+type BacklogBatch =
+  | { indexed: false }
+  | { indexed: true; last: MessageKey | null };
 
 async function writeSearchRow(
   tx: SqlTransaction,
@@ -174,6 +238,43 @@ async function writeSearchRow(
   );
 }
 
+// Rowids are assigned above the current maximum up front so a whole batch
+// indexes in one multi-row INSERT; row-at-a-time inserts were several times
+// slower through the drivers. Resolves the batch's last key.
+async function insertSearchRows(
+  tx: SqlTransaction,
+  batch: Array<Record<string, SqlValue>>,
+  bodies: MessageBody[],
+): Promise<MessageKey | null> {
+  const tail = batch.at(-1);
+  if (!tail) return null;
+  const [top] = await tx.query(
+    "SELECT rowid FROM message_fts ORDER BY rowid DESC LIMIT 1",
+  );
+  const base = Number(top?.rowid ?? 0);
+  await tx.execute(
+    `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
+     VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
+    batch.flatMap((row, index) => [
+      base + index + 1,
+      ...searchColumns(row, bodies[index]),
+    ]),
+  );
+  await tx.execute(
+    `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
+     VALUES ${batch.map(() => "(?, ?, ?)").join(", ")}`,
+    batch.flatMap((row, index) => [
+      row.account_id,
+      row.message_id,
+      base + index + 1,
+    ]),
+  );
+  return {
+    accountId: String(tail.account_id),
+    messageId: String(tail.message_id),
+  };
+}
+
 function searchColumns(
   message: Record<string, SqlValue>,
   content: MessageBody,
@@ -184,6 +285,28 @@ function searchColumns(
     searchableText(String(message.from_address ?? "")),
     searchableBody(content),
   ];
+}
+
+async function dropSearchRow(tx: SqlTransaction, key: MessageKey) {
+  await tx.execute(
+    "DELETE FROM message_fts WHERE rowid IN (SELECT fts_rowid FROM message_fts_keys WHERE account_id = ? AND message_id = ?)",
+    [key.accountId, key.messageId],
+  );
+  await deleteKey(tx, key);
+}
+
+// A failed write leaves the message's previous row in place, so its key is
+// dropped: the backlog then rebuilds the row and the substring fallback covers
+// it meanwhile. An orphaned FTS row without a key never matches a message.
+async function abandonSearchRow(tx: SqlTransaction, key: MessageKey) {
+  await deleteKey(tx, key);
+  await markSearchIndexIncomplete(tx);
+}
+
+function markSearchIndexIncomplete(tx: SqlTransaction) {
+  return tx.execute(
+    "INSERT OR REPLACE INTO search_index_state(id, complete) VALUES (1, 0)",
+  );
 }
 
 function deleteKey(tx: SqlTransaction, key: MessageKey) {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { MailStore } from "@inboxzero/mail-core/ports/mail-store";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
+import type { SqliteDriver } from "./driver";
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
@@ -9,6 +11,7 @@ const MESSAGES = [
     id: "html",
     subject: "Weekly digest",
     from: "Billing <billing@acme.example>",
+    read: false,
     text: null,
     html: `<html><head><style>.font-large { color: red }</style></head><body>
       <table style="font-family:Arial"><tr><td>Quarterly <b>invoice</b> attached</td></tr></table>
@@ -18,6 +21,7 @@ const MESSAGES = [
     id: "text",
     subject: "Invoice reminder",
     from: "ada@example.com",
+    read: true,
     text: "Payment for the quarterly review",
     html: null,
   },
@@ -25,33 +29,44 @@ const MESSAGES = [
     id: "lunch",
     subject: "Lunch",
     from: "grace@example.com",
+    read: false,
     text: "Tacos on Friday",
+    html: null,
+  },
+  {
+    id: "bare",
+    subject: "Parking notice",
+    from: "facilities@example.com",
+    read: false,
+    text: null,
     html: null,
   },
 ];
 
 describe("local text search", () => {
   it("matches words from an HTML-only body but not its markup", async () => {
-    const { search, close } = await searchableMailbox();
+    const { store, close } = await searchableMailbox();
 
-    expect(await search(text("any", "attached"))).toEqual(["html"]);
-    expect(await search(text("any", "font"))).toEqual([]);
-    expect(await search(text("any", "table"))).toEqual([]);
-    expect(await search(text("any", "red"))).toEqual([]);
+    expect(await search(store, text("any", "attached"))).toEqual(["html"]);
+    expect(await search(store, text("any", "font"))).toEqual([]);
+    expect(await search(store, text("any", "table"))).toEqual([]);
+    expect(await search(store, text("any", "red"))).toEqual([]);
     await close();
   });
 
   it("matches words as they are typed and requires every term", async () => {
-    const { search, close } = await searchableMailbox();
+    const { store, close } = await searchableMailbox();
 
-    expect(await search(text("any", "quar"))).toEqual(["html", "text"]);
-    expect(await search(text("any", "invoice attach"))).toEqual(["html"]);
-    expect(await search(text("any", "quarterly tacos"))).toEqual([]);
+    expect(await search(store, text("any", "quar"))).toEqual(["html", "text"]);
+    expect(await search(store, text("any", "invoice attach"))).toEqual([
+      "html",
+    ]);
+    expect(await search(store, text("any", "quarterly tacos"))).toEqual([]);
     await close();
   });
 
   it("reads search syntax and punctuation in the input as plain text", async () => {
-    const { search, close } = await searchableMailbox();
+    const { store, close } = await searchableMailbox();
 
     for (const value of [
       '"',
@@ -67,21 +82,21 @@ describe("local text search", () => {
       "tacos -friday",
       "...",
     ]) {
-      await expect(search(text("any", value))).resolves.toBeDefined();
+      await expect(search(store, text("any", value))).resolves.toBeDefined();
     }
-    expect(await search(text("any", "tacos!"))).toEqual(["lunch"]);
-    expect(await search(text("any", '"tacos"'))).toEqual(["lunch"]);
-    expect(await search(text("any", "..."))).toEqual([]);
+    expect(await search(store, text("any", "tacos!"))).toEqual(["lunch"]);
+    expect(await search(store, text("any", '"tacos"'))).toEqual(["lunch"]);
+    expect(await search(store, text("any", "..."))).toEqual([]);
     await close();
   });
 
   it("keeps field filters to their field", async () => {
-    const { search, close } = await searchableMailbox();
+    const { store, close } = await searchableMailbox();
 
-    expect(await search(text("subject", "invoice"))).toEqual(["text"]);
-    expect(await search(text("body", "invoice"))).toEqual(["html"]);
+    expect(await search(store, text("subject", "invoice"))).toEqual(["text"]);
+    expect(await search(store, text("body", "invoice"))).toEqual(["html"]);
     expect(
-      await search({
+      await search(store, {
         kind: "all",
         predicates: [
           {
@@ -94,28 +109,80 @@ describe("local text search", () => {
         ],
       }),
     ).toEqual(["html"]);
+    expect(
+      await search(store, {
+        kind: "not",
+        predicate: text("any", "quarterly"),
+      }),
+    ).toEqual(["bare", "lunch"]);
     await close();
   });
 
-  it("finds messages the index has not reached yet by their subject, and their body once indexed", async () => {
-    const { store, driver, search, close } = await searchableMailbox();
-    await driver.write(async (tx) => {
-      await tx.exec(
-        "INSERT INTO message_fts(message_fts) VALUES ('delete-all')",
-      );
-      await tx.exec("DELETE FROM message_fts_keys");
+  it("finds mail synced without a body by its current subject", async () => {
+    const { store, close } = await searchableMailbox();
+    expect(await search(store, text("any", "parking"))).toEqual(["bare"]);
+
+    await renameSubject(store, "bare", "Garage notice");
+
+    expect(await search(store, text("any", "garage"))).toEqual(["bare"]);
+    expect(await search(store, text("any", "parking"))).toEqual([]);
+    await close();
+  });
+
+  it("finds mail with a stored body by its current subject and its body", async () => {
+    const { store, close } = await searchableMailbox();
+
+    await renameSubject(store, "lunch", "Brunch");
+    expect(await search(store, text("any", "brunch"))).toEqual(["lunch"]);
+
+    await drainBacklog(store);
+    expect(await search(store, text("any", "brunch"))).toEqual(["lunch"]);
+    expect(await search(store, text("subject", "lunch"))).toEqual([]);
+    expect(await search(store, text("any", "tacos"))).toEqual(["lunch"]);
+    await close();
+  });
+
+  it("counts matching and unread conversations for a search", async () => {
+    const { store, close } = await searchableMailbox();
+
+    const { view } = await store.readMailboxView(query(text("any", "quar")));
+    expect(view.counts).toMatchObject({
+      matchingConversations: 2,
+      unreadConversations: 1,
     });
+    await close();
+  });
 
-    expect(await search(text("subject", "digest"))).toEqual(["html"]);
-    expect(await search(text("any", "lunch"))).toEqual(["lunch"]);
-    expect(await search(text("any", "tacos"))).toEqual([]);
-    expect(await search(text("any", "attached"))).toEqual([]);
+  it("finds messages the index has not reached yet by subject, and by body once indexed", async () => {
+    const { driver, close } = await searchableMailbox();
+    // Reopening after forgetting the latest index migration rebuilds it empty.
+    await driver.write((tx) =>
+      tx.execute("DELETE FROM schema_migrations WHERE id = 7"),
+    );
+    const reopened = await createSqliteMailStore(driver);
 
-    while ((await store.indexSearchBacklog()).remaining) {
-      // keep indexing
-    }
-    expect(await search(text("any", "tacos"))).toEqual(["lunch"]);
-    expect(await search(text("any", "attached"))).toEqual(["html"]);
+    expect(await search(reopened, text("any", "lunch"))).toEqual(["lunch"]);
+    expect(await search(reopened, text("any", "tacos"))).toEqual([]);
+    expect(await search(reopened, text("subject", "parking"))).toEqual([
+      "bare",
+    ]);
+    expect(await search(reopened, text("any", "attached"))).toEqual([]);
+
+    await drainBacklog(reopened);
+    expect(await search(reopened, text("any", "attached"))).toEqual(["html"]);
+    expect(await search(reopened, text("any", "parking"))).toEqual(["bare"]);
+    expect(await search(reopened, text("any", "tacos"))).toEqual(["lunch"]);
+    await close();
+  });
+
+  it("keeps finding mail by subject after bodies are evicted", async () => {
+    const { store, close } = await searchableMailbox();
+
+    await store.evictReplaceableContent();
+    expect(await search(store, text("any", "digest"))).toEqual(["html"]);
+    await drainBacklog(store);
+    expect(await search(store, text("any", "digest"))).toEqual(["html"]);
+    expect(await search(store, text("any", "attached"))).toEqual([]);
     await close();
   });
 });
@@ -124,7 +191,28 @@ function text(field: "any" | "subject" | "body", value: string): MailPredicate {
   return { kind: "text", field, value, match: "term" };
 }
 
-async function searchableMailbox() {
+async function search(store: MailStore, predicate: MailPredicate) {
+  const result = await store.readMailboxView(query(predicate));
+  return result.view.conversations
+    .map((conversation) => conversation.key.conversationId)
+    .sort();
+}
+
+function query(predicate: MailPredicate) {
+  return {
+    accountIds: ["acc-1"],
+    predicate,
+    order: "newest_first" as const,
+    pageSize: 25,
+    after: null,
+  };
+}
+
+async function searchableMailbox(): Promise<{
+  store: MailStore;
+  driver: SqliteDriver;
+  close: () => Promise<void>;
+}> {
   const driver = createNodeSqliteDriver();
   const store = await createSqliteMailStore(driver);
   await store.ensureAccount({
@@ -143,26 +231,40 @@ async function searchableMailbox() {
       requiredHydration: [],
       roundComplete: true,
     },
-    bodies: MESSAGES.map((message) => ({
+    bodies: MESSAGES.filter(
+      (message) => message.text !== null || message.html !== null,
+    ).map((message) => ({
       key: { accountId: "acc-1", messageId: message.id },
       version: "1",
       text: message.text,
       html: message.html,
     })),
   });
-  async function search(predicate: MailPredicate) {
-    const result = await store.readMailboxView({
-      accountIds: ["acc-1"],
-      predicate,
-      order: "newest_first",
-      pageSize: 25,
-      after: null,
-    });
-    return result.view.conversations
-      .map((conversation) => conversation.key.conversationId)
-      .sort();
+  await drainBacklog(store);
+  return { store, driver, close: () => store.close() };
+}
+
+async function renameSubject(store: MailStore, id: string, subject: string) {
+  const index = MESSAGES.findIndex((message) => message.id === id);
+  const patch = messagePatch({ ...MESSAGES[index], subject }, index);
+  await store.applySyncPage({
+    ownerId: "owner",
+    page: {
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: `rename-${id}`,
+      from: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      changes: [{ ...patch, reference: { ...patch.reference, version: "2" } }],
+      requiredHydration: [],
+      roundComplete: true,
+    },
+  });
+}
+
+async function drainBacklog(store: MailStore) {
+  while ((await store.indexSearchBacklog()).remaining) {
+    // keep indexing
   }
-  return { store, driver, search, close: () => store.close() };
 }
 
 function messagePatch(
@@ -185,7 +287,7 @@ function messagePatch(
       to: ["me@example.com"],
       cc: [],
       receivedAtMs: index,
-      read: false,
+      read: message.read,
       starred: false,
       folderId: "inbox",
       labelIds: ["INBOX"],
