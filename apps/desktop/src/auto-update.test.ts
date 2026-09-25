@@ -4,6 +4,7 @@ import {
   DESKTOP_UPDATE_INTERVAL_MS,
   startDesktopAutoUpdate,
 } from "./auto-update";
+import { captureDesktopError } from "./sentry";
 
 const { autoUpdater, app, dialog } = vi.hoisted(() => ({
   app: { getVersion: vi.fn(() => "0.1.0"), isPackaged: true },
@@ -59,6 +60,18 @@ describe("startDesktopAutoUpdate", () => {
 
     await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
     expect(console.error).toHaveBeenCalledWith("feed unavailable");
+    expect(captureDesktopError).toHaveBeenCalled();
+  });
+
+  it("does not report a check that failed because the network dropped", async () => {
+    vi.mocked(captureDesktopError).mockClear();
+    autoUpdater.checkForUpdatesAndNotify.mockRejectedValueOnce(
+      new Error("net::ERR_NETWORK_CHANGED"),
+    );
+
+    await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
+    expect(console.error).toHaveBeenCalledWith("net::ERR_NETWORK_CHANGED");
+    expect(captureDesktopError).not.toHaveBeenCalled();
   });
 
   it("records feed setup failures from setFeedURL", async () => {
