@@ -45,7 +45,7 @@ export function engineDeliveryLabel(status: string, online: boolean) {
     case "verifying":
       return "Sending…";
     case "uncertain":
-      return "Delivery uncertain";
+      return "Couldn't confirm delivery";
     case "failed":
     case "needs_attention":
       return "Reply could not be sent";

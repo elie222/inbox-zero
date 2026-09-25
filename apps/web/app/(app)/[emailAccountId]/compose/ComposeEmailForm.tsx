@@ -990,7 +990,7 @@ function ComposeEmailFormContent({
               ) {
                 toastError({
                   description:
-                    "This reply may have sent. Check Sent before retrying.",
+                    "This reply may have been sent. Check Sent before retrying.",
                 });
               }
             })
@@ -1014,7 +1014,7 @@ function ComposeEmailFormContent({
           if (outcome.ownsNotification) {
             toastError({
               description:
-                "This reply may have sent. Check Sent before retrying.",
+                "This reply may have been sent. Check Sent before retrying.",
             });
           }
           onClose?.();

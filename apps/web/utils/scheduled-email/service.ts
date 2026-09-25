@@ -235,7 +235,7 @@ export async function processScheduledEmail(
             outcome.status === "blocked_auth"
               ? "Reconnect your email account to send this reply."
               : outcome.status === "uncertain"
-                ? "This email may have sent. Check Sent before sending again."
+                ? "This email may have been sent. Check Sent before sending again."
                 : outcome.error,
         },
       });

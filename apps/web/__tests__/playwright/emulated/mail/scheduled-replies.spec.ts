@@ -36,10 +36,10 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
       .click();
     await page.getByRole("button", { name: "Send", exact: true }).click();
     await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
-    await expect(delivery.getByText(/Remind me .* if no reply/)).toBeVisible();
+    await expect(delivery.getByText(/^Reminder if no reply by/)).toBeVisible();
     await page.reload();
     await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
-    await expect(delivery.getByText(/Remind me .* if no reply/)).toBeVisible();
+    await expect(delivery.getByText(/^Reminder if no reply by/)).toBeVisible();
     await capturePlaywrightCheckpoint(
       page,
       testInfo,
@@ -88,7 +88,7 @@ test("offers recovery for a failed scheduled reply and guards uncertain delivery
     );
     await page.reload();
     await expect(
-      delivery.getByText("Reply needs attention", { exact: true }),
+      delivery.getByText("Reply could not be sent", { exact: true }),
     ).toBeVisible();
     await expect(
       delivery.getByRole("button", { name: "Retry send" }),
@@ -107,7 +107,7 @@ test("offers recovery for a failed scheduled reply and guards uncertain delivery
     );
     await page.reload();
     await expect(
-      delivery.getByText("Delivery uncertain", { exact: true }),
+      delivery.getByText("Couldn't confirm delivery", { exact: true }),
     ).toBeVisible();
     await expect(
       delivery.getByRole("link", { name: "Check Sent" }),

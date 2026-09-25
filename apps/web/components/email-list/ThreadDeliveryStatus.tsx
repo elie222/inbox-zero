@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   AlertCircleIcon,
+  BellIcon,
   CheckIcon,
   ClockIcon,
   LoaderCircleIcon,
@@ -188,135 +189,110 @@ export function ThreadDeliveryStatus({
             ? "processing"
             : row.status;
         return (
-          <div key={row.operationId}>
-            {row.status === "failed" && (
-              <p className="px-1 pt-3 text-xs font-medium text-destructive">
-                Unsent reply
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground">
-              <p
-                role="status"
-                className="flex items-center gap-2 font-medium text-foreground"
+          <div
+            key={row.operationId}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
+          >
+            <p
+              role="status"
+              className="flex items-center gap-2 font-medium text-foreground"
+            >
+              <DeliveryIcon status={iconStatus} offline={!online} />
+              {engineDeliveryLabel(row.status, online)}
+            </p>
+            {(row.status === "uncertain" || row.status === "failed") && (
+              <a
+                className="underline underline-offset-4"
+                href={`/${emailAccountId}/mail?type=sent`}
               >
-                <DeliveryIcon status={iconStatus} offline={!online} />
-                {engineDeliveryLabel(row.status, online)}
-              </p>
-              {(row.status === "uncertain" || row.status === "failed") && (
-                <a
-                  className="underline underline-offset-4"
-                  href={`/${emailAccountId}/mail?type=sent`}
-                >
-                  Check Sent
-                </a>
-              )}
-              {row.status === "failed" && (
-                <InlineActionButton
-                  disabled={busy}
-                  onClick={() =>
-                    setDismissedSendIds((current) => [
-                      ...current,
-                      row.operationId,
-                    ])
-                  }
-                >
-                  Dismiss failed reply
-                </InlineActionButton>
-              )}
-              {canEditReply && canEditEngineSend(row.status, online) && (
-                <InlineActionButton
-                  disabled={busy}
-                  onClick={() =>
-                    act(async () => {
-                      const parentMessageId = engineSendReplyMessageId(
-                        row,
-                        messageIds,
-                        threadId,
-                      );
-                      if (
-                        row.status === "queued" ||
-                        row.status === "preparing"
-                      ) {
-                        const result = await client?.cancelOperation({
-                          accountId: emailAccountId,
-                          operationId: row.operationId,
-                        });
-                        if (result && result.status !== "cancelled") {
-                          throw new Error(
-                            "This reply's status changed. Refresh the thread and try again.",
-                          );
-                        }
-                        await restoreCancelledSendDraft({
-                          client,
-                          emailAccountId,
-                          threadId,
-                          messageId: parentMessageId,
-                          operationId: row.operationId,
-                        });
+                Check Sent
+              </a>
+            )}
+            {row.status === "failed" && (
+              <InlineActionButton
+                aria-label="Dismiss failed reply"
+                disabled={busy}
+                onClick={() =>
+                  setDismissedSendIds((current) => [
+                    ...current,
+                    row.operationId,
+                  ])
+                }
+              >
+                Dismiss
+              </InlineActionButton>
+            )}
+            {canEditReply && canEditEngineSend(row.status, online) && (
+              <InlineActionButton
+                disabled={busy}
+                onClick={() =>
+                  act(async () => {
+                    const parentMessageId = engineSendReplyMessageId(
+                      row,
+                      messageIds,
+                      threadId,
+                    );
+                    if (row.status === "queued" || row.status === "preparing") {
+                      const result = await client?.cancelOperation({
+                        accountId: emailAccountId,
+                        operationId: row.operationId,
+                      });
+                      if (result && result.status !== "cancelled") {
+                        throw new Error(
+                          "This reply's status changed. Refresh the thread and try again.",
+                        );
                       }
-                      onEditReply(parentMessageId, "reply");
-                    })
-                  }
-                >
-                  Edit reply
-                </InlineActionButton>
-              )}
-            </div>
+                      await restoreCancelledSendDraft({
+                        client,
+                        emailAccountId,
+                        threadId,
+                        messageId: parentMessageId,
+                        operationId: row.operationId,
+                      });
+                    }
+                    onEditReply(parentMessageId, "reply");
+                  })
+                }
+              >
+                Edit reply
+              </InlineActionButton>
+            )}
           </div>
         );
       })}
       {scheduledRows.map((row) => (
         <div
           key={row.id}
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
+          className="space-y-1 px-1 py-2 text-xs text-muted-foreground"
         >
-          <p
-            role="status"
-            className="flex items-center gap-2 font-medium text-foreground"
-          >
-            <DeliveryIcon status={row.status.toLowerCase()} />
-            {scheduledDeliveryLabel(row)}
-          </p>
-          {row.error && (
-            <p className="order-last basis-full pl-5 text-destructive">
-              {row.error}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p
+              role="status"
+              className="flex items-center gap-2 font-medium text-foreground"
+            >
+              <DeliveryIcon status={row.status.toLowerCase()} />
+              {scheduledDeliveryLabel(row)}
             </p>
-          )}
-          {row.remindAt &&
-            ["PENDING", "PROCESSING"].includes(row.reminderStatus) && (
-              <p className="order-last basis-full pl-5 text-muted-foreground">
-                Remind me {formatTime(row.remindAt)} if no reply.
-              </p>
-            )}
-          <div className="contents">
             {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
               <InlineActionButton
+                aria-label="Cancel send"
                 disabled={busy || !online}
                 onClick={() =>
                   act(() => scheduledAction(cancelScheduledEmailAction, row.id))
                 }
               >
-                Cancel send
+                Cancel
               </InlineActionButton>
             )}
             {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
               <InlineActionButton
+                aria-label="Retry send"
                 disabled={busy || !online}
                 onClick={() =>
                   act(() => scheduledAction(retryScheduledEmailAction, row.id))
                 }
               >
-                Retry send
-              </InlineActionButton>
-            )}
-            {row.reminderStatus === "PENDING" && (
-              <InlineActionButton
-                disabled={busy || !online}
-                onClick={() =>
-                  act(() => scheduledAction(cancelEmailReminderAction, row.id))
-                }
-              >
-                Cancel reminder
+                Retry
               </InlineActionButton>
             )}
             {row.status === "UNCERTAIN" && (
@@ -328,6 +304,29 @@ export function ThreadDeliveryStatus({
               </a>
             )}
           </div>
+          {row.error && <p className="pl-5 text-destructive">{row.error}</p>}
+          {row.remindAt &&
+            ["PENDING", "PROCESSING"].includes(row.reminderStatus) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="flex items-center gap-2">
+                  <BellIcon aria-hidden className="size-3.5 shrink-0" />
+                  Reminder if no reply by {formatTime(row.remindAt)}
+                </p>
+                {row.reminderStatus === "PENDING" && (
+                  <InlineActionButton
+                    aria-label="Cancel reminder"
+                    disabled={busy || !online}
+                    onClick={() =>
+                      act(() =>
+                        scheduledAction(cancelEmailReminderAction, row.id),
+                      )
+                    }
+                  >
+                    Cancel
+                  </InlineActionButton>
+                )}
+              </div>
+            )}
         </div>
       ))}
       {!online && scheduledRows.length > 0 && (
@@ -375,9 +374,9 @@ function scheduledDeliveryLabel(
     case "SENT":
       return "Reply sent";
     case "UNCERTAIN":
-      return "Delivery uncertain";
+      return "Couldn't confirm delivery";
     default:
-      return "Reply needs attention";
+      return "Reply could not be sent";
   }
 }
 
