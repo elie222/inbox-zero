@@ -58,74 +58,90 @@ export function useThread(
     );
   }, [client, emailAccountId, id, pageSize]);
   const snapshot = useQuerySnapshot(createHandle);
+  const view = useStableConversationView(snapshot.data);
   const requestedContent = useRef({ createHandle, ids: new Set<string>() });
 
   useEffect(() => {
-    if (!client || !snapshot.data) return;
+    if (!client || !view) return;
     // The view can republish several times before bodies arrive; one request
     // per message for each observation is enough.
     if (requestedContent.current.createHandle !== createHandle) {
       requestedContent.current = { createHandle, ids: new Set() };
     }
-    requestMissingMessageContent(
-      client,
-      snapshot.data,
-      requestedContent.current.ids,
-    );
-  }, [client, createHandle, snapshot.data]);
+    requestMissingMessageContent(client, view, requestedContent.current.ids);
+  }, [client, createHandle, view]);
 
   const data = useMemo<ThreadResponse | undefined>(() => {
-    if (!id || !snapshot.data) return;
-    return conversationViewToThreadResponse(snapshot.data, { includeDrafts });
-  }, [id, includeDrafts, snapshot.data]);
+    if (!id || !view) return;
+    return conversationViewToThreadResponse(view, { includeDrafts });
+  }, [id, includeDrafts, view]);
 
   const mutate = useCallback(async () => {
     if (!client || !emailAccountId) return data;
     await client.requestSync([emailAccountId]);
-    if (snapshot.data) {
+    if (view) {
       await Promise.all(
-        snapshot.data.messages.map((message) =>
+        view.messages.map((message) =>
           client.ensureMessageContent(message.key),
         ),
       );
     }
     return data;
-  }, [client, data, emailAccountId, snapshot.data]);
+  }, [client, data, emailAccountId, view]);
 
   const isLoading =
     Boolean(id) && (!client || !data) && snapshot.status !== "error";
+  const errorCode = snapshot.error?.code;
+  // Kept referentially stable so a memoized reader only re-renders when the
+  // conversation actually changes.
+  const error = useMemo(() => conversationQueryError(errorCode), [errorCode]);
+  const loadingMore = snapshot.refreshing && pageSize > CONVERSATION_PAGE_SIZE;
+  const localAvailability = useMemo(() => {
+    if (!data || !view) return;
+    return {
+      missingBodyIds: missingConversationBodyIds(view),
+      hasMore: Boolean(view.nextPage),
+      loadingMore,
+      loadMore: () =>
+        setPagination({
+          accountId: emailAccountId,
+          id,
+          pageSize: pageSize + CONVERSATION_PAGE_SIZE,
+        }),
+    };
+  }, [data, emailAccountId, id, loadingMore, pageSize, view]);
 
   return {
     data,
-    error: conversationQueryError(snapshot.error),
+    error,
     isLoading,
     isValidating: snapshot.refreshing,
     mutate,
-    localAvailability:
-      data && snapshot.data
-        ? {
-            missingBodyIds: missingConversationBodyIds(snapshot.data),
-            hasMore: Boolean(snapshot.data.nextPage),
-            loadingMore:
-              snapshot.refreshing && pageSize > CONVERSATION_PAGE_SIZE,
-            loadMore: () =>
-              setPagination({
-                accountId: emailAccountId,
-                id,
-                pageSize: pageSize + CONVERSATION_PAGE_SIZE,
-              }),
-          }
-        : undefined,
+    localAvailability,
   };
 }
 
 function conversationQueryError(
-  error: { code: string } | null,
+  code: string | undefined,
 ): { error: string; info: { error: string } } | undefined {
-  if (!error) return;
+  if (!code) return;
   const message =
-    error.code === "not_found"
+    code === "not_found"
       ? "This conversation isn't available yet."
       : "Couldn't open this conversation.";
   return { error: message, info: { error: message } };
+}
+
+// Writes elsewhere, such as saving a new draft, can republish this view with
+// the same messages. Keeping the previous view spares the open reader a full
+// re-render for them.
+function useStableConversationView(view: ConversationView | null) {
+  const previous = useRef<{ key: string; view: ConversationView } | null>(null);
+  return useMemo(() => {
+    if (!view) return view;
+    const key = JSON.stringify([view.key, view.messages, view.nextPage]);
+    if (previous.current?.key === key) return previous.current.view;
+    previous.current = { key, view };
+    return view;
+  }, [view]);
 }

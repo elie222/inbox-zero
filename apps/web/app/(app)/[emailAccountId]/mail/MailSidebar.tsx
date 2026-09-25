@@ -831,6 +831,29 @@ export function RailTooltip({
   );
 }
 
+export function getMailCategories({
+  isGoogle,
+  isOutlook,
+}: {
+  isGoogle: boolean;
+  isOutlook: boolean;
+}): MailCategory[] {
+  if (isGoogle) return MAIL_CATEGORIES;
+  if (isOutlook) return OUTLOOK_INBOX_CATEGORIES;
+  return [];
+}
+
+export function getMailNavPath(target: MailNavTarget): `/${string}` {
+  switch (target.kind) {
+    case "label":
+      return `/mail?type=label&labelId=${encodeURIComponent(target.labelId)}`;
+    case "folder":
+      return `/mail?type=folder&folderId=${encodeURIComponent(target.folderId)}`;
+    case "type":
+      return `/mail?type=${encodeURIComponent(target.type)}`;
+  }
+}
+
 /**
  * Drafts are never unread, so the only number worth showing there is the total.
  * A zero is noise, so it renders as nothing at all.

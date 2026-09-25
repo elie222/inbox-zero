@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type RefObject } from "react";
+import { memo, useId, useRef, useState, type RefObject } from "react";
 import {
   ArchiveIcon,
   ChevronDownIcon,
@@ -71,7 +71,7 @@ export type ListToolbarProps = {
   onClearSelection: () => void;
 };
 
-export function ListToolbar({
+export const ListToolbar = memo(function ListToolbar({
   layout,
   showLayoutToggle = true,
   expandedPreview,
@@ -285,7 +285,7 @@ export function ListToolbar({
       ) : null}
     </div>
   );
-}
+});
 
 function MailSearchInput({
   searchQuery,
