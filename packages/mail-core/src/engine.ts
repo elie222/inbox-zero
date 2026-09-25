@@ -340,6 +340,11 @@ export function createMailEngine(input: {
         });
         if (!work) {
           await catchUpIdleAccounts(deadlineMs, signal);
+          if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+          // Batches stay short and claimable work is checked between them,
+          // so a large backlog never delays commands or sync.
+          const { remaining } = await store.indexSearchBacklog();
+          if (remaining) continue;
           return;
         }
         if (work.kind === "command") {

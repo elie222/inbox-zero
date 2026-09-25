@@ -55,7 +55,8 @@ describe("sqlite mail store purgeAccount", () => {
     for (const table of ACCOUNT_TABLES) {
       expect(counts[table], table).toBe(0);
     }
-    expect(counts.message_fts ?? 0).toBe(0);
+    expect(counts.message_fts).toBe(0);
+    expect(counts.unkeyed_fts).toBe(0);
     const remainingCounts = countAccountRows(path, "acc-2");
     expect(remainingCounts.accounts).toBe(1);
     expect(remainingCounts.messages).toBe(1);
@@ -63,7 +64,7 @@ describe("sqlite mail store purgeAccount", () => {
     expect(remainingCounts.drafts).toBe(1);
     expect(remainingCounts.sync_streams).toBe(1);
     expect(remainingCounts.coverage).toBeGreaterThan(0);
-    expect(remainingCounts.message_fts ?? 0).toBeGreaterThan(0);
+    expect(remainingCounts.message_fts).toBeGreaterThan(0);
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -79,14 +80,16 @@ describe("sqlite mail store purgeAccount", () => {
     db.exec("PRAGMA foreign_keys = OFF");
     db.exec("DELETE FROM accounts WHERE account_id = 'acc-1'");
     db.close();
-    expect(countAccountRows(path, "acc-1").message_fts ?? 0).toBeGreaterThan(0);
+    expect(countAccountRows(path, "acc-1").message_fts).toBeGreaterThan(0);
 
     const reopened = await createSqliteMailStore(createNodeSqliteDriver(path));
     const before = await reopened.inspect();
     const purged = await reopened.purgeAccount("acc-1");
     expect(purged).toEqual(before.revision);
     await reopened.close();
-    expect(countAccountRows(path, "acc-1").message_fts ?? 0).toBe(0);
+    const counts = countAccountRows(path, "acc-1");
+    expect(counts.message_fts).toBe(0);
+    expect(counts.unkeyed_fts).toBe(0);
     expect(countAccountRows(path, "acc-2").accounts).toBe(1);
     await rm(directory, { recursive: true, force: true });
   });
@@ -233,14 +236,21 @@ function countAccountRows(path: string, accountId: string) {
       .get(accountId) as { n: number };
     counts[table] = Number(row.n);
   }
-  try {
-    const row = db
-      .prepare("SELECT COUNT(*) AS n FROM message_fts WHERE account_id = ?")
-      .get(accountId) as { n: number };
-    counts.message_fts = Number(row.n);
-  } catch {
-    counts.message_fts = 0;
-  }
+  const fts = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM message_fts_keys k
+       JOIN message_fts f ON f.rowid = k.fts_rowid
+       WHERE k.account_id = ?`,
+    )
+    .get(accountId) as { n: number };
+  counts.message_fts = Number(fts.n);
+  // A contentless index row without a key could never be found or removed.
+  const unkeyed = db
+    .prepare(
+      "SELECT (SELECT COUNT(*) FROM message_fts) - (SELECT COUNT(*) FROM message_fts_keys) AS n",
+    )
+    .get() as { n: number };
+  counts.unkeyed_fts = Number(unkeyed.n);
   db.close();
   return counts;
 }

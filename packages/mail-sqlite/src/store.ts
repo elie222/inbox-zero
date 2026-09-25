@@ -59,6 +59,7 @@ import { migrateMailbox } from "./migrations";
 import {
   deleteAccountSearchIndex,
   indexMessageContent,
+  indexSearchBacklog,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
 import {
@@ -105,6 +106,11 @@ export async function createSqliteMailStore(
   if (!capabilities.jsonEach) {
     throw new Error("SQLite json_each is required for mailbox queries");
   }
+  // Each open walks the bodies once, so rows missed while the index was
+  // rebuilt or unavailable are indexed without a durable cursor.
+  let searchBacklog: { after: MessageKey | null } | null = capabilities.fts5
+    ? { after: null }
+    : null;
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -131,6 +137,13 @@ export async function createSqliteMailStore(
     },
     evictReplaceableContent() {
       return evictReplaceableMessageContent(driver);
+    },
+    async indexSearchBacklog() {
+      if (!searchBacklog) return { remaining: false };
+      const { after } = searchBacklog;
+      const last = await driver.write((tx) => indexSearchBacklog(tx, after));
+      searchBacklog = last ? { after: last } : null;
+      return { remaining: last !== null };
     },
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
