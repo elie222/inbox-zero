@@ -34,26 +34,29 @@ export function claimStaleDeploymentReload(
 
 function handleStaleDeployment() {
   // Drafts save on a short debounce, so reloading mid-keystroke could drop the
-  // last few characters. Let the user pick the moment instead.
-  if (isEditingText()) {
-    toast.info("Inbox Zero was updated", {
-      id: TOAST_ID,
-      description: "Reload to keep using the latest version.",
-      duration: Number.POSITIVE_INFINITY,
-      action: {
-        label: "Reload",
-        onClick: () => window.location.reload(),
-      },
-    });
+  // last few characters. When typing, or when the loop guard or storage rules
+  // out an automatic reload, let the user pick the moment instead.
+  if (!isEditingText() && claimAutomaticReload()) {
+    window.location.reload();
     return;
   }
+  toast.info("Inbox Zero was updated", {
+    id: TOAST_ID,
+    description: "Reload to keep using the latest version.",
+    duration: Number.POSITIVE_INFINITY,
+    action: {
+      label: "Reload",
+      onClick: () => window.location.reload(),
+    },
+  });
+}
+
+function claimAutomaticReload() {
   try {
-    if (!claimStaleDeploymentReload(window.sessionStorage, Date.now())) return;
+    return claimStaleDeploymentReload(window.sessionStorage, Date.now());
   } catch {
-    // Without storage there is no loop guard, so leave the page as it is.
-    return;
+    return false;
   }
-  window.location.reload();
 }
 
 function isEditingText() {
