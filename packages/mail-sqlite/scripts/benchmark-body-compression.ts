@@ -7,7 +7,10 @@ import { DatabaseSync } from "node:sqlite";
 import type { SqliteDriver } from "../src/driver";
 import { createNodeSqliteDriver, nodeBodyCodec } from "../src/node-sqlite";
 import { createSqliteMailStore } from "../src/store";
-import type { MessageBodyCodec } from "../src/message-body-codec";
+import {
+  decodeMessageBody,
+  type MessageBodyCodec,
+} from "../src/message-body-codec";
 
 const COUNT = Number(process.env.MAIL_BENCH_COUNT ?? 50_000);
 const PATH = process.env.MAIL_BENCH_DB ?? "/tmp/mail-body-bench.sqlite";
@@ -28,32 +31,22 @@ export async function runBodyBenchmark(input: {
   });
   await seedLegacyMailbox(driver, count);
   const before = await sizes(driver, input.fileSize);
-
-  const store = await createSqliteMailStore(driver, { bodyCodec: codec });
-  const openBefore = await openLatency(store, count);
-
-  const batches: number[] = [];
+  const openBefore = await timeReads((id) => readBodies(driver, id), count);
   const started = performance.now();
-  for (;;) {
-    const batchStart = performance.now();
-    const { remaining } = await store.compressBodyBacklog();
-    batches.push(performance.now() - batchStart);
-    if (!remaining) break;
-  }
-  const backfillMs = performance.now() - started;
+  await createSqliteMailStore(driver, { bodyCodec: codec });
+  const migrationMs = Math.round(performance.now() - started);
   const after = await sizes(driver, input.fileSize);
-  const openAfter = await openLatency(store, count);
+  const openAfter = await timeReads(async (id) => {
+    for (const row of await readBodies(driver, id)) {
+      await decodeMessageBody(codec, row.html);
+      await decodeMessageBody(codec, row.text);
+    }
+  }, count);
   return {
     count,
     before,
     after,
-    backfill: {
-      totalMs: Math.round(backfillMs),
-      batches: batches.length,
-      slowestBatchMs: round(Math.max(...batches)),
-      p95BatchMs: round(percentile(batches, 0.95)),
-      medianBatchMs: round(percentile(batches, 0.5)),
-    },
+    migrationMs,
     openConversationMs: { before: openBefore, after: openAfter },
   };
 }
@@ -141,8 +134,23 @@ async function sizes(driver: SqliteDriver, fileSize?: () => number) {
   };
 }
 
-async function openLatency(
-  store: Awaited<ReturnType<typeof createSqliteMailStore>>,
+// The body part of opening a conversation: the queries readConversation
+// runs, plus inflating each body once they are compressed.
+async function readBodies(driver: SqliteDriver, conversationId: string) {
+  return driver.read(async (tx) => {
+    const rows = await tx.query(
+      "SELECT message_id FROM effective_messages WHERE account_id = ? AND conversation_id = ?",
+      [ACCOUNT, conversationId],
+    );
+    return tx.query(
+      `SELECT html, text, attachments_json FROM message_content WHERE account_id = ? AND message_id IN (${rows.map(() => "?").join(",") || "NULL"})`,
+      [ACCOUNT, ...rows.map((row) => String(row.message_id))],
+    );
+  });
+}
+
+async function timeReads(
+  read: (conversationId: string) => Promise<unknown>,
   count: number,
 ) {
   const random = mulberry32(7);
@@ -150,10 +158,7 @@ async function openLatency(
   for (let run = 0; run < 300; run++) {
     const conversationId = `c${Math.floor(random() * (count / 3))}`;
     const started = performance.now();
-    await store.readConversation(
-      { accountId: ACCOUNT, conversationId },
-      { after: null, pageSize: 50 },
-    );
+    await read(conversationId);
     samples.push(performance.now() - started);
   }
   return {

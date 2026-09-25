@@ -7,8 +7,7 @@ export type MessageBodyCodec = {
 };
 
 // Stored bodies are BLOBs whose first byte names their format, so the codec
-// can change later without rewriting rows. Rows written before compression
-// are TEXT and carry no marker.
+// can change later without rewriting rows.
 const UTF8_FORMAT = 0;
 const DEFLATE_RAW_FORMAT = 1;
 
@@ -38,7 +37,9 @@ export async function decodeMessageBody(
   value: SqlValue | undefined,
 ): Promise<string | null> {
   if (value === null || value === undefined) return null;
-  if (typeof value !== "object") return String(value);
+  if (!(value instanceof Uint8Array)) {
+    throw new Error("Message body is not in the stored format");
+  }
   const format = value[0];
   const payload = value.subarray(1);
   if (format === UTF8_FORMAT) return decoder.decode(payload);

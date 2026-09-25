@@ -279,7 +279,7 @@ describe("browser wasm sqlite driver", () => {
     await store.close();
   });
 
-  it("compresses stored bodies on sqlite-wasm, including rows written before compression", async () => {
+  it("compresses stored bodies on sqlite-wasm and converts rows written before compression on open", async () => {
     const driver = await createWasmSqliteDriver({ persist: false });
     const store = await createSqliteMailStore(driver);
     await store.ensureAccount({
@@ -331,13 +331,6 @@ describe("browser wasm sqlite driver", () => {
       await tx.execute("DELETE FROM schema_migrations WHERE id = 8");
     });
     const reopened = await createSqliteMailStore(driver);
-    expect((await conversationBodies(reopened))[0]).toEqual({
-      html,
-      text: "Weekly product digest",
-    });
-    while ((await reopened.compressBodyBacklog()).remaining) {
-      // keep compressing
-    }
 
     expect(await conversationBodies(reopened)).toEqual(compressed);
     const [stored] = await driver.read((tx) =>

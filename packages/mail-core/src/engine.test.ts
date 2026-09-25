@@ -163,40 +163,30 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
-  it("drains the search and body backlogs while idle and claims work between batches", async () => {
+  it("indexes the search backlog while idle and claims work between batches", async () => {
     const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
     const events: string[] = [];
-    let searchBatches = 2;
-    let bodyBatches = 2;
+    let batches = 3;
     vi.spyOn(harness.store, "claimWork").mockImplementation(async () => {
       events.push("claim");
       return null;
     });
     vi.spyOn(harness.store, "indexSearchBacklog").mockImplementation(
       async () => {
-        if (searchBatches === 0) return { remaining: false };
-        searchBatches -= 1;
-        events.push("search");
-        return { remaining: searchBatches > 0 };
-      },
-    );
-    vi.spyOn(harness.store, "compressBodyBacklog").mockImplementation(
-      async () => {
-        bodyBatches -= 1;
-        events.push("bodies");
-        return { remaining: bodyBatches > 0 };
+        batches -= 1;
+        events.push("batch");
+        return { remaining: batches > 0 };
       },
     );
     await harness.engine.runUntil(10_000);
 
     expect(events).toEqual([
       "claim",
-      "search",
+      "batch",
       "claim",
-      "search",
-      "bodies",
+      "batch",
       "claim",
-      "bodies",
+      "batch",
     ]);
     await harness.engine.close();
   });
@@ -459,9 +449,6 @@ function idleCatchUpStore(
     },
     async releaseDeferredOperations() {},
     async indexSearchBacklog() {
-      return { remaining: false };
-    },
-    async compressBodyBacklog() {
       return { remaining: false };
     },
     async close() {},

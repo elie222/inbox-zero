@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MailStore } from "@inboxzero/mail-core/ports/mail-store";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import type { SqliteDriver } from "./driver";
+import { compressLegacyBodies } from "./message-body-migration";
 import { createNodeSqliteDriver, nodeBodyCodec } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
@@ -27,67 +28,40 @@ describe("compressed message bodies", () => {
     await store.close();
   });
 
-  it("reads legacy rows during the backfill and resumes it after a reopen", async () => {
+  it("converts legacy rows on open and finishes an interrupted run on the next open", async () => {
     const driver = createNodeSqliteDriver();
-    const first = await mailbox(driver);
-    const messages = Array.from({ length: 250 }, (_, index) => ({
-      messageId: `m${String(index).padStart(3, "0")}`,
+    const { store } = await mailbox(driver);
+    const messages = Array.from({ length: 1200 }, (_, index) => ({
+      messageId: `m${String(index).padStart(4, "0")}`,
       html: index % 2 ? `${HTML}<p>${index}</p>` : null,
       text: `Body ${index}`,
     }));
-    await applyBodies(first.store, messages);
+    await applyBodies(store, messages);
     await storeAsLegacyText(driver, messages);
-    const legacy = Object.fromEntries(
-      messages.map((body) => [
-        body.messageId,
-        { html: body.html, text: body.text },
-      ]),
-    );
-    const compressed = Object.fromEntries(
-      messages.map((body) => [
-        body.messageId,
-        { html: body.html, text: body.html ? null : body.text },
-      ]),
-    );
+    await driver.write((tx) => compressLegacyBodies(tx, nodeBodyCodec));
+    expect(await migrationRecorded(driver)).toBe(false);
 
     const reopened = await createSqliteMailStore(driver, {
       bodyCodec: nodeBodyCodec,
     });
-    expect(await readBodies(reopened)).toEqual(legacy);
-    expect((await reopened.compressBodyBacklog()).remaining).toBe(true);
-    const midway = await readBodies(reopened);
-    expect(Object.keys(midway)).toEqual(Object.keys(legacy));
-    for (const [id, body] of Object.entries(midway)) {
-      expect([legacy[id], compressed[id]]).toContainEqual(body);
-    }
 
-    const resumed = await createSqliteMailStore(driver, {
-      bodyCodec: nodeBodyCodec,
-    });
-    while ((await resumed.compressBodyBacklog()).remaining) {
-      // keep compressing
-    }
-
+    expect(await migrationRecorded(driver)).toBe(true);
     const columns = await storedColumns(driver);
     expect(
       columns.filter((row) => row.html === "text" || row.text === "text"),
     ).toEqual([]);
-    expect(
-      columns.filter((row) => row.html === "blob" && row.text !== "null"),
-    ).toEqual([]);
-    expect(await readBodies(resumed)).toEqual(compressed);
-
-    await driver.write((tx) =>
-      tx.execute("UPDATE message_content SET text = 'late legacy row'"),
+    expect(await readBodies(reopened)).toEqual(
+      Object.fromEntries(
+        messages.map((body) => [
+          body.messageId,
+          { html: body.html, text: body.html ? null : body.text },
+        ]),
+      ),
     );
-    const finished = await createSqliteMailStore(driver, {
-      bodyCodec: nodeBodyCodec,
-    });
-    expect(await finished.compressBodyBacklog()).toEqual({ remaining: false });
-    await finished.close();
+    await reopened.close();
   });
 
-  it("keeps body terms searchable when the index is rebuilt from legacy and compressed rows", async () => {
+  it("finds body terms after legacy rows are converted and re-indexed", async () => {
     const { driver, store } = await mailbox();
     const messages = [
       {
@@ -105,23 +79,21 @@ describe("compressed message bodies", () => {
     ];
     await applyBodies(store, messages);
     await storeAsLegacyText(driver, messages);
+    await createSqliteMailStore(driver, { bodyCodec: nodeBodyCodec });
 
     await rebuildSearchIndex(driver);
     expect(await searchBody(driver, "zephyr")).toEqual(["c-html"]);
     expect(await searchBody(driver, "quokka")).toEqual(["c-plain"]);
-
-    const reopened = await createSqliteMailStore(driver, {
-      bodyCodec: nodeBodyCodec,
-    });
-    while ((await reopened.compressBodyBacklog()).remaining) {
-      // keep compressing
-    }
-    await rebuildSearchIndex(driver);
-    expect(await searchBody(driver, "zephyr")).toEqual(["c-html"]);
-    expect(await searchBody(driver, "quokka")).toEqual(["c-plain"]);
-    await reopened.close();
+    await store.close();
   });
 });
+
+async function migrationRecorded(driver: SqliteDriver) {
+  const rows = await driver.read((tx) =>
+    tx.query("SELECT 1 FROM schema_migrations WHERE id = 8"),
+  );
+  return rows.length > 0;
+}
 
 async function rebuildSearchIndex(driver: SqliteDriver) {
   await driver.write(async (tx) => {
@@ -211,7 +183,7 @@ async function readBodies(store: MailStore) {
     {};
   const { view } = await store.readConversation(
     { accountId: ACCOUNT, conversationId: "c1" },
-    { after: null, pageSize: 500 },
+    { after: null, pageSize: 2000 },
   );
   for (const message of view.messages) {
     if (message.content.status !== "available") continue;

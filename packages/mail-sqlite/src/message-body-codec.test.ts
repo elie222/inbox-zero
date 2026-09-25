@@ -27,13 +27,6 @@ describe("message body codec", () => {
     expect(await decodeMessageBody(streamBodyCodec, stored)).toBe(newsletter);
   });
 
-  it("reads bodies stored as text before compression", async () => {
-    expect(await decodeMessageBody(nodeBodyCodec, "<p>legacy</p>")).toBe(
-      "<p>legacy</p>",
-    );
-    expect(await decodeMessageBody(nodeBodyCodec, null)).toBeNull();
-  });
-
   it("rejects a body format it does not know", async () => {
     await expect(
       decodeMessageBody(nodeBodyCodec, new Uint8Array([9, 1, 2])),

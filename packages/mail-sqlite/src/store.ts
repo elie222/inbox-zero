@@ -69,10 +69,7 @@ import {
   streamBodyCodec,
   type MessageBodyCodec,
 } from "./message-body-codec";
-import {
-  compressBodyBacklog,
-  hasUncompressedBodies,
-} from "./message-body-backfill";
+import { migrateCompressedMessageBodies } from "./message-body-migration";
 import {
   connectionStatus,
   metadataFromEffective,
@@ -113,6 +110,7 @@ export async function createSqliteMailStore(
   await driver.write(async (tx) => {
     await migrateMailbox(tx, runtime.randomId());
   });
+  await migrateCompressedMessageBodies(driver, bodyCodec);
   const capabilities = await probeSqliteCapabilities(driver);
   if (!capabilities.savepoints) {
     throw new Error("SQLite savepoints are required for mailbox migrations");
@@ -135,11 +133,6 @@ export async function createSqliteMailStore(
   // Each open walks the bodies once, so rows missed while the index was
   // rebuilt or unavailable are indexed without a durable cursor.
   let searchBacklog: { after: MessageKey | null } | null = search.fts5
-    ? { after: null }
-    : null;
-  let bodyBacklog: { after: MessageKey | null } | null = (await driver.read(
-    hasUncompressedBodies,
-  ))
     ? { after: null }
     : null;
 
@@ -176,15 +169,6 @@ export async function createSqliteMailStore(
         indexSearchBacklog(tx, bodyCodec, after),
       );
       searchBacklog = last ? { after: last } : null;
-      return { remaining: last !== null };
-    },
-    async compressBodyBacklog() {
-      if (!bodyBacklog) return { remaining: false };
-      const { after } = bodyBacklog;
-      const last = await driver.write((tx) =>
-        compressBodyBacklog(tx, bodyCodec, after),
-      );
-      bodyBacklog = last ? { after: last } : null;
       return { remaining: last !== null };
     },
     async purgeAccount(accountId) {

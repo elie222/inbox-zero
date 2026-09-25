@@ -15,8 +15,8 @@ of message text; `message_fts_keys` maps its rowids back to messages.
 Message bodies are stored as raw-deflate BLOBs behind a one-byte format marker,
 and HTML messages keep no separate text part. `MessageBodyCodec` is supplied
 per runtime: the Compression Streams API by default, `nodeBodyCodec` (zlib) on
-Node hosts. Bodies written before compression are rewritten in idle batches by
-`compressBodyBacklog`; readers accept both formats until it finishes.
+Node hosts. Bodies written before compression are converted in batched
+transactions when the store opens (migration 0008).
 
 `@inboxzero/mail-sqlite/node` and `@inboxzero/mail-sqlite/blob-store` use Node
 file APIs.
