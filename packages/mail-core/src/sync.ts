@@ -45,12 +45,18 @@ export const providerChangeSchema = z.discriminatedUnion("kind", [
 ]);
 export type ProviderChange = z.infer<typeof providerChangeSchema>;
 
+export const MAX_BODY_LENGTH = 5_000_000;
+export const MAX_BODY_ATTACHMENTS = 100;
+
 export const bodyObservationSchema = z.object({
   key: messageKeySchema,
   version: z.string().max(512).nullable(),
-  html: z.string().max(5_000_000).nullable(),
-  text: z.string().max(5_000_000).nullable(),
-  attachments: z.array(messageAttachmentDescriptorSchema).max(100).optional(),
+  html: z.string().max(MAX_BODY_LENGTH).nullable(),
+  text: z.string().max(MAX_BODY_LENGTH).nullable(),
+  attachments: z
+    .array(messageAttachmentDescriptorSchema)
+    .max(MAX_BODY_ATTACHMENTS)
+    .optional(),
   isMeetingInvitation: z.boolean().optional(),
 });
 export type BodyObservation = z.infer<typeof bodyObservationSchema>;

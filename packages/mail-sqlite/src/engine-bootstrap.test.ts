@@ -382,6 +382,48 @@ describe("engine bootstrap coverage", () => {
     expect(enumerated).toBe(1);
     await engine.close();
   });
+
+  it("waits out a paused enumeration instead of retrying it every run", async () => {
+    let now = 1000;
+    let enumerated = 0;
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => {},
+        onEnumerate: () => {
+          enumerated += 1;
+        },
+        pauseFirstEnumerationMs: 15_000,
+      }),
+      executor: {
+        async execute() {
+          return { status: "uncertain", receiptId: null };
+        },
+        async inspect() {
+          return { status: "uncertain", receiptId: null };
+        },
+      },
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(5000);
+    await engine.runUntil(5000);
+    expect(enumerated).toBe(1);
+
+    now = 16_000;
+    await engine.runUntil(20_000);
+    expect(enumerated).toBe(2);
+    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual([
+      expect.objectContaining({ scopeId: "primary", metadata: "complete" }),
+    ]);
+    await engine.close();
+  });
 });
 
 function slowBootstrapSource(hooks: {
@@ -394,6 +436,7 @@ function slowBootstrapSource(hooks: {
   scopes?: ScopeDescriptor[];
   onBeginScope?: (scope: ScopeDescriptor) => void;
   repeatNextPage?: boolean;
+  pauseFirstEnumerationMs?: number;
 }): MailboxSource {
   const pages = hooks.pages ?? ["page-1"];
   const changesByPage = new Map(
@@ -406,6 +449,7 @@ function slowBootstrapSource(hooks: {
     changesByPage.get(pages[0] ?? "page-1") ??
     messagePatch("m1", "c1", ["inbox"]);
   let resetConsumed = false;
+  let enumerationPaused = false;
   let activeScopeId = hooks.scopeId ?? "primary";
   return {
     async describe() {
@@ -445,6 +489,14 @@ function slowBootstrapSource(hooks: {
     },
     async enumerate(input) {
       hooks.onEnumerate(input.page);
+      if (hooks.pauseFirstEnumerationMs && !enumerationPaused) {
+        enumerationPaused = true;
+        return {
+          status: "paused",
+          retryAfterMs: hooks.pauseFirstEnumerationMs,
+          reason: "throttled",
+        };
+      }
       const change =
         changesByPage.get(input.page) ??
         messagePatch("m-missing", "c-missing", ["inbox"]);
