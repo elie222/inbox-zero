@@ -1,0 +1,71 @@
+---
+title: 'Security Hardening'
+description: 'Recommended steps for locking down a self-hosted Inbox Zero deployment.'
+icon: 'lock'
+---
+
+This page collects the main security controls for a self-hosted deployment in one place. Each section links to the detailed setup guide.
+
+## Restrict who can sign up
+
+By default, anyone who can reach your deployment can create an account. Restrict sign-up to your organization with either or both of these variables:
+
+```env
+AUTH_ALLOWED_EMAIL_DOMAINS=company.com,subsidiary.org
+AUTH_ALLOWED_EMAILS=contractor@gmail.com
+```
+
+These only block the creation of new accounts. Existing users keep access, so set them before you invite anyone. See [Environment Variables](/hosting/environment-variables#notes).
+
+You can also enforce this at the identity provider:
+
+- **Google:** set the OAuth consent screen to **Internal** so only your Google Workspace users can sign in. See [Google OAuth setup](/hosting/google-oauth).
+- **Microsoft:** register the app as **Single tenant** so only your Microsoft Entra ID tenant can sign in. See [Microsoft OAuth setup](/hosting/microsoft-oauth).
+
+Inbox Zero also supports SAML SSO and SCIM provisioning. See [Enterprise SSO and SCIM](/hosting/sso).
+
+## Keep the app on a private network
+
+For the strongest setup, deploy Inbox Zero on a private network so employees can only reach it through your VPN or a zero-trust access proxy (for example Cloudflare Access or Tailscale).
+
+Sign-in still works in this setup because OAuth and SAML redirects run in the user's browser, which is already on your network. Some features, however, depend on external services calling into your deployment. Those endpoints must stay publicly reachable, or you need to route them through a relay:
+
+| Endpoint | Needed for |
+|----------|-----------|
+| `/api/google/webhook` | Gmail new-mail notifications via [Pub/Sub](/hosting/google-pubsub) |
+| `/api/outlook/webhook` | Outlook new-mail notifications from Microsoft Graph |
+| `/api/auth/scim/v2/*` | SCIM provisioning from a cloud identity provider |
+| `/api/slack/events`, `/api/slack/commands` | [Slack](/slack/setup) |
+| `/api/teams/events` | [Microsoft Teams](/teams/setup) |
+| `/api/telegram/events` | [Telegram](/telegram/setup) |
+| `/api/recall/webhook` | [Meeting Recorder](/essentials/meeting-recorder) |
+
+Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` and `MICROSOFT_WEBHOOK_CLIENT_STATE` so the mail webhooks reject requests that do not come from Google or Microsoft. If AI assistants or scripts outside your network use the [MCP server](/api-reference/mcp) or [API](/api-reference/introduction), they also need access.
+
+Only expose the endpoints for features you use. Without the mail webhooks, Inbox Zero will not process new email as it arrives.
+
+For Gmail on AWS, the [webhook gateway](/hosting/aws-copilot#firewalled-deployments-webhook-gateway) puts a public API Gateway in front of a private load balancer and validates Google's signed tokens before forwarding requests. The same pattern works for the other endpoints with any reverse proxy or API gateway that only forwards the paths listed above.
+
+Outbound traffic is also required: to Google or Microsoft APIs, to your AI provider, and to any integrations you enable.
+
+## Protect secrets
+
+`EMAIL_ENCRYPT_SECRET` and `EMAIL_ENCRYPT_SALT` encrypt stored OAuth tokens, which grant access to users' mailboxes. Keep them, along with `INTERNAL_API_KEY`, `CRON_SECRET`, database credentials, and OAuth client secrets, in a secret manager, and restrict who can read them. Changing the encryption secrets without a migration forces every user to reconnect their account. See [Production Operations](/hosting/production-operations#secrets).
+
+## Limit admin access
+
+Users listed in `ADMINS` can open `/admin`, which includes SSO and SCIM configuration. Keep this list short.
+
+## Control what reaches the AI provider
+
+Email content is sent to your configured AI provider. Choose a provider and account whose data retention terms fit your policy, such as your own AWS Bedrock, Azure, or Google Vertex account, or a self-hosted model. See [LLM Setup](/hosting/llm-setup).
+
+To redact or block credentials and payment card numbers before they reach the provider, set `SENSITIVE_DATA_POLICY_DEFAULT` to `REDACT` or `BLOCK`. Set `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=true` to stop users overriding it. See [Sensitive Data Protection](/hosting/llm-setup#sensitive-data-protection).
+
+## Keep rule webhooks off internal addresses
+
+Rules can call external webhooks. By default, Inbox Zero blocks webhooks to private, loopback, and link-local addresses. Leave `WEBHOOK_ALLOW_PRIVATE_IPS` unset, especially when the app runs inside your internal network, so a rule cannot be used to reach internal services.
+
+## Database and backups
+
+Encrypt the database at rest and in transit, and keep tested backups outside the application host. See [Production Operations](/hosting/production-operations#database-backups).
