@@ -1,6 +1,87 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
-import { organizeThreadMessages } from "@/components/email-list/EmailThread";
+import {
+  EmailThread,
+  organizeThreadMessages,
+} from "@/components/email-list/EmailThread";
+
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: () => ({ executeAsync: vi.fn() }),
+}));
+vi.mock("swr", () => ({ default: () => ({ data: undefined }) }));
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({
+    emailAccount: undefined,
+    emailAccountId: "account-1",
+    userEmail: "user@example.com",
+  }),
+}));
+vi.mock("@/env", () => ({ env: { NEXT_PUBLIC_CONTACTS_ENABLED: false } }));
+vi.mock("@/components/Tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => children,
+}));
+vi.mock("@/components/email-list/EmailContents", () => ({
+  HtmlEmail: () => null,
+  PlainEmail: () => null,
+}));
+vi.mock("@/components/email-list/EmailAttachments", () => ({
+  EmailAttachments: () => null,
+}));
+vi.mock("@/components/email-list/EmailDetails", () => ({
+  EmailDetails: () => null,
+}));
+vi.mock("@/components/email-list/ThreadDeliveryStatus", () => ({
+  ThreadDeliveryStatus: () => null,
+}));
+vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
+  OpenedConversationAttachments: ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => children,
+}));
+vi.mock("@/hooks/useReplyDrafts", () => ({
+  useReplyDrafts: () => ({ drafts: [] }),
+}));
+vi.mock("@/hooks/useSentMessageOpens", () => ({
+  useSentMessageOpens: () => ({ data: undefined }),
+}));
+vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
+vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
+vi.mock("@/utils/actions/generate-reply", () => ({
+  generateNudgeReplyAction: vi.fn(),
+}));
+vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
+  ComposeEmailFormLazy: () => <textarea aria-label="Email message" />,
+}));
+
+describe("EmailThread reply composer", () => {
+  afterEach(cleanup);
+
+  // A sync can append a newer message while a reply is open on what was the
+  // latest one; the reply must stay on screen rather than collapse away.
+  it("keeps an open reply visible when a newer message arrives", () => {
+    const first = createReaderMessage("first", "1000");
+    const view = render(
+      <EmailThread messages={[first]} refetch={vi.fn()} showReplyButton />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+
+    view.rerender(
+      <EmailThread
+        messages={[first, createReaderMessage("second", "2000")]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+});
 
 describe("organizeThreadMessages", () => {
   it("attaches a draft to the message its headers reply to", () => {
@@ -187,5 +268,27 @@ function createDraft({
     labelIds: ["DRAFT"],
     headers: { "in-reply-to": inReplyTo, references },
     internalDate,
+  } as unknown as ThreadMessage;
+}
+
+function createReaderMessage(id: string, internalDate: string) {
+  return {
+    date: new Date(Number(internalDate)).toISOString(),
+    headers: {
+      date: new Date(Number(internalDate)).toISOString(),
+      from: "sender@example.com",
+      subject: "Subject",
+      to: "user@example.com",
+      "message-id": `<${id}@example.com>`,
+    },
+    historyId: "history-1",
+    id,
+    inline: [],
+    internalDate,
+    labelIds: ["INBOX"],
+    snippet: "Preview",
+    subject: "Subject",
+    textPlain: "Message body",
+    threadId: "thread-1",
   } as unknown as ThreadMessage;
 }
