@@ -53,6 +53,8 @@ export interface ParsedMessage {
   attachments?: Attachment[];
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
   calendarContent?: string;
+  // For Outlook: the event the mailbox created on the user's calendar for this invitation
+  calendarEventId?: string;
   conversationIndex?: string | null;
   date: string;
   externalUrl?: string;

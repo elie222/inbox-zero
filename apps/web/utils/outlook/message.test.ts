@@ -926,9 +926,36 @@ describe("calendar MIME enrichment", () => {
     );
     expect(rawGet).not.toHaveBeenCalled();
   });
+
+  it("reads the calendar event the mailbox linked to the invitation", async () => {
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        "MIME-Version: 1.0\r\nContent-Type: text/calendar; method=REQUEST\r\n\r\nBEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR",
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet, "linked-event"),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.calendarEventId).toBe("linked-event");
+  });
+
+  it("does not look up a linked calendar event for ordinary message reads", async () => {
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(vi.fn(), "linked-event"),
+      createTestLogger(),
+    );
+    expect(message.calendarEventId).toBeUndefined();
+  });
 });
 
-function calendarMessageClient(rawGet: ReturnType<typeof vi.fn>) {
+function calendarMessageClient(
+  rawGet: ReturnType<typeof vi.fn>,
+  linkedEventId?: string,
+) {
   const request = {
     select: vi.fn().mockReturnThis(),
     expand: vi.fn().mockReturnThis(),
@@ -943,6 +970,7 @@ function calendarMessageClient(rawGet: ReturnType<typeof vi.fn>) {
           size: 100,
         },
       ],
+      ...(linkedEventId ? { event: { id: linkedEventId } } : {}),
     }),
   };
   const rawRequest = { responseType: vi.fn().mockReturnThis(), get: rawGet };
