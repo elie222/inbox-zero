@@ -5,6 +5,7 @@ import {
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { syncPageSchema } from "@inboxzero/mail-core/sync";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -413,6 +414,7 @@ describe("createEmailProviderMailboxSource", () => {
   });
 
   it("maps folder delta removals to removed-from-scope changes", async () => {
+    const deltaCursor = `folder-cursor-${"x".repeat(2000)}`;
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
       provider: {
@@ -420,7 +422,7 @@ describe("createEmailProviderMailboxSource", () => {
         localMailSyncStrategy: "folder-delta",
         async getMailboxSyncPage() {
           return {
-            cursor: "folder-cursor-2",
+            cursor: deltaCursor,
             reset: false,
             upsertedMessages: [],
             deletedMessageIds: ["deleted-1"],
@@ -448,7 +450,6 @@ describe("createEmailProviderMailboxSource", () => {
           {
             kind: "message_deleted",
             key: { accountId: "acc-1", messageId: "deleted-1" },
-            evidence: "folder-cursor-2",
           },
           {
             kind: "removed_from_scope",
@@ -458,6 +459,8 @@ describe("createEmailProviderMailboxSource", () => {
         ],
       },
     });
+    if (result.status !== "page") throw new Error("expected a page");
+    expect(() => syncPageSchema.parse(result.page)).not.toThrow();
   });
 
   it("pages conversation membership instead of truncating the thread", async () => {

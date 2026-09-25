@@ -31,6 +31,73 @@ describe("backend mailbox source", () => {
     });
   });
 
+  it.each([
+    {
+      name: "a session or provider auth failure",
+      status: 401,
+      json: { error: "Authorization required. Please grant permissions." },
+      expected: { status: "blocked_auth" },
+    },
+    {
+      name: "a platform rate limit",
+      status: 429,
+      json: { error: "Rate limited" },
+      expected: { status: "paused", reason: "throttled" },
+    },
+    {
+      name: "a server error outside the mail protocol",
+      status: 400,
+      json: { error: { issues: [] }, isKnownError: true },
+      expected: { status: "paused", reason: "unavailable" },
+    },
+    {
+      name: "a proxy error page",
+      status: 502,
+      json: null,
+      expected: { status: "paused", reason: "unavailable" },
+    },
+  ])("classifies $name instead of parsing it as a result", async ({
+    status,
+    json,
+    expected,
+  }) => {
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async () => ({ status, json }),
+    });
+    const session = { accountId: "acc-1", generation: "g1" };
+    const signal = new AbortController().signal;
+
+    await expect(
+      source.discoverScopes({ session, requestId: "r1", page: null, signal }),
+    ).resolves.toMatchObject(expected);
+    await expect(
+      source.enumerate({
+        session,
+        requestId: "r1",
+        bootstrapId: "boot",
+        page: "page-1",
+        pageSize: 50,
+        signal,
+      }),
+    ).resolves.toMatchObject(expected);
+    await expect(
+      source.search({
+        session,
+        requestId: "r1",
+        predicate: {
+          kind: "text",
+          field: "any",
+          value: "invoice",
+          match: "term",
+        },
+        page: null,
+        pageSize: 50,
+        signal,
+      }),
+    ).resolves.toMatchObject(expected);
+  });
+
   it("sends the protocol version on bootstrap", async () => {
     let body: unknown;
     const source = createBackendMailboxSource({

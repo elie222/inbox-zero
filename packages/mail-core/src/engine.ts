@@ -647,6 +647,22 @@ export function createMailEngine(input: {
         page: scan.page,
         pageSize: 50,
       });
+      if (
+        enumerated.status === "paused" ||
+        enumerated.status === "blocked_auth"
+      ) {
+        const paused = enumerated.status === "paused";
+        await store.deferBootstrapScan({
+          session: input.session,
+          scopeId: scan.scopeId,
+          bootstrapId: scan.bootstrapId,
+          page: scan.page,
+          nextAttemptAtMs:
+            runtime.nowMs() +
+            (paused ? enumerated.retryAfterMs : idleCatchUpIntervalMs),
+          errorCode: paused ? enumerated.reason : "blocked_auth",
+        });
+      }
       if (enumerated.status !== "ok") {
         await noteConnection(input.session.accountId, enumerated.status);
         break;
@@ -860,10 +876,9 @@ export function createMailEngine(input: {
     scopeId: string,
   ) {
     const scan = await store.readBootstrapScan({ session, scopeId });
-    if (
-      scan?.page &&
-      (scan.nextAttemptAtMs === null || scan.nextAttemptAtMs <= runtime.nowMs())
-    ) {
+    // A deferred scan stays active so it resumes when its retry time comes,
+    // not at the next scope discovery.
+    if (scan?.page) {
       if (!idleGate.activeBootstrapScopes.has(scopeId)) {
         idleGate.activeBootstrapScopes.set(scopeId, {
           id: scopeId,

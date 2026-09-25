@@ -207,7 +207,9 @@ export function createEmailProviderMailboxSource(input: {
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
                 key: { accountId, messageId },
-                evidence: page.cursor,
+                // Delta cursors can outgrow the evidence limit; the page
+                // already carries the cursor as its checkpoint.
+                evidence: requestId,
               })),
               ...(page.removedMessageIds ?? []).map((messageId) => ({
                 kind: "removed_from_scope" as const,
