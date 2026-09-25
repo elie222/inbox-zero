@@ -260,6 +260,11 @@ export function EmailThread({
                 menu={renderMessageMenu?.(message)}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
+                onExpand={() =>
+                  setExpansionOverrides((prev) =>
+                    new Map(prev).set(message.id, true),
+                  )
+                }
                 onSendSuccess={(messageId, sentThreadId) => {
                   setExpansionOverrides((prev) =>
                     new Map(prev).set(messageId, true),

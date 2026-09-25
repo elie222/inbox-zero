@@ -62,6 +62,7 @@ export function EmailMessage({
   draftMessages,
   expanded,
   onToggle,
+  onExpand,
   onSendSuccess,
   onMarkDone,
   onOpenSenderContext,
@@ -82,6 +83,11 @@ export function EmailMessage({
   expanded: boolean;
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
+  /**
+   * Keeps the message open once a composer opens in it. Otherwise a newer
+   * message arriving would collapse it and hide the reply being written.
+   */
+  onExpand?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
@@ -122,11 +128,13 @@ export function EmailMessage({
   const onReply = useCallback(() => {
     composeSessionRef.current += 1;
     setComposeOverride("reply");
-  }, []);
+    onExpand?.();
+  }, [onExpand]);
   const onForward = useCallback(() => {
     composeSessionRef.current += 1;
     setComposeOverride("forward");
-  }, []);
+    onExpand?.();
+  }, [onExpand]);
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
@@ -393,13 +401,8 @@ function MessageHeader({
     tabIndex: 0,
   };
 
-  /**
-   * The composer renders inside the collapsed-away body, so replying to a
-   * collapsed message has to open it first.
-   */
   const compose = (open: () => void) => (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!expanded) onToggle?.();
     open();
   };
 

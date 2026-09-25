@@ -189,20 +189,21 @@ describe("EmailMessage reply", () => {
   afterEach(cleanup);
 
   it("expands a collapsed message so the reply composer can mount", () => {
-    const onToggle = vi.fn();
+    const onExpand = vi.fn();
     const view = render(
       <EmailMessage
         expanded={false}
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
-        onToggle={onToggle}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
         refetch={vi.fn()}
         showReplyButton
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-    expect(onToggle).toHaveBeenCalledOnce();
+    expect(onExpand).toHaveBeenCalledOnce();
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
 
     view.rerender(
@@ -210,7 +211,8 @@ describe("EmailMessage reply", () => {
         expanded
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
-        onToggle={onToggle}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
         refetch={vi.fn()}
         showReplyButton
       />,
