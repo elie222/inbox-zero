@@ -1,6 +1,7 @@
 import { app, dialog } from "electron";
 import type { AppUpdater } from "electron-updater";
 import { captureDesktopError } from "./sentry";
+import { isTransientNetworkError } from "./network-errors";
 import { getDesktopUpdateFeedUrl } from "./update-feed";
 
 export const DESKTOP_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -9,7 +10,9 @@ export function logDesktopUpdateError(error: unknown) {
   console.error(
     error instanceof Error ? error.message : "Desktop update check failed",
   );
-  captureDesktopError(error, { area: "auto-update" });
+  if (!isTransientNetworkError(error)) {
+    captureDesktopError(error, { area: "auto-update" });
+  }
 }
 
 export async function startDesktopAutoUpdate(

@@ -4,6 +4,7 @@ import {
   type DurationSummary,
   startEventLoopDelayMonitor,
 } from "../health";
+import { isTransientNetworkError } from "../network-errors";
 import { createRoutedBackendPorts } from "./backend";
 import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createOriginMailRequest } from "./request";
@@ -79,7 +80,10 @@ export function createUtilityChildRuntime(
               cookieHeader: requestCookieHeader,
             }),
           ),
-          onEngineError: (error) => post(engineErrorMessage(error)),
+          onEngineError: (error) => {
+            if (isTransientNetworkError(error)) return;
+            post(engineErrorMessage(error));
+          },
           onSqliteTransaction: (kind, durationMs) =>
             (kind === "read" ? sqliteReads : sqliteWrites).record(durationMs),
         });

@@ -63,12 +63,12 @@ describe("desktop mail process owner", () => {
     await vi.waitFor(() => expect(first.sentOfType("ipc")).toHaveLength(2));
     first.exit(1);
     await expect(inFlight).rejects.toThrow("mail engine process exited");
-    expect(errors).toEqual([
-      "mail engine process exited unexpectedly with code 1",
-    ]);
     await expect(owner.handleIpc(INSPECT)).rejects.toThrow("restarting");
 
     await vi.advanceTimersByTimeAsync(1000);
+    expect(errors).toEqual([
+      "mail engine process exited unexpectedly with code 1",
+    ]);
     const second = children[1];
     await vi.waitFor(() =>
       expect(second.sentOfType("subscribe")).toEqual([subscribed]),
@@ -115,20 +115,48 @@ describe("desktop mail process owner", () => {
   });
 
   it("reports a child that exits before starting only as a crash", async () => {
-    const child = new FakeChild();
-    child.holdReplies = true;
+    vi.useFakeTimers();
+    const children: FakeChild[] = [];
     const errors: string[] = [];
     const owner = createOwner({
-      fork: () => child,
+      fork: () => {
+        const child = new FakeChild();
+        child.holdReplies = children.length === 0;
+        children.push(child);
+        return child;
+      },
       onEngineError: (error) => errors.push(error.message),
     });
 
-    child.exit(9);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    children[0].exit(9);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(errors).toEqual([
       "mail engine process exited unexpectedly with code 9",
     ]);
     await owner.close();
+  });
+
+  it("does not report or restart a child killed while the app quits", async () => {
+    vi.useFakeTimers();
+    const children: FakeChild[] = [];
+    const errors: string[] = [];
+    const owner = createOwner({
+      fork: () => {
+        const child = new FakeChild();
+        children.push(child);
+        return child;
+      },
+      onEngineError: (error) => errors.push(error.message),
+    });
+    await owner.handleIpc(INSPECT);
+
+    // The OS signals every app process at once, before the quit handlers
+    // get to close the engine.
+    children[0].exit(15);
+    await owner.close();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(errors).toEqual([]);
+    expect(children).toHaveLength(1);
   });
 
   it("does not report closing before the child has started as an error", async () => {
