@@ -125,7 +125,7 @@ describe("query corpora", () => {
         messageId: "m-he",
         conversationId: "c-he",
         subject: "חשבונית",
-        text: "מצורפת החשבונית לחודש",
+        text: "מצורפת חשבונית לחודש",
       },
       {
         messageId: "m-fr",
@@ -177,6 +177,11 @@ describe("query corpora", () => {
     expect(
       conversationIds(
         await store.readMailboxView(textQuery("acc-1", "any", "請求書")),
+      ),
+    ).toEqual(["c-ja"]);
+    expect(
+      conversationIds(
+        await store.readMailboxView(textQuery("acc-1", "body", "請求書")),
       ),
     ).toEqual(["c-ja"]);
     await store.close();

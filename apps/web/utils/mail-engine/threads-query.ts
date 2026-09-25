@@ -165,7 +165,7 @@ function textQueryPredicates(query: string): MailPredicate[] {
       kind: "text",
       field: "any",
       value: remaining,
-      match: "phrase",
+      match: "term",
     });
   }
   return clauses;
