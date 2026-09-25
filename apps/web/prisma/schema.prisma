@@ -2021,6 +2021,7 @@ model MobilePushToken {
   updatedAt DateTime           @updatedAt
   token     String             @unique
   platform  MobilePushPlatform
+  tokenType MobilePushTokenType @default(EXPO)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2046,6 +2047,11 @@ model MobilePushDelivery {
 enum MobilePushPlatform {
   ANDROID @map("android")
   IOS     @map("ios")
+}
+
+enum MobilePushTokenType {
+  EXPO @map("expo")
+  APNS @map("apns")
 }
 
 enum ActionType {
