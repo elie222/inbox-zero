@@ -17,6 +17,7 @@ import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
 } from "@/utils/microsoft/retry";
+import { isNotFoundError } from "@/utils/outlook/errors";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
@@ -56,7 +57,7 @@ export async function getOutlookMailboxSyncPage({
     throw new InvalidMailboxSyncCursorError();
   }
   try {
-    const response = await withMicrosoftGraphRetry<DeltaResponse>(
+    const deltaResponse = await withMicrosoftGraphRetry<DeltaResponse>(
       () =>
         client
           .getClient()
@@ -65,6 +66,11 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
+    const response = await withPartialMessagesRefetched({
+      client,
+      logger,
+      response: deltaResponse,
+    });
     const [categoryMap, folderIds] = await Promise.all([
       getCategoryMap(client, logger),
       getFolderIds(client, logger),
@@ -138,6 +144,7 @@ export function buildOutlookMailboxSyncPage({
       }
       return [];
     }
+    if (!message.conversationId) return [];
 
     return [
       compactMailboxSyncMessage(
@@ -177,7 +184,7 @@ async function getInitialPage({
   limit: number;
 }) {
   const resolvedFolderId = folderId ?? "inbox";
-  const response = await withMicrosoftGraphRetry<DeltaResponse>(
+  const snapshotResponse = await withMicrosoftGraphRetry<DeltaResponse>(
     () =>
       client
         .getClient()
@@ -191,6 +198,11 @@ async function getInitialPage({
         .get(),
     logger,
   );
+  const response = await withPartialMessagesRefetched({
+    client,
+    logger,
+    response: snapshotResponse,
+  });
 
   const [categoryMap, folderIds] = await Promise.all([
     getCategoryMap(client, logger),
@@ -205,4 +217,76 @@ async function getInitialPage({
     categoryMap,
     folderIds,
   });
+}
+
+// Graph delta can return a message without its conversation, which the sync
+// protocol requires, so fetch those individually instead of failing the page.
+async function withPartialMessagesRefetched({
+  client,
+  logger,
+  response,
+}: {
+  client: OutlookClient;
+  logger: Logger;
+  response: DeltaResponse;
+}): Promise<DeltaResponse> {
+  const messages = response.value ?? [];
+  if (!messages.some(isPartialMessage)) return response;
+
+  const refetched: DeltaMessage[] = [];
+  let unresolvedCount = 0;
+  for (const message of messages) {
+    if (!isPartialMessage(message)) {
+      refetched.push(message);
+      continue;
+    }
+
+    const fullMessage = await getSyncMessage({
+      client,
+      logger,
+      messageId: message.id,
+    });
+    if (fullMessage?.conversationId) refetched.push(fullMessage);
+    else unresolvedCount++;
+  }
+
+  if (unresolvedCount > 0) {
+    logger.warn("Skipped delta messages without a conversation", {
+      unresolvedCount,
+    });
+  }
+
+  return { ...response, value: refetched };
+}
+
+function isPartialMessage(
+  message: DeltaMessage,
+): message is DeltaMessage & { id: string } {
+  return Boolean(message.id && !message["@removed"] && !message.conversationId);
+}
+
+async function getSyncMessage({
+  client,
+  logger,
+  messageId,
+}: {
+  client: OutlookClient;
+  logger: Logger;
+  messageId: string;
+}): Promise<DeltaMessage | null> {
+  try {
+    return await withMicrosoftGraphRetry<DeltaMessage>(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${encodeURIComponent(messageId)}`)
+          .select(MESSAGE_SELECT_FIELDS)
+          .header("Prefer", 'IdType="ImmutableId"')
+          .get(),
+      logger,
+    );
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error;
+  }
 }

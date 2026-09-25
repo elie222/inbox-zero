@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import type { ModelMessage, ToolResultPart } from "ai";
 import { z } from "zod";
 import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -11,6 +11,7 @@ import {
 
 export const RECENT_MESSAGES_TO_KEEP = 6;
 const COMPACTION_TOKEN_THRESHOLD = 80_000;
+const COMPACTION_TOOL_RESULT_CHAR_LIMIT = 4000;
 const MEMORY_EXTRACTION_MESSAGE_CHAR_LIMIT = 2000;
 const MEMORY_EXTRACTION_TOTAL_CHAR_LIMIT = 20_000;
 const MEMORY_EXTRACTION_SYSTEM_PROMPT = `Review these user-authored chat messages from a conversation with an email assistant. Extract only durable insights that the user directly stated and that should be remembered across future conversations.
@@ -45,8 +46,8 @@ export function estimateTokens(messages: ModelMessage[]): number {
         if ("input" in part && part.input) {
           totalChars += JSON.stringify(part.input).length;
         }
-        if ("result" in part && part.result) {
-          totalChars += JSON.stringify(part.result).length;
+        if (part.type === "tool-result") {
+          totalChars += getToolOutputText(part.output).length;
         }
       }
     }
@@ -247,20 +248,29 @@ function serializeContent(content: ModelMessage["content"]): string {
     if ("text" in part && typeof part.text === "string") {
       parts.push(part.text);
     }
-    if ("toolName" in part && typeof part.toolName === "string") {
-      const input = "input" in part ? JSON.stringify(part.input) : "";
-      parts.push(`[Tool call: ${part.toolName}(${input})]`);
+    if (part.type === "tool-call") {
+      parts.push(
+        `[Tool call: ${part.toolName}(${JSON.stringify(part.input)})]`,
+      );
     }
-    if ("result" in part && part.result !== undefined) {
-      const resultStr =
-        typeof part.result === "string"
-          ? part.result
-          : JSON.stringify(part.result);
-      parts.push(`[Tool result: ${resultStr}]`);
+    if (part.type === "tool-result") {
+      const output = truncatePromptContent(
+        getToolOutputText(part.output),
+        COMPACTION_TOOL_RESULT_CHAR_LIMIT,
+      );
+      parts.push(`[Tool result: ${output}]`);
     }
   }
 
   return parts.join("\n");
+}
+
+function getToolOutputText(output: ToolResultPart["output"]): string {
+  if ("value" in output && typeof output.value === "string") {
+    return output.value;
+  }
+
+  return JSON.stringify("value" in output ? output.value : output);
 }
 
 function normalizePromptContent(content: string): string {
