@@ -1,4 +1,4 @@
-name: inbox-zero-native-emulator
+name: inbox-zero-emulator
 
 services:
   db:
@@ -6,13 +6,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: native_emulator
+      POSTGRES_DB: emulator
     ports:
       - "127.0.0.1:${POSTGRES_PORT}:5432"
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d native_emulator"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d emulator"]
       interval: 2s
       timeout: 5s
       retries: 30
@@ -33,7 +33,7 @@ services:
     image: hiett/serverless-redis-http:latest
     environment:
       SRH_MODE: env
-      SRH_TOKEN: native-emulator-token
+      SRH_TOKEN: local-emulator-token
       SRH_CONNECTION_STRING: redis://redis:6379
     ports:
       - "127.0.0.1:${REDIS_HTTP_PORT}:80"

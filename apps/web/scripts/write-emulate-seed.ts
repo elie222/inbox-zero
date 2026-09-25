@@ -10,21 +10,23 @@ const DEFAULT_OUTPUT_PATH = resolve(
 );
 
 async function main() {
-  const { baseUrl, native, outputPath } = parseOptions(process.argv.slice(2));
-  await writeEmulateSeed(outputPath, baseUrl, native);
+  const { baseUrl, outputPath, teammates } = parseOptions(
+    process.argv.slice(2),
+  );
+  await writeEmulateSeed(outputPath, baseUrl, teammates);
   console.log(`Wrote emulator seed to ${relativeToRoot(outputPath)}`);
 }
 
 function parseOptions(args: string[]) {
   let baseUrl: string | undefined;
-  let native = false;
   let outputPath = DEFAULT_OUTPUT_PATH;
+  let teammates = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
 
-    if (option === "--native") {
-      native = true;
+    if (option === "--teammates") {
+      teammates = true;
       continue;
     }
 
@@ -45,7 +47,7 @@ function parseOptions(args: string[]) {
     }
   }
 
-  return { baseUrl, native, outputPath };
+  return { baseUrl, outputPath, teammates };
 }
 
 function relativeToRoot(path: string) {

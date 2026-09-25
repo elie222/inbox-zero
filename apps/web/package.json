@@ -17,6 +17,8 @@
     "emulate:stripe": "tsx scripts/run-stripe-emulator.ts",
     "emulate:llm": "tsx scripts/run-llm-emulator.ts",
     "emulate:seed": "tsx scripts/write-emulate-seed.ts",
+    "emulator:down": "node scripts/emulator/stack.mjs down",
+    "emulator:up": "node scripts/emulator/stack.mjs up",
     "eval:ablate": "dotenv -o -e .env.test -- tsx --tsconfig tsconfig.eval-script.json scripts/eval-ablate.ts",
     "eval:compare": "tsx --tsconfig tsconfig.eval-script.json scripts/eval-compare-runs.ts",
     "eval:pool-ablations": "tsx --tsconfig tsconfig.eval-script.json scripts/eval-pool-ablations.ts",
@@ -39,11 +41,7 @@
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
     "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows --no-file-parallelism",
     "test-integration": "cross-env RUN_INTEGRATION_TESTS=true vitest --run --dir __tests__/integration",
-    "test:mail-loading": "node __tests__/playwright/mail-simulation/run.mjs",
-    "test:native-emulator": "node --test scripts/native-emulator/*.test.mjs",
-    "native-emulator:up": "node scripts/native-emulator/stack.mjs up",
-    "native-emulator:down": "node scripts/native-emulator/stack.mjs down",
-    "native-emulator:smoke": "node scripts/native-emulator/stack.mjs smoke"
+    "test:mail-loading": "node __tests__/playwright/mail-simulation/run.mjs"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "5.0.82",

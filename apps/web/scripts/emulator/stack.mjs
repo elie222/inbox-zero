@@ -9,81 +9,61 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertLocalTargets } from "./endpoints.mjs";
-import {
-  createResponseLossControl,
-  createResponseLossProxy,
-} from "./response-loss-proxy.mjs";
 
 const webRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const statePath = path.join(webRoot, ".tmp/native-emulator/state.json");
-const composeFile = path.join(webRoot, "scripts/native-emulator/compose.yml");
+const statePath = path.join(webRoot, ".tmp/emulator/state.json");
+const composeFile = path.join(webRoot, "scripts/emulator/compose.yml");
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 const command = process.argv[2] ?? "help";
 
-if (command === "serve-proxy") {
-  await serveProxy();
-} else if (command === "up") {
+if (command === "up") {
   await up({ foreground: process.argv.includes("--foreground") });
 } else if (command === "down") {
   await down();
-} else if (command === "smoke") {
-  await smoke();
 } else {
-  console.log("Usage: node scripts/native-emulator/stack.mjs <up|down|smoke>");
+  console.log("Usage: node scripts/emulator/stack.mjs <up|down>");
   process.exit(command === "help" ? 0 : 1);
 }
 
 async function up({ foreground }) {
   if (exists(statePath)) {
     throw new Error(
-      "Native emulator is already running. Stop it with: pnpm -F inbox-zero-ai native-emulator:down",
+      "Emulator is already running. Stop it with: pnpm -F inbox-zero-ai emulator:down",
     );
   }
   assertInheritedTargets();
   const id = `${process.pid}${Date.now()}`;
-  const runDir = path.join(webRoot, ".tmp/native-emulator", id);
+  const runDir = path.join(webRoot, ".tmp/emulator", id);
   mkdirSync(runDir, { recursive: true });
   const ports = {
     next: await getAvailablePort(),
     postgres: await getAvailablePort(),
     redis: await getAvailablePort(),
     redisHttp: await getAvailablePort(),
-    googleUpstream: await getAvailablePort(),
-    microsoftUpstream: await getAvailablePort(),
     google: await getAvailablePort(),
     microsoft: await getAvailablePort(),
-    control: await getAvailablePort(),
-    email: await getAvailablePort(),
-    stripe: await getAvailablePort(),
-    llm: await getAvailablePort(),
   };
   const baseUrl = `http://127.0.0.1:${ports.next}`;
   const googleBaseUrl = `http://127.0.0.1:${ports.google}`;
   const microsoftBaseUrl = `http://127.0.0.1:${ports.microsoft}`;
-  const controlUrl = `http://127.0.0.1:${ports.control}`;
-  const databaseUrl = `postgresql://postgres:postgres@127.0.0.1:${ports.postgres}/native_emulator`;
-  const redisUrl = `redis://127.0.0.1:${ports.redis}`;
+  const databaseUrl = `postgresql://postgres:postgres@127.0.0.1:${ports.postgres}/emulator`;
   const env = appEnv({
     baseUrl,
     googleBaseUrl,
     microsoftBaseUrl,
     databaseUrl,
-    redisUrl,
+    redisUrl: `redis://127.0.0.1:${ports.redis}`,
     redisHttpUrl: `http://127.0.0.1:${ports.redisHttp}`,
-    emailUrl: `http://127.0.0.1:${ports.email}`,
-    stripeUrl: `http://127.0.0.1:${ports.stripe}`,
-    llmUrl: `http://127.0.0.1:${ports.llm}`,
   });
   assertLocalTargets(env);
-  const composeProject = `iznative${id}`;
+  const composeProject = `emulator${id}`;
   const pids = [];
   const state = {
     baseUrl,
-    controlUrl,
     googleBaseUrl,
     microsoftBaseUrl,
     databaseUrl,
@@ -107,7 +87,7 @@ async function up({ foreground }) {
         "exec",
         "tsx",
         "scripts/write-emulate-seed.ts",
-        "--native",
+        "--teammates",
         "--base-url",
         baseUrl,
         "--output",
@@ -125,7 +105,7 @@ async function up({ foreground }) {
           "--service",
           "google",
           "--port",
-          String(ports.googleUpstream),
+          String(ports.google),
           "--base-url",
           googleBaseUrl,
           "--seed",
@@ -143,7 +123,7 @@ async function up({ foreground }) {
           "--service",
           "microsoft",
           "--port",
-          String(ports.microsoftUpstream),
+          String(ports.microsoft),
           "--base-url",
           microsoftBaseUrl,
           "--seed",
@@ -151,40 +131,6 @@ async function up({ foreground }) {
         ],
         env,
         path.join(runDir, "microsoft.log"),
-      ),
-      spawnLogged(
-        process.execPath,
-        [fileURLToPath(import.meta.url), "serve-proxy"],
-        {
-          ...env,
-          NATIVE_EMULATOR_GOOGLE_UPSTREAM: `http://127.0.0.1:${ports.googleUpstream}`,
-          NATIVE_EMULATOR_MICROSOFT_UPSTREAM: `http://127.0.0.1:${ports.microsoftUpstream}`,
-          NATIVE_EMULATOR_GOOGLE_PORT: String(ports.google),
-          NATIVE_EMULATOR_MICROSOFT_PORT: String(ports.microsoft),
-          NATIVE_EMULATOR_CONTROL_PORT: String(ports.control),
-        },
-        path.join(runDir, "proxy.log"),
-      ),
-      spawnLogged(
-        "node",
-        ["__tests__/playwright/email-server.mjs", String(ports.email)],
-        env,
-        path.join(runDir, "email.log"),
-      ),
-      spawnLogged(
-        "pnpm",
-        ["exec", "tsx", "scripts/run-stripe-emulator.ts", String(ports.stripe)],
-        {
-          ...env,
-          STRIPE_EMULATOR_WEBHOOK_URL: `${baseUrl}/api/stripe/webhook`,
-        },
-        path.join(runDir, "stripe.log"),
-      ),
-      spawnLogged(
-        "pnpm",
-        ["exec", "tsx", "scripts/run-llm-emulator.ts", String(ports.llm)],
-        env,
-        path.join(runDir, "llm.log"),
       ),
       spawnLogged(
         "pnpm",
@@ -205,61 +151,11 @@ async function up({ foreground }) {
     writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
     await waitForReady(state);
     printReady(state);
-    if (foreground) await waitForSignal(state);
+    if (foreground) await waitForSignal();
   } catch (error) {
     await down(state);
     throw error;
   }
-}
-
-async function serveProxy() {
-  const google = await createResponseLossProxy({
-    upstream: process.env.NATIVE_EMULATOR_GOOGLE_UPSTREAM,
-    port: Number(process.env.NATIVE_EMULATOR_GOOGLE_PORT),
-  });
-  const microsoft = await createResponseLossProxy({
-    upstream: process.env.NATIVE_EMULATOR_MICROSOFT_UPSTREAM,
-    port: Number(process.env.NATIVE_EMULATOR_MICROSOFT_PORT),
-  });
-  const control = await createResponseLossControl({
-    port: Number(process.env.NATIVE_EMULATOR_CONTROL_PORT),
-    proxies: { google, microsoft },
-  });
-  console.log(`response-loss control ${control.url}`);
-  await new Promise(() => {});
-}
-
-async function smoke() {
-  await up({ foreground: false });
-  const state = JSON.parse(readFileSync(statePath, "utf8"));
-  try {
-    const auth = await fetch(`${state.baseUrl}/api/auth/ok`);
-    if (!auth.ok) throw new Error(`/api/auth/ok returned ${auth.status}`);
-    const google = await fetch(
-      `${state.googleBaseUrl}/.well-known/openid-configuration`,
-    );
-    if (!google.ok)
-      throw new Error(`Google emulator returned ${google.status}`);
-    const microsoft = await fetch(
-      `${state.microsoftBaseUrl}/.well-known/openid-configuration`,
-    );
-    if (!microsoft.ok) {
-      throw new Error(`Microsoft emulator returned ${microsoft.status}`);
-    }
-    const health = await fetch(`${state.controlUrl}/health`);
-    if (!health.ok) throw new Error(`control health returned ${health.status}`);
-    const armed = await fetch(`${state.controlUrl}/response-loss`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: "both", count: 0 }),
-    });
-    if (!armed.ok)
-      throw new Error(`response-loss control returned ${armed.status}`);
-    console.log("native emulator smoke passed");
-  } finally {
-    await down();
-  }
-  if (exists(statePath)) throw new Error("state file survived teardown");
 }
 
 async function down(state = readState()) {
@@ -290,13 +186,11 @@ function readState() {
 
 function printReady(state) {
   console.log(`BASE_URL=${state.baseUrl}`);
-  console.log(`CONTROL_URL=${state.controlUrl}`);
   console.log(`GOOGLE_BASE_URL=${state.googleBaseUrl}`);
   console.log(`MICROSOFT_BASE_URL=${state.microsoftBaseUrl}`);
 }
 
 async function waitForReady(state) {
-  await waitFor(`${state.controlUrl}/health`, "response-loss control");
   await waitFor(
     `${state.googleBaseUrl}/.well-known/openid-configuration`,
     "Google emulator",
@@ -331,9 +225,6 @@ function appEnv({
   databaseUrl,
   redisUrl,
   redisHttpUrl,
-  emailUrl,
-  stripeUrl,
-  llmUrl,
 }) {
   return {
     PATH: process.env.PATH ?? "",
@@ -347,46 +238,42 @@ function appEnv({
     DATABASE_URL: databaseUrl,
     DIRECT_URL: databaseUrl,
     PREVIEW_DATABASE_URL: databaseUrl,
-    AUTH_SECRET: "native-emulator-secret",
+    AUTH_SECRET: "local-emulator-secret",
     GOOGLE_CLIENT_ID: "emulate-google-client.apps.googleusercontent.com",
     GOOGLE_CLIENT_SECRET: "emulate-google-secret",
     GOOGLE_BASE_URL: googleBaseUrl,
     MICROSOFT_CLIENT_ID: "emulate-microsoft-client-id",
     MICROSOFT_CLIENT_SECRET: "emulate-microsoft-secret",
     MICROSOFT_BASE_URL: microsoftBaseUrl,
-    MICROSOFT_WEBHOOK_CLIENT_STATE: "native-emulator-webhook",
-    GOOGLE_PUBSUB_TOPIC_NAME: "native-emulator-topic",
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: "native-emulator-token",
-    EMAIL_ENCRYPT_SECRET: "native-emulator-secret",
-    EMAIL_ENCRYPT_SALT: "native-emulator-salt",
-    INTERNAL_API_KEY: "native-emulator-internal",
-    API_KEY_SALT: "native-emulator-api-key-salt",
+    MICROSOFT_WEBHOOK_CLIENT_STATE: "local-emulator-webhook",
+    GOOGLE_PUBSUB_TOPIC_NAME: "local-emulator-topic",
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: "local-emulator-token",
+    EMAIL_ENCRYPT_SECRET: "local-emulator-secret",
+    EMAIL_ENCRYPT_SALT: "local-emulator-salt",
+    INTERNAL_API_KEY: "local-emulator-internal",
+    API_KEY_SALT: "local-emulator-api-key-salt",
     DEFAULT_LLMS: "openai-compatible:emulated",
     ECONOMY_LLMS: "",
     CHAT_LLMS: "",
     NANO_LLMS: "",
     DRAFT_LLMS: "",
-    OPENAI_COMPATIBLE_BASE_URL: `${llmUrl}/v1`,
+    OPENAI_COMPATIBLE_BASE_URL: "",
     OPENAI_API_KEY: "",
     ANTHROPIC_API_KEY: "",
     OPENROUTER_API_KEY: "",
     AI_GATEWAY_API_KEY: "",
     REDIS_URL: redisUrl,
     REDIS_HTTP_URL: redisHttpUrl,
-    REDIS_HTTP_TOKEN: "native-emulator-token",
+    REDIS_HTTP_TOKEN: "local-emulator-token",
     UPSTASH_REDIS_URL: "",
     UPSTASH_REDIS_TOKEN: "",
     QSTASH_TOKEN: "",
     QSTASH_CURRENT_SIGNING_KEY: "",
     QSTASH_NEXT_SIGNING_KEY: "",
-    RESEND_API_KEY: "native-emulator-email",
-    RESEND_BASE_URL: emailUrl,
-    RESEND_AUDIENCE_ID: "native-emulator-audience",
-    RESEND_FROM_EMAIL: "Inbox Zero <signin@example.com>",
+    RESEND_API_KEY: "",
     LOOPS_API_SECRET: "",
-    STRIPE_API_BASE_URL: stripeUrl,
-    STRIPE_SECRET_KEY: "native-emulator-stripe",
-    STRIPE_WEBHOOK_SECRET: "whsec_native_emulator",
+    STRIPE_SECRET_KEY: "",
+    STRIPE_WEBHOOK_SECRET: "",
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
@@ -410,6 +297,39 @@ function assertInheritedTargets() {
     if (process.env[key]) inherited[key] = process.env[key];
   }
   assertLocalTargets(inherited);
+}
+
+function assertLocalTargets(env) {
+  for (const [key, value] of Object.entries(env)) {
+    if (!value) continue;
+    if (value.startsWith("postgres") || value.startsWith("redis:")) {
+      assertLoopbackUrl(
+        key,
+        value.replace(/^postgres(?:ql)?:/, "http:").replace(/^redis:/, "http:"),
+      );
+      continue;
+    }
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      assertLoopbackUrl(key, value);
+    }
+  }
+}
+
+function assertLoopbackUrl(key, value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${key} is not a URL: ${value}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`${key} must use http on the local emulator`);
+  }
+  if (!LOOPBACK_HOSTS.has(url.hostname)) {
+    throw new Error(
+      `${key} must stay on loopback. Refusing to point the emulator at ${url.hostname}.`,
+    );
+  }
 }
 
 function compose(project, args, env) {
