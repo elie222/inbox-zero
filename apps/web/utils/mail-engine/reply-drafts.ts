@@ -1,3 +1,4 @@
+import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
   EmailComposerAttachment,
@@ -41,6 +42,7 @@ type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
 
 const drafts = new Map<string, StoredReplyDraft>();
 const pendingWrites = new Map<string, Promise<unknown>>();
+const engineRevisions = new Map<string, number>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -241,6 +243,7 @@ export function createReplyDraftWriter(
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
+    engineRevisions.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
@@ -248,7 +251,9 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   accountEpoch.set(emailAccountId, currentEpoch(emailAccountId) + 1);
   for (const [key, draft] of drafts) {
-    if (draft.emailAccountId === emailAccountId) drafts.delete(key);
+    if (draft.emailAccountId !== emailAccountId) continue;
+    drafts.delete(key);
+    engineRevisions.delete(key);
   }
 }
 
@@ -360,7 +365,7 @@ async function persistEngineReplyDraft(
       draftId,
     });
     if (current.status !== "found") return;
-    await client.saveDraft({
+    const cleared = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
       expectedRevision: current.draftRevision,
       content: {
@@ -373,9 +378,10 @@ async function persistEngineReplyDraft(
         attachmentIds: [],
       },
     });
+    rememberEngineRevision(identity, cleared);
     return;
   }
-  let expectedRevision: number | null = null;
+  let expectedRevision = engineRevisions.get(draftKey(identity)) ?? null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const saved = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
@@ -394,8 +400,10 @@ async function persistEngineReplyDraft(
           : {}),
       },
     });
-    if (saved.status === "saved") return;
-    if (saved.status !== "conflict") return;
+    if (saved.status !== "conflict") {
+      rememberEngineRevision(identity, saved);
+      return;
+    }
     expectedRevision = saved.currentDraftRevision;
   }
 }
@@ -411,6 +419,7 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   try {
     const content = JSON.parse(stored.content.clientState) as ReplyDraftContent;
     if (!content?.draft || !content.values) return;
+    engineRevisions.set(draftKey(identity), stored.draftRevision);
     const restored: StoredReplyDraft = {
       ...identity,
       content,
@@ -422,6 +431,14 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   } catch {
     return;
   }
+}
+
+function rememberEngineRevision(
+  identity: ReplyDraftIdentity,
+  result: DraftSaveResult,
+) {
+  if (result.status === "saved")
+    engineRevisions.set(draftKey(identity), result.draftRevision);
 }
 
 function engineDraftId(identity: ReplyDraftIdentity) {

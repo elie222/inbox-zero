@@ -210,6 +210,45 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
+  it("saves edits after the first save without a revision conflict", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const writer = createReplyDraftWriter(identity);
+
+    await writer.save(content);
+    await writer.save({
+      ...content,
+      draft: { ...content.draft, editableHtml: "<p>My reply, edited</p>" },
+    });
+
+    expect(client.conflicts).toBe(0);
+    expect(client.saveDraft).toHaveBeenCalledTimes(2);
+    expect(
+      (await client.readDraft({ accountId: "account", draftId: "parent" }))
+        .content?.editableHtml,
+    ).toBe("<p>My reply, edited</p>");
+    setActiveMailClient(null);
+  });
+
+  it("saves a draft restored from the engine without a revision conflict", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save(content);
+    clearLocalReplyDrafts();
+
+    const restored = await getReplyDraft(identity);
+    await createReplyDraftWriter(identity, restored?.revision).save({
+      ...content,
+      draft: { ...content.draft, editableHtml: "<p>Continued</p>" },
+    });
+
+    expect(client.conflicts).toBe(0);
+    expect(client.saveDraft).toHaveBeenCalledTimes(2);
+    setActiveMailClient(null);
+  });
+
   it("copies a cancelled send draft into the reply composer session", async () => {
     const { setActiveMailClient } = await import("./active-client");
     setActiveMailClient({
@@ -453,3 +492,49 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 });
+
+function createRevisionCheckingClient() {
+  const drafts = new Map<
+    string,
+    { revision: number; content: Record<string, unknown> }
+  >();
+  const client = {
+    conflicts: 0,
+    saveDraft: vi.fn(
+      async (input: {
+        key: { draftId: string };
+        expectedRevision: number | null;
+        content: Record<string, unknown>;
+      }) => {
+        const currentRevision = drafts.get(input.key.draftId)?.revision ?? null;
+        if (input.expectedRevision !== currentRevision) {
+          client.conflicts += 1;
+          return {
+            status: "conflict" as const,
+            currentDraftRevision: currentRevision,
+          };
+        }
+        const next = (currentRevision ?? 0) + 1;
+        drafts.set(input.key.draftId, {
+          revision: next,
+          content: input.content,
+        });
+        return {
+          status: "saved" as const,
+          draftRevision: next,
+          revision: { databaseEpoch: "e", sequence: next },
+        };
+      },
+    ),
+    async readDraft(key: { draftId: string }) {
+      const stored = drafts.get(key.draftId);
+      if (!stored) return { status: "missing" as const, content: undefined };
+      return {
+        status: "found" as const,
+        draftRevision: stored.revision,
+        content: stored.content,
+      };
+    },
+  };
+  return client;
+}

@@ -293,3 +293,20 @@ it("stops retrying a closed composer after repeated failures and retries on reop
   expect(save).toHaveBeenLastCalledWith("local draft");
   reopened.unmount();
 });
+
+it("builds the mailbox draft once per save instead of on every keystroke", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const getContent = vi.fn(() => "edit");
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent, save }),
+  );
+  for (let keystroke = 0; keystroke < 20; keystroke++) {
+    act(() => result.current.capture());
+  }
+  expect(getContent).not.toHaveBeenCalled();
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(getContent).toHaveBeenCalledOnce();
+  expect(save).toHaveBeenCalledExactlyOnceWith("edit");
+  unmount();
+});
