@@ -61,7 +61,6 @@ export type NewSplitDialogProps = {
   onOpenChange: (open: boolean) => void;
   labels: SplitChoice[];
   categories: SplitChoice[];
-  senders: string[];
   /** Splits already on the tab strip, so the library can show what's on. */
   existingSplits: ExistingSplit[];
   /** Set when the dialog was opened to change a split rather than add one. */

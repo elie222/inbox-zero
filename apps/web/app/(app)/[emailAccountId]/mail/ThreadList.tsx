@@ -2,7 +2,7 @@
 
 import { addDays } from "date-fns/addDays";
 import { startOfDay } from "date-fns/startOfDay";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
@@ -19,6 +19,8 @@ import { cn } from "@/utils";
 import { formatDateGroupLabel } from "@/utils/date";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { GmailLabel } from "@/utils/gmail/label";
+
+const NO_LABELS: EmailLabels = {};
 
 export type ThreadListProps = {
   threads: ListThread[];
@@ -44,7 +46,7 @@ export type ThreadListProps = {
   showSentOpenStatus?: boolean;
 };
 
-export function ThreadList({
+export const ThreadList = memo(function ThreadList({
   threads,
   emptyMessage = "No emails in this view",
   layout,
@@ -144,7 +146,7 @@ export function ThreadList({
           userEmail={userEmail}
           userLabels={
             "account" in row.item
-              ? (labelsByAccount?.[row.item.account.id] ?? {})
+              ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
               : userLabels
           }
         />
@@ -154,7 +156,7 @@ export function ThreadList({
       showLoadMore={showLoadMore}
     />
   );
-}
+});
 
 /** Refreshes idle lists at midnight and when a suspended tab becomes active. */
 function useDayStart() {

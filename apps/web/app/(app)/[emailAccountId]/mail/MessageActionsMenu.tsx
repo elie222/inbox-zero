@@ -6,6 +6,7 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { RuleActions } from "@/components/RuleActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useChat } from "@/providers/ChatProvider";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,12 +26,10 @@ type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
 export function MessageActionsMenu({
   message,
   plans,
-  setChatInput,
   showFixWithChat,
 }: {
   message: ParsedMessage;
   plans: ThreadPlan[];
-  setChatInput: (input: string) => void;
   showFixWithChat: boolean;
 }) {
   const messagePlans = plans.filter((plan) => plan.messageId === message.id);
@@ -69,7 +68,6 @@ export function MessageActionsMenu({
                     key={plan.id}
                     message={message}
                     plan={plan}
-                    setChatInput={setChatInput}
                     showFixWithChat={showFixWithChat}
                   />
                 ))
@@ -89,15 +87,14 @@ export function MessageActionsMenu({
 function RuleAttribution({
   plan,
   message,
-  setChatInput,
   showFixWithChat,
 }: {
   plan: ThreadPlan;
   message: ParsedMessage | null;
-  setChatInput: (input: string) => void;
   showFixWithChat: boolean;
 }) {
   const { provider } = useAccount();
+  const { setInput: setChatInput } = useChat();
   const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
 
   return (
