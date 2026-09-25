@@ -65,8 +65,9 @@ describe("meeting follow-up draft route", () => {
     );
   });
 
-  // The draft is addressed by the id the freshly fetched draft reports, since
-  // editing a draft replaces its message id.
+  // The draft is fetched fresh rather than linked from the stored id, both
+  // because editing a draft replaces its message id and because only the live
+  // Graph response carries the deeplink Outlook can actually resolve.
   it("opens the related draft within the full Outlook client", async () => {
     getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
@@ -76,13 +77,15 @@ describe("meeting follow-up draft route", () => {
     emailProvider.getDraft.mockResolvedValue({
       id: "draft-message-123",
       threadId: "thread-123",
+      externalUrl:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D",
     });
 
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
     expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://outlook.office.com/mail/drafts/id/draft-message-123",
+      "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
     );
   });
 
