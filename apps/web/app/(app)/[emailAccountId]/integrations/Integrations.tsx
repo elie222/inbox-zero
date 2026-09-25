@@ -45,13 +45,7 @@ export function Integrations() {
     <LoadingContent loading={isLoading} error={error}>
       <Card>
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Connection</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
+          <IntegrationsTableHeader />
           <TableBody>
             {integrations.length ? (
               integrations.map((integration) => (
@@ -81,6 +75,7 @@ export function Integrations() {
           </SectionDescription>
           <Card>
             <Table>
+              <IntegrationsTableHeader />
               <TableBody>
                 {PIPEDREAM_APPS.map((app) => (
                   <PipedreamAppRow
@@ -205,4 +200,16 @@ function getPipedreamAppStatus(
     return "disconnected";
   }
   return connection.isActive ? "connected" : "paused";
+}
+
+function IntegrationsTableHeader() {
+  return (
+    <TableHeader>
+      <TableRow>
+        <TableHead>Name</TableHead>
+        <TableHead>Connection</TableHead>
+        <TableHead />
+      </TableRow>
+    </TableHeader>
+  );
 }
