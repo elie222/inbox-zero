@@ -11,9 +11,13 @@ import { captureException, isInvalidGrantError } from "@/utils/error";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
+import { syncGoogleEmailFromProfile } from "@/utils/auth/rename-email";
 
 export type WatchEmailAccountResult =
   | {
@@ -51,9 +55,12 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
       email: true,
       watchEmailsExpirationDate: true,
       watchEmailsSubscriptionId: true,
+      userId: true,
+      accountId: true,
       account: {
         select: {
           provider: true,
+          providerAccountId: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,
@@ -63,6 +70,7 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
       user: {
         select: {
           id: true,
+          email: true,
           aiApiKey: true,
           premium: {
             select: premiumEntitlementSelect,
@@ -208,6 +216,28 @@ async function watchEmailAccount(
     };
   }
 
+  if (
+    isGoogleProvider(account.provider) &&
+    isEmailSyncDue(emailAccount.id, new Date())
+  ) {
+    try {
+      const renamed = await syncGoogleEmailFromProfile({
+        account: {
+          id: emailAccount.accountId,
+          userId: emailAccount.userId,
+          providerId: account.provider,
+          accountId: account.providerAccountId,
+        },
+        mailbox: { id: emailAccount.id, email: emailAccount.email },
+        userEmail: user.email,
+        accessToken: provider.getAccessToken(),
+      });
+      if (renamed) logger.info("Synced renamed Google mailbox address");
+    } catch (error) {
+      logger.warn("Failed to sync Google mailbox address", { error });
+    }
+  }
+
   const wasLapsed =
     !watchEmailsExpirationDate ||
     new Date(watchEmailsExpirationDate) < new Date();
@@ -333,4 +363,15 @@ export async function unwatchEmails({
       watchEmailsSubscriptionId: null,
     },
   });
+}
+
+// The profile lookup adds a request per account, and the hourly renewal already
+// runs close to its time budget, so each account is checked once a day in a
+// fixed hour slot instead of on every run.
+function isEmailSyncDue(emailAccountId: string, now: Date) {
+  let hash = 0;
+  for (const char of emailAccountId) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash % 24 === now.getUTCHours();
 }
