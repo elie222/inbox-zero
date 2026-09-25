@@ -99,6 +99,7 @@ export const POST = withError("apple/webhook", async (request) => {
         logger,
         originalTransactionId: resolvedOriginalTransactionId,
         transactionId: resolvedTransactionId,
+        verifiedTransaction: transaction,
       });
 
       logger.info("Apple webhook processed successfully", {

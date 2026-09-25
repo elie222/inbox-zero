@@ -6,9 +6,13 @@ import {
   VerificationStatus,
 } from "@apple/app-store-server-library";
 import { env } from "@/env";
+import prisma from "@/utils/prisma";
+import { signLocalAppleTransaction } from "./local-testing";
 import {
   getAppleSubscriptionState,
+  syncAppleSubscriptionToDb,
   verifyAppleNotificationPayload,
+  verifyAppleSignedTransaction,
 } from "./index";
 
 const mocks = vi.hoisted(() => ({
@@ -39,8 +43,12 @@ vi.mock("@/env", () => ({
     APPLE_IAP_ISSUER_ID: "issuer-id",
     APPLE_IAP_KEY_ID: "key-id",
     APPLE_IAP_PRIVATE_KEY: "private-key",
+    APPLE_IAP_LOCAL_TESTING: false,
     NODE_ENV: "test",
   },
+}));
+vi.mock("next/server", () => ({
+  after: vi.fn(),
 }));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/error", () => ({
@@ -237,6 +245,73 @@ describe("verifyAppleNotificationPayload", () => {
     expect(
       mocks.sandboxVerifier.verifyAndDecodeNotification,
     ).toHaveBeenCalledWith("sandbox-payload");
+  });
+});
+
+describe("local Apple signed transactions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    env.NODE_ENV = "test";
+    env.APPLE_IAP_LOCAL_TESTING = true;
+    prisma.premium.findFirst.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue({ premiumId: "premium-1" });
+    prisma.premium.findUnique.mockResolvedValue(null);
+    prisma.premium.update.mockImplementation(async ({ data }) => ({
+      id: "premium-1",
+      users: [{ id: "user-1" }],
+      ...data,
+    }));
+  });
+
+  it("grants Starter from a locally signed StoreKit transaction", async () => {
+    const signedTransaction = await signLocalAppleTransaction({
+      currency: "USD",
+      expiresDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      offerDiscountType: "FREE_TRIAL",
+      originalTransactionId: "orig-1",
+      price: 0,
+      productId: "com.getinboxzero.starter.monthly.v2",
+      purchaseDate: Date.now(),
+      transactionId: "txn-1",
+    });
+
+    const verified = await verifyAppleSignedTransaction(signedTransaction);
+    const premium = await syncAppleSubscriptionToDb({
+      authenticatedUserId: "user-1",
+      logger: testLogger,
+      verifiedTransaction: verified,
+    });
+
+    expect(premium).toMatchObject({
+      appleProductId: "com.getinboxzero.starter.monthly.v2",
+      appleOfferDiscountType: "FREE_TRIAL",
+      appleSubscriptionStatus: "ACTIVE",
+      tier: "STARTER_MONTHLY",
+    });
+    expect(mocks.sandboxClient.getTransactionInfo).not.toHaveBeenCalled();
+  });
+
+  it("records a refund from the signed transaction", async () => {
+    const signedTransaction = await signLocalAppleTransaction({
+      expiresDate: Date.now() + 24 * 60 * 60 * 1000,
+      originalTransactionId: "orig-1",
+      productId: "com.getinboxzero.starter.annual.v2",
+      revocationDate: Date.now(),
+      transactionId: "txn-refund",
+    });
+    const verified = await verifyAppleSignedTransaction(signedTransaction);
+    const premium = await syncAppleSubscriptionToDb({
+      authenticatedUserId: "user-1",
+      logger: testLogger,
+      verifiedTransaction: verified,
+    });
+
+    expect(premium).toMatchObject({
+      appleProductId: "com.getinboxzero.starter.annual.v2",
+      appleSubscriptionStatus: "REVOKED",
+      tier: "STARTER_ANNUALLY",
+    });
+    expect(premium?.appleRevokedAt).toBeInstanceOf(Date);
   });
 });
 
