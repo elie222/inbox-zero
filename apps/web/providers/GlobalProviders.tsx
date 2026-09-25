@@ -35,6 +35,7 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
       disable={process.env.NODE_ENV !== "production"}
     >
       <ManageServiceWorker />
+      <SignalDesktopReady />
       <SWRConfig value={{ fetcher: swrFetcher }}>
         <NuqsAdapter>{props.children}</NuqsAdapter>
       </SWRConfig>
@@ -208,6 +209,13 @@ function ManageServiceWorker() {
     saveOfflineMailPage(navigator.serviceWorker.controller);
   }, [serwist, pathname]);
 
+  return null;
+}
+
+function SignalDesktopReady() {
+  useEffect(() => {
+    getInboxZeroDesktopApp()?.signalReady?.();
+  }, []);
   return null;
 }
 
