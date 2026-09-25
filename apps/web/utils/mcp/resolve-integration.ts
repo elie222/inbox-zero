@@ -8,7 +8,7 @@ export type ResolvedMcpIntegration = {
   name: string;
   displayName: string;
   serverUrl?: string;
-  authType: "oauth" | "api-token";
+  authType: "oauth" | "api-token" | "none";
   scopes: string[];
   skipResourceParam?: boolean;
   filterWriteTools?: boolean;
@@ -61,11 +61,27 @@ export async function resolveMcpIntegration({
 export function fromDbAuthType(
   authType: McpAuthType,
 ): ResolvedMcpIntegration["authType"] {
-  return authType === "API_TOKEN" ? "api-token" : "oauth";
+  return AUTH_TYPE_FROM_DB[authType];
 }
 
 export function toDbAuthType(
   authType: ResolvedMcpIntegration["authType"],
 ): McpAuthType {
-  return authType === "api-token" ? "API_TOKEN" : "OAUTH";
+  return AUTH_TYPE_TO_DB[authType];
 }
+
+const AUTH_TYPE_FROM_DB: Record<
+  McpAuthType,
+  ResolvedMcpIntegration["authType"]
+> = {
+  OAUTH: "oauth",
+  API_TOKEN: "api-token",
+  NONE: "none",
+};
+
+const AUTH_TYPE_TO_DB: Record<ResolvedMcpIntegration["authType"], McpAuthType> =
+  {
+    oauth: "OAUTH",
+    "api-token": "API_TOKEN",
+    none: "NONE",
+  };
