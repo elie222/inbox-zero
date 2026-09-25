@@ -40,7 +40,7 @@ Sign-in still works in this setup because OAuth and SAML redirects run in the us
 | `/api/telegram/events` | [Telegram](/telegram/setup) |
 | `/api/recall/webhook` | [Meeting Recorder](/essentials/meeting-recorder) |
 
-Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` and `MICROSOFT_WEBHOOK_CLIENT_STATE` so the mail webhooks reject requests that do not come from Google or Microsoft. If AI assistants or scripts outside your network use the [MCP server](/api-reference/mcp) or [API](/api-reference/introduction), they also need access.
+Each of these endpoints verifies that requests come from the expected service, using a shared secret, request signature, or signed token, and rejects anything that fails. The one exception is `GOOGLE_PUBSUB_VERIFICATION_TOKEN`: setting it to an empty string turns off Gmail webhook verification, so only do that when a gateway in front of the app already authenticates those requests. If AI assistants or scripts outside your network use the [MCP server](/api-reference/mcp) or [API](/api-reference/introduction), they also need access.
 
 Only expose the endpoints for features you use. Without the mail webhooks, Inbox Zero will not process new email as it arrives.
 
