@@ -479,6 +479,61 @@ describe("engine plus sqlite archive slice", () => {
     await engine.close();
   });
 
+  it("hides a removed label at once and restores it when the provider rejects", async () => {
+    const labelled = messagePatch("m1", "c1", 1000, ["inbox"]);
+    labelled.fields.labelIds = ["INBOX", "Label_project"];
+    const source = fixtureSource(new Map([["m1", labelled]]));
+    const executor: OperationExecutor = {
+      async execute() {
+        return { status: "rejected", code: "provider_error", targets: [] };
+      },
+      async inspect(input) {
+        return this.execute({ ...input, attemptId: "inspect" });
+      },
+    };
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source,
+      executor,
+      runtime: createHostRuntime(),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(Date.now() + 2000);
+    const labelIds = async () =>
+      (
+        await store.readConversation(
+          { accountId: "acc-1", conversationId: "c1" },
+          { after: null, pageSize: 10 },
+        )
+      ).view.messages[0]?.metadata.labelIds;
+    expect(await labelIds()).toContain("Label_project");
+
+    const admission = await engine.submitConversations({
+      accountId: "acc-1",
+      commandId: "remove-label",
+      conversations: [{ accountId: "acc-1", conversationId: "c1" }],
+      change: {
+        kind: "set_membership",
+        membership: "label",
+        id: "Label_project",
+        present: false,
+      },
+      observedRevision: (await store.readMailboxView(inboxQuery)).revision,
+    });
+    expect(admission.status).not.toBe("rejected");
+    expect(await labelIds()).not.toContain("Label_project");
+
+    await engine.runUntil(Date.now() + 2000);
+    expect(await labelIds()).toContain("Label_project");
+    await engine.close();
+  });
+
   it("rebuilds from bootstrap when catch-up reports an expired position", async () => {
     const messages = new Map([
       ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
@@ -4671,7 +4726,7 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
         value: { changes: [], bodies: [], unresolved: [] },
       };
     },
-    async readConversationMembership({ conversation }) {
+    async readConversationMembership({ conversation, resolutionId }) {
       const keys = [...messages.values()]
         .filter(
           (
@@ -4687,7 +4742,7 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
           status: "page",
           page: {
             conversation,
-            resolutionId: "res",
+            resolutionId,
             keys,
             changes: [],
             nextPage: null,

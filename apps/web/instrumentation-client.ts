@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { env } from "@/env";
 import { beforeSend, beforeSendTransaction } from "@/utils/sentry-scrub";
+import { installStaleDeploymentReload } from "@/utils/stale-deployment";
 
 Sentry.init({
   dsn: env.NEXT_PUBLIC_SENTRY_DSN,
@@ -32,5 +33,7 @@ Sentry.init({
     }),
   ],
 });
+
+installStaleDeploymentReload();
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

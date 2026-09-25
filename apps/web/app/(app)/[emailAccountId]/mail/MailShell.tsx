@@ -85,7 +85,8 @@ import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { updateMailPreferencesAction } from "@/utils/actions/mail-split";
 import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.validation";
-import { removeThreadLabelAction } from "@/utils/actions/mail";
+import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import {
   getPortableLabelSplits,
   OTHER_SPLIT_ID,
@@ -1180,19 +1181,27 @@ export function MailShell() {
   );
 
   const onRemoveLabel = useStableCallback(async (labelId: string) => {
-    if (!openThreadSelection) return;
-    const result = await removeThreadLabelAction(
-      openThreadSelection.emailAccountId,
-      {
-        threadId: openThreadSelection.threadId,
-        labelId,
-      },
-    );
-    if (result?.serverError || result?.validationErrors) {
-      toast.error(getActionErrorMessage(result));
-      return;
+    if (!openThreadSelection || !client) return;
+    try {
+      const { admission } = await submitConversationChange({
+        client,
+        accountId: openThreadSelection.emailAccountId,
+        conversationId: openThreadSelection.threadId,
+        change: {
+          kind: "set_membership",
+          membership: "label",
+          id: labelId,
+          present: false,
+        },
+      });
+      if (admission.status === "rejected") {
+        toast.error(
+          admissionRejectionCopy(admission.code) ?? "Couldn't remove label",
+        );
+      }
+    } catch {
+      toast.error("Couldn't remove label");
     }
-    refetchOpenThread();
   });
 
   const refetchReader = useStableCallback(() => {

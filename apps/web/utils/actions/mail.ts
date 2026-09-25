@@ -10,7 +10,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
   deleteMailboxItemBody,
-  removeThreadLabelBody,
   unarchiveThreadBody,
   untrashThreadBody,
   updateMailboxItemBody,
@@ -152,29 +151,6 @@ export const markReadThreadAction = actionClient
         throw new SafeError(
           `Failed to mark email as ${read ? "read" : "unread"}. Please try again.`,
         );
-      }
-    },
-  );
-
-export const removeThreadLabelAction = actionClient
-  .metadata({ name: "removeThreadLabel" })
-  .inputSchema(removeThreadLabelBody)
-  .action(
-    async ({
-      ctx: { emailAccountId, provider, logger },
-      parsedInput: { threadId, labelId },
-    }) => {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
-
-      try {
-        await emailProvider.removeThreadLabel(threadId, labelId);
-      } catch (error) {
-        logger.error("Failed to remove thread label", { error });
-        throw new SafeError("Failed to remove label. Please try again.");
       }
     },
   );
