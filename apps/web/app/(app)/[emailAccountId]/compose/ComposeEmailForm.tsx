@@ -1262,7 +1262,6 @@ function ComposeEmailFormContent({
             } as CSSProperties)
           : undefined
       }
-      onInput={() => captureDraft()}
       onSubmit={handleSubmit(onSubmit)}
       className={cn(
         isComposeWindow
