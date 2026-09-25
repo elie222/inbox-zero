@@ -1,9 +1,16 @@
-import { app, dialog } from "electron";
-import type { AppUpdater } from "electron-updater";
+import { app, dialog, Notification } from "electron";
+import type { AppUpdater, UpdateInfo } from "electron-updater";
 import { captureDesktopError } from "./sentry";
 import { getDesktopUpdateFeedUrl } from "./update-feed";
 
 export const DESKTOP_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+let downloadedVersion: string | null = null;
+let updateEventsBound = false;
+let reportDownloadProgress = false;
+let lastReportedPercent: number | null = null;
+let onUpdateReady: ((version: string) => void) | undefined;
+let onDownloadProgress: ((percent: number | null) => void) | undefined;
 
 export function logDesktopUpdateError(error: unknown) {
   console.error(
@@ -12,20 +19,48 @@ export function logDesktopUpdateError(error: unknown) {
   captureDesktopError(error, { area: "auto-update" });
 }
 
+export function resetDesktopAutoUpdateForTests() {
+  downloadedVersion = null;
+  updateEventsBound = false;
+  reportDownloadProgress = false;
+  lastReportedPercent = null;
+  onUpdateReady = undefined;
+  onDownloadProgress = undefined;
+}
+
+export function isDesktopUpdateReady() {
+  return downloadedVersion !== null;
+}
+
 export async function startDesktopAutoUpdate(
   isPackaged = app.isPackaged,
+  handlers?: {
+    onUpdateReady?: (version: string) => void;
+    onDownloadProgress?: (percent: number | null) => void;
+  },
 ): Promise<boolean> {
   if (!isPackaged) return false;
 
   try {
-    const autoUpdater = await getDesktopAutoUpdater();
+    const autoUpdater = await getDesktopAutoUpdater(handlers);
     scheduleDesktopUpdateChecks(autoUpdater);
-    await autoUpdater.checkForUpdatesAndNotify();
+    observeDownload(await autoUpdater.checkForUpdates());
     return true;
   } catch (error) {
     logDesktopUpdateError(error);
     return false;
   }
+}
+
+export async function installDownloadedDesktopUpdate(
+  prepareToQuit: () => void,
+): Promise<boolean> {
+  if (!downloadedVersion) return false;
+
+  const autoUpdater = await getDesktopAutoUpdater();
+  prepareToQuit();
+  autoUpdater.quitAndInstall(true, true);
+  return true;
 }
 
 export async function checkForDesktopUpdatesManually(
@@ -43,10 +78,22 @@ export async function checkForDesktopUpdatesManually(
 
   try {
     const autoUpdater = await getDesktopAutoUpdater();
+    if (downloadedVersion) {
+      return promptToInstallDownloadedUpdate(prepareToQuit, autoUpdater);
+    }
+
+    reportDownloadProgress = true;
     const result = await autoUpdater.checkForUpdates();
     if (!result) throw new Error("Desktop updater is unavailable");
+    observeDownload(result, stopReportingDownloadProgress);
+
+    if (downloadedVersion) {
+      stopReportingDownloadProgress();
+      return promptToInstallDownloadedUpdate(prepareToQuit, autoUpdater);
+    }
 
     if (!result.isUpdateAvailable) {
+      stopReportingDownloadProgress();
       await dialog.showMessageBox({
         type: "info",
         message: "You're up to date",
@@ -59,24 +106,11 @@ export async function checkForDesktopUpdatesManually(
       type: "info",
       message: `Downloading Inbox Zero ${result.updateInfo.version}`,
       detail:
-        "You can keep using Inbox Zero. We'll let you know when the update is ready.",
+        "You can keep using Inbox Zero. Restart to Update will appear in the app menu when it's ready.",
     });
-    await (result.downloadPromise ?? autoUpdater.downloadUpdate());
-
-    const { response } = await dialog.showMessageBox({
-      type: "info",
-      buttons: ["Restart to Update", "Later"],
-      defaultId: 0,
-      cancelId: 1,
-      message: "An update is ready to install",
-      detail: `Inbox Zero ${result.updateInfo.version} has been downloaded. Restart now to finish updating.`,
-    });
-    if (response === 0) {
-      prepareToQuit();
-      autoUpdater.quitAndInstall();
-    }
     return true;
   } catch (error) {
+    stopReportingDownloadProgress();
     logDesktopUpdateError(error);
     await dialog.showMessageBox({
       type: "error",
@@ -87,7 +121,15 @@ export async function checkForDesktopUpdatesManually(
   }
 }
 
-async function getDesktopAutoUpdater(): Promise<AppUpdater> {
+async function getDesktopAutoUpdater(handlers?: {
+  onUpdateReady?: (version: string) => void;
+  onDownloadProgress?: (percent: number | null) => void;
+}): Promise<AppUpdater> {
+  if (handlers?.onUpdateReady) onUpdateReady = handlers.onUpdateReady;
+  if (handlers?.onDownloadProgress) {
+    onDownloadProgress = handlers.onDownloadProgress;
+  }
+
   const { autoUpdater } = await import("electron-updater");
   autoUpdater.setFeedURL({
     provider: "generic",
@@ -95,13 +137,83 @@ async function getDesktopAutoUpdater(): Promise<AppUpdater> {
   });
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  bindUpdateDownloaded(autoUpdater);
   return autoUpdater;
+}
+
+function bindUpdateDownloaded(autoUpdater: AppUpdater) {
+  if (updateEventsBound) return;
+  updateEventsBound = true;
+  autoUpdater.on("download-progress", (progress: { percent: number }) => {
+    if (!reportDownloadProgress) return;
+    const percent = Math.round(progress.percent);
+    if (percent === lastReportedPercent) return;
+    lastReportedPercent = percent;
+    onDownloadProgress?.(percent);
+  });
+  autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
+    if (downloadedVersion === info.version) return;
+    downloadedVersion = info.version;
+    stopReportingDownloadProgress();
+    notifyUpdateReady(info.version);
+    onUpdateReady?.(info.version);
+  });
+}
+
+function stopReportingDownloadProgress() {
+  if (!reportDownloadProgress && lastReportedPercent === null) return;
+  reportDownloadProgress = false;
+  lastReportedPercent = null;
+  onDownloadProgress?.(null);
+}
+
+function notifyUpdateReady(version: string) {
+  try {
+    if (!Notification.isSupported()) return;
+    new Notification({
+      title: "Update ready to install",
+      body: `Restart Inbox Zero to finish updating to ${version}.`,
+    }).show();
+  } catch (error) {
+    logDesktopUpdateError(error);
+  }
+}
+
+async function promptToInstallDownloadedUpdate(
+  prepareToQuit: () => void,
+  autoUpdater: AppUpdater,
+) {
+  const { response } = await dialog.showMessageBox({
+    type: "info",
+    buttons: ["Restart to Update", "Later"],
+    defaultId: 0,
+    cancelId: 1,
+    message: "An update is ready to install",
+    detail: `Inbox Zero ${downloadedVersion} has been downloaded. Restart now to finish updating.`,
+  });
+  if (response === 0) {
+    prepareToQuit();
+    autoUpdater.quitAndInstall(true, true);
+  }
+  return true;
 }
 
 function scheduleDesktopUpdateChecks(autoUpdater: AppUpdater) {
   const timer = setInterval(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(logDesktopUpdateError);
+    autoUpdater
+      .checkForUpdates()
+      .then((result) => observeDownload(result))
+      .catch(logDesktopUpdateError);
   }, DESKTOP_UPDATE_INTERVAL_MS);
-  autoUpdater.once("update-downloaded", () => clearInterval(timer));
   timer.unref();
+}
+
+function observeDownload(
+  result: { downloadPromise?: Promise<unknown> | null } | null | undefined,
+  onFailure?: () => void,
+) {
+  result?.downloadPromise?.catch((error: unknown) => {
+    onFailure?.();
+    logDesktopUpdateError(error);
+  });
 }
