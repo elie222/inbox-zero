@@ -178,7 +178,7 @@ function statusLabel(row: ScheduledEmail) {
     case "PROCESSING":
       return "Sending…";
     case "UNCERTAIN":
-      return "Delivery uncertain";
+      return "Couldn't confirm delivery";
     case "BLOCKED_AUTH":
       return "Reconnect your account to send this";
     default:
