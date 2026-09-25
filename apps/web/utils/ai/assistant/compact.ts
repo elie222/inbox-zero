@@ -265,7 +265,7 @@ function serializeContent(content: ModelMessage["content"]): string {
   return parts.join("\n");
 }
 
-function getToolOutputText(output: ToolResultPart["output"]): string {
+export function getToolOutputText(output: ToolResultPart["output"]): string {
   if ("value" in output && typeof output.value === "string") {
     return output.value;
   }
