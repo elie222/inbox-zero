@@ -49,7 +49,7 @@ export async function indexMessageContent(
   const indexed = await withSearchIndex(tx, "index_content", () =>
     writeSearchRow(tx, key, content),
   );
-  if (!indexed) await markSearchIndexIncomplete(tx);
+  if (!indexed) await abandonSearchRow(tx, key);
 }
 
 // Indexes the next batch of stored bodies that have no search row, such as
@@ -104,7 +104,8 @@ export async function indexMessageMetadata(
       ? dropSearchRow(tx, key)
       : writeSearchRow(tx, key, { text: null, html: null }),
   );
-  if (stored || !indexed) await markSearchIndexIncomplete(tx);
+  if (!indexed) await abandonSearchRow(tx, key);
+  else if (stored) await markSearchIndexIncomplete(tx);
 }
 
 // Indexes the metadata of the next batch of messages that still have no
@@ -292,6 +293,14 @@ async function dropSearchRow(tx: SqlTransaction, key: MessageKey) {
     [key.accountId, key.messageId],
   );
   await deleteKey(tx, key);
+}
+
+// A failed write leaves the message's previous row in place, so its key is
+// dropped: the backlog then rebuilds the row and the substring fallback covers
+// it meanwhile. An orphaned FTS row without a key never matches a message.
+async function abandonSearchRow(tx: SqlTransaction, key: MessageKey) {
+  await deleteKey(tx, key);
+  await markSearchIndexIncomplete(tx);
 }
 
 function markSearchIndexIncomplete(tx: SqlTransaction) {
