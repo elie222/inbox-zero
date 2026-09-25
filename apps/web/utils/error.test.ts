@@ -357,6 +357,10 @@ describe("isInvalidAIModelError", () => {
     ["deprecated models", "The configured model is deprecated"],
     ["models without endpoints", "No endpoints found for the configured model"],
     ["invalid model IDs", "The configured model is not a valid model ID"],
+    [
+      "retired Gemini models",
+      "This model models/retired-model is no longer available. Please update your code to use a newer model.",
+    ],
   ])("detects %s", (_caseName, message) => {
     const error = createAPICallError({ message, statusCode: 400 });
 
