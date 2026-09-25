@@ -120,8 +120,15 @@ export function EmailThread({
   }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  const hasLocalDraft = (id: string) =>
-    Boolean(getLocalDraftMode(localDrafts, id));
+  // Outlook sends a draft as the same message, so its local copy would reopen
+  // as a reply on the sent message until the send settles and clears it.
+  const localDraftModeFor = (message: ThreadMessage) =>
+    message.labelIds?.includes(GmailLabel.DRAFT) ||
+    sendOperationIds?.has(message.id)
+      ? undefined
+      : getLocalDraftMode(localDrafts, message.id);
+  const hasLocalDraft = (message: ThreadMessage) =>
+    Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
     expanded(
       message.id,
@@ -129,7 +136,7 @@ export function EmailThread({
         autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
         draftMessages.length > 0 ||
-        hasLocalDraft(message.id),
+        hasLocalDraft(message),
     ),
   );
 
@@ -250,9 +257,7 @@ export function EmailThread({
                   : autoOpenReplyForMessageId === message.id
                     ? "reply"
                     : undefined,
-              localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
-                ? undefined
-                : getLocalDraftMode(localDrafts, message.id),
+              localDraftMode: localDraftModeFor(message),
               recoveredReply:
                 recoveredReply?.messageId === message.id
                   ? recoveredReply
@@ -284,7 +289,7 @@ export function EmailThread({
                   message.id,
                   Boolean(defaultComposeMode) || draftMessages.length > 0,
                 )}
-                hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
+                hasDraft={draftMessages.length > 0 || hasLocalDraft(message)}
                 // A draft-only row follows its draft across Gmail's per-save
                 // message IDs, and a sent row keeps the place of its outgoing copy.
                 key={`${sendOperationId ?? getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}

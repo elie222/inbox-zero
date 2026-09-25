@@ -4,7 +4,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
-import { rememberReplacedDraftMessage } from "@/utils/mail-engine/reply-drafts";
+import {
+  rememberReplacedDraftMessage,
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 import {
   EmailThread,
   organizeThreadMessages,
@@ -45,8 +48,12 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
     children: React.ReactNode;
   }) => children,
 }));
+const { localDrafts } = vi.hoisted(() => ({
+  localDrafts: { current: [] as StoredReplyDraft[] },
+}));
+
 vi.mock("@/hooks/useReplyDrafts", () => ({
-  useReplyDrafts: () => ({ drafts: [] }),
+  useReplyDrafts: () => ({ drafts: localDrafts.current }),
 }));
 vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
@@ -167,6 +174,35 @@ describe("EmailThread outgoing replies", () => {
     );
     expect(sentRow).toBe(outgoingRow);
     expect(sentRow?.textContent).not.toContain("Sending…");
+  });
+
+  // Outlook sends a saved draft as that same message. Its local copy is only
+  // cleared once the send settles, and must not reopen as a reply meanwhile.
+  it("does not reopen a sent draft's local copy as a reply on the sent message", () => {
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "draft-1:reply",
+        revision: 1,
+        content: { composeMode: "reply" } as StoredReplyDraft["content"],
+        updatedAt: 1,
+      },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createSentMessage("draft-1", "4000"),
+        ]}
+        sendOperationIds={new Map([["draft-1", "send-1"]])}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+    localDrafts.current = [];
   });
 });
 
