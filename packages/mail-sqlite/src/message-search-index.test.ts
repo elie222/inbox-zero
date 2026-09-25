@@ -10,14 +10,14 @@ import {
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
-const LEGACY_FTS_SQL = `
+const RAW_HTML_FTS_SQL = `
 CREATE VIRTUAL TABLE message_fts USING fts5(
-  account_id UNINDEXED,
-  message_id UNINDEXED,
   subject,
   preview,
   from_address,
   body,
+  content = '',
+  contentless_delete = 1,
   tokenize = 'unicode61'
 );
 `;
@@ -30,6 +30,7 @@ const SEARCH_TERMS = [
   "htmlonly",
   "shadowed",
   "shared",
+  "font",
   "nothingmatches",
 ];
 
@@ -37,8 +38,14 @@ describe("message search index", () => {
   it("replaces a message's search row when its content is indexed again", async () => {
     const { driver, close } = await mailbox(["acc-1"]);
     await driver.write(async (tx) => {
-      await indexMessageContent(tx, key("acc-1", "m1"), "quarterly invoice");
-      await indexMessageContent(tx, key("acc-1", "m1"), "updated receipt");
+      await indexMessageContent(tx, key("acc-1", "m1"), {
+        text: "quarterly invoice",
+        html: null,
+      });
+      await indexMessageContent(tx, key("acc-1", "m1"), {
+        text: "updated receipt",
+        html: null,
+      });
     });
 
     expect(await matches(driver, "invoice")).toEqual([]);
@@ -50,8 +57,14 @@ describe("message search index", () => {
   it("removes one account's search rows and keeps another's", async () => {
     const { driver, close } = await mailbox(["acc-1", "acc-2"]);
     await driver.write(async (tx) => {
-      await indexMessageContent(tx, key("acc-1", "m1"), "shared term");
-      await indexMessageContent(tx, key("acc-2", "m1"), "shared term");
+      await indexMessageContent(tx, key("acc-1", "m1"), {
+        text: "shared term",
+        html: null,
+      });
+      await indexMessageContent(tx, key("acc-2", "m1"), {
+        text: "shared term",
+        html: null,
+      });
       await deleteAccountSearchIndex(tx, "acc-1");
     });
 
@@ -60,17 +73,25 @@ describe("message search index", () => {
     await close();
   });
 
-  it("finds the same messages after rebuilding a legacy index without its text copy", async () => {
+  it("re-indexes bodies stored as raw HTML by their visible text", async () => {
     const { driver, store } = await mailbox(["acc-1", "acc-2"], corpus);
-    await driver.write((tx) => rebuildAsLegacyIndex(tx));
-    const before = await legacyMatchesByTerm(driver);
+    const expected = await matchesByTerm(driver);
+    await driver.write((tx) => rebuildAsRawHtmlIndex(tx));
+    expect((await matchesByTerm(driver)).font).toEqual([
+      "acc-1/m3",
+      "acc-2/m3",
+    ]);
 
     const reopened = await createSqliteMailStore(driver);
     await drainBacklog(reopened);
 
-    expect(await matchesByTerm(driver)).toEqual(before);
-    expect(before.invoice).toEqual(["acc-1/m1", "acc-2/m1"]);
-    expect(await tableNames(driver)).not.toContain("message_fts_content");
+    expect(await matchesByTerm(driver)).toEqual(expected);
+    expect(expected).toMatchObject({
+      font: [],
+      htmlonly: ["acc-1/m3", "acc-2/m3"],
+      shadowed: ["acc-1/m4", "acc-2/m4"],
+      invoice: ["acc-1/m1", "acc-2/m1"],
+    });
     expect(await unkeyedRows(driver)).toBe(0);
     await store.close();
   });
@@ -78,17 +99,16 @@ describe("message search index", () => {
   it("indexes each message once when the rebuild resumes over partly indexed mail", async () => {
     const { driver, store } = await mailbox(["acc-1", "acc-2"], corpus);
     const expected = await matchesByTerm(driver);
-    await driver.write((tx) => rebuildAsLegacyIndex(tx));
+    await driver.write((tx) => rebuildAsRawHtmlIndex(tx));
 
     await createSqliteMailStore(driver);
     await driver.write(async (tx) => {
       await indexSearchBacklog(tx, null);
       await deleteAccountSearchIndex(tx, "acc-2");
-      await indexMessageContent(
-        tx,
-        key("acc-2", "m2"),
-        "Project kickoff notes for acc-2",
-      );
+      await indexMessageContent(tx, key("acc-2", "m2"), {
+        text: "Project kickoff notes for acc-2",
+        html: null,
+      });
     });
     const reopened = await createSqliteMailStore(driver);
     await drainBacklog(reopened);
@@ -129,7 +149,7 @@ function corpus(accountId: string): CorpusMessage[] {
       subject: "Newsletter",
       from: "news@example.com",
       text: null,
-      html: "<p>htmlonly shared content</p>",
+      html: '<table style="font-family:Arial"><tr><td>htmlonly shared content</td></tr></table>',
     },
     {
       messageId: "m4",
@@ -186,22 +206,24 @@ async function mailbox(
   return { driver, store, close: () => store.close() };
 }
 
-// Recreates the index as it was before it dropped its text copy, filled the
-// way the old writer filled it.
-async function rebuildAsLegacyIndex(tx: SqlTransaction) {
+// Recreates the index as 0006 left it: contentless, with HTML-only bodies
+// indexed as raw markup.
+async function rebuildAsRawHtmlIndex(tx: SqlTransaction) {
   await tx.exec(
-    "DROP TABLE message_fts; DELETE FROM message_fts_keys; DELETE FROM schema_migrations WHERE id = 6;",
+    "DROP TABLE message_fts; DELETE FROM message_fts_keys; DELETE FROM schema_migrations WHERE id = 7;",
   );
-  await tx.exec(LEGACY_FTS_SQL);
-  await tx.execute(
-    `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
-     SELECT m.account_id, m.message_id, m.subject, m.preview, m.from_address, COALESCE(c.text, c.html, '')
-     FROM message_content c
-     JOIN messages m ON m.account_id = c.account_id AND m.message_id = c.message_id`,
-  );
+  await tx.exec(RAW_HTML_FTS_SQL);
   await tx.execute(
     `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
-     SELECT account_id, message_id, rowid FROM message_fts`,
+     SELECT account_id, message_id, ROW_NUMBER() OVER (ORDER BY account_id, message_id)
+     FROM message_content`,
+  );
+  await tx.execute(
+    `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
+     SELECT k.fts_rowid, m.subject, m.preview, m.from_address, COALESCE(c.text, c.html, '')
+     FROM message_fts_keys k
+     JOIN messages m ON m.account_id = k.account_id AND m.message_id = k.message_id
+     JOIN message_content c ON c.account_id = k.account_id AND c.message_id = k.message_id`,
   );
 }
 
@@ -209,20 +231,6 @@ async function drainBacklog(store: MailStore) {
   while ((await store.indexSearchBacklog()).remaining) {
     // keep indexing
   }
-}
-
-async function legacyMatchesByTerm(driver: SqliteDriver) {
-  const result: Record<string, string[]> = {};
-  for (const term of SEARCH_TERMS) {
-    const rows = await driver.read((tx) =>
-      tx.query(
-        "SELECT account_id, message_id FROM message_fts WHERE message_fts MATCH ? ORDER BY account_id, message_id",
-        [term],
-      ),
-    );
-    result[term] = rows.map((row) => `${row.account_id}/${row.message_id}`);
-  }
-  return result;
 }
 
 async function matchesByTerm(driver: SqliteDriver) {
@@ -258,13 +266,6 @@ async function keyCount(driver: SqliteDriver) {
     tx.query("SELECT COUNT(*) AS n FROM message_fts_keys"),
   );
   return Number(row?.n);
-}
-
-async function tableNames(driver: SqliteDriver) {
-  const rows = await driver.read((tx) =>
-    tx.query("SELECT name FROM sqlite_master WHERE type = 'table'"),
-  );
-  return rows.map((row) => String(row.name));
 }
 
 function key(accountId: string, messageId: string) {

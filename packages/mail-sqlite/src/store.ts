@@ -106,9 +106,21 @@ export async function createSqliteMailStore(
   if (!capabilities.jsonEach) {
     throw new Error("SQLite json_each is required for mailbox queries");
   }
+  // A build with FTS5 can still lack the index if creating it failed (for
+  // example, SQLite older than contentless_delete); search then falls back
+  // to substring matching instead of failing.
+  const search = {
+    fts5:
+      capabilities.fts5 &&
+      (
+        await driver.read((tx) =>
+          tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
+        )
+      ).length > 0,
+  };
   // Each open walks the bodies once, so rows missed while the index was
   // rebuilt or unavailable are indexed without a durable cursor.
-  let searchBacklog: { after: MessageKey | null } | null = capabilities.fts5
+  let searchBacklog: { after: MessageKey | null } | null = search.fts5
     ? { after: null }
     : null;
 
@@ -1112,19 +1124,19 @@ export async function createSqliteMailStore(
     async readMailboxView(query) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxViewFromSql(tx, query),
-          capabilities,
+          await readMailboxViewFromSql(tx, query, search),
+          search,
         ),
       );
     },
     async readMailboxCounts(query) {
-      return driver.read((tx) => readMailboxCountsFromSql(tx, query));
+      return driver.read((tx) => readMailboxCountsFromSql(tx, query, search));
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxWindowFromSql(tx, query, pageCount),
-          capabilities,
+          await readMailboxWindowFromSql(tx, query, pageCount, search),
+          search,
         ),
       );
     },
@@ -2928,7 +2940,7 @@ async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
       body.isMeetingInvitation ? 1 : 0,
     ],
   );
-  await indexMessageContent(tx, body.key, body.text ?? body.html ?? "");
+  await indexMessageContent(tx, body.key, body);
 }
 
 async function isStaleMessageVersion(
@@ -3124,8 +3136,8 @@ function withIndexedCoverage<
   T extends {
     view: { coverage: import("@inboxzero/mail-core/queries").Coverage[] };
   },
->(result: T, capabilities: { fts5: boolean }): T {
-  if (capabilities.fts5) return result;
+>(result: T, search: { fts5: boolean }): T {
+  if (search.fts5) return result;
   return {
     ...result,
     view: {

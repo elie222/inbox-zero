@@ -60,7 +60,7 @@ export function MailApp({
             kind: "text",
             field: "any",
             value: search,
-            match: "phrase",
+            match: "term",
           }
         : { kind: "role", role: "inbox" },
       order: "newest_first",

@@ -9,7 +9,7 @@ import type {
   WellKnownMailbox,
 } from "@inboxzero/mail-core/queries";
 import type { SqlTransaction, SqlValue } from "./driver";
-import { compilePredicate } from "./queries";
+import { compilePredicate, type SearchSupport } from "./queries";
 import {
   connectionStatus,
   jsonStringArray,
@@ -22,13 +22,18 @@ import {
 export async function readMailboxViewFromSql(
   tx: SqlTransaction,
   query: ConversationQuery,
+  search: SearchSupport,
 ): Promise<{ revision: LocalRevision; view: MailboxView }> {
   const revision = await readRevision(tx);
   const index = conversationIndexFor(query.predicate);
   const rows = index
     ? await readIndexedRows(tx, query, index)
-    : await readFilteredRows(tx, query);
-  const { matching, unread } = await readCounts(tx, query, index);
+    : await readFilteredRows(tx, { ...query, search });
+  const { matching, unread } = await readCounts(
+    tx,
+    { ...query, search },
+    index,
+  );
   const page = rows.slice(0, query.pageSize);
   const summaries = await readConversationSummaries(tx, page);
   const coverage = await readCoverage(tx, query.accountIds);
@@ -61,13 +66,14 @@ export async function readMailboxViewFromSql(
 export async function readMailboxCountsFromSql(
   tx: SqlTransaction,
   query: MailboxCountsQuery,
+  search: SearchSupport,
 ): Promise<{ revision: LocalRevision; view: MailboxCountsView }> {
   const revision = await readRevision(tx);
   const counts: MailboxCountsView["counts"] = [];
   for (const target of query.targets) {
     const { matching, unread } = await readCounts(
       tx,
-      { accountIds: query.accountIds, predicate: target.predicate },
+      { accountIds: query.accountIds, predicate: target.predicate, search },
       conversationIndexFor(target.predicate),
     );
     counts.push({
@@ -85,17 +91,18 @@ export async function readMailboxWindowFromSql(
   tx: SqlTransaction,
   query: ConversationQuery,
   pageCount: number,
+  search: SearchSupport,
 ): Promise<{ revision: LocalRevision; view: MailboxView }> {
   const pages = Math.min(
     MAX_MAILBOX_WINDOW_PAGES,
     Math.max(1, Math.trunc(pageCount)),
   );
-  const first = await readMailboxViewFromSql(tx, query);
+  const first = await readMailboxViewFromSql(tx, query, search);
   if (pages === 1) return first;
   const conversations = [...first.view.conversations];
   let after = first.view.nextPage;
   for (let page = 1; page < pages && after; page += 1) {
-    const next = await readMailboxViewFromSql(tx, { ...query, after });
+    const next = await readMailboxViewFromSql(tx, { ...query, after }, search);
     conversations.push(...next.view.conversations);
     after = next.view.nextPage;
   }
@@ -109,7 +116,11 @@ export async function readMailboxWindowFromSql(
   };
 }
 
-type CountScope = { accountIds: string[]; predicate: MailPredicate };
+type CountScope = {
+  accountIds: string[];
+  predicate: MailPredicate;
+  search: SearchSupport;
+};
 
 type Counts = { matching: number; unread: number };
 
@@ -129,7 +140,7 @@ function filteredScope(scope: CountScope) {
   const compiled =
     mailbox === "archive" || mailbox === "all" || mailbox === "snoozed"
       ? { sql: "1=1", bindings: [] as SqlValue[] }
-      : compilePredicate(scope.predicate);
+      : compilePredicate(scope.predicate, scope.search);
   const accountPlaceholders = scope.accountIds.map(() => "?").join(",");
   const where = `e.account_id IN (${accountPlaceholders}) AND ${compiled.sql}`;
   const bindings = [...scope.accountIds, ...compiled.bindings];
@@ -138,7 +149,10 @@ function filteredScope(scope: CountScope) {
   return { mailbox, where, having, groupedBindings };
 }
 
-async function readFilteredRows(tx: SqlTransaction, query: ConversationQuery) {
+async function readFilteredRows(
+  tx: SqlTransaction,
+  query: ConversationQuery & CountScope,
+) {
   const { where, having, groupedBindings } = filteredScope(query);
   const cursor = query.after ? parseMailboxCursor(query.after) : null;
   const cursorSql = cursor
@@ -329,7 +343,10 @@ async function readIndexedCounts(
   return { matching: Number(row?.n ?? 0), unread: Number(row?.u ?? 0) };
 }
 
-function indexedScope(scope: CountScope, index: ConversationIndex) {
+function indexedScope(
+  scope: { accountIds: string[] },
+  index: ConversationIndex,
+) {
   const accountPlaceholders = scope.accountIds.map(() => "?").join(",");
   return {
     where: `c.account_id IN (${accountPlaceholders})`,
