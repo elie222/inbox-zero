@@ -34,6 +34,7 @@ import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
@@ -99,12 +100,18 @@ export function EmailMessage({
   sentMessageOpen?: SentMessageOpenState;
 }) {
   const { emailAccountId } = useAccount();
+  const { poppedOutDraftSessionId } = useComposeModal();
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
   const [composeOverride, setComposeOverride] = useState<
     ReplyDraftMode | "closed" | null
   >(null);
-  const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
+  const composeMode = resolveComposeMode(
+    composeOverride,
+    defaultComposeMode,
+    (mode) =>
+      getReplyDraftSessionId(message.id, mode) === poppedOutDraftSessionId,
+  );
   const serverDrafts = (draftMessages ?? []).map((draft) => ({
     message: draft,
     sessionMessageId: getDraftSessionMessageId(emailAccountId, draft.id),
@@ -122,7 +129,10 @@ export function EmailMessage({
     });
   };
   const visibleDrafts = serverDrafts.filter(
-    (draft) => !dismissedDraftIds.has(draft.sessionMessageId),
+    (draft) =>
+      !dismissedDraftIds.has(draft.sessionMessageId) &&
+      getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
+        poppedOutDraftSessionId,
   );
   const isDraftRow = serverDrafts.some(
     (draft) => draft.message.id === message.id,
@@ -585,6 +595,11 @@ function ReplyPanel({
   bodyAvailable?: boolean;
 }) {
   const { emailAccountId } = useAccount();
+  const { popOutReply } = useComposeModal();
+  const draftSessionId = getReplyDraftSessionId(
+    draftSessionMessageId ?? message.id,
+    composeMode,
+  );
 
   const replyRef = useRef<HTMLDivElement>(null);
   // A forward owns its original source once composing starts. A later cache
@@ -700,13 +715,22 @@ function ReplyPanel({
         }
         draftKeyMessageId={message.id}
         draftMode={composeMode}
-        draftSessionId={getReplyDraftSessionId(
-          draftSessionMessageId ?? message.id,
-          composeMode,
-        )}
+        draftSessionId={draftSessionId}
         onClose={onCloseCompose}
         onRestore={onRestore}
         onDiscard={onDiscard}
+        onPopOut={() => {
+          popOutReply({
+            emailAccountId,
+            draftSessionId,
+            draftKeyMessageId: message.id,
+            draftMode: composeMode,
+            providerDraftMessageId:
+              composeMode === "reply" ? draftMessage?.id : undefined,
+            replyingToEmail,
+          });
+          onCloseCompose();
+        }}
         onMarkDone={onMarkDone}
         onSuccess={(messageId: string, threadId: string) => {
           onSendSuccess(messageId, threadId);
@@ -730,10 +754,13 @@ function initialsFor(name: string) {
 function resolveComposeMode(
   override: ReplyDraftMode | "closed" | null,
   defaultComposeMode: ReplyDraftMode | undefined,
+  isPoppedOut: (mode: ReplyDraftMode) => boolean,
 ) {
   if (override === "closed") return;
-  if (override) return override;
-  return defaultComposeMode;
+  const mode = override ?? defaultComposeMode;
+  // A popped-out reply is written in its own window, not inline.
+  if (mode && isPoppedOut(mode)) return;
+  return mode;
 }
 
 /** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
