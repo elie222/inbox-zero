@@ -55,10 +55,12 @@ describe("scrubEvent", () => {
 describe("captureDesktopError", () => {
   it("reports a repeating failure once per interval", () => {
     const tags = { area: "mail-engine" };
-    captureDesktopError(new Error("database is locked"), tags, 0);
-    captureDesktopError(new Error("database is locked"), tags, 60_000);
-    captureDesktopError(new Error("network down"), tags, 60_000);
-    captureDesktopError(new Error("database is locked"), tags, 11 * 60_000);
+    captureDesktopError(new Error("database is locked"), tags, { now: 0 });
+    captureDesktopError(new Error("database is locked"), tags, { now: 60_000 });
+    captureDesktopError(new Error("network down"), tags, { now: 60_000 });
+    captureDesktopError(new Error("database is locked"), tags, {
+      now: 11 * 60_000,
+    });
 
     expect(Sentry.captureException).toHaveBeenCalledTimes(3);
   });
