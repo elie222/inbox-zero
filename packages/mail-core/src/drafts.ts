@@ -18,6 +18,11 @@ export const draftContentSchema = z.object({
   conversationId: conversationIdSchema.optional(),
   clientState: z.string().max(1_000_000).optional(),
   providerDraftId: messageIdSchema.optional(),
+  /**
+   * The mailbox messages holding this draft's saved copies. A send hides them
+   * from the conversation so the draft and its outgoing message never both show.
+   */
+  providerDraftMessageIds: z.array(messageIdSchema).max(50).optional(),
 });
 export type DraftContent = z.infer<typeof draftContentSchema>;
 

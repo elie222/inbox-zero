@@ -202,6 +202,8 @@ describe("createEmailProviderOperationExecutor", () => {
       headers: { from: "me@example.com", to: "ada@example.com" },
       labelIds: ["SENT"],
       snippet: "Hi",
+      historyId: "7",
+      textHtml: "<p>Hi</p>",
     }));
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
@@ -220,6 +222,13 @@ describe("createEmailProviderOperationExecutor", () => {
         kind: "message_patch",
         key: { accountId: "acc-1", messageId: "sent-1" },
         fields: expect.objectContaining({ roles: ["sent"] }),
+      }),
+    ]);
+    expect(result.bodies).toEqual([
+      expect.objectContaining({
+        key: { accountId: "acc-1", messageId: "sent-1" },
+        version: "7",
+        html: "<p>Hi</p>",
       }),
     ]);
   });

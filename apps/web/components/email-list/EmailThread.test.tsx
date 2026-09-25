@@ -126,6 +126,50 @@ describe("EmailThread reply composer", () => {
   });
 });
 
+describe("EmailThread outgoing replies", () => {
+  afterEach(cleanup);
+
+  // A queued reply shows in the thread as soon as the composer closes, and the
+  // provider's copy takes over the same row so its body does not reload.
+  it("shows a queued reply until its sent message takes over the same row", () => {
+    const parent = createReaderMessage("parent", "1000");
+    const view = render(
+      <EmailThread
+        messages={[parent]}
+        outgoing={[
+          {
+            operationId: "send-1",
+            status: "queued",
+            message: createSentMessage("outgoing:send-1", "3000"),
+          },
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    const outgoingRow = view.container.querySelector(
+      '[data-thread-message-id="outgoing:send-1"]',
+    );
+    expect(outgoingRow?.textContent).toContain("Sending…");
+    expect(screen.getAllByRole("button", { name: "Reply" })).toHaveLength(1);
+
+    view.rerender(
+      <EmailThread
+        messages={[parent, createSentMessage("sent-1", "4000")]}
+        sendOperationIds={new Map([["sent-1", "send-1"]])}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const sentRow = view.container.querySelector(
+      '[data-thread-message-id="sent-1"]',
+    );
+    expect(sentRow).toBe(outgoingRow);
+    expect(sentRow?.textContent).not.toContain("Sending…");
+  });
+});
+
 describe("organizeThreadMessages", () => {
   it("attaches a draft to the message its headers reply to", () => {
     const first = createMessage({
@@ -339,6 +383,13 @@ function MockComposer({
       data-provider-draft-message-id={providerDraftMessageId}
     />
   );
+}
+
+function createSentMessage(id: string, internalDate: string) {
+  return {
+    ...createReaderMessage(id, internalDate),
+    labelIds: ["SENT"],
+  } as ThreadMessage;
 }
 
 function createReaderMessage(id: string, internalDate: string) {

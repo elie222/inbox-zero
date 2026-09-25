@@ -120,6 +120,58 @@ export async function readLatestMailMutation(
   }
 }
 
+/**
+ * Samples the reader on every animation frame while a reply leaves its
+ * composer, so a check can see the frames a screenshot would miss.
+ */
+export async function watchReplyHandoff(page: Page, replyText: string) {
+  const rowsBefore = await page.locator("li[data-thread-message-id]").count();
+  await page.evaluate((text) => {
+    const frames: ReplyHandoffFrame[] = [];
+    const state = window as unknown as ReplyHandoffWindow;
+    state.__replyHandoff = { frames, raf: 0 };
+    const sample = () => {
+      frames.push({
+        composer: Array.from(
+          document.querySelectorAll('[contenteditable="true"]'),
+        ).some((element) => element.textContent?.includes(text)),
+        rows: document.querySelectorAll("li[data-thread-message-id]").length,
+      });
+      state.__replyHandoff.raf = requestAnimationFrame(sample);
+    };
+    sample();
+  }, replyText);
+  return {
+    rowsBefore,
+    stop: () =>
+      page.evaluate(() => {
+        const state = window as unknown as ReplyHandoffWindow;
+        cancelAnimationFrame(state.__replyHandoff.raf);
+        return state.__replyHandoff.frames;
+      }),
+  };
+}
+
+/**
+ * Every frame shows the reply once, either still in its composer or as a new
+ * message, and the composer never comes back once the message has replaced it.
+ */
+export function expectSeamlessReplyHandoff(
+  frames: ReplyHandoffFrame[],
+  rowsBefore: number,
+) {
+  const firstClosed = frames.findIndex((frame) => !frame.composer);
+  expect(firstClosed).toBeGreaterThanOrEqual(0);
+  expect(
+    frames.filter((frame) => !frame.composer && frame.rows <= rowsBefore),
+  ).toEqual([]);
+  expect(frames.filter((frame) => frame.rows > rowsBefore + 1)).toEqual([]);
+  expect(frames.slice(firstClosed).filter((frame) => frame.composer)).toEqual(
+    [],
+  );
+  expect(frames.at(-1)?.rows).toBe(rowsBefore + 1);
+}
+
 export async function requestMailSync(page: Page) {
   await page
     .evaluate(async () => {
@@ -287,3 +339,9 @@ async function readProviderAccessToken() {
   if (!token) throw new Error("Could not read the Playwright provider token");
   return token;
 }
+
+type ReplyHandoffFrame = { composer: boolean; rows: number };
+
+type ReplyHandoffWindow = {
+  __replyHandoff: { frames: ReplyHandoffFrame[]; raf: number };
+};

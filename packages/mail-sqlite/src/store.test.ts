@@ -4458,6 +4458,188 @@ describe("sqlite scale smoke", () => {
   );
 });
 
+describe("outgoing sends in the conversation view", () => {
+  it("shows a queued reply in place of its draft until the sent message replaces it", async () => {
+    const store = await replyThreadStore("google");
+    await queueReply(store, ["draft-1"]);
+
+    const queued = await readThread(store);
+    expect(queued.messages.map((message) => message.key.messageId)).toEqual([
+      "m1",
+    ]);
+    expect(queued.outgoing).toEqual([
+      {
+        operationId: "send-1",
+        status: "queued",
+        html: "<p>Thanks, see you then</p><blockquote>Earlier</blockquote>",
+        metadata: expect.objectContaining({
+          subject: "Re: Plans",
+          to: ["ada@example.com"],
+          roles: ["sent"],
+          read: true,
+        }),
+      },
+    ]);
+
+    await confirmSend(store, "sent-1");
+
+    const sent = await readThread(store);
+    expect(sent.outgoing).toEqual([]);
+    expect(
+      sent.messages.map((message) => ({
+        id: message.key.messageId,
+        sendOperationId: message.sendOperationId,
+        content: message.content.status,
+      })),
+    ).toEqual([
+      { id: "m1", sendOperationId: undefined, content: "not_requested" },
+      { id: "sent-1", sendOperationId: "send-1", content: "available" },
+    ]);
+    await store.close();
+  });
+
+  it("keeps the sent message when the provider sends the draft message itself", async () => {
+    const store = await replyThreadStore("microsoft");
+    await queueReply(store, ["draft-1"]);
+
+    await confirmSend(store, "draft-1");
+
+    const sent = await readThread(store);
+    expect(sent.outgoing).toEqual([]);
+    expect(
+      sent.messages.map((message) => [
+        message.key.messageId,
+        message.metadata.roles,
+        message.sendOperationId,
+      ]),
+    ).toEqual([
+      ["m1", ["inbox"], undefined],
+      ["draft-1", ["sent"], "send-1"],
+    ]);
+    await store.close();
+  });
+
+  it("returns the draft to the conversation when the send is undone", async () => {
+    const store = await replyThreadStore("google");
+    await queueReply(store, ["draft-1"]);
+
+    await store.cancelOperation({ accountId: "acc-1", operationId: "send-1" });
+
+    const view = await readThread(store);
+    expect(view.outgoing).toEqual([]);
+    expect(view.messages.map((message) => message.key.messageId)).toEqual([
+      "m1",
+      "draft-1",
+    ]);
+    await store.close();
+  });
+
+  it("drops the outgoing message when the provider rejects the send", async () => {
+    const store = await replyThreadStore("google");
+    await queueReply(store, []);
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (work?.kind !== "command") throw new Error("expected command");
+
+    await store.settleAttempt({
+      attemptId: work.attemptId,
+      operation: work.operation,
+      result: { status: "rejected", code: "invalid_recipient", targets: [] },
+    });
+
+    expect((await readThread(store)).outgoing).toEqual([]);
+    await store.close();
+  });
+});
+
+async function replyThreadStore(provider: "google" | "microsoft") {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({ accountId: "acc-1", provider, generation: "g1" });
+  await store.applySyncPage({
+    ownerId: "owner",
+    page: {
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "reply-thread",
+      from: { streamId: "inbox", generation: "g1", checkpoint: null },
+      to: { streamId: "inbox", generation: "g1", checkpoint: "1" },
+      changes: [
+        messagePatch("m1", "c1", 1000, ["inbox"], { provider }),
+        messagePatch("draft-1", "c1", 1500, ["draft"], { provider }),
+      ],
+      requiredHydration: [],
+      roundComplete: true,
+    },
+  });
+  return store;
+}
+
+async function queueReply(store: MailStore, providerDraftMessageIds: string[]) {
+  const saved = await store.saveDraft({
+    key: { accountId: "acc-1", draftId: "send-1" },
+    expectedRevision: null,
+    content: {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Re: Plans",
+      editableHtml: "<p>Thanks, see you then</p>",
+      quotedHtml: "<blockquote>Earlier</blockquote>",
+      attachmentIds: [],
+      conversationId: "c1",
+      ...(providerDraftMessageIds.length
+        ? { providerDraftId: "r-1", providerDraftMessageIds }
+        : {}),
+    },
+  });
+  if (saved.status !== "saved") throw new Error("expected save");
+  const admission = await store.admitSend({
+    commandId: "send-1",
+    conversationId: "c1",
+    draft: { accountId: "acc-1", draftId: "send-1" },
+    draftRevision: saved.draftRevision,
+    replyTo: { accountId: "acc-1", messageId: "m1" },
+  });
+  expect(admission.status).toBe("queued");
+}
+
+async function confirmSend(store: MailStore, sentMessageId: string) {
+  const work = await store.claimWork({
+    ownerId: "owner",
+    nowMs: Date.now(),
+    leaseMs: 30_000,
+  });
+  if (work?.kind !== "command") throw new Error("expected command");
+  await store.settleAttempt({
+    attemptId: work.attemptId,
+    operation: work.operation,
+    result: {
+      status: "confirmed",
+      receiptId: "receipt-1",
+      observations: [messagePatch(sentMessageId, "c1", 2000, ["sent"])],
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: sentMessageId },
+          version: "1",
+          html: "<p>Thanks, see you then</p>",
+          text: null,
+        },
+      ],
+      targets: [],
+    },
+  });
+}
+
+async function readThread(store: MailStore) {
+  const { view } = await store.readConversation(
+    { accountId: "acc-1", conversationId: "c1" },
+    { pageSize: 10, after: null },
+  );
+  return view;
+}
+
 function messagePatch(
   messageId: string,
   conversationId: string,

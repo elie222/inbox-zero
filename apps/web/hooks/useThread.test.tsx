@@ -114,6 +114,44 @@ describe("useThread", () => {
     expect(result.current.data).not.toBe(loaded);
   });
 
+  it("shows a queued send that arrives with the same synced messages", async () => {
+    let snapshot = readySnapshot(view());
+    const listeners = new Set<() => void>();
+    mail.client.observeConversation.mockReturnValue({
+      getSnapshot: () => snapshot,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: () => undefined,
+    });
+    const { result } = renderHook(() => useThread({ id: "c-1" }));
+    await waitFor(() => expect(result.current.data?.thread.id).toBe("c-1"));
+
+    act(() => {
+      snapshot = readySnapshot(
+        view({
+          outgoing: [
+            {
+              operationId: "send-1",
+              status: "queued",
+              metadata: { ...message().metadata, roles: ["sent"] },
+              html: "<p>On my way</p>",
+            },
+          ],
+        }),
+      );
+      for (const listener of listeners) listener();
+    });
+
+    expect(
+      result.current.localAvailability?.outgoing.map(({ message }) => [
+        message.id,
+        message.textHtml,
+      ]),
+    ).toEqual([["outgoing:send-1", "<p>On my way</p>"]]);
+  });
+
   it("does not load a reader without a thread id", () => {
     const { result } = renderHook(() => useThread({ id: null }));
     expect(result.current.data).toBeUndefined();

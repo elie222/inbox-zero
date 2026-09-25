@@ -6,7 +6,7 @@ import {
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
-  restoreCancelledSendDraft,
+  restoreUnsentReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
 } from "./reply-drafts";
@@ -277,7 +277,7 @@ describe("local reply drafts", () => {
       },
     } as never);
     await createReplyDraftWriter(replyIdentity).save(content);
-    await restoreCancelledSendDraft({
+    await restoreUnsentReplyDraft({
       emailAccountId: "account",
       threadId: "thread",
       messageId: "parent",
@@ -317,7 +317,7 @@ describe("local reply drafts", () => {
         };
       },
     } as never);
-    await restoreCancelledSendDraft({
+    await restoreUnsentReplyDraft({
       emailAccountId: "account",
       threadId: "thread",
       messageId: "parent",
@@ -358,7 +358,7 @@ describe("local reply drafts", () => {
         };
       },
     };
-    await restoreCancelledSendDraft({
+    await restoreUnsentReplyDraft({
       client: client as never,
       emailAccountId: "account",
       threadId: "thread",
@@ -374,7 +374,7 @@ describe("local reply drafts", () => {
     const { setActiveMailClient } = await import("./active-client");
     setActiveMailClient(null);
     await expect(
-      restoreCancelledSendDraft({
+      restoreUnsentReplyDraft({
         emailAccountId: "account",
         threadId: "thread",
         messageId: "parent",
@@ -391,7 +391,7 @@ describe("local reply drafts", () => {
       },
     } as never);
     await expect(
-      restoreCancelledSendDraft({
+      restoreUnsentReplyDraft({
         emailAccountId: "account",
         threadId: "thread",
         messageId: "parent",
@@ -429,7 +429,7 @@ describe("local reply drafts", () => {
         };
       },
     } as never);
-    await restoreCancelledSendDraft({
+    await restoreUnsentReplyDraft({
       emailAccountId: "account",
       threadId: "thread",
       messageId: "parent",
@@ -478,7 +478,7 @@ describe("local reply drafts", () => {
         };
       },
     } as never);
-    const restore = restoreCancelledSendDraft({
+    const restore = restoreUnsentReplyDraft({
       emailAccountId: "account",
       threadId: "thread",
       messageId: "parent",

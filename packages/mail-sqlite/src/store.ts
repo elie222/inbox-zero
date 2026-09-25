@@ -29,8 +29,11 @@ import {
 } from "@inboxzero/mail-core/messages";
 import {
   DEFERRED_DISPATCH_MIN_HOLD_MS,
+  EXECUTABLE_OPERATION_STATUSES,
   isPendingEffectStatus,
+  preparedOperationSchema,
   type OperationState,
+  type OperationStatus,
   type PreparedOperation,
   type TargetOutcome,
 } from "@inboxzero/mail-core/operations";
@@ -66,6 +69,7 @@ import {
   readSearchIndexComplete,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
+import { htmlToSearchText } from "./search-text";
 import {
   decodeMessageBody,
   encodeMessageBody,
@@ -82,6 +86,9 @@ import {
 } from "./store-read-utils";
 
 const MAX_QUEUE = 5000;
+// A send that failed or was undone goes back to being a draft, so only these
+// still show as an outgoing message.
+const OUTGOING_SEND_STATUSES = EXECUTABLE_OPERATION_STATUSES;
 const PENDING_STATUSES = [
   "preparing",
   "queued",
@@ -820,6 +827,15 @@ export async function createSqliteMailStore(
           );
           for (const change of input.result.observations)
             await applyChange(tx, change);
+          for (const body of input.result.bodies ?? []) {
+            if (
+              !observedKeys.has(`${body.key.accountId}:${body.key.messageId}`)
+            )
+              continue;
+            if (await isStaleMessageVersion(tx, body.key, body.version))
+              continue;
+            await insertMessageContent(tx, body, bodyCodec);
+          }
           if (input.operation.intent.kind === "metadata") {
             for (const target of targets.filter(
               (item) =>
@@ -838,11 +854,14 @@ export async function createSqliteMailStore(
             }
           }
           await tx.execute(
-            `UPDATE operations SET status = ?, receipt_id = ?, claimed_by = NULL, attempt_id = NULL
+            `UPDATE operations SET status = ?, receipt_id = ?, sent_message_id = ?, claimed_by = NULL, attempt_id = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
               operationStatusFromTargets(targets, "succeeded"),
               input.result.receiptId,
+              input.operation.intent.kind === "send"
+                ? sentMessageIdFromObservations(input.result.observations)
+                : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
@@ -1203,6 +1222,8 @@ export async function createSqliteMailStore(
     async readConversation(key, page) {
       return driver.read(async (tx) => {
         const revision = await readRevision(tx);
+        const sends = await readConversationSends(tx, key);
+        const replacedDrafts = sends.flatMap((send) => send.draftMessageIds);
         const after = page.after
           ? await tx.query(
               `SELECT received_at_ms, message_id FROM effective_messages
@@ -1224,6 +1245,7 @@ export async function createSqliteMailStore(
                OR received_at_ms > ?
                OR (received_at_ms = ? AND message_id > ?)
              )
+             ${replacedDrafts.length ? `AND NOT (in_draft = 1 AND message_id IN (${replacedDrafts.map(() => "?").join(",")}))` : ""}
            ORDER BY received_at_ms ASC, message_id ASC
            LIMIT ?`,
           [
@@ -1233,6 +1255,7 @@ export async function createSqliteMailStore(
             cursor?.receivedAtMs ?? 0,
             cursor?.receivedAtMs ?? 0,
             cursor?.messageId ?? "",
+            ...replacedDrafts,
             page.pageSize + 1,
           ],
         );
@@ -1275,8 +1298,19 @@ export async function createSqliteMailStore(
                 pendingOperationIds: JSON.parse(
                   String(row.pending_operation_ids_json),
                 ) as string[],
+                sendOperationId: sends.find(
+                  (send) => send.sentMessageId === String(row.message_id),
+                )?.operationId,
               };
             }),
+            // Pending sends are newer than anything synced, so they close the
+            // conversation's last page.
+            outgoing:
+              rows.length > page.pageSize
+                ? []
+                : sends.flatMap((send) =>
+                    send.outgoing ? [send.outgoing] : [],
+                  ),
             nextPage:
               rows.length > page.pageSize
                 ? String(slice.at(-1)?.message_id ?? "")
@@ -3168,6 +3202,90 @@ async function unfreezeSendDraft(
   await tx.execute(
     "UPDATE drafts SET frozen = 0 WHERE account_id = ? AND draft_id = ?",
     [accountId, frozenDraftId],
+  );
+}
+
+async function readConversationSends(tx: SqlTransaction, key: ConversationKey) {
+  const draftJoin = `LEFT JOIN drafts d
+       ON d.account_id = o.account_id
+      AND d.draft_id = json_extract(o.payload_json, '$.frozenDraftId')`;
+  const pending = await tx.query(
+    `SELECT o.command_id, o.status, o.payload_json, o.sent_message_id, d.content_json
+     FROM operations o
+     ${draftJoin}
+     WHERE o.status IN (${OUTGOING_SEND_STATUSES.map(() => "?").join(",")})
+       AND o.account_id = ?
+       AND json_extract(o.payload_json, '$.kind') = 'send'
+       AND json_extract(o.payload_json, '$.replyToConversationId') = ?
+     ORDER BY o.created_at_ms ASC, o.rowid ASC`,
+    [...OUTGOING_SEND_STATUSES, key.accountId, key.conversationId],
+  );
+  // Reached through the sent message so the lookup stays indexed however many
+  // commands the account has settled.
+  const confirmed = await tx.query(
+    `SELECT o.command_id, o.status, o.payload_json, o.sent_message_id, d.content_json
+     FROM messages m
+     JOIN operations o
+       ON o.account_id = m.account_id AND o.sent_message_id = m.message_id
+     ${draftJoin}
+     WHERE m.account_id = ? AND m.conversation_id = ?
+       AND o.status = 'succeeded'`,
+    [key.accountId, key.conversationId],
+  );
+  return [...confirmed, ...pending].flatMap((row) => {
+    const intent = preparedOperationSchema.shape.intent.safeParse(
+      JSON.parse(String(row.payload_json)),
+    );
+    if (!intent.success || intent.data.kind !== "send") return [];
+    const send = intent.data;
+    const draft =
+      row.content_json == null
+        ? null
+        : draftContentSchema.safeParse(JSON.parse(String(row.content_json)));
+    const status = String(row.status) as OperationStatus;
+    const html = `${send.html}${send.quotedHtml}`;
+    return [
+      {
+        operationId: String(row.command_id),
+        sentMessageId:
+          row.sent_message_id == null ? null : String(row.sent_message_id),
+        draftMessageIds: draft?.success
+          ? (draft.data.providerDraftMessageIds ?? [])
+          : [],
+        outgoing:
+          status === "succeeded"
+            ? null
+            : {
+                operationId: String(row.command_id),
+                status,
+                html,
+                metadata: {
+                  subject: send.subject,
+                  preview: htmlToSearchText(send.html).slice(0, 200),
+                  from: "",
+                  to: send.to,
+                  cc: send.cc,
+                  receivedAtMs: send.queuedAtMs,
+                  read: true,
+                  starred: false,
+                  folderId: null,
+                  inboxSection: null,
+                  labelIds: [],
+                  categoryIds: [],
+                  roles: ["sent" as const],
+                  hasAttachments: send.attachmentIds.length > 0,
+                  snoozedUntilMs: null,
+                },
+              },
+      },
+    ];
+  });
+}
+
+function sentMessageIdFromObservations(observations: ProviderChange[]) {
+  return (
+    observations.find((change) => change.kind === "message_patch")?.key
+      .messageId ?? null
   );
 }
 

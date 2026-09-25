@@ -1,11 +1,12 @@
 import type { PreparedOperation, TargetOutcome } from "../operations";
-import type { ProviderChange } from "../sync";
+import type { BodyObservation, ProviderChange } from "../sync";
 
 export type ExecutionResult =
   | {
       status: "confirmed";
       receiptId: string | null;
       observations: ProviderChange[];
+      bodies?: BodyObservation[];
       targets: TargetOutcome[];
     }
   | { status: "accepted"; receiptId: string; retryAfterMs: number }

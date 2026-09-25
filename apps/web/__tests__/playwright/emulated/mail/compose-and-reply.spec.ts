@@ -8,11 +8,13 @@ import {
 } from "./account-test-helpers";
 import {
   conversationWithSubject,
+  expectSeamlessReplyHandoff,
   expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
   waitForComposeOutboxSend,
+  watchReplyHandoff,
 } from "./mail-test-helpers";
 
 test("composes, sends, and reads a new message from Sent", async ({
@@ -389,6 +391,57 @@ test("pops a reply out of the thread into its own window", async ({
   await dialog.getByRole("button", { name: "Discard draft" }).click();
   await expect(dialog).toBeHidden();
   await expect(inlineEditor).toHaveCount(0);
+});
+
+test("moves a sent reply from its composer into the thread without a gap", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const editor = sourceMessage.getByRole("textbox", { name: "Email message" });
+  const replyBody = `A reply that moves straight into the thread. ${testInfo.retry}`;
+  await editor.pressSequentially(replyBody);
+  await expect(editor).toContainText(replyBody);
+
+  const handoff = await watchReplyHandoff(page, replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const sendingRow = page
+    .locator("li[data-thread-message-id]")
+    .filter({ hasText: "Sending…" });
+  await expect(sendingRow).toBeVisible();
+  // The undo window is still open, so the provider has not sent it yet.
+  await expect(
+    page
+      .getByRole("region", { name: "Notifications alt+T" })
+      .getByRole("button", { name: /^Undo/ }),
+  ).toBeVisible();
+  await expectThreadReaderBody(page, replyBody, 3000);
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-sending-in-thread");
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: 20_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(sendingRow).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
+  expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
 });
 
 test("focuses the To field when forwarding", async ({ page }) => {

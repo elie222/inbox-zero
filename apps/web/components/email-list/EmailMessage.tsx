@@ -73,6 +73,7 @@ export function EmailMessage({
   onSelect,
   onNavigateMessage,
   sentMessageOpen,
+  sending = false,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -98,6 +99,8 @@ export function EmailMessage({
   onSelect?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   sentMessageOpen?: SentMessageOpenState;
+  /** A reply queued on this device that the provider hasn't sent yet. */
+  sending?: boolean;
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
@@ -263,6 +266,7 @@ export function EmailMessage({
         toggleDetails={toggleDetails}
         hasDraft={hasDraft || visibleDrafts.length > 0}
         sentMessageOpen={sentMessageOpen}
+        sending={sending}
       />
 
       {expanded && (
@@ -365,6 +369,7 @@ function MessageHeader({
   onToggleKeyDown,
   hasDraft,
   sentMessageOpen,
+  sending,
 }: {
   message: ParsedMessage;
   menu?: React.ReactNode;
@@ -379,6 +384,7 @@ function MessageHeader({
   onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
+  sending: boolean;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -552,12 +558,18 @@ function MessageHeader({
         {isSent &&
           !message.labelIds?.includes(GmailLabel.DRAFT) &&
           sentMessageOpen && <SentMessageOpenStatus open={sentMessageOpen} />}
-        <time
-          className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
-          dateTime={message.headers.date}
-        >
-          {formatShortDate(new Date(message.headers.date))}
-        </time>
+        {sending ? (
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">
+            Sending…
+          </span>
+        ) : (
+          <time
+            className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
+            dateTime={message.headers.date}
+          >
+            {formatShortDate(new Date(message.headers.date))}
+          </time>
+        )}
       </div>
     </div>
   );
