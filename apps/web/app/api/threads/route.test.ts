@@ -1,18 +1,27 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockFindMany, mockGetThreadsWithQuery, mockSearchThreads } = vi.hoisted(
-  () => ({
-    mockFindMany: vi.fn(),
-    mockGetThreadsWithQuery: vi.fn(),
-    mockSearchThreads: vi.fn(),
-  }),
-);
+const {
+  mockFindMany,
+  mockFindSplit,
+  mockGetLabels,
+  mockGetThreadsWithQuery,
+  mockSearchThreads,
+} = vi.hoisted(() => ({
+  mockFindMany: vi.fn(),
+  mockFindSplit: vi.fn(),
+  mockGetLabels: vi.fn(),
+  mockGetThreadsWithQuery: vi.fn(),
+  mockSearchThreads: vi.fn(),
+}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
     executedRule: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
+    },
+    mailSplit: {
+      findFirst: (...args: unknown[]) => mockFindSplit(...args),
     },
   },
 }));
@@ -30,6 +39,8 @@ vi.mock("@/utils/middleware", () => ({
         Object.assign(request, {
           auth: { emailAccountId: "email-account-id" },
           emailProvider: {
+            name: "google",
+            getLabels: mockGetLabels,
             getThreadsWithQuery: mockGetThreadsWithQuery,
             searchThreads: mockSearchThreads,
           },
@@ -77,6 +88,8 @@ describe("GET /api/threads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindMany.mockResolvedValue([]);
+    mockFindSplit.mockResolvedValue(null);
+    mockGetLabels.mockResolvedValue([]);
     mockGetThreadsWithQuery.mockResolvedValue({ threads: [] });
     mockSearchThreads.mockResolvedValue({ threads: [] });
   });
@@ -132,6 +145,44 @@ describe("GET /api/threads", () => {
       messageFormat: "full",
     });
     expect(mockGetThreadsWithQuery).not.toHaveBeenCalled();
+  });
+
+  it("includes spam and trash when search is scoped to those folders", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/threads?type=trash&q=invoice"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSearchThreads).toHaveBeenCalledWith({
+      query: "invoice",
+      maxResults: 50,
+      pageToken: undefined,
+      messageFormat: "full",
+      includeSpamTrash: true,
+      folder: "trash",
+    });
+  });
+
+  it("lists a newsletter split instead of rejecting the category", async () => {
+    mockGetLabels.mockResolvedValue([
+      { id: "Label_Newsletter", name: "Newsletter", type: "user" },
+    ]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads?inboxSection=newsletters",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetThreadsWithQuery).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        labelIds: ["INBOX", "Label_Newsletter"],
+      }),
+      maxResults: 50,
+      pageToken: undefined,
+      messageFormat: "full",
+    });
   });
 
   it("passes an Outlook inbox section to the email provider", async () => {

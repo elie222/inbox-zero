@@ -1332,11 +1332,22 @@ export class OutlookProvider implements EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    labelIds?: string[];
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
-    const { folderId, categoryNames } = await resolveOutlookSearchScope({
+    const scope = await resolveOutlookSearchScope({
       emailProvider: this,
       scope: options.labelName,
     });
+    const folderId =
+      scope.folderId ??
+      (await outlookSpamTrashFolderId({
+        client: this.client,
+        logger: this.logger,
+        folder: options.folder ?? spamTrashFolderFromLabels(options.labelIds),
+      }));
+    const categoryNames = scope.categoryNames;
 
     const response = await queryBatchMessages(
       this.client,
@@ -2058,11 +2069,17 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
+    labelIds?: string[];
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const compiled = compileOutlookThreadSearch(options.query);
+    const compiled = withOutlookSpamTrashFolder(
+      compileOutlookThreadSearch(options.query),
+      options.folder ?? spamTrashFolderFromLabels(options.labelIds),
+    );
     if (isEmptyOutlookSearch(compiled)) return { threads: [] };
 
     const client = this.client.getClient();
@@ -3128,4 +3145,36 @@ async function fetchOutlookSearchPage({
   }
 
   return request.top(Math.min(maxResults || 25, 25)).get();
+}
+
+function spamTrashFolderFromLabels(
+  labelIds: string[] | undefined,
+): "spam" | "trash" | undefined {
+  if (labelIds?.includes("SPAM")) return "spam";
+  if (labelIds?.includes("TRASH")) return "trash";
+}
+
+function withOutlookSpamTrashFolder(
+  compiled: CompiledOutlookSearch,
+  folder: "spam" | "trash" | undefined,
+): CompiledOutlookSearch {
+  if (!folder || compiled.folderKey || compiled.folderName) return compiled;
+  return {
+    ...compiled,
+    folderKey: folder === "spam" ? "junkemail" : "deleteditems",
+  };
+}
+
+async function outlookSpamTrashFolderId({
+  client,
+  logger,
+  folder,
+}: {
+  client: OutlookClient;
+  logger: Logger;
+  folder?: "spam" | "trash";
+}) {
+  if (!folder) return;
+  const folderIds = await getFolderIds(client, logger);
+  return folder === "spam" ? folderIds.junkemail : folderIds.deleteditems;
 }
