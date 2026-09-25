@@ -8,6 +8,7 @@ const MAX_BOOT_CHECKS = 3;
 const FIRST_RETRY_DELAY_MS = 10_000;
 const MAX_RETRY_DELAY_MS = 2 * 60_000;
 const MAX_REPORTED_PATHS = 10;
+const CONTENT_TYPE_TIMEOUT_MS = 5000;
 
 export type DesktopBootFailure = {
   reason: "timeout" | "stylesheet-failed";
@@ -45,6 +46,7 @@ export function installDesktopLoadRecovery(
   let booted = false;
   let documentFinished = false;
   let bootChecks = 0;
+  let documentGeneration = 0;
   let failedAttempts = 0;
   let requestFailures = emptyRequestFailures();
   let navigationTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -92,7 +94,18 @@ export function installDesktopLoadRecovery(
       bootTimeout = setTimeout(checkBoot, BOOT_CHECK_INTERVAL_MS);
       return;
     }
-    failBoot("timeout");
+    // Route handlers on the app origin (JSON, files) never mount the web app,
+    // so they can't signal. Only the renderer knows what it committed.
+    const generation = documentGeneration;
+    readContentType(contents).then((contentType) => {
+      if (!booting || generation !== documentGeneration) return;
+      if (contentType === null || contentType === "text/html") {
+        failBoot("timeout");
+        return;
+      }
+      booting = false;
+      booted = true;
+    });
   }
 
   function retryLoad() {
@@ -126,6 +139,7 @@ export function installDesktopLoadRecovery(
     booted = false;
     documentFinished = false;
     bootChecks = 0;
+    documentGeneration++;
     requestFailures = emptyRequestFailures();
     bootTimeout = setTimeout(checkBoot, BOOT_CHECK_INTERVAL_MS);
   });
@@ -242,4 +256,17 @@ function getRetryDelay(failedAttempts: number) {
     FIRST_RETRY_DELAY_MS * 2 ** failedAttempts,
     MAX_RETRY_DELAY_MS,
   );
+}
+
+// A hung renderer never answers; treat that like an HTML page that didn't boot.
+function readContentType(contents: WebContents): Promise<string | null> {
+  return Promise.race([
+    contents
+      .executeJavaScript("document.contentType")
+      .then((value: unknown) => (typeof value === "string" ? value : null))
+      .catch(() => null),
+    new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), CONTENT_TYPE_TIMEOUT_MS),
+    ),
+  ]);
 }

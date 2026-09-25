@@ -12,6 +12,7 @@ function setup() {
     stop: vi.fn(),
     isDestroyed: () => false,
     isLoading: vi.fn(() => false),
+    executeJavaScript: vi.fn().mockResolvedValue("text/html"),
     getURL: () => mailUrl,
   });
   const onBootFailure = vi.fn();
@@ -154,6 +155,17 @@ describe("desktop load recovery", () => {
         failedPaths: ["/_next/static/css/app.css"],
       }),
     );
+  });
+
+  it("leaves non-app documents on the app origin alone", async () => {
+    const { contents, recovery } = setup();
+    contents.executeJavaScript.mockResolvedValue("application/json");
+    loadDocument(contents, `${origin}/openapi.json`);
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    recovery.retryIfNotBooted();
+    expect(contents.stop).not.toHaveBeenCalled();
+    expect(contents.loadURL).not.toHaveBeenCalled();
   });
 
   it("gives a slow but still loading app more time before recovering", async () => {
