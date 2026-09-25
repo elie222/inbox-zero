@@ -11,6 +11,8 @@ import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { Button } from "@/components/ui/button";
 import {
+  getDraftSessionMessageId,
+  getLatestDraftMessageId,
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
@@ -60,8 +62,9 @@ export function EmailThread({
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
-    () => organizeThreadMessages(messages),
-    [messages],
+    () =>
+      organizeThreadMessages(withoutReplacedDrafts(messages, emailAccountId)),
+    [messages, emailAccountId],
   );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
@@ -255,7 +258,8 @@ export function EmailThread({
                   Boolean(defaultComposeMode) || draftMessages.length > 0,
                 )}
                 hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
-                key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
+                // A draft-only row follows its draft across Gmail's per-save message IDs.
+                key={`${getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
                 message={message}
                 menu={renderMessageMenu?.(message)}
                 onOpenSenderContext={onOpenSenderContext}
@@ -396,6 +400,23 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
       draftsByMessageId.get(message.id) ?? [],
     ),
   }));
+}
+
+// A saved draft's old and new Gmail messages can both be in the conversation
+// until sync removes the old one. Only the latest save is the draft being edited.
+function withoutReplacedDrafts(
+  messages: ThreadMessage[],
+  emailAccountId: string,
+) {
+  const messageIds = new Set(messages.map((message) => message.id));
+  return messages.filter((message) => {
+    if (!message.labelIds?.includes(GmailLabel.DRAFT)) return true;
+    const latest = getLatestDraftMessageId(
+      emailAccountId,
+      getDraftSessionMessageId(emailAccountId, message.id),
+    );
+    return !latest || latest === message.id || !messageIds.has(latest);
+  });
 }
 
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {

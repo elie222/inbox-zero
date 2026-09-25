@@ -43,6 +43,10 @@ type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
 const drafts = new Map<string, StoredReplyDraft>();
 const pendingWrites = new Map<string, Promise<unknown>>();
 const engineRevisions = new Map<string, number>();
+// Gmail stores every draft save as a new message. Remembering which message a
+// draft was first opened from keeps its composer and local draft across saves.
+const draftSessionMessageIds = new Map<string, Map<string, string>>();
+const latestDraftMessageIds = new Map<string, Map<string, string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -55,6 +59,42 @@ export function getReplyDraftSessionId(
   mode: ReplyDraftMode,
 ) {
   return `${messageId}:${mode}`;
+}
+
+export function rememberReplacedDraftMessage(
+  emailAccountId: string,
+  previousMessageId: string,
+  nextMessageId: string,
+) {
+  const sessionMessageId = getDraftSessionMessageId(
+    emailAccountId,
+    previousMessageId,
+  );
+  accountMap(draftSessionMessageIds, emailAccountId).set(
+    nextMessageId,
+    sessionMessageId,
+  );
+  accountMap(latestDraftMessageIds, emailAccountId).set(
+    sessionMessageId,
+    nextMessageId,
+  );
+}
+
+export function getDraftSessionMessageId(
+  emailAccountId: string,
+  draftMessageId: string,
+) {
+  return (
+    draftSessionMessageIds.get(emailAccountId)?.get(draftMessageId) ??
+    draftMessageId
+  );
+}
+
+export function getLatestDraftMessageId(
+  emailAccountId: string,
+  sessionMessageId: string,
+) {
+  return latestDraftMessageIds.get(emailAccountId)?.get(sessionMessageId);
 }
 
 channel?.addEventListener("message", (event) => {
@@ -244,6 +284,8 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
     engineRevisions.clear();
+    draftSessionMessageIds.clear();
+    latestDraftMessageIds.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
@@ -255,6 +297,20 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
     drafts.delete(key);
     engineRevisions.delete(key);
   }
+  draftSessionMessageIds.delete(emailAccountId);
+  latestDraftMessageIds.delete(emailAccountId);
+}
+
+function accountMap(
+  maps: Map<string, Map<string, string>>,
+  emailAccountId: string,
+) {
+  let map = maps.get(emailAccountId);
+  if (!map) {
+    map = new Map();
+    maps.set(emailAccountId, map);
+  }
+  return map;
 }
 
 function draftKey(identity: ReplyDraftIdentity) {

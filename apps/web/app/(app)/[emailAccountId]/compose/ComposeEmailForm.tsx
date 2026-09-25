@@ -89,6 +89,7 @@ import {
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getReplyDraft,
+  rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
@@ -578,8 +579,18 @@ function ComposeEmailFormContent({
       });
       if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
       providerDraftId.current = result.data.draftId;
+      const { messageId } = result.data;
+      const replacedMessage = messageId && messageId !== providerDraftMessageId;
+      if (replacedMessage)
+        rememberReplacedDraftMessage(
+          selectedEmailAccountId,
+          providerDraftMessageId,
+          messageId,
+        );
       captureLocalDraft();
       await flushDraft();
+      if (replacedMessage)
+        await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
     },
   });
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =

@@ -41,6 +41,7 @@ import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  getDraftSessionMessageId,
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/mail-engine/reply-drafts";
@@ -104,21 +105,27 @@ export function EmailMessage({
     ReplyDraftMode | "closed" | null
   >(null);
   const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
-  const serverDrafts = draftMessages ?? [];
+  const serverDrafts = (draftMessages ?? []).map((draft) => ({
+    message: draft,
+    sessionMessageId: getDraftSessionMessageId(emailAccountId, draft.id),
+  }));
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  const setDraftDismissed = (draftId: string, dismissed: boolean) => {
+  const setDraftDismissed = (sessionMessageId: string, dismissed: boolean) => {
     setDismissedDraftIds((previous) => {
-      if (previous.has(draftId) === dismissed) return previous;
+      if (previous.has(sessionMessageId) === dismissed) return previous;
       const next = new Set(previous);
-      if (dismissed) next.add(draftId);
-      else next.delete(draftId);
+      if (dismissed) next.add(sessionMessageId);
+      else next.delete(sessionMessageId);
       return next;
     });
   };
   const visibleDrafts = serverDrafts.filter(
-    (draft) => !dismissedDraftIds.has(draft.id),
+    (draft) => !dismissedDraftIds.has(draft.sessionMessageId),
+  );
+  const isDraftRow = serverDrafts.some(
+    (draft) => draft.message.id === message.id,
   );
   const hasOpenComposer = Boolean(composeMode) || visibleDrafts.length > 0;
 
@@ -257,13 +264,13 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {!bodyAvailable && composeMode !== "forward" && (
+          {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
             <p className="text-muted-foreground text-sm">
               This message hasn’t loaded yet.
             </p>
           )}
           {bodyAvailable &&
-            !serverDrafts.some((draft) => draft.id === message.id) &&
+            !isDraftRow &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -281,20 +288,23 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {visibleDrafts.map((draft, index) => (
+          {visibleDrafts.map(({ message: draft, sessionMessageId }, index) => (
             <ReplyPanel
-              key={draft.id}
+              key={sessionMessageId}
               autoScroll={!composeMode && index === visibleDrafts.length - 1}
               draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
+              draftSessionMessageId={sessionMessageId}
               message={message}
-              onCloseCompose={() => setDraftDismissed(draft.id, true)}
-              onRestoreCompose={() => setDraftDismissed(draft.id, false)}
-              onRestore={() => setDraftDismissed(draft.id, false)}
+              onCloseCompose={() => setDraftDismissed(sessionMessageId, true)}
+              onRestoreCompose={() =>
+                setDraftDismissed(sessionMessageId, false)
+              }
+              onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
               onMarkDone={onMarkDone}
               onStartDiscard={() => {
-                setDraftDismissed(draft.id, true);
+                setDraftDismissed(sessionMessageId, true);
                 return {
                   id: composeSessionRef.current,
                   mode: "reply" as const,
@@ -554,6 +564,7 @@ function ReplyPanel({
   onStartDiscard,
   composeMode,
   draftMessage,
+  draftSessionMessageId,
   draftBodyAvailable = true,
   autoScroll = false,
   bodyAvailable = true,
@@ -568,6 +579,7 @@ function ReplyPanel({
   onStartDiscard: () => ComposeSession | undefined;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  draftSessionMessageId?: string;
   draftBodyAvailable?: boolean;
   autoScroll?: boolean;
   bodyAvailable?: boolean;
@@ -580,6 +592,11 @@ function ReplyPanel({
   const [forwardSource, setForwardSource] = useState<ParsedMessage>();
   if (composeMode === "forward" && bodyAvailable && !forwardSource)
     setForwardSource(message);
+  // Once open, the composer and its local draft own the reply. A saved draft
+  // that sync brings back before its body loads must not replace them.
+  const [draftSource, setDraftSource] = useState<ParsedMessage>();
+  if (draftMessage && draftBodyAvailable && !draftSource)
+    setDraftSource(draftMessage);
 
   // scroll to the reply panel when it first opens
   useEffect(() => {
@@ -595,12 +612,12 @@ function ReplyPanel({
 
   const replyingToEmail = useMemo((): ReplyingToEmail | undefined => {
     if (composeMode === "reply") {
-      if (draftMessage) return prepareDraftReplyEmail(draftMessage);
+      if (draftSource) return prepareDraftReplyEmail(draftSource);
 
       return prepareReplyingToEmail(message);
     }
     return forwardSource ? prepareForwardingEmail(forwardSource) : undefined;
-  }, [composeMode, message, draftMessage, forwardSource]);
+  }, [composeMode, message, draftSource, forwardSource]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -655,7 +672,7 @@ function ReplyPanel({
     ],
   );
 
-  if (draftMessage && !draftBodyAvailable) {
+  if (draftMessage && !draftSource) {
     return (
       <p className="mt-5 text-muted-foreground text-sm">
         This message hasn’t loaded yet.
@@ -684,7 +701,7 @@ function ReplyPanel({
         draftKeyMessageId={message.id}
         draftMode={composeMode}
         draftSessionId={getReplyDraftSessionId(
-          draftMessage?.id ?? message.id,
+          draftSessionMessageId ?? message.id,
           composeMode,
         )}
         onClose={onCloseCompose}

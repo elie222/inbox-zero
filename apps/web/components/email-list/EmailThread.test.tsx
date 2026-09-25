@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
+import { rememberReplacedDraftMessage } from "@/utils/mail-engine/reply-drafts";
 import {
   EmailThread,
   organizeThreadMessages,
@@ -55,8 +57,10 @@ vi.mock("@/utils/actions/generate-reply", () => ({
   generateNudgeReplyAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
-  ComposeEmailFormLazy: () => <textarea aria-label="Email message" />,
+  ComposeEmailFormLazy: MockComposer,
 }));
+
+let composerMounts = 0;
 
 describe("EmailThread reply composer", () => {
   afterEach(cleanup);
@@ -80,6 +84,45 @@ describe("EmailThread reply composer", () => {
     );
 
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+
+  // Gmail gives a draft a new message ID each time it is saved. When sync
+  // brings that replacement in, the draft being edited must keep its composer
+  // and local draft instead of reopening as a different, unloaded draft.
+  it("keeps editing a saved draft after Gmail replaces its message", () => {
+    composerMounts = 0;
+    const parent = createReaderMessage("parent", "1000");
+    const draftV1 = createReaderDraft("draft-v1", "2000");
+    const view = render(
+      <EmailThread
+        messages={[parent, draftV1]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    const composer = screen.getByRole("textbox", { name: "Email message" });
+    expect(composer.dataset.draftSessionId).toBe("draft-v1:reply");
+
+    rememberReplacedDraftMessage("account-1", "draft-v1", "draft-v2");
+    for (const messages of [
+      [parent, createReaderDraft("draft-v2", "2000"), draftV1],
+      [parent, createReaderDraft("draft-v2", "3000")],
+    ]) {
+      view.rerender(
+        <EmailThread
+          messages={messages}
+          missingBodyIds={new Set(["draft-v2"])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+
+      expect(screen.queryByText(/hasn.t loaded yet/)).toBeNull();
+      const current = screen.getByRole("textbox", { name: "Email message" });
+      expect(current.dataset.draftSessionId).toBe("draft-v1:reply");
+      expect(current.dataset.providerDraftMessageId).toBe("draft-v2");
+      expect(composerMounts).toBe(1);
+    }
   });
 });
 
@@ -269,6 +312,33 @@ function createDraft({
     headers: { "in-reply-to": inReplyTo, references },
     internalDate,
   } as unknown as ThreadMessage;
+}
+
+function createReaderDraft(id: string, internalDate: string) {
+  return {
+    ...createReaderMessage(id, internalDate),
+    labelIds: ["DRAFT"],
+    textHtml: "<p>Saved reply</p>",
+  } as ThreadMessage;
+}
+
+function MockComposer({
+  draftSessionId,
+  providerDraftMessageId,
+}: {
+  draftSessionId?: string;
+  providerDraftMessageId?: string;
+}) {
+  useState(() => {
+    composerMounts += 1;
+  });
+  return (
+    <textarea
+      aria-label="Email message"
+      data-draft-session-id={draftSessionId}
+      data-provider-draft-message-id={providerDraftMessageId}
+    />
+  );
 }
 
 function createReaderMessage(id: string, internalDate: string) {
