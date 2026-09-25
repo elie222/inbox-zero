@@ -91,12 +91,8 @@ test("lists popular Pipedream apps as their own rows", async ({
   test.setTimeout(360_000);
   await openIntegrations(page);
 
-  const heading = page.getByRole("heading", {
-    name: "More apps via Pipedream",
-  });
-  await heading.scrollIntoViewIfNeeded();
-
   const hubspotRow = getIntegrationRow(page, "HubSpot");
+  await hubspotRow.scrollIntoViewIfNeeded();
   await expect(
     hubspotRow.getByRole("button", { name: "Connect", exact: true }),
   ).toBeVisible({ timeout: 60_000 });

@@ -4,15 +4,9 @@ import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
-  SectionDescription,
-  SectionHeader,
-  TypographyP,
-} from "@/components/Typography";
-import {
   Table,
   TableRow,
   TableBody,
-  TableCell,
   TableHeader,
   TableHead,
 } from "@/components/ui/table";
@@ -31,52 +25,38 @@ import { PipedreamAppRow } from "./PipedreamAppRow";
 export function Integrations() {
   const { data, isLoading, error, mutate } = useIntegrations();
 
-  const allIntegrations = data?.integrations || [];
-  const integrations = allIntegrations.filter(
-    (integration) => integration.name !== "pipedream",
+  const integrations = data?.integrations || [];
+  const builtIn = integrations.filter(
+    (integration) => !integration.isCustom && integration.name !== "pipedream",
   );
-  const pipedream = allIntegrations.find(
+  const pipedream = integrations.find(
     (integration) => integration.name === "pipedream",
   );
+  const custom = integrations.filter((integration) => integration.isCustom);
 
   useIntegrationNotifications(data?.integrations);
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      <Card>
+    <Card>
+      <LoadingContent loading={isLoading} error={error}>
         <Table>
-          <IntegrationsTableHeader />
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Connection</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
           <TableBody>
-            {integrations.length ? (
-              integrations.map((integration) => (
-                <IntegrationRow
-                  key={integration.name}
-                  integration={integration}
-                  onConnectionChange={mutate}
-                />
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={3}>
-                  <TypographyP>No integrations found</TypographyP>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {pipedream && (
-        <div className="space-y-2">
-          <SectionHeader>More apps via Pipedream</SectionHeader>
-          <SectionDescription>
-            These connect through a free Pipedream account. Choose the apps you
-            want to share when Pipedream asks.
-          </SectionDescription>
-          <Card>
-            <Table>
-              <IntegrationsTableHeader />
-              <TableBody>
+            {builtIn.map((integration) => (
+              <IntegrationRow
+                key={integration.name}
+                integration={integration}
+                onConnectionChange={mutate}
+              />
+            ))}
+            {pipedream && (
+              <>
                 {PIPEDREAM_APPS.map((app) => (
                   <PipedreamAppRow
                     key={app.slug}
@@ -88,12 +68,19 @@ export function Integrations() {
                   integration={pipedream}
                   onConnectionChange={mutate}
                 />
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
-      )}
-    </LoadingContent>
+              </>
+            )}
+            {custom.map((integration) => (
+              <IntegrationRow
+                key={integration.name}
+                integration={integration}
+                onConnectionChange={mutate}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </LoadingContent>
+    </Card>
   );
 }
 
@@ -200,16 +187,4 @@ function getPipedreamAppStatus(
     return "disconnected";
   }
   return connection.isActive ? "connected" : "paused";
-}
-
-function IntegrationsTableHeader() {
-  return (
-    <TableHeader>
-      <TableRow>
-        <TableHead>Name</TableHead>
-        <TableHead>Connection</TableHead>
-        <TableHead />
-      </TableRow>
-    </TableHeader>
-  );
 }
