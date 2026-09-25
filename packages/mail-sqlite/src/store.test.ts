@@ -3806,7 +3806,7 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
     );
     expect(conversation.view.messages[0]?.content).toMatchObject({
       status: "available",
-      text: "current",
+      html: "<p>current</p>",
     });
     await store.close();
   });
@@ -3906,7 +3906,7 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
     expect(conversation.view.messages[0]?.content).toEqual({
       status: "available",
       html: "<p>First saved reply</p>",
-      text: "First saved reply",
+      text: null,
       attachments: [
         {
           attachmentId: "att-1",

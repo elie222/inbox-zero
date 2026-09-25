@@ -256,6 +256,8 @@ export interface MailStore {
   }): Promise<ClaimedWork | null>;
   close(): Promise<void>;
   completeJob(input: { jobId: string; attemptId: string }): Promise<void>;
+  /** Rewrites one short batch of bodies stored before compression. */
+  compressBodyBacklog(): Promise<{ remaining: boolean }>;
   deferBootstrapScan(input: {
     session: AccountSession;
     scopeId: string;

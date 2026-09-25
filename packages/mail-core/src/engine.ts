@@ -342,9 +342,11 @@ export function createMailEngine(input: {
           await catchUpIdleAccounts(deadlineMs, signal);
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
           // Batches stay short and claimable work is checked between them,
-          // so a large backlog never delays commands or sync.
-          const { remaining } = await store.indexSearchBacklog();
-          if (remaining) continue;
+          // so a large backlog never delays commands or sync. Unindexed mail
+          // is missing from search, while uncompressed bodies only cost disk,
+          // so the search backlog drains first.
+          if ((await store.indexSearchBacklog()).remaining) continue;
+          if ((await store.compressBodyBacklog()).remaining) continue;
           return;
         }
         if (work.kind === "command") {

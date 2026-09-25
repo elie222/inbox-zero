@@ -16,6 +16,8 @@ const portableFiles = [
   "capabilities.ts",
   "mailbox-view-readers.ts",
   "store-read-utils.ts",
+  "message-body-codec.ts",
+  "message-body-backfill.ts",
 ];
 const forbidden = [
   /from\s+["']react/,

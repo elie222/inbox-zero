@@ -19,7 +19,7 @@ describe("engine storage pressure", () => {
     await engine.runUntil(Date.now() + 200);
     expect(await messageBody(store)).toMatchObject({
       status: "available",
-      text: "replaceable",
+      html: "<p>replaceable</p>",
     });
     expect(
       await store.readDraft({ accountId: "acc-1", draftId: "d1" }),
@@ -84,12 +84,12 @@ describe("engine storage pressure", () => {
     ).toMatchObject({ status: "committed" });
     expect(await messageBody(store)).toMatchObject({
       status: "available",
-      text: "replaceable",
+      html: "<p>replaceable</p>",
     });
     await engine.runUntil(Date.now() + 200);
     expect(await messageBody(store)).toMatchObject({
       status: "available",
-      text: "replaceable",
+      html: "<p>replaceable</p>",
     });
     await engine.close();
   });
