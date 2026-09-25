@@ -126,6 +126,7 @@
               "hosting/self-hosting",
               "hosting/environment-variables",
               "hosting/production-operations",
+              "hosting/security-hardening",
               "hosting/vercel",
               "hosting/kubernetes",
               "hosting/troubleshooting",
