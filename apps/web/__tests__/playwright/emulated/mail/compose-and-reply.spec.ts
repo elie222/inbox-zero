@@ -353,6 +353,44 @@ test("opens and sends a reply from the reader with Enter", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
+test("pops a reply out of the thread into its own window", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  // An earlier test replies in this thread, so open it directly.
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+
+  const inlineEditor = page.locator(
+    "[data-thread-message-id] [contenteditable='true']",
+  );
+  await expect(inlineEditor).toHaveCount(1);
+  const replyBody = `A reply written before popping out. ${testInfo.retry}`;
+  await inlineEditor.pressSequentially(replyBody);
+  await expect(inlineEditor).toContainText(replyBody);
+  await expect(
+    page.getByRole("button", { name: "Pop out draft" }),
+  ).toBeVisible();
+
+  await inlineEditor.press("ControlOrMeta+Shift+p");
+
+  const dialog = page.getByRole("dialog", { name: /Reply Workflow Message/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("[contenteditable='true']")).toContainText(
+    replyBody,
+  );
+  await expect(inlineEditor).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "popped-out-reply");
+
+  await dialog.getByRole("button", { name: "Discard draft" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(inlineEditor).toHaveCount(0);
+});
+
 test("focuses the To field when forwarding", async ({ page }) => {
   const { emailAccountId } = await openMail(page);
   // Open by thread id so this still works after an earlier reply-and-mark-done
