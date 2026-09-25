@@ -93,6 +93,7 @@ export async function fetchGoogleOpenIdProfile(accessToken: string) {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
