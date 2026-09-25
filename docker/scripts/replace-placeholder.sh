@@ -26,10 +26,12 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 for file in $(egrep -r -l "${PLACEHOLDER}" apps/web/.next/ apps/web/public/ || true); do
     case "$file" in
     # Prerendered pages carry React Server Components payloads with byte-length
-    # prefixes that a plain substitution would leave stale.
+    # prefixes that a plain substitution would leave stale. If the rewrite
+    # fails, keep the file as built: a stale placeholder still renders, while a
+    # sed-corrupted payload breaks the page.
     *.rsc | *.html)
         node "$SCRIPT_DIR/replace-in-prerender.mjs" "$file" "$PLACEHOLDER" "$VALUE" ||
-            sed -i -e "s|$PLACEHOLDER|$ESCAPED_VALUE|g" "$file"
+            echo "Warning: could not replace $PLACEHOLDER in $file" >&2
         ;;
     *) sed -i -e "s|$PLACEHOLDER|$ESCAPED_VALUE|g" "$file" ;;
     esac

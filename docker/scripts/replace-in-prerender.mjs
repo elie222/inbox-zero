@@ -28,7 +28,11 @@ function replaceBytes(buffer, from, to) {
   const anchors = []; // [oldStart, newStart, oldEnd] per replaced occurrence
   let last = 0;
   let written = 0;
-  for (let index = buffer.indexOf(from); index !== -1; index = buffer.indexOf(from, index + from.length)) {
+  for (
+    let index = buffer.indexOf(from);
+    index !== -1;
+    index = buffer.indexOf(from, index + from.length)
+  ) {
     pieces.push(buffer.subarray(last, index), to);
     written += index - last;
     anchors.push([index, written, index + from.length]);
@@ -62,26 +66,45 @@ export function rewriteFlight(stream, placeholder, value) {
     const id = colon === -1 ? "" : stream.toString("latin1", position, colon);
     if (colon === -1 || !/^[0-9a-f]*$/.test(id)) {
       // Not a row boundary we understand: fall back to a plain replacement of the rest.
-      const { bytes, anchors } = replaceBytes(stream.subarray(position), from, to);
+      const { bytes, anchors } = replaceBytes(
+        stream.subarray(position),
+        from,
+        to,
+      );
       emit(position, stream.length, bytes, anchors);
       break;
     }
     const tag = String.fromCharCode(stream[colon + 1]);
-    const comma = LENGTH_PREFIXED_TAGS.has(tag) ? stream.indexOf(0x2c, colon + 2) : -1; // ","
-    const lengthHex = comma === -1 ? "" : stream.toString("latin1", colon + 2, comma);
+    const comma = LENGTH_PREFIXED_TAGS.has(tag)
+      ? stream.indexOf(0x2c, colon + 2)
+      : -1; // ","
+    const lengthHex =
+      comma === -1 ? "" : stream.toString("latin1", colon + 2, comma);
     if (comma !== -1 && /^[0-9a-f]+$/.test(lengthHex)) {
       const contentStart = comma + 1;
       const contentEnd = contentStart + Number.parseInt(lengthHex, 16);
       const content = stream.subarray(contentStart, contentEnd);
-      const replaced = tag === TEXT_TAG ? replaceBytes(content, from, to) : { bytes: content, anchors: [] };
-      emit(position, contentStart, Buffer.from(`${id}:${tag}${replaced.bytes.length.toString(16)},`), null);
+      const replaced =
+        tag === TEXT_TAG
+          ? replaceBytes(content, from, to)
+          : { bytes: content, anchors: [] };
+      emit(
+        position,
+        contentStart,
+        Buffer.from(`${id}:${tag}${replaced.bytes.length.toString(16)},`),
+        null,
+      );
       emit(contentStart, contentEnd, replaced.bytes, replaced.anchors);
       position = contentEnd;
       continue;
     }
     const newline = stream.indexOf(0x0a, colon);
     const rowEnd = newline === -1 ? stream.length : newline + 1;
-    const { bytes, anchors } = replaceBytes(stream.subarray(position, rowEnd), from, to);
+    const { bytes, anchors } = replaceBytes(
+      stream.subarray(position, rowEnd),
+      from,
+      to,
+    );
     emit(position, rowEnd, bytes, anchors);
     position = rowEnd;
   }
@@ -106,8 +129,15 @@ export function rewriteFlight(stream, placeholder, value) {
 }
 
 // Next.js escapes these in inline scripts (htmlEscapeJsonString).
-const HTML_ESCAPES = { "&": "\\u0026", ">": "\\u003e", "<": "\\u003c", "\u2028": "\\u2028", "\u2029": "\\u2029" };
-const escapeForScript = (json) => json.replace(/[&><\u2028\u2029]/g, (character) => HTML_ESCAPES[character]);
+const HTML_ESCAPES = {
+  "&": "\\u0026",
+  ">": "\\u003e",
+  "<": "\\u003c",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+const escapeForScript = (json) =>
+  json.replace(/[&><\u2028\u2029]/g, (character) => HTML_ESCAPES[character]);
 
 const PUSH = /self\.__next_f\.push\((\[[\s\S]*?\])\)<\/script>/g;
 
@@ -120,16 +150,28 @@ export function rewriteHtml(html, placeholder, value) {
     } catch {
       continue;
     }
-    if (!Array.isArray(entry) || (entry[0] !== 1 && entry[0] !== 3) || typeof entry[1] !== "string") continue;
+    if (
+      !Array.isArray(entry) ||
+      (entry[0] !== 1 && entry[0] !== 3) ||
+      typeof entry[1] !== "string"
+    )
+      continue;
     const argStart = match.index + match[0].indexOf(match[1]);
-    pushes.push({ type: entry[0], start: argStart, end: argStart + match[1].length, text: entry[1] });
+    pushes.push({
+      type: entry[0],
+      start: argStart,
+      end: argStart + match[1].length,
+      text: entry[1],
+    });
   }
 
   // Everything outside the payload chunks is markup: a plain replacement is safe there.
   const replaceMarkup = (text) => text.split(placeholder).join(value);
   if (pushes.length === 0) return replaceMarkup(html);
 
-  const chunks = pushes.map((push) => (push.type === 1 ? Buffer.from(push.text) : Buffer.from(push.text, "base64")));
+  const chunks = pushes.map((push) =>
+    push.type === 1 ? Buffer.from(push.text) : Buffer.from(push.text, "base64"),
+  );
   const boundaries = [];
   let offset = 0;
   for (const chunk of chunks) {
@@ -138,14 +180,24 @@ export function rewriteHtml(html, placeholder, value) {
   }
   boundaries.push(offset);
 
-  const { bytes, mapOffset } = rewriteFlight(Buffer.concat(chunks), placeholder, value);
-  const newBoundaries = boundaries.map((boundary, index) => (index === boundaries.length - 1 ? bytes.length : mapOffset(boundary)));
+  const { bytes, mapOffset } = rewriteFlight(
+    Buffer.concat(chunks),
+    placeholder,
+    value,
+  );
+  const newBoundaries = boundaries.map((boundary, index) =>
+    index === boundaries.length - 1 ? bytes.length : mapOffset(boundary),
+  );
 
   let result = "";
   let cursor = 0;
   pushes.forEach((push, index) => {
-    const slice = bytes.subarray(newBoundaries[index], newBoundaries[index + 1]);
-    const payload = push.type === 1 ? slice.toString("utf8") : slice.toString("base64");
+    const slice = bytes.subarray(
+      newBoundaries[index],
+      newBoundaries[index + 1],
+    );
+    const payload =
+      push.type === 1 ? slice.toString("utf8") : slice.toString("base64");
     result += replaceMarkup(html.slice(cursor, push.start));
     result += escapeForScript(JSON.stringify([push.type, payload]));
     cursor = push.end;
@@ -158,17 +210,24 @@ export function rewriteFile(path, placeholder, value) {
     const { bytes } = rewriteFlight(readFileSync(path), placeholder, value);
     writeFileSync(path, bytes);
   } else {
-    writeFileSync(path, rewriteHtml(readFileSync(path, "utf8"), placeholder, value));
+    writeFileSync(
+      path,
+      rewriteHtml(readFileSync(path, "utf8"), placeholder, value),
+    );
   }
 }
 
 const invokedDirectly =
-  process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  process.argv[1] !== undefined &&
+  realpathSync(process.argv[1]) ===
+    realpathSync(fileURLToPath(import.meta.url));
 
 if (invokedDirectly) {
   const [path, placeholder, value = ""] = process.argv.slice(2);
   if (!path || !placeholder) {
-    console.error("Usage: replace-in-prerender.mjs <file> <placeholder> <value>");
+    console.error(
+      "Usage: replace-in-prerender.mjs <file> <placeholder> <value>",
+    );
     process.exit(1);
   }
   rewriteFile(path, placeholder, value);
