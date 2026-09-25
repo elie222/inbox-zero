@@ -343,17 +343,17 @@ export async function aiProcessAssistantChat({
     stopWhen: () => false,
     prepareStep: ({ messages: stepMessages }) => {
       const trimmedMessages = trimStaleToolResults(stepMessages);
-      const messagesOverride =
-        trimmedMessages === stepMessages ? {} : { messages: trimmedMessages };
+      const messages =
+        trimmedMessages === stepMessages ? undefined : trimmedMessages;
 
       if (
         Date.now() - startedAt <
         ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
-        return messagesOverride;
+        return messages && { messages };
 
       return {
-        ...messagesOverride,
+        messages,
         activeTools: [],
         toolChoice: "none",
       };
