@@ -98,14 +98,26 @@ export function installDesktopLoadRecovery(
     // so they can't signal. Only the renderer knows what it committed.
     const generation = documentGeneration;
     readContentType(contents).then((contentType) => {
-      if (!booting || generation !== documentGeneration) return;
+      if (
+        contents.isDestroyed() ||
+        !booting ||
+        generation !== documentGeneration
+      )
+        return;
       if (contentType === null || contentType === "text/html") {
         failBoot("timeout");
         return;
       }
-      booting = false;
-      booted = true;
+      markBooted();
     });
+  }
+
+  function markBooted() {
+    clearTimeout(bootTimeout);
+    bootTimeout = undefined;
+    booting = false;
+    booted = true;
+    failedAttempts = 0;
   }
 
   function retryLoad() {
@@ -181,11 +193,7 @@ export function installDesktopLoadRecovery(
         failBoot("stylesheet-failed");
         return;
       }
-      clearTimeout(bootTimeout);
-      bootTimeout = undefined;
-      booting = false;
-      booted = true;
-      failedAttempts = 0;
+      markBooted();
     },
     recordRequestError(details: {
       resourceType: string;
