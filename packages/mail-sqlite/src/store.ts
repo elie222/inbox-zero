@@ -59,6 +59,8 @@ import { migrateMailbox } from "./migrations";
 import {
   deleteAccountSearchIndex,
   indexMessageContent,
+  indexMessageMetadata,
+  indexMetadataBacklog,
   indexSearchBacklog,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
@@ -121,20 +123,22 @@ export async function createSqliteMailStore(
   // A build with FTS5 can still lack the index if creating it failed (for
   // example, SQLite older than contentless_delete); search then falls back
   // to substring matching instead of failing.
-  const search = {
-    fts5:
-      capabilities.fts5 &&
-      (
-        await driver.read((tx) =>
-          tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
-        )
-      ).length > 0,
-  };
-  // Each open walks the bodies once, so rows missed while the index was
-  // rebuilt or unavailable are indexed without a durable cursor.
-  let searchBacklog: { after: MessageKey | null } | null = search.fts5
-    ? { after: null }
+  const fts5 =
+    capabilities.fts5 &&
+    (
+      await driver.read((tx) =>
+        tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
+      )
+    ).length > 0;
+  // Each open walks the bodies, then the messages still missing a search row,
+  // so rows missed while the index was rebuilt or unavailable are indexed
+  // without a durable cursor.
+  let searchBacklog: SearchBacklog | null = fts5
+    ? { phase: "content", after: null }
     : null;
+  // Until the backlog drains, some messages have no search row and text
+  // search must also check those by substring.
+  const search = () => ({ fts5, complete: fts5 && searchBacklog === null });
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -160,16 +164,27 @@ export async function createSqliteMailStore(
       });
     },
     evictReplaceableContent() {
+      // Eviction clears the index, so search stops trusting it before the
+      // write lands, and the backlog re-adds every message's metadata.
+      if (fts5) searchBacklog = { phase: "metadata", after: null };
       return evictReplaceableMessageContent(driver);
     },
     async indexSearchBacklog() {
-      if (!searchBacklog) return { remaining: false };
-      const { after } = searchBacklog;
-      const last = await driver.write((tx) =>
-        indexSearchBacklog(tx, bodyCodec, after),
-      );
-      searchBacklog = last ? { after: last } : null;
-      return { remaining: last !== null };
+      while (searchBacklog) {
+        const { phase, after } = searchBacklog;
+        const last = await driver.write((tx) =>
+          phase === "content"
+            ? indexSearchBacklog(tx, bodyCodec, after)
+            : indexMetadataBacklog(tx, after),
+        );
+        if (last) {
+          searchBacklog = { phase, after: last };
+          return { remaining: true };
+        }
+        searchBacklog =
+          phase === "content" ? { phase: "metadata", after: null } : null;
+      }
+      return { remaining: false };
     },
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
@@ -1139,19 +1154,19 @@ export async function createSqliteMailStore(
     async readMailboxView(query) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxViewFromSql(tx, query, search),
-          search,
+          await readMailboxViewFromSql(tx, query, search()),
+          search(),
         ),
       );
     },
     async readMailboxCounts(query) {
-      return driver.read((tx) => readMailboxCountsFromSql(tx, query, search));
+      return driver.read((tx) => readMailboxCountsFromSql(tx, query, search()));
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxWindowFromSql(tx, query, pageCount, search),
-          search,
+          await readMailboxWindowFromSql(tx, query, pageCount, search()),
+          search(),
         ),
       );
     },
@@ -2539,6 +2554,10 @@ async function applyChange(tx: SqlTransaction, change: ProviderChange) {
 
 async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   const flags = roleFlags(message.roles);
+  const [previous] = await tx.query(
+    "SELECT subject, preview, from_address FROM messages WHERE account_id = ? AND message_id = ?",
+    [message.accountId, message.messageId],
+  );
   await tx.execute(
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
@@ -2600,6 +2619,16 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.deleted ? 1 : 0,
     ],
   );
+  if (
+    previous?.subject !== message.subject ||
+    previous?.preview !== message.preview ||
+    previous?.from_address !== message.from
+  ) {
+    await indexMessageMetadata(tx, {
+      accountId: message.accountId,
+      messageId: message.messageId,
+    });
+  }
 }
 
 async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
@@ -3162,6 +3191,11 @@ export function clampMaxPendingOperations(value: number | undefined): number {
   }
   return Math.min(Math.floor(value), MAX_QUEUE);
 }
+
+type SearchBacklog = {
+  phase: "content" | "metadata";
+  after: MessageKey | null;
+};
 
 function withIndexedCoverage<
   T extends {

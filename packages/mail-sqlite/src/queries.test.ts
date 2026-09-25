@@ -6,7 +6,7 @@ describe("compilePredicate", () => {
     expect(
       compilePredicate(
         { kind: "inbox_section", section: "focused" },
-        { fts5: true },
+        { fts5: true, complete: true },
       ),
     ).toEqual({
       sql: "e.inbox_section = ?",
@@ -23,7 +23,7 @@ describe("compilePredicate", () => {
           id: "shared-id",
           accountId: "acc-1",
         },
-        { fts5: true },
+        { fts5: true, complete: true },
       ),
     ).toEqual({
       sql: "(e.account_id = ? AND EXISTS (SELECT 1 FROM json_each(e.label_ids_json) WHERE value = ?))",
@@ -38,7 +38,7 @@ describe("compilePredicate", () => {
           id: "folder-1",
           accountId: "acc-1",
         },
-        { fts5: true },
+        { fts5: true, complete: true },
       ),
     ).toEqual({
       sql: "(e.account_id = ? AND e.folder_id = ?)",
@@ -53,7 +53,7 @@ describe("compilePredicate", () => {
           id: "CATEGORY_PROMOTIONS",
           accountId: "acc-1",
         },
-        { fts5: true },
+        { fts5: true, complete: true },
       ),
     ).toEqual({
       sql: "(e.account_id = ? AND EXISTS (SELECT 1 FROM json_each(e.category_ids_json) WHERE value = ?))",

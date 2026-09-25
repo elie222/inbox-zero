@@ -74,42 +74,68 @@ export async function indexSearchBacklog(
        LIMIT ?`,
       [after?.accountId ?? "", after?.messageId ?? "", BACKLOG_BATCH_ROWS],
     );
-    const tail = batch.at(-1);
-    if (!tail) return;
-    // Rowids are assigned above the current maximum up front so the whole
-    // batch indexes in one multi-row INSERT; row-at-a-time inserts were
-    // several times slower through the drivers.
-    const [top] = await tx.query(
-      "SELECT rowid FROM message_fts ORDER BY rowid DESC LIMIT 1",
+    const bodies = await Promise.all(
+      batch.map(async (row) => ({
+        text: await decodeMessageBody(codec, row.text),
+        html: await decodeMessageBody(codec, row.html),
+      })),
     );
-    const base = Number(top?.rowid ?? 0);
-    const columns = await Promise.all(
-      batch.map(async (row) =>
-        searchColumns(row, {
-          text: await decodeMessageBody(codec, row.text),
-          html: await decodeMessageBody(codec, row.html),
-        }),
-      ),
-    );
-    await tx.execute(
-      `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
-       VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
-      columns.flatMap((row, index) => [base + index + 1, ...row]),
-    );
-    await tx.execute(
-      `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
-       VALUES ${batch.map(() => "(?, ?, ?)").join(", ")}`,
-      batch.flatMap((row, index) => [
-        row.account_id,
-        row.message_id,
-        base + index + 1,
-      ]),
-    );
-    last = {
-      accountId: String(tail.account_id),
-      messageId: String(tail.message_id),
-    };
+    last = await insertSearchRows(tx, batch, bodies);
   });
+  return indexed ? last : null;
+}
+
+// Indexes the metadata of a message without a stored body; called when the
+// message is new or its subject, preview, or sender changed. Once the backlog drains,
+// every message is in the index, so search can start from index matches
+// instead of scanning the mailbox. A stored body is indexed with its text by
+// the content write or the body backlog, and a changed message version brings
+// a fresh body that re-indexes it.
+export async function indexMessageMetadata(
+  tx: SqlTransaction,
+  key: MessageKey,
+) {
+  const [stored] = await tx.query(
+    "SELECT 1 FROM message_content WHERE account_id = ? AND message_id = ?",
+    [key.accountId, key.messageId],
+  );
+  if (stored) return;
+  await withSearchIndex(tx, "index_metadata", () =>
+    writeSearchRow(tx, key, { text: null, html: null }),
+  );
+}
+
+// Indexes the metadata of the next batch of messages that still have no
+// search row once the body backlog is done, such as mail synced without its
+// body before metadata was indexed. Resolves like indexSearchBacklog.
+export async function indexMetadataBacklog(
+  tx: SqlTransaction,
+  after: MessageKey | null,
+): Promise<MessageKey | null> {
+  let last: MessageKey | null = null;
+  const indexed = await withSearchIndex(
+    tx,
+    "index_metadata_backlog",
+    async () => {
+      const batch = await tx.query(
+        `SELECT m.account_id, m.message_id, m.subject, m.preview, m.from_address
+         FROM messages m
+         WHERE (m.account_id, m.message_id) > (?, ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM message_fts_keys k
+             WHERE k.account_id = m.account_id AND k.message_id = m.message_id
+           )
+         ORDER BY m.account_id, m.message_id
+         LIMIT ?`,
+        [after?.accountId ?? "", after?.messageId ?? "", BACKLOG_BATCH_ROWS],
+      );
+      last = await insertSearchRows(
+        tx,
+        batch,
+        batch.map(() => ({ text: null, html: null })),
+      );
+    },
+  );
   return indexed ? last : null;
 }
 
@@ -172,6 +198,43 @@ async function writeSearchRow(
      ON CONFLICT(account_id, message_id) DO UPDATE SET fts_rowid = excluded.fts_rowid`,
     [key.accountId, key.messageId, row?.id],
   );
+}
+
+// Rowids are assigned above the current maximum up front so a whole batch
+// indexes in one multi-row INSERT; row-at-a-time inserts were several times
+// slower through the drivers. Resolves the batch's last key.
+async function insertSearchRows(
+  tx: SqlTransaction,
+  batch: Array<Record<string, SqlValue>>,
+  bodies: MessageBody[],
+): Promise<MessageKey | null> {
+  const tail = batch.at(-1);
+  if (!tail) return null;
+  const [top] = await tx.query(
+    "SELECT rowid FROM message_fts ORDER BY rowid DESC LIMIT 1",
+  );
+  const base = Number(top?.rowid ?? 0);
+  await tx.execute(
+    `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
+     VALUES ${batch.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
+    batch.flatMap((row, index) => [
+      base + index + 1,
+      ...searchColumns(row, bodies[index]),
+    ]),
+  );
+  await tx.execute(
+    `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
+     VALUES ${batch.map(() => "(?, ?, ?)").join(", ")}`,
+    batch.flatMap((row, index) => [
+      row.account_id,
+      row.message_id,
+      base + index + 1,
+    ]),
+  );
+  return {
+    accountId: String(tail.account_id),
+    messageId: String(tail.message_id),
+  };
 }
 
 function searchColumns(

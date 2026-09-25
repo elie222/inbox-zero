@@ -130,7 +130,39 @@ export function compilePredicate(
   }
 }
 
-export type SearchSupport = { fts5: boolean };
+// `complete` means every message has a search row, so the index alone answers
+// text predicates.
+export type SearchSupport = { fts5: boolean; complete: boolean };
+
+// When the index is complete and the predicate requires a text match, the
+// query starts from the index hits and joins each to its message, so a search
+// costs in proportion to its matches rather than to the mailbox. Resolves the
+// source to select from and the rest of the predicate to filter it by.
+export function searchDrivenSource(
+  predicate: MailPredicate,
+  search: SearchSupport,
+): { from: string; bindings: SqlValue[]; rest: MailPredicate } | null {
+  if (!search.fts5 || !search.complete) return null;
+  const clauses = predicate.kind === "all" ? predicate.predicates : [predicate];
+  for (const [index, clause] of clauses.entries()) {
+    if (clause.kind !== "text") continue;
+    const match = textMatchQuery(clause);
+    if (!match) continue;
+    return {
+      from: `(SELECT k.account_id, k.message_id
+            FROM message_fts CROSS JOIN message_fts_keys k ON k.fts_rowid = message_fts.rowid
+            WHERE message_fts MATCH ?) hit
+          CROSS JOIN effective_messages e
+            ON e.account_id = hit.account_id AND e.message_id = hit.message_id`,
+      bindings: [match],
+      rest: {
+        kind: "all",
+        predicates: clauses.filter((_clause, position) => position !== index),
+      },
+    };
+  }
+  return null;
+}
 
 // Indexed messages are matched through message_fts. A message without a
 // search row (metadata only, or waiting in the index backlog) is matched by
@@ -144,18 +176,18 @@ function compileTextPredicate(
 ): { sql: string; bindings: SqlValue[] } {
   const unindexed = compileUnindexedText(predicate, alias);
   if (!search.fts5) return unindexed;
-  const query = searchMatchQuery(predicate.value, predicate.match);
-  if (!query) return { sql: "0=1", bindings: [] };
-  const match =
-    predicate.field === "any" ? query : `${predicate.field} : (${query})`;
+  const match = textMatchQuery(predicate);
+  if (!match) return { sql: "0=1", bindings: [] };
   // The MATCH subquery does not depend on the row, so SQLite builds its key
   // set once per statement and probes it for each candidate message; the
   // unindexed check only reads the keys' primary-key index.
+  const indexed = `(${alias}.account_id, ${alias}.message_id) IN (
+      SELECT k.account_id, k.message_id FROM message_fts_keys k
+      WHERE k.fts_rowid IN (SELECT rowid FROM message_fts WHERE message_fts MATCH ?)
+    )`;
+  if (search.complete) return { sql: indexed, bindings: [match] };
   return {
-    sql: `((${alias}.account_id, ${alias}.message_id) IN (
-        SELECT k.account_id, k.message_id FROM message_fts_keys k
-        WHERE k.fts_rowid IN (SELECT rowid FROM message_fts WHERE message_fts MATCH ?)
-      )
+    sql: `(${indexed}
       OR (
         NOT EXISTS (
           SELECT 1 FROM message_fts_keys k
@@ -227,6 +259,14 @@ function compileMailboxPredicate(
         bindings: [Date.now()],
       };
   }
+}
+
+function textMatchQuery(
+  predicate: Extract<MailPredicate, { kind: "text" }>,
+): string | null {
+  const query = searchMatchQuery(predicate.value, predicate.match);
+  if (!query) return null;
+  return predicate.field === "any" ? query : `${predicate.field} : (${query})`;
 }
 
 function escapeLike(value: string): string {

@@ -265,6 +265,8 @@ CREATE INDEX IF NOT EXISTS bootstrap_seen_lookup
   ON bootstrap_seen_messages(account_id, scope_id, message_id);
 CREATE INDEX IF NOT EXISTS bootstrap_existing_lookup
   ON bootstrap_existing_messages(account_id, scope_id, message_id);
+CREATE INDEX IF NOT EXISTS message_fts_keys_rowid
+  ON message_fts_keys(fts_rowid);
 `;
 
 export async function migrateMailbox(
