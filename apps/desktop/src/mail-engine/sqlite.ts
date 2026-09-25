@@ -1,4 +1,5 @@
 import {
+  nodeBodyCodec,
   openOrQuarantineNodeMailbox,
   nodeMailCrypto,
 } from "@inboxzero/mail-sqlite/node";
@@ -19,7 +20,7 @@ export async function createDesktopMailStore(
   const { driver } = await openOrQuarantineNodeMailbox(path);
   return createSqliteMailStore(
     onTransaction ? timeTransactions(driver, onTransaction) : driver,
-    { runtime: createHostRuntime(nodeMailCrypto()) },
+    { runtime: createHostRuntime(nodeMailCrypto()), bodyCodec: nodeBodyCodec },
   );
 }
 

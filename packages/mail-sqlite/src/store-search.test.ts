@@ -97,7 +97,7 @@ describe("local text search", () => {
     await close();
   });
 
-  it("finds messages the index has not reached yet by their subject and text part", async () => {
+  it("finds messages the index has not reached yet by their subject, and their body once indexed", async () => {
     const { store, driver, search, close } = await searchableMailbox();
     await driver.write(async (tx) => {
       await tx.exec(
@@ -106,13 +106,15 @@ describe("local text search", () => {
       await tx.exec("DELETE FROM message_fts_keys");
     });
 
-    expect(await search(text("any", "tacos"))).toEqual(["lunch"]);
     expect(await search(text("subject", "digest"))).toEqual(["html"]);
+    expect(await search(text("any", "lunch"))).toEqual(["lunch"]);
+    expect(await search(text("any", "tacos"))).toEqual([]);
     expect(await search(text("any", "attached"))).toEqual([]);
 
     while ((await store.indexSearchBacklog()).remaining) {
       // keep indexing
     }
+    expect(await search(text("any", "tacos"))).toEqual(["lunch"]);
     expect(await search(text("any", "attached"))).toEqual(["html"]);
     await close();
   });

@@ -7,7 +7,8 @@ import {
   indexMessageContent,
   indexSearchBacklog,
 } from "./message-search-index";
-import { createNodeSqliteDriver } from "./node-sqlite";
+import { decodeMessageBody } from "./message-body-codec";
+import { createNodeSqliteDriver, nodeBodyCodec } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
 const RAW_HTML_FTS_SQL = `
@@ -103,7 +104,7 @@ describe("message search index", () => {
 
     await createSqliteMailStore(driver);
     await driver.write(async (tx) => {
-      await indexSearchBacklog(tx, null);
+      await indexSearchBacklog(tx, nodeBodyCodec, null);
       await deleteAccountSearchIndex(tx, "acc-2");
       await indexMessageContent(tx, key("acc-2", "m2"), {
         text: "Project kickoff notes for acc-2",
@@ -142,7 +143,7 @@ function corpus(accountId: string): CorpusMessage[] {
       subject: "Roadmap review",
       from: "grace@example.com",
       text: `Project kickoff notes for ${accountId}`,
-      html: "<p>ignored when text exists</p>",
+      html: `<p>Project <b>kickoff</b> notes for ${accountId}</p>`,
     },
     {
       messageId: "m3",
@@ -213,18 +214,26 @@ async function rebuildAsRawHtmlIndex(tx: SqlTransaction) {
     "DROP TABLE message_fts; DELETE FROM message_fts_keys; DELETE FROM schema_migrations WHERE id = 7;",
   );
   await tx.exec(RAW_HTML_FTS_SQL);
-  await tx.execute(
-    `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
-     SELECT account_id, message_id, ROW_NUMBER() OVER (ORDER BY account_id, message_id)
-     FROM message_content`,
+  const rows = await tx.query(
+    `SELECT c.account_id, c.message_id, c.text, c.html, m.subject, m.preview, m.from_address
+     FROM message_content c
+     JOIN messages m ON m.account_id = c.account_id AND m.message_id = c.message_id
+     ORDER BY c.account_id, c.message_id`,
   );
-  await tx.execute(
-    `INSERT INTO message_fts(rowid, subject, preview, from_address, body)
-     SELECT k.fts_rowid, m.subject, m.preview, m.from_address, COALESCE(c.text, c.html, '')
-     FROM message_fts_keys k
-     JOIN messages m ON m.account_id = k.account_id AND m.message_id = k.message_id
-     JOIN message_content c ON c.account_id = k.account_id AND c.message_id = k.message_id`,
-  );
+  for (const [index, row] of rows.entries()) {
+    const body =
+      (await decodeMessageBody(nodeBodyCodec, row.text)) ??
+      (await decodeMessageBody(nodeBodyCodec, row.html)) ??
+      "";
+    await tx.execute(
+      "INSERT INTO message_fts(rowid, subject, preview, from_address, body) VALUES (?, ?, ?, ?, ?)",
+      [index + 1, row.subject, row.preview, row.from_address, body],
+    );
+    await tx.execute(
+      "INSERT INTO message_fts_keys(account_id, message_id, fts_rowid) VALUES (?, ?, ?)",
+      [row.account_id, row.message_id, index + 1],
+    );
+  }
 }
 
 async function drainBacklog(store: MailStore) {

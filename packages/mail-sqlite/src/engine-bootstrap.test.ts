@@ -88,7 +88,7 @@ describe("engine bootstrap coverage", () => {
     expect(conversation.view.messages[0]?.content).toEqual({
       status: "available",
       html: "<p>First saved reply</p>",
-      text: "First saved reply",
+      text: null,
       attachments: [],
       isMeetingInvitation: false,
     });

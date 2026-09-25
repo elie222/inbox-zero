@@ -63,7 +63,7 @@ describe("replaceable body retention", () => {
     expect(before.view.messages[0]?.content).toEqual({
       status: "available",
       html: "<p>replaceable</p>",
-      text: "replaceable",
+      text: null,
       attachments: [],
       isMeetingInvitation: false,
     });

@@ -1,8 +1,10 @@
 import { rename, rm, stat } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import type { HostRuntime } from "@inboxzero/mail-core/ports/runtime";
 import type { SqlTransaction, SqlValue, SqliteDriver } from "./driver";
+import type { MessageBodyCodec } from "./message-body-codec";
 
 export function nodeMailCrypto(): Pick<HostRuntime, "randomId" | "sha256"> {
   return {
@@ -12,6 +14,13 @@ export function nodeMailCrypto(): Pick<HostRuntime, "randomId" | "sha256"> {
     },
   };
 }
+
+// The engine process owns this connection and node:sqlite is synchronous, so
+// inline zlib avoids a threadpool hop per message without blocking any UI.
+export const nodeBodyCodec: MessageBodyCodec = {
+  deflate: async (bytes) => deflateRawSync(bytes),
+  inflate: async (bytes) => inflateRawSync(bytes),
+};
 
 export function createNodeSqliteDriver(path = ":memory:"): SqliteDriver {
   const writer = new DatabaseSync(path);

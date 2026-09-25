@@ -63,6 +63,14 @@ import {
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
 import {
+  decodeMessageBody,
+  encodeMessageBody,
+  storedTextPart,
+  streamBodyCodec,
+  type MessageBodyCodec,
+} from "./message-body-codec";
+import { migrateCompressedMessageBodies } from "./message-body-migration";
+import {
   connectionStatus,
   metadataFromEffective,
   readCoverage,
@@ -85,6 +93,8 @@ const HYDRATION_JOB_KEY_LIMIT = 20;
 export type SqliteMailStoreOptions = {
   maxPendingOperations?: number;
   runtime?: Pick<HostRuntime, "randomId" | "sha256" | "nowMs">;
+  /** Defaults to the Compression Streams API; Node hosts pass zlib. */
+  bodyCodec?: MessageBodyCodec;
 };
 
 export async function createSqliteMailStore(
@@ -96,9 +106,11 @@ export async function createSqliteMailStore(
   );
   const runtime = resolveStoreRuntime(options.runtime);
   const digest = (value: unknown) => hashCanonical(value, runtime.sha256);
+  const bodyCodec = options.bodyCodec ?? streamBodyCodec;
   await driver.write(async (tx) => {
     await migrateMailbox(tx, runtime.randomId());
   });
+  await migrateCompressedMessageBodies(driver, bodyCodec);
   const capabilities = await probeSqliteCapabilities(driver);
   if (!capabilities.savepoints) {
     throw new Error("SQLite savepoints are required for mailbox migrations");
@@ -153,7 +165,9 @@ export async function createSqliteMailStore(
     async indexSearchBacklog() {
       if (!searchBacklog) return { remaining: false };
       const { after } = searchBacklog;
-      const last = await driver.write((tx) => indexSearchBacklog(tx, after));
+      const last = await driver.write((tx) =>
+        indexSearchBacklog(tx, bodyCodec, after),
+      );
       searchBacklog = last ? { after: last } : null;
       return { remaining: last !== null };
     },
@@ -648,6 +662,7 @@ export async function createSqliteMailStore(
           requiredHydration: input.page.requiredHydration,
           bodies,
           digest,
+          bodyCodec,
         });
         await tx.execute(
           `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
@@ -718,7 +733,7 @@ export async function createSqliteMailStore(
         for (const body of input.bodies) {
           if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
           applied += 1;
-          await insertMessageContent(tx, body);
+          await insertMessageContent(tx, body, bodyCodec);
         }
         if (
           applied === 0 &&
@@ -1182,7 +1197,22 @@ export async function createSqliteMailStore(
           [key.accountId, ...slice.map((row) => String(row.message_id))],
         );
         const contentById = new Map(
-          contents.map((row) => [String(row.message_id), row]),
+          await Promise.all(
+            contents.map(
+              async (row) =>
+                [
+                  String(row.message_id),
+                  {
+                    status: "available" as const,
+                    html: await decodeMessageBody(bodyCodec, row.html),
+                    text: await decodeMessageBody(bodyCodec, row.text),
+                    attachments: parseStoredAttachments(row.attachments_json),
+                    isMeetingInvitation:
+                      Number(row.is_meeting_invitation) === 1,
+                  },
+                ] as const,
+            ),
+          ),
         );
         return {
           revision,
@@ -1196,18 +1226,7 @@ export async function createSqliteMailStore(
                   messageId: String(row.message_id),
                 },
                 metadata: metadataFromEffective(row),
-                content: content
-                  ? {
-                      status: "available" as const,
-                      html: content.html === null ? null : String(content.html),
-                      text: content.text === null ? null : String(content.text),
-                      attachments: parseStoredAttachments(
-                        content.attachments_json,
-                      ),
-                      isMeetingInvitation:
-                        Number(content.is_meeting_invitation) === 1,
-                    }
-                  : { status: "not_requested" as const },
+                content: content ?? { status: "not_requested" as const },
                 pendingOperationIds: JSON.parse(
                   String(row.pending_operation_ids_json),
                 ) as string[],
@@ -1536,6 +1555,7 @@ export async function createSqliteMailStore(
           requiredHydration: input.requiredHydration,
           bodies,
           digest,
+          bodyCodec,
         });
         if (input.nextPage) {
           await tx.execute(
@@ -2285,6 +2305,7 @@ async function applyPageFacts(
     requiredHydration: MessageKey[];
     bodies: BodyObservation[];
     digest: (value: unknown) => Promise<string>;
+    bodyCodec: MessageBodyCodec;
   },
 ) {
   for (const change of input.changes) {
@@ -2292,7 +2313,7 @@ async function applyPageFacts(
   }
   for (const body of input.bodies) {
     if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
-    await insertMessageContent(tx, body);
+    await insertMessageContent(tx, body, input.bodyCodec);
   }
   await enqueueHydrationJobs(tx, {
     keys: input.requiredHydration,
@@ -2922,7 +2943,15 @@ async function hasUnsatisfiedDependency(
   return blockers.length > 0;
 }
 
-async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
+async function insertMessageContent(
+  tx: SqlTransaction,
+  body: BodyObservation,
+  codec: MessageBodyCodec,
+) {
+  const stored = {
+    html: body.html,
+    text: storedTextPart(body.html, body.text),
+  };
   await tx.execute(
     `INSERT INTO message_content(account_id, message_id, version, html, text, attachments_json, is_meeting_invitation)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -2934,13 +2963,15 @@ async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
       body.key.accountId,
       body.key.messageId,
       body.version,
-      body.html,
-      body.text,
+      await encodeMessageBody(codec, stored.html),
+      await encodeMessageBody(codec, stored.text),
       JSON.stringify(body.attachments ?? []),
       body.isMeetingInvitation ? 1 : 0,
     ],
   );
-  await indexMessageContent(tx, body.key, body);
+  // Indexed from what is stored, so a later rebuild from the stored body
+  // produces the same search row.
+  await indexMessageContent(tx, body.key, stored);
 }
 
 async function isStaleMessageVersion(

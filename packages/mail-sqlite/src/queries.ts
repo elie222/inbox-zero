@@ -134,9 +134,9 @@ export type SearchSupport = { fts5: boolean };
 
 // Indexed messages are matched through message_fts. A message without a
 // search row (metadata only, or waiting in the index backlog) is matched by
-// substring over its small columns and plain-text part instead, so results
-// are not silently missing while the backlog catches up. Raw HTML is never
-// scanned: it is the bulk of the mailbox and matches markup.
+// substring over its small columns instead, so results are not silently
+// missing while the backlog catches up. Stored bodies are compressed, so a
+// body only becomes searchable once it is indexed.
 function compileTextPredicate(
   predicate: Extract<MailPredicate, { kind: "text" }>,
   search: SearchSupport,
@@ -176,17 +176,16 @@ function compileUnindexedText(
     predicate.match === "phrase" || words.length === 0
       ? [predicate.value]
       : words;
-  const body = `EXISTS (SELECT 1 FROM message_content c WHERE c.account_id = ${alias}.account_id AND c.message_id = ${alias}.message_id AND c.text LIKE ? ESCAPE '\\')`;
   const columns = {
     subject: [`${alias}.subject LIKE ? ESCAPE '\\'`],
-    body: [body],
+    body: [],
     any: [
       `${alias}.subject LIKE ? ESCAPE '\\'`,
       `${alias}.preview LIKE ? ESCAPE '\\'`,
       `${alias}.from_address LIKE ? ESCAPE '\\'`,
-      body,
     ],
   }[predicate.field];
+  if (columns.length === 0) return { sql: "0=1", bindings: [] };
   return {
     sql: `(${terms.map(() => `(${columns.join(" OR ")})`).join(" AND ")})`,
     bindings: terms.flatMap((term) =>
