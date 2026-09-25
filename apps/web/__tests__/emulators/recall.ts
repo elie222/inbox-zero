@@ -199,7 +199,7 @@ export async function createRecallEmulator({
           body: { code: "cannot_command_completed_bot" },
         };
       }
-      if (isScheduled(bot)) {
+      if (!hasJoinedCall(bot)) {
         return {
           status: 400,
           body: { code: "cannot_command_unstarted_bot" },
@@ -473,6 +473,12 @@ export async function createRecallEmulator({
 function isScheduled(bot: RecallEmulatorBot): boolean {
   const latest = bot.status_changes.at(-1)?.code;
   return latest === "ready" || latest === "scheduled";
+}
+
+// Recall only accepts commands once the bot is in the call. A bot that was
+// dispatched but ended without getting in stays "unstarted" for good.
+function hasJoinedCall(bot: RecallEmulatorBot): boolean {
+  return bot.status_changes.some(({ code }) => code.startsWith("in_call_"));
 }
 
 function safeJsonParse(raw: string): unknown {

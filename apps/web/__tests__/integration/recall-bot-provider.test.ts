@@ -347,6 +347,29 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(emulator.getBot(externalBotId)).toBeDefined();
     });
 
+    test("treats a bot that ended without joining the call as already gone", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      emulator.advance(externalBotId, "joining_call");
+      emulator.advance(externalBotId, "call_ended");
+
+      await expect(provider.cancelBot(externalBotId)).resolves.toBeUndefined();
+    });
+
+    test("keeps failing to cancel a dispatched bot that may still join", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      emulator.advance(externalBotId, "joining_call");
+
+      await expect(provider.cancelBot(externalBotId)).rejects.toThrow(
+        "cannot_command_unstarted_bot",
+      );
+    });
+
     test("fetches a fresh download URL and normalizes the transcript", async () => {
       const { externalBotId } = await provider.scheduleBot({
         meetingUrl: "https://meet.google.com/abc-defg-hij",
