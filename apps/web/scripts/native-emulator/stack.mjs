@@ -26,6 +26,8 @@ const command = process.argv[2] ?? "help";
 
 if (command === "serve-proxy") {
   await serveProxy();
+} else if (command === "serve-cron") {
+  await serveScheduledActions();
 } else if (command === "up") {
   await up({ foreground: process.argv.includes("--foreground") });
 } else if (command === "down") {
@@ -201,6 +203,12 @@ async function up({ foreground }) {
         env,
         path.join(runDir, "next.log"),
       ),
+      spawnLogged(
+        process.execPath,
+        [fileURLToPath(import.meta.url), "serve-cron"],
+        { ...env, NATIVE_EMULATOR_BASE_URL: baseUrl },
+        path.join(runDir, "cron.log"),
+      ),
     );
     writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
     await waitForReady(state);
@@ -227,6 +235,30 @@ async function serveProxy() {
   });
   console.log(`response-loss control ${control.url}`);
   await new Promise(() => {});
+}
+
+async function serveScheduledActions() {
+  const baseUrl = process.env.NATIVE_EMULATOR_BASE_URL;
+  const secret = process.env.CRON_SECRET;
+  if (!baseUrl || !secret) {
+    throw new Error(
+      "Scheduled-actions timer needs NATIVE_EMULATOR_BASE_URL and CRON_SECRET",
+    );
+  }
+  for (;;) {
+    try {
+      const response = await fetch(`${baseUrl}/api/cron/scheduled-actions`, {
+        headers: { authorization: `Bearer ${secret}` },
+      });
+      await response.arrayBuffer();
+      if (!response.ok) {
+        console.error(`scheduled-actions returned ${response.status}`);
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+    }
+    await delay(3000);
+  }
 }
 
 async function smoke() {
@@ -388,6 +420,7 @@ function appEnv({
     STRIPE_SECRET_KEY: "native-emulator-stripe",
     STRIPE_WEBHOOK_SECRET: "whsec_native_emulator",
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
+    CRON_SECRET: "native-emulator-cron",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
     NEXT_PUBLIC_POSTHOG_API_HOST: "",
