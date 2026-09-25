@@ -446,7 +446,8 @@ export const updateDraftAction = actionClient
         ...content
       } = parsedInput;
       await provider.updateDraft(draftId, content);
-      return { draftId };
+      const message = await provider.getDraft(draftId).catch(() => null);
+      return { draftId, messageId: message?.id ?? null };
     },
   );
 

@@ -63,7 +63,10 @@ describe("deleteDraftAction", () => {
       cc: "",
       bcc: "",
     });
-    expect(result?.data).toEqual({ draftId: "draft-1" });
+    expect(result?.data).toEqual({
+      draftId: "draft-1",
+      messageId: "new-message",
+    });
     expect(mocks.updateDraft).toHaveBeenCalledWith("draft-1", {
       messageHtml: "<p>Edited</p>",
       subject: "",
