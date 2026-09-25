@@ -353,6 +353,15 @@ describe("isInsufficientCreditsError", () => {
 });
 
 describe("isInvalidAIModelError", () => {
+  it("does not treat an unavailable service as an invalid model", () => {
+    const error = createAPICallError({
+      message: "The service is no longer available in this region",
+      statusCode: 400,
+    });
+
+    expect(isInvalidAIModelError(error)).toBe(false);
+  });
+
   it.each([
     ["deprecated models", "The configured model is deprecated"],
     ["models without endpoints", "No endpoints found for the configured model"],

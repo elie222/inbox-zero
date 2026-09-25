@@ -239,7 +239,7 @@ export function isInvalidAIModelError(error: APICallError): boolean {
     return true;
   }
   // Google: retired model, e.g. "This model models/xyz is no longer available"
-  if (message.includes("is no longer available")) {
+  if (/\bmodel\b.*\bis no longer available\b/.test(message)) {
     return true;
   }
   // Generic model-not-found patterns

@@ -79,6 +79,16 @@ describe("isDuplicateError", () => {
       ]),
     ).toBe(true);
     expect(isDuplicateError(error, "threadId")).toBe(false);
+    expect(isDuplicateError(error, ["emailAccountId", "sender"])).toBe(false);
+    expect(
+      isDuplicateError(error, [
+        "sender",
+        "emailAccountId",
+        "ruleId",
+        "messageId",
+        "eventType",
+      ]),
+    ).toBe(false);
   });
 });
 
