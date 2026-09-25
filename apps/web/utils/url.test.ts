@@ -167,32 +167,91 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // The mail client selects the draft from the Graph id, the same id space its
-  // message URLs take.
+  // Outlook on the web addresses items by its own id format, which a Graph id
+  // cannot be converted into locally. Graph hands us the ready-made deeplink as
+  // `webLink`, so prefer it over anything assembled here.
   it.each([
     {
       name: "a business mailbox",
       emailAddress: "user@contoso.com",
+      webLink: "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D",
       expected:
-        "https://outlook.office.com/mail/drafts/id/AAMkAG-synthetic_id%3D",
+        "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
     },
     {
       name: "a personal mailbox",
       emailAddress: "user@outlook.com",
+      webLink: "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D",
       expected:
-        "https://outlook.live.com/mail/0/drafts/id/AAMkAG-synthetic_id%3D",
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
     },
   ])("opens the draft itself within the full Outlook client for $name", ({
     emailAddress,
+    webLink,
     expected,
   }) => {
     expect(
       getEmailDraftUrl(
-        { id: "AAMkAG-synthetic_id=" },
+        { id: "AAMkAG-synthetic_id=", externalUrl: webLink },
         emailAddress,
         "microsoft",
       ),
     ).toBe(expected);
+  });
+
+  // Without this the link opens a bare popout window instead of the draft in
+  // the reading pane of the full client.
+  it("renders the Outlook draft in the reading pane rather than a popout", () => {
+    expect(
+      getEmailDraftUrl(
+        {
+          id: "AAMkAG-synthetic_id=",
+          externalUrl:
+            "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=1",
+        },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe(
+      "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
+    );
+  });
+
+  // The link is redirected to, so it must not be able to send the user off to
+  // an arbitrary host.
+  it.each([
+    {
+      name: "a host outside Outlook on the web",
+      externalUrl: "https://evil.example.com/mail/deeplink/read/AAMkAG",
+    },
+    {
+      name: "a non-https link",
+      externalUrl: "javascript:alert(1)",
+    },
+    {
+      name: "an unparseable link",
+      externalUrl: "not a url",
+    },
+  ])("falls back to the Drafts folder when Graph reports $name", ({
+    externalUrl,
+  }) => {
+    expect(
+      getEmailDraftUrl(
+        { id: "AAMkAG-synthetic_id=", externalUrl },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe("https://outlook.office.com/mail/drafts/id/AAMkAG-synthetic_id%3D");
+  });
+
+  it("falls back to the Drafts folder when Graph omits the web link", () => {
+    expect(
+      getEmailDraftUrl(
+        { id: "AAMkAG-synthetic_id=" },
+        "user@outlook.com",
+        "microsoft",
+      ),
+    ).toBe("https://outlook.live.com/mail/0/drafts/id/AAMkAG-synthetic_id%3D");
   });
 
   it("returns null when the Outlook draft has no id to address it by", () => {
