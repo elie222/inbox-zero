@@ -48,6 +48,7 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
+import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
@@ -340,14 +341,19 @@ export async function aiProcessAssistantChat({
     },
     onEnd,
     stopWhen: () => false,
-    prepareStep: () => {
+    prepareStep: ({ messages: stepMessages }) => {
+      const trimmedMessages = trimStaleToolResults(stepMessages);
+      const messages =
+        trimmedMessages === stepMessages ? undefined : trimmedMessages;
+
       if (
         Date.now() - startedAt <
         ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
-        return;
+        return messages && { messages };
 
       return {
+        messages,
         activeTools: [],
         toolChoice: "none",
       };

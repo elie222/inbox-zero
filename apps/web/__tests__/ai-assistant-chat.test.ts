@@ -251,10 +251,12 @@ describe("aiProcessAssistantChat", () => {
         expect(args.stopWhen()).toBe(false);
 
         vi.advanceTimersByTime(toolBudgetMs - 1);
-        expect(await args.prepareStep()).toBeUndefined();
+        expect(
+          await args.prepareStep({ messages: baseMessages }),
+        ).toBeUndefined();
 
         vi.advanceTimersByTime(1);
-        expect(await args.prepareStep()).toEqual({
+        expect(await args.prepareStep({ messages: baseMessages })).toEqual({
           activeTools: [],
           toolChoice: "none",
         });
