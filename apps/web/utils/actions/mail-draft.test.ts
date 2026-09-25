@@ -76,6 +76,21 @@ describe("deleteDraftAction", () => {
     });
   });
 
+  it("fails the save when the draft's current message cannot be read", async () => {
+    mocks.getDraft.mockRejectedValueOnce(new Error("Provider unavailable"));
+    const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
+      draftMessageId: "old-message",
+      draftId: "draft-1",
+      messageHtml: "<p>Edited</p>",
+      subject: "",
+      to: "person@example.com",
+      cc: "",
+      bcc: "",
+    });
+    expect(result?.data).toBeUndefined();
+    expect(result?.serverError).toBeTruthy();
+  });
+
   it("reports a provider rejection when a draft has been sent or deleted", async () => {
     mocks.updateDraft.mockRejectedValueOnce(
       new SafeError("Could not find this draft to update."),

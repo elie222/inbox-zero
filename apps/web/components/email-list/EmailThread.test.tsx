@@ -105,7 +105,7 @@ describe("EmailThread reply composer", () => {
 
     rememberReplacedDraftMessage("account-1", "draft-v1", "draft-v2");
     for (const messages of [
-      [parent, draftV1, createReaderDraft("draft-v2", "3000")],
+      [parent, createReaderDraft("draft-v2", "2000"), draftV1],
       [parent, createReaderDraft("draft-v2", "3000")],
     ]) {
       view.rerender(

@@ -12,6 +12,7 @@ import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStat
 import { Button } from "@/components/ui/button";
 import {
   getDraftSessionMessageId,
+  getLatestDraftMessageId,
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
@@ -402,26 +403,20 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
 }
 
 // A saved draft's old and new Gmail messages can both be in the conversation
-// until sync removes the old one. Only the newest is the draft being edited.
+// until sync removes the old one. Only the latest save is the draft being edited.
 function withoutReplacedDrafts(
   messages: ThreadMessage[],
   emailAccountId: string,
 ) {
-  const newestBySession = new Map<string, ThreadMessage>();
-  for (const message of messages) {
-    if (!message.labelIds?.includes(GmailLabel.DRAFT)) continue;
-    const sessionId = getDraftSessionMessageId(emailAccountId, message.id);
-    const current = newestBySession.get(sessionId);
-    if (!current || draftRecency(message) >= draftRecency(current))
-      newestBySession.set(sessionId, message);
-  }
-  return messages.filter(
-    (message) =>
-      !message.labelIds?.includes(GmailLabel.DRAFT) ||
-      newestBySession.get(
-        getDraftSessionMessageId(emailAccountId, message.id),
-      ) === message,
-  );
+  const messageIds = new Set(messages.map((message) => message.id));
+  return messages.filter((message) => {
+    if (!message.labelIds?.includes(GmailLabel.DRAFT)) return true;
+    const latest = getLatestDraftMessageId(
+      emailAccountId,
+      getDraftSessionMessageId(emailAccountId, message.id),
+    );
+    return !latest || latest === message.id || !messageIds.has(latest);
+  });
 }
 
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {

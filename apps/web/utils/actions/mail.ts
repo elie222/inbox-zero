@@ -446,7 +446,9 @@ export const updateDraftAction = actionClient
         ...content
       } = parsedInput;
       await provider.updateDraft(draftId, content);
-      const message = await provider.getDraft(draftId).catch(() => null);
+      // Gmail may have moved the draft to a new message; the composer needs it,
+      // so a failed read fails the save and autosave retries it.
+      const message = await provider.getDraft(draftId);
       return { draftId, messageId: message?.id ?? null };
     },
   );
