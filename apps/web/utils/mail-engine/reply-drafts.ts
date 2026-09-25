@@ -90,6 +90,24 @@ export function getDraftSessionMessageId(
   );
 }
 
+/** Every mailbox message a draft has been saved as while it was open here. */
+export function getDraftSessionMessageIds(
+  emailAccountId: string,
+  draftMessageId: string,
+) {
+  const sessionMessageId = getDraftSessionMessageId(
+    emailAccountId,
+    draftMessageId,
+  );
+  const ids = new Set([sessionMessageId, draftMessageId]);
+  for (const [messageId, session] of draftSessionMessageIds.get(
+    emailAccountId,
+  ) ?? []) {
+    if (session === sessionMessageId) ids.add(messageId);
+  }
+  return [...ids];
+}
+
 export function getLatestDraftMessageId(
   emailAccountId: string,
   sessionMessageId: string,
@@ -321,7 +339,7 @@ function draftKey(identity: ReplyDraftIdentity) {
   ]);
 }
 
-export async function restoreCancelledSendDraft(input: {
+export async function restoreUnsentReplyDraft(input: {
   emailAccountId: string;
   threadId: string;
   messageId: string;

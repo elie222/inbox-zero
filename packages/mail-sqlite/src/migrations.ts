@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS operations (
   claimed_until_ms INTEGER,
   attempt_id TEXT,
   created_at_ms INTEGER NOT NULL,
+  sent_message_id TEXT,
   PRIMARY KEY (account_id, command_id)
 );
 
@@ -378,6 +379,16 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  try {
+    await tx.exec("ALTER TABLE operations ADD COLUMN sent_message_id TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  await tx.exec(`
+    CREATE INDEX IF NOT EXISTS operations_sent_message
+      ON operations(account_id, sent_message_id)
+      WHERE sent_message_id IS NOT NULL;
+  `);
   await tx.exec(`
     CREATE TABLE IF NOT EXISTS draft_attachments (
       account_id TEXT NOT NULL,

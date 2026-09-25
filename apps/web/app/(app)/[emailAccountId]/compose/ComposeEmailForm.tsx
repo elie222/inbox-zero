@@ -89,6 +89,7 @@ import {
 } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
+  getDraftSessionMessageIds,
   getReplyDraft,
   rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
@@ -935,6 +936,12 @@ function ComposeEmailFormContent({
             emailAccountId: selectedEmailAccountId,
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
+            providerDraftMessageIds: providerDraftMessageId
+              ? getDraftSessionMessageIds(
+                  selectedEmailAccountId,
+                  providerDraftMessageId,
+                )
+              : [],
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -1069,6 +1076,7 @@ function ComposeEmailFormContent({
       onMarkDone,
       onSuccess,
       preservedBlocks,
+      providerDraftMessageId,
       refetch,
       replyingToEmail,
       selectedEmailAccountId,

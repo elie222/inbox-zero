@@ -253,6 +253,7 @@ export const operationAdmitResultSchema = z.discriminatedUnion("status", [
     requestId: z.string(),
     receiptId: z.string().nullable(),
     observations: z.array(providerChangeSchema),
+    bodies: z.array(bodyObservationSchema).optional(),
     targets: z.array(targetOutcomeSchema),
   }),
   z.object({

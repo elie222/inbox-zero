@@ -7,6 +7,8 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   CONVERSATION_PAGE_SIZE,
+  conversationOutgoingMessages,
+  conversationSendOperationIds,
   conversationViewToThreadResponse,
   missingConversationBodyIds,
   requestMissingMessageContent,
@@ -100,6 +102,8 @@ export function useThread(
     if (!data || !view) return;
     return {
       missingBodyIds: missingConversationBodyIds(view),
+      outgoing: conversationOutgoingMessages(view),
+      sendOperationIds: conversationSendOperationIds(view),
       hasMore: Boolean(view.nextPage),
       loadingMore,
       loadMore: () =>
@@ -139,7 +143,12 @@ function useStableConversationView(view: ConversationView | null) {
   const previous = useRef<{ key: string; view: ConversationView } | null>(null);
   return useMemo(() => {
     if (!view) return view;
-    const key = JSON.stringify([view.key, view.messages, view.nextPage]);
+    const key = JSON.stringify([
+      view.key,
+      view.messages,
+      view.outgoing,
+      view.nextPage,
+    ]);
     if (previous.current?.key === key) return previous.current.view;
     previous.current = { key, view };
     return view;

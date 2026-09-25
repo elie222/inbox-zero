@@ -21,10 +21,16 @@ import {
 import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
+import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+import type { OperationStatus } from "@inboxzero/mail-core/operations";
+
+const NO_OUTGOING: OutgoingThreadMessage[] = [];
 
 export function EmailThread({
   messages,
   missingBodyIds,
+  outgoing = NO_OUTGOING,
+  sendOperationIds,
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
@@ -40,6 +46,10 @@ export function EmailThread({
 }: {
   messages: ThreadMessage[];
   missingBodyIds?: Set<string>;
+  /** Sends queued on this device, shown after the thread until they sync. */
+  outgoing?: OutgoingThreadMessage[];
+  /** The send each confirmed message came from, so it replaces its outgoing copy in place. */
+  sendOperationIds?: Map<string, string>;
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
@@ -57,14 +67,29 @@ export function EmailThread({
     onToggleAll: () => void;
   }) => ReactNode;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
-    () =>
-      organizeThreadMessages(withoutReplacedDrafts(messages, emailAccountId)),
-    [messages, emailAccountId],
+    (): Array<{
+      message: ThreadMessage;
+      draftMessages: ThreadMessage[];
+      outgoing?: OutgoingThreadMessage;
+    }> => [
+      ...organizeThreadMessages(
+        withoutReplacedDrafts(messages, emailAccountId),
+      ),
+      ...outgoing.map((item) => ({
+        message: {
+          ...item.message,
+          headers: { ...item.message.headers, from: userEmail },
+        },
+        draftMessages: [],
+        outgoing: item,
+      })),
+    ],
+    [messages, emailAccountId, outgoing, userEmail],
   );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
@@ -95,8 +120,15 @@ export function EmailThread({
   }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  const hasLocalDraft = (id: string) =>
-    Boolean(getLocalDraftMode(localDrafts, id));
+  // Outlook sends a draft as the same message, so its local copy would reopen
+  // as a reply on the sent message until the send settles and clears it.
+  const localDraftModeFor = (message: ThreadMessage) =>
+    message.labelIds?.includes(GmailLabel.DRAFT) ||
+    sendOperationIds?.has(message.id)
+      ? undefined
+      : getLocalDraftMode(localDrafts, message.id);
+  const hasLocalDraft = (message: ThreadMessage) =>
+    Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
     expanded(
       message.id,
@@ -104,7 +136,7 @@ export function EmailThread({
         autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
         draftMessages.length > 0 ||
-        hasLocalDraft(message.id),
+        hasLocalDraft(message),
     ),
   );
 
@@ -215,7 +247,9 @@ export function EmailThread({
         )}
 
         <ul className="pt-1">
-          {organizedMessages.map(({ message, draftMessages }) => {
+          {organizedMessages.map(({ message, draftMessages, outgoing }) => {
+            const sendOperationId =
+              outgoing?.operationId ?? sendOperationIds?.get(message.id);
             const defaultComposeMode = getDefaultComposeMode({
               autoOpenMode:
                 autoOpenForwardForMessageId === message.id
@@ -223,9 +257,7 @@ export function EmailThread({
                   : autoOpenReplyForMessageId === message.id
                     ? "reply"
                     : undefined,
-              localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
-                ? undefined
-                : getLocalDraftMode(localDrafts, message.id),
+              localDraftMode: localDraftModeFor(message),
               recoveredReply:
                 recoveredReply?.messageId === message.id
                   ? recoveredReply
@@ -257,11 +289,13 @@ export function EmailThread({
                   message.id,
                   Boolean(defaultComposeMode) || draftMessages.length > 0,
                 )}
-                hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
-                // A draft-only row follows its draft across Gmail's per-save message IDs.
-                key={`${getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
+                hasDraft={draftMessages.length > 0 || hasLocalDraft(message)}
+                // A draft-only row follows its draft across Gmail's per-save
+                // message IDs, and a sent row keeps the place of its outgoing copy.
+                key={`${sendOperationId ?? getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
                 message={message}
-                menu={renderMessageMenu?.(message)}
+                menu={outgoing ? undefined : renderMessageMenu?.(message)}
+                sending={outgoing ? isSendingStatus(outgoing.status) : false}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
                 onExpand={() =>
@@ -297,6 +331,7 @@ export function EmailThread({
                 sentMessageOpen={sentMessageOpens?.opens[message.id]}
                 showReplyButton={
                   showReplyButton &&
+                  !outgoing &&
                   !message.labelIds?.includes(GmailLabel.DRAFT)
                 }
               />
@@ -324,6 +359,15 @@ export function EmailThread({
         )}
       </div>
     </OpenedConversationAttachments>
+  );
+}
+
+function isSendingStatus(status: OperationStatus) {
+  return (
+    status === "queued" ||
+    status === "executing" ||
+    status === "verifying" ||
+    status === "retry_wait"
   );
 }
 

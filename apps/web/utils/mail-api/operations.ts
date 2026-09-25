@@ -5,8 +5,13 @@ import type {
   TargetOutcome,
 } from "@inboxzero/mail-core/operations";
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
+import type {
+  BodyObservation,
+  ProviderChange,
+} from "@inboxzero/mail-core/sync";
 import type { EmailProvider } from "@/utils/email/types";
 import {
+  parsedMessageBodyObservation,
   parsedMessageMetadata,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
@@ -547,11 +552,11 @@ async function inspectSend(
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
-      observations: await observeSentMessage(
+      ...(await observeSentMessage(
         provider,
         accountId,
         sentMessageIdFromResult(found.result),
-      ),
+      )),
       targets: [],
     };
   }
@@ -564,14 +569,14 @@ async function inspectSend(
 function mapSendOutcome(
   operationId: string,
   outcome: Awaited<ReturnType<typeof executeDurableEmailSend>>,
-  observations: ReturnType<typeof parsedMessagePatch>[] = [],
+  sent: Awaited<ReturnType<typeof observeSentMessage>>,
 ) {
   const receiptId = sendMutationId(operationId);
   if (outcome.status === "applied" || outcome.status === "already_applied") {
     return {
       status: "confirmed" as const,
       receiptId,
-      observations,
+      ...sent,
       targets: [],
     };
   }
@@ -761,23 +766,29 @@ async function threadIdForSnooze(
   }
 }
 
+// The body rides along so the sent message replaces the device's outgoing
+// copy fully rendered, rather than as a header waiting on its body.
 async function observeSentMessage(
   provider: EmailProvider,
   accountId: string,
   messageId: string | null,
-) {
-  if (!messageId) return [];
+): Promise<{ observations: ProviderChange[]; bodies: BodyObservation[] }> {
+  if (!messageId) return { observations: [], bodies: [] };
   try {
     const message = await provider.getMessage(messageId);
-    return [
-      parsedMessagePatch(
-        accountId,
-        provider.name === "microsoft" ? "microsoft" : "google",
-        message,
-      ),
-    ];
+    const body = parsedMessageBodyObservation(accountId, message);
+    return {
+      observations: [
+        parsedMessagePatch(
+          accountId,
+          provider.name === "microsoft" ? "microsoft" : "google",
+          message,
+        ),
+      ],
+      bodies: body ? [body] : [],
+    };
   } catch {
-    return [];
+    return { observations: [], bodies: [] };
   }
 }
 

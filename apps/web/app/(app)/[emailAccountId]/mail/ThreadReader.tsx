@@ -23,6 +23,7 @@ import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -54,6 +55,8 @@ export type ThreadReaderProps = {
   messages: ThreadMessage[];
   localAvailability?: {
     missingBodyIds: Set<string>;
+    outgoing: OutgoingThreadMessage[];
+    sendOperationIds: Map<string, string>;
     hasMore: boolean;
     loadingMore: boolean;
     loadMore: () => unknown;
@@ -212,6 +215,8 @@ export function ThreadReader({
           key={threadId}
           messages={messages}
           missingBodyIds={localAvailability?.missingBodyIds}
+          outgoing={localAvailability?.outgoing}
+          sendOperationIds={localAvailability?.sendOperationIds}
           onMarkDone={onArchive}
           onOpenSenderContext={(message) => {
             const senderEmail = extractEmailAddress(message.headers.from);

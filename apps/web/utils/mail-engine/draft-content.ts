@@ -6,6 +6,7 @@ export function sendEmailToDraftContent(
   email: SendEmailBody,
   attachmentIds: string[],
   conversationId?: string,
+  providerDraftMessageIds: string[] = [],
 ): DraftContent {
   return {
     to: splitRecipientList(email.to).slice(0, 100),
@@ -18,6 +19,9 @@ export function sendEmailToDraftContent(
     ...(conversationId ? { conversationId } : {}),
     ...(email.providerDraftId
       ? { providerDraftId: email.providerDraftId }
+      : {}),
+    ...(providerDraftMessageIds.length
+      ? { providerDraftMessageIds: providerDraftMessageIds.slice(-50) }
       : {}),
   };
 }

@@ -22,7 +22,7 @@ vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
   useOptionalMailClient: () => mailClient.current,
 }));
 vi.mock("@/utils/mail-engine/reply-drafts", () => ({
-  restoreCancelledSendDraft: restoreDraft,
+  restoreUnsentReplyDraft: restoreDraft,
 }));
 vi.mock("@/utils/actions/scheduled-email", () => ({
   cancelScheduledEmailAction: vi.fn(),
@@ -216,6 +216,54 @@ describe("queued engine reply restore", () => {
       operationId: "send-1",
     });
     expect(onEditReply).toHaveBeenCalledWith("msg_playwright_reply", "reply");
+  });
+
+  it("brings a failed reply back for editing with its text", async () => {
+    const client = {
+      getDiagnostics: vi.fn(async () => ({
+        commands: [
+          {
+            operationId: "send-1",
+            status: "failed",
+            kind: "send",
+            conversationIds: ["thread-1"],
+            messageIds: ["msg_playwright_reply"],
+          },
+        ],
+      })),
+      cancelOperation: vi.fn(),
+    } as unknown as MailClient;
+    mailClient.current = client;
+    const onEditReply = vi.fn();
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+          shouldRetryOnError: false,
+          dedupingInterval: 0,
+        }}
+      >
+        <ThreadDeliveryStatus
+          emailAccountId="account-1"
+          threadId="thread-1"
+          messageIds={["msg_playwright_reply"]}
+          onEditReply={onEditReply}
+          refetch={vi.fn()}
+          canEditReply
+        />
+      </SWRConfig>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit reply" }));
+
+    await waitFor(() =>
+      expect(onEditReply).toHaveBeenCalledWith("msg_playwright_reply", "reply"),
+    );
+    expect(restoreDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ operationId: "send-1" }),
+    );
+    expect(client.cancelOperation).not.toHaveBeenCalled();
+    expect(screen.queryByText("Reply could not be sent")).toBeNull();
   });
 });
 

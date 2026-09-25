@@ -4,7 +4,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
-import { rememberReplacedDraftMessage } from "@/utils/mail-engine/reply-drafts";
+import {
+  rememberReplacedDraftMessage,
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 import {
   EmailThread,
   organizeThreadMessages,
@@ -45,8 +48,12 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
     children: React.ReactNode;
   }) => children,
 }));
+const { localDrafts } = vi.hoisted(() => ({
+  localDrafts: { current: [] as StoredReplyDraft[] },
+}));
+
 vi.mock("@/hooks/useReplyDrafts", () => ({
-  useReplyDrafts: () => ({ drafts: [] }),
+  useReplyDrafts: () => ({ drafts: localDrafts.current }),
 }));
 vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
@@ -123,6 +130,79 @@ describe("EmailThread reply composer", () => {
       expect(current.dataset.providerDraftMessageId).toBe("draft-v2");
       expect(composerMounts).toBe(1);
     }
+  });
+});
+
+describe("EmailThread outgoing replies", () => {
+  afterEach(cleanup);
+
+  // A queued reply shows in the thread as soon as the composer closes, and the
+  // provider's copy takes over the same row so its body does not reload.
+  it("shows a queued reply until its sent message takes over the same row", () => {
+    const parent = createReaderMessage("parent", "1000");
+    const view = render(
+      <EmailThread
+        messages={[parent]}
+        outgoing={[
+          {
+            operationId: "send-1",
+            status: "queued",
+            message: createSentMessage("outgoing:send-1", "3000"),
+          },
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    const outgoingRow = view.container.querySelector(
+      '[data-thread-message-id="outgoing:send-1"]',
+    );
+    expect(outgoingRow?.textContent).toContain("Sending…");
+    expect(screen.getAllByRole("button", { name: "Reply" })).toHaveLength(1);
+
+    view.rerender(
+      <EmailThread
+        messages={[parent, createSentMessage("sent-1", "4000")]}
+        sendOperationIds={new Map([["sent-1", "send-1"]])}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const sentRow = view.container.querySelector(
+      '[data-thread-message-id="sent-1"]',
+    );
+    expect(sentRow).toBe(outgoingRow);
+    expect(sentRow?.textContent).not.toContain("Sending…");
+  });
+
+  // Outlook sends a saved draft as that same message. Its local copy is only
+  // cleared once the send settles, and must not reopen as a reply meanwhile.
+  it("does not reopen a sent draft's local copy as a reply on the sent message", () => {
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "draft-1:reply",
+        revision: 1,
+        content: { composeMode: "reply" } as StoredReplyDraft["content"],
+        updatedAt: 1,
+      },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createSentMessage("draft-1", "4000"),
+        ]}
+        sendOperationIds={new Map([["draft-1", "send-1"]])}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+    localDrafts.current = [];
   });
 });
 
@@ -339,6 +419,13 @@ function MockComposer({
       data-provider-draft-message-id={providerDraftMessageId}
     />
   );
+}
+
+function createSentMessage(id: string, internalDate: string) {
+  return {
+    ...createReaderMessage(id, internalDate),
+    labelIds: ["SENT"],
+  } as ThreadMessage;
 }
 
 function createReaderMessage(id: string, internalDate: string) {

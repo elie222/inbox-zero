@@ -1,5 +1,6 @@
 import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
 import type { MailClient } from "@inboxzero/mail-core/engine";
+import type { OperationStatus } from "@inboxzero/mail-core/operations";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { messageLabelIds } from "@/utils/mail-engine/list-thread";
@@ -68,6 +69,51 @@ export function conversationMessageToParsed(
       subject: message.metadata.subject,
     },
   };
+}
+
+export type OutgoingThreadMessage = {
+  operationId: string;
+  status: OperationStatus;
+  message: ParsedMessage;
+};
+
+/**
+ * Sends queued on this device, shaped like the messages they will become so the
+ * reader shows them in the conversation until the provider confirms them.
+ */
+export function conversationOutgoingMessages(
+  view: ConversationView,
+): OutgoingThreadMessage[] {
+  return (view.outgoing ?? []).map((outgoing) => ({
+    operationId: outgoing.operationId,
+    status: outgoing.status,
+    message: conversationMessageToParsed(view, {
+      key: {
+        accountId: view.key.accountId,
+        messageId: `outgoing:${outgoing.operationId}`,
+      },
+      metadata: outgoing.metadata,
+      content: {
+        status: "available",
+        html: outgoing.html,
+        text: null,
+        attachments: [],
+        isMeetingInvitation: false,
+      },
+      pendingOperationIds: [outgoing.operationId],
+    }),
+  }));
+}
+
+/** Which send each confirmed message came from, keyed by message id. */
+export function conversationSendOperationIds(view: ConversationView) {
+  return new Map(
+    view.messages.flatMap((message) =>
+      message.sendOperationId
+        ? [[message.key.messageId, message.sendOperationId] as const]
+        : [],
+    ),
+  );
 }
 
 export const CONVERSATION_PAGE_SIZE = 50;

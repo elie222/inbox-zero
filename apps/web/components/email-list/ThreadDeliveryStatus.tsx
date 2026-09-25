@@ -34,7 +34,7 @@ import {
   engineSendReplyMessageId,
   shouldShowEngineDeliveryStatus,
 } from "@/utils/mail-engine/engine-delivery";
-import { restoreCancelledSendDraft } from "@/utils/mail-engine/reply-drafts";
+import { restoreUnsentReplyDraft } from "@/utils/mail-engine/reply-drafts";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -232,6 +232,9 @@ export function ThreadDeliveryStatus({
                       messageIds,
                       threadId,
                     );
+                    const failed =
+                      row.status === "failed" ||
+                      row.status === "needs_attention";
                     if (row.status === "queued" || row.status === "preparing") {
                       const result = await client?.cancelOperation({
                         accountId: emailAccountId,
@@ -242,13 +245,25 @@ export function ThreadDeliveryStatus({
                           "This reply's status changed. Refresh the thread and try again.",
                         );
                       }
-                      await restoreCancelledSendDraft({
+                    }
+                    if (
+                      failed ||
+                      row.status === "queued" ||
+                      row.status === "preparing"
+                    ) {
+                      await restoreUnsentReplyDraft({
                         client,
                         emailAccountId,
                         threadId,
                         messageId: parentMessageId,
                         operationId: row.operationId,
                       });
+                    }
+                    if (failed) {
+                      setDismissedSendIds((current) => [
+                        ...current,
+                        row.operationId,
+                      ]);
                     }
                     onEditReply(parentMessageId, "reply");
                   })

@@ -19,6 +19,7 @@ import type {
 } from "../identities";
 import type {
   OperationState,
+  OperationStatus,
   PreparedOperation,
   TargetOutcome,
 } from "../operations";
@@ -55,6 +56,18 @@ export type ConversationView = {
           isMeetingInvitation: boolean;
         };
     pendingOperationIds: string[];
+    /** The send operation that produced this message, once it is confirmed. */
+    sendOperationId?: string;
+  }>;
+  /**
+   * Sends from this device the provider hasn't confirmed yet, oldest first.
+   * Absent from desktop engines older than the web app.
+   */
+  outgoing?: Array<{
+    operationId: string;
+    status: OperationStatus;
+    metadata: MessageMetadata;
+    html: string;
   }>;
   nextPage: string | null;
   coverage: Coverage[];
@@ -390,6 +403,7 @@ export interface MailStore {
           status: "confirmed";
           receiptId: string | null;
           observations: ProviderChange[];
+          bodies?: BodyObservation[];
           targets: TargetOutcome[];
         }
       | { status: "accepted"; receiptId: string; retryAfterMs: number }
