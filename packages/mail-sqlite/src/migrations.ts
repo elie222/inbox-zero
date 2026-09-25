@@ -4,7 +4,7 @@ import {
   migrateInboxUnreadExcludesArchive,
   migrateMembershipIndex,
 } from "./conversation-index";
-import { migrateMessageSearchKeys } from "./message-search-index";
+import { migrateContentlessSearchIndex } from "./message-search-index";
 
 export const MAILBOX_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -233,6 +233,13 @@ CREATE TABLE IF NOT EXISTS conversation_completeness (
   PRIMARY KEY (account_id, conversation_id)
 );
 
+CREATE TABLE IF NOT EXISTS message_fts_keys (
+  account_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  fts_rowid INTEGER NOT NULL,
+  PRIMARY KEY (account_id, message_id)
+);
+
 CREATE TABLE IF NOT EXISTS assistant_entries (
   account_id TEXT NOT NULL,
   entry_id TEXT NOT NULL,
@@ -260,34 +267,11 @@ CREATE INDEX IF NOT EXISTS bootstrap_existing_lookup
   ON bootstrap_existing_messages(account_id, scope_id, message_id);
 `;
 
-export const MAILBOX_FTS_SQL = `
-CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
-  account_id UNINDEXED,
-  message_id UNINDEXED,
-  subject,
-  preview,
-  from_address,
-  body,
-  tokenize = 'unicode61'
-);
-`;
-
 export async function migrateMailbox(
   tx: SqlTransaction,
   epoch: string,
 ): Promise<void> {
   await tx.exec(MAILBOX_SCHEMA_SQL);
-  try {
-    await tx.exec("SAVEPOINT fts_create");
-    await tx.exec(MAILBOX_FTS_SQL);
-    await tx.exec("RELEASE fts_create");
-  } catch {
-    try {
-      await tx.exec("ROLLBACK TO fts_create");
-    } catch {
-      // savepoint missing
-    }
-  }
   const existing = await tx.query(
     "SELECT database_epoch FROM profile_state WHERE id = 1",
   );
@@ -404,6 +388,6 @@ export async function migrateMailbox(
   `);
   await migrateConversationIndex(tx);
   await migrateMembershipIndex(tx);
-  await migrateMessageSearchKeys(tx);
   await migrateInboxUnreadExcludesArchive(tx);
+  await migrateContentlessSearchIndex(tx);
 }

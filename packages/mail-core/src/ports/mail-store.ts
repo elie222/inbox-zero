@@ -327,6 +327,8 @@ export interface MailStore {
       conversationIds: string[];
     }>;
   }>;
+  /** Indexes one short batch of stored bodies missing from local search. */
+  indexSearchBacklog(): Promise<{ remaining: boolean }>;
   inspect(input?: MailStoreInspectionInput): Promise<MailStoreInspection>;
   listReferencedBlobIds(): Promise<string[]>;
   purgeAccount(accountId: string): Promise<LocalRevision>;

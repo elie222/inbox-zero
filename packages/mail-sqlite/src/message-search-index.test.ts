@@ -1,13 +1,37 @@
 import { describe, expect, it } from "vitest";
+import type { MailStore } from "@inboxzero/mail-core/ports/mail-store";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
-import type { SqliteDriver } from "./driver";
+import type { SqlTransaction, SqliteDriver } from "./driver";
 import {
   deleteAccountSearchIndex,
   indexMessageContent,
-  migrateMessageSearchKeys,
+  indexSearchBacklog,
 } from "./message-search-index";
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
+
+const LEGACY_FTS_SQL = `
+CREATE VIRTUAL TABLE message_fts USING fts5(
+  account_id UNINDEXED,
+  message_id UNINDEXED,
+  subject,
+  preview,
+  from_address,
+  body,
+  tokenize = 'unicode61'
+);
+`;
+
+const SEARCH_TERMS = [
+  "invoice",
+  "subject:roadmap",
+  "from_address:grace",
+  "kickoff",
+  "htmlonly",
+  "shadowed",
+  "shared",
+  "nothingmatches",
+];
 
 describe("message search index", () => {
   it("replaces a message's search row when its content is indexed again", async () => {
@@ -19,6 +43,7 @@ describe("message search index", () => {
 
     expect(await matches(driver, "invoice")).toEqual([]);
     expect(await matches(driver, "receipt")).toEqual(["acc-1/m1"]);
+    expect(await unkeyedRows(driver)).toBe(0);
     await close();
   });
 
@@ -31,49 +56,103 @@ describe("message search index", () => {
     });
 
     expect(await matches(driver, "shared")).toEqual(["acc-2/m1"]);
+    expect(await unkeyedRows(driver)).toBe(0);
     await close();
   });
 
-  it("keeps keys and retries the migration when the search index is unavailable", async () => {
-    const { driver, close } = await mailbox(["acc-1"]);
-    const state = await driver.write(async (tx) => {
-      await indexMessageContent(tx, key("acc-1", "m1"), "quarterly invoice");
-      await tx.exec(
-        "DROP TABLE message_fts; DELETE FROM schema_migrations WHERE id = 4;",
-      );
-      await deleteAccountSearchIndex(tx, "acc-1");
-      await migrateMessageSearchKeys(tx);
-      return {
-        keys: await tx.query("SELECT message_id FROM message_fts_keys"),
-        migrations: await tx.query(
-          "SELECT id FROM schema_migrations WHERE id = 4",
-        ),
-      };
-    });
+  it("finds the same messages after rebuilding a legacy index without its text copy", async () => {
+    const { driver, store } = await mailbox(["acc-1", "acc-2"], corpus);
+    await driver.write((tx) => rebuildAsLegacyIndex(tx));
+    const before = await legacyMatchesByTerm(driver);
 
-    expect(state.keys).toEqual([{ message_id: "m1" }]);
-    expect(state.migrations).toEqual([]);
-    await close();
+    const reopened = await createSqliteMailStore(driver);
+    await drainBacklog(reopened);
+
+    expect(await matchesByTerm(driver)).toEqual(before);
+    expect(before.invoice).toEqual(["acc-1/m1", "acc-2/m1"]);
+    expect(await tableNames(driver)).not.toContain("message_fts_content");
+    expect(await unkeyedRows(driver)).toBe(0);
+    await store.close();
   });
 
-  it("backfills keys for rows indexed before the key table existed", async () => {
-    const { driver, close } = await mailbox(["acc-1"]);
+  it("indexes each message once when the rebuild resumes over partly indexed mail", async () => {
+    const { driver, store } = await mailbox(["acc-1", "acc-2"], corpus);
+    const expected = await matchesByTerm(driver);
+    await driver.write((tx) => rebuildAsLegacyIndex(tx));
+
+    await createSqliteMailStore(driver);
     await driver.write(async (tx) => {
-      await indexMessageContent(tx, key("acc-1", "m1"), "legacy invoice");
-      await tx.exec(
-        "DROP TABLE message_fts_keys; DELETE FROM schema_migrations WHERE id = 4;",
+      await indexSearchBacklog(tx, null);
+      await deleteAccountSearchIndex(tx, "acc-2");
+      await indexMessageContent(
+        tx,
+        key("acc-2", "m2"),
+        "Project kickoff notes for acc-2",
       );
-      await migrateMessageSearchKeys(tx);
-      await indexMessageContent(tx, key("acc-1", "m1"), "updated receipt");
     });
+    const reopened = await createSqliteMailStore(driver);
+    await drainBacklog(reopened);
 
-    expect(await matches(driver, "invoice")).toEqual([]);
-    expect(await matches(driver, "receipt")).toEqual(["acc-1/m1"]);
-    await close();
+    expect(await matchesByTerm(driver)).toEqual(expected);
+    expect(await keyCount(driver)).toBe(corpus("acc-1").length * 2);
+    expect(await unkeyedRows(driver)).toBe(0);
+    await store.close();
   });
 });
 
-async function mailbox(accountIds: string[]) {
+type CorpusMessage = {
+  messageId: string;
+  subject: string;
+  from: string;
+  text: string | null;
+  html: string | null;
+};
+
+function corpus(accountId: string): CorpusMessage[] {
+  return [
+    {
+      messageId: "m1",
+      subject: "Quarterly invoice",
+      from: "ada@example.com",
+      text: "Payment is due on Friday",
+      html: null,
+    },
+    {
+      messageId: "m2",
+      subject: "Roadmap review",
+      from: "grace@example.com",
+      text: `Project kickoff notes for ${accountId}`,
+      html: "<p>ignored when text exists</p>",
+    },
+    {
+      messageId: "m3",
+      subject: "Newsletter",
+      from: "news@example.com",
+      text: null,
+      html: "<p>htmlonly shared content</p>",
+    },
+    {
+      messageId: "m4",
+      subject: "Empty text part",
+      from: "linus@example.com",
+      text: "",
+      html: "<p>shadowed html body</p>",
+    },
+  ];
+}
+
+async function mailbox(
+  accountIds: string[],
+  messages: (accountId: string) => CorpusMessage[] = () => [
+    {
+      messageId: "m1",
+      subject: "Subject",
+      from: "ada@example.com",
+      text: null,
+      html: null,
+    },
+  ],
+) {
   const driver = createNodeSqliteDriver();
   const store = await createSqliteMailStore(driver);
   for (const accountId of accountIds) {
@@ -82,6 +161,7 @@ async function mailbox(accountIds: string[]) {
       provider: "google",
       generation: "g1",
     });
+    const seeded = messages(accountId);
     await store.applySyncPage({
       ownerId: "owner",
       page: {
@@ -89,23 +169,102 @@ async function mailbox(accountIds: string[]) {
         requestId: "bootstrap",
         from: { streamId: "primary", generation: "g1", checkpoint: null },
         to: { streamId: "primary", generation: "g1", checkpoint: "1" },
-        changes: [messagePatch(accountId, "m1")],
+        changes: seeded.map((message) => messagePatch(accountId, message)),
         requiredHydration: [],
         roundComplete: true,
       },
+      bodies: seeded
+        .filter((message) => message.text !== null || message.html !== null)
+        .map((message) => ({
+          key: key(accountId, message.messageId),
+          version: "1",
+          text: message.text,
+          html: message.html,
+        })),
     });
   }
-  return { driver, close: () => store.close() };
+  return { driver, store, close: () => store.close() };
+}
+
+// Recreates the index as it was before it dropped its text copy, filled the
+// way the old writer filled it.
+async function rebuildAsLegacyIndex(tx: SqlTransaction) {
+  await tx.exec(
+    "DROP TABLE message_fts; DELETE FROM message_fts_keys; DELETE FROM schema_migrations WHERE id = 6;",
+  );
+  await tx.exec(LEGACY_FTS_SQL);
+  await tx.execute(
+    `INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
+     SELECT m.account_id, m.message_id, m.subject, m.preview, m.from_address, COALESCE(c.text, c.html, '')
+     FROM message_content c
+     JOIN messages m ON m.account_id = c.account_id AND m.message_id = c.message_id`,
+  );
+  await tx.execute(
+    `INSERT INTO message_fts_keys(account_id, message_id, fts_rowid)
+     SELECT account_id, message_id, rowid FROM message_fts`,
+  );
+}
+
+async function drainBacklog(store: MailStore) {
+  while ((await store.indexSearchBacklog()).remaining) {
+    // keep indexing
+  }
+}
+
+async function legacyMatchesByTerm(driver: SqliteDriver) {
+  const result: Record<string, string[]> = {};
+  for (const term of SEARCH_TERMS) {
+    const rows = await driver.read((tx) =>
+      tx.query(
+        "SELECT account_id, message_id FROM message_fts WHERE message_fts MATCH ? ORDER BY account_id, message_id",
+        [term],
+      ),
+    );
+    result[term] = rows.map((row) => `${row.account_id}/${row.message_id}`);
+  }
+  return result;
+}
+
+async function matchesByTerm(driver: SqliteDriver) {
+  const result: Record<string, string[]> = {};
+  for (const term of SEARCH_TERMS) result[term] = await matches(driver, term);
+  return result;
 }
 
 async function matches(driver: SqliteDriver, term: string) {
   const rows = await driver.read((tx) =>
     tx.query(
-      "SELECT account_id, message_id FROM message_fts WHERE message_fts MATCH ? ORDER BY account_id",
+      `SELECT k.account_id, k.message_id FROM message_fts
+       JOIN message_fts_keys k ON k.fts_rowid = message_fts.rowid
+       WHERE message_fts MATCH ?
+       ORDER BY k.account_id, k.message_id`,
       [term],
     ),
   );
   return rows.map((row) => `${row.account_id}/${row.message_id}`);
+}
+
+async function unkeyedRows(driver: SqliteDriver) {
+  const [row] = await driver.read((tx) =>
+    tx.query(
+      "SELECT (SELECT COUNT(*) FROM message_fts) - (SELECT COUNT(*) FROM message_fts_keys) AS n",
+    ),
+  );
+  return Number(row?.n);
+}
+
+async function keyCount(driver: SqliteDriver) {
+  const [row] = await driver.read((tx) =>
+    tx.query("SELECT COUNT(*) AS n FROM message_fts_keys"),
+  );
+  return Number(row?.n);
+}
+
+async function tableNames(driver: SqliteDriver) {
+  const rows = await driver.read((tx) =>
+    tx.query("SELECT name FROM sqlite_master WHERE type = 'table'"),
+  );
+  return rows.map((row) => String(row.name));
 }
 
 function key(accountId: string, messageId: string) {
@@ -114,21 +273,21 @@ function key(accountId: string, messageId: string) {
 
 function messagePatch(
   accountId: string,
-  messageId: string,
+  message: CorpusMessage,
 ): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
-    key: { accountId, messageId },
+    key: { accountId, messageId: message.messageId },
     reference: {
       provider: "google",
-      messageId,
-      conversationId: "c1",
+      messageId: message.messageId,
+      conversationId: `c-${message.messageId}`,
       version: "1",
     },
     fields: {
-      subject: "Subject",
+      subject: message.subject,
       preview: "Preview",
-      from: "ada@example.com",
+      from: message.from,
       to: ["me@example.com"],
       cc: [],
       receivedAtMs: 1000,

@@ -163,6 +163,34 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("indexes the search backlog while idle and claims work between batches", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    const events: string[] = [];
+    let batches = 3;
+    vi.spyOn(harness.store, "claimWork").mockImplementation(async () => {
+      events.push("claim");
+      return null;
+    });
+    vi.spyOn(harness.store, "indexSearchBacklog").mockImplementation(
+      async () => {
+        batches -= 1;
+        events.push("batch");
+        return { remaining: batches > 0 };
+      },
+    );
+    await harness.engine.runUntil(10_000);
+
+    expect(events).toEqual([
+      "claim",
+      "batch",
+      "claim",
+      "batch",
+      "claim",
+      "batch",
+    ]);
+    await harness.engine.close();
+  });
+
   it("continues partial sync pages without waiting for the idle interval", async () => {
     const harness = idleCatchUpHarness({
       streamIds: ["inbox"],
@@ -420,6 +448,9 @@ function idleCatchUpStore(
       return false;
     },
     async releaseDeferredOperations() {},
+    async indexSearchBacklog() {
+      return { remaining: false };
+    },
     async close() {},
   } as unknown as MailStore;
 }
