@@ -49,6 +49,7 @@ export type ConversationView = {
       | {
           status: "available";
           html: string | null;
+          /** Null when the message has HTML; derive text from `html`. */
           text: string | null;
           attachments: MessageAttachmentDescriptor[];
           isMeetingInvitation: boolean;
