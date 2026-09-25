@@ -49,15 +49,16 @@ export function trimStaleToolResults(messages: ModelMessage[]) {
 
 function isTrimmable(part: ToolResultPart) {
   const { output } = part;
-  if (
-    output.type === "json" &&
-    isJsonObject(output.value) &&
-    "trimmedForContext" in output.value
-  ) {
-    return false;
-  }
+  const canShorten =
+    output.type === "text" ||
+    output.type === "error-text" ||
+    (output.type === "json" &&
+      isJsonObject(output.value) &&
+      !("trimmedForContext" in output.value));
 
-  return getToolOutputText(output).length >= MIN_TRIMMABLE_RESULT_CHARS;
+  return (
+    canShorten && getToolOutputText(output).length >= MIN_TRIMMABLE_RESULT_CHARS
+  );
 }
 
 function trimOutput(

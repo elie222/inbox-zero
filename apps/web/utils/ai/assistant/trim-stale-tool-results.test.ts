@@ -82,6 +82,32 @@ describe("trimStaleToolResults", () => {
     expect(trimStaleToolResults(withNewResults)).toBe(withNewResults);
   });
 
+  it("does not count results it cannot shorten toward the budget", () => {
+    const largeUntrimmableResult: ModelMessage = {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "list-0",
+          toolName: "listThreadIds",
+          output: {
+            type: "json",
+            value: Array.from({ length: 20_000 }, (_, index) => `id-${index}`),
+          },
+        },
+      ],
+    };
+    const messages = [
+      userMessage("Clean up my inbox"),
+      largeUntrimmableResult,
+      ...Array.from({ length: RECENT_TOOL_RESULTS_TO_KEEP + 1 }, (_, index) =>
+        searchRound(index, { snippetLength: 100 }),
+      ).flat(),
+    ];
+
+    expect(trimStaleToolResults(messages)).toBe(messages);
+  });
+
   it("leaves small stale results unchanged", () => {
     const messages = [
       userMessage("Clean up my inbox"),
