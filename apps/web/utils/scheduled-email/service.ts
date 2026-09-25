@@ -89,6 +89,17 @@ export async function cancelScheduledEmail(emailAccountId: string, id: string) {
     );
 }
 
+export async function cancelEmailReminder(emailAccountId: string, id: string) {
+  const result = await prisma.scheduledEmail.updateMany({
+    where: { id, emailAccountId, reminderStatus: "PENDING" },
+    data: { reminderStatus: "CANCELLED" },
+  });
+  if (!result.count)
+    throw new SafeError(
+      "This reminder has already started or is no longer pending.",
+    );
+}
+
 export async function retryScheduledEmail(
   emailAccountId: string,
   id: string,

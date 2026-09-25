@@ -7,6 +7,7 @@ import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
 import {
   scheduleEmail,
   cancelScheduledEmail,
+  cancelEmailReminder,
   retryScheduledEmail,
   processScheduledEmail,
   hasReplySince,
@@ -61,6 +62,18 @@ describe("scheduled replies", () => {
           status: { in: ["PENDING", "BLOCKED_AUTH", "FAILED"] },
         },
       }),
+    );
+  });
+  it("cancels only a pending reminder", async () => {
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    await cancelEmailReminder("account", "id");
+    expect(prisma.scheduledEmail.updateMany).toHaveBeenCalledWith({
+      where: { id: "id", emailAccountId: "account", reminderStatus: "PENDING" },
+      data: { reminderStatus: "CANCELLED" },
+    });
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
+    await expect(cancelEmailReminder("account", "id")).rejects.toThrow(
+      "pending",
     );
   });
   it.each([
