@@ -18,9 +18,12 @@ import {
   withMicrosoftGraphRetry,
 } from "@/utils/microsoft/retry";
 import { isNotFoundError } from "@/utils/outlook/errors";
+import { mapWithConcurrency } from "@/utils/async";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
+
+const PARTIAL_MESSAGE_REFETCH_CONCURRENCY = 5;
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -233,22 +236,19 @@ async function withPartialMessagesRefetched({
   const messages = response.value ?? [];
   if (!messages.some(isPartialMessage)) return response;
 
-  const refetched: DeltaMessage[] = [];
-  let unresolvedCount = 0;
-  for (const message of messages) {
-    if (!isPartialMessage(message)) {
-      refetched.push(message);
-      continue;
-    }
-
-    const fullMessage = await getSyncMessage({
-      client,
-      logger,
-      messageId: message.id,
-    });
-    if (fullMessage?.conversationId) refetched.push(fullMessage);
-    else unresolvedCount++;
-  }
+  const refetched = await mapWithConcurrency(
+    messages,
+    PARTIAL_MESSAGE_REFETCH_CONCURRENCY,
+    async (message) =>
+      isPartialMessage(message)
+        ? getSyncMessage({ client, logger, messageId: message.id })
+        : message,
+  );
+  const completeMessages = refetched.filter(
+    (message): message is DeltaMessage =>
+      message !== null && !isPartialMessage(message),
+  );
+  const unresolvedCount = messages.length - completeMessages.length;
 
   if (unresolvedCount > 0) {
     logger.warn("Skipped delta messages without a conversation", {
@@ -256,7 +256,7 @@ async function withPartialMessagesRefetched({
     });
   }
 
-  return { ...response, value: refetched };
+  return { ...response, value: completeMessages };
 }
 
 function isPartialMessage(
