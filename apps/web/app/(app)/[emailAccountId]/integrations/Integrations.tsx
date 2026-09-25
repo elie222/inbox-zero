@@ -3,7 +3,11 @@
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { TypographyP } from "@/components/Typography";
+import {
+  SectionDescription,
+  SectionHeader,
+  TypographyP,
+} from "@/components/Typography";
 import {
   Table,
   TableRow,
@@ -18,17 +22,28 @@ import { IntegrationRow } from "@/app/(app)/[emailAccountId]/integrations/Integr
 import { Card } from "@/components/ui/card";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import {
+  isPipedreamAppConnected,
+  PIPEDREAM_APPS,
+} from "@/utils/mcp/pipedream-apps";
+import { PipedreamAppRow } from "./PipedreamAppRow";
 
 export function Integrations() {
   const { data, isLoading, error, mutate } = useIntegrations();
 
-  const integrations = data?.integrations || [];
+  const allIntegrations = data?.integrations || [];
+  const integrations = allIntegrations.filter(
+    (integration) => integration.name !== "pipedream",
+  );
+  const pipedream = allIntegrations.find(
+    (integration) => integration.name === "pipedream",
+  );
 
   useIntegrationNotifications(data?.integrations);
 
   return (
-    <Card>
-      <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent loading={isLoading} error={error}>
+      <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -55,8 +70,35 @@ export function Integrations() {
             )}
           </TableBody>
         </Table>
-      </LoadingContent>
-    </Card>
+      </Card>
+
+      {pipedream && (
+        <div className="space-y-2">
+          <SectionHeader>More apps via Pipedream</SectionHeader>
+          <SectionDescription>
+            These connect through a free Pipedream account. Choose the apps you
+            want to share when Pipedream asks.
+          </SectionDescription>
+          <Card>
+            <Table>
+              <TableBody>
+                {PIPEDREAM_APPS.map((app) => (
+                  <PipedreamAppRow
+                    key={app.slug}
+                    app={app}
+                    status={getPipedreamAppStatus(app.slug, pipedream)}
+                  />
+                ))}
+                <IntegrationRow
+                  integration={pipedream}
+                  onConnectionChange={mutate}
+                />
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      )}
+    </LoadingContent>
   );
 }
 
@@ -151,4 +193,16 @@ function getDisplayName(
     integrations.find((integration) => integration.name === name)
       ?.displayName || name
   );
+}
+
+function getPipedreamAppStatus(
+  appSlug: string,
+  pipedream: GetIntegrationsResponse["integrations"][number],
+) {
+  const connection = pipedream.connection;
+  const toolNames = connection?.tools.map((tool) => tool.name) ?? [];
+  if (!connection || !isPipedreamAppConnected(appSlug, toolNames)) {
+    return "disconnected";
+  }
+  return connection.isActive ? "connected" : "paused";
 }
