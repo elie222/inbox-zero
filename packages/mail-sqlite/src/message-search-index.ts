@@ -33,6 +33,7 @@ export async function migrateMessageSearchIndex(tx: SqlTransaction) {
     await tx.exec("DROP TABLE IF EXISTS message_fts");
     await tx.exec(MESSAGE_FTS_SQL);
     await tx.execute("DELETE FROM message_fts_keys");
+    await markSearchIndexIncomplete(tx);
   });
   if (!rebuilt) return;
   await tx.execute(
@@ -45,19 +46,20 @@ export async function indexMessageContent(
   key: MessageKey,
   content: MessageBody,
 ) {
-  await withSearchIndex(tx, "index_content", () =>
+  const indexed = await withSearchIndex(tx, "index_content", () =>
     writeSearchRow(tx, key, content),
   );
+  if (!indexed) await markSearchIndexIncomplete(tx);
 }
 
 // Indexes the next batch of stored bodies that have no search row, such as
 // those left by a rebuild, in key order after `after`. Resolves the batch's
-// last key, or null once none remain or the index is unavailable.
+// last key, or null once none remain.
 export async function indexSearchBacklog(
   tx: SqlTransaction,
   codec: MessageBodyCodec,
   after: MessageKey | null,
-): Promise<MessageKey | null> {
+): Promise<BacklogBatch> {
   let last: MessageKey | null = null;
   const indexed = await withSearchIndex(tx, "index_backlog", async () => {
     const batch = await tx.query(
@@ -82,15 +84,13 @@ export async function indexSearchBacklog(
     );
     last = await insertSearchRows(tx, batch, bodies);
   });
-  return indexed ? last : null;
+  return indexed ? { indexed: true, last } : { indexed: false };
 }
 
-// Indexes the metadata of a message without a stored body; called when the
-// message is new or its subject, preview, or sender changed. Once the backlog drains,
-// every message is in the index, so search can start from index matches
-// instead of scanning the mailbox. A stored body is indexed with its text by
-// the content write or the body backlog, and a changed message version brings
-// a fresh body that re-indexes it.
+// Re-indexes a message whose subject, preview, or sender is new or changed.
+// Without a stored body its metadata is indexed directly. With one, its row is
+// dropped for the body backlog to rebuild with the text, and search leans on
+// the substring fallback until then.
 export async function indexMessageMetadata(
   tx: SqlTransaction,
   key: MessageKey,
@@ -99,19 +99,22 @@ export async function indexMessageMetadata(
     "SELECT 1 FROM message_content WHERE account_id = ? AND message_id = ?",
     [key.accountId, key.messageId],
   );
-  if (stored) return;
-  await withSearchIndex(tx, "index_metadata", () =>
-    writeSearchRow(tx, key, { text: null, html: null }),
+  const indexed = await withSearchIndex(tx, "index_metadata", () =>
+    stored
+      ? dropSearchRow(tx, key)
+      : writeSearchRow(tx, key, { text: null, html: null }),
   );
+  if (stored || !indexed) await markSearchIndexIncomplete(tx);
 }
 
 // Indexes the metadata of the next batch of messages that still have no
 // search row once the body backlog is done, such as mail synced without its
-// body before metadata was indexed. Resolves like indexSearchBacklog.
+// body before metadata was indexed. Messages with a stored body are left to the
+// body backlog. Resolves like indexSearchBacklog.
 export async function indexMetadataBacklog(
   tx: SqlTransaction,
   after: MessageKey | null,
-): Promise<MessageKey | null> {
+): Promise<BacklogBatch> {
   let last: MessageKey | null = null;
   const indexed = await withSearchIndex(
     tx,
@@ -125,6 +128,10 @@ export async function indexMetadataBacklog(
              SELECT 1 FROM message_fts_keys k
              WHERE k.account_id = m.account_id AND k.message_id = m.message_id
            )
+           AND NOT EXISTS (
+             SELECT 1 FROM message_content c
+             WHERE c.account_id = m.account_id AND c.message_id = m.message_id
+           )
          ORDER BY m.account_id, m.message_id
          LIMIT ?`,
         [after?.accountId ?? "", after?.messageId ?? "", BACKLOG_BATCH_ROWS],
@@ -136,7 +143,32 @@ export async function indexMetadataBacklog(
       );
     },
   );
-  return indexed ? last : null;
+  return indexed ? { indexed: true, last } : { indexed: false };
+}
+
+// Marks the index complete once every message has a search row, which lets
+// search start from index matches. Resolves whether it is complete.
+export async function completeSearchIndexIfFull(tx: SqlTransaction) {
+  const [missing] = await tx.query(
+    `SELECT 1 FROM messages m
+     WHERE NOT EXISTS (
+       SELECT 1 FROM message_fts_keys k
+       WHERE k.account_id = m.account_id AND k.message_id = m.message_id
+     )
+     LIMIT 1`,
+  );
+  if (missing) return false;
+  await tx.execute(
+    "INSERT OR REPLACE INTO search_index_state(id, complete) VALUES (1, 1)",
+  );
+  return true;
+}
+
+export async function readSearchIndexComplete(tx: SqlTransaction) {
+  const [state] = await tx.query(
+    "SELECT complete FROM search_index_state WHERE id = 1",
+  );
+  return Number(state?.complete) === 1;
 }
 
 export async function deleteAccountSearchIndex(
@@ -162,9 +194,14 @@ export async function clearSearchIndex(tx: SqlTransaction) {
   );
   if (!cleared) return;
   await tx.execute("DELETE FROM message_fts_keys");
+  await markSearchIndexIncomplete(tx);
 }
 
 type MessageBody = { text: string | null; html: string | null };
+
+type BacklogBatch =
+  | { indexed: false }
+  | { indexed: true; last: MessageKey | null };
 
 async function writeSearchRow(
   tx: SqlTransaction,
@@ -247,6 +284,20 @@ function searchColumns(
     searchableText(String(message.from_address ?? "")),
     searchableBody(content),
   ];
+}
+
+async function dropSearchRow(tx: SqlTransaction, key: MessageKey) {
+  await tx.execute(
+    "DELETE FROM message_fts WHERE rowid IN (SELECT fts_rowid FROM message_fts_keys WHERE account_id = ? AND message_id = ?)",
+    [key.accountId, key.messageId],
+  );
+  await deleteKey(tx, key);
+}
+
+function markSearchIndexIncomplete(tx: SqlTransaction) {
+  return tx.execute(
+    "INSERT OR REPLACE INTO search_index_state(id, complete) VALUES (1, 0)",
+  );
 }
 
 function deleteKey(tx: SqlTransaction, key: MessageKey) {

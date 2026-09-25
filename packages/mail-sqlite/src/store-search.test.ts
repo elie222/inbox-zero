@@ -122,28 +122,23 @@ describe("local text search", () => {
     const { store, close } = await searchableMailbox();
     expect(await search(store, text("any", "parking"))).toEqual(["bare"]);
 
-    const bare = MESSAGES.findIndex((message) => message.id === "bare");
-    const renamed = messagePatch(
-      { ...MESSAGES[bare], subject: "Garage notice" },
-      bare,
-    );
-    await store.applySyncPage({
-      ownerId: "owner",
-      page: {
-        session: { accountId: "acc-1", generation: "g1" },
-        requestId: "rename",
-        from: { streamId: "primary", generation: "g1", checkpoint: "1" },
-        to: { streamId: "primary", generation: "g1", checkpoint: "2" },
-        changes: [
-          { ...renamed, reference: { ...renamed.reference, version: "2" } },
-        ],
-        requiredHydration: [],
-        roundComplete: true,
-      },
-    });
+    await renameSubject(store, "bare", "Garage notice");
 
     expect(await search(store, text("any", "garage"))).toEqual(["bare"]);
     expect(await search(store, text("any", "parking"))).toEqual([]);
+    await close();
+  });
+
+  it("finds mail with a stored body by its current subject and its body", async () => {
+    const { store, close } = await searchableMailbox();
+
+    await renameSubject(store, "lunch", "Brunch");
+    expect(await search(store, text("any", "brunch"))).toEqual(["lunch"]);
+
+    await drainBacklog(store);
+    expect(await search(store, text("any", "brunch"))).toEqual(["lunch"]);
+    expect(await search(store, text("subject", "lunch"))).toEqual([]);
+    expect(await search(store, text("any", "tacos"))).toEqual(["lunch"]);
     await close();
   });
 
@@ -160,12 +155,10 @@ describe("local text search", () => {
 
   it("finds messages the index has not reached yet by subject, and by body once indexed", async () => {
     const { driver, close } = await searchableMailbox();
-    await driver.write(async (tx) => {
-      await tx.exec(
-        "INSERT INTO message_fts(message_fts) VALUES ('delete-all')",
-      );
-      await tx.exec("DELETE FROM message_fts_keys");
-    });
+    // Reopening after forgetting the latest index migration rebuilds it empty.
+    await driver.write((tx) =>
+      tx.execute("DELETE FROM schema_migrations WHERE id = 7"),
+    );
     const reopened = await createSqliteMailStore(driver);
 
     expect(await search(reopened, text("any", "lunch"))).toEqual(["lunch"]);
@@ -249,6 +242,23 @@ async function searchableMailbox(): Promise<{
   });
   await drainBacklog(store);
   return { store, driver, close: () => store.close() };
+}
+
+async function renameSubject(store: MailStore, id: string, subject: string) {
+  const index = MESSAGES.findIndex((message) => message.id === id);
+  const patch = messagePatch({ ...MESSAGES[index], subject }, index);
+  await store.applySyncPage({
+    ownerId: "owner",
+    page: {
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: `rename-${id}`,
+      from: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      changes: [{ ...patch, reference: { ...patch.reference, version: "2" } }],
+      requiredHydration: [],
+      roundComplete: true,
+    },
+  });
 }
 
 async function drainBacklog(store: MailStore) {

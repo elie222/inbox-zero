@@ -240,6 +240,12 @@ CREATE TABLE IF NOT EXISTS message_fts_keys (
   PRIMARY KEY (account_id, message_id)
 );
 
+-- Whether every message has a search row; a missing row means not yet.
+CREATE TABLE IF NOT EXISTS search_index_state (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  complete INTEGER NOT NULL CHECK (complete IN (0, 1))
+);
+
 CREATE TABLE IF NOT EXISTS assistant_entries (
   account_id TEXT NOT NULL,
   entry_id TEXT NOT NULL,

@@ -57,11 +57,13 @@ import {
 } from "./mailbox-view-readers";
 import { migrateMailbox } from "./migrations";
 import {
+  completeSearchIndexIfFull,
   deleteAccountSearchIndex,
   indexMessageContent,
   indexMessageMetadata,
   indexMetadataBacklog,
   indexSearchBacklog,
+  readSearchIndexComplete,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
 import {
@@ -130,15 +132,16 @@ export async function createSqliteMailStore(
         tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
       )
     ).length > 0;
-  // Each open walks the bodies, then the messages still missing a search row,
-  // so rows missed while the index was rebuilt or unavailable are indexed
-  // without a durable cursor.
-  let searchBacklog: SearchBacklog | null = fts5
-    ? { phase: "content", after: null }
-    : null;
-  // Until the backlog drains, some messages have no search row and text
-  // search must also check those by substring.
-  const search = () => ({ fts5, complete: fts5 && searchBacklog === null });
+  // Whenever the index is marked incomplete (a rebuild, eviction, or a failed
+  // write), a pass walks the bodies, then the messages still missing a search
+  // row, in engine-paced batches, and ends by checking every message has one.
+  let searchBacklog: SearchBacklog | null = null;
+  // Until the index is complete, text search also checks the messages without
+  // a search row by substring.
+  const searchSupport = async (tx: SqlTransaction) => ({
+    fts5,
+    complete: fts5 && (await readSearchIndexComplete(tx)),
+  });
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -164,25 +167,45 @@ export async function createSqliteMailStore(
       });
     },
     evictReplaceableContent() {
-      // Eviction clears the index, so search stops trusting it before the
-      // write lands, and the backlog re-adds every message's metadata.
-      if (fts5) searchBacklog = { phase: "metadata", after: null };
       return evictReplaceableMessageContent(driver);
     },
     async indexSearchBacklog() {
+      if (!fts5) return { remaining: false };
+      if (!searchBacklog) {
+        if (await driver.read(readSearchIndexComplete)) {
+          return { remaining: false };
+        }
+        searchBacklog = { phase: "content", after: null, progressed: false };
+      }
       while (searchBacklog) {
-        const { phase, after } = searchBacklog;
-        const last = await driver.write((tx) =>
+        const current: SearchBacklog = searchBacklog;
+        const { phase, after, progressed } = current;
+        const batch = await driver.write((tx) =>
           phase === "content"
             ? indexSearchBacklog(tx, bodyCodec, after)
             : indexMetadataBacklog(tx, after),
         );
-        if (last) {
-          searchBacklog = { phase, after: last };
+        // A failed batch leaves the index incomplete; a later call retries.
+        if (!batch.indexed) {
+          searchBacklog = null;
+          return { remaining: false };
+        }
+        if (batch.last) {
+          searchBacklog = { phase, after: batch.last, progressed: true };
           return { remaining: true };
         }
+        if (phase === "content") {
+          searchBacklog = { phase: "metadata", after: null, progressed };
+          continue;
+        }
+        const complete = await driver.write(completeSearchIndexIfFull);
+        // Rows dropped behind the cursor during the pass get another one,
+        // unless this pass could not index anything.
         searchBacklog =
-          phase === "content" ? { phase: "metadata", after: null } : null;
+          complete || !progressed
+            ? null
+            : { phase: "content", after: null, progressed: false };
+        return { remaining: searchBacklog !== null };
       }
       return { remaining: false };
     },
@@ -1154,19 +1177,26 @@ export async function createSqliteMailStore(
     async readMailboxView(query) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxViewFromSql(tx, query, search()),
-          search(),
+          await readMailboxViewFromSql(tx, query, await searchSupport(tx)),
+          { fts5 },
         ),
       );
     },
     async readMailboxCounts(query) {
-      return driver.read((tx) => readMailboxCountsFromSql(tx, query, search()));
+      return driver.read(async (tx) =>
+        readMailboxCountsFromSql(tx, query, await searchSupport(tx)),
+      );
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxWindowFromSql(tx, query, pageCount, search()),
-          search(),
+          await readMailboxWindowFromSql(
+            tx,
+            query,
+            pageCount,
+            await searchSupport(tx),
+          ),
+          { fts5 },
         ),
       );
     },
@@ -3195,6 +3225,7 @@ export function clampMaxPendingOperations(value: number | undefined): number {
 type SearchBacklog = {
   phase: "content" | "metadata";
   after: MessageKey | null;
+  progressed: boolean;
 };
 
 function withIndexedCoverage<
