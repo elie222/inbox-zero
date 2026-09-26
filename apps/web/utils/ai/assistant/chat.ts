@@ -10,6 +10,8 @@ import { toolCallAgentStream } from "@/utils/llms";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
+import { escapeHtml } from "@/utils/string";
+import { getWritingStyle } from "@/utils/user/get";
 import { addToKnowledgeBaseTool } from "./tools/rules/add-to-knowledge-base-tool";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { getLearnedPatternsTool } from "./tools/rules/get-learned-patterns-tool";
@@ -52,7 +54,7 @@ import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-resul
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 9;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 10;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -125,6 +127,12 @@ export async function aiProcessAssistantChat({
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
+  const writingStyle = await getWritingStyle({ emailAccountId }).catch(
+    (error) => {
+      logger.warn("Failed to load writing style for chat", { error });
+      return null;
+    },
+  );
   const system = buildResolvedSystemPrompt({
     emailSendToolsEnabled,
     draftReplyActionsEnabled,
@@ -134,6 +142,7 @@ export async function aiProcessAssistantChat({
     messagingPlatform,
     userTimezone,
     currentTimestamp,
+    writingStyle,
   });
   const toolOptions = {
     email: user.email,
@@ -688,6 +697,7 @@ export function buildResolvedSystemPrompt({
   messagingPlatform,
   userTimezone,
   currentTimestamp,
+  writingStyle,
 }: {
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
@@ -697,6 +707,7 @@ export function buildResolvedSystemPrompt({
   messagingPlatform?: MessagingPlatform;
   userTimezone: string;
   currentTimestamp: string;
+  writingStyle?: string | null;
 }) {
   const providerPolicy = getAssistantChatProvider(provider);
   const sections = [
@@ -726,6 +737,7 @@ export function buildResolvedSystemPrompt({
       emailSendToolsEnabled,
       draftReplyActionsEnabled,
     }),
+    getWritingStylePolicy(writingStyle),
     `Durable context destinations:
 - Choose where to store durable context by how it will be used, not by whether it needs confirmation.
 - Personal instructions are for stable user preferences, background, tone, and future assistant behavior across workflows.
@@ -800,6 +812,18 @@ export function buildResolvedSystemPrompt({
   ];
 
   return sections.filter(Boolean).join("\n\n");
+}
+
+function getWritingStylePolicy(writingStyle?: string | null) {
+  const trimmed = writingStyle?.trim();
+  if (!trimmed) return "";
+
+  return `Writing style:
+- When drafting, replying to, or forwarding emails on the user's behalf, match this writing style. Apply it across all surfaces (web, Slack, Telegram, etc.), not only auto-generated drafts. Mirror the original sender's tone only when the style does not otherwise apply.
+
+<writing_style>
+${escapeHtml(trimmed)}
+</writing_style>`;
 }
 
 function getFormattingRules(responseSurface: "web" | "messaging") {
