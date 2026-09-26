@@ -293,6 +293,18 @@ export const operationInspectRequestSchema = z.object({
   receiptId: z.string().max(256).nullable(),
 });
 
+export const operationCancelRequestSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string().min(1).max(128),
+  session: accountSessionSchema,
+});
+
+export const operationCancelResultSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string(),
+  status: z.enum(["cancelled", "too_late"]),
+});
+
 export const assistantStateRequestSchema = z.object({
   protocolVersion: mailProtocolVersionSchema,
   requestId: z.string().min(1).max(128),
