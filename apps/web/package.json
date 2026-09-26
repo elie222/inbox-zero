@@ -17,6 +17,8 @@
     "emulate:stripe": "tsx scripts/run-stripe-emulator.ts",
     "emulate:llm": "tsx scripts/run-llm-emulator.ts",
     "emulate:seed": "tsx scripts/write-emulate-seed.ts",
+    "emulator:down": "node scripts/emulator/stack.mjs down",
+    "emulator:up": "node scripts/emulator/stack.mjs up",
     "eval:ablate": "dotenv -o -e .env.test -- tsx --tsconfig tsconfig.eval-script.json scripts/eval-ablate.ts",
     "eval:compare": "tsx --tsconfig tsconfig.eval-script.json scripts/eval-compare-runs.ts",
     "eval:pool-ablations": "tsx --tsconfig tsconfig.eval-script.json scripts/eval-pool-ablations.ts",
