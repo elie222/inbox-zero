@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useRef, useState } from "react";
+import { type ReactNode, useReducer, useRef, useState } from "react";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -21,7 +21,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Toggle } from "@/components/Toggle";
+import { Switch } from "@/components/ui/switch";
+import {
+  Item,
+  ItemActions,
+  ItemCard,
+  ItemContent,
+  ItemDescription,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Badge } from "@/components/ui/badge";
 import { hasTierAccess } from "@/utils/premium";
 import {
@@ -211,43 +220,40 @@ export function BulkRunRules() {
                 />
               </div>
 
-              <Toggle
-                name="include-read"
-                label="Include read emails"
-                enabled={includeRead}
-                onChange={(enabled) => setIncludeRead(enabled)}
-                disabled={isProcessing || !isBusinessPlusTier}
-                explainText={
-                  !isBusinessPlusTier && hasAiAccess
-                    ? "Including read emails is available on the Professional plan."
-                    : undefined
-                }
-              />
-
-              <div className="flex items-center gap-2">
-                <Toggle
-                  name="rerun"
-                  label="Re-process emails already handled"
-                  enabled={isRerunEnabled}
-                  onChange={(enabled) => setRerun(enabled)}
-                  disabled={isProcessing || !hasRerunAccess}
-                  disabledTooltipText={
-                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
+              <ItemCard>
+                <ToggleRow
+                  title="Include read emails"
+                  description={
+                    isBusinessPlusTier || !hasAiAccess
+                      ? "Also process emails you've already opened."
+                      : "Including read emails is available on the Professional plan."
                   }
-                  tooltipText="Runs your rules again on emails that already have a result. Use this after changing your rules."
+                  checked={includeRead}
+                  onCheckedChange={setIncludeRead}
+                  disabled={isProcessing || !isBusinessPlusTier}
                 />
-                {!hasRerunAccess && <ProfessionalPlanBadge />}
-              </div>
-
-              <Toggle
-                name="generate-draft-replies"
-                ariaLabel="Generate draft replies"
-                label="Generate draft replies"
-                enabled={generateDraftReplies}
-                onChange={setGenerateDraftReplies}
-                disabled={isBusy}
-                explainText="Run draft reply actions from your rules for these emails, including drafts sent to connected messaging channels. Off by default."
-              />
+                <ItemSeparator />
+                <ToggleRow
+                  title="Re-process emails already handled"
+                  badge={!hasRerunAccess && <ProfessionalPlanBadge />}
+                  description={
+                    hasRerunAccess
+                      ? "Run your rules again on emails that already have a result. Use this after changing your rules."
+                      : RERUN_UPGRADE_MESSAGE
+                  }
+                  checked={isRerunEnabled}
+                  onCheckedChange={setRerun}
+                  disabled={isProcessing || !hasRerunAccess}
+                />
+                <ItemSeparator />
+                <ToggleRow
+                  title="Generate draft replies"
+                  description="Run draft reply actions from your rules, including drafts sent to connected messaging channels."
+                  checked={generateDraftReplies}
+                  onCheckedChange={setGenerateDraftReplies}
+                  disabled={isBusy}
+                />
+              </ItemCard>
 
               {isTrial && (
                 <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
@@ -329,6 +335,44 @@ export function BulkRunRules() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ToggleRow({
+  title,
+  description,
+  badge,
+  checked,
+  onCheckedChange,
+  disabled,
+}: {
+  title: string;
+  description: string;
+  badge?: ReactNode;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled: boolean;
+}) {
+  return (
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>
+          {title}
+          {badge}
+        </ItemTitle>
+        <ItemDescription className="line-clamp-none">
+          {description}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Switch
+          aria-label={title}
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          disabled={disabled}
+        />
+      </ItemActions>
+    </Item>
   );
 }
 
