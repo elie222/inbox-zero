@@ -8,6 +8,7 @@ import {
   expectSeamlessReplyHandoff,
   openMail,
   readLatestMailMutation,
+  UNDO_WINDOW_SEND_TIMEOUT_MS,
   watchReplyHandoff,
 } from "./mail-test-helpers";
 
@@ -35,14 +36,17 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
   const handoff = await watchReplyHandoff(page, "Edited saved reply");
   await page.getByRole("button", { name: "Send", exact: true }).first().click();
   await expect
-    .poll(async () => {
-      const row = await readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "reply",
-        threadId: "thr_draft_indicator",
-      });
-      return row;
-    })
+    .poll(
+      async () => {
+        const row = await readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_draft_indicator",
+        });
+        return row;
+      },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
     .toMatchObject({
       status: "succeeded",
     });

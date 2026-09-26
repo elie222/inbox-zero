@@ -13,8 +13,10 @@ import {
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
+  UNDO_WINDOW_SEND_TIMEOUT_MS,
   waitForComposeOutboxSend,
   watchReplyHandoff,
+  withClient,
 } from "./mail-test-helpers";
 
 test("composes, sends, and reads a new message from Sent", async ({
@@ -348,7 +350,7 @@ test("opens and sends a reply from the reader with Enter", async ({
           kind: "reply",
           threadId: "thr_playwright_reply",
         }),
-      { timeout: 20_000 },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
@@ -415,18 +417,21 @@ test("moves a sent reply from its composer into the thread without a gap", async
     .getByRole("button", { name: "Send", exact: true })
     .click();
 
-  const sendingRow = page
+  // The undo window is still open, so the provider has not sent it yet, but
+  // the reply already reads as sent, with its time and a way to undo it.
+  const sentRow = page
     .locator("li[data-thread-message-id]")
-    .filter({ hasText: "Sending…" });
-  await expect(sendingRow).toBeVisible();
-  // The undo window is still open, so the provider has not sent it yet.
+    .filter({ has: page.getByRole("button", { name: "Undo send" }) });
+  await expect(sentRow).toBeVisible();
+  await expect(sentRow.locator("time")).toBeVisible();
+  await expect(sentRow.getByText("Sending…")).toHaveCount(0);
   await expect(
     page
       .getByRole("region", { name: "Notifications alt+T" })
       .getByRole("button", { name: /^Undo/ }),
   ).toBeVisible();
   await expectThreadReaderBody(page, replyBody, 3000);
-  await capturePlaywrightCheckpoint(page, testInfo, "reply-sending-in-thread");
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-with-undo");
 
   await expect
     .poll(
@@ -436,12 +441,120 @@ test("moves a sent reply from its composer into the thread without a gap", async
           kind: "reply",
           threadId: "thr_playwright_reply",
         }),
-      { timeout: 20_000 },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
-  await expect(sendingRow).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Undo send" })).toHaveCount(0);
   await expectThreadReaderBody(page, replyBody);
   expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
+});
+
+test("undoes a sent reply from the thread and restores its text", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const editor = sourceMessage.getByRole("textbox", { name: "Email message" });
+  const replyBody = `A reply taken back from the thread. ${testInfo.retry}`;
+  await editor.pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const undo = page
+    .locator("li[data-thread-message-id]")
+    .getByRole("button", { name: "Undo send" });
+  await expect(undo).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await undo.click();
+
+  const restored = sourceMessage.getByRole("textbox", {
+    name: "Email message",
+  });
+  await expect(restored).toContainText(replyBody);
+  await expect(undo).toHaveCount(0);
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toBeUndefined();
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-undone-from-thread");
+});
+
+test("sends a reply after its tab closes during the undo window", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply that outlives its tab. ${testInfo.retry}`;
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  await expect
+    .poll(() => readHeldReply(emailAccountId, replyBody), { timeout: 20_000 })
+    .toMatchObject({ status: "PENDING" });
+
+  // Leaving the page stops this browser's mail engine, so only the server
+  // can still deliver the reply.
+  await page.goto("about:blank");
+  const held = await readHeldReply(emailAccountId, replyBody);
+  const internalApiKey = process.env.INTERNAL_API_KEY;
+  if (!held || !internalApiKey) {
+    throw new Error("Expected a held reply and an internal API key");
+  }
+  await withClient((client) =>
+    client.query(
+      `UPDATE "ScheduledEmail" SET "sendAt" = now() - interval '1 second' WHERE id = $1`,
+      [held.id],
+    ),
+  );
+  const delivered = await request.post("/api/scheduled-emails/execute", {
+    data: { scheduledEmailId: held.id },
+    headers: { "x-api-key": internalApiKey },
+  });
+
+  expect(delivered.ok()).toBe(true);
+  await expect
+    .poll(() =>
+      withClient(async (client) => {
+        const result = await client.query<{ status: string }>(
+          `SELECT status FROM "ScheduledEmail" WHERE id = $1`,
+          [held.id],
+        );
+        return result.rows[0]?.status;
+      }),
+    )
+    .toBe("SENT");
 });
 
 test("focuses the To field when forwarding", async ({ page }) => {
@@ -498,7 +611,7 @@ test("keeps a sent forward in the thread it came from", async ({
           kind: "reply",
           threadId: "thr_playwright_reply",
         }),
-      { timeout: 20_000 },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
   await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
@@ -575,3 +688,17 @@ test("keeps reply and forward drafts in separate composer sessions", async ({
     0,
   );
 });
+
+async function readHeldReply(emailAccountId: string, replyBody: string) {
+  return withClient(async (client) => {
+    const result = await client.query<{ id: string; status: string }>(
+      `SELECT id, status FROM "ScheduledEmail"
+       WHERE "emailAccountId" = $1
+         AND "heldForUndo"
+         AND payload->'email'->>'messageHtml' LIKE $2
+       LIMIT 1`,
+      [emailAccountId, `%${replyBody}%`],
+    );
+    return result.rows[0];
+  });
+}

@@ -73,7 +73,9 @@ export function EmailMessage({
   onSelect,
   onNavigateMessage,
   sentMessageOpen,
-  sending = false,
+  replyAnchor,
+  composerSessionMessageId,
+  onUndoSend,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -99,8 +101,12 @@ export function EmailMessage({
   onSelect?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   sentMessageOpen?: SentMessageOpenState;
-  /** A reply queued on this device that the provider hasn't sent yet. */
-  sending?: boolean;
+  /** For a reply the provider hasn't sent yet: the message replies thread on. */
+  replyAnchor?: ThreadMessage;
+  /** Keeps a composer's draft when this message's id changes under it. */
+  composerSessionMessageId?: string;
+  /** Present while this sent message is still inside its undo window. */
+  onUndoSend?: () => void;
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
@@ -113,7 +119,8 @@ export function EmailMessage({
     composeOverride,
     defaultComposeMode,
     (mode) =>
-      getReplyDraftSessionId(message.id, mode) === poppedOutDraftSessionId,
+      getReplyDraftSessionId(composerSessionMessageId ?? message.id, mode) ===
+      poppedOutDraftSessionId,
   );
   const serverDrafts = (draftMessages ?? []).map((draft) => ({
     message: draft,
@@ -266,7 +273,7 @@ export function EmailMessage({
         toggleDetails={toggleDetails}
         hasDraft={hasDraft || visibleDrafts.length > 0}
         sentMessageOpen={sentMessageOpen}
-        sending={sending}
+        onUndoSend={onUndoSend}
       />
 
       {expanded && (
@@ -333,7 +340,9 @@ export function EmailMessage({
               key={composerKey}
               autoScroll
               bodyAvailable={bodyAvailable}
+              draftSessionMessageId={composerSessionMessageId}
               message={message}
+              replyAnchor={replyAnchor}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
@@ -369,7 +378,7 @@ function MessageHeader({
   onToggleKeyDown,
   hasDraft,
   sentMessageOpen,
-  sending,
+  onUndoSend,
 }: {
   message: ParsedMessage;
   menu?: React.ReactNode;
@@ -384,7 +393,7 @@ function MessageHeader({
   onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
-  sending: boolean;
+  onUndoSend?: () => void;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -558,17 +567,24 @@ function MessageHeader({
         {isSent &&
           !message.labelIds?.includes(GmailLabel.DRAFT) &&
           sentMessageOpen && <SentMessageOpenStatus open={sentMessageOpen} />}
-        {sending ? (
-          <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">
-            Sending…
-          </span>
-        ) : (
-          <time
-            className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
-            dateTime={message.headers.date}
+        <time
+          className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
+          dateTime={message.headers.date}
+        >
+          {formatShortDate(new Date(message.headers.date))}
+        </time>
+        {onUndoSend && (
+          <button
+            aria-label="Undo send"
+            className="shrink-0 rounded-sm text-primary text-xs underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={(event) => {
+              event.stopPropagation();
+              onUndoSend();
+            }}
+            type="button"
           >
-            {formatShortDate(new Date(message.headers.date))}
-          </time>
+            Undo
+          </button>
         )}
       </div>
     </div>
@@ -590,6 +606,7 @@ function ReplyPanel({
   draftBodyAvailable = true,
   autoScroll = false,
   bodyAvailable = true,
+  replyAnchor,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -605,9 +622,11 @@ function ReplyPanel({
   draftBodyAvailable?: boolean;
   autoScroll?: boolean;
   bodyAvailable?: boolean;
+  replyAnchor?: ParsedMessage;
 }) {
   const { emailAccountId } = useAccount();
   const { popOutReply } = useComposeModal();
+  const replyTargetId = replyAnchor?.id ?? message.id;
   const draftSessionId = getReplyDraftSessionId(
     draftSessionMessageId ?? message.id,
     composeMode,
@@ -641,10 +660,12 @@ function ReplyPanel({
     if (composeMode === "reply") {
       if (draftSource) return prepareDraftReplyEmail(draftSource);
 
-      return prepareReplyingToEmail(message);
+      return prepareReplyingToEmail(message, replyAnchor);
     }
-    return forwardSource ? prepareForwardingEmail(forwardSource) : undefined;
-  }, [composeMode, message, draftSource, forwardSource]);
+    return forwardSource
+      ? prepareForwardingEmail(forwardSource, Boolean(replyAnchor))
+      : undefined;
+  }, [composeMode, message, draftSource, forwardSource, replyAnchor]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -725,7 +746,7 @@ function ReplyPanel({
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
         }
-        draftKeyMessageId={message.id}
+        draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
         onClose={onCloseCompose}
@@ -735,7 +756,7 @@ function ReplyPanel({
           popOutReply({
             emailAccountId,
             draftSessionId,
-            draftKeyMessageId: message.id,
+            draftKeyMessageId: replyTargetId,
             draftMode: composeMode,
             providerDraftMessageId:
               composeMode === "reply" ? draftMessage?.id : undefined,
@@ -796,7 +817,7 @@ function recipientSummary(to: string | undefined, userEmail: string) {
 
 const prepareReplyingToEmail = (
   message: ParsedMessage,
-  content = "",
+  threadOn: ParsedMessage = message,
 ): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
@@ -809,25 +830,29 @@ const prepareReplyingToEmail = (
     subject: sentFromUser
       ? message.headers.subject
       : formatReplySubject(message.headers.subject),
-    headerMessageId: message.headers["message-id"] || undefined,
-    messageId: message.id || undefined,
-    threadId: message.threadId || undefined,
+    headerMessageId: threadOn.headers["message-id"] || undefined,
+    messageId: threadOn.id || undefined,
+    threadId: threadOn.threadId || undefined,
     // Keep original CC
     cc: message.headers.cc,
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
-    references: message.headers.references,
-    draftHtml: content || "",
+    references: threadOn.headers.references,
+    draftHtml: "",
     quotedContentHtml: html,
   };
 };
 
-const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
+const prepareForwardingEmail = (
+  message: ParsedMessage,
+  unsent = false,
+): ReplyingToEmail => ({
   to: "",
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
-  forwardedMessageId: message.id || undefined,
+  // The provider has no copy of an unsent message to forward from.
+  forwardedMessageId: unsent ? undefined : message.id || undefined,
   forwardedAttachments: message.attachments?.map((attachment) => ({
     id: attachment.attachmentId,
     filename: attachment.filename,

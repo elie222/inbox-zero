@@ -2048,7 +2048,8 @@ async function waitForComposeClosed(window: BrowserWindow) {
 }
 
 async function waitForSendSucceeded(window: BrowserWindow) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  // The send leaves once its 30-second undo window closes.
+  for (let attempt = 0; attempt < 160; attempt += 1) {
     const result = (await window.webContents.executeJavaScript(`
       (async () => {
         const inspect = window.__inboxZeroMailInspect;
