@@ -9,6 +9,8 @@ import {
   type InspectCommand,
 } from "@/utils/playwright/mail-inspect-command";
 
+// A send goes out once its 30-second undo window closes.
+export const UNDO_WINDOW_SEND_TIMEOUT_MS = 60_000;
 const DEFAULT_SPLIT_RULE_ID = "playwright-default-split-rule";
 const DEFAULT_SPLIT_ACTION_ID = "playwright-default-split-action";
 const DEFAULT_SPLIT_LABEL_ID = "Label_project";
@@ -84,7 +86,7 @@ export async function waitForComposeOutboxSend(
           kind: "reply",
           threadId: "compose:new-message",
         }),
-      { timeout: 20_000 },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
 }

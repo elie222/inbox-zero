@@ -881,6 +881,8 @@ model ScheduledEmail {
   remindAt            DateTime?
   reminderStatus      EmailReminderStatus  @default(NONE)
   reminderStartedAt   DateTime?
+  // A just-sent email the server holds for the undo window, not one the user scheduled.
+  heldForUndo         Boolean              @default(false)
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])

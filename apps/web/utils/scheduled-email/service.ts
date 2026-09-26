@@ -12,25 +12,21 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { isSameEmailAddress } from "@/utils/email";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
+import { publishToQstashAt } from "@/utils/upstash";
 
 const LEASE_MS = 5 * 60 * 1000;
+const HELD_EMAIL_EXECUTE_PATH = "/api/scheduled-emails/execute";
 
 export async function scheduleEmail(
   emailAccountId: string,
   input: z.infer<typeof scheduleEmailBody>,
   now = new Date(),
 ) {
-  const payloadHash = createHash("sha256")
-    .update(JSON.stringify(input))
-    .digest("hex");
-  const existing = await prisma.scheduledEmail.findUnique({
-    where: {
-      emailAccountId_clientMutationId: {
-        emailAccountId,
-        clientMutationId: input.clientMutationId,
-      },
-    },
-  });
+  const payloadHash = hashPayload(input);
+  const existing = await findScheduledEmail(
+    emailAccountId,
+    input.clientMutationId,
+  );
   if (existing) {
     assertReusableRequest(existing, payloadHash);
     return existing;
@@ -72,6 +68,148 @@ export async function scheduleEmail(
     assertReusableRequest(duplicate, payloadHash);
     return duplicate;
   }
+}
+
+/**
+ * Holds a just-sent email on the server for its undo window, so it still goes
+ * out if the client that sent it goes away. Repeats return the same hold.
+ */
+export async function holdEmailForUndo({
+  emailAccountId,
+  input,
+  sendAt,
+  logger,
+}: {
+  emailAccountId: string;
+  input: z.infer<typeof scheduleEmailBody>;
+  sendAt: Date;
+  logger: Logger;
+}) {
+  const existing = await findScheduledEmail(
+    emailAccountId,
+    input.clientMutationId,
+  );
+  if (existing) return existing;
+  let row: ScheduledEmail;
+  try {
+    row = await prisma.scheduledEmail.create({
+      data: {
+        emailAccountId,
+        clientMutationId: input.clientMutationId,
+        payloadHash: hashPayload(input),
+        payload: input,
+        threadId: input.threadId,
+        sendAt,
+        heldForUndo: true,
+      },
+    });
+  } catch (error) {
+    if (!isDuplicateError(error)) throw error;
+    return prisma.scheduledEmail.findUniqueOrThrow({
+      where: {
+        emailAccountId_clientMutationId: {
+          emailAccountId,
+          clientMutationId: input.clientMutationId,
+        },
+      },
+    });
+  }
+  try {
+    await publishToQstashAt({
+      path: HELD_EMAIL_EXECUTE_PATH,
+      body: { scheduledEmailId: row.id },
+      notBefore: row.sendAt,
+      deduplicationId: `held-email-${row.id}`,
+    });
+  } catch (error) {
+    logger.error("Could not schedule held email delivery; cron will send it", {
+      error,
+      scheduledEmailId: row.id,
+    });
+  }
+  return row;
+}
+
+/** Sends a held email once its undo window is over. */
+export async function releaseHeldEmail(
+  row: ScheduledEmail,
+  logger: Logger,
+  now = new Date(),
+) {
+  // A user-scheduled email keeps its own time and explicit retry.
+  if (!row.heldForUndo) return row;
+  if (row.status === "BLOCKED_AUTH") {
+    // The client asked again, so the account may be reconnected by now.
+    await prisma.scheduledEmail.updateMany({
+      where: { id: row.id, status: "BLOCKED_AUTH" },
+      data: {
+        status: "PENDING",
+        sendAt: now,
+        processingStartedAt: null,
+        error: null,
+      },
+    });
+  } else if (row.status !== "PENDING" || row.sendAt > now) {
+    return row;
+  }
+  await processScheduledEmail(row.id, logger, now);
+  return prisma.scheduledEmail.findUniqueOrThrow({ where: { id: row.id } });
+}
+
+/**
+ * Stops a held email unless it has started sending. Undo can reach the server
+ * before the send does, so an unknown email is recorded as cancelled and
+ * never held afterwards.
+ */
+export async function cancelHeldEmail(
+  emailAccountId: string,
+  clientMutationId: string,
+): Promise<"cancelled" | "too_late"> {
+  const cancelled = await prisma.scheduledEmail.updateMany({
+    where: {
+      emailAccountId,
+      clientMutationId,
+      heldForUndo: true,
+      status: { in: ["PENDING", "BLOCKED_AUTH"] },
+    },
+    data: { status: "CANCELLED", error: null, payload: {} },
+  });
+  if (cancelled.count) return "cancelled";
+  const existing = await findScheduledEmail(emailAccountId, clientMutationId);
+  if (existing) {
+    return existing.heldForUndo && existing.status === "CANCELLED"
+      ? "cancelled"
+      : "too_late";
+  }
+  try {
+    await prisma.scheduledEmail.create({
+      data: {
+        emailAccountId,
+        clientMutationId,
+        payloadHash: "",
+        payload: {},
+        threadId: null,
+        sendAt: new Date(),
+        status: "CANCELLED",
+        heldForUndo: true,
+      },
+    });
+    return "cancelled";
+  } catch (error) {
+    if (!isDuplicateError(error)) throw error;
+    return cancelHeldEmail(emailAccountId, clientMutationId);
+  }
+}
+
+export function findScheduledEmail(
+  emailAccountId: string,
+  clientMutationId: string,
+) {
+  return prisma.scheduledEmail.findUnique({
+    where: {
+      emailAccountId_clientMutationId: { emailAccountId, clientMutationId },
+    },
+  });
 }
 
 export async function cancelScheduledEmail(emailAccountId: string, id: string) {
@@ -210,6 +348,8 @@ export async function processScheduledEmail(
           // The reminder needs the thread the send actually landed in.
           threadId: row.threadId ?? getSentThreadId(outcome.result),
           error: null,
+          // Nothing lists a sent undo hold, so its body and files can go.
+          ...(row.heldForUndo ? { payload: {} } : {}),
         },
       });
     } else if (outcome.status === "retry") {
@@ -373,6 +513,10 @@ function getSentThreadId(result: unknown) {
     if (typeof threadId === "string" && threadId) return threadId;
   }
   return null;
+}
+
+function hashPayload(input: z.infer<typeof scheduleEmailBody>) {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
 function assertReusableRequest(

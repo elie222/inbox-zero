@@ -14,6 +14,12 @@
     "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
+  "hosted-electron-send.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/desktop-ipc.ts",
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/undo-send.ts"
+  ],
   "hosted-electron-archive.spec.ts": [
     "utils/mail-engine/MailEngineHost.tsx",
     "utils/mail-engine/desktop-ipc.ts",

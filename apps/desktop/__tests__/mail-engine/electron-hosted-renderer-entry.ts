@@ -326,7 +326,16 @@ async function proveSend(
   await delay(3000);
   await clickSend(window);
   await waitForComposeClosed(window);
-  const sendSucceeded = await waitForSendSucceeded(window);
+  // Once the server holds the send for its undo window, closing the page must
+  // not stop it. Leaving also keeps the idle page off the emulator's quota.
+  await waitForNativeSendStatus(owner, accountId, ["verifying", "succeeded"]);
+  const mailUrl = window.webContents.getURL();
+  await window.loadURL("about:blank");
+  const sendSucceeded = Boolean(
+    await waitForNativeSendStatus(owner, accountId, ["succeeded"]),
+  );
+  await window.loadURL(mailUrl);
+  await waitForConversations(window);
   await openDraftsMailbox(window);
   await waitForSubjectGone(window, SEND_SUBJECT);
   const nativeDraftsAfterSend = await waitForNativeRoleSubject(
@@ -2047,32 +2056,35 @@ async function waitForComposeClosed(window: BrowserWindow) {
   throw new Error("New Message dialog stayed open after send");
 }
 
-async function waitForSendSucceeded(window: BrowserWindow) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const result = (await window.webContents.executeJavaScript(`
-      (async () => {
-        const inspect = window.__inboxZeroMailInspect;
-        if (!inspect?.read) return { status: "missing" };
-        const diagnostics = await inspect.read();
-        const send = diagnostics?.commands
-          ?.filter((command) => command.kind === "send")
-          .at(-1);
-        return send
-          ? { status: send.status, kind: send.kind }
-          : { status: "missing" };
-      })()
-    `)) as { status?: string };
-    if (result.status === "succeeded") return true;
+async function waitForNativeSendStatus(
+  owner: Awaited<ReturnType<typeof createDesktopMailOwner>>,
+  accountId: string,
+  statuses: string[],
+) {
+  // The send leaves once its 30-second undo window closes.
+  for (let attempt = 0; attempt < 160; attempt += 1) {
+    const response = (await owner.handleIpc({
+      protocolVersion: 1,
+      requestId: "hosted-send-status",
+      method: "getDiagnostics",
+      payload: { accountId },
+    })) as {
+      result?: { commands?: Array<{ kind: string; status: string }> };
+    };
+    const status = response.result?.commands
+      ?.filter((command) => command.kind === "send")
+      .at(-1)?.status;
+    if (status && statuses.includes(status)) return status;
     if (
-      result.status === "failed" ||
-      result.status === "cancelled" ||
-      result.status === "needs_attention"
+      status === "failed" ||
+      status === "cancelled" ||
+      status === "needs_attention"
     ) {
-      throw new Error(`hosted send ${result.status}`);
+      throw new Error(`hosted send ${status}`);
     }
     await delay(500);
   }
-  throw new Error("hosted send never reached succeeded");
+  throw new Error(`hosted send never reached ${statuses.join(" or ")}`);
 }
 
 async function waitForStarredReader(window: BrowserWindow) {

@@ -58,6 +58,34 @@ export async function publishToQstash<T>(
   );
 }
 
+/**
+ * Delivers `body` to `path` no earlier than `notBefore`. Resolves `false` when
+ * QStash is unavailable, so callers keep their own fallback, such as the cron.
+ */
+export async function publishToQstashAt<T>({
+  path,
+  body,
+  notBefore,
+  deduplicationId,
+}: {
+  path: string;
+  body: T;
+  notBefore: Date;
+  deduplicationId: string;
+}) {
+  const url = `${getQstashCallbackBaseUrl()}${path}`;
+  const client = getQstashClient(url);
+  if (!client) return false;
+  await client.publishJSON({
+    url,
+    body,
+    notBefore: Math.ceil(notBefore.getTime() / 1000),
+    deduplicationId,
+    retries: 3,
+  });
+  return true;
+}
+
 export async function bulkPublishToQstash<T>({
   items,
 }: {

@@ -51,6 +51,12 @@ describe("engine send delivery status", () => {
     ).toBe(true);
   });
 
+  it("stays quiet offline about a send the server is already holding", () => {
+    expect(
+      shouldShowEngineDeliveryStatus({ online: false, status: "verifying" }),
+    ).toBe(false);
+  });
+
   it("labels blocked and failed sends", () => {
     expect(engineDeliveryLabel("blocked_auth", true)).toBe(
       "Reconnect your account to send this reply",

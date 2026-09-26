@@ -19,6 +19,8 @@ import {
   mailHttpErrorSchema,
   operationAdmitRequestSchema,
   operationAdmitResultSchema,
+  operationCancelRequestSchema,
+  operationCancelResultSchema,
   operationInspectRequestSchema,
   scopesRequestSchema,
   scopesResultSchema,
@@ -362,6 +364,27 @@ export function createBackendOperationExecutor(input: {
       const error = parseError(response);
       if (error) return mapExecutionError(error);
       return operationAdmitResultSchema.parse(response.json);
+    },
+    async cancel({ operation, signal }) {
+      try {
+        const response = await request({
+          method: "DELETE",
+          path: `${base}/operations/${encodeURIComponent(operation.key.operationId)}`,
+          body: operationCancelRequestSchema.parse({
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: `cancel-${operation.key.operationId}`,
+            session: operation.session,
+          }),
+          signal,
+        });
+        const parsed = operationCancelResultSchema.safeParse(response.json);
+        if (response.status >= 400 || !parsed.success) {
+          return { status: "unavailable" };
+        }
+        return { status: parsed.data.status };
+      } catch {
+        return { status: "unavailable" };
+      }
     },
     async stageUpload({
       session,

@@ -22,7 +22,10 @@ import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
-import type { OperationStatus } from "@inboxzero/mail-core/operations";
+import {
+  undoPendingSend,
+  useUndoableSendId,
+} from "@/app/(app)/[emailAccountId]/compose/undo-send";
 
 const NO_OUTGOING: OutgoingThreadMessage[] = [];
 
@@ -93,6 +96,13 @@ export function EmailThread({
   );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
+  // A reply that hasn't reached the provider has no id to thread on yet, so
+  // replying to it threads on the newest message the provider has.
+  const replyAnchor = organizedMessages.findLast(
+    ({ message, outgoing }) =>
+      !outgoing && !message.labelIds?.includes(GmailLabel.DRAFT),
+  )?.message;
+  const undoableSendId = useUndoableSendId();
 
   const [expansionOverrides, setExpansionOverrides] = useState<
     Map<string, boolean>
@@ -294,8 +304,16 @@ export function EmailThread({
                 // message IDs, and a sent row keeps the place of its outgoing copy.
                 key={`${sendOperationId ?? getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
                 message={message}
-                menu={outgoing ? undefined : renderMessageMenu?.(message)}
-                sending={outgoing ? isSendingStatus(outgoing.status) : false}
+                menu={renderMessageMenu?.(message)}
+                replyAnchor={outgoing ? replyAnchor : undefined}
+                composerSessionMessageId={
+                  sendOperationId ? `outgoing:${sendOperationId}` : undefined
+                }
+                onUndoSend={
+                  sendOperationId && sendOperationId === undoableSendId
+                    ? () => undoPendingSend(sendOperationId)
+                    : undefined
+                }
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
                 onExpand={() =>
@@ -331,7 +349,6 @@ export function EmailThread({
                 sentMessageOpen={sentMessageOpens?.opens[message.id]}
                 showReplyButton={
                   showReplyButton &&
-                  !outgoing &&
                   !message.labelIds?.includes(GmailLabel.DRAFT)
                 }
               />
@@ -359,15 +376,6 @@ export function EmailThread({
         )}
       </div>
     </OpenedConversationAttachments>
-  );
-}
-
-function isSendingStatus(status: OperationStatus) {
-  return (
-    status === "queued" ||
-    status === "executing" ||
-    status === "verifying" ||
-    status === "retry_wait"
   );
 }
 
