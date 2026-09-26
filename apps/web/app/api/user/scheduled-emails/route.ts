@@ -42,6 +42,7 @@ async function getThreadData(emailAccountId: string, threadId: string) {
     where: {
       emailAccountId,
       threadId,
+      heldForUndo: false,
       status: { not: "CANCELLED" },
       OR: [
         { status: { not: "SENT" } },
@@ -79,6 +80,7 @@ async function getUpcomingData(emailAccountId: string) {
       "payload" -> 'email' ->> 'subject' AS "subject"
     FROM "ScheduledEmail"
     WHERE "emailAccountId" = ${emailAccountId}
+      AND NOT "heldForUndo"
       AND "status"::text IN (${Prisma.join(UPCOMING_STATUSES)})
     ORDER BY "sendAt" ASC
     LIMIT 200

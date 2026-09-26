@@ -598,6 +598,7 @@ function row(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
     remindAt: null,
     reminderStatus: "NONE",
     reminderStartedAt: null,
+    heldForUndo: false,
     ...overrides,
   };
 }

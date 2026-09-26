@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
+import type {
+  ExecutionResult,
+  OperationExecutor,
+} from "@inboxzero/mail-core/ports/operation-executor";
 import type {
   PreparedOperation,
   TargetOutcome,
@@ -16,6 +19,14 @@ import {
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
+import {
+  cancelHeldEmail,
+  findScheduledEmail,
+  holdEmailForUndo,
+  releaseHeldEmail,
+} from "@/utils/scheduled-email/service";
+import type { ScheduledEmail } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import {
   activatePreparedSnoozedThread,
@@ -34,8 +45,13 @@ import {
   releaseAccountUploadHolds,
 } from "@/utils/mail-api/upload-blobs";
 import type { ParsedMessage } from "@/utils/types";
+import type { Attachment } from "@/utils/types/mail";
+import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 
 const logger = createScopedLogger("mail-api/operations");
+const HELD_SEND_POLL_MS = 2000;
+const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
+type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
 };
@@ -462,6 +478,9 @@ async function executeSend(
   if (operation.intent.kind !== "send") {
     return { status: "rejected" as const, code: "unsupported", targets: [] };
   }
+  if (operation.intent.sendAtMs !== undefined) {
+    return driveHeldSend(provider, accountId, operation);
+  }
   try {
     await holdAccountUploads(accountId, operation.intent.attachmentIds);
     const loadedAttachments = await loadSendAttachments(
@@ -484,34 +503,7 @@ async function executeSend(
       input: {
         mutationId: sendMutationId(operation.key.operationId),
         queuedAt: operation.intent.queuedAtMs,
-        threadId: operation.intent.replyToMessageId
-          ? operation.intent.replyToConversationId
-          : null,
-        messageIds: operation.intent.replyToMessageId
-          ? [operation.intent.replyToMessageId]
-          : [operation.intent.frozenDraftId],
-        email: {
-          to: operation.intent.to.join(", "),
-          cc: operation.intent.cc.join(", ") || undefined,
-          bcc: operation.intent.bcc.join(", ") || undefined,
-          subject: operation.intent.subject,
-          messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
-          replyToEmail:
-            operation.intent.replyToMessageId &&
-            operation.intent.replyToConversationId
-              ? {
-                  threadId: operation.intent.replyToConversationId,
-                  messageId: operation.intent.replyToMessageId,
-                }
-              : undefined,
-          attachments:
-            loadedAttachments.attachments.length > 0
-              ? loadedAttachments.attachments
-              : undefined,
-          ...(operation.intent.providerDraftId
-            ? { providerDraftId: operation.intent.providerDraftId }
-            : {}),
-        },
+        ...sendRequest(operation.intent, loadedAttachments.attachments),
       },
     });
     const result = mapSendOutcome(
@@ -529,6 +521,141 @@ async function executeSend(
 }
 
 async function inspectSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+) {
+  if (
+    operation.intent.kind === "send" &&
+    operation.intent.sendAtMs !== undefined
+  ) {
+    return driveHeldSend(provider, accountId, operation);
+  }
+  return inspectSendOperation(provider, accountId, operation);
+}
+
+/**
+ * Sends the server holds for their undo window. Execute and inspect both land
+ * here: the first call holds the email, and any call after its window sends
+ * it, so a client that stays around doesn't wait on the cron.
+ */
+async function driveHeldSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+): Promise<ExecutionResult> {
+  const { intent } = operation;
+  if (intent.kind !== "send" || intent.sendAtMs === undefined) {
+    return { status: "rejected", code: "unsupported", targets: [] };
+  }
+  const mutationId = sendMutationId(operation.key.operationId);
+  let row = await findScheduledEmail(accountId, mutationId);
+  if (!row) {
+    const held = await holdEngineSend(accountId, mutationId, {
+      ...intent,
+      sendAtMs: intent.sendAtMs,
+    });
+    if (held.status === "rejected") return held;
+    row = held.row;
+  }
+  if (!row.heldForUndo) {
+    return { status: "rejected", code: "invalid", targets: [] };
+  }
+  const current = await releaseHeldEmail(row, logger);
+  return heldSendResult(provider, accountId, operation, current);
+}
+
+async function holdEngineSend(
+  accountId: string,
+  mutationId: string,
+  intent: SendIntent & { sendAtMs: number },
+): Promise<
+  | { status: "held"; row: ScheduledEmail }
+  | Extract<ExecutionResult, { status: "rejected" }>
+> {
+  if (intent.queuedAtMs < Date.now() - MAIL_MUTATION_RETRY_WINDOW_MS) {
+    return {
+      status: "rejected",
+      code: "Queued email is too old to send safely",
+      targets: [],
+    };
+  }
+  try {
+    await holdAccountUploads(accountId, intent.attachmentIds);
+    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
+    if (loaded.status === "missing") {
+      return { status: "rejected", code: "missing_attachment", targets: [] };
+    }
+    const input = scheduleEmailBody.safeParse({
+      clientMutationId: mutationId,
+      ...sendRequest(intent, loaded.attachments),
+      sendAt: null,
+      remindAt: null,
+    });
+    if (!input.success) {
+      return { status: "rejected", code: "invalid", targets: [] };
+    }
+    const row = await holdEmailForUndo({
+      emailAccountId: accountId,
+      input: input.data,
+      sendAt: new Date(intent.sendAtMs),
+      logger,
+    });
+    // The hold carries the files now, so the uploads aren't needed again.
+    await releaseSendAttachments(accountId, intent.attachmentIds);
+    return { status: "held", row };
+  } finally {
+    await releaseAccountUploadHolds(accountId, intent.attachmentIds);
+  }
+}
+
+async function heldSendResult(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+  row: ScheduledEmail,
+): Promise<ExecutionResult> {
+  const receiptId = sendMutationId(operation.key.operationId);
+  switch (row.status) {
+    case "PENDING":
+    case "PROCESSING":
+      return {
+        status: "accepted",
+        receiptId,
+        retryAfterMs: Math.max(
+          row.sendAt.getTime() - Date.now(),
+          HELD_SEND_POLL_MS,
+        ),
+      };
+    case "SENT":
+      return inspectSendOperation(provider, accountId, operation);
+    case "CANCELLED":
+      return { status: "rejected", code: "cancelled", targets: [] };
+    case "FAILED":
+      return {
+        status: "rejected",
+        code: row.error ?? "send_failed",
+        targets: [],
+      };
+    case "UNCERTAIN":
+      return { status: "uncertain", receiptId };
+    case "BLOCKED_AUTH":
+      return {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: BLOCKED_HELD_SEND_RETRY_MS,
+      };
+  }
+}
+
+export async function cancelHeldEngineSend(
+  accountId: string,
+  operationId: string,
+) {
+  return cancelHeldEmail(accountId, sendMutationId(operationId));
+}
+
+async function inspectSendOperation(
   provider: EmailProvider,
   accountId: string,
   operation: PreparedOperation,
@@ -602,6 +729,33 @@ function mapSendOutcome(
     };
   }
   return { status: "uncertain" as const, receiptId };
+}
+
+function sendRequest(intent: SendIntent, attachments: Attachment[]) {
+  return {
+    threadId: intent.replyToMessageId ? intent.replyToConversationId : null,
+    messageIds: intent.replyToMessageId
+      ? [intent.replyToMessageId]
+      : [intent.frozenDraftId],
+    email: {
+      to: intent.to.join(", "),
+      cc: intent.cc.join(", ") || undefined,
+      bcc: intent.bcc.join(", ") || undefined,
+      subject: intent.subject,
+      messageHtml: `${intent.html}${intent.quotedHtml}`,
+      replyToEmail:
+        intent.replyToMessageId && intent.replyToConversationId
+          ? {
+              threadId: intent.replyToConversationId,
+              messageId: intent.replyToMessageId,
+            }
+          : undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      ...(intent.providerDraftId
+        ? { providerDraftId: intent.providerDraftId }
+        : {}),
+    },
+  };
 }
 
 function sendMutationId(operationId: string) {
