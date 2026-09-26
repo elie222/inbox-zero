@@ -15,6 +15,7 @@ describe("buildResolvedSystemPrompt", () => {
       emailSendToolsEnabled: true,
       draftReplyActionsEnabled: true,
       webhookActionsEnabled: true,
+      calendarToolsEnabled: true,
       provider: "microsoft",
       responseSurface: "web",
       userTimezone: "UTC",
@@ -23,6 +24,38 @@ describe("buildResolvedSystemPrompt", () => {
 
     expect(prompt).toContain("category");
     expect(prompt).not.toMatch(/\blabels?\b/i);
+  });
+
+  it("mentions calendar tools only when a calendar is connected", () => {
+    const connectedPrompt = buildResolvedSystemPrompt({
+      emailSendToolsEnabled: true,
+      draftReplyActionsEnabled: true,
+      webhookActionsEnabled: true,
+      calendarToolsEnabled: true,
+      provider: "google",
+      responseSurface: "web",
+      userTimezone: "UTC",
+      currentTimestamp: "2026-05-12T00:00:00.000Z",
+    });
+    const disconnectedPrompt = buildResolvedSystemPrompt({
+      emailSendToolsEnabled: true,
+      draftReplyActionsEnabled: true,
+      webhookActionsEnabled: true,
+      calendarToolsEnabled: false,
+      provider: "google",
+      responseSurface: "web",
+      userTimezone: "UTC",
+      currentTimestamp: "2026-05-12T00:00:00.000Z",
+    });
+
+    expect(connectedPrompt).toContain("calendar or inbox date-range tools");
+    expect(connectedPrompt).not.toContain("No calendar is connected");
+    expect(disconnectedPrompt).toContain("No calendar is connected");
+    expect(disconnectedPrompt).toContain("Do not call a calendar tool");
+    expect(disconnectedPrompt).toContain("connect a calendar");
+    expect(disconnectedPrompt).not.toContain(
+      "calendar or inbox date-range tools",
+    );
   });
 });
 

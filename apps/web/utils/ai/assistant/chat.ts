@@ -37,6 +37,7 @@ import {
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
+import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 import {
@@ -52,7 +53,7 @@ import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-resul
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 9;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 10;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -125,10 +126,19 @@ export async function aiProcessAssistantChat({
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
+  let calendarToolsEnabled = false;
+  try {
+    calendarToolsEnabled = await hasUsableCalendarConnection(emailAccountId);
+  } catch (error) {
+    logger.warn("Failed to check calendar connection for chat tools", {
+      error,
+    });
+  }
   const system = buildResolvedSystemPrompt({
     emailSendToolsEnabled,
     draftReplyActionsEnabled,
     webhookActionsEnabled,
+    calendarToolsEnabled,
     provider: user.account.provider,
     responseSurface,
     messagingPlatform,
@@ -285,8 +295,9 @@ export async function aiProcessAssistantChat({
       : {}),
 
     // Progressive disclosure groups (registered but not active by default)
-    // Calendar
-    getCalendarEvents: getCalendarEventsTool(toolOptions),
+    ...(calendarToolsEnabled
+      ? { getCalendarEvents: getCalendarEventsTool(toolOptions) }
+      : {}),
     // Attachments
     readAttachment: readAttachmentTool(toolOptions),
     ...providerPolicy.getTaxonomyTools(toolOptions),
@@ -683,6 +694,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
   webhookActionsEnabled,
+  calendarToolsEnabled,
   provider,
   responseSurface,
   messagingPlatform,
@@ -692,6 +704,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
   webhookActionsEnabled: boolean;
+  calendarToolsEnabled: boolean;
   provider: string;
   responseSurface: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
@@ -754,9 +767,12 @@ export function buildResolvedSystemPrompt({
 - Use the latest rule state already provided in this request. If the current rule state is not available yet, call getUserRulesAndSettings before changing an existing rule.
 - If the user asks why a specific processed email was handled a certain way, identify the exact email first and then call getRuleExecutionForMessage with that messageId. Do not guess from unrelated recent executions.
 - If a rule write reports stale rule state, refresh with getUserRulesAndSettings and retry from that latest state.`,
-    `Provider context:
-- Current provider: ${provider}.
-- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
+    getProviderContextSection({
+      provider,
+      userTimezone,
+      currentTimestamp,
+      calendarToolsEnabled,
+    }),
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine to an exact sender search before writing when needed.
@@ -800,6 +816,35 @@ export function buildResolvedSystemPrompt({
   ];
 
   return sections.filter(Boolean).join("\n\n");
+}
+
+function getProviderContextSection({
+  provider,
+  userTimezone,
+  currentTimestamp,
+  calendarToolsEnabled,
+}: {
+  provider: string;
+  userTimezone: string;
+  currentTimestamp: string;
+  calendarToolsEnabled: boolean;
+}) {
+  const relativeDateTargets = calendarToolsEnabled
+    ? "calendar or inbox date-range tools"
+    : "inbox date-range tools";
+  const lines = [
+    "Provider context:",
+    `- Current provider: ${provider}.`,
+    `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling ${relativeDateTargets}.`,
+  ];
+
+  if (!calendarToolsEnabled) {
+    lines.push(
+      "- No calendar is connected. Do not call a calendar tool. If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
+    );
+  }
+
+  return lines.join("\n");
 }
 
 function getFormattingRules(responseSurface: "web" | "messaging") {

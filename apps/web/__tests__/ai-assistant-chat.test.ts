@@ -56,6 +56,9 @@ const {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    calendarConnection: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     executedRule: {
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -180,6 +183,7 @@ describe("aiProcessAssistantChat", () => {
     envState.sendEmailEnabled = true;
     envState.autoDraftDisabled = false;
     envState.webhookActionsEnabled = true;
+    mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
   });
 
   it("registers expected core and send tools when email sending is enabled", async () => {
@@ -316,6 +320,102 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("omits calendar tools when the account has no usable calendar connection", async () => {
+    mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
+
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const systemPrompt = String(args.messages[0].content);
+
+    expect(args.tools.getCalendarEvents).toBeUndefined();
+    expect(mockPrisma.calendarConnection.findMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        isConnected: true,
+      },
+      select: {
+        provider: true,
+        refreshToken: true,
+      },
+    });
+    expect(systemPrompt).toContain("No calendar is connected");
+    expect(systemPrompt).toContain("Do not call a calendar tool");
+    expect(systemPrompt).not.toContain("calendar or inbox date-range tools");
+  });
+
+  it.each([
+    "google",
+    "microsoft",
+  ] as const)("includes calendar tools when a connected %s calendar has a refresh token", async (provider) => {
+    mockPrisma.calendarConnection.findMany.mockResolvedValue([
+      { provider, refreshToken: "refresh-token" },
+    ]);
+
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const systemPrompt = String(args.messages[0].content);
+
+    expect(args.tools.getCalendarEvents).toBeDefined();
+    expect(systemPrompt).toContain("calendar or inbox date-range tools");
+    expect(systemPrompt).not.toContain("No calendar is connected");
+  });
+
+  it("omits calendar tools when the only connection has no refresh token", async () => {
+    mockPrisma.calendarConnection.findMany.mockResolvedValue([
+      { provider: "google", refreshToken: null },
+    ]);
+
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+
+    expect(args.tools.getCalendarEvents).toBeUndefined();
+    expect(String(args.messages[0].content)).toContain(
+      "No calendar is connected",
+    );
   });
 
   it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {

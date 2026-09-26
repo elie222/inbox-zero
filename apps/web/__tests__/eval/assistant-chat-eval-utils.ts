@@ -5,6 +5,7 @@ import type { MessageContext } from "@/utils/ai/assistant/chat-context-validatio
 import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 const assistantWriteToolNames = new Set([
   "startSenderCategorization",
@@ -95,6 +96,8 @@ export async function captureAssistantChatTrace({
   const steps: unknown[] = [];
   const resolvedModels: unknown[] = [];
 
+  await ensureCalendarConnectionLookup();
+
   const result = await aiProcessAssistantChat({
     messages,
     emailAccountId: emailAccount.id,
@@ -169,6 +172,28 @@ export async function captureAssistantChatTrace({
     toolCalls: recordedToolCalls,
     stepTexts,
   };
+}
+
+// Chat looks up calendar connections before registering tools. Evals that do
+// not stage a connection should run as disconnected instead of throwing.
+async function ensureCalendarConnectionLookup() {
+  const findMany = prisma.calendarConnection.findMany as unknown as {
+    mockResolvedValue?: (value: unknown[]) => void;
+    getMockImplementation?: () => (() => unknown) | undefined;
+  };
+
+  if (typeof findMany?.mockResolvedValue !== "function") return;
+
+  const implementation = findMany.getMockImplementation?.();
+  if (!implementation) {
+    findMany.mockResolvedValue([]);
+    return;
+  }
+
+  const probed = await Promise.resolve(implementation());
+  if (!Array.isArray(probed)) {
+    findMany.mockResolvedValue([]);
+  }
 }
 
 function isToolResultWithOutput(
