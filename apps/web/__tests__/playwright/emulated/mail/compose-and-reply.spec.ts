@@ -419,9 +419,9 @@ test("moves a sent reply from its composer into the thread without a gap", async
 
   // The undo window is still open, so the provider has not sent it yet, but
   // the reply already reads as sent, with its time and a way to undo it.
-  const sentRow = page
-    .locator("li[data-thread-message-id]")
-    .filter({ has: page.getByRole("button", { name: "Undo send" }) });
+  const sentRow = page.locator("li[data-thread-message-id]").filter({
+    has: page.getByRole("button", { name: "Undo send", exact: true }),
+  });
   await expect(sentRow).toBeVisible();
   await expect(sentRow.locator("time")).toBeVisible();
   await expect(sentRow.getByText("Sending…")).toHaveCount(0);
@@ -444,7 +444,9 @@ test("moves a sent reply from its composer into the thread without a gap", async
       { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
-  await expect(page.getByRole("button", { name: "Undo send" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Undo send", exact: true }),
+  ).toHaveCount(0);
   await expectThreadReaderBody(page, replyBody);
   expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
 });
@@ -470,7 +472,7 @@ test("undoes a sent reply from the thread and restores its text", async ({
 
   const undo = page
     .locator("li[data-thread-message-id]")
-    .getByRole("button", { name: "Undo send" });
+    .getByRole("button", { name: "Undo send", exact: true });
   await expect(undo).toBeVisible();
   await expect
     .poll(() =>

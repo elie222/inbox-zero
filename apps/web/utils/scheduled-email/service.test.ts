@@ -11,6 +11,7 @@ import {
   processScheduledEmail,
   hasReplySince,
   processDueScheduledEmails,
+  releaseHeldEmail,
 } from "./service";
 import { Prisma, type ScheduledEmail } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -576,6 +577,19 @@ describe("scheduled replies", () => {
         new Date("2026-09-05T12:00:00Z"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("releaseHeldEmail", () => {
+  beforeEach(() => vi.resetAllMocks());
+  it("leaves a user-scheduled email to its own time and retry", async () => {
+    const scheduled = row({ status: "BLOCKED_AUTH", heldForUndo: false });
+
+    await expect(releaseHeldEmail(scheduled, logger, now)).resolves.toBe(
+      scheduled,
+    );
+    expect(prisma.scheduledEmail.updateMany).not.toHaveBeenCalled();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 });
 

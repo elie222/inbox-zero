@@ -136,6 +136,8 @@ export async function releaseHeldEmail(
   logger: Logger,
   now = new Date(),
 ) {
+  // A user-scheduled email keeps its own time and explicit retry.
+  if (!row.heldForUndo) return row;
   if (row.status === "BLOCKED_AUTH") {
     // The client asked again, so the account may be reconnected by now.
     await prisma.scheduledEmail.updateMany({
