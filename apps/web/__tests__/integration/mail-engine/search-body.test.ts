@@ -37,6 +37,8 @@ vi.mock("@/utils/middleware", async () => {
   >("@/__tests__/helpers");
 
   return {
+    // The operations route's cancel handler, which these tests never call.
+    withEmailAccount: () => async () => new Response(null, { status: 501 }),
     withEmailProvider: (
       scopeOrHandler: string | ((...args: never[]) => unknown),
       handler?: (...args: never[]) => unknown,
