@@ -96,7 +96,7 @@ export async function captureAssistantChatTrace({
   const steps: unknown[] = [];
   const resolvedModels: unknown[] = [];
 
-  await ensureCalendarConnectionLookup();
+  ensureCalendarConnectionLookup();
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -175,25 +175,18 @@ export async function captureAssistantChatTrace({
 }
 
 // Chat looks up calendar connections before registering tools. Evals that do
-// not stage a connection should run as disconnected instead of throwing.
-async function ensureCalendarConnectionLookup() {
+// not stage a connection should run as disconnected. Do not call a mock that
+// is already implemented — that would consume one-shot return values.
+function ensureCalendarConnectionLookup() {
   const findMany = prisma.calendarConnection.findMany as unknown as {
+    getMockImplementation?: () => unknown;
     mockResolvedValue?: (value: unknown[]) => void;
-    getMockImplementation?: () => (() => unknown) | undefined;
   };
 
-  if (typeof findMany?.mockResolvedValue !== "function") return;
+  if (typeof findMany.mockResolvedValue !== "function") return;
+  if (findMany.getMockImplementation?.()) return;
 
-  const implementation = findMany.getMockImplementation?.();
-  if (!implementation) {
-    findMany.mockResolvedValue([]);
-    return;
-  }
-
-  const probed = await Promise.resolve(implementation());
-  if (!Array.isArray(probed)) {
-    findMany.mockResolvedValue([]);
-  }
+  findMany.mockResolvedValue([]);
 }
 
 function isToolResultWithOutput(

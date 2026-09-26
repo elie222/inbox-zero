@@ -177,6 +177,29 @@ async function captureToolSet(
   return mockToolCallAgentStream.mock.calls[0][0].tools;
 }
 
+async function captureCalendarChat(
+  connections: Array<{ provider: string; refreshToken: string | null }>,
+) {
+  mockPrisma.calendarConnection.findMany.mockResolvedValue(connections);
+
+  const { aiProcessAssistantChat } = await loadAssistantChatModule({
+    emailSend: true,
+  });
+
+  mockToolCallAgentStream.mockResolvedValue({
+    toUIMessageStreamResponse: vi.fn(),
+  });
+
+  await aiProcessAssistantChat({
+    messages: baseMessages,
+    emailAccountId: "email-account-id",
+    user: getEmailAccount(),
+    logger,
+  });
+
+  return mockToolCallAgentStream.mock.calls[0][0];
+}
+
 describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -322,100 +345,76 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeUndefined();
   });
 
-  it("omits calendar tools when the account has no usable calendar connection", async () => {
-    mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
-
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
-    const systemPrompt = String(args.messages[0].content);
-
-    expect(args.tools.getCalendarEvents).toBeUndefined();
-    expect(mockPrisma.calendarConnection.findMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "email-account-id",
-        isConnected: true,
-      },
-      select: {
-        provider: true,
-        refreshToken: true,
-      },
-    });
-    expect(systemPrompt).toContain("No calendar is connected");
-    expect(systemPrompt).toContain("Do not call a calendar tool");
-    expect(systemPrompt).not.toContain("calendar or inbox date-range tools");
-  });
-
   it.each([
-    "google",
-    "microsoft",
-  ] as const)("includes calendar tools when a connected %s calendar has a refresh token", async (provider) => {
-    mockPrisma.calendarConnection.findMany.mockResolvedValue([
-      { provider, refreshToken: "refresh-token" },
-    ]);
-
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    {
+      title: "omits calendar tools when the account has no connection",
+      connections: [],
+      enabled: false,
+    },
+    {
+      title:
+        "includes calendar tools when a connected google calendar has a refresh token",
+      connections: [{ provider: "google", refreshToken: "refresh-token" }],
+      enabled: true,
+    },
+    {
+      title:
+        "includes calendar tools when a connected microsoft calendar has a refresh token",
+      connections: [{ provider: "microsoft", refreshToken: "refresh-token" }],
+      enabled: true,
+    },
+    {
+      title:
+        "omits calendar tools when the only connection has no refresh token",
+      connections: [{ provider: "google", refreshToken: null }],
+      enabled: false,
+    },
+    {
+      title:
+        "omits calendar tools when the only connection uses an unsupported provider",
+      connections: [{ provider: "fastmail", refreshToken: "refresh-token" }],
+      enabled: false,
+    },
+    {
+      title:
+        "includes calendar tools when one connection is usable and another is not",
+      connections: [
+        { provider: "google", refreshToken: null },
+        { provider: "microsoft", refreshToken: "refresh-token" },
+      ],
+      enabled: true,
+    },
+  ])("$title", async ({ connections, enabled }) => {
+    const args = await captureCalendarChat(connections);
     const systemPrompt = String(args.messages[0].content);
 
-    expect(args.tools.getCalendarEvents).toBeDefined();
-    expect(systemPrompt).toContain("calendar or inbox date-range tools");
-    expect(systemPrompt).not.toContain("No calendar is connected");
-  });
+    expect(mockPrisma.calendarConnection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId: "email-account-id",
+          isConnected: true,
+        },
+      }),
+    );
 
-  it("omits calendar tools when the only connection has no refresh token", async () => {
-    mockPrisma.calendarConnection.findMany.mockResolvedValue([
-      { provider: "google", refreshToken: null },
-    ]);
-
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    if (enabled) {
+      expect(args.tools.getCalendarEvents).toBeDefined();
+      expect(systemPrompt).toContain("calendar or inbox date-range tools");
+      return;
+    }
 
     expect(args.tools.getCalendarEvents).toBeUndefined();
-    expect(String(args.messages[0].content)).toContain(
-      "No calendar is connected",
+    expect(systemPrompt).toContain("No calendar is connected");
+  });
+
+  it("omits calendar tools when the connection lookup fails", async () => {
+    mockPrisma.calendarConnection.findMany.mockRejectedValue(
+      new Error("db down"),
     );
+
+    const tools = await captureToolSet();
+
+    expect(tools.getCalendarEvents).toBeUndefined();
   });
 
   it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {

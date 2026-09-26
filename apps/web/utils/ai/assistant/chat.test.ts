@@ -11,48 +11,21 @@ vi.mock("@/utils/prisma");
 
 describe("buildResolvedSystemPrompt", () => {
   it("uses Outlook category wording instead of label wording", () => {
-    const prompt = buildResolvedSystemPrompt({
-      emailSendToolsEnabled: true,
-      draftReplyActionsEnabled: true,
-      webhookActionsEnabled: true,
-      calendarToolsEnabled: true,
-      provider: "microsoft",
-      responseSurface: "web",
-      userTimezone: "UTC",
-      currentTimestamp: "2026-05-12T00:00:00.000Z",
-    });
+    const prompt = buildPrompt({ provider: "microsoft" });
 
     expect(prompt).toContain("category");
     expect(prompt).not.toMatch(/\blabels?\b/i);
   });
 
   it("mentions calendar tools only when a calendar is connected", () => {
-    const connectedPrompt = buildResolvedSystemPrompt({
-      emailSendToolsEnabled: true,
-      draftReplyActionsEnabled: true,
-      webhookActionsEnabled: true,
-      calendarToolsEnabled: true,
-      provider: "google",
-      responseSurface: "web",
-      userTimezone: "UTC",
-      currentTimestamp: "2026-05-12T00:00:00.000Z",
-    });
-    const disconnectedPrompt = buildResolvedSystemPrompt({
-      emailSendToolsEnabled: true,
-      draftReplyActionsEnabled: true,
-      webhookActionsEnabled: true,
-      calendarToolsEnabled: false,
-      provider: "google",
-      responseSurface: "web",
-      userTimezone: "UTC",
-      currentTimestamp: "2026-05-12T00:00:00.000Z",
-    });
+    const connectedPrompt = buildPrompt({ calendarToolsEnabled: true });
+    const disconnectedPrompt = buildPrompt({ calendarToolsEnabled: false });
 
     expect(connectedPrompt).toContain("calendar or inbox date-range tools");
     expect(connectedPrompt).not.toContain("No calendar is connected");
-    expect(disconnectedPrompt).toContain("No calendar is connected");
-    expect(disconnectedPrompt).toContain("Do not call a calendar tool");
-    expect(disconnectedPrompt).toContain("connect a calendar");
+    expect(disconnectedPrompt).toContain(
+      "No calendar is connected. Do not call a calendar tool. If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
+    );
     expect(disconnectedPrompt).not.toContain(
       "calendar or inbox date-range tools",
     );
@@ -156,3 +129,19 @@ describe("loadFreshRuleContext", () => {
     expect(result?.hasNewRuleState).toBe(true);
   });
 });
+
+function buildPrompt(
+  overrides: Partial<Parameters<typeof buildResolvedSystemPrompt>[0]> = {},
+) {
+  return buildResolvedSystemPrompt({
+    emailSendToolsEnabled: true,
+    draftReplyActionsEnabled: true,
+    webhookActionsEnabled: true,
+    calendarToolsEnabled: true,
+    provider: "google",
+    responseSurface: "web",
+    userTimezone: "UTC",
+    currentTimestamp: "2026-05-12T00:00:00.000Z",
+    ...overrides,
+  });
+}

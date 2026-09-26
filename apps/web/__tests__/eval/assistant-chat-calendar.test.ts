@@ -115,40 +115,34 @@ vi.mock("@/env", async () => {
   };
 });
 
-vi.mock("@/utils/calendar/event-provider", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/utils/calendar/event-provider")
-  >("@/utils/calendar/event-provider");
-
-  return {
-    ...actual,
-    createCalendarEventProviders: vi.fn().mockResolvedValue([
-      {
-        fetchEvents: vi.fn().mockResolvedValue([
-          {
-            id: "event-1",
-            title: "Team standup",
-            startTime: new Date("2026-03-19T09:00:00Z"),
-            endTime: new Date("2026-03-19T09:30:00Z"),
-            location: "Zoom",
-            attendees: [{ email: "alice@test.com" }, { email: "bob@test.com" }],
-            videoConferenceLink: "https://zoom.us/j/123",
-          },
-          {
-            id: "event-2",
-            title: "1:1 with manager",
-            startTime: new Date("2026-03-19T14:00:00Z"),
-            endTime: new Date("2026-03-19T14:30:00Z"),
-            location: null,
-            attendees: [{ email: "manager@test.com" }],
-            videoConferenceLink: null,
-          },
-        ]),
-        fetchEventsWithAttendee: vi.fn().mockResolvedValue([]),
-      },
-    ]),
-  };
-});
+vi.mock("@/utils/calendar/event-provider", () => ({
+  hasUsableCalendarConnection: vi.fn().mockResolvedValue(true),
+  createCalendarEventProviders: vi.fn().mockResolvedValue([
+    {
+      fetchEvents: vi.fn().mockResolvedValue([
+        {
+          id: "event-1",
+          title: "Team standup",
+          startTime: new Date("2026-03-19T09:00:00Z"),
+          endTime: new Date("2026-03-19T09:30:00Z"),
+          location: "Zoom",
+          attendees: [{ email: "alice@test.com" }, { email: "bob@test.com" }],
+          videoConferenceLink: "https://zoom.us/j/123",
+        },
+        {
+          id: "event-2",
+          title: "1:1 with manager",
+          startTime: new Date("2026-03-19T14:00:00Z"),
+          endTime: new Date("2026-03-19T14:30:00Z"),
+          location: null,
+          attendees: [{ email: "manager@test.com" }],
+          videoConferenceLink: null,
+        },
+      ]),
+      fetchEventsWithAttendee: vi.fn().mockResolvedValue([]),
+    },
+  ]),
+}));
 
 describe.runIf(shouldRunEval)("Eval: assistant chat calendar", () => {
   beforeEach(() => {
@@ -176,9 +170,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat calendar", () => {
     });
 
     prisma.emailAccount.update.mockResolvedValue({});
-    prisma.calendarConnection.findMany.mockResolvedValue([
-      { provider: "google", refreshToken: "refresh-token" },
-    ] as Awaited<ReturnType<typeof prisma.calendarConnection.findMany>>);
   });
 
   describeEvalMatrix("assistant-chat calendar", (model, emailAccount) => {

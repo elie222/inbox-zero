@@ -57,8 +57,7 @@ export async function createCalendarEventProviders(
 }
 
 // Same connections createCalendarEventProviders can use. A missing refresh
-// token makes that helper return no providers, and the chat calendar tool then
-// fails as if nothing is connected.
+// token or unknown provider builds no provider, so the chat tool would fail.
 export async function hasUsableCalendarConnection(emailAccountId: string) {
   const connections = await prisma.calendarConnection.findMany({
     where: {
