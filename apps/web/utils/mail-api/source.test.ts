@@ -88,6 +88,44 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("includes spam when the search predicate is scoped to that mailbox", async () => {
+    const searchMessages = vi.fn(async () => ({
+      messages: [{ id: "spam-hit" }],
+      nextPageToken: undefined,
+    }));
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: { name: "google", searchMessages } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "search-spam",
+        signal: new AbortController().signal,
+        predicate: {
+          kind: "all",
+          predicates: [
+            { kind: "text", field: "any", value: "invoice", match: "phrase" },
+            { kind: "mailbox", mailbox: "spam" },
+          ],
+        },
+        page: null,
+        pageSize: 20,
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [{ messageId: "spam-hit" }] },
+    });
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "invoice",
+      maxResults: 20,
+      pageToken: undefined,
+      folder: "spam",
+      includeSpamTrash: true,
+      labelIds: ["SPAM"],
+    });
+  });
+
   it("retries conversation membership when the provider is unavailable", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

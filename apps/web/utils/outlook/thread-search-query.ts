@@ -36,7 +36,9 @@ const FOLDER_KEY_BY_IN_VALUE: Record<string, OutlookWellKnownFolder> = {
   drafts: "drafts",
   archive: "archive",
   junk: "junkemail",
+  spam: "junkemail",
   deleted: "deleteditems",
+  trash: "deleteditems",
 };
 
 const KQL_TEXT_FIELDS = new Set(["from", "to", "subject"]);

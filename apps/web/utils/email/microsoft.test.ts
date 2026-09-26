@@ -1498,6 +1498,19 @@ describe("OutlookProvider.searchThreads", () => {
     expect(searchRequest?.search).toBe('"subject:test"');
   });
 
+  it("searches junk when the caller scopes the search to spam", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "invoice", folder: "spam" });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders/spam-folder-id/messages",
+      filter: undefined,
+      search: '"invoice"',
+    });
+  });
+
   it("searches a well-known folder instead of dropping in:inbox", async () => {
     const client = createMockOutlookClient([]);
     const provider = new OutlookProvider(client);

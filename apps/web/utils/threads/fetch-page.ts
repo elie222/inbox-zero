@@ -1,4 +1,6 @@
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
+import { queryIncludesSpamOrTrash } from "@/utils/gmail/thread";
+import { GmailLabel } from "@/utils/gmail/label";
 import { mergePaginatedSources } from "@/utils/threads/merge-paginated-sources";
 import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 import { getThreadTimestamp } from "@/utils/threads/sort";
@@ -54,11 +56,16 @@ export async function fetchThreadsPage({
   }
 
   if (query.q) {
+    const folder = spamTrashFolder(query);
+    const includeSpamTrash =
+      Boolean(folder) || queryIncludesSpamOrTrash(query.q);
     return emailProvider.searchThreads({
       query: query.q,
       maxResults,
       pageToken,
       messageFormat,
+      ...(includeSpamTrash ? { includeSpamTrash: true } : {}),
+      ...(folder ? { folder } : {}),
     });
   }
 
@@ -169,4 +176,11 @@ export async function fetchThreadsPage({
     threads: merged.items,
     nextPageToken: merged.nextPageToken ?? undefined,
   };
+}
+
+function spamTrashFolder(query: ThreadsQuery): "spam" | "trash" | undefined {
+  if (query.type === "spam" || query.type === "trash") return query.type;
+  const labels = [query.labelId, ...(query.labelIds ?? [])];
+  if (labels.includes(GmailLabel.SPAM)) return "spam";
+  if (labels.includes(GmailLabel.TRASH)) return "trash";
 }

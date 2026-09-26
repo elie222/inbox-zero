@@ -308,6 +308,17 @@ function appEnv({
     STRIPE_WEBHOOK_SECRET: "",
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
     CRON_SECRET: "local-emulator-cron",
+    APPLE_IAP_LOCAL_TESTING: "true",
+    APPLE_IAP_BUNDLE_ID: "com.getinboxzero.app",
+    APPLE_IAP_APPLE_ID: "6759736561",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID:
+      "com.getinboxzero.starter.monthly.v2",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID:
+      "com.getinboxzero.starter.annual.v2",
+    APNS_TRANSPORT: "fake",
+    APNS_ENVIRONMENT: "sandbox",
+    APNS_TOPIC: "com.getinboxzero.app",
+    APNS_TEAM_ID: "Z46U4K6CNL",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
     NEXT_PUBLIC_POSTHOG_API_HOST: "",

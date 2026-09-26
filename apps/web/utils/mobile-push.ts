@@ -1,4 +1,6 @@
 import chunk from "lodash/chunk";
+import { MobilePushTokenType } from "@/generated/prisma/enums";
+import { deliverApnsNotifications } from "@/utils/apns";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -14,6 +16,7 @@ type ExpoPushTicket = {
 type MobilePushToken = {
   id: string;
   token: string;
+  tokenType: MobilePushTokenType | null;
 };
 
 type MobilePushNotification = {
@@ -39,7 +42,7 @@ export async function sendMobilePushNotification({
 }) {
   const pushTokens = await prisma.mobilePushToken.findMany({
     where: { userId },
-    select: { id: true, token: true },
+    select: { id: true, token: true, tokenType: true },
   });
   if (pushTokens.length === 0) return;
 
@@ -58,12 +61,63 @@ export async function sendMobilePushNotification({
     claimedTokenIds.has(id),
   );
 
-  for (const pushTokenBatch of chunk(claimedPushTokens, EXPO_PUSH_BATCH_SIZE)) {
+  const expoTokens = claimedPushTokens.filter(
+    (pushToken) => pushToken.tokenType !== MobilePushTokenType.APNS,
+  );
+  const apnsTokens = claimedPushTokens.filter(
+    (pushToken) => pushToken.tokenType === MobilePushTokenType.APNS,
+  );
+
+  for (const pushTokenBatch of chunk(expoTokens, EXPO_PUSH_BATCH_SIZE)) {
     await sendPushBatch({
       pushTokens: pushTokenBatch,
       deduplicationKey,
       notification,
       logger,
+    });
+  }
+
+  if (apnsTokens.length > 0) {
+    await sendApnsBatch({
+      pushTokens: apnsTokens,
+      deduplicationKey,
+      notification,
+      logger,
+    });
+  }
+}
+
+async function sendApnsBatch({
+  pushTokens,
+  deduplicationKey,
+  notification,
+  logger,
+}: {
+  pushTokens: MobilePushToken[];
+  deduplicationKey: string;
+  notification: MobilePushNotification;
+  logger: Logger;
+}) {
+  const { unregisteredTokens, retryTokens } = await deliverApnsNotifications({
+    tokens: pushTokens.map(({ token }) => token),
+    notification,
+    logger,
+  });
+  const unregisteredIds = pushTokens
+    .filter((pushToken) => unregisteredTokens.includes(pushToken.token))
+    .map(({ id }) => id);
+  const retryIds = pushTokens.filter((pushToken) =>
+    retryTokens.includes(pushToken.token),
+  );
+  if (unregisteredIds.length > 0) {
+    await prisma.mobilePushToken.deleteMany({
+      where: { id: { in: unregisteredIds } },
+    });
+  }
+  if (retryIds.length > 0) {
+    await releasePushClaims({
+      pushTokens: retryIds,
+      deduplicationKey,
     });
   }
 }

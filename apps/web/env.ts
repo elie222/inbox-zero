@@ -277,7 +277,18 @@ const parsedEnv = createEnv({
     APPLE_IAP_PRIVATE_KEY: z.string().min(1).optional(),
     APPLE_IAP_BUNDLE_ID: z.string().min(1).optional(),
     APPLE_IAP_APPLE_ID: z.coerce.number().int().positive().optional(),
+    // Accepts locally signed StoreKit JWS. Ignored when NODE_ENV is production.
+    APPLE_IAP_LOCAL_TESTING: booleanString,
     SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
+
+    // APNs token auth for native iOS push. Leave unset to keep Expo-only delivery.
+    APNS_KEY_ID: z.string().min(1).optional(),
+    APNS_TEAM_ID: z.string().min(1).optional(),
+    APNS_PRIVATE_KEY: z.string().min(1).optional(),
+    APNS_TOPIC: z.string().min(1).optional(),
+    APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
+    // `fake` records sends in memory instead of contacting Apple. Emulator only.
+    APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
