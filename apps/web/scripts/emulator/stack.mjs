@@ -20,7 +20,9 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 const command = process.argv[2] ?? "help";
 
-if (command === "up") {
+if (command === "serve-cron") {
+  await serveScheduledActions();
+} else if (command === "up") {
   await up({ foreground: process.argv.includes("--foreground") });
 } else if (command === "down") {
   await down();
@@ -147,6 +149,12 @@ async function up({ foreground }) {
         env,
         path.join(runDir, "next.log"),
       ),
+      spawnLogged(
+        process.execPath,
+        [fileURLToPath(import.meta.url), "serve-cron"],
+        { ...env, EMULATOR_BASE_URL: baseUrl },
+        path.join(runDir, "cron.log"),
+      ),
     );
     writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
     await waitForReady(state);
@@ -155,6 +163,30 @@ async function up({ foreground }) {
   } catch (error) {
     await down(state);
     throw error;
+  }
+}
+
+async function serveScheduledActions() {
+  const baseUrl = process.env.EMULATOR_BASE_URL;
+  const secret = process.env.CRON_SECRET;
+  if (!baseUrl || !secret) {
+    throw new Error(
+      "Scheduled-actions timer needs EMULATOR_BASE_URL and CRON_SECRET",
+    );
+  }
+  for (;;) {
+    try {
+      const response = await fetch(`${baseUrl}/api/cron/scheduled-actions`, {
+        headers: { authorization: `Bearer ${secret}` },
+      });
+      await response.arrayBuffer();
+      if (!response.ok) {
+        console.error(`scheduled-actions returned ${response.status}`);
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+    }
+    await delay(3000);
   }
 }
 
@@ -275,6 +307,7 @@ function appEnv({
     STRIPE_SECRET_KEY: "",
     STRIPE_WEBHOOK_SECRET: "",
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
+    CRON_SECRET: "local-emulator-cron",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
     NEXT_PUBLIC_POSTHOG_API_HOST: "",
