@@ -46,7 +46,49 @@ describe("createEmailProviderOperationExecutor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-  it("records per-target applied and rejected outcomes in one bulk archive", async () => {
+  it("archives every target with one provider call and one batched read", async () => {
+    const archiveMessages = vi.fn();
+    const getMessage = vi.fn();
+    const getMessagesBatch = vi.fn(async (ids: string[]) =>
+      ids.map((id) => ({
+        id,
+        threadId: `t-${id}`,
+        headers: { from: "ada@example.com", to: "me@example.com" },
+        labelIds: id === "still-inbox" ? ["INBOX"] : [],
+        snippet: id,
+      })),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+        getMessage,
+        getMessagesBatch,
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledTimes(1);
+    expect(archiveMessages).toHaveBeenCalledWith(["m1", "m2", "still-inbox"]);
+    expect(getMessagesBatch).toHaveBeenCalledTimes(1);
+    expect(getMessage).not.toHaveBeenCalled();
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
+  });
+
+  it("falls back to per-message outcomes when the bulk call fails", async () => {
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
       provider: {
@@ -146,6 +188,7 @@ describe("createEmailProviderOperationExecutor", () => {
       provider: {
         name: "google",
         markNotSpam,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
         async getMessage(id: string) {
           return {
             id,

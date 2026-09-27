@@ -3,7 +3,7 @@ import {
   mutationPayloadToChange,
   type ThreadMutationPayload,
 } from "@/utils/mail-engine/mutation-change";
-import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { randomUuid } from "@/utils/uuid";
 
@@ -62,34 +62,40 @@ export async function enqueueThreadMailMutationBatch(
     throw new Error("Unsupported mail mutation");
   }
 
-  const mutations: ThreadMailMutation[] = [];
-  for (const target of targets) {
-    const { admission, commandId } = await submitConversationChange({
-      accountId: emailAccountId,
-      change,
-      client,
-      conversationId: target.threadId,
-    });
-    if (admission.status === "rejected") {
-      const copy = admissionRejectionCopy(admission.code);
-      if (copy) throw new Error(copy);
-      continue;
-    }
-    mutations.push({
-      id: commandId,
-      batchId,
-      clientSource,
-      emailAccountId,
-      threadId: target.threadId,
-      messageIds: target.messageIds,
-      ...payload,
-      status: "succeeded",
-      attempts: 0,
-      nextAttemptAt: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  const { accepted, rejectionCodes } = await submitConversationChanges({
+    accountId: emailAccountId,
+    change,
+    client,
+    conversationIds: targets.map((target) => target.threadId),
+  });
+  const rejectionCopy = rejectionCodes
+    .map((code) => admissionRejectionCopy(code))
+    .find(Boolean);
+  if (rejectionCopy) throw new Error(rejectionCopy);
+
+  const commandIds = new Map(
+    accepted.map((item) => [item.conversationId, item.commandId]),
+  );
+  const mutations: ThreadMailMutation[] = targets.flatMap((target) => {
+    const commandId = commandIds.get(target.threadId);
+    if (!commandId) return [];
+    return [
+      {
+        id: commandId,
+        batchId,
+        clientSource,
+        emailAccountId,
+        threadId: target.threadId,
+        messageIds: target.messageIds,
+        ...payload,
+        status: "succeeded" as const,
+        attempts: 0,
+        nextAttemptAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  });
   return { batchId, mutations };
 }
 
