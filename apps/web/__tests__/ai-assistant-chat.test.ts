@@ -56,6 +56,9 @@ const {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    calendarConnection: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     executedRule: {
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -174,12 +177,36 @@ async function captureToolSet(
   return mockToolCallAgentStream.mock.calls[0][0].tools;
 }
 
+async function captureCalendarChat(
+  connections: Array<{ provider: string; refreshToken: string | null }>,
+) {
+  mockPrisma.calendarConnection.findMany.mockResolvedValue(connections);
+
+  const { aiProcessAssistantChat } = await loadAssistantChatModule({
+    emailSend: true,
+  });
+
+  mockToolCallAgentStream.mockResolvedValue({
+    toUIMessageStreamResponse: vi.fn(),
+  });
+
+  await aiProcessAssistantChat({
+    messages: baseMessages,
+    emailAccountId: "email-account-id",
+    user: getEmailAccount(),
+    logger,
+  });
+
+  return mockToolCallAgentStream.mock.calls[0][0];
+}
+
 describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
     envState.autoDraftDisabled = false;
     envState.webhookActionsEnabled = true;
+    mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
   });
 
   it("registers expected core and send tools when email sending is enabled", async () => {
@@ -316,6 +343,98 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it.each([
+    {
+      title: "omits calendar tools when the account has no connection",
+      connections: [],
+      enabled: false,
+    },
+    {
+      title:
+        "includes calendar tools when a connected google calendar has a refresh token",
+      connections: [{ provider: "google", refreshToken: "refresh-token" }],
+      enabled: true,
+    },
+    {
+      title:
+        "includes calendar tools when a connected microsoft calendar has a refresh token",
+      connections: [{ provider: "microsoft", refreshToken: "refresh-token" }],
+      enabled: true,
+    },
+    {
+      title:
+        "omits calendar tools when the only connection has no refresh token",
+      connections: [{ provider: "google", refreshToken: null }],
+      enabled: false,
+    },
+    {
+      title:
+        "omits calendar tools when the only connection uses an unsupported provider",
+      connections: [{ provider: "fastmail", refreshToken: "refresh-token" }],
+      enabled: false,
+    },
+    {
+      title:
+        "includes calendar tools when one connection is usable and another is not",
+      connections: [
+        { provider: "google", refreshToken: null },
+        { provider: "microsoft", refreshToken: "refresh-token" },
+      ],
+      enabled: true,
+    },
+  ])("$title", async ({ connections, enabled }) => {
+    const args = await captureCalendarChat(connections);
+    const systemPrompt = String(args.messages[0].content);
+
+    expect(mockPrisma.calendarConnection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId: "email-account-id",
+          isConnected: true,
+        },
+      }),
+    );
+    expect(systemPrompt).toContain("calendar or inbox date-range tools");
+    expect(systemPrompt).not.toContain("Do not call a calendar tool");
+
+    if (enabled) {
+      expect(args.tools.getCalendarEvents).toBeDefined();
+      expect(systemPrompt).not.toContain("connect a calendar");
+      return;
+    }
+
+    expect(args.tools.getCalendarEvents).toBeUndefined();
+    expect(systemPrompt).toContain("connect a calendar in settings");
+  });
+
+  it("tells the model when the calendar connection lookup fails", async () => {
+    const error = new Error(
+      "db down postgres://user:secret@localhost/db bearer session-token\n    at Connection.connect",
+    );
+    mockPrisma.calendarConnection.findMany.mockRejectedValue(error);
+    const errorSpy = vi.spyOn(logger, "error");
+
+    const tools = await captureToolSet();
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(tools.getCalendarEvents).toBeUndefined();
+    expect(systemPrompt).toContain(
+      "Checking the calendar connection failed (Error: db down postgres://[redacted]@localhost/db bearer [redacted])",
+    );
+    expect(systemPrompt).toContain(
+      "reconnect their calendar in settings or try again",
+    );
+    expect(systemPrompt).not.toContain("secret");
+    expect(systemPrompt).not.toContain("Connection.connect");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to check calendar connection for chat tools",
+      expect.objectContaining({ error }),
+    );
+    errorSpy.mockRestore();
   });
 
   it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {

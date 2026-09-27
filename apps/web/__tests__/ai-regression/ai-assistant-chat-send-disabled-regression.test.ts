@@ -38,6 +38,9 @@ const {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    calendarConnection: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 

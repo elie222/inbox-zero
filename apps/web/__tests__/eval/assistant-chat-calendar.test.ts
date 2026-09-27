@@ -116,6 +116,7 @@ vi.mock("@/env", async () => {
 });
 
 vi.mock("@/utils/calendar/event-provider", () => ({
+  hasUsableCalendarConnection: vi.fn().mockResolvedValue(true),
   createCalendarEventProviders: vi.fn().mockResolvedValue([
     {
       fetchEvents: vi.fn().mockResolvedValue([
