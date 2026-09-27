@@ -185,6 +185,9 @@ describe("undo send", () => {
     expect(notifications.dismiss).not.toHaveBeenCalled();
     expect(second.handle.close).not.toHaveBeenCalled();
 
+    await notifications.toastUndo.mock.calls[0]?.[0]?.onUndo();
+    expect(second.client.cancelOperation).not.toHaveBeenCalled();
+
     await expect(undoPendingSend()).resolves.toBe(true);
     expect(second.client.cancelOperation).toHaveBeenCalledWith({
       accountId: "account",

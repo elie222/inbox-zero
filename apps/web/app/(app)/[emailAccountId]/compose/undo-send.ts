@@ -85,8 +85,10 @@ export function beginUndoSend({
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
     duration,
+    // A dismissed toast can still fire during its exit animation, after a
+    // newer send has taken over.
     onUndo: async () => {
-      await undoPendingSend();
+      if (pending === current) await undoPendingSend();
     },
   });
   inspect();
