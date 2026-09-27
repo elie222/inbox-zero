@@ -17,18 +17,20 @@ describe("buildResolvedSystemPrompt", () => {
     expect(prompt).not.toMatch(/\blabels?\b/i);
   });
 
-  it("mentions calendar tools only when a calendar is connected", () => {
-    const connectedPrompt = buildPrompt({ calendarToolsEnabled: true });
-    const disconnectedPrompt = buildPrompt({ calendarToolsEnabled: false });
+  it("adds a connect-calendar tip only when disconnection is confirmed", () => {
+    const connectedPrompt = buildPrompt({ calendarConnection: "connected" });
+    const disconnectedPrompt = buildPrompt({
+      calendarConnection: "disconnected",
+    });
+    const unknownPrompt = buildPrompt({ calendarConnection: "unknown" });
 
-    expect(connectedPrompt).toContain("calendar or inbox date-range tools");
-    expect(connectedPrompt).not.toContain("No calendar is connected");
-    expect(disconnectedPrompt).toContain(
-      "No calendar is connected. Do not call a calendar tool. If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
-    );
-    expect(disconnectedPrompt).not.toContain(
-      "calendar or inbox date-range tools",
-    );
+    for (const prompt of [connectedPrompt, disconnectedPrompt, unknownPrompt]) {
+      expect(prompt).toContain("calendar or inbox date-range tools");
+      expect(prompt).not.toContain("Do not call a calendar tool");
+    }
+    expect(disconnectedPrompt).toContain("connect a calendar in settings");
+    expect(connectedPrompt).not.toContain("connect a calendar");
+    expect(unknownPrompt).not.toContain("connect a calendar");
   });
 });
 
@@ -137,7 +139,7 @@ function buildPrompt(
     emailSendToolsEnabled: true,
     draftReplyActionsEnabled: true,
     webhookActionsEnabled: true,
-    calendarToolsEnabled: true,
+    calendarConnection: "connected",
     provider: "google",
     responseSurface: "web",
     userTimezone: "UTC",

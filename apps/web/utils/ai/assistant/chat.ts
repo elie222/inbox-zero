@@ -53,7 +53,7 @@ import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-resul
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 10;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 11;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -68,6 +68,7 @@ type AssistantChatOnModelResolved = NonNullable<
 type AssistantChatOnEnd = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onEnd"]
 >;
+type CalendarConnectionStatus = "connected" | "disconnected" | "unknown";
 
 export async function aiProcessAssistantChat({
   messages,
@@ -126,9 +127,11 @@ export async function aiProcessAssistantChat({
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
-  let calendarToolsEnabled = false;
+  let calendarConnection: CalendarConnectionStatus = "unknown";
   try {
-    calendarToolsEnabled = await hasUsableCalendarConnection(emailAccountId);
+    calendarConnection = (await hasUsableCalendarConnection(emailAccountId))
+      ? "connected"
+      : "disconnected";
   } catch (error) {
     logger.warn("Failed to check calendar connection for chat tools", {
       error,
@@ -138,7 +141,7 @@ export async function aiProcessAssistantChat({
     emailSendToolsEnabled,
     draftReplyActionsEnabled,
     webhookActionsEnabled,
-    calendarToolsEnabled,
+    calendarConnection,
     provider: user.account.provider,
     responseSurface,
     messagingPlatform,
@@ -295,7 +298,7 @@ export async function aiProcessAssistantChat({
       : {}),
 
     // Progressive disclosure groups (registered but not active by default)
-    ...(calendarToolsEnabled
+    ...(calendarConnection === "connected"
       ? { getCalendarEvents: getCalendarEventsTool(toolOptions) }
       : {}),
     // Attachments
@@ -694,7 +697,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
   webhookActionsEnabled,
-  calendarToolsEnabled,
+  calendarConnection,
   provider,
   responseSurface,
   messagingPlatform,
@@ -704,7 +707,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
   webhookActionsEnabled: boolean;
-  calendarToolsEnabled: boolean;
+  calendarConnection: CalendarConnectionStatus;
   provider: string;
   responseSurface: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
@@ -771,7 +774,7 @@ export function buildResolvedSystemPrompt({
       provider,
       userTimezone,
       currentTimestamp,
-      calendarToolsEnabled,
+      calendarConnection,
     }),
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
@@ -822,25 +825,22 @@ function getProviderContextSection({
   provider,
   userTimezone,
   currentTimestamp,
-  calendarToolsEnabled,
+  calendarConnection,
 }: {
   provider: string;
   userTimezone: string;
   currentTimestamp: string;
-  calendarToolsEnabled: boolean;
+  calendarConnection: CalendarConnectionStatus;
 }) {
-  const relativeDateTargets = calendarToolsEnabled
-    ? "calendar or inbox date-range tools"
-    : "inbox date-range tools";
   const lines = [
     "Provider context:",
     `- Current provider: ${provider}.`,
-    `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling ${relativeDateTargets}.`,
+    `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
   ];
 
-  if (!calendarToolsEnabled) {
+  if (calendarConnection === "disconnected") {
     lines.push(
-      "- No calendar is connected. Do not call a calendar tool. If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
+      "- If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
     );
   }
 

@@ -396,25 +396,32 @@ describe("aiProcessAssistantChat", () => {
         },
       }),
     );
+    expect(systemPrompt).toContain("calendar or inbox date-range tools");
+    expect(systemPrompt).not.toContain("Do not call a calendar tool");
 
     if (enabled) {
       expect(args.tools.getCalendarEvents).toBeDefined();
-      expect(systemPrompt).toContain("calendar or inbox date-range tools");
+      expect(systemPrompt).not.toContain("connect a calendar");
       return;
     }
 
     expect(args.tools.getCalendarEvents).toBeUndefined();
-    expect(systemPrompt).toContain("No calendar is connected");
+    expect(systemPrompt).toContain("connect a calendar in settings");
   });
 
-  it("omits calendar tools when the connection lookup fails", async () => {
+  it("omits calendar tools without the connect tip when the lookup fails", async () => {
     mockPrisma.calendarConnection.findMany.mockRejectedValue(
       new Error("db down"),
     );
 
     const tools = await captureToolSet();
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
 
     expect(tools.getCalendarEvents).toBeUndefined();
+    expect(systemPrompt).toContain("calendar or inbox date-range tools");
+    expect(systemPrompt).not.toContain("connect a calendar");
   });
 
   it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {
