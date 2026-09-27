@@ -245,7 +245,7 @@ export function BulkRunRules() {
                 />
                 <ItemSeparator />
                 <ToggleRow
-                  title="Generate drafts from your rules"
+                  title="Generate draft replies"
                   checked={generateDraftReplies}
                   onCheckedChange={setGenerateDraftReplies}
                   disabled={isBusy}
