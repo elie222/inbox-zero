@@ -180,13 +180,10 @@ async function observeAppliedMetadata(
     operation.intent.targets,
     METADATA_OBSERVATION_BATCH_SIZE,
   )) {
-    const messages = await provider
-      .getMessagesBatch(batch.map((target) => target.messageId))
-      .catch((error) => {
-        // Mutation applied; catch-up can fill the observations.
-        logger.warn("Failed to observe applied mail operation", { error });
-        return [];
-      });
+    const messages = await readMessagesForObservation(
+      provider,
+      batch.map((target) => target.messageId),
+    );
     const messagesById = new Map(
       messages.map((message) => [message.id, message]),
     );
@@ -207,6 +204,28 @@ async function observeAppliedMetadata(
     }
   }
   return metadataResult(operation, targets, observations);
+}
+
+// One failed read rejects a whole provider batch, so retry individually to
+// keep the other messages observable. Unreadable messages stay unobserved;
+// the mutation already applied and catch-up can fill them in.
+async function readMessagesForObservation(
+  provider: EmailProvider,
+  messageIds: string[],
+) {
+  try {
+    return await provider.getMessagesBatch(messageIds);
+  } catch (error) {
+    logger.warn("Batched read failed after applying mail operation", {
+      error,
+    });
+    const messages = await Promise.all(
+      messageIds.map((messageId) =>
+        provider.getMessage(messageId).catch(() => null),
+      ),
+    );
+    return messages.filter((message) => message !== null);
+  }
 }
 
 async function inspectMetadataOperation(

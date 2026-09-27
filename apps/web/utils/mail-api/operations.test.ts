@@ -88,6 +88,42 @@ describe("createEmailProviderOperationExecutor", () => {
     ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
   });
 
+  it("keeps verifying other messages when a batched read fails", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages: vi.fn(),
+        getMessagesBatch: vi.fn().mockRejectedValue(new Error("throttled")),
+        async getMessage(id: string) {
+          if (id === "unreadable") throw new Error("throttled");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+        { accountId: "acc-1", messageId: "unreadable" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "still-inbox:uncertain", "unreadable:applied"]);
+  });
+
   it("falls back to per-message outcomes when the bulk call fails", async () => {
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
