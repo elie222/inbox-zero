@@ -18,19 +18,35 @@ describe("buildResolvedSystemPrompt", () => {
   });
 
   it("adds a connect-calendar tip only when disconnection is confirmed", () => {
-    const connectedPrompt = buildPrompt({ calendarConnection: "connected" });
-    const disconnectedPrompt = buildPrompt({
-      calendarConnection: "disconnected",
+    const connectedPrompt = buildPrompt({
+      calendarConnection: { state: "connected" },
     });
-    const unknownPrompt = buildPrompt({ calendarConnection: "unknown" });
+    const disconnectedPrompt = buildPrompt({
+      calendarConnection: { state: "disconnected" },
+    });
+    const failedPrompt = buildPrompt({
+      calendarConnection: { state: "failed", message: "Error: db down" },
+    });
 
-    for (const prompt of [connectedPrompt, disconnectedPrompt, unknownPrompt]) {
+    for (const prompt of [connectedPrompt, disconnectedPrompt, failedPrompt]) {
       expect(prompt).toContain("calendar or inbox date-range tools");
-      expect(prompt).not.toContain("Do not call a calendar tool");
     }
-    expect(disconnectedPrompt).toContain("connect a calendar in settings");
+    expect(disconnectedPrompt).toContain(
+      "you may tell them they can connect a calendar in settings",
+    );
     expect(connectedPrompt).not.toContain("connect a calendar");
-    expect(unknownPrompt).not.toContain("connect a calendar");
+    expect(connectedPrompt).not.toContain(
+      "Checking the calendar connection failed",
+    );
+    expect(failedPrompt).toContain(
+      "Checking the calendar connection failed (Error: db down)",
+    );
+    expect(failedPrompt).toContain(
+      "reconnect their calendar in settings or try again",
+    );
+    expect(failedPrompt).not.toContain(
+      "you may tell them they can connect a calendar in settings",
+    );
   });
 });
 
@@ -139,7 +155,7 @@ function buildPrompt(
     emailSendToolsEnabled: true,
     draftReplyActionsEnabled: true,
     webhookActionsEnabled: true,
-    calendarConnection: "connected",
+    calendarConnection: { state: "connected" },
     provider: "google",
     responseSurface: "web",
     userTimezone: "UTC",

@@ -409,10 +409,12 @@ describe("aiProcessAssistantChat", () => {
     expect(systemPrompt).toContain("connect a calendar in settings");
   });
 
-  it("omits calendar tools without the connect tip when the lookup fails", async () => {
-    mockPrisma.calendarConnection.findMany.mockRejectedValue(
-      new Error("db down"),
+  it("tells the model when the calendar connection lookup fails", async () => {
+    const error = new Error(
+      "db down postgres://user:secret@localhost/db bearer session-token\n    at Connection.connect",
     );
+    mockPrisma.calendarConnection.findMany.mockRejectedValue(error);
+    const errorSpy = vi.spyOn(logger, "error");
 
     const tools = await captureToolSet();
     const systemPrompt = String(
@@ -420,8 +422,19 @@ describe("aiProcessAssistantChat", () => {
     );
 
     expect(tools.getCalendarEvents).toBeUndefined();
-    expect(systemPrompt).toContain("calendar or inbox date-range tools");
-    expect(systemPrompt).not.toContain("connect a calendar");
+    expect(systemPrompt).toContain(
+      "Checking the calendar connection failed (Error: db down postgres://[redacted]@localhost/db bearer [redacted])",
+    );
+    expect(systemPrompt).toContain(
+      "reconnect their calendar in settings or try again",
+    );
+    expect(systemPrompt).not.toContain("secret");
+    expect(systemPrompt).not.toContain("Connection.connect");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to check calendar connection for chat tools",
+      expect.objectContaining({ error }),
+    );
+    errorSpy.mockRestore();
   });
 
   it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {
