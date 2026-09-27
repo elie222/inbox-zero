@@ -424,12 +424,163 @@ describe("engine bootstrap coverage", () => {
     ]);
     await engine.close();
   });
+
+  it("waits for the idle interval when the provider keeps asking for a resync", async () => {
+    let now = 1000;
+    let beginCalls = 0;
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => {
+          beginCalls += 1;
+        },
+        onEnumerate: () => {},
+        resetEveryRead: true,
+      }),
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    await engine.requestSync(["acc-1"]);
+
+    for (let elapsed = 0; elapsed < 59_000; elapsed += 250) {
+      now += 250;
+      await engine.runUntil(now + 2000);
+    }
+
+    // The first sync plus one resync; further resyncs wait for the interval.
+    expect(beginCalls).toBe(2);
+    await engine.close();
+  });
+
+  it("finishes a resync bootstrap that spans runs without waiting for the idle interval", async () => {
+    let now = 1000;
+    let readChangesCalls = 0;
+    const pages = Array.from({ length: 30 }, (_, index) => `page-${index + 1}`);
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: slowBootstrapSource({
+        onBootstrap: () => {},
+        onEnumerate: () => {},
+        onReadChanges: () => {
+          readChangesCalls += 1;
+        },
+        readChangesOnce: { status: "reset_required", scopeId: "primary" },
+        pages,
+      }),
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    await engine.requestSync(["acc-1"]);
+    for (let run = 0; run < 3 && readChangesCalls === 0; run += 1) {
+      now += 250;
+      await engine.runUntil(now + 2000);
+    }
+    expect(readChangesCalls).toBe(1);
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toMatchObject({ page: "page-26" });
+
+    for (let run = 0; run < 4; run += 1) {
+      now += 250;
+      await engine.runUntil(now + 2000);
+    }
+
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toBeNull();
+    expect(readChangesCalls).toBe(1);
+    await engine.close();
+  });
+  it("finishes a resync bootstrap left unfinished by an engine restart", async () => {
+    let now = 1000;
+    let readChangesCalls = 0;
+    const pages = Array.from({ length: 30 }, (_, index) => `page-${index + 1}`);
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const source = slowBootstrapSource({
+      onBootstrap: () => {},
+      onEnumerate: () => {},
+      onReadChanges: () => {
+        readChangesCalls += 1;
+      },
+      readChangesOnce: { status: "reset_required", scopeId: "primary" },
+      pages,
+    });
+    const createEngine = () =>
+      createMailEngine({
+        store,
+        source,
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+      });
+    const beforeRestart = createEngine();
+    await beforeRestart.requestSync(["acc-1"]);
+    for (let run = 0; run < 3 && readChangesCalls === 0; run += 1) {
+      now += 250;
+      await beforeRestart.runUntil(now + 2000);
+    }
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toMatchObject({ page: "page-26" });
+
+    const afterRestart = createEngine();
+    for (let run = 0; run < 4; run += 1) {
+      now += 250;
+      await afterRestart.runUntil(now + 2000);
+    }
+
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toBeNull();
+    await afterRestart.close();
+  });
 });
+
+function uncertainExecutor() {
+  return {
+    async execute() {
+      return { status: "uncertain" as const, receiptId: null };
+    },
+    async inspect() {
+      return { status: "uncertain" as const, receiptId: null };
+    },
+  };
+}
 
 function slowBootstrapSource(hooks: {
   onBootstrap: () => void;
   onEnumerate: (page: string) => void;
   readChangesOnce?: { status: "reset_required"; scopeId: string };
+  resetEveryRead?: boolean;
+  onReadChanges?: () => void;
   body?: { html: string | null; text: string | null };
   scopeId?: string;
   pages?: string[];
@@ -538,6 +689,10 @@ function slowBootstrapSource(hooks: {
       };
     },
     async readChanges() {
+      hooks.onReadChanges?.();
+      if (hooks.resetEveryRead) {
+        return { status: "reset_required", scopeId: activeScopeId };
+      }
       if (hooks.readChangesOnce && !resetConsumed) {
         resetConsumed = true;
         return hooks.readChangesOnce;
