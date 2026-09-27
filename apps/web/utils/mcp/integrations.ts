@@ -175,7 +175,7 @@ export const MCP_INTEGRATIONS: Record<
     name: "pipedream",
     displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
     shortName: "Pipedream",
-    description: "HubSpot, Slack, Airtable, and hundreds more apps",
+    description: "Hundreds more apps",
     url: "pipedream.com",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",

@@ -227,32 +227,23 @@ export function IntegrationRow({
   return (
     <>
       <TableRow>
-        <TableCell className="w-full">
-          <div className="flex items-center gap-3">
-            <DomainIcon domain={integration.url} size={32} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span>{integration.shortName || integration.displayName}</span>
-                {integration.comingSoon && (
-                  <Badge variant="secondary">Coming soon</Badge>
-                )}
-                {isCustom && <Badge variant="secondary">Custom</Badge>}
-              </div>
-              <MutedText>{integration.description}</MutedText>
-            </div>
-          </div>
-        </TableCell>
+        <IntegrationNameCell
+          url={integration.url}
+          name={integration.shortName || integration.displayName}
+          description={integration.description}
+        >
+          {integration.comingSoon && (
+            <Badge variant="secondary">Coming soon</Badge>
+          )}
+          {isCustom && <Badge variant="secondary">Custom</Badge>}
+        </IntegrationNameCell>
         <TableCell className="whitespace-nowrap">
           {integration.comingSoon ? (
             <RequestAccessDialog integrationName={integration.displayName} />
           ) : connected || integration.authType !== "none" ? (
             <div className="flex items-center gap-2">
               {connected ? (
-                isActive ? (
-                  <span className="text-green-600 text-sm">✓ Connected</span>
-                ) : (
-                  <span className="text-muted-foreground text-sm">Paused</span>
-                )
+                <ConnectionStatus isActive={isActive} />
               ) : (
                 <Button
                   size="sm"
@@ -326,6 +317,41 @@ export function IntegrationRow({
         <ToolsList tools={tools} onToggleTool={handleToggleTool} />
       )}
     </>
+  );
+}
+
+export function IntegrationNameCell({
+  url,
+  name,
+  description,
+  children,
+}: {
+  url: string;
+  name: string;
+  description: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <TableCell className="w-full">
+      <div className="flex items-center gap-3">
+        <DomainIcon domain={url} size={32} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span>{name}</span>
+            {children}
+          </div>
+          <MutedText>{description}</MutedText>
+        </div>
+      </div>
+    </TableCell>
+  );
+}
+
+export function ConnectionStatus({ isActive }: { isActive: boolean }) {
+  return isActive ? (
+    <span className="text-green-600 text-sm">✓ Connected</span>
+  ) : (
+    <span className="text-muted-foreground text-sm">Paused</span>
   );
 }
 
