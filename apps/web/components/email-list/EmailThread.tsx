@@ -22,10 +22,6 @@ import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
-import {
-  undoPendingSend,
-  useUndoableSendId,
-} from "@/app/(app)/[emailAccountId]/compose/undo-send";
 
 const NO_OUTGOING: OutgoingThreadMessage[] = [];
 
@@ -102,7 +98,6 @@ export function EmailThread({
     ({ message, outgoing }) =>
       !outgoing && !message.labelIds?.includes(GmailLabel.DRAFT),
   )?.message;
-  const undoableSendId = useUndoableSendId();
 
   const [expansionOverrides, setExpansionOverrides] = useState<
     Map<string, boolean>
@@ -309,11 +304,14 @@ export function EmailThread({
                 composerSessionMessageId={
                   sendOperationId ? `outgoing:${sendOperationId}` : undefined
                 }
-                onUndoSend={
-                  sendOperationId && sendOperationId === undoableSendId
-                    ? () => undoPendingSend(sendOperationId)
-                    : undefined
-                }
+                onReplySent={() => {
+                  // The sent reply lands below as the newest message; keep this
+                  // one open and let selection fall through to the reply.
+                  setExpansionOverrides((prev) =>
+                    new Map(prev).set(message.id, true),
+                  );
+                  setSelectedMessageId(undefined);
+                }}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
                 onExpand={() =>

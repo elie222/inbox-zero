@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -30,19 +29,9 @@ type PendingUndoSend = {
 };
 
 let pending: PendingUndoSend | null = null;
-const listeners = new Set<() => void>();
 
 export function getUndoSendHoldUntil(online: boolean, now = Date.now()) {
   return online ? now + UNDO_SEND_DELAY_MS : undefined;
-}
-
-/** The send whose undo window is open, so its message can offer Undo. */
-export function useUndoableSendId() {
-  return useSyncExternalStore(
-    subscribe,
-    () => pending?.operationId ?? null,
-    () => null,
-  );
 }
 
 export function beginUndoSend({
@@ -84,7 +73,7 @@ export function beginUndoSend({
     },
   };
   const timeout = setTimeout(() => clearUndoSendOffer(current), duration);
-  setPending(current);
+  pending = current;
   const inspect = () => {
     if (pending !== current || current.undone) return;
     const status = handle.getSnapshot().data?.status;
@@ -96,18 +85,18 @@ export function beginUndoSend({
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
     duration,
+    // A dismissed toast can still fire during its exit animation, after a
+    // newer send has taken over.
     onUndo: async () => {
-      await undoPendingSend();
+      if (pending === current) await undoPendingSend();
     },
   });
   inspect();
 }
 
-/** Undoes the open send, or only `operationId` when a message asks for it. */
-export async function undoPendingSend(operationId?: string) {
+export async function undoPendingSend() {
   const current = pending;
   if (!current || current.undone) return false;
-  if (operationId && current.operationId !== operationId) return false;
   current.undone = true;
   const result = await current.client.cancelOperation({
     accountId: current.emailAccountId,
@@ -122,7 +111,7 @@ export async function undoPendingSend(operationId?: string) {
     return false;
   }
   if (pending === current) {
-    setPending(null);
+    pending = null;
     current.release();
   }
   toast.dismiss(current.toastId);
@@ -145,30 +134,18 @@ export async function undoPendingSend(operationId?: string) {
   return true;
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function setPending(next: PendingUndoSend | null) {
-  pending = next;
-  for (const listener of listeners) listener();
-}
-
 function releasePreviousOffer() {
   const previous = pending;
   if (!previous) return;
   previous.undone = true;
-  setPending(null);
+  pending = null;
   previous.release();
   toast.dismiss(previous.toastId);
 }
 
 function clearUndoSendOffer(offer: PendingUndoSend) {
   if (pending !== offer || offer.undone) return;
-  setPending(null);
+  pending = null;
   offer.release();
   toast.dismiss(offer.toastId);
 }

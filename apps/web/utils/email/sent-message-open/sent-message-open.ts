@@ -85,21 +85,15 @@ export function describeSentMessageOpen(
 ) {
   const firstOpenedAt = parseDate(open.firstOpenedAt);
   if (!firstOpenedAt) {
-    return { label: "Not opened", detail: "Not opened yet" };
+    return "Not opened yet";
   }
 
   const lastOpenedAt = parseDate(open.lastOpenedAt) ?? firstOpenedAt;
   if (open.openCount > 1) {
-    return {
-      label: "Opened",
-      detail: `Opened ${open.openCount} times · Last opened ${formatRelative(lastOpenedAt)}`,
-    };
+    return `Opened ${open.openCount} times · Last opened ${formatRelative(lastOpenedAt)}`;
   }
 
-  return {
-    label: "Opened",
-    detail: `Opened ${formatRelative(firstOpenedAt)}`,
-  };
+  return `Opened ${formatRelative(firstOpenedAt)}`;
 }
 
 function parseDate(value: Date | string | null) {
