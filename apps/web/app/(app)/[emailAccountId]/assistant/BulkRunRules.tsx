@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useReducer, useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -31,12 +31,8 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import { Badge } from "@/components/ui/badge";
 import { hasTierAccess } from "@/utils/premium";
-import {
-  RERUN_MINIMUM_TIER,
-  RERUN_UPGRADE_MESSAGE,
-} from "@/utils/premium/rerun";
+import { RERUN_MINIMUM_TIER } from "@/utils/premium/rerun";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
@@ -54,6 +50,7 @@ export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
   const [isOpen, setIsOpen] = useState(false);
+  const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
   const [state, dispatch] = useReducer(bulkRunReducer, initialBulkRunState);
 
   const queue = useAiQueueState();
@@ -223,25 +220,18 @@ export function BulkRunRules() {
               <ItemCard>
                 <ToggleRow
                   title="Include read emails"
-                  description={
-                    isBusinessPlusTier || !hasAiAccess
-                      ? undefined
-                      : "Including read emails is available on the Professional plan."
-                  }
                   checked={includeRead}
                   onCheckedChange={setIncludeRead}
-                  disabled={isProcessing || !isBusinessPlusTier}
+                  disabled={isProcessing}
+                  onUpgrade={isBusinessPlusTier ? undefined : openPremiumModal}
                 />
                 <ItemSeparator />
                 <ToggleRow
-                  title="Reprocess emails your rules already handled"
-                  badge={!hasRerunAccess && <ProfessionalPlanBadge />}
-                  description={
-                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
-                  }
+                  title="Rerun rules on already processed emails"
                   checked={isRerunEnabled}
                   onCheckedChange={setRerun}
-                  disabled={isProcessing || !hasRerunAccess}
+                  disabled={isProcessing}
+                  onUpgrade={hasRerunAccess ? undefined : openPremiumModal}
                 />
                 <ItemSeparator />
                 <ToggleRow
@@ -329,6 +319,7 @@ export function BulkRunRules() {
               )}
             </div>
           </LoadingContent>
+          <PremiumModal />
         </DialogContent>
       </Dialog>
     </div>
@@ -337,56 +328,46 @@ export function BulkRunRules() {
 
 function ToggleRow({
   title,
-  description,
-  badge,
   checked,
   onCheckedChange,
   disabled,
+  onUpgrade,
 }: {
   title: string;
-  description?: string;
-  badge?: ReactNode;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled: boolean;
+  onUpgrade?: () => void;
 }) {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>
-          {title}
-          {badge}
-        </ItemTitle>
-        {description && (
-          <ItemDescription className="line-clamp-none">
-            {description}
-          </ItemDescription>
+        <ItemTitle>{title}</ItemTitle>
+        {onUpgrade && (
+          <ItemDescription>Available on the Professional plan.</ItemDescription>
         )}
       </ItemContent>
       <ItemActions>
-        <Switch
-          aria-label={title}
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          disabled={disabled}
-        />
+        {onUpgrade ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={`Upgrade to use ${title.toLowerCase()}`}
+            onClick={onUpgrade}
+          >
+            Upgrade
+          </Button>
+        ) : (
+          <Switch
+            aria-label={title}
+            checked={checked}
+            onCheckedChange={onCheckedChange}
+            disabled={disabled}
+          />
+        )}
       </ItemActions>
     </Item>
-  );
-}
-
-function ProfessionalPlanBadge() {
-  const { PremiumModal, openModal } = usePremiumModal();
-
-  return (
-    <>
-      <button type="button" onClick={openModal} aria-label="Upgrade plan">
-        <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
-          Professional
-        </Badge>
-      </button>
-      <PremiumModal />
-    </>
   );
 }
 
