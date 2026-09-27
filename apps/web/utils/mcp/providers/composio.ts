@@ -6,6 +6,7 @@ import type { IntegrationProvider } from "@/utils/mcp/providers/types";
 const logger = createScopedLogger("composio");
 
 const COMPOSIO_API_URL = "https://backend.composio.dev/api/v3";
+const COMPOSIO_REQUEST_TIMEOUT_MS = 15_000;
 
 // Auth configs and MCP servers are shared per app across all users. Every
 // instance resolves the oldest matching resource so concurrent first-time
@@ -175,6 +176,7 @@ async function composioFetch(
       ...(options.body ? { "content-type": "application/json" } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(COMPOSIO_REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
