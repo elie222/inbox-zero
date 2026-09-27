@@ -794,7 +794,10 @@ export function createMailEngine(input: {
         if (visitedStreams > 0) await yieldToHost();
         visitedStreams += 1;
         if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
-        if (!stream.checkpoint) {
+        if (
+          !stream.checkpoint ||
+          (await resumesBootstrap(idleGate, session, stream.streamId))
+        ) {
           await ingestBootstrap({
             session,
             from: stream,
@@ -846,7 +849,12 @@ export function createMailEngine(input: {
             idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
           }
         } else if (changes.status === "reset_required") {
-          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+          // Unfinished pages resume through resumesBootstrap, so the gate
+          // only slows a provider that keeps asking for a resync.
+          idleGate.nextStreamCatchUpAtMs.set(
+            stream.streamId,
+            runtime.nowMs() + idleCatchUpIntervalMs,
+          );
           const resetStream = { ...stream, streamId: changes.scopeId };
           await ingestBootstrap({
             session,
@@ -906,6 +914,20 @@ export function createMailEngine(input: {
       return;
     }
     idleGate.activeBootstrapScopes.delete(scopeId);
+  }
+
+  // A resync keeps the stream's old checkpoint until its bootstrap finishes,
+  // so unfinished pages resume here instead of through another resync.
+  async function resumesBootstrap(
+    idleGate: IdleCatchUpGate,
+    session: { accountId: string; generation: string },
+    scopeId: string,
+  ) {
+    if (!idleGate.activeBootstrapScopes.has(scopeId)) return false;
+    const scan = await store.readBootstrapScan({ session, scopeId });
+    if (scan?.page) return true;
+    idleGate.activeBootstrapScopes.delete(scopeId);
+    return false;
   }
 
   async function discoverBootstrapScopes(
