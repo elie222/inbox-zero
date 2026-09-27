@@ -1,0 +1,22 @@
+{
+  "failOnSeverity": "high",
+  "failOnCapabilityExpansion": true,
+  "allowContentDrift": true,
+  "mutes": [
+    {
+      "rule": "SENSITIVE-PATH-READ",
+      "reason": "Skills here document the dev workflow and mention .env files and process.env by name; the rule fires on that prose, not on code that reads secrets.",
+      "by": "alexverify"
+    },
+    {
+      "rule": "EXEC-PRIMITIVE",
+      "reason": "pr-watch ships a tested shell helper; spawning gh and jq is its purpose.",
+      "by": "alexverify"
+    },
+    {
+      "rule": "OBFUSCATION-EVAL",
+      "reason": "The ultracite rule file tells agents not to use eval(); the rule matches the word in that advice.",
+      "by": "alexverify"
+    }
+  ]
+}

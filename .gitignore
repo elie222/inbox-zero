@@ -119,3 +119,6 @@ eval-results/
 .context/
 .deepsec/
 .tmp/
+
+# eyebrow local snapshot cache (regenerated on scan)
+/.eyebrow/

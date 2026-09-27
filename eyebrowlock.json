@@ -1,0 +1,979 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-27T17:23:24.835606Z",
+  "generator": "eyebrow/0.5.4",
+  "artifacts": [
+    {
+      "id": "07c4bb7c495e2b37",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "cloud-dev-environment",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/cloud-dev-environment"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "c47dded61d31bd5f99637122bb271b37b386a6dc42bc82fc6f1e96e25245416e"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 15,
+          "snippet": "3. Run Prisma migrations: `cd apps/web \u0026\u0026 pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `pris…",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 19,
+          "snippet": "The app reads `apps/web/.env.local`. Required non-obvious env vars beyond `.env.example` defaults:",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-4d53d336093e7665b2e85416bf424bfd295f0de649c12b2f4fffbd54e2e686bb",
+      "discoveredFrom": ".claude/skills/cloud-dev-environment/SKILL.md"
+    },
+    {
+      "id": "1329fda670d7ddcd",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "e2e",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/e2e"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "f12ab082948419b923bab88651bea2783756620d04dcbaed6f37bf8f5e6d9f2d"
+        }
+      ],
+      "contentHash": "sha256-729368da6dfb237e8482a19b02e2fccfbe5d0b8351d29bd04cc2ae5c56517f5d",
+      "discoveredFrom": ".claude/skills/e2e/SKILL.md"
+    },
+    {
+      "id": "15f171a6228549bb",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "context",
+      "name": "CLAUDE.md",
+      "source": {
+        "kind": "local",
+        "ref": "CLAUDE.md"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "CLAUDE.md",
+          "hash": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+        }
+      ],
+      "contentHash": "sha256-f66f912d3d51b8e3d0da790e2cf2fc5c7e6c74e6c8545d45e8307d13f6753f39",
+      "discoveredFrom": "CLAUDE.md"
+    },
+    {
+      "id": "1c4d7cb0f3456180",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "pr-watch",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/pr-watch"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "73e58889a9624fc58aa50a9ee07af051d10d56e62506f73b27e58e6c05b245e8"
+        },
+        {
+          "path": "pr-digest",
+          "hash": "32a0e4df0b376239481c09ac4f567b2e39b10390de0cf9cc46ab028d442cf940"
+        },
+        {
+          "path": "pr-digest.test.mjs",
+          "hash": "b419e9421d85f968a8b1326107cc766e4ff7faf124c33d90853ee61113e7c26e"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "EXEC-PRIMITIVE",
+          "severity": "medium",
+          "owasp": "ASK-03",
+          "file": "pr-digest.test.mjs",
+          "line": 2,
+          "snippet": "import { spawnSync } from \"node:child_process\";",
+          "explanation": "uses a process-execution primitive"
+        },
+        {
+          "ruleId": "EXEC-PRIMITIVE",
+          "severity": "medium",
+          "owasp": "ASK-03",
+          "file": "pr-digest.test.mjs",
+          "line": 75,
+          "snippet": "const { spawnSync } = require('node:child_process');",
+          "explanation": "uses a process-execution primitive"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "pr-digest.test.mjs",
+          "line": 77,
+          "snippet": "const f = JSON.parse(process.env.DIGEST_FIXTURE);",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "pr-digest.test.mjs",
+          "line": 105,
+          "snippet": "env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}`, DIGEST_FIXTURE: JSON.stringify(fixture), PR_D…",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-4c5c874d5789a6cb4d0e54bbec4836185c700cf4a1e7081d1f8547aec2d628cc",
+      "discoveredFrom": ".claude/skills/pr-watch/SKILL.md"
+    },
+    {
+      "id": "2ab9748ec7c2eb54",
+      "tool": "skills-lock",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "inbox-zero-api",
+      "source": {
+        "kind": "local",
+        "ref": "skills/inbox-zero-api"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "676bce61dc4e724865ecf9b35f2da275f989c1a24b7c3d77c6f16677024f3c89"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "hash": "a6dcf54b4ba3bee75b8188f3f39be335db81bdaa79279caf103f5c4a0d53e6d2"
+        },
+        {
+          "path": "references/cli-reference.md",
+          "hash": "d6c0579f70221780ec29a2be8caef74b5d182457ebc1193c1ef06dbc2deb4315"
+        }
+      ],
+      "contentHash": "sha256-0ebd32430040b262bb0369401823a058cc17b0e5fc9357ad5a2de2c1d1f1306f",
+      "discoveredFrom": "skills/inbox-zero-api/SKILL.md"
+    },
+    {
+      "id": "36a7f420e6d57f4d",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "testing",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/testing"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "491b8fcbc588ec387b9a04c1b39618203e8fd2d1ee0e4df2e6da115234f072a2"
+        },
+        {
+          "path": "e2e.md",
+          "hash": "702ce599c1282f5941dcda6247442fd949a8383ff052bb6aad9034e11ca36ef5"
+        },
+        {
+          "path": "eval.md",
+          "hash": "2746445d250094c19661840b1d761043cfcb185501a18afa1b60d89d857b9bd5"
+        },
+        {
+          "path": "integration.md",
+          "hash": "e8203bdb81b51e2a94725c59622e7d56528868ff91404f6a1749a7d4f6d2a7d5"
+        },
+        {
+          "path": "llm.md",
+          "hash": "29110ddbacaf05dba62eaeb3591f5d983a91549e84c107e717b4e529b73784df"
+        },
+        {
+          "path": "unit.md",
+          "hash": "4d3ddaaab528cd00d2f141ea69e19434303ebb8ec893df76db6cccc0b52aa785"
+        },
+        {
+          "path": "write-tests.md",
+          "hash": "95bece2c80f36104d401694eb6b64c928b14a957cc5966b645583f632ca871ba"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "e2e.md",
+          "line": 155,
+          "snippet": "- Config at `~/.config/inbox-zero/.env.e2e`",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "eval.md",
+          "line": 23,
+          "snippet": "const isAiTest = process.env.RUN_AI_TESTS === \"true\";",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "integration.md",
+          "line": 42,
+          "snippet": "const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "integration.md",
+          "line": 118,
+          "snippet": "const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "integration.md",
+          "line": 192,
+          "snippet": "**Manual use**: `pnpm emulate:recall` runs it standalone and prints the env vars to paste into `.env.local`. Type `advan…",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "llm.md",
+          "line": 31,
+          "snippet": "const isAiTest = process.env.RUN_AI_TESTS === \"true\";",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-790fcc4f8532124bd859cfaf52308bb60576427c6d4202d278366e23c82e7416",
+      "discoveredFrom": ".claude/skills/testing/SKILL.md"
+    },
+    {
+      "id": "3b328456e30c3336",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "ui-components",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/ui-components"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "f70831a3423e50f14943b7a576dfe76518b8b871de7f3452ba8d2c62f0cc60a3"
+        }
+      ],
+      "contentHash": "sha256-01d80f497670f07b00a197e1abd2dfe79d96076b9ea56ff0c6fdb28dc2a20711",
+      "discoveredFrom": ".claude/skills/ui-components/SKILL.md"
+    },
+    {
+      "id": "449b34f221a8a5c7",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "update-packages",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/update-packages"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "084348a2b6d0da2565da3ef4d34dc0348f4f49a33d2c875c9df63170955a1cc7"
+        }
+      ],
+      "contentHash": "sha256-3ca932688f77b28b72f0b3a6d996a4e7db4421754f4ea59f429b18a46ee1f366",
+      "discoveredFrom": ".claude/skills/update-packages/SKILL.md"
+    },
+    {
+      "id": "44e4ae2df7fecd13",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "review",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/review"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "48c2d52410330abae9b7aaa74e460dad88219efbe1c7ddc502dc6d1b16fec848"
+        }
+      ],
+      "contentHash": "sha256-3f1df2d568f272f9575b6ade5577213ea2ff58659399564eb94af1fb3995057c",
+      "discoveredFrom": ".claude/skills/review/SKILL.md"
+    },
+    {
+      "id": "499960effcfddb86",
+      "tool": "cursor",
+      "scope": "project:.",
+      "type": "rules",
+      "name": "posthog-feature-flags",
+      "source": {
+        "kind": "local",
+        "ref": ".cursor/rules/posthog-feature-flags.mdc"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "posthog-feature-flags.mdc",
+          "hash": "bbcabb8df2373c808a24b4d11103f58cdb7ca1b25b95e8405425cfef7accdb2e"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "posthog-feature-flags.mdc",
+          "line": 44,
+          "snippet": "- Developers to enable features locally via `.env`",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-b5d520d7389d1817ecb3ab1027930f808f6256e274b7037a80431993e353d2c4",
+      "discoveredFrom": ".cursor/rules/posthog-feature-flags.mdc"
+    },
+    {
+      "id": "4b1447d67257f776",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "changelog",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/changelog"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "0f8a200e767e857b4b17f5bb4081bf49676c6e23b57a3146e426b0f1f77affbd"
+        }
+      ],
+      "contentHash": "sha256-53afaa2d783e32e119978ad19341abfbee4328f7a4af836d1331b601b3cebcef",
+      "discoveredFrom": ".claude/skills/changelog/SKILL.md"
+    },
+    {
+      "id": "55b4959a90209786",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "review-ai-prompt-changes",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/review-ai-prompt-changes"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "8fff1514f3c1913e8950e7703d6b93d446229b1b72077dea5a3173a649fdbde2"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "hash": "eed18c2516b1a1ea60edaa2751af1f0f40b338470c1d143b8301a3927d75b484"
+        }
+      ],
+      "contentHash": "sha256-caae6ddab5729728d6120474a41972f3fa09a6f7d50e86f838d5aa585924c673",
+      "discoveredFrom": ".claude/skills/review-ai-prompt-changes/SKILL.md"
+    },
+    {
+      "id": "59dcde3a1f2c442d",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "subagent",
+      "name": "reviewer",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/agents/reviewer.md"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "reviewer.md",
+          "hash": "b6d6c97c15b1a6707d99a17035c607be804dff6314b39c16d3860c7e1316ae96"
+        }
+      ],
+      "contentHash": "sha256-f62143d01f345d2a457c148573adfaf4f9f9d4d6abfbd2ce0e5bf62778d908ce",
+      "discoveredFrom": ".claude/agents/reviewer.md"
+    },
+    {
+      "id": "5f1f22e473c30a33",
+      "tool": "codex",
+      "scope": "project:.",
+      "type": "context",
+      "name": "AGENTS",
+      "source": {
+        "kind": "local",
+        "ref": "AGENTS.md"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "AGENTS.md",
+          "hash": "dfc665edaa19c668961431e16fca54a09e21713aafe9bbbccc0d10cca10e5143"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "AGENTS.md",
+          "line": 55,
+          "snippet": "- Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-79d5cbc2ab8a9a1e44aff2aa81662a533808796e7f1a962069accf92b98aa586",
+      "discoveredFrom": "AGENTS.md"
+    },
+    {
+      "id": "640e6c33a3109264",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "llm-test",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/llm-test"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "c17b032ab0be5f958bbb0cb1564e0520f0eb3b0e8e1c7dc7bf1f1b3ba71d51cf"
+        }
+      ],
+      "contentHash": "sha256-ca8dcd0e039f2c0f7b1bea7349c7a44b1469cf83499e5ec1ff3c8d17c46b5f36",
+      "discoveredFrom": ".claude/skills/llm-test/SKILL.md"
+    },
+    {
+      "id": "86fbda49d492d516",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "llm",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/llm"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "32fdb10795a2160ef90305ed3efe94ad8d7a197f18a82454cffe343054e2de77"
+        }
+      ],
+      "contentHash": "sha256-9a28ac0a126fa7243e70edaa8cac312a91009d24c22dcb8e5a944f830fc6c23f",
+      "discoveredFrom": ".claude/skills/llm/SKILL.md"
+    },
+    {
+      "id": "965597eebe0a49a3",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "explain-changes",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/explain-changes"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "0d13fc7ad7e88bb695c9b9878ce06589ad75321ac203418971e48c68a551789e"
+        }
+      ],
+      "contentHash": "sha256-d7474aa8daf7d1a423cccfc0e3a39c9b5962eeea80fe4dbcf31ea31c87a25491",
+      "discoveredFrom": ".claude/skills/explain-changes/SKILL.md"
+    },
+    {
+      "id": "997a60328ac1ab3a",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "environment-variables",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/environment-variables"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "1fc31c2bc384a4e40e0f317811b9a8b8ae986c82a5ab80143bd1513aa5cf0a4a"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 9,
+          "snippet": "1. Add to `.env.example`:",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 25,
+          "snippet": "NEXT_PUBLIC_NEW_VARIABLE: process.env.NEXT_PUBLIC_NEW_VARIABLE,",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 49,
+          "snippet": "# .env.example",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 65,
+          "snippet": "# .env.example",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 73,
+          "snippet": "NEXT_PUBLIC_FEATURE_ENABLED: process.env.NEXT_PUBLIC_FEATURE_ENABLED,",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-066537d228924cf3f7a01477cc77549d452a3e11ad9b9881e4580265872bde46",
+      "discoveredFrom": ".claude/skills/environment-variables/SKILL.md"
+    },
+    {
+      "id": "a0359b7ed62bf3ce",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "prisma",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/prisma"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "443e8f047c3c28302a36ea8acf2225ef4618efa16cb251866c1eb853d1cbd6a3"
+        }
+      ],
+      "contentHash": "sha256-9bb42d54f81d4878c40beba93beca53e915d5953ed95825d2cdbb13e6e6ff8b5",
+      "discoveredFrom": ".claude/skills/prisma/SKILL.md"
+    },
+    {
+      "id": "b689884e0cb2328d",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "qa-label",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/qa-label"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "cea43ca5907ac0ec166e23723e69b0b216c90872976596b6a544ae2f2ca022d3"
+        }
+      ],
+      "contentHash": "sha256-f97410814945c3c364d914c995d9a3bf4c5d734216e385903151cc02c704e79f",
+      "discoveredFrom": ".claude/skills/qa-label/SKILL.md"
+    },
+    {
+      "id": "ba17772da4f33320",
+      "tool": "cursor",
+      "scope": "project:.",
+      "type": "rules",
+      "name": "task-list",
+      "source": {
+        "kind": "local",
+        "ref": ".cursor/rules/task-list.mdc"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "task-list.mdc",
+          "hash": "d34bab789481a509c6e3eb604954297d7bdb93128ee038ac8503c637bebd2d6c"
+        }
+      ],
+      "contentHash": "sha256-5d9c962293124d97cd0ce5ef206071d4f87e3ff1f16de9053583eb2c304298b0",
+      "discoveredFrom": ".cursor/rules/task-list.mdc"
+    },
+    {
+      "id": "c33a5f31b44a9e8c",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "wait",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/wait"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "e556b0a2f505196b3cd197c821f708190f4bb6fc958f453cda122b0bc2d0d9a1"
+        }
+      ],
+      "contentHash": "sha256-9684d22b37cd400999a46dcee0eaa629407e1fea32cffbc1bef01b8a938ed217",
+      "discoveredFrom": ".claude/skills/wait/SKILL.md"
+    },
+    {
+      "id": "c751e46e6fe92651",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "write-tests",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/write-tests"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "5a961a257fcb4df0b5a154840ef3fa29ce57a275715fbb00348ff9754718fb1a"
+        }
+      ],
+      "contentHash": "sha256-5d8b072ccac57748764d4e324c1bd0b9081aab7d02a89557b63376bc7551862c",
+      "discoveredFrom": ".claude/skills/write-tests/SKILL.md"
+    },
+    {
+      "id": "cad8eff30e2c4647",
+      "tool": "cursor",
+      "scope": "project:.",
+      "type": "rules",
+      "name": "e2e-testing",
+      "source": {
+        "kind": "local",
+        "ref": ".cursor/rules/e2e-testing.mdc"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "e2e-testing.mdc",
+          "hash": "1b1655105c3b7f10daa34323cf88e4dd9b7cfde128dd6236fa0c97300226468c"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "e2e-testing.mdc",
+          "line": 109,
+          "snippet": "Run E2E tests locally with `./scripts/run-e2e-local.sh`. Config lives at `~/.config/inbox-zero/.env.e2e`.",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-7501f6d0fc73035bbe8b83ceefeb879d61a6b52dbd4022806966e796dbfee12c",
+      "discoveredFrom": ".cursor/rules/e2e-testing.mdc"
+    },
+    {
+      "id": "cd1be2b011929b50",
+      "tool": "cursor",
+      "scope": "project:.",
+      "type": "rules",
+      "name": "ultracite",
+      "source": {
+        "kind": "local",
+        "ref": ".cursor/rules/ultracite.mdc"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "ultracite.mdc",
+          "hash": "e65ddb71365416aaf831b4ac6f9a166d6fa4379e1cbe54b4c9982e9a3a0ea5e1"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "OBFUSCATION-EVAL",
+          "severity": "high",
+          "owasp": "ASK-05",
+          "file": "ultracite.mdc",
+          "line": 220,
+          "snippet": "- Don't use global `eval()`.",
+          "explanation": "dynamic code evaluation or base64 decoding, a common obfuscation vector"
+        }
+      ],
+      "contentHash": "sha256-b6fdf9810095519d92d81dbc4870e124ad912f0871459b38ff43ea8bb934552a",
+      "discoveredFrom": ".cursor/rules/ultracite.mdc"
+    },
+    {
+      "id": "d54a5d576895367a",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "project-structure",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/project-structure"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "74669cfb497ea2fd40a82e74e6958db84c3f29be0ae0fd3a674db9d74e0f38a7"
+        }
+      ],
+      "contentHash": "sha256-db423a0f4c42bd05e1ab3525bb49dbb665b159477c6095efb997fbe0248305a1",
+      "discoveredFrom": ".claude/skills/project-structure/SKILL.md"
+    },
+    {
+      "id": "dcf8c23cce325a6e",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "fullstack-workflow",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/fullstack-workflow"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "cc7cc9baea7f223e3943002b2c6f1887c5b2bf0f024e2e62b2d6314ca80ab135"
+        }
+      ],
+      "contentHash": "sha256-9ce1a8082728b6b63574c6cfbf6bd196c533276d59aa2a604bdcb5ecfdd7f086",
+      "discoveredFrom": ".claude/skills/fullstack-workflow/SKILL.md"
+    },
+    {
+      "id": "deca9ef86320ec0c",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "test-feature",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/test-feature"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "52a8eb37a6e08ca02b4987ad17b54ac250e3f4758ee2624edc738f29bec8659b"
+        }
+      ],
+      "findings": [
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 23,
+          "snippet": "2. **Ensure `.env` exists**: If `apps/web/.env` is missing (common in worktrees), try symlinking from a shared location:",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 25,
+          "snippet": "ln -sf ~/.inbox-zero/.env apps/web/.env",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 26,
+          "snippet": "ln -sf ~/.inbox-zero/.env.test apps/web/.env.test  # for eval tests",
+          "explanation": "references sensitive credential or secret paths"
+        },
+        {
+          "ruleId": "SENSITIVE-PATH-READ",
+          "severity": "high",
+          "owasp": "ASK-06",
+          "file": "SKILL.md",
+          "line": 29,
+          "snippet": "3. **Enable required feature flags**: Check `.env.example` for any env vars the feature needs (e.g. `NEXT_PUBLIC_EXTERNA…",
+          "explanation": "references sensitive credential or secret paths"
+        }
+      ],
+      "contentHash": "sha256-cd08e5ca385cda4920d5bc1cc66ad8af44546a7327d77d8d6582f6574dd31d66",
+      "discoveredFrom": ".claude/skills/test-feature/SKILL.md"
+    },
+    {
+      "id": "e1b3218baabf9fcb",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "agent-browser",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/agent-browser",
+        "integrity": "sha256-35478d4b0a33b3f98e22b7b4f3fe2d2919ebe72a6ca24b3a7175a9b17cc2788d"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "25aacfdbee524b626418925bd083473151a617f67e4eeacec1cdd6bd1f240f58"
+        },
+        {
+          "path": "references/authentication.md",
+          "hash": "8ccc30f2613523630cf3771a07d71339676d93c63623631a4206521c6d78d2e5"
+        },
+        {
+          "path": "references/commands.md",
+          "hash": "2199f7815a1c65d4cefa9a3848a1b7fa273f35b9f11e08d6aef859b40fbd95a8"
+        },
+        {
+          "path": "references/profiling.md",
+          "hash": "15f1e6c7994d7471a274dc1476992d0ec178acd91f8b626e0d6f24a4dbef738f"
+        },
+        {
+          "path": "references/proxy-support.md",
+          "hash": "4c44ba60d9397523109fdbdf1d972739691856c5bf6bf1587fc58793c71b4671"
+        },
+        {
+          "path": "references/session-management.md",
+          "hash": "2ce531bf105aaf827a907a4e255e00321eef5994ca0e21e41c28489c0a8efebb"
+        },
+        {
+          "path": "references/snapshot-refs.md",
+          "hash": "c2aa75f5a3c1b34a72d53c06b68cc97d8a3c295134257d48f315cdff1c06455d"
+        },
+        {
+          "path": "references/video-recording.md",
+          "hash": "c2c12bd8c44e5d36fbb94cfc376180d47507d3c26a7ee8876b892fc700dcf332"
+        },
+        {
+          "path": "templates/authenticated-session.sh",
+          "hash": "1fa9926c36dbe71191120ce067e5e3babe732cd1cc605020f3bd04dc430aa58c"
+        },
+        {
+          "path": "templates/capture-workflow.sh",
+          "hash": "bf3f3a2f8413773891d9fa400d2a2fddf6d73ffc7a9b2fa00f797f944171c3d5"
+        },
+        {
+          "path": "templates/form-automation.sh",
+          "hash": "b86836986d339f736b15ca78cf3d566e845a6293ae25a5b00aa520b837572650"
+        }
+      ],
+      "contentHash": "sha256-c4bae24265b9afb69d3f1d2c7e5c5dc9cdd27d7bccbd7e5814cda675bd6a08db",
+      "discoveredFrom": ".claude/skills/agent-browser/SKILL.md"
+    },
+    {
+      "id": "ea4a7d819c880ab1",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "create-pr",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/create-pr"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "bc194533bb0d33aad0bc76dd208af80e79504b71d7e84a558e4e8e63f64cd89d"
+        }
+      ],
+      "contentHash": "sha256-098155115fec316a6c73fa627ea7cb8e73c72f408f49d344695d445b3ba5aaed",
+      "discoveredFrom": ".claude/skills/create-pr/SKILL.md"
+    },
+    {
+      "id": "f3da99e4cb3153e8",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "logging",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/logging"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "6957a55ec66b4e54c094ba3be28461746d4aab5a7cca2b5293687821ed21192c"
+        }
+      ],
+      "contentHash": "sha256-d2fb01efda1c054e755316745370eaacff665baf14d2b43c9ea82cdac2d42bff",
+      "discoveredFrom": ".claude/skills/logging/SKILL.md"
+    },
+    {
+      "id": "f5c018dc061abeeb",
+      "tool": "claude-code",
+      "scope": "project:.",
+      "type": "skill",
+      "name": "code-simplifier",
+      "source": {
+        "kind": "local",
+        "ref": ".claude/skills/code-simplifier"
+      },
+      "capabilities": {},
+      "files": [
+        {
+          "path": "SKILL.md",
+          "hash": "8add10da3acf625f859aa8a1bb6487f9fbed86c8aa5f204039b35f297a29ab9b"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "hash": "8be90e188c077e5ee2bb21a38dabfc35f16f6078c8fa3d8e6d760f3f477ddd13"
+        }
+      ],
+      "contentHash": "sha256-42ca99ed06c0be4362b22686989dd95f32ff0693461bd4ee4932a2cb485a5ed5",
+      "discoveredFrom": ".claude/skills/code-simplifier/SKILL.md"
+    }
+  ]
+}

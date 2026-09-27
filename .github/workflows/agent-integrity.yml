@@ -1,0 +1,42 @@
+name: Agent integrity
+
+# Checks the committed eyebrowlock.json against the agent-facing files in
+# this repo: skills under .claude/skills and clawhub/, the reviewer subagent,
+# Cursor rules, the Codex config, AGENTS.md and CLAUDE.md. It runs on every
+# push and pull request because test.yml skips Markdown changes, and skills
+# are Markdown.
+#
+# What fails the build (see eyebrow.policy.json):
+# - a skill named in skills-lock.json whose folder no longer hashes to the
+#   recorded value, or a skills-lock.json entry whose value was edited
+#   (SKILLS-LOCK-MISMATCH)
+# - the clawhub/ skill gaining a network host it did not have when locked
+# - a new high or critical finding that is not muted in the policy
+#
+# Wording changes pass. Added and removed files are listed in the step
+# summary but do not fail. After an intended change, refresh the lock with
+# `eyebrow scan` and commit eyebrowlock.json with the change.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: eyebrow verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: alexverify/eyebrow/action@8dab5bdaa629d2eb6bd05dd190a569e9caf566e9 # v0.5.4
+        with:
+          version: v0.5.4
