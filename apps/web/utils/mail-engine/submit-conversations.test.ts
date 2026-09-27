@@ -30,6 +30,25 @@ describe("submitConversationChanges", () => {
     );
   });
 
+  it("splits selections larger than the engine's command limit", async () => {
+    const client = createClient();
+    const conversationIds = Array.from({ length: 501 }, (_, i) => `c${i}`);
+
+    const { accepted } = await submitConversationChanges({
+      accountId: "account",
+      change: { kind: "archive" },
+      client: client as never,
+      conversationIds,
+    });
+
+    expect(
+      client.submitConversations.mock.calls.map(
+        ([command]) => command.conversations.length,
+      ),
+    ).toEqual([500, 1]);
+    expect(accepted).toHaveLength(501);
+  });
+
   it("reports a rejected command without accepting its conversations", async () => {
     const client = createClient();
     client.submitConversations.mockResolvedValue({

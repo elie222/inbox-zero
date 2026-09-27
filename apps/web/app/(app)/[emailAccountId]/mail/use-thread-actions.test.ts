@@ -66,6 +66,39 @@ describe("useThreadActions", () => {
     );
   });
 
+  it("submits one command per account for a combined inbox selection", async () => {
+    const threads = [
+      { ...createThread(["INBOX"], "shared"), account: { id: "work" } },
+      { ...createThread(["INBOX"], "shared"), account: { id: "home" } },
+    ] as unknown as ListThread[];
+    const { result } = renderActions({ threads });
+    let archived: string[] = [];
+    await act(async () => {
+      archived = await result.current.archive(["work:shared", "home:shared"]);
+    });
+    expect(archived).toEqual(["work:shared", "home:shared"]);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([command]) => ({
+        accountId: command.accountId,
+        conversations: command.conversations,
+      })),
+    ).toEqual([
+      {
+        accountId: "work",
+        conversations: [{ accountId: "work", conversationId: "shared" }],
+      },
+      {
+        accountId: "home",
+        conversations: [{ accountId: "home", conversationId: "shared" }],
+      },
+    ]);
+
+    await act(() => result.current.undo());
+    expect(
+      mail.client.cancelOperation.mock.calls.map(([key]) => key.accountId),
+    ).toEqual(["work", "home"]);
+  });
+
   it("undoes an already-running multi-thread archive with one unarchive command", async () => {
     mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
     const threads = [
