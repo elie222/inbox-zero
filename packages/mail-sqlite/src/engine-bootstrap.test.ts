@@ -509,6 +509,59 @@ describe("engine bootstrap coverage", () => {
     expect(readChangesCalls).toBe(1);
     await engine.close();
   });
+  it("finishes a resync bootstrap left unfinished by an engine restart", async () => {
+    let now = 1000;
+    let readChangesCalls = 0;
+    const pages = Array.from({ length: 30 }, (_, index) => `page-${index + 1}`);
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const source = slowBootstrapSource({
+      onBootstrap: () => {},
+      onEnumerate: () => {},
+      onReadChanges: () => {
+        readChangesCalls += 1;
+      },
+      readChangesOnce: { status: "reset_required", scopeId: "primary" },
+      pages,
+    });
+    const createEngine = () =>
+      createMailEngine({
+        store,
+        source,
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+      });
+    const beforeRestart = createEngine();
+    await beforeRestart.requestSync(["acc-1"]);
+    for (let run = 0; run < 3 && readChangesCalls === 0; run += 1) {
+      now += 250;
+      await beforeRestart.runUntil(now + 2000);
+    }
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toMatchObject({ page: "page-26" });
+
+    const afterRestart = createEngine();
+    for (let run = 0; run < 4; run += 1) {
+      now += 250;
+      await afterRestart.runUntil(now + 2000);
+    }
+
+    expect(
+      await store.readBootstrapScan({
+        session: { accountId: "acc-1", generation: "g1" },
+        scopeId: "primary",
+      }),
+    ).toBeNull();
+    await afterRestart.close();
+  });
 });
 
 function uncertainExecutor() {

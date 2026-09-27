@@ -794,9 +794,19 @@ export function createMailEngine(input: {
         if (visitedStreams > 0) await yieldToHost();
         visitedStreams += 1;
         if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+        const catchUpDue = idleGateDue(
+          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
+          runtime.nowMs(),
+          idleCatchUpIntervalMs,
+        );
         if (
           !stream.checkpoint ||
-          (await resumesBootstrap(idleGate, session, stream.streamId))
+          (await resumesBootstrap(
+            idleGate,
+            session,
+            stream.streamId,
+            catchUpDue,
+          ))
         ) {
           await ingestBootstrap({
             session,
@@ -814,13 +824,7 @@ export function createMailEngine(input: {
           );
           continue;
         }
-        const nextCatchUpAtMs =
-          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0;
-        if (
-          !idleGateDue(nextCatchUpAtMs, runtime.nowMs(), idleCatchUpIntervalMs)
-        ) {
-          continue;
-        }
+        if (!catchUpDue) continue;
         const changes = await source.readChanges({
           session,
           requestId: runtime.randomId(),
@@ -917,13 +921,18 @@ export function createMailEngine(input: {
   }
 
   // A resync keeps the stream's old checkpoint until its bootstrap finishes,
-  // so unfinished pages resume here instead of through another resync.
+  // so unfinished pages resume here instead of through another resync. A scan
+  // this engine didn't start, such as one left by a restart, is picked up when
+  // the stream's catch-up comes due.
   async function resumesBootstrap(
     idleGate: IdleCatchUpGate,
     session: { accountId: string; generation: string },
     scopeId: string,
+    catchUpDue: boolean,
   ) {
-    if (!idleGate.activeBootstrapScopes.has(scopeId)) return false;
+    if (!catchUpDue && !idleGate.activeBootstrapScopes.has(scopeId)) {
+      return false;
+    }
     const scan = await store.readBootstrapScan({ session, scopeId });
     if (scan?.page) return true;
     idleGate.activeBootstrapScopes.delete(scopeId);
