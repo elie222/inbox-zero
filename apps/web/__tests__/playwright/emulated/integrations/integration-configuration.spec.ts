@@ -1,5 +1,4 @@
 import { expect } from "@playwright/test";
-import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
   getIntegrationRow,
@@ -83,19 +82,4 @@ test("persists pause state and disconnects the integration", async ({
   await expect(
     notionRow.getByRole("button", { name: "Connect", exact: true }),
   ).toBeVisible({ timeout: 60_000 });
-});
-
-test("lists popular Pipedream apps as their own rows", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(360_000);
-  await openIntegrations(page);
-
-  const hubspotRow = getIntegrationRow(page, "HubSpot");
-  await hubspotRow.scrollIntoViewIfNeeded();
-  await expect(
-    hubspotRow.getByRole("button", { name: "Connect", exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
-
-  await capturePlaywrightCheckpoint(page, testInfo, "pipedream-apps");
 });

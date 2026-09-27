@@ -189,6 +189,7 @@
         "WEBHOOK_URL",
         "MCP_SERVER_URL_OVERRIDES",
         "MCP_ALLOW_PRIVATE_IPS",
+        "COMPOSIO_API_KEY",
         "INTERNAL_API_URL",
         "INTERNAL_API_KEY",
         "WHITELIST_FROM",
