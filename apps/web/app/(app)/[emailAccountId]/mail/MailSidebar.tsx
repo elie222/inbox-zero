@@ -27,7 +27,7 @@ import {
   Users2Icon,
 } from "lucide-react";
 import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
-import { Kbd } from "@/components/Kbd";
+import { Tooltip as ShortcutTooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -36,7 +36,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { cn } from "@/utils";
@@ -289,8 +288,11 @@ export function MailSidebar({
         </div>
       )}
 
-      {collapsed ? (
-        <RailTooltip label="Compose">
+      <ShortcutTooltip
+        shortcuts={[{ id: "compose", label: "Compose" }]}
+        side={collapsed ? "right" : "bottom"}
+      >
+        {collapsed ? (
           <Button
             variant="gradient"
             size="icon"
@@ -300,18 +302,17 @@ export function MailSidebar({
           >
             <PenLineIcon className="size-4" />
           </Button>
-        </RailTooltip>
-      ) : (
-        <Button
-          variant="gradient"
-          onClick={onCompose}
-          className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
-        >
-          <PenLineIcon className="size-4 shrink-0" />
-          <span className="flex-1 text-left">Compose</span>
-          <Kbd variant="onColor">{getShortcutHint("compose")}</Kbd>
-        </Button>
-      )}
+        ) : (
+          <Button
+            variant="gradient"
+            onClick={onCompose}
+            className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
+          >
+            <PenLineIcon className="size-4 shrink-0" />
+            Compose
+          </Button>
+        )}
+      </ShortcutTooltip>
 
       {/* The negative margin lets the scrollbar sit in the sidebar's own
           padding, so a platform-width bar can't crowd the unread counts. */}
