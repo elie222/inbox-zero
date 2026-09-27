@@ -1009,6 +1009,41 @@ export async function createSqliteMailStore(
         return { status: "cancelled", revision: await bumpRevision(tx) };
       });
     },
+    async readHeldSend(key) {
+      return driver.read(async (tx) => {
+        const row = await loadOperation(tx, key.accountId, key.operationId);
+        const outgoing: readonly string[] = OUTGOING_SEND_STATUSES;
+        if (!row || !outgoing.includes(String(row.status))) {
+          return null;
+        }
+        const prepared = await toPrepared(tx, row);
+        if (prepared?.intent.kind !== "send") return null;
+        return prepared.intent.sendAtMs === undefined ? null : prepared;
+      });
+    },
+    async cancelHeldSend(key) {
+      return driver.write(async (tx) => {
+        const current = await loadOperation(tx, key.accountId, key.operationId);
+        if (!current) return { status: "not_found" };
+        if (current.status === "succeeded" || current.status === "superseded") {
+          return { status: "too_late" };
+        }
+        // A rejection that raced the server's cancellation still ends here.
+        await tx.execute(
+          `UPDATE operations
+           SET status = 'cancelled', claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL
+           WHERE account_id = ? AND command_id = ?`,
+          [key.accountId, key.operationId],
+        );
+        await unfreezeSendDraft(
+          tx,
+          key.accountId,
+          current.payload_json,
+          key.operationId,
+        );
+        return { status: "cancelled", revision: await bumpRevision(tx) };
+      });
+    },
     async saveDraft(input) {
       return driver.write((tx) => saveDraftRow(tx, input));
     },
@@ -1116,6 +1151,14 @@ export async function createSqliteMailStore(
             (replied[0] ? String(replied[0].conversation_id) : null) ??
             replyToConversationId;
         }
+        const nowMs = Date.now();
+        // Undo windows are held by the server so they outlast this device;
+        // connectivity holds stay here until the device is back online.
+        const sendAtMs =
+          input.notBeforeMs !== undefined &&
+          input.notBeforeMs - nowMs < DEFERRED_DISPATCH_MIN_HOLD_MS
+            ? input.notBeforeMs
+            : undefined;
         const payload = {
           kind: "send" as const,
           frozenDraftId: input.draft.draftId,
@@ -1132,9 +1175,14 @@ export async function createSqliteMailStore(
             : {}),
           replyToMessageId: input.replyTo?.messageId ?? null,
           replyToConversationId,
-          queuedAtMs: Date.now(),
+          queuedAtMs: nowMs,
+          ...(sendAtMs === undefined ? {} : { sendAtMs }),
         };
-        const hash = await digest({ ...payload, queuedAtMs: 0 });
+        const hash = await digest({
+          ...payload,
+          queuedAtMs: 0,
+          sendAtMs: undefined,
+        });
         const existing = await loadOperation(
           tx,
           input.draft.accountId,
@@ -1179,8 +1227,8 @@ export async function createSqliteMailStore(
             hash,
             JSON.stringify(payload),
             JSON.stringify(payload),
-            Date.now(),
-            input.notBeforeMs ?? null,
+            nowMs,
+            sendAtMs === undefined ? (input.notBeforeMs ?? null) : null,
           ],
         );
         return {

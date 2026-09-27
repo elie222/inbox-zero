@@ -19,7 +19,7 @@ export function mailRequestId(
 }
 
 export function accountMismatchResponse(
-  request: RequestWithEmailProvider,
+  request: Pick<RequestWithEmailProvider, "auth">,
   accountId: string,
   requestId: string,
 ) {

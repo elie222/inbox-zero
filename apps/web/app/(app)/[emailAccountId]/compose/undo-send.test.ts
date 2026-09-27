@@ -36,9 +36,9 @@ describe("undo send", () => {
     cancelStaged.mockResolvedValue(undefined);
   });
 
-  it("holds online sends and skips the delay when offline", () => {
+  it("holds online sends for 30 seconds and skips the delay when offline", () => {
     expect(getUndoSendHoldUntil(false, 1000)).toBeUndefined();
-    expect(getUndoSendHoldUntil(true, 1000)).toBe(1000 + UNDO_SEND_DELAY_MS);
+    expect(getUndoSendHoldUntil(true, 1000)).toBe(31_000);
   });
 
   it("restores the composer when undo cancels a held send", async () => {
@@ -88,7 +88,7 @@ describe("undo send", () => {
     expect(notifications.toastUndo).not.toHaveBeenCalled();
   });
 
-  it("dismisses undo when the send is no longer cancellable", async () => {
+  it("keeps undo open while the server holds the send", async () => {
     const restoreComposer = vi.fn();
     const { client, handle } = createClient();
     beginUndoSend({
@@ -100,6 +100,40 @@ describe("undo send", () => {
     });
 
     handle.set("executing");
+    handle.set("verifying");
+
+    expect(notifications.dismiss).not.toHaveBeenCalled();
+    await expect(undoPendingSend("mutation")).resolves.toBe(true);
+    expect(client.cancelOperation).toHaveBeenCalledOnce();
+    expect(restoreComposer).toHaveBeenCalledOnce();
+  });
+
+  it("only undoes the send a message asks for", async () => {
+    const { client } = createClient();
+    beginUndoSend({
+      client,
+      operationId: "mutation",
+      emailAccountId: "account",
+      holdUntil: Date.now() + UNDO_SEND_DELAY_MS,
+      restoreComposer: vi.fn(),
+    });
+
+    await expect(undoPendingSend("another-send")).resolves.toBe(false);
+    expect(client.cancelOperation).not.toHaveBeenCalled();
+  });
+
+  it("dismisses undo once the send has gone out", async () => {
+    const restoreComposer = vi.fn();
+    const { client, handle } = createClient();
+    beginUndoSend({
+      client,
+      operationId: "mutation",
+      emailAccountId: "account",
+      holdUntil: Date.now() + UNDO_SEND_DELAY_MS,
+      restoreComposer,
+    });
+
+    handle.set("succeeded");
 
     expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
@@ -189,12 +223,37 @@ describe("undo send", () => {
     expect(restoreComposer).not.toHaveBeenCalled();
     expect(cancelStaged).not.toHaveBeenCalled();
     expect(notifications.toastError).toHaveBeenCalledWith({
-      description: "Couldn't undo send",
+      description: "Too late to undo. This email was already sent.",
     });
+    await expect(undoPendingSend()).resolves.toBe(false);
+  });
+
+  it("lets the user retry undo when the server can't be reached", async () => {
+    const restoreComposer = vi.fn();
+    const { client } = createClient({ cancelStatus: "unavailable" });
+    beginUndoSend({
+      client,
+      operationId: "mutation",
+      emailAccountId: "account",
+      holdUntil: Date.now() + UNDO_SEND_DELAY_MS,
+      restoreComposer,
+    });
+
+    await expect(undoPendingSend()).resolves.toBe(false);
+    expect(notifications.dismiss).not.toHaveBeenCalled();
+    expect(restoreComposer).not.toHaveBeenCalled();
+
+    vi.mocked(
+      (client as { cancelOperation: ReturnType<typeof vi.fn> }).cancelOperation,
+    ).mockResolvedValue({ status: "cancelled" });
+    await expect(undoPendingSend()).resolves.toBe(true);
+    expect(restoreComposer).toHaveBeenCalledOnce();
   });
 });
 
-function createClient(options?: { cancelStatus?: "cancelled" | "too_late" }) {
+function createClient(options?: {
+  cancelStatus?: "cancelled" | "too_late" | "unavailable";
+}) {
   const handle = createHandle();
   const client = {
     cancelOperation: vi

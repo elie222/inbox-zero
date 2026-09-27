@@ -119,7 +119,7 @@ export type MailClient = {
     key: OperationKey,
   ): Promise<
     | { status: "cancelled"; revision: LocalRevision }
-    | { status: "too_late" | "not_found" }
+    | { status: "too_late" | "not_found" | "unavailable" }
   >;
   requestSync(accountIds: string[]): Promise<WorkAdmission>;
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
@@ -289,7 +289,19 @@ export function createMailEngine(input: {
       return admission;
     },
     async cancelOperation(key) {
-      const result = await store.cancelOperation(key);
+      const local = await store.cancelOperation(key);
+      if (local.status !== "too_late") {
+        await refreshViews();
+        return local;
+      }
+      const held = await store.readHeldSend(key);
+      if (!held || !executor.cancel) return local;
+      const remote = await executor.cancel({
+        operation: held,
+        signal: new AbortController().signal,
+      });
+      if (remote.status !== "cancelled") return { status: remote.status };
+      const result = await store.cancelHeldSend(key);
       await refreshViews();
       return result;
     },

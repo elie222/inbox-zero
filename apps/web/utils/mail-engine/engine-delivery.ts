@@ -33,7 +33,8 @@ export function shouldShowEngineDeliveryStatus({
   online: boolean;
   status: string;
 }) {
-  if (!online) return true;
+  // A verifying send is with the server, which delivers it without this device.
+  if (!online) return status !== "verifying";
   return NEEDS_DELIVERY_ATTENTION.has(status);
 }
 

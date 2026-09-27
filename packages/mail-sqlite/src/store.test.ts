@@ -2816,7 +2816,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
-  it("holds a send until notBeforeMs and records the conversation on diagnostics", async () => {
+  it("hands an undo-window send to the server at once with its send time", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -2838,7 +2838,8 @@ describe("drafts, freeze, and uncertain settlement", () => {
     });
     expect(saved.status).toBe("saved");
     if (saved.status !== "saved") throw new Error("expected save");
-    const notBeforeMs = Date.now() + 5000;
+    const nowMs = Date.now();
+    const notBeforeMs = nowMs + 30_000;
     const send = await store.admitSend({
       commandId: "send-hold",
       conversationId: "thread-hold",
@@ -2848,24 +2849,23 @@ describe("drafts, freeze, and uncertain settlement", () => {
       replyTo: null,
     });
     expect(send.status).toBe("queued");
-    expect(
-      await store.claimWork({
-        ownerId: "owner",
-        nowMs: notBeforeMs - 1,
-        leaseMs: 30_000,
-      }),
-    ).toBeNull();
     const work = await store.claimWork({
       ownerId: "owner",
-      nowMs: notBeforeMs,
+      nowMs,
       leaseMs: 30_000,
     });
     expect(work?.kind).toBe("command");
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent).toMatchObject({
+      kind: "send",
+      sendAtMs: notBeforeMs,
+    });
     const replay = await store.admitSend({
       commandId: "send-hold",
       conversationId: "thread-hold",
       draft: { accountId: "acc-1", draftId: "d-hold" },
       draftRevision: saved.draftRevision,
+      notBeforeMs: notBeforeMs + 1000,
       replyTo: null,
     });
     expect(replay.status).toBe("already_recorded");
@@ -2875,6 +2875,117 @@ describe("drafts, freeze, and uncertain settlement", () => {
         (command) => command.operationId === "send-hold",
       )?.conversationIds,
     ).toEqual(["thread-hold"]);
+    await store.close();
+  });
+
+  it("cancels a held send only once the server has let it go", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-held" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Held",
+        editableHtml: "<p>Held</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    const nowMs = Date.now();
+    await store.admitSend({
+      commandId: "send-held",
+      conversationId: "thread-held",
+      draft: { accountId: "acc-1", draftId: "d-held" },
+      draftRevision: saved.draftRevision,
+      notBeforeMs: nowMs + 30_000,
+      replyTo: null,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs,
+      leaseMs: 30_000,
+    });
+    if (work?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: work.attemptId,
+      operation: work.operation,
+      result: { status: "accepted", receiptId: "r1", retryAfterMs: 30_000 },
+    });
+    const key = { accountId: "acc-1", operationId: "send-held" };
+
+    expect(await store.cancelOperation(key)).toEqual({ status: "too_late" });
+    expect((await store.readHeldSend(key))?.intent).toMatchObject({
+      kind: "send",
+      sendAtMs: nowMs + 30_000,
+    });
+
+    expect((await store.cancelHeldSend(key)).status).toBe("cancelled");
+    expect((await store.readOperation(key)).operation?.status).toBe(
+      "cancelled",
+    );
+    expect(await store.readHeldSend(key)).toBeNull();
+    const resaved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-held" },
+      expectedRevision: saved.draftRevision,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Held",
+        editableHtml: "<p>Held, edited</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    expect(resaved.status).toBe("saved");
+    await store.close();
+  });
+
+  it("does not treat a send without a server hold as cancellable there", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-now" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Now",
+        editableHtml: "<p>Now</p>",
+        quotedHtml: "",
+        attachmentIds: [],
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    await store.admitSend({
+      commandId: "send-now",
+      conversationId: "thread-now",
+      draft: { accountId: "acc-1", draftId: "d-now" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    expect(
+      await store.readHeldSend({ accountId: "acc-1", operationId: "send-now" }),
+    ).toBeNull();
     await store.close();
   });
 
@@ -2923,7 +3034,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
-  it("releases connectivity holds without clearing undo holds", async () => {
+  it("keeps connectivity holds on the device while undo holds go to the server", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -2981,11 +3092,18 @@ describe("drafts, freeze, and uncertain settlement", () => {
           conversationId: "thread-undo",
           draft: { accountId: "acc-1", draftId: "d-undo" },
           draftRevision: undoDraft.draftRevision,
-          notBeforeMs: nowMs + 5000,
+          notBeforeMs: nowMs + 30_000,
           replyTo: null,
         })
       ).status,
     ).toBe("queued");
+    const undo = await store.claimWork({
+      ownerId: "owner",
+      nowMs,
+      leaseMs: 30_000,
+    });
+    if (undo?.kind !== "command") throw new Error("expected command");
+    expect(undo.operation.key.operationId).toBe("send-undo");
     expect(
       await store.claimWork({
         ownerId: "owner",
@@ -3005,13 +3123,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(work?.kind).toBe("command");
     if (work?.kind !== "command") throw new Error("expected command");
     expect(work.operation.key.operationId).toBe("send-offline");
-    expect(
-      await store.claimWork({
-        ownerId: "owner",
-        nowMs: nowMs + 5000 - 1,
-        leaseMs: 30_000,
-      }),
-    ).toBeNull();
+    expect(work.operation.intent).not.toHaveProperty("sendAtMs");
     await store.close();
   });
 

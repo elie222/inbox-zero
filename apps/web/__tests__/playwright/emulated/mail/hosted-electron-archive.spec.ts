@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -9,29 +6,28 @@ import type { Client } from "pg";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { withClient, insertInboxMailInConversation } from "./mail-test-helpers";
+import {
+  ARCHIVE_SUBJECT,
+  HIDDEN_SUBJECT,
+  launchHostedElectron,
+  requireElectron,
+  startHostedElectron,
+  waitForHostedElectronReady,
+} from "./hosted-electron-test-helpers";
 
 const THREAD_ID = "thr_playwright_archive";
-const SUBJECT = "Archive Action Message";
-const HIDDEN_SUBJECT = "Keyboard Navigation Message";
 const DRAFT_SUBJECT = "Hosted desktop draft example";
 const DISCARD_SUBJECT = "Hosted desktop discard example";
-const SEND_SUBJECT = "Hosted desktop send example";
 const STAR_SUBJECT = "Second Unread Command Message";
 const STAR_THREAD_ID = "thr_playwright_3";
 const ASSISTANT_THREAD_ID = "thr_playwright_archive";
 const ASSISTANT_RULE_ID = "playwright-mail-assistant-archive-rule";
 const ASSISTANT_EXECUTED_RULE_ID =
   "playwright-mail-assistant-archive-execution";
-const electronBin = getElectronBinary();
-const runner = join(
-  process.cwd(),
-  "../desktop/__tests__/mail-engine/run-hosted-electron-mail.mjs",
-);
 
-if (process.env.MAIL_REQUIRE_ELECTRON === "1" && !existsSync(electronBin)) {
-  throw new Error("Required Electron runtime is not installed");
-}
-test.skip(!existsSync(electronBin), "Electron binary is not installed");
+// The send proof waits out the 30-second undo window, so it runs in its own
+// spec, with its own emulator request quota: hosted-electron-send.spec.ts.
+requireElectron();
 
 test("searches then archives from hosted Next through desktop SQLite IPC", async ({
   page,
@@ -61,19 +57,19 @@ test("searches then archives from hosted Next through desktop SQLite IPC", async
     expect(payload.url).not.toContain("file:");
     expect(payload.transport).toBe("desktop-ipc");
     expect(payload.sqliteExists).toBe(true);
-    expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
-      true,
-    );
     expect(
-      payload.subjectsSearched?.some((text) => text.includes(SUBJECT)),
+      payload.subjectsBefore?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(true);
+    expect(
+      payload.subjectsSearched?.some((text) => text.includes(ARCHIVE_SUBJECT)),
     ).toBe(true);
     expect(
       payload.subjectsSearched?.some((text) => text.includes(HIDDEN_SUBJECT)),
     ).toBe(false);
     expect(payload.searchHidHiddenSubject).toBe(true);
-    expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
-      false,
-    );
+    expect(
+      payload.subjectsAfter?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(false);
     expect(payload.nativeInboxHasArchiveSubject).toBe(false);
     testInfo.annotations.push({
       type: "hosted-electron-payload",
@@ -83,14 +79,14 @@ test("searches then archives from hosted Next through desktop SQLite IPC", async
         sqliteExists: payload.sqliteExists,
         nativeInboxHasArchiveSubject: payload.nativeInboxHasArchiveSubject,
         hadSubjectBefore: payload.subjectsBefore?.some((text) =>
-          text.includes(SUBJECT),
+          text.includes(ARCHIVE_SUBJECT),
         ),
         searchMatched: payload.subjectsSearched?.some((text) =>
-          text.includes(SUBJECT),
+          text.includes(ARCHIVE_SUBJECT),
         ),
         searchHidHiddenSubject: payload.searchHidHiddenSubject,
         hadSubjectAfter: payload.subjectsAfter?.some((text) =>
-          text.includes(SUBJECT),
+          text.includes(ARCHIVE_SUBJECT),
         ),
       }),
     });
@@ -235,54 +231,6 @@ test("discards a compose draft from hosted Next through desktop SQLite IPC", asy
   });
 });
 
-test("sends a compose draft from hosted Next through desktop SQLite IPC", async ({
-  page,
-  baseURL,
-}, testInfo) => {
-  const emailAccountId = await getEmailAccountId(page);
-  const authFile = process.env.PLAYWRIGHT_AUTH_FILE;
-  if (!baseURL) throw new Error("Playwright baseURL is missing");
-  if (!authFile) throw new Error("PLAYWRIGHT_AUTH_FILE is missing");
-
-  const screenshotPath = testInfo.outputPath("hosted-electron-send.png");
-  await mkdir(dirname(screenshotPath), { recursive: true });
-
-  const payload = await launchHostedElectron({
-    appUrl: baseURL,
-    accountId: emailAccountId,
-    storageState: authFile,
-    screenshotPath,
-    proof: "send",
-    sendSubject: SEND_SUBJECT,
-  });
-  expect(payload.url).toMatch(/^https?:/);
-  expect(payload.url).not.toContain("file:");
-  expect(payload.transport).toBe("desktop-ipc");
-  expect(payload.sqliteExists).toBe(true);
-  expect(payload.proof).toBe("send");
-  expect(payload.sendSucceeded).toBe(true);
-  expect(payload.nativeDraftHasSendSubject).toBe(false);
-  expect(payload.nativeSentHasSendSubject).toBe(true);
-  expect(
-    payload.sentSubjects?.some((text) => text.includes(SEND_SUBJECT)),
-  ).toBe(true);
-  testInfo.annotations.push({
-    type: "hosted-electron-payload",
-    description: JSON.stringify({
-      url: payload.url,
-      transport: payload.transport,
-      sqliteExists: payload.sqliteExists,
-      proof: payload.proof,
-      sendSucceeded: payload.sendSucceeded,
-      nativeDraftHasSendSubject: payload.nativeDraftHasSendSubject,
-      nativeSentHasSendSubject: payload.nativeSentHasSendSubject,
-      hadSentSubject: payload.sentSubjects?.some((text) =>
-        text.includes(SEND_SUBJECT),
-      ),
-    }),
-  });
-});
-
 test("stars a conversation from hosted Next through desktop SQLite IPC", async ({
   page,
   baseURL,
@@ -350,7 +298,7 @@ test("applies assistant archive after hosted Electron was stopped", async ({
     });
     expect(baseline.transport).toBe("desktop-ipc");
     expect(
-      baseline.subjectsBefore?.some((text) => text.includes(SUBJECT)),
+      baseline.subjectsBefore?.some((text) => text.includes(ARCHIVE_SUBJECT)),
     ).toBe(true);
     expect(baseline.nativeInboxHasArchiveSubject).toBe(true);
 
@@ -370,9 +318,9 @@ test("applies assistant archive after hosted Electron was stopped", async ({
       userData,
     });
     expect(reopened.transport).toBe("desktop-ipc");
-    expect(reopened.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
-      false,
-    );
+    expect(
+      reopened.subjectsAfter?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(false);
     expect(reopened.nativeInboxHasArchiveSubject).toBe(false);
     expect(reopened.assistantCursor).toMatch(/\S/);
     expect(reopened.assistantStateRequests).toBeGreaterThan(0);
@@ -441,9 +389,9 @@ test("rebuilds hosted desktop mail after a reset_required catch-up cursor", asyn
   expect(payload.bootstrapRequests).toBeGreaterThan(0);
   expect(payload.enumerationRequests).toBeGreaterThan(0);
   expect(payload.nativeInboxHasArchiveSubject).toBe(true);
-  expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
-    true,
-  );
+  expect(
+    payload.subjectsAfter?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+  ).toBe(true);
   testInfo.annotations.push({
     type: "hosted-electron-payload",
     description: JSON.stringify({
@@ -504,12 +452,12 @@ test("hides an externally archived conversation through desktop idle catch-up", 
     expect(payload.bootstrapRequests).toBe(0);
     expect(payload.enumerationRequests).toBe(0);
     expect(payload.nativeInboxHasArchiveSubject).toBe(false);
-    expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
-      true,
-    );
-    expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
-      false,
-    );
+    expect(
+      payload.subjectsBefore?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(true);
+    expect(
+      payload.subjectsAfter?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(false);
     testInfo.annotations.push({
       type: "hosted-electron-payload",
       description: JSON.stringify({
@@ -796,7 +744,7 @@ test("returns an archived conversation when new mail arrives through desktop IPC
     await insertInboxMailInConversation(page, {
       threadId: THREAD_ID,
       messageId: "msg_playwright_archive",
-      subject: SUBJECT,
+      subject: ARCHIVE_SUBJECT,
       from: "Erin Example <erin@example.com>",
     });
     const payload = await session.done;
@@ -809,15 +757,17 @@ test("returns an archived conversation when new mail arrives through desktop IPC
     expect(payload.changeRequests).toBeGreaterThan(0);
     expect(payload.enumerationRequests).toBe(0);
     expect(payload.nativeInboxHasArchiveSubject).toBe(true);
-    expect(payload.subjectsBefore?.some((text) => text.includes(SUBJECT))).toBe(
-      true,
-    );
     expect(
-      payload.subjectsAfterArchive?.some((text) => text.includes(SUBJECT)),
+      payload.subjectsBefore?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(true);
+    expect(
+      payload.subjectsAfterArchive?.some((text) =>
+        text.includes(ARCHIVE_SUBJECT),
+      ),
     ).toBe(false);
-    expect(payload.subjectsAfter?.some((text) => text.includes(SUBJECT))).toBe(
-      true,
-    );
+    expect(
+      payload.subjectsAfter?.some((text) => text.includes(ARCHIVE_SUBJECT)),
+    ).toBe(true);
     testInfo.annotations.push({
       type: "hosted-electron-payload",
       description: JSON.stringify({
@@ -894,191 +844,6 @@ test("wipes native sqlite when Sign out is used through desktop IPC", async ({
   });
 });
 
-function launchHostedElectron(input: {
-  appUrl: string;
-  accountId: string;
-  storageState: string;
-  screenshotPath: string;
-  searchScreenshotPath?: string;
-  proof?:
-    | "search-archive"
-    | "compose"
-    | "reconnect"
-    | "discard"
-    | "send"
-    | "star"
-    | "assistant-baseline"
-    | "assistant-reopen"
-    | "missed-hint"
-    | "cursor-reset"
-    | "bulk"
-    | "queued-restart"
-    | "inbox-counts"
-    | "sign-out"
-    | "archive-new-mail";
-  draftSubject?: string;
-  discardSubject?: string;
-  sendSubject?: string;
-  starSubject?: string;
-  userData?: string;
-  readyPath?: string;
-}) {
-  return startHostedElectron(input).done;
-}
-
-function startHostedElectron(
-  input: Parameters<typeof launchHostedElectron>[0],
-) {
-  const done = new Promise<HostedElectronPayload>((resolve, reject) => {
-    const child = spawn("node", [runner], {
-      cwd: join(process.cwd(), "../desktop"),
-      env: {
-        ...process.env,
-        ELECTRON_APP_URL: input.appUrl,
-        ELECTRON_ACCOUNT_ID: input.accountId,
-        ELECTRON_STORAGE_STATE: input.storageState,
-        ELECTRON_SCREENSHOT_PATH: input.screenshotPath,
-        ...(input.searchScreenshotPath
-          ? { ELECTRON_SEARCH_SCREENSHOT_PATH: input.searchScreenshotPath }
-          : {}),
-        ELECTRON_ARCHIVE_SUBJECT: SUBJECT,
-        ELECTRON_SEARCH_HIDDEN: HIDDEN_SUBJECT,
-        ...(input.proof ? { ELECTRON_PROOF: input.proof } : {}),
-        ...(input.draftSubject
-          ? { ELECTRON_DRAFT_SUBJECT: input.draftSubject }
-          : {}),
-        ...(input.discardSubject
-          ? { ELECTRON_DISCARD_SUBJECT: input.discardSubject }
-          : {}),
-        ...(input.sendSubject
-          ? { ELECTRON_SEND_SUBJECT: input.sendSubject }
-          : {}),
-        ...(input.starSubject
-          ? { ELECTRON_STAR_SUBJECT: input.starSubject }
-          : {}),
-        ...(input.userData ? { ELECTRON_USER_DATA: input.userData } : {}),
-        ...(input.readyPath ? { ELECTRON_READY_PATH: input.readyPath } : {}),
-      },
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `hosted electron runner exited ${code}\n${stdout}\n${stderr}`,
-          ),
-        );
-        return;
-      }
-      const line = stdout
-        .split("\n")
-        .find((item) => item.startsWith("ELECTRON_HOSTED_MAIL "));
-      try {
-        resolve(
-          JSON.parse(line?.slice("ELECTRON_HOSTED_MAIL ".length) ?? "{}"),
-        );
-      } catch (error) {
-        reject(
-          new Error(
-            `hosted electron payload was not JSON\n${stdout}\n${String(error)}`,
-          ),
-        );
-      }
-    });
-  });
-  return { done };
-}
-
-async function waitForHostedElectronReady(
-  readyPath: string,
-  done: Promise<HostedElectronPayload>,
-) {
-  const ready = (async () => {
-    for (let attempt = 0; attempt < 240; attempt += 1) {
-      if (existsSync(readyPath)) return;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    throw new Error(`hosted electron never wrote ${readyPath}`);
-  })();
-  const winner = await Promise.race([
-    ready.then(() => "ready" as const),
-    done.then((payload) => payload),
-  ]);
-  if (winner === "ready") return;
-  throw new Error(
-    `hosted electron exited before ready: ${JSON.stringify(winner)}`,
-  );
-}
-
-type HostedElectronPayload = {
-  url?: string;
-  transport?: string | null;
-  sqliteExists?: boolean;
-  proof?: string;
-  subjectsBefore?: string[];
-  subjectsSearched?: string[];
-  searchHidHiddenSubject?: boolean;
-  subjectsAfter?: string[];
-  nativeInboxHasArchiveSubject?: boolean;
-  draftSubjects?: string[];
-  nativeDraftHasSubject?: boolean;
-  connection?: string | null;
-  changeRequests?: number;
-  enumerationRequests?: number;
-  reconnectUrl?: string;
-  headingVisible?: boolean;
-  discardSubject?: string;
-  sendSubject?: string;
-  discardedDraftSubjects?: string[];
-  nativeDraftHadDiscardSubject?: boolean;
-  nativeDraftHasDiscardSubject?: boolean;
-  sendSucceeded?: boolean;
-  nativeDraftHasSendSubject?: boolean;
-  nativeSentHasSendSubject?: boolean;
-  sentSubjects?: string[];
-  starSubject?: string;
-  readerStarred?: boolean;
-  starSucceeded?: boolean;
-  nativeStarredHasSubject?: boolean;
-  assistantCursor?: string | null;
-  assistantStateRequests?: number;
-  bootstrapRequests?: number;
-  resetFired?: boolean;
-  bulkArchived?: boolean;
-  bulkUndone?: boolean;
-  trashRestored?: boolean;
-  labelSucceeded?: boolean;
-  nativeInboxHasBulkSubjects?: boolean;
-  nativeTrashHasDeleteSubject?: boolean;
-  heldOperations?: number;
-  queuedBeforeReload?: string;
-  queuedAfterReload?: string;
-  succeededAfterRelease?: boolean;
-  hiddenAfterReload?: boolean;
-  inboxUnreadBefore?: number;
-  inboxUnreadAfterArchive?: number;
-  inboxUnreadAfterRestore?: number;
-  unreadHiddenAfterArchive?: boolean;
-  unreadVisibleAfterRestore?: boolean;
-  sqliteExistsBefore?: boolean;
-  sqliteExistsAfter?: boolean;
-  sqliteWalExistsAfter?: boolean;
-  sqliteShmExistsAfter?: boolean;
-  sqliteWalExists?: boolean;
-  sqliteShmExists?: boolean;
-  signedOut?: boolean;
-  subjectsAfterArchive?: string[];
-  archiveSucceeded?: boolean;
-};
-
 async function seedAssistantArchive(emailAccountId: string) {
   await withClient(async (client) => {
     await deleteAssistantArchive(client);
@@ -1131,16 +896,4 @@ async function deleteAssistantArchive(client: Client) {
     [ASSISTANT_EXECUTED_RULE_ID, ASSISTANT_RULE_ID],
   );
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [ASSISTANT_RULE_ID]);
-}
-
-function getElectronBinary(): string {
-  try {
-    const desktopRequire = createRequire(
-      join(process.cwd(), "../desktop/package.json"),
-    );
-    return desktopRequire("electron") as string;
-  } catch (error) {
-    if (process.env.MAIL_REQUIRE_ELECTRON === "1") throw error;
-    return "";
-  }
 }

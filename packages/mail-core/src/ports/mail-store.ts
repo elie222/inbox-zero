@@ -257,6 +257,13 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
+  /** Confirms locally a cancellation the server made for a held send. */
+  cancelHeldSend(
+    key: OperationKey,
+  ): Promise<
+    | { status: "cancelled"; revision: LocalRevision }
+    | { status: "too_late" | "not_found" }
+  >;
   cancelOperation(
     key: OperationKey,
   ): Promise<
@@ -356,6 +363,11 @@ export interface MailStore {
     page: { after: string | null; pageSize: number },
   ): Promise<{ revision: LocalRevision; view: ConversationView }>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
+  /**
+   * A send already handed to the server to deliver at its `sendAtMs`, which
+   * only the server can still stop.
+   */
+  readHeldSend(key: OperationKey): Promise<PreparedOperation | null>;
   readMailboxCounts(query: MailboxCountsQuery): Promise<{
     revision: LocalRevision;
     view: MailboxCountsView;

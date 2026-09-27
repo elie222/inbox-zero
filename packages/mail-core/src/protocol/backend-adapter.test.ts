@@ -260,4 +260,53 @@ describe("backend operation executor", () => {
       receiptId: "receipt-1",
     });
   });
+
+  it("cancels a held send and treats an unreachable server as retryable", async () => {
+    const operation = {
+      key: { accountId: "acc-1", operationId: "send-1" },
+      session: { accountId: "acc-1", generation: "g1" },
+      authority: "backend" as const,
+      payloadHash: "hash",
+      intent: {
+        kind: "metadata" as const,
+        targets: [{ accountId: "acc-1", messageId: "m1" }],
+        change: { kind: "archive" as const },
+      },
+    };
+    const requests: Array<{ method: string; path: string }> = [];
+    const responding = createBackendOperationExecutor({
+      accountId: "acc-1",
+      request: async (input) => {
+        requests.push({ method: input.method, path: input.path });
+        return {
+          status: 200,
+          json: {
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: "cancel-send-1",
+            status: "too_late",
+          },
+        };
+      },
+    });
+    const offline = createBackendOperationExecutor({
+      accountId: "acc-1",
+      request: async () => {
+        throw new TypeError("Failed to fetch");
+      },
+    });
+    const signal = new AbortController().signal;
+
+    await expect(responding.cancel?.({ operation, signal })).resolves.toEqual({
+      status: "too_late",
+    });
+    expect(requests).toEqual([
+      {
+        method: "DELETE",
+        path: "/api/mail/v1/accounts/acc-1/operations/send-1",
+      },
+    ]);
+    await expect(offline.cancel?.({ operation, signal })).resolves.toEqual({
+      status: "unavailable",
+    });
+  });
 });

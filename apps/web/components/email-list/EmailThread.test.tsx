@@ -48,8 +48,14 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
     children: React.ReactNode;
   }) => children,
 }));
-const { localDrafts } = vi.hoisted(() => ({
+const { localDrafts, undoSend } = vi.hoisted(() => ({
   localDrafts: { current: [] as StoredReplyDraft[] },
+  undoSend: { openId: null as string | null, undo: vi.fn() },
+}));
+
+vi.mock("@/app/(app)/[emailAccountId]/compose/undo-send", () => ({
+  useUndoableSendId: () => undoSend.openId,
+  undoPendingSend: undoSend.undo,
 }));
 
 vi.mock("@/hooks/useReplyDrafts", () => ({
@@ -134,11 +140,15 @@ describe("EmailThread reply composer", () => {
 });
 
 describe("EmailThread outgoing replies", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    undoSend.openId = null;
+    undoSend.undo.mockReset();
+  });
 
   // A queued reply shows in the thread as soon as the composer closes, and the
   // provider's copy takes over the same row so its body does not reload.
-  it("shows a queued reply until its sent message takes over the same row", () => {
+  it("shows a queued reply as sent until its sent message takes over the same row", () => {
     const parent = createReaderMessage("parent", "1000");
     const view = render(
       <EmailThread
@@ -146,7 +156,7 @@ describe("EmailThread outgoing replies", () => {
         outgoing={[
           {
             operationId: "send-1",
-            status: "queued",
+            status: "verifying",
             message: createSentMessage("outgoing:send-1", "3000"),
           },
         ]}
@@ -157,8 +167,9 @@ describe("EmailThread outgoing replies", () => {
     const outgoingRow = view.container.querySelector(
       '[data-thread-message-id="outgoing:send-1"]',
     );
-    expect(outgoingRow?.textContent).toContain("Sending…");
-    expect(screen.getAllByRole("button", { name: "Reply" })).toHaveLength(1);
+    expect(outgoingRow?.querySelector("time")).toBeTruthy();
+    expect(outgoingRow?.textContent).not.toContain("Sending");
+    expect(screen.getAllByRole("button", { name: "Reply" })).toHaveLength(2);
 
     view.rerender(
       <EmailThread
@@ -173,7 +184,72 @@ describe("EmailThread outgoing replies", () => {
       '[data-thread-message-id="sent-1"]',
     );
     expect(sentRow).toBe(outgoingRow);
-    expect(sentRow?.textContent).not.toContain("Sending…");
+  });
+
+  it("offers Undo on the sent reply only while its undo window is open", () => {
+    undoSend.openId = "send-1";
+    const parent = createReaderMessage("parent", "1000");
+    const outgoing = [
+      {
+        operationId: "send-1",
+        status: "verifying" as const,
+        message: createSentMessage("outgoing:send-1", "3000"),
+      },
+    ];
+    const view = render(
+      <EmailThread
+        messages={[parent]}
+        outgoing={outgoing}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo send" }));
+    expect(undoSend.undo).toHaveBeenCalledWith("send-1");
+
+    undoSend.openId = null;
+    view.rerender(
+      <EmailThread
+        messages={[parent]}
+        outgoing={outgoing}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Undo send" })).toBeNull();
+  });
+
+  // The reply has no provider message yet, so a reply to it threads on the
+  // newest message the provider has.
+  it("replies to an unsent reply on the thread's latest provider message", () => {
+    render(
+      <EmailThread
+        messages={[createReaderMessage("parent", "1000")]}
+        outgoing={[
+          {
+            operationId: "send-1",
+            status: "verifying",
+            message: createSentMessage("outgoing:send-1", "3000"),
+          },
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const outgoingRow = document.querySelector(
+      '[data-thread-message-id="outgoing:send-1"]',
+    );
+    const reply = Array.from(
+      outgoingRow?.querySelectorAll("button") ?? [],
+    ).find((button) => button.textContent === "Reply");
+    if (!reply) throw new Error("expected a reply button on the sent reply");
+    fireEvent.click(reply);
+
+    const composer = screen.getByRole("textbox", { name: "Email message" });
+    expect(composer.dataset.draftKeyMessageId).toBe("parent");
+    expect(composer.dataset.draftSessionId).toBe("outgoing:send-1:reply");
   });
 
   // Outlook sends a saved draft as that same message. Its local copy is only
@@ -403,9 +479,11 @@ function createReaderDraft(id: string, internalDate: string) {
 }
 
 function MockComposer({
+  draftKeyMessageId,
   draftSessionId,
   providerDraftMessageId,
 }: {
+  draftKeyMessageId?: string;
   draftSessionId?: string;
   providerDraftMessageId?: string;
 }) {
@@ -415,6 +493,7 @@ function MockComposer({
   return (
     <textarea
       aria-label="Email message"
+      data-draft-key-message-id={draftKeyMessageId}
       data-draft-session-id={draftSessionId}
       data-provider-draft-message-id={providerDraftMessageId}
     />

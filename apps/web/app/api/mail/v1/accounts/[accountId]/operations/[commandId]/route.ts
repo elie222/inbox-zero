@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { withEmailProvider } from "@/utils/middleware";
+import { withEmailAccount, withEmailProvider } from "@/utils/middleware";
 import {
   MAIL_PROTOCOL_VERSION,
   mailHttpErrorResponse,
   operationAdmitRequestSchema,
   operationAdmitResultSchema,
+  operationCancelRequestSchema,
+  operationCancelResultSchema,
   operationInspectRequestSchema,
 } from "@inboxzero/mail-core/protocol/mail-http";
 import {
@@ -13,7 +15,10 @@ import {
   mailRequestId,
   unsupportedVersionResponse,
 } from "@/utils/mail-api/authorization";
-import { createEmailProviderOperationExecutor } from "@/utils/mail-api/operations";
+import {
+  cancelHeldEngineSend,
+  createEmailProviderOperationExecutor,
+} from "@/utils/mail-api/operations";
 
 export const PUT = withEmailProvider(
   "mail/v1/operations",
@@ -142,3 +147,47 @@ const inspectOperation = withEmailProvider(
 
 export const POST = inspectOperation;
 export const GET = inspectOperation;
+
+// Undo for a send the server is holding. It needs no mailbox access, so it
+// still works while the account waits to be reconnected.
+export const DELETE = withEmailAccount(
+  "mail/v1/operations/cancel",
+  async (request, context) => {
+    const params = await context.params;
+    const body = await request.json().catch(() => null);
+    const requestId = mailRequestId(
+      request,
+      body && typeof body === "object" ? body : undefined,
+    );
+    const mismatch = accountMismatchResponse(
+      request,
+      params.accountId,
+      requestId,
+    );
+    if (mismatch) return mismatch;
+    const parsed = operationCancelRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 400 },
+      );
+    }
+    const bodyMismatch = bodyAccountMismatchResponse(
+      request.auth.emailAccountId,
+      parsed.data,
+      requestId,
+    );
+    if (bodyMismatch) return bodyMismatch;
+    const status = await cancelHeldEngineSend(
+      request.auth.emailAccountId,
+      params.commandId,
+    );
+    return NextResponse.json(
+      operationCancelResultSchema.parse({
+        protocolVersion: parsed.data.protocolVersion,
+        requestId,
+        status,
+      }),
+    );
+  },
+);
