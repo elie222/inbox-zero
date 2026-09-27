@@ -1667,12 +1667,11 @@ async function readBodyText(window: BrowserWindow) {
 async function openCompose(window: BrowserWindow) {
   const clicked = (await window.webContents.executeJavaScript(`
     (() => {
-      const button = [...document.querySelectorAll("button")].find((item) => {
-        if (item.getAttribute("aria-label") === "Compose") return true;
-        return [...item.querySelectorAll("span")].some(
-          (span) => span.textContent?.trim() === "Compose",
-        );
-      });
+      const button = [...document.querySelectorAll("button")].find(
+        (item) =>
+          item.getAttribute("aria-label") === "Compose" ||
+          item.textContent?.trim() === "Compose",
+      );
       if (!(button instanceof HTMLElement)) return false;
       button.click();
       return true;
