@@ -16,6 +16,17 @@ name: Agent integrity
 # Wording changes pass. Added and removed files are listed in the step
 # summary but do not fail. After an intended change, refresh the lock with
 # `eyebrow scan` and commit eyebrowlock.json with the change.
+#
+# The eyebrow binary is not taken from a third-party action. It is a single
+# static Go binary (MIT, github.com/alexverify/eyebrow) downloaded from a
+# release and accepted only if both hold:
+# 1. its sha256 equals EYEBROW_SHA256 below, a constant in this file, so a
+#    replaced release asset cannot run here;
+# 2. `gh attestation verify` proves GitHub Actions built it from the
+#    alexverify/eyebrow repository at the tagged commit, so the bytes trace
+#    to reviewable source rather than to an upload.
+# To upgrade: change EYEBROW_VERSION and EYEBROW_SHA256 (from the release's
+# checksums.txt, linux_amd64 line) in one reviewed change.
 
 permissions:
   contents: read
@@ -30,6 +41,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  EYEBROW_VERSION: v0.5.4
+  EYEBROW_SHA256: d65e37322babaaba591abe9183eaec4a6536396acb98aa01a20ed4a731e2a2e6
+
 jobs:
   verify:
     name: eyebrow verify
@@ -37,6 +52,37 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: alexverify/eyebrow/action@8dab5bdaa629d2eb6bd05dd190a569e9caf566e9 # v0.5.4
-        with:
-          version: v0.5.4
+
+      - name: Install eyebrow (pinned checksum, attested provenance)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive="eyebrow_${EYEBROW_VERSION#v}_linux_amd64.tar.gz"
+          url="https://github.com/alexverify/eyebrow/releases/download/${EYEBROW_VERSION}/${archive}"
+          dir="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "${dir}/${archive}" "${url}"
+          echo "${EYEBROW_SHA256}  ${dir}/${archive}" | sha256sum --check --strict
+          gh attestation verify "${dir}/${archive}" \
+            --repo alexverify/eyebrow \
+            --signer-workflow alexverify/eyebrow/.github/workflows/release.yml
+          tar -xzf "${dir}/${archive}" -C "${dir}" eyebrow
+          echo "${dir}" >> "${GITHUB_PATH}"
+          "${dir}/eyebrow" --version
+
+      - name: eyebrow verify --ci
+        run: |
+          set -uo pipefail
+          out="$(eyebrow verify --ci --path . --lockfile eyebrowlock.json --policy eyebrow.policy.json 2>&1)"
+          code=$?
+          echo "${out}"
+          {
+            echo "### eyebrow verify --ci (exit ${code})"
+            echo '```'
+            echo "${out}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${code}" -ne 0 ]; then
+            echo "::error::eyebrow verify --ci failed (exit ${code}); see the step summary"
+          fi
+          exit "${code}"
