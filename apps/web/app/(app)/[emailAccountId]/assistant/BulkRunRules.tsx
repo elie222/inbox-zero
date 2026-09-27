@@ -225,7 +225,7 @@ export function BulkRunRules() {
                   title="Include read emails"
                   description={
                     isBusinessPlusTier || !hasAiAccess
-                      ? "Also process emails you've already opened."
+                      ? undefined
                       : "Including read emails is available on the Professional plan."
                   }
                   checked={includeRead}
@@ -234,12 +234,10 @@ export function BulkRunRules() {
                 />
                 <ItemSeparator />
                 <ToggleRow
-                  title="Re-process emails already handled"
+                  title="Reprocess emails your rules already handled"
                   badge={!hasRerunAccess && <ProfessionalPlanBadge />}
                   description={
-                    hasRerunAccess
-                      ? "Run your rules again on emails that already have a result. Use this after changing your rules."
-                      : RERUN_UPGRADE_MESSAGE
+                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
                   }
                   checked={isRerunEnabled}
                   onCheckedChange={setRerun}
@@ -247,8 +245,7 @@ export function BulkRunRules() {
                 />
                 <ItemSeparator />
                 <ToggleRow
-                  title="Generate draft replies"
-                  description="Run draft reply actions from your rules, including drafts sent to connected messaging channels."
+                  title="Generate drafts from your rules"
                   checked={generateDraftReplies}
                   onCheckedChange={setGenerateDraftReplies}
                   disabled={isBusy}
@@ -347,7 +344,7 @@ function ToggleRow({
   disabled,
 }: {
   title: string;
-  description: string;
+  description?: string;
   badge?: ReactNode;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
@@ -360,9 +357,11 @@ function ToggleRow({
           {title}
           {badge}
         </ItemTitle>
-        <ItemDescription className="line-clamp-none">
-          {description}
-        </ItemDescription>
+        {description && (
+          <ItemDescription className="line-clamp-none">
+            {description}
+          </ItemDescription>
+        )}
       </ItemContent>
       <ItemActions>
         <Switch

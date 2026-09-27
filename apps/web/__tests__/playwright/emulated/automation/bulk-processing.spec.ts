@@ -37,7 +37,7 @@ for (const tier of ["PLUS_MONTHLY", "PROFESSIONAL_MONTHLY"] as const) {
       dialog.getByText("Run your rules on emails already in your inbox."),
     ).toBeVisible();
     const generateDraftReplies = dialog.getByRole("switch", {
-      name: "Generate draft replies",
+      name: "Generate drafts from your rules",
     });
     await expect(generateDraftReplies).not.toBeChecked();
     await generateDraftReplies.click();
