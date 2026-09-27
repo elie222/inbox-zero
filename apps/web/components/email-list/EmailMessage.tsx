@@ -75,7 +75,7 @@ export function EmailMessage({
   sentMessageOpen,
   replyAnchor,
   composerSessionMessageId,
-  onUndoSend,
+  onReplySent,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -105,8 +105,8 @@ export function EmailMessage({
   replyAnchor?: ThreadMessage;
   /** Keeps a composer's draft when this message's id changes under it. */
   composerSessionMessageId?: string;
-  /** Present while this sent message is still inside its undo window. */
-  onUndoSend?: () => void;
+  /** A reply or forward from this message just left its composer. */
+  onReplySent?: () => void;
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
@@ -273,7 +273,6 @@ export function EmailMessage({
         toggleDetails={toggleDetails}
         hasDraft={hasDraft || visibleDrafts.length > 0}
         sentMessageOpen={sentMessageOpen}
-        onUndoSend={onUndoSend}
       />
 
       {expanded && (
@@ -323,6 +322,7 @@ export function EmailMessage({
               }
               onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
+              onSent={onReplySent}
               onMarkDone={onMarkDone}
               onStartDiscard={() => {
                 setDraftDismissed(sessionMessageId, true);
@@ -347,6 +347,7 @@ export function EmailMessage({
               onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onSent={onReplySent}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
@@ -378,7 +379,6 @@ function MessageHeader({
   onToggleKeyDown,
   hasDraft,
   sentMessageOpen,
-  onUndoSend,
 }: {
   message: ParsedMessage;
   menu?: React.ReactNode;
@@ -393,7 +393,6 @@ function MessageHeader({
   onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
-  onUndoSend?: () => void;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -573,19 +572,6 @@ function MessageHeader({
         >
           {formatShortDate(new Date(message.headers.date))}
         </time>
-        {onUndoSend && (
-          <button
-            aria-label="Undo send"
-            className="shrink-0 rounded-sm text-primary text-xs underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={(event) => {
-              event.stopPropagation();
-              onUndoSend();
-            }}
-            type="button"
-          >
-            Undo
-          </button>
-        )}
       </div>
     </div>
   );
@@ -595,6 +581,7 @@ function ReplyPanel({
   message,
   refetch,
   onSendSuccess,
+  onSent,
   onMarkDone,
   onCloseCompose,
   onRestore,
@@ -611,6 +598,7 @@ function ReplyPanel({
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onSent?: () => void;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
   onRestore?: () => void;
@@ -749,7 +737,10 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
-        onClose={onCloseCompose}
+        onClose={() => {
+          onCloseCompose();
+          onSent?.();
+        }}
         onRestore={onRestore}
         onDiscard={onDiscard}
         onPopOut={() => {

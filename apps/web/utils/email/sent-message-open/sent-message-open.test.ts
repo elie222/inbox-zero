@@ -130,7 +130,7 @@ describe("describeSentMessageOpen", () => {
         { firstOpenedAt: null, lastOpenedAt: null, openCount: 0 },
         formatRelative,
       ),
-    ).toEqual({ label: "Not opened", detail: "Not opened yet" });
+    ).toBe("Not opened yet");
   });
 
   it("describes a single open", () => {
@@ -143,7 +143,7 @@ describe("describeSentMessageOpen", () => {
         },
         formatRelative,
       ),
-    ).toEqual({ label: "Opened", detail: "Opened 2 hours ago" });
+    ).toBe("Opened 2 hours ago");
   });
 
   it("describes repeated opens", () => {
@@ -156,10 +156,7 @@ describe("describeSentMessageOpen", () => {
         },
         formatRelative,
       ),
-    ).toEqual({
-      label: "Opened",
-      detail: "Opened 3 times · Last opened 2 hours ago",
-    });
+    ).toBe("Opened 3 times · Last opened 2 hours ago");
   });
 });
 

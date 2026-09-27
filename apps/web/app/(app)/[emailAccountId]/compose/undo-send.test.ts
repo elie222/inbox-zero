@@ -103,23 +103,9 @@ describe("undo send", () => {
     handle.set("verifying");
 
     expect(notifications.dismiss).not.toHaveBeenCalled();
-    await expect(undoPendingSend("mutation")).resolves.toBe(true);
+    await expect(undoPendingSend()).resolves.toBe(true);
     expect(client.cancelOperation).toHaveBeenCalledOnce();
     expect(restoreComposer).toHaveBeenCalledOnce();
-  });
-
-  it("only undoes the send a message asks for", async () => {
-    const { client } = createClient();
-    beginUndoSend({
-      client,
-      operationId: "mutation",
-      emailAccountId: "account",
-      holdUntil: Date.now() + UNDO_SEND_DELAY_MS,
-      restoreComposer: vi.fn(),
-    });
-
-    await expect(undoPendingSend("another-send")).resolves.toBe(false);
-    expect(client.cancelOperation).not.toHaveBeenCalled();
   });
 
   it("dismisses undo once the send has gone out", async () => {
@@ -198,6 +184,9 @@ describe("undo send", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(notifications.dismiss).not.toHaveBeenCalled();
     expect(second.handle.close).not.toHaveBeenCalled();
+
+    await notifications.toastUndo.mock.calls[0]?.[0]?.onUndo();
+    expect(second.client.cancelOperation).not.toHaveBeenCalled();
 
     await expect(undoPendingSend()).resolves.toBe(true);
     expect(second.client.cancelOperation).toHaveBeenCalledWith({

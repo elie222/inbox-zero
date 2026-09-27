@@ -418,13 +418,27 @@ test("moves a sent reply from its composer into the thread without a gap", async
     .click();
 
   // The undo window is still open, so the provider has not sent it yet, but
-  // the reply already reads as sent, with its time and a way to undo it.
-  const sentRow = page.locator("li[data-thread-message-id]").filter({
-    has: page.getByRole("button", { name: "Undo send", exact: true }),
-  });
+  // the reply already reads as sent, takes the selection, and leaves the
+  // message it answered open. Undo lives only in the toast.
+  const sentRow = page.locator(
+    'li[data-thread-message-id][data-selected="true"]',
+  );
   await expect(sentRow).toBeVisible();
+  await expect(sentRow).not.toHaveAttribute(
+    "data-thread-message-id",
+    "msg_playwright_reply",
+  );
+  await expect(sourceMessage).toHaveAttribute("data-selected", "false");
+  await expect(
+    sourceMessage.locator("[aria-expanded]").first(),
+  ).toHaveAttribute("aria-expanded", "true");
   await expect(sentRow.locator("time")).toBeVisible();
   await expect(sentRow.getByText("Sending…")).toHaveCount(0);
+  await expect(
+    page.locator("li[data-thread-message-id]").getByRole("button", {
+      name: /^Undo/,
+    }),
+  ).toHaveCount(0);
   await expect(
     page
       .getByRole("region", { name: "Notifications alt+T" })
@@ -445,13 +459,15 @@ test("moves a sent reply from its composer into the thread without a gap", async
     )
     .toMatchObject({ status: "succeeded" });
   await expect(
-    page.getByRole("button", { name: "Undo send", exact: true }),
+    page
+      .getByRole("region", { name: "Notifications alt+T" })
+      .getByRole("button", { name: /^Undo/ }),
   ).toHaveCount(0);
   await expectThreadReaderBody(page, replyBody);
   expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
 });
 
-test("undoes a sent reply from the thread and restores its text", async ({
+test("undoes a sent reply and restores its text", async ({
   page,
 }, testInfo) => {
   const { emailAccountId } = await openMail(page);
@@ -471,8 +487,8 @@ test("undoes a sent reply from the thread and restores its text", async ({
     .click();
 
   const undo = page
-    .locator("li[data-thread-message-id]")
-    .getByRole("button", { name: "Undo send", exact: true });
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
   await expect(undo).toBeVisible();
   await expect
     .poll(() =>

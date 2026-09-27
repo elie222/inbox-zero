@@ -19,7 +19,7 @@ export function SentMessageOpenStatus({
   compact?: boolean;
   open: SentMessageOpenState;
 }) {
-  const status = describeSentMessageOpen(open, (date) =>
+  const detail = describeSentMessageOpen(open, (date) =>
     formatDistanceToNow(date, { addSuffix: true }),
   );
   const opened = Boolean(open.firstOpenedAt);
@@ -27,21 +27,17 @@ export function SentMessageOpenStatus({
   if (compact && !opened) return null;
 
   return (
-    <Tooltip content={status.detail}>
+    <Tooltip content={detail}>
       <span
         className={cn(
-          "inline-flex shrink-0 items-center gap-1 text-xs",
+          "inline-flex shrink-0 items-center",
           opened
             ? "text-emerald-600 dark:text-emerald-400"
             : "text-muted-foreground",
         )}
       >
         <CheckCheckIcon aria-hidden className="size-3.5" />
-        {compact ? (
-          <span className="sr-only">{status.detail}</span>
-        ) : (
-          status.label
-        )}
+        <span className="sr-only">{detail}</span>
       </span>
     </Tooltip>
   );
