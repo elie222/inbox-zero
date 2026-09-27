@@ -93,9 +93,10 @@ export function BulkRunRules() {
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
-  // Access can drop while the toggle is still on (the tier is revalidated in
-  // the background), so everything reads the gated value rather than the raw
+  // Access can drop while a toggle is still on (the tier is revalidated in
+  // the background), so everything reads the gated values rather than the raw
   // toggle state.
+  const isIncludeReadEnabled = includeRead && isBusinessPlusTier;
   const isRerunEnabled = rerun && hasRerunAccess;
 
   // Warn user before leaving page during processing (includes initial fetch)
@@ -126,7 +127,7 @@ export function BulkRunRules() {
         {
           startDate,
           endDate,
-          includeRead,
+          includeRead: isIncludeReadEnabled,
           generateDraftReplies,
           rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
@@ -220,7 +221,7 @@ export function BulkRunRules() {
               <ItemCard>
                 <ToggleRow
                   title="Include read emails"
-                  checked={includeRead}
+                  checked={isIncludeReadEnabled}
                   onCheckedChange={setIncludeRead}
                   disabled={isProcessing}
                   onUpgrade={isBusinessPlusTier ? undefined : openPremiumModal}
@@ -311,7 +312,7 @@ export function BulkRunRules() {
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
                   No{" "}
                   {describeTargetedEmails({
-                    includeRead,
+                    includeRead: isIncludeReadEnabled,
                     rerun: isRerunEnabled,
                   })}{" "}
                   found in your inbox in the selected date range.
