@@ -7,15 +7,19 @@ name: Agent integrity
 # are Markdown.
 #
 # What fails the build (see eyebrow.policy.json):
+# - any change to a locked file, and any locked file added or removed,
+#   until eyebrowlock.json is refreshed in the same change
 # - a skill named in skills-lock.json whose folder no longer hashes to the
 #   recorded value, or a skills-lock.json entry whose value was edited
 #   (SKILLS-LOCK-MISMATCH)
 # - the clawhub/ skill gaining a network host it did not have when locked
 # - a new high or critical finding that is not muted in the policy
 #
-# Wording changes pass. Added and removed files are listed in the step
-# summary but do not fail. After an intended change, refresh the lock with
-# `eyebrow scan` and commit eyebrowlock.json with the change.
+# To refresh after an intended change, install eyebrow
+# (`brew install alexverify/tap/eyebrow`, or the release archive this
+# workflow pins) and run `eyebrow scan` at the repo root, then commit
+# eyebrowlock.json with the change. The lockfile diff is the review
+# surface: it shows which files' hashes moved and any new capability.
 #
 # The eyebrow binary is not taken from a third-party action. It is a single
 # static Go binary (MIT, github.com/alexverify/eyebrow) downloaded from a

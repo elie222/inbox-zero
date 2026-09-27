@@ -1,7 +1,7 @@
 {
   "failOnSeverity": "high",
   "failOnCapabilityExpansion": true,
-  "allowContentDrift": true,
+  "allowContentDrift": false,
   "mutes": [
     {
       "rule": "SENSITIVE-PATH-READ",
