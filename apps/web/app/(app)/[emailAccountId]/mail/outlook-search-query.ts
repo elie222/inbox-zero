@@ -1,7 +1,7 @@
 import {
   tokenizeSearchQuery,
   unquoteSearchValue,
-} from "@/utils/mail/tokenize-search-query";
+} from "@/utils/tokenize-search-query";
 import { parseOutlookSearchToken } from "@/utils/outlook/thread-search-query";
 
 export const OUTLOOK_DATE_WITHIN_OPTIONS = [

@@ -53,7 +53,7 @@ vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
 }));
 
@@ -1061,7 +1061,7 @@ describe("GmailProvider.updateLabel", () => {
 
 describe("GmailProvider.searchContacts", () => {
   it("skips People API lookups during Google OAuth emulation", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
     const provider = new GmailProvider({} as never);
 

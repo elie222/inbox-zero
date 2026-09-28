@@ -3,7 +3,7 @@ import type {
   ThreadsQuery,
   ThreadsQueryLeaf,
 } from "@/utils/threads/validation";
-import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
+import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
 
 export type MailSplitFilter = {
   kind: MailSplitFilterKind;

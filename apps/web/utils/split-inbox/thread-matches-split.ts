@@ -1,7 +1,7 @@
 import { internalDateToDate } from "@/utils/date";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { ParsedMessage } from "@/utils/types";
-import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
+import { mailSplitToThreadsQuery } from "@/utils/split-inbox/split-query";
 import type {
   ThreadsQuery,
   ThreadsQueryLeaf,

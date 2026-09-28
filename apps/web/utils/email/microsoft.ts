@@ -7,7 +7,7 @@ import {
   getOutlookLocalMailMessage,
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -129,8 +129,8 @@ import {
   isRetryableError,
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
-import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/retry";
+import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";

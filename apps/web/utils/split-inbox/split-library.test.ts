@@ -4,7 +4,7 @@ import {
   availableLibraryFilters,
   resolveLibraryEntry,
   SPLIT_LIBRARY,
-} from "@/utils/mail/split-library";
+} from "@/utils/split-inbox/split-library";
 
 const otpEntry = SPLIT_LIBRARY.find((entry) => entry.name === "OTP");
 const toReplyEntry = SPLIT_LIBRARY.find((entry) => entry.name === "To Reply");

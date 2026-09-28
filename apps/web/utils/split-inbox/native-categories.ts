@@ -1,11 +1,11 @@
 import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
-import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
+import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
 import {
   mailSplitToThreadsQuery,
   type MailSplit,
-} from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-query";
 import { flattenOutlookFolders } from "@/utils/outlook/folders";
 import prisma from "@/utils/prisma";
 import {

@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import { threadsQueryToPredicate } from "@/utils/mail-engine/threads-query";
-import { splitCountTargets } from "@/utils/mail/split-counts";
+import { splitCountTargets } from "@/utils/split-inbox/split-counts";
 import {
   OTHER_SPLIT_ID,
   mailSplitToThreadsQuery,
   otherMailSplitQuery,
   type MailSplit,
-} from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-query";
 
 const NOW = new Date("2026-09-09T12:00:00.000Z");
 

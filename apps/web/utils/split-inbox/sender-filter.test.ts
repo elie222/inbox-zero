@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   senderFilterSchema,
   matchesSenderFilter,
-} from "@/utils/mail/sender-filter";
+} from "@/utils/split-inbox/sender-filter";
 
 describe("sender filters", () => {
   it.each([

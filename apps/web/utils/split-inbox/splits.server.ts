@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
 import prisma from "@/utils/prisma";
-import { lockMailSplits } from "@/utils/mail/split-lock";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import { lockMailSplits } from "@/utils/split-inbox/split-lock";
+import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 
 type CreateMailSplitResult =
   | ({ status: "created" } & MailSplit)

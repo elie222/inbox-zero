@@ -11,7 +11,7 @@ vi.mock("@/utils/gmail/client", () => ({
   getAccessTokenFromClient: vi.fn(),
   getGmailClientWithRefresh: vi.fn(),
 }));
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleTokenInfoUrl: vi.fn(
     (accessToken: string) =>
       `https://example.com/tokeninfo?access_token=${accessToken}`,
@@ -32,7 +32,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("uses stored granted scopes in Google OAuth emulation", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
 
     const result = await handleGmailPermissionsCheck({
@@ -50,7 +50,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("accepts comma-separated stored scopes in Google OAuth emulation", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
 
     const result = await handleGmailPermissionsCheck({
@@ -68,7 +68,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("reports missing scopes from stored granted scopes in emulation", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
 
     const result = await handleGmailPermissionsCheck({
@@ -108,7 +108,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("keeps older emulated accounts working when stored scope is missing", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
 
     const result = await handleGmailPermissionsCheck({
@@ -126,7 +126,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("uses tokeninfo outside Google OAuth emulation", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
@@ -150,7 +150,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("cleans up invalid Gmail tokens after a failed refresh", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     const gmailClient = await import("@/utils/gmail/client");
 
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
@@ -180,7 +180,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails open when the token info request hits a network error", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockRejectedValue(new Error("network down"));
 
@@ -201,7 +201,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails open when the token info request returns a non-OK response", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
@@ -222,7 +222,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails closed on 4xx auth errors and refreshes the token", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     const gmailClient = await import("@/utils/gmail/client");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch)
@@ -261,7 +261,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails closed on a 200 response with an error body", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
@@ -283,7 +283,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails open on 4xx responses without a token error body", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
@@ -305,7 +305,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails open on 4xx responses with an unrecognized error body", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
@@ -334,7 +334,7 @@ describe("handleGmailPermissionsCheck", () => {
   });
 
   it("fails open on a 200 response with an unrecognized error body", async () => {
-    const oauth = await import("@/utils/google/oauth");
+    const oauth = await import("@/utils/gmail/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,

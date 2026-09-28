@@ -1,5 +1,5 @@
 import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
-import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
+import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
 import { adminSso } from "@/utils/auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -33,12 +33,12 @@ import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthDiscoveryUrl,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import {
   getMicrosoftOauthDiscoveryUrl,
   isMicrosoftEmulationEnabled,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {

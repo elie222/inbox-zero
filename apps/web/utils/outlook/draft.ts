@@ -13,7 +13,7 @@ import {
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 
 export async function getDraft({
   client,

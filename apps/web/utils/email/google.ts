@@ -7,7 +7,7 @@ import {
   getGmailMailChangesPage,
   hydrateGmailMailMessages,
 } from "@/utils/gmail/local-mail-sync";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import { SafeError } from "@/utils/error";
@@ -123,7 +123,7 @@ import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
-import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
+import { isGoogleOauthEmulationEnabled } from "@/utils/gmail/oauth";
 
 const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 

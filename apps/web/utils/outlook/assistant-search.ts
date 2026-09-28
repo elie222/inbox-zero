@@ -1,6 +1,6 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { extractErrorInfo, isRetryableError } from "@/utils/microsoft/retry";
+import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
 import {
   buildOutlookSearchFallbackQuery,
   getOutlookComparisonFilters,

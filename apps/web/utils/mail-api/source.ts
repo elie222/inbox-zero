@@ -15,7 +15,7 @@ import {
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
-import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/microsoft/retry";
+import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
 
 const SUPPORTED_CHANGES = [

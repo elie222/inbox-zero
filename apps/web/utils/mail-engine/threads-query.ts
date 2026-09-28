@@ -2,7 +2,7 @@ import type {
   ConversationQuery,
   MailPredicate,
 } from "@inboxzero/mail-core/queries";
-import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
+import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export function threadsQueryToConversationQuery(input: {
