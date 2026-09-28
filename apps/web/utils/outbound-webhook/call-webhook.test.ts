@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { callWebhook } from "./webhook";
+import { callWebhook } from "./call-webhook";
 
 vi.mock("@/utils/prisma");
 
@@ -35,8 +35,10 @@ vi.mock("@inboxzero/network/safe-url", () => ({
     resolveSafeExternalHttpUrlMock(...args),
 }));
 
-vi.mock("@/utils/webhook-validation", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/webhook-validation")>()),
+vi.mock("@/utils/outbound-webhook/url-validation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/utils/outbound-webhook/url-validation")
+  >()),
   validateWebhookUrl: (...args: unknown[]) => validateWebhookUrlMock(...args),
 }));
 

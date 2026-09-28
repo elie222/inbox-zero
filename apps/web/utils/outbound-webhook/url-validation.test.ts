@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  validateWebhookUrl,
-  validateWebhookUrlFormat,
-} from "./webhook-validation";
+import { validateWebhookUrl, validateWebhookUrlFormat } from "./url-validation";
 import * as dns from "node:dns/promises";
 
 // Mock dns.resolve and dns.resolve6
