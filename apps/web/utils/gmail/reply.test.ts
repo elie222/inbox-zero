@@ -166,14 +166,15 @@ describe("email formatting", () => {
       "First paragraph.<br><br>Second paragraph.<br><br>Third paragraph.",
     );
   });
-  it("escapes plain-text reply content while keeping line breaks", () => {
+  it("inserts HTML-safe reply content as-is, keeping signature HTML and line breaks", () => {
     const { html } = createReplyContent({
-      textContent: "Is a < b & c?\nNext line",
+      textContent:
+        'Is a &lt; b?\n\n<div dir="ltr"><b>Alex</b><br>CEO &amp; Founder</div>',
       message: getMessage(),
     });
 
     expect(html).toContain(
-      '<div dir="ltr">Is a &lt; b &amp; c?<br>Next line</div>',
+      '<div dir="ltr">Is a &lt; b?<br><br><div dir="ltr"><b>Alex</b><br>CEO &amp; Founder</div></div>',
     );
   });
 

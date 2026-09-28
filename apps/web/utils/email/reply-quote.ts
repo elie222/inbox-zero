@@ -1,4 +1,3 @@
-import { load } from "cheerio";
 import type { ParsedMessage } from "@/utils/types";
 import {
   buildQuotedPlainText,
@@ -8,19 +7,15 @@ import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 
 export function buildReplyQuote({
   textContent,
-  htmlContent,
   message,
 }: {
   textContent?: string;
-  htmlContent?: string;
   message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml">;
 }) {
   const quotedHeader = formatReplyQuotedHeader(message.headers);
 
   return {
     dirAttribute: `dir="${detectTextDirection(textContent || "")}"`,
-    contentHtml:
-      htmlContent || (textContent ? renderMixedContentAsHtml(textContent) : ""),
     quotedHeaderHtml: escapeHtml(quotedHeader),
     quotedContentHtml:
       message.textHtml ||
@@ -58,20 +53,4 @@ function detectTextDirection(text: string): "ltr" | "rtl" {
   const rtlRegex =
     /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
   return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
-}
-
-// Reply bodies are plain text but may carry an HTML signature, so only text
-// nodes are escaped and existing markup is kept.
-function renderMixedContentAsHtml(content: string): string {
-  const $ = load(content, null, false);
-
-  $.root()
-    .contents()
-    .each((_index, node) => {
-      if (node.type !== "text") return;
-
-      $(node).replaceWith(convertNewlinesToBr(escapeHtml(node.data)));
-    });
-
-  return $.root().html() ?? "";
 }

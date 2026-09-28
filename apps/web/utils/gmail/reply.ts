@@ -1,5 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import { buildReplyQuote } from "@/utils/email/reply-quote";
+import { convertNewlinesToBr } from "@/utils/string";
 
 export const createReplyContent = ({
   textContent,
@@ -13,13 +14,10 @@ export const createReplyContent = ({
   html: string;
   text: string;
 } => {
-  const {
-    dirAttribute,
-    contentHtml,
-    quotedHeaderHtml,
-    quotedContentHtml,
-    text,
-  } = buildReplyQuote({ textContent, htmlContent, message });
+  const { dirAttribute, quotedHeaderHtml, quotedContentHtml, text } =
+    buildReplyQuote({ textContent, message });
+  const contentHtml =
+    htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
 
   const html = `<div ${dirAttribute}>${contentHtml}</div>
 <br>
