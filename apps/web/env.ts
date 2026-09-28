@@ -485,8 +485,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: booleanString
       .optional()
       .default(false),
-    // Unset keeps indexing on. Preview deploys and hosts starting with "staging." are already excluded.
-    NEXT_PUBLIC_DISABLE_INDEXING: booleanString.optional().default(false),
     NEXT_PUBLIC_USE_AEONIK_FONT: booleanString.optional().default(false),
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: booleanString.optional(),
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
@@ -593,7 +591,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
-    NEXT_PUBLIC_DISABLE_INDEXING: process.env.NEXT_PUBLIC_DISABLE_INDEXING,
     NEXT_PUBLIC_USE_AEONIK_FONT: process.env.NEXT_PUBLIC_USE_AEONIK_FONT,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS:
       process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS,

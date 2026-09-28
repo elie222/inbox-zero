@@ -22,7 +22,7 @@ import {
   SUPPORT_EMAIL,
   toAbsoluteUrl,
 } from "@/utils/branding";
-import { getMetadataBaseUrl, isIndexingAllowed } from "@/utils/indexing";
+import { isIndexingAllowed } from "@/utils/indexing";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -40,11 +40,7 @@ const title = `${BRAND_NAME} | Automate and clean your inbox`;
 const description =
   "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source";
 
-const indexingAllowed = isIndexingAllowed({
-  vercelEnv: process.env.VERCEL_ENV,
-  baseUrl: env.NEXT_PUBLIC_BASE_URL,
-  disableIndexing: env.NEXT_PUBLIC_DISABLE_INDEXING,
-});
+const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
 
 // JSON-LD structured data
 const jsonLd: WithContext<WebApplication> = {
@@ -124,7 +120,7 @@ export const metadata: Metadata = {
     description,
     creator: "@inboxzero_ai",
   },
-  metadataBase: new URL(getMetadataBaseUrl(env.NEXT_PUBLIC_BASE_URL)),
+  metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL),
   // issues with robots.txt: https://github.com/vercel/next.js/issues/58615#issuecomment-1852457285
   robots: {
     index: indexingAllowed,

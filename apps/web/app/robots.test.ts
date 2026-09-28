@@ -1,21 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-async function loadRobots({
-  baseUrl,
-  disableIndexing,
-  vercelEnv,
-}: {
-  baseUrl: string;
-  disableIndexing: boolean;
-  vercelEnv: string | undefined;
-}) {
+async function loadRobots(baseUrl: string, vercelEnv: string) {
   vi.resetModules();
   vi.stubEnv("VERCEL_ENV", vercelEnv);
   vi.doMock("@/env", () => ({
-    env: {
-      NEXT_PUBLIC_BASE_URL: baseUrl,
-      NEXT_PUBLIC_DISABLE_INDEXING: disableIndexing,
-    },
+    env: { NEXT_PUBLIC_BASE_URL: baseUrl },
   }));
 
   const { default: robots } = await import("@/app/robots");
@@ -30,11 +19,10 @@ describe("robots route", () => {
   });
 
   it("returns the existing production rules", async () => {
-    const robots = await loadRobots({
-      baseUrl: "https://www.getinboxzero.com",
-      disableIndexing: false,
-      vercelEnv: "production",
-    });
+    const robots = await loadRobots(
+      "https://www.getinboxzero.com",
+      "production",
+    );
 
     expect(robots()).toEqual({
       rules: {
@@ -49,27 +37,11 @@ describe("robots route", () => {
     });
   });
 
-  it("disallows all crawling and drops the sitemap on staging", async () => {
-    const robots = await loadRobots({
-      baseUrl: "https://staging.getinboxzero.com",
-      disableIndexing: false,
-      vercelEnv: "production",
-    });
-
-    expect(robots()).toEqual({
-      rules: {
-        userAgent: "*",
-        disallow: "/",
-      },
-    });
-  });
-
-  it("disallows all crawling on preview deploys", async () => {
-    const robots = await loadRobots({
-      baseUrl: "https://inbox-zero-git-branch.vercel.app",
-      disableIndexing: false,
-      vercelEnv: "preview",
-    });
+  it("disallows every path and omits the sitemap when indexing is off", async () => {
+    const robots = await loadRobots(
+      "https://staging.getinboxzero.com",
+      "production",
+    );
 
     expect(robots()).toEqual({
       rules: {
