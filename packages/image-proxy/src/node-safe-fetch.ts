@@ -5,12 +5,12 @@ import {
   createPinnedLookup,
   type PinnedLookup,
   resolveHostAddresses,
-} from "./pinned-dns";
+} from "@inboxzero/ssrf-guard/pinned-dns";
 import {
   isBlockedHostname,
   isBlockedIpAddress,
   normalizeHostname,
-} from "./upstream-host-policy";
+} from "@inboxzero/ssrf-guard/host-policy";
 
 type ResolvedSafeExternalHttpUrl = {
   lookup: PinnedLookup;

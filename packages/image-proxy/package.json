@@ -5,8 +5,6 @@
   "type": "module",
   "exports": {
     "./node-safe-fetch": "./src/node-safe-fetch.ts",
-    "./pinned-dns": "./src/pinned-dns.ts",
-    "./upstream-host-policy": "./src/upstream-host-policy.ts",
     "./proxy-url": "./src/proxy-url.ts",
     "./proxy-service": "./src/proxy-service.ts"
   },
@@ -15,7 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "ipaddr.js": "2.5.0"
+    "@inboxzero/ssrf-guard": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

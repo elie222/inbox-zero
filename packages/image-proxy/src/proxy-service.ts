@@ -1,5 +1,5 @@
 import { isProxyableRemoteUrl, validateAssetProxySignature } from "./proxy-url";
-import { isBlockedHostname } from "./upstream-host-policy";
+import { isBlockedHostname } from "@inboxzero/ssrf-guard/host-policy";
 
 const CACHEABLE_CONTENT_TYPES = [
   "application/font-sfnt",

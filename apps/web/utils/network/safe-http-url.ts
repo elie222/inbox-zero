@@ -2,12 +2,12 @@ import {
   createPinnedLookup,
   type PinnedLookup,
   resolveHostAddresses,
-} from "@inboxzero/image-proxy/pinned-dns";
+} from "@inboxzero/ssrf-guard/pinned-dns";
 import {
   isBlockedIpAddress,
   isInternalHostname,
   normalizeHostname,
-} from "@inboxzero/image-proxy/upstream-host-policy";
+} from "@inboxzero/ssrf-guard/host-policy";
 
 type SafeExternalHttpUrlOptions = {
   /**

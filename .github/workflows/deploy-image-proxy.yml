@@ -9,6 +9,7 @@ on:
     paths:
       - "apps/image-proxy/**"
       - "packages/image-proxy/**"
+      - "packages/ssrf-guard/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"

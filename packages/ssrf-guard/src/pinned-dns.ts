@@ -5,7 +5,7 @@ import type {
   LookupOneOptions,
 } from "node:dns";
 import { isIP } from "node:net";
-import { stripIpv6Brackets } from "./upstream-host-policy";
+import { stripIpv6Brackets } from "./host-policy";
 
 type ResolvedAddress = {
   address: string;
