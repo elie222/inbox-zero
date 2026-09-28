@@ -238,7 +238,9 @@ export function IntegrationRow({
                 )}
                 {isCustom && <Badge variant="secondary">Custom</Badge>}
               </div>
-              <MutedText>{integration.description}</MutedText>
+              {integration.description && (
+                <MutedText>{integration.description}</MutedText>
+              )}
             </div>
           </div>
         </TableCell>
