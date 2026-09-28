@@ -1,9 +1,6 @@
 import * as dns from "node:dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  isSafeExternalHttpUrl,
-  resolveSafeExternalHttpUrl,
-} from "./safe-http-url";
+import { isSafeExternalHttpUrl, resolveSafeExternalHttpUrl } from "./safe-url";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),

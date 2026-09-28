@@ -2,12 +2,12 @@ import {
   createPinnedLookup,
   type PinnedLookup,
   resolveHostAddresses,
-} from "@inboxzero/ssrf-guard/pinned-dns";
+} from "./pinned-dns";
 import {
   isBlockedIpAddress,
   isInternalHostname,
   normalizeHostname,
-} from "@inboxzero/ssrf-guard/host-policy";
+} from "./host-policy";
 
 type SafeExternalHttpUrlOptions = {
   /**
@@ -24,7 +24,7 @@ type SafeExternalHttpUrlOptions = {
   allowPrivateIps?: boolean;
 };
 
-type ResolvedSafeExternalHttpUrl = {
+export type ResolvedSafeExternalHttpUrl = {
   lookup: PinnedLookup;
   url: URL;
 };

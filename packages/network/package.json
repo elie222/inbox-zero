@@ -1,11 +1,12 @@
 {
-  "name": "@inboxzero/ssrf-guard",
+  "name": "@inboxzero/network",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     "./host-policy": "./src/host-policy.ts",
-    "./pinned-dns": "./src/pinned-dns.ts"
+    "./pinned-dns": "./src/pinned-dns.ts",
+    "./safe-url": "./src/safe-url.ts"
   },
   "scripts": {
     "test": "vitest run"

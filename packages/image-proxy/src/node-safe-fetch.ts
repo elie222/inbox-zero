@@ -2,20 +2,9 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
 import {
-  createPinnedLookup,
-  type PinnedLookup,
-  resolveHostAddresses,
-} from "@inboxzero/ssrf-guard/pinned-dns";
-import {
-  isBlockedHostname,
-  isBlockedIpAddress,
-  normalizeHostname,
-} from "@inboxzero/ssrf-guard/host-policy";
-
-type ResolvedSafeExternalHttpUrl = {
-  lookup: PinnedLookup;
-  url: URL;
-};
+  type ResolvedSafeExternalHttpUrl,
+  resolveSafeExternalHttpUrl,
+} from "@inboxzero/network/safe-url";
 
 export async function createSafeImageProxyFetch(
   input: string | URL,
@@ -33,35 +22,6 @@ export async function createSafeImageProxyFetch(
   }
 
   return fetchWithPinnedLookup(resolved, init);
-}
-
-export function isSafeExternalHttpUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      return false;
-    }
-
-    return !isBlockedHostname(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
-
-export async function resolveSafeExternalHttpUrl(
-  url: string,
-): Promise<ResolvedSafeExternalHttpUrl | null> {
-  if (!isSafeExternalHttpUrl(url)) return null;
-
-  const parsed = new URL(url);
-  const addresses = await resolveHostAddresses(
-    normalizeHostname(parsed.hostname),
-  );
-  if (addresses.some((result) => isBlockedIpAddress(result.address))) {
-    return null;
-  }
-
-  return { url: parsed, lookup: createPinnedLookup(addresses) };
 }
 
 async function fetchWithPinnedLookup(
