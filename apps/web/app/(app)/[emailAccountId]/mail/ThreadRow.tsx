@@ -131,7 +131,8 @@ export const ThreadRow = memo(function ThreadRow({
       onToggleSelect={onToggleSelect}
       participantSummary={participantSummary}
       renderSelectionControl={({ ariaLabel, checked, onClick, visible }) => (
-        <Tooltip shortcuts={["select"]}>
+        // Opening above would cover the select-all checkbox for the first row.
+        <Tooltip shortcuts={["select"]} side="right">
           <Checkbox
             aria-label={ariaLabel}
             checked={checked}
