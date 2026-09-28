@@ -54,7 +54,11 @@ export function EmailThread({
   autoOpenReplyForMessageId?: string;
   autoOpenForwardForMessageId?: string;
   topRightComponent?: React.ReactNode;
-  onSendSuccess?: (messageId: string, threadId: string) => void;
+  onSendSuccess?: (
+    messageId: string,
+    sentThreadId: string,
+    repliedThreadId: string,
+  ) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
@@ -324,7 +328,7 @@ export function EmailThread({
                     new Map(prev).set(messageId, true),
                   );
 
-                  onSendSuccess?.(messageId, sentThreadId);
+                  onSendSuccess?.(messageId, sentThreadId, threadId);
                 }}
                 // A one-message thread has nothing to collapse back to.
                 onToggle={

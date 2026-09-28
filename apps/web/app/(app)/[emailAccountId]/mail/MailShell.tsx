@@ -663,6 +663,7 @@ export function MailShell() {
     [emailAccountId, openThreadSelection?.emailAccountId],
   );
 
+  const getOpenThreadKey = useStableCallback(() => openThreadKey);
   const runOn = useStableCallback(
     async (
       action: (ids: string[]) => Promise<string[]>,
@@ -677,7 +678,9 @@ export function MailShell() {
       if (
         removeFromList &&
         openThreadKey &&
-        queuedThreadKeys.includes(openThreadKey)
+        queuedThreadKeys.includes(openThreadKey) &&
+        // The user may have opened another thread while the action was queued.
+        getOpenThreadKey() === openThreadKey
       ) {
         if (autoAdvanceReader) {
           const nextThread = getNextThreadAfterRemoval({
@@ -1213,9 +1216,12 @@ export function MailShell() {
     setReadState([openThreadKey], true);
   });
   const onSendSuccess = useStableCallback(
-    (_messageId: string, sentThreadId: string) => {
+    (_messageId: string, sentThreadId: string, repliedThreadId: string) => {
+      // A held send settles after the undo window, by which time the user may
+      // have moved on; only follow the reply if they are still on its thread.
       if (
         !openThreadSelection ||
+        repliedThreadId !== openThreadSelection.threadId ||
         !sentThreadId.trim() ||
         sentThreadId === openThreadSelection.threadId
       )

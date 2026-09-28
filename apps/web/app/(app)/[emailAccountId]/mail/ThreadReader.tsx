@@ -73,7 +73,11 @@ export type ThreadReaderProps = {
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
-  onSendSuccess?: (messageId: string, threadId: string) => void;
+  onSendSuccess?: (
+    messageId: string,
+    sentThreadId: string,
+    repliedThreadId: string,
+  ) => void;
   /**
    * Set by the reply action. Left unset the composer still opens on its own for
    * a message that already has an AI draft.
