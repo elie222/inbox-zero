@@ -1,16 +1,11 @@
 import type { MetadataRoute } from "next";
 import { env } from "@/env";
+import { buildRobotsPolicy } from "@/utils/indexing";
 
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: "/components",
-    },
-    sitemap: [
-      `${env.NEXT_PUBLIC_BASE_URL}/sitemap.xml`,
-      "https://docs.getinboxzero.com/sitemap.xml",
-    ],
-  };
+  return buildRobotsPolicy({
+    vercelEnv: process.env.VERCEL_ENV,
+    baseUrl: env.NEXT_PUBLIC_BASE_URL,
+    disableIndexing: env.NEXT_PUBLIC_DISABLE_INDEXING,
+  });
 }

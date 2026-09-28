@@ -4,6 +4,7 @@ import nextMdx from "@next/mdx";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { env } from "./env";
+import { isIndexingAllowed, NOINDEX_ROBOTS_TAG } from "./utils/indexing";
 import type { NextConfig } from "next";
 
 const withMDX = nextMdx({
@@ -24,6 +25,11 @@ const zodV4CorePath = path.join(
   path.dirname(require.resolve("zod/package.json")),
   "v4/core/index.js",
 );
+const indexingAllowed = isIndexingAllowed({
+  vercelEnv: process.env.VERCEL_ENV,
+  baseUrl: env.NEXT_PUBLIC_BASE_URL,
+  disableIndexing: env.NEXT_PUBLIC_DISABLE_INDEXING,
+});
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
@@ -128,6 +134,19 @@ const nextConfig: NextConfig = {
     ];
 
     return [
+      ...(indexingAllowed
+        ? []
+        : [
+            {
+              source: "/:path*",
+              headers: [
+                {
+                  key: "X-Robots-Tag",
+                  value: NOINDEX_ROBOTS_TAG,
+                },
+              ],
+            },
+          ]),
       {
         headers: [
           ...securityHeaders,
