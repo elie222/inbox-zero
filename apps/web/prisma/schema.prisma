@@ -114,8 +114,7 @@ model User {
   // Referral relationships
   referralsMade    Referral[]        @relation("ReferrerUser")
   referralReceived Referral?         @relation("ReferredUser")
-  mobilePushTokens  MobilePushToken[]
-  mailboxPushDevices MailboxPushDevice[]
+  mobilePushTokens MobilePushToken[]
 
   oauthClientRecords       OauthClient[]
   oauthRefreshTokenRecords OauthRefreshToken[]
@@ -259,7 +258,7 @@ model EmailAccount {
   apiKeys                ApiKey[]
   classificationFeedback ClassificationFeedback[]
   mailSplits             MailSplit[]
-  mailboxPushDevices     MailboxPushDevice[]
+  mobilePushTokens       MobilePushToken[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -2021,16 +2020,19 @@ model McpTool {
 }
 
 model MobilePushToken {
-  id        String             @id @default(cuid())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  token     String             @unique
-  platform  MobilePushPlatform
-  tokenType MobilePushTokenType @default(EXPO)
+  id          String              @id @default(cuid())
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  token       String              @unique
+  platform    MobilePushPlatform
+  tokenType   MobilePushTokenType @default(EXPO)
+  appVersion  String?
+  environment ApnsEnvironment?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  emailAccounts        EmailAccount[]
   mobilePushDeliveries MobilePushDelivery[]
 
   @@index([userId])
@@ -2059,32 +2061,7 @@ enum MobilePushTokenType {
   APNS @map("apns")
 }
 
-// Native device registered for silent mailbox-change pushes. One physical
-// token can be registered for each email account the user has on that device.
-model MailboxPushDevice {
-  id          String                  @id @default(cuid())
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  token       String
-  platform    MailboxPushPlatform
-  environment MailboxPushEnvironment
-  appVersion  String
-
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([token, emailAccountId])
-  @@index([emailAccountId])
-  @@index([userId])
-}
-
-enum MailboxPushPlatform {
-  IOS @map("ios")
-}
-
-enum MailboxPushEnvironment {
+enum ApnsEnvironment {
   SANDBOX    @map("sandbox")
   PRODUCTION @map("production")
 }

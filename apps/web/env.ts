@@ -281,13 +281,11 @@ const parsedEnv = createEnv({
     APPLE_IAP_LOCAL_TESTING: booleanString,
     SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
 
-    // APNs token auth (.p8) for native iOS push. Leave unset to disable
-    // silent mailbox pushes and keep Expo-only alert delivery.
+    // APNs token auth for native iOS push. Leave unset to keep Expo-only delivery.
+    // The same credentials send silent mailbox-change pushes.
     APNS_KEY_ID: z.string().min(1).optional(),
     APNS_TEAM_ID: z.string().min(1).optional(),
     APNS_PRIVATE_KEY: z.string().min(1).optional(),
-    APNS_BUNDLE_ID: z.string().min(1).optional(),
-    // Alias for APNS_BUNDLE_ID. Older alert delivery used this name.
     APNS_TOPIC: z.string().min(1).optional(),
     APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
     // `fake` records sends in memory instead of contacting Apple. Emulator only.

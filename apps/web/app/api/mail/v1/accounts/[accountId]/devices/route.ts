@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  MailboxPushEnvironment,
-  MailboxPushPlatform,
+  ApnsEnvironment,
+  MobilePushPlatform,
+  MobilePushTokenType,
 } from "@/generated/prisma/enums";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
@@ -37,35 +38,35 @@ export const POST = withEmailAccount(
     const device = registerDeviceSchema.parse(await request.json());
     const environment =
       device.environment === "sandbox"
-        ? MailboxPushEnvironment.SANDBOX
-        : MailboxPushEnvironment.PRODUCTION;
-
-    await prisma.mailboxPushDevice.deleteMany({
-      where: {
-        token: device.token,
-        userId: { not: request.auth.userId },
-      },
+        ? ApnsEnvironment.SANDBOX
+        : ApnsEnvironment.PRODUCTION;
+    const existing = await prisma.mobilePushToken.findUnique({
+      where: { token: device.token },
+      select: { userId: true },
     });
-    await prisma.mailboxPushDevice.upsert({
-      where: {
-        token_emailAccountId: {
-          token: device.token,
-          emailAccountId: request.auth.emailAccountId,
-        },
-      },
+    const emailAccounts =
+      existing && existing.userId !== request.auth.userId
+        ? { set: [{ id: request.auth.emailAccountId }] }
+        : { connect: [{ id: request.auth.emailAccountId }] };
+
+    await prisma.mobilePushToken.upsert({
+      where: { token: device.token },
       create: {
         token: device.token,
-        platform: MailboxPushPlatform.IOS,
+        platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.APNS,
         environment,
         appVersion: device.appVersion,
         userId: request.auth.userId,
-        emailAccountId: request.auth.emailAccountId,
+        emailAccounts: { connect: [{ id: request.auth.emailAccountId }] },
       },
       update: {
-        platform: MailboxPushPlatform.IOS,
+        platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.APNS,
         environment,
         appVersion: device.appVersion,
         userId: request.auth.userId,
+        emailAccounts,
       },
     });
 
@@ -85,11 +86,20 @@ export const DELETE = withEmailAccount(
     }
 
     const { token } = unregisterDeviceSchema.parse(await request.json());
-    await prisma.mailboxPushDevice.deleteMany({
+    const existing = await prisma.mobilePushToken.findFirst({
       where: {
         token,
         userId: request.auth.userId,
-        emailAccountId: request.auth.emailAccountId,
+        emailAccounts: { some: { id: request.auth.emailAccountId } },
+      },
+      select: { id: true },
+    });
+    if (!existing) return NextResponse.json({ ok: true });
+
+    await prisma.mobilePushToken.update({
+      where: { id: existing.id },
+      data: {
+        emailAccounts: { disconnect: [{ id: request.auth.emailAccountId }] },
       },
     });
 

@@ -1,7 +1,8 @@
 import "server-only";
 import {
-  MailboxPushEnvironment,
-  type MailboxPushEnvironment as MailboxPushEnvironmentValue,
+  ApnsEnvironment,
+  MobilePushTokenType,
+  type ApnsEnvironment as ApnsEnvironmentValue,
 } from "@/generated/prisma/enums";
 import { isApnsConfigured, deliverApnsNotifications } from "@/utils/apns";
 import type { Logger } from "@/utils/logger";
@@ -38,8 +39,11 @@ async function sendMailboxPushes({
   const acquired = await reserveMailboxPush(emailAccountId, logger);
   if (!acquired) return;
 
-  const devices = await prisma.mailboxPushDevice.findMany({
-    where: { emailAccountId },
+  const devices = await prisma.mobilePushToken.findMany({
+    where: {
+      tokenType: MobilePushTokenType.APNS,
+      emailAccounts: { some: { id: emailAccountId } },
+    },
     select: { token: true, environment: true },
   });
   if (devices.length === 0) return;
@@ -48,7 +52,9 @@ async function sendMailboxPushes({
   for (const [environment, tokens] of groupTokens(devices)) {
     const { unregisteredTokens } = await deliverApnsNotifications({
       tokens,
-      sandbox: environment === MailboxPushEnvironment.SANDBOX,
+      ...(environment
+        ? { sandbox: environment === ApnsEnvironment.SANDBOX }
+        : {}),
       notification: {
         pushType: "background",
         data: { emailAccountId, hint: "mailbox" },
@@ -60,7 +66,7 @@ async function sendMailboxPushes({
 
   const rejectedTokens = [...new Set(staleTokens)];
   if (rejectedTokens.length === 0) return;
-  await prisma.mailboxPushDevice.deleteMany({
+  await prisma.mobilePushToken.deleteMany({
     where: { token: { in: rejectedTokens } },
   });
   logger.info("Pruned rejected mailbox push tokens", {
@@ -85,10 +91,10 @@ async function reserveMailboxPush(emailAccountId: string, logger: Logger) {
 function groupTokens(
   devices: Array<{
     token: string;
-    environment: MailboxPushEnvironmentValue;
+    environment: ApnsEnvironmentValue | null;
   }>,
 ) {
-  const grouped = new Map<MailboxPushEnvironmentValue, string[]>();
+  const grouped = new Map<ApnsEnvironmentValue | null, string[]>();
   for (const device of devices) {
     const tokens = grouped.get(device.environment) ?? [];
     tokens.push(device.token);

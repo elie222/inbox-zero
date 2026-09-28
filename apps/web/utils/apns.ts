@@ -60,17 +60,12 @@ export function isStaleApnsToken(delivery: {
 }
 
 export function apnsTopic() {
-  return env.APNS_BUNDLE_ID || env.APNS_TOPIC || DEFAULT_TOPIC;
+  return env.APNS_TOPIC || DEFAULT_TOPIC;
 }
 
 export function isApnsConfigured() {
   if (isFakeApnsTransport()) return true;
-  return Boolean(
-    env.APNS_KEY_ID &&
-      env.APNS_TEAM_ID &&
-      env.APNS_PRIVATE_KEY &&
-      (env.APNS_BUNDLE_ID || env.APNS_TOPIC),
-  );
+  return Boolean(env.APNS_KEY_ID && env.APNS_PRIVATE_KEY);
 }
 
 export async function deliverApnsNotifications({

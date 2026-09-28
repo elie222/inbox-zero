@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MailboxPushEnvironment } from "@/generated/prisma/enums";
+import { ApnsEnvironment } from "@/generated/prisma/enums";
 import { deliverApnsNotifications } from "@/utils/apns";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/__mocks__/prisma";
@@ -12,7 +12,6 @@ const { envMock } = vi.hoisted(() => ({
     APNS_KEY_ID: undefined as string | undefined,
     APNS_TEAM_ID: undefined as string | undefined,
     APNS_PRIVATE_KEY: undefined as string | undefined,
-    APNS_BUNDLE_ID: undefined as string | undefined,
     APNS_TOPIC: undefined as string | undefined,
   },
 }));
@@ -33,12 +32,7 @@ vi.mock("@/utils/apns", () => ({
   })),
   isApnsConfigured: () =>
     envMock.APNS_TRANSPORT === "fake" ||
-    Boolean(
-      envMock.APNS_KEY_ID &&
-        envMock.APNS_TEAM_ID &&
-        envMock.APNS_PRIVATE_KEY &&
-        (envMock.APNS_BUNDLE_ID || envMock.APNS_TOPIC),
-    ),
+    Boolean(envMock.APNS_KEY_ID && envMock.APNS_PRIVATE_KEY),
 }));
 
 import { notifyMailboxChanged } from "./mailbox-push";
@@ -58,17 +52,16 @@ describe("notifyMailboxChanged", () => {
     envMock.APNS_KEY_ID = "KEYID123";
     envMock.APNS_TEAM_ID = "TEAMID1234";
     envMock.APNS_PRIVATE_KEY = "private-key";
-    envMock.APNS_BUNDLE_ID = "com.getinboxzero.app";
-    envMock.APNS_TOPIC = undefined;
+    envMock.APNS_TOPIC = "com.getinboxzero.app";
     vi.mocked(redis.set).mockResolvedValue("OK");
-    vi.mocked(prisma.mailboxPushDevice.findMany).mockResolvedValue([
+    vi.mocked(prisma.mobilePushToken.findMany).mockResolvedValue([
       {
         token: "a".repeat(64),
-        environment: MailboxPushEnvironment.SANDBOX,
+        environment: ApnsEnvironment.SANDBOX,
       },
       {
         token: "b".repeat(64),
-        environment: MailboxPushEnvironment.PRODUCTION,
+        environment: ApnsEnvironment.PRODUCTION,
       },
     ] as never);
   });
@@ -104,10 +97,10 @@ describe("notifyMailboxChanged", () => {
   });
 
   it("coalesces a second push for the same account inside the window", async () => {
-    vi.mocked(prisma.mailboxPushDevice.findMany).mockResolvedValue([
+    vi.mocked(prisma.mobilePushToken.findMany).mockResolvedValue([
       {
         token: "a".repeat(64),
-        environment: MailboxPushEnvironment.SANDBOX,
+        environment: ApnsEnvironment.SANDBOX,
       },
     ] as never);
     vi.mocked(redis.set).mockImplementation(async () => {
@@ -140,7 +133,7 @@ describe("notifyMailboxChanged", () => {
 
     await notifyMailboxChanged({ emailAccountId: "account-1", logger });
 
-    expect(prisma.mailboxPushDevice.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
       where: { token: { in: ["b".repeat(64)] } },
     });
   });
