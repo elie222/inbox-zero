@@ -127,7 +127,7 @@ export async function backfillRecentOutlookMessages({
     logger.warn(
       "Stopped Outlook backfill because the account is rate limited",
       {
-        skippedCount: rateLimitedCount,
+        rateLimitedCount,
         retryAt: rateLimitError.retryAt,
       },
     );
