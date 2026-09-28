@@ -603,9 +603,6 @@ test("keeps a sent forward in the thread it came from", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
-  const sentByMe = page.getByText("Me", { exact: true });
-  const initialSentByMeCount = await sentByMe.count();
-
   await sourceMessage
     .getByRole("button", { name: "Forward", exact: true })
     .click();
@@ -634,7 +631,11 @@ test("keeps a sent forward in the thread it came from", async ({
     .toMatchObject({ status: "succeeded" });
   await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
   await expect(sourceMessage).toBeVisible();
-  await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
+  // Messages sent earlier in this shared thread can still be settling when the
+  // test starts, so assert on this forward's unique body rather than a count
+  await expect(
+    page.locator("[data-thread-message-id]").filter({ hasText: forwardBody }),
+  ).toHaveCount(1);
   await expect(
     page
       .getByRole("region", { name: "Reply delivery status" })
