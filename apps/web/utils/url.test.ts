@@ -167,23 +167,22 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // Outlook on the web addresses items by its own id format, which a Graph id
-  // cannot be converted into locally. Graph hands us the ready-made deeplink as
-  // `webLink`, so prefer it over anything assembled here.
   it.each([
     {
       name: "a business mailbox",
       emailAddress: "user@contoso.com",
-      webLink: "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D",
+      webLink:
+        "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
       expected:
-        "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
+        "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
     },
     {
       name: "a personal mailbox",
       emailAddress: "user@outlook.com",
-      webLink: "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D",
+      webLink:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
       expected:
-        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
     },
   ])("opens the draft itself within the full Outlook client for $name", ({
     emailAddress,
@@ -199,26 +198,22 @@ describe("getEmailDraftUrl", () => {
     ).toBe(expected);
   });
 
-  // Without this the link opens a bare popout window instead of the draft in
-  // the reading pane of the full client.
   it("renders the Outlook draft in the reading pane rather than a popout", () => {
     expect(
       getEmailDraftUrl(
         {
           id: "AAMkAG-synthetic_id=",
           externalUrl:
-            "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=1",
+            "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=1",
         },
         "user@contoso.com",
         "microsoft",
       ),
     ).toBe(
-      "https://outlook.office.com/mail/deeplink/read/AAMkAG-owa_id%3D?ispopout=0",
+      "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
     );
   });
 
-  // The link is redirected to, so it must not be able to send the user off to
-  // an arbitrary host.
   it.each([
     {
       name: "a host outside Outlook on the web",
