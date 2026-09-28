@@ -182,24 +182,6 @@ describe("isRetryableError", () => {
 });
 
 describe("calculateRetryDelay", () => {
-  it("uses Retry-After header in seconds", () => {
-    const delay = calculateRetryDelay(true, false, false, 1, "10");
-    expect(delay).toBe(10_000); // 10 seconds in ms
-  });
-
-  it("uses Retry-After header as HTTP-date", () => {
-    const futureDate = new Date(Date.now() + 5000);
-    const delay = calculateRetryDelay(
-      true,
-      false,
-      false,
-      1,
-      futureDate.toUTCString(),
-    );
-    expect(delay).toBeGreaterThanOrEqual(4000);
-    expect(delay).toBeLessThanOrEqual(5000);
-  });
-
   it("falls back to 30s for rate limits without header", () => {
     const delay = calculateRetryDelay(true, false, false, 1);
     expect(delay).toBe(30_000);

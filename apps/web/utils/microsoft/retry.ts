@@ -1,8 +1,11 @@
-import pRetry from "p-retry";
 import type { Logger } from "@/utils/logger";
-import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
+import {
+  getRetryAfterDelayMs,
+  type ProviderRetryPolicy,
+  withProviderRetry,
+} from "@/utils/retry/provider-retry";
 
 interface ErrorInfo {
   code?: string;
@@ -147,23 +150,8 @@ export function calculateRetryDelay(
   attemptNumber: number,
   retryAfterHeader?: string,
 ): number {
-  // Handle Retry-After header
-  if (retryAfterHeader) {
-    const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10);
-    if (!Number.isNaN(retryAfterSeconds)) {
-      return retryAfterSeconds * 1000;
-    }
-
-    // Try parsing as HTTP-date
-    const retryDate = new Date(retryAfterHeader);
-    if (!Number.isNaN(retryDate.getTime())) {
-      const delayMs = Math.max(0, retryDate.getTime() - Date.now());
-      if (delayMs > 0) {
-        return delayMs;
-      }
-      // If stale, fall through to fallback logic
-    }
-  }
+  const retryAfterDelayMs = getRetryAfterDelayMs(retryAfterHeader);
+  if (retryAfterDelayMs !== undefined) return retryAfterDelayMs;
 
   // Use different fallback delays based on error type
   if (isConflictError) {
@@ -191,75 +179,41 @@ async function withMicrosoftGraphRetryPolicy<T>(
   logger: Logger,
   maxRetries: number,
   maxBlockingDelayMs: number,
-  retryPolicy: "all" | "rate-limit-only",
+  retryPolicy: ProviderRetryPolicy,
 ): Promise<T> {
-  return pRetry(operation, {
-    retries: maxRetries,
-    onFailedAttempt: async (error) => {
-      const errorInfo = extractErrorInfo(error);
-      const retryableError = isRetryableError(errorInfo);
-      const { isRateLimit, isServerError, isConflictError } = retryableError;
-      const retryable =
-        retryPolicy === "all" ? retryableError.retryable : isRateLimit;
+  return withProviderRetry(operation, {
+    providerName: "Microsoft Graph",
+    logger,
+    maxRetries,
+    maxBlockingDelayMs,
+    retryPolicy,
+    classify: (attempt) => {
+      const errorInfo = extractErrorInfo(attempt);
+      const { retryable, isRateLimit, isServerError, isConflictError } =
+        isRetryableError(errorInfo);
+      const retryAfterHeader = getRetryAfterHeaderFromError(attempt);
 
-      if (!retryable) {
-        logger.warn("Non-retryable error encountered", {
-          error,
-          status: errorInfo.status,
-          code: errorInfo.code,
-          responseBody: errorInfo.responseBody,
-          retryPolicy,
-        });
-        // Throwing the attempt context would hand callers p-retry's wrapper
-        // instead of the Graph error, so classifiers such as
-        // isOutlookAccessDeniedError would never match.
-        throw error.error;
-      }
-
-      const retryAfterHeader = getRetryAfterHeaderFromError(error);
-
-      const delayMs = calculateRetryDelay(
+      return {
+        retryable,
         isRateLimit,
-        isServerError,
-        isConflictError,
-        error.attemptNumber,
-        retryAfterHeader,
-      );
-
-      logger.warn("Microsoft Graph error. Will retry", {
-        delaySeconds: Math.ceil(delayMs / 1000),
-        attemptNumber: error.attemptNumber,
-        maxRetries,
-        maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
-        status: errorInfo.status,
-        code: errorInfo.code,
-        isRateLimit,
-        isServerError,
-        isConflictError,
-        isFetchError: isFetchError(errorInfo),
-        retryAfterHeader,
-        responseBody: errorInfo.responseBody,
-        retryPolicy,
-      });
-
-      if (delayMs > maxBlockingDelayMs) {
-        logger.warn("Aborting retry due to long backoff in serverless", {
-          delaySeconds: Math.ceil(delayMs / 1000),
-          maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
-          attemptNumber: error.attemptNumber,
-          maxRetries,
+        delayMs: calculateRetryDelay(
+          isRateLimit,
+          isServerError,
+          isConflictError,
+          attempt.attemptNumber,
+          retryAfterHeader,
+        ),
+        logFields: {
           status: errorInfo.status,
           code: errorInfo.code,
           isRateLimit,
           isServerError,
           isConflictError,
-        });
-        throw error.error;
-      }
-
-      if (delayMs > 0) {
-        await sleep(delayMs);
-      }
+          isFetchError: isFetchError(errorInfo),
+          retryAfterHeader,
+          responseBody: errorInfo.responseBody,
+        },
+      };
     },
   });
 }
