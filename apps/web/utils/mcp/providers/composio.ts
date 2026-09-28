@@ -180,8 +180,10 @@ async function composioFetch(
   });
 
   if (!response.ok) {
+    // Composio explains rejections (e.g. missing key permissions) in the body
+    const reason = await response.text().catch(() => "");
     throw new Error(
-      `Composio request failed: ${options.method ?? "GET"} ${path.split("?")[0]} returned ${response.status}`,
+      `Composio request failed: ${options.method ?? "GET"} ${path.split("?")[0]} returned ${response.status}${reason ? `: ${reason.slice(0, 500)}` : ""}`,
     );
   }
 

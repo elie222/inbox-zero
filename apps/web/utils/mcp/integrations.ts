@@ -18,7 +18,7 @@ export const MCP_INTEGRATIONS: Record<
   McpIntegrationConfig & {
     displayName: string;
     shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
-    description: string; // Plain-English summary of the data this integration exposes, shown on the integrations page
+    description?: string; // Only for rows whose name alone does not say what they connect
     url: string; // Domain URL for favicon display
     allowedTools?: string[];
     comingSoon?: boolean;
@@ -32,7 +32,6 @@ export const MCP_INTEGRATIONS: Record<
   notion: {
     name: "notion",
     displayName: "Notion",
-    description: "Docs, wikis, and project notes",
     url: "notion.com",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
@@ -43,7 +42,6 @@ export const MCP_INTEGRATIONS: Record<
   stripe: {
     name: "stripe",
     displayName: "Stripe",
-    description: "Customers, subscriptions, invoices, and payments",
     url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
@@ -63,7 +61,6 @@ export const MCP_INTEGRATIONS: Record<
   linear: {
     name: "linear",
     displayName: "Linear",
-    description: "Issues, projects, and status",
     url: "linear.app",
     // Dedicated read-only endpoint; the server only exposes read tools here
     serverUrl: "https://mcp.linear.app/mcp/readonly",
@@ -74,7 +71,6 @@ export const MCP_INTEGRATIONS: Record<
   attio: {
     name: "attio",
     displayName: "Attio",
-    description: "CRM records, contacts, notes, and meetings",
     url: "attio.com",
     serverUrl: "https://mcp.attio.com/mcp",
     authType: "oauth",
@@ -102,7 +98,6 @@ export const MCP_INTEGRATIONS: Record<
   intercom: {
     name: "intercom",
     displayName: "Intercom",
-    description: "Support conversations, contacts, and help articles",
     url: "intercom.com",
     // US-hosted workspaces only; EU workspaces use mcp.eu.intercom.com (not supported yet)
     serverUrl: "https://mcp.intercom.com/mcp",
@@ -127,7 +122,6 @@ export const MCP_INTEGRATIONS: Record<
   monday: {
     name: "monday",
     displayName: "Monday.com",
-    description: "Boards, items, and workspaces",
     url: "monday.com",
     serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
@@ -168,7 +162,6 @@ export const MCP_INTEGRATIONS: Record<
   todoist: {
     name: "todoist",
     displayName: "Todoist",
-    description: "Tasks and projects",
     url: "todoist.com",
     serverUrl: "https://ai.todoist.net/mcp",
     authType: "oauth",
@@ -179,7 +172,6 @@ export const MCP_INTEGRATIONS: Record<
   hubspot: {
     name: "hubspot",
     displayName: "HubSpot",
-    description: "Contacts, companies, deals, and tickets",
     url: "hubspot.com",
     provider: { id: "composio", app: "hubspot" },
     authType: "oauth",
@@ -198,7 +190,6 @@ export const MCP_INTEGRATIONS: Record<
   salesforce: {
     name: "salesforce",
     displayName: "Salesforce",
-    description: "Accounts, contacts, leads, and opportunities",
     url: "salesforce.com",
     provider: { id: "composio", app: "salesforce" },
     authType: "oauth",
@@ -216,7 +207,6 @@ export const MCP_INTEGRATIONS: Record<
   airtable: {
     name: "airtable",
     displayName: "Airtable",
-    description: "Bases, tables, and records",
     url: "airtable.com",
     provider: { id: "composio", app: "airtable" },
     authType: "oauth",
@@ -231,7 +221,6 @@ export const MCP_INTEGRATIONS: Record<
   googlesheets: {
     name: "googlesheets",
     displayName: "Google Sheets",
-    description: "Spreadsheets and rows",
     url: "sheets.google.com",
     provider: { id: "composio", app: "googlesheets" },
     authType: "oauth",
@@ -246,7 +235,6 @@ export const MCP_INTEGRATIONS: Record<
   slack: {
     name: "slack",
     displayName: "Slack",
-    description: "Messages, channels, and people",
     url: "slack.com",
     provider: { id: "composio", app: "slack" },
     authType: "oauth",
@@ -261,7 +249,6 @@ export const MCP_INTEGRATIONS: Record<
   asana: {
     name: "asana",
     displayName: "Asana",
-    description: "Tasks and projects",
     url: "asana.com",
     provider: { id: "composio", app: "asana" },
     authType: "oauth",
@@ -276,7 +263,6 @@ export const MCP_INTEGRATIONS: Record<
   clickup: {
     name: "clickup",
     displayName: "ClickUp",
-    description: "Tasks and comments",
     url: "clickup.com",
     provider: { id: "composio", app: "clickup" },
     authType: "oauth",
@@ -290,7 +276,6 @@ export const MCP_INTEGRATIONS: Record<
   jira: {
     name: "jira",
     displayName: "Jira",
-    description: "Issues, projects, and comments",
     url: "atlassian.com",
     provider: { id: "composio", app: "jira" },
     authType: "oauth",
@@ -305,7 +290,6 @@ export const MCP_INTEGRATIONS: Record<
   zendesk: {
     name: "zendesk",
     displayName: "Zendesk",
-    description: "Tickets, users, and organizations",
     url: "zendesk.com",
     provider: { id: "composio", app: "zendesk" },
     authType: "oauth",
@@ -322,7 +306,6 @@ export const MCP_INTEGRATIONS: Record<
   quickbooks: {
     name: "quickbooks",
     displayName: "QuickBooks",
-    description: "Customers, invoices, and balances",
     url: "quickbooks.intuit.com",
     provider: { id: "composio", app: "quickbooks" },
     authType: "oauth",
@@ -337,7 +320,6 @@ export const MCP_INTEGRATIONS: Record<
   calendly: {
     name: "calendly",
     displayName: "Calendly",
-    description: "Scheduled events and invitees",
     url: "calendly.com",
     provider: { id: "composio", app: "calendly" },
     authType: "oauth",
