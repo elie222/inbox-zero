@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadActionsMenuProps = {
@@ -177,7 +177,7 @@ export function ThreadActionsMenu({
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+                {getOpenInMailboxLabel(provider) ?? "Open in email provider"}
                 <DropdownMenuShortcut>
                   {getShortcutHint("openExternal")}
                 </DropdownMenuShortcut>
