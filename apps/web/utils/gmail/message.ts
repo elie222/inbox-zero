@@ -290,35 +290,6 @@ export async function queryBatchMessages(
   };
 }
 
-// loops through multiple pages of messages
-export async function queryBatchMessagesPages(
-  gmail: gmail_v1.Gmail,
-  {
-    query,
-    maxResults,
-    logger,
-  }: {
-    query: string;
-    maxResults: number;
-    logger: Logger;
-  },
-) {
-  const messages: ParsedMessage[] = [];
-  let nextPageToken: string | undefined;
-  do {
-    const { messages: pageMessages, nextPageToken: nextToken } =
-      await queryBatchMessages(gmail, {
-        query,
-        pageToken: nextPageToken,
-        logger,
-      });
-    messages.push(...pageMessages);
-    nextPageToken = nextToken || undefined;
-  } while (nextPageToken && messages.length < maxResults);
-
-  return messages;
-}
-
 export async function getSentMessages(
   gmail: gmail_v1.Gmail,
   logger: Logger,
