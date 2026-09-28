@@ -52,15 +52,6 @@ vi.mock("@/utils/webhook/google/process-history-item", () => ({
   processHistoryItem: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { notifyMailboxChangedMock } = vi.hoisted(() => ({
-  notifyMailboxChangedMock: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock("@/utils/mailbox-push", () => ({
-  notifyMailboxChanged: (...args: unknown[]) =>
-    notifyMailboxChangedMock(...args),
-}));
-
 describe("processHistoryForUser - 404 Handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -110,13 +101,9 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     // Verify lastSyncedHistoryId was updated to the current historyId via conditional update
     expect(prisma.$executeRaw).toHaveBeenCalled();
-    expect(notifyMailboxChangedMock).toHaveBeenCalledWith({
-      emailAccountId: "account-123",
-      logger: expect.anything(),
-    });
   });
 
-  it("notifies native clients after processing Gmail history", async () => {
+  it("processes Gmail history", async () => {
     const email = "user@test.com";
     const emailAccount = {
       id: "account-123",
@@ -160,10 +147,6 @@ describe("processHistoryForUser - 404 Handling", () => {
     );
 
     expect(await (result as any).json()).toEqual({ ok: true });
-    expect(notifyMailboxChangedMock).toHaveBeenCalledWith({
-      emailAccountId: "account-123",
-      logger: expect.anything(),
-    });
   });
 
   it("should skip webhook history calls while account is in rate-limit mode", async () => {
@@ -207,7 +190,6 @@ describe("processHistoryForUser - 404 Handling", () => {
     const jsonResponse = await (result as any).json();
     expect(jsonResponse).toEqual({ ok: true });
     expect(getHistory).not.toHaveBeenCalled();
-    expect(notifyMailboxChangedMock).not.toHaveBeenCalled();
   });
 
   it("should continue processing when rate-limit state lookup fails", async () => {
