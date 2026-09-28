@@ -627,23 +627,22 @@ export async function syncAppleSubscriptionToDb({
   logger: Logger;
   verifiedTransaction?: JWSTransactionDecodedPayload | null;
 } & AppleLookupReference) {
-  const verifiedEnvironment = verifiedTransaction
-    ? normalizeAppleEnvironment(
-        verifiedTransaction.environment || environmentHint,
-      )
-    : null;
-  const state = verifiedTransaction
-    ? stateFromDecodedTransaction({
-        environment: verifiedEnvironment ?? Environment.SANDBOX,
-        transaction: verifiedTransaction,
-        transactionId,
-      })
-    : await getAppleSubscriptionState({
-        environmentHint,
-        logger,
-        originalTransactionId,
-        transactionId,
-      });
+  // A signed transaction is a point-in-time snapshot that a client can replay
+  // after a refund, so only the local emulator (which has no App Store Server
+  // API) may use it directly. Everywhere else Apple's live status is the truth.
+  const state =
+    verifiedTransaction && isAppleLocalTestingEnabled()
+      ? stateFromDecodedTransaction({
+          environment: Environment.SANDBOX,
+          transaction: verifiedTransaction,
+          transactionId,
+        })
+      : await getAppleSubscriptionState({
+          environmentHint,
+          logger,
+          originalTransactionId,
+          transactionId,
+        });
 
   if (!isAppleEnvironmentAllowed(state.environment)) {
     throw new SafeError(

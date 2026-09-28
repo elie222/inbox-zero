@@ -139,7 +139,7 @@ vi.mock("@apple/app-store-server-library", () => {
         }
       },
     ),
-    Status: { 1: "ACTIVE" },
+    Status: { 1: "ACTIVE", 5: "REVOKED" },
     VerificationException,
     VerificationStatus: {
       INVALID_APP_IDENTIFIER: 3,
@@ -245,6 +245,72 @@ describe("verifyAppleNotificationPayload", () => {
     expect(
       mocks.sandboxVerifier.verifyAndDecodeNotification,
     ).toHaveBeenCalledWith("sandbox-payload");
+  });
+});
+
+describe("syncAppleSubscriptionToDb with a signed transaction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    env.NODE_ENV = "test";
+    env.APPLE_IAP_LOCAL_TESTING = false;
+    prisma.premium.findFirst.mockResolvedValue({
+      id: "premium-1",
+      users: [{ id: "user-1" }],
+    });
+    prisma.premium.findUnique.mockResolvedValue({
+      appleRevokedAt: new Date("2026-01-02T00:00:00Z"),
+      appleSubscriptionStatus: "REVOKED",
+      emailAccountsAccess: 1,
+      tier: "STARTER_MONTHLY",
+      users: [{ id: "user-1" }],
+    });
+    prisma.premium.update.mockImplementation(async ({ data }) => ({
+      id: "premium-1",
+      users: [{ id: "user-1" }],
+      ...data,
+    }));
+  });
+
+  it("keeps a refunded subscription revoked when a pre-refund transaction is replayed", async () => {
+    const preRefundTransaction = {
+      environment: "Sandbox",
+      expiresDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      originalTransactionId: "orig-1",
+      productId: "com.getinboxzero.starter.monthly.v2",
+      purchaseDate: Date.now() - 24 * 60 * 60 * 1000,
+      transactionId: "txn-1",
+    };
+    const liveTransaction = createSignedPayload({
+      ...preRefundTransaction,
+      revocationDate: Date.now() - 60 * 60 * 1000,
+    });
+    mocks.sandboxClient.getTransactionInfo.mockResolvedValue({
+      signedTransactionInfo: liveTransaction,
+    });
+    mocks.sandboxClient.getAllSubscriptionStatuses.mockResolvedValue({
+      data: [
+        {
+          lastTransactions: [
+            { signedTransactionInfo: liveTransaction, status: 5 },
+          ],
+        },
+      ],
+    });
+
+    const premium = await syncAppleSubscriptionToDb({
+      authenticatedUserId: "user-1",
+      environmentHint: "Sandbox",
+      logger: testLogger,
+      originalTransactionId: "orig-1",
+      transactionId: "txn-1",
+      verifiedTransaction: preRefundTransaction as never,
+    });
+
+    expect(mocks.sandboxClient.getAllSubscriptionStatuses).toHaveBeenCalledWith(
+      "orig-1",
+    );
+    expect(premium).toMatchObject({ appleSubscriptionStatus: "REVOKED" });
+    expect(premium?.appleRevokedAt).toBeInstanceOf(Date);
   });
 });
 
