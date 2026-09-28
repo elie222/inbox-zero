@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
 import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
@@ -84,6 +84,72 @@ describe("useThread", () => {
         ({ requested, received }) => received && requested !== received,
       ),
     ).toEqual([]);
+  });
+
+  it("keeps the reader thread when a republished view has the same messages", async () => {
+    let snapshot = readySnapshot(view());
+    const listeners = new Set<() => void>();
+    mail.client.observeConversation.mockReturnValue({
+      getSnapshot: () => snapshot,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: () => undefined,
+    });
+    const publish = (next: ConversationView) => {
+      snapshot = readySnapshot(next);
+      for (const listener of listeners) listener();
+    };
+    const { result } = renderHook(() => useThread({ id: "c-1" }));
+    await waitFor(() => expect(result.current.data?.thread.id).toBe("c-1"));
+    const loaded = result.current.data;
+
+    act(() => publish(view({ coverage: [] })));
+    expect(result.current.data).toBe(loaded);
+
+    act(() =>
+      publish(view({ messages: [message({ pendingOperationIds: ["op"] })] })),
+    );
+    expect(result.current.data).not.toBe(loaded);
+  });
+
+  it("shows a queued send that arrives with the same synced messages", async () => {
+    let snapshot = readySnapshot(view());
+    const listeners = new Set<() => void>();
+    mail.client.observeConversation.mockReturnValue({
+      getSnapshot: () => snapshot,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: () => undefined,
+    });
+    const { result } = renderHook(() => useThread({ id: "c-1" }));
+    await waitFor(() => expect(result.current.data?.thread.id).toBe("c-1"));
+
+    act(() => {
+      snapshot = readySnapshot(
+        view({
+          outgoing: [
+            {
+              operationId: "send-1",
+              status: "queued",
+              metadata: { ...message().metadata, roles: ["sent"] },
+              html: "<p>On my way</p>",
+            },
+          ],
+        }),
+      );
+      for (const listener of listeners) listener();
+    });
+
+    expect(
+      result.current.localAvailability?.outgoing.map(({ message }) => [
+        message.id,
+        message.textHtml,
+      ]),
+    ).toEqual([["outgoing:send-1", "<p>On my way</p>"]]);
   });
 
   it("does not load a reader without a thread id", () => {

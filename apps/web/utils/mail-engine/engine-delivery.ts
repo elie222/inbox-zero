@@ -33,7 +33,8 @@ export function shouldShowEngineDeliveryStatus({
   online: boolean;
   status: string;
 }) {
-  if (!online) return true;
+  // A verifying send is with the server, which delivers it without this device.
+  if (!online) return status !== "verifying";
   return NEEDS_DELIVERY_ATTENTION.has(status);
 }
 
@@ -45,7 +46,7 @@ export function engineDeliveryLabel(status: string, online: boolean) {
     case "verifying":
       return "Sending…";
     case "uncertain":
-      return "Delivery uncertain";
+      return "Couldn't confirm delivery";
     case "failed":
     case "needs_attention":
       return "Reply could not be sent";

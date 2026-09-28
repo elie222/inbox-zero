@@ -79,6 +79,7 @@ import {
 import {
   getThreadsBatch,
   getThreadsWithNextPageToken,
+  queryIncludesSpamOrTrash,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import {
@@ -1399,11 +1400,29 @@ export class GmailProvider implements EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    labelIds?: string[];
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const labelIds =
+      options.labelIds ??
+      (options.folder === "spam"
+        ? [GmailLabel.SPAM]
+        : options.folder === "trash"
+          ? [GmailLabel.TRASH]
+          : undefined);
     const response = await getMessages(this.client, {
       query: options.query,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
+      labelIds,
+      includeSpamTrash:
+        options.includeSpamTrash ||
+        queryIncludesSpamOrTrash(options.query) ||
+        labelIds?.some(
+          (labelId) =>
+            labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
+        ),
     });
 
     const messages = response.messages || [];
@@ -1854,6 +1873,10 @@ export class GmailProvider implements EmailProvider {
         const hydrated = await this.hydrateThreads(
           result.threads,
           options.messageFormat,
+          resolvedLabelIds?.some(
+            (labelId) =>
+              labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
+          ),
         );
         threads.push(
           ...hydrated.filter(
@@ -1888,6 +1911,9 @@ export class GmailProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
+    labelIds?: string[];
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -1895,19 +1921,33 @@ export class GmailProvider implements EmailProvider {
     return this.withRateLimitTracking("search-threads", async () => {
       // The query is passed through verbatim so Gmail operators (from:,
       // subject:, has:attachment, ...) work like the Gmail search box.
-      // No label scoping: search covers the whole mailbox.
+      // Spam and trash stay out unless the search is scoped to them.
+      const labelIds = searchLabelIds(options);
+      const includeSpamTrash = Boolean(
+        options.includeSpamTrash ||
+          queryIncludesSpamOrTrash(options.query) ||
+          labelIds.some(
+            (labelId) =>
+              labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
+          ),
+      );
       const { threads: gmailThreads, nextPageToken } =
         await getThreadsWithNextPageToken({
           gmail: this.client,
           q: options.query,
-          labelIds: [],
+          labelIds,
           maxResults: options.maxResults || 50,
           pageToken: options.pageToken || undefined,
+          includeSpamTrash,
           logger: this.logger,
         });
 
       return {
-        threads: await this.hydrateThreads(gmailThreads, options.messageFormat),
+        threads: await this.hydrateThreads(
+          gmailThreads,
+          options.messageFormat,
+          includeSpamTrash,
+        ),
         nextPageToken: nextPageToken || undefined,
       };
     });
@@ -1916,6 +1956,7 @@ export class GmailProvider implements EmailProvider {
   private async hydrateThreads(
     gmailThreads: gmail_v1.Schema$Thread[] | undefined,
     messageFormat?: "full" | "metadata",
+    includeSpamTrash?: boolean,
   ): Promise<EmailThread[]> {
     const threadIds =
       gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
@@ -1923,7 +1964,14 @@ export class GmailProvider implements EmailProvider {
       threadIds,
       getAccessTokenFromClient(this.client),
       this.logger,
-      messageFormat === "metadata" ? { format: "metadata" } : undefined,
+      messageFormat === "metadata" || includeSpamTrash
+        ? {
+            ...(messageFormat === "metadata"
+              ? { format: "metadata" as const }
+              : {}),
+            ...(includeSpamTrash ? { includeSpamTrash: true } : {}),
+          }
+        : undefined,
     );
 
     return threads
@@ -2075,4 +2123,14 @@ export class GmailProvider implements EmailProvider {
 
     return this.sendAsEmailAddressesPromise;
   }
+}
+
+function searchLabelIds(options: {
+  folder?: "spam" | "trash";
+  labelIds?: string[];
+}) {
+  if (options.labelIds?.length) return options.labelIds;
+  if (options.folder === "spam") return [GmailLabel.SPAM];
+  if (options.folder === "trash") return [GmailLabel.TRASH];
+  return [];
 }

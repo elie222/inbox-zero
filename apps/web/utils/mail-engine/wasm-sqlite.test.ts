@@ -7,6 +7,8 @@ import {
 } from "@inboxzero/mail-core/test-support/reference-model";
 import { archiveThenNewMailScenario } from "@inboxzero/mail-core/test-support/scenarios";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
+import type { MailStore } from "@inboxzero/mail-core/ports/mail-store";
+import type { SqliteDriver } from "@inboxzero/mail-sqlite/driver";
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import {
   MAIL_ENGINE_OPFS_DIRECTORY,
@@ -202,7 +204,169 @@ describe("browser wasm sqlite driver", () => {
     ).toEqual(expected.conversations);
     await store.close();
   });
+
+  it("rebuilds a legacy search index without its text copy on sqlite-wasm", async () => {
+    const driver = await createWasmSqliteDriver({ persist: false });
+    const store = await createSqliteMailStore(driver);
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "1",
+          text: "quarterly invoice",
+          html: null,
+        },
+      ],
+    });
+    await driver.write(async (tx) => {
+      await tx.exec(
+        `DROP TABLE message_fts;
+         DELETE FROM message_fts_keys;
+         DELETE FROM schema_migrations WHERE id = 6;
+         CREATE VIRTUAL TABLE message_fts USING fts5(account_id UNINDEXED, message_id UNINDEXED, subject, preview, from_address, body);
+         INSERT INTO message_fts(account_id, message_id, subject, preview, from_address, body)
+           SELECT 'acc-1', 'm1', 'c1', 'm1', 'ada@example.com', 'quarterly invoice';
+         INSERT INTO message_fts_keys SELECT account_id, message_id, rowid FROM message_fts;`,
+      );
+    });
+
+    const reopened = await createSqliteMailStore(driver);
+    while ((await reopened.indexSearchBacklog()).remaining) {
+      // keep indexing
+    }
+    expect(await searchMatches(driver, "invoice")).toEqual(["m1"]);
+
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "body-update",
+        from: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        to: { streamId: "primary", generation: "g1", checkpoint: "2" },
+        changes: [],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "2",
+          text: "updated receipt",
+          html: null,
+        },
+      ],
+    });
+    expect(await searchMatches(driver, "invoice")).toEqual([]);
+    expect(await searchMatches(driver, "receipt")).toEqual(["m1"]);
+    await store.close();
+  });
+
+  it("compresses stored bodies on sqlite-wasm and converts rows written before compression on open", async () => {
+    const driver = await createWasmSqliteDriver({ persist: false });
+    const store = await createSqliteMailStore(driver);
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const html = `<div>${"<p>Weekly product digest</p>".repeat(50)}</div>`;
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c1", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+      bodies: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          version: "1",
+          text: "Weekly product digest",
+          html,
+        },
+        {
+          key: { accountId: "acc-1", messageId: "m2" },
+          version: "1",
+          text: "Plain reply",
+          html: null,
+        },
+      ],
+    });
+    const compressed = [
+      { html, text: null },
+      { html: null, text: "Plain reply" },
+    ];
+    expect(await conversationBodies(store)).toEqual(compressed);
+
+    await driver.write(async (tx) => {
+      await tx.execute(
+        "UPDATE message_content SET html = ?, text = ? WHERE message_id = 'm1'",
+        [html, "Weekly product digest"],
+      );
+      await tx.execute("DELETE FROM schema_migrations WHERE id = 8");
+    });
+    const reopened = await createSqliteMailStore(driver);
+
+    expect(await conversationBodies(reopened)).toEqual(compressed);
+    const [stored] = await driver.read((tx) =>
+      tx.query(
+        "SELECT typeof(html) AS html, typeof(text) AS text, length(html) AS size FROM message_content WHERE message_id = 'm1'",
+      ),
+    );
+    expect(stored).toMatchObject({ html: "blob", text: "null" });
+    expect(Number(stored?.size)).toBeLessThan(html.length / 10);
+    await reopened.close();
+  });
 });
+
+async function conversationBodies(store: MailStore) {
+  const { view } = await store.readConversation(
+    { accountId: "acc-1", conversationId: "c1" },
+    { after: null, pageSize: 10 },
+  );
+  return view.messages.map((message) =>
+    message.content.status === "available"
+      ? { html: message.content.html, text: message.content.text }
+      : null,
+  );
+}
+
+async function searchMatches(driver: SqliteDriver, term: string) {
+  const rows = await driver.read((tx) =>
+    tx.query(
+      `SELECT k.message_id FROM message_fts
+       JOIN message_fts_keys k ON k.fts_rowid = message_fts.rowid
+       WHERE message_fts MATCH ? ORDER BY k.message_id`,
+      [term],
+    ),
+  );
+  return rows.map((row) => String(row.message_id));
+}
 
 function messagePatch(
   messageId: string,

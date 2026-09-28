@@ -415,6 +415,15 @@ const SHORTCUT_DEFINITIONS = [
     capture: true,
   },
   {
+    id: "popOutDraft",
+    keys: ["mod+shift+p"],
+    scope: "mail",
+    group: "Compose",
+    label: "Pop out draft",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
     id: "discardDraft",
     keys: ["mod+shift+,", "mod+shift+<"],
     display: ["mod+shift+,"],

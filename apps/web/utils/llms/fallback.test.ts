@@ -424,27 +424,57 @@ describe("createGenerateText fallback chain", () => {
           outputTokens: 5,
           totalTokens: 15,
         },
-        providerMetadata: {
-          openrouter: {
-            usage: {
-              cost: 0.42,
-              cost_details: {
-                upstream_inference_cost: 0.12,
-              },
-            },
-          },
-        },
+        providerMetadata: createOpenRouterUsageMetadata(0.12, 0.125),
         response: { id: "gen-final" },
         steps: [
           {
             response: { id: "gen-step-1" },
             toolCalls: [{ toolName: "searchEmails" }],
+            providerMetadata: createOpenRouterUsageMetadata(0.3, 0.25),
           },
           {
             response: { id: "gen-final" },
             toolCalls: [{ toolName: "finalizeResults" }],
+            providerMetadata: createOpenRouterUsageMetadata(0.12, 0.125),
           },
         ],
+      }),
+    );
+
+    const generateText = createGenerateTextForTest({
+      label: "Reply context collector",
+      modelOptions: createOpenRouterModelOptions(model),
+    });
+
+    await generateText({
+      prompt: "hello",
+      model,
+      tools: {} as Record<string, never>,
+    });
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerReportedCost: 0.42,
+        providerUpstreamInferenceCost: 0.375,
+        providerCostSource: "openrouter_step_usage_sum",
+        providerRequestIds: ["gen-step-1", "gen-final"],
+        stepCount: 2,
+        toolCallCount: 2,
+      }),
+    );
+  });
+
+  it("uses top-level provider cost when steps carry no cost", async () => {
+    const model = createModel("openrouter-model");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+        providerMetadata: createOpenRouterUsageMetadata(0.42, 0.12),
+        steps: [{ toolCalls: [{ toolName: "searchEmails" }] }],
       }),
     );
 
@@ -464,62 +494,6 @@ describe("createGenerateText fallback chain", () => {
         providerReportedCost: 0.42,
         providerUpstreamInferenceCost: 0.12,
         providerCostSource: "openrouter_usage",
-        providerRequestIds: ["gen-step-1", "gen-final"],
-        stepCount: 2,
-        toolCallCount: 2,
-      }),
-    );
-  });
-
-  it("fills missing provider cost fields from step metadata", async () => {
-    const model = createModel("openrouter-model");
-    mockGenerateText.mockResolvedValue(
-      createTextResult({
-        usage: {
-          inputTokens: 10,
-          outputTokens: 5,
-          totalTokens: 15,
-        },
-        providerMetadata: {
-          openrouter: {
-            usage: {
-              cost: 0.42,
-            },
-          },
-        },
-        steps: [
-          {
-            toolCalls: [{ toolName: "searchEmails" }],
-            providerMetadata: {
-              openrouter: {
-                usage: {
-                  cost_details: {
-                    upstream_inference_cost: 0.12,
-                  },
-                },
-              },
-            },
-          },
-        ],
-      }),
-    );
-
-    const generateText = createGenerateTextForTest({
-      label: "Reply context collector",
-      modelOptions: createOpenRouterModelOptions(model),
-    });
-
-    await generateText({
-      prompt: "hello",
-      model,
-      tools: {} as Record<string, never>,
-    });
-
-    expect(mockSaveAiUsage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerReportedCost: 0.42,
-        providerUpstreamInferenceCost: 0.12,
-        providerCostSource: "openrouter_usage_with_step_fallback",
       }),
     );
   });
@@ -835,5 +809,19 @@ function createTextResult(overrides: Record<string, unknown> = {}) {
     usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
     toolCalls: [],
     ...overrides,
+  };
+}
+
+function createOpenRouterUsageMetadata(
+  cost: number,
+  upstreamInferenceCost: number,
+) {
+  return {
+    openrouter: {
+      usage: {
+        cost,
+        cost_details: { upstream_inference_cost: upstreamInferenceCost },
+      },
+    },
   };
 }

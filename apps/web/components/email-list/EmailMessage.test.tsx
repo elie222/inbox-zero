@@ -14,6 +14,8 @@ import { EmailMessage } from "@/components/email-list/EmailMessage";
 const mocks = vi.hoisted(() => ({
   executeAsync: vi.fn(),
   toastError: vi.fn(),
+  popOutReply: vi.fn(),
+  poppedOutDraftSessionId: undefined as string | undefined,
 }));
 
 vi.mock("next-safe-action/hooks", () => ({
@@ -27,6 +29,12 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
     emailAccount: undefined,
     emailAccountId: "account-1",
     userEmail: "user@example.com",
+  }),
+}));
+vi.mock("@/providers/ComposeModalProvider", () => ({
+  useComposeModal: () => ({
+    popOutReply: mocks.popOutReply,
+    poppedOutDraftSessionId: mocks.poppedOutDraftSessionId,
   }),
 }));
 vi.mock("@/env", () => ({
@@ -53,9 +61,11 @@ vi.mock("@/utils/actions/generate-reply", () => ({
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: ({
     onDiscard,
+    onPopOut,
     replyingToEmail,
   }: {
     onDiscard: () => void;
+    onPopOut?: () => void;
     replyingToEmail?: {
       to?: string;
       threadId?: string;
@@ -77,6 +87,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
       <button onClick={onDiscard} type="button">
         Discard draft
       </button>
+      <button aria-label="Pop out draft" onClick={onPopOut} type="button" />
     </div>
   ),
 }));
@@ -189,20 +200,21 @@ describe("EmailMessage reply", () => {
   afterEach(cleanup);
 
   it("expands a collapsed message so the reply composer can mount", () => {
-    const onToggle = vi.fn();
+    const onExpand = vi.fn();
     const view = render(
       <EmailMessage
         expanded={false}
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
-        onToggle={onToggle}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
         refetch={vi.fn()}
         showReplyButton
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-    expect(onToggle).toHaveBeenCalledOnce();
+    expect(onExpand).toHaveBeenCalledOnce();
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
 
     view.rerender(
@@ -210,12 +222,71 @@ describe("EmailMessage reply", () => {
         expanded
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
-        onToggle={onToggle}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
         refetch={vi.fn()}
         showReplyButton
       />,
     );
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+});
+
+describe("EmailMessage pop out", () => {
+  afterEach(() => {
+    cleanup();
+    mocks.poppedOutDraftSessionId = undefined;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("moves a reply into its own window and back when it is dismissed", () => {
+    render(
+      <EmailMessage
+        defaultComposeMode="reply"
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Pop out draft" }));
+
+    expect(mocks.popOutReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        draftSessionId: "message-1:reply",
+        draftKeyMessageId: "message-1",
+        draftMode: "reply",
+        replyingToEmail: expect.objectContaining({ threadId: "thread-1" }),
+      }),
+    );
+    expect(screen.queryByTestId("composer")).toBeNull();
+
+    act(() => {
+      mocks.popOutReply.mock.calls[0][0].onReturn();
+    });
+    expect(screen.getByTestId("composer")).toBeTruthy();
+  });
+
+  it("keeps a popped-out draft out of the thread when it remounts", () => {
+    mocks.poppedOutDraftSessionId = "draft-1:reply";
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByTestId("composer")).toBeNull();
   });
 });
 

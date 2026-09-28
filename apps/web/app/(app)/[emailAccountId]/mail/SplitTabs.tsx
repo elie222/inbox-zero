@@ -20,6 +20,8 @@ export type MailSplitTab = {
 export type SplitTabsProps = {
   splits: MailSplitTab[];
   activeSplitId: string | null;
+  /** Conversations currently in each split. Missing entries and zeros stay blank. */
+  countsById?: ReadonlyMap<string, number>;
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
   onEdit?: (splitId: string) => void;
@@ -32,6 +34,7 @@ export type SplitTabsProps = {
 export function SplitTabs({
   splits,
   activeSplitId,
+  countsById,
   onSelect,
   onDelete,
   onEdit,
@@ -70,45 +73,58 @@ export function SplitTabs({
     >
       {splits.map((split) => {
         const active = split.id === activeSplitId;
+        const countLabel = splitCountLabel(countsById?.get(split.id));
 
         return (
-          <div
-            key={split.id}
-            className={cn(
-              "relative flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
-              active
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <ContextMenu>
-              <ContextMenuTrigger asChild disabled={!split.deletable}>
-                <button
-                  type="button"
-                  ref={active ? activeTabRef : undefined}
-                  data-split-tab
-                  onClick={() => onSelect(split.id)}
-                  aria-current={active ? "true" : undefined}
-                  className="py-0.5 pr-1.5 after:pointer-events-none after:absolute after:inset-0 after:rounded-full focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-                >
-                  {split.name}
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="w-44">
-                {onEdit && (
-                  <ContextMenuItem onSelect={() => onEdit(split.id)}>
-                    Edit filters and name
-                  </ContextMenuItem>
+          <ContextMenu key={split.id}>
+            <ContextMenuTrigger asChild disabled={!split.deletable}>
+              <button
+                type="button"
+                ref={active ? activeTabRef : undefined}
+                data-split-tab
+                onClick={() => onSelect(split.id)}
+                // The count sits in this button, so innerText includes it.
+                // The accessible name stays the split itself.
+                aria-label={split.name}
+                aria-current={active ? "true" : undefined}
+                aria-description={
+                  countLabel ? `${countLabel} in this view` : undefined
+                }
+                className={cn(
+                  "flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
-                <ContextMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => onDelete(split.id)}
-                >
-                  Turn off split
+              >
+                <span data-split-name>{split.name}</span>
+                {countLabel ? (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "font-normal tabular-nums",
+                      active ? "text-primary/70" : "opacity-70",
+                    )}
+                  >
+                    {countLabel}
+                  </span>
+                ) : null}
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-44">
+              {onEdit && (
+                <ContextMenuItem onSelect={() => onEdit(split.id)}>
+                  Edit filters and name
                 </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          </div>
+              )}
+              <ContextMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => onDelete(split.id)}
+              >
+                Turn off split
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         );
       })}
 
@@ -124,4 +140,9 @@ export function SplitTabs({
       )}
     </div>
   );
+}
+
+function splitCountLabel(count: number | undefined): string | null {
+  if (count == null || !Number.isFinite(count) || count <= 0) return null;
+  return count.toLocaleString("en-US");
 }

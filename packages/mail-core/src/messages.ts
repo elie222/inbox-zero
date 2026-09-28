@@ -23,13 +23,15 @@ export type MessageAttachmentDescriptor = z.infer<
   typeof messageAttachmentDescriptorSchema
 >;
 
+export const MAX_RECIPIENTS = 500;
+
 export const messageMetadataSchema = z.object({
   subject: z.string().max(16_384),
   preview: z.string().max(16_384),
   externalUrl: z.string().max(16_384).nullable().optional(),
   from: z.string().max(4096),
-  to: z.array(z.string().max(4096)).max(500),
-  cc: z.array(z.string().max(4096)).max(500),
+  to: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
+  cc: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
   receivedAtMs: z.number().int(),
   read: z.boolean(),
   starred: z.boolean(),

@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("inboxZeroDesktop", {
   setUnreadCount: (count: number) =>
     ipcRenderer.send("desktop:unread-count", count),
+  signalReady: () => ipcRenderer.send("desktop:ready"),
   notifyNewMail: (payload: unknown) =>
     ipcRenderer.send("desktop:new-mail", payload),
   openWindow: (path: string) => ipcRenderer.invoke("desktop:open-window", path),

@@ -332,6 +332,44 @@ describe("transactional conversation index", () => {
     }
   });
 
+  it("does not count archived unread mail as inbox unread", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "archived", "archived-thread", 1, 0, {
+          roles: [],
+        });
+        await insertMessage(tx, "inbox-read", "mixed-thread", 2, 1);
+        await insertMessage(tx, "archived-unread", "mixed-thread", 3, 0, {
+          roles: [],
+        });
+        await insertMessage(tx, "archive-label", "archive-label-thread", 4, 0, {
+          labels: ["ARCHIVE"],
+        });
+        await insertMessage(tx, "left-inbox", "left-thread", 5, 0);
+        await tx.execute(
+          "UPDATE effective_messages SET in_inbox = 0 WHERE message_id = 'left-inbox'",
+        );
+        await insertMessage(tx, "inbox-unread", "open-thread", 6, 0);
+      });
+      const counts = await store.readMailboxCounts({
+        accountIds: ["a"],
+        targets: [{ id: "INBOX", predicate: { kind: "role", role: "inbox" } }],
+      });
+      expect(counts.view.counts).toEqual([
+        { id: "INBOX", matchingConversations: 2, unreadConversations: 1 },
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("backfills an existing mailbox once", async () => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
@@ -377,8 +415,12 @@ async function insertMessage(
     folder?: string;
     draft?: boolean;
     snoozedUntil?: number;
+    roles?: string[];
   } = {},
 ) {
+  const roles = options.roles ?? (options.draft ? ["draft"] : ["inbox"]);
+  const inInbox = roles.includes("inbox") ? 1 : 0;
+  const inDraft = roles.includes("draft") ? 1 : 0;
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
@@ -396,9 +438,9 @@ async function insertMessage(
       options.folder ?? null,
       JSON.stringify(options.labels ?? []),
       JSON.stringify(options.categories ?? []),
-      options.draft ? '["draft"]' : '["inbox"]',
-      options.draft ? 0 : 1,
-      options.draft ? 1 : 0,
+      JSON.stringify(roles),
+      inInbox,
+      inDraft,
       options.snoozedUntil ?? null,
     ],
   );

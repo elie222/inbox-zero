@@ -12,6 +12,7 @@ import {
 import { resolveMcpIntegration } from "@/utils/mcp/resolve-integration";
 import { generateOAuthUrl } from "@/utils/mcp/oauth";
 import { assertIntegrationsTierAccess } from "@/utils/mcp/tier-access";
+import { getIntegrationProvider } from "@/utils/mcp/providers/registry";
 
 export type GetMcpAuthUrlResponse = { url: string };
 
@@ -36,6 +37,39 @@ export const GET = withEmailAccount(
     if (!integrationConfig) {
       logger.warn("MCP auth URL rejected: unknown integration");
       throw new SafeError(`Integration ${integration} not found`);
+    }
+
+    if (integrationConfig.provider) {
+      const provider = getIntegrationProvider(integrationConfig.provider.id);
+      if (!provider.isConfigured()) {
+        logger.warn("MCP auth URL rejected: provider is not configured");
+        throw new SafeError(`Integration ${integration} is not available`);
+      }
+
+      try {
+        const url = await provider.getConnectUrl({
+          app: integrationConfig.provider.app,
+          emailAccountId,
+          callbackUrl: `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/provider-callback`,
+        });
+
+        logger.info("Generated provider connect URL");
+
+        const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });
+        response.cookies.set(
+          getMcpStateCookieName(integration),
+          generateSignedOAuthState({
+            userId,
+            emailAccountId,
+            type: getMcpOAuthStateType(integration),
+          }),
+          oauthStateCookieOptions,
+        );
+        return response;
+      } catch (error) {
+        logger.error("Failed to generate provider connect URL", { error });
+        throw new SafeError("Failed to generate authorization URL");
+      }
     }
 
     if (integrationConfig.authType !== "oauth") {

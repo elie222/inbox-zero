@@ -44,6 +44,88 @@ describe("useThreadActions", () => {
     });
   });
 
+  it("archives a multi-thread selection as one engine command", async () => {
+    const threads = [
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
+    ];
+    const { result } = renderActions({ threads });
+    let archived: string[] = [];
+    await act(async () => {
+      archived = await result.current.archive(threads.map((t) => t.id));
+    });
+    expect(archived).toHaveLength(2);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversations: [
+          { accountId: "account", conversationId: "one" },
+          { accountId: "account", conversationId: "two" },
+        ],
+      }),
+    );
+  });
+
+  it("submits one command per account for a combined inbox selection", async () => {
+    const threads = [
+      { ...createThread(["INBOX"], "shared"), account: { id: "work" } },
+      { ...createThread(["INBOX"], "shared"), account: { id: "home" } },
+    ] as unknown as ListThread[];
+    const { result } = renderActions({ threads });
+    let archived: string[] = [];
+    await act(async () => {
+      archived = await result.current.archive(["work:shared", "home:shared"]);
+    });
+    expect(archived).toEqual(["work:shared", "home:shared"]);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([command]) => ({
+        accountId: command.accountId,
+        conversations: command.conversations,
+      })),
+    ).toEqual([
+      {
+        accountId: "work",
+        conversations: [{ accountId: "work", conversationId: "shared" }],
+      },
+      {
+        accountId: "home",
+        conversations: [{ accountId: "home", conversationId: "shared" }],
+      },
+    ]);
+
+    await act(() => result.current.undo());
+    expect(
+      mail.client.cancelOperation.mock.calls.map(([key]) => key.accountId),
+    ).toEqual(["work", "home"]);
+  });
+
+  it("undoes an already-running multi-thread archive with one unarchive command", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const threads = [
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
+    ];
+    const { result } = renderActions({ threads });
+    await act(() => result.current.archive(threads.map((t) => t.id)));
+    mail.client.submitConversations.mockClear();
+    let restored: string[] = [];
+    await act(async () => {
+      restored = await result.current.undo();
+    });
+    expect(restored).toHaveLength(2);
+    expect(mail.client.cancelOperation).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "unarchive" },
+        conversations: [
+          { accountId: "account", conversationId: "one" },
+          { accountId: "account", conversationId: "two" },
+        ],
+      }),
+    );
+  });
+
   it("does not archive a missing row", async () => {
     const { result } = renderActions({ threads: [] });
     await act(() => result.current.archive(["missing-thread"]));
@@ -89,17 +171,17 @@ function renderActions({
   );
 }
 
-function createThread(labelIds: string[]): ListThread {
+function createThread(labelIds: string[], id = "thread"): ListThread {
   return {
-    id: "thread",
-    messageIds: ["message-one", "message-two"],
+    id,
+    messageIds: [`${id}-message`],
     snippet: "snippet",
     plan: undefined,
     plans: [],
     messages: [
       {
-        id: "message-one",
-        threadId: "thread",
+        id: `${id}-message`,
+        threadId: id,
         snippet: "snippet",
         subject: "Subject",
         date: "0",

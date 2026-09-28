@@ -73,13 +73,13 @@ const {
   mockUpdateRuleActions,
   mockSaveLearnedPatterns,
   mockCreateEmailProvider,
-  mockGetMessage,
   mockArchiveThreadWithLabel,
   mockMarkReadThread,
   mockBulkArchiveFromSenders,
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export const mockGetMessage = hoisted.mockGetMessage;
 export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =

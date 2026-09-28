@@ -1,5 +1,9 @@
 import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
 import { createEmailProvider } from "@/utils/email/provider";
+import {
+  isProviderRateLimitModeError,
+  type ProviderRateLimitModeError,
+} from "@/utils/email/rate-limit-mode-error";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -74,25 +78,42 @@ export async function backfillRecentOutlookMessages({
     subscriptionId,
   });
 
+  // Once the provider rate limits the account, every remaining call fails fast,
+  // so skip the rest instead of logging one error per thread.
+  let rateLimitError: ProviderRateLimitModeError | undefined;
   const results = await runWithBoundedConcurrency({
     items: unseenThreads,
     concurrency: OUTLOOK_RECONCILE_MESSAGE_CONCURRENCY,
-    run: (message) =>
-      processHistoryForUser({
-        emailAddress,
-        subscriptionId,
-        resourceData: {
-          id: message.id,
-          conversationId: message.threadId,
-        },
-        logger: logger.with({ messageId: message.id }),
-      }),
+    run: async (message) => {
+      if (rateLimitError) throw rateLimitError;
+
+      try {
+        await processHistoryForUser({
+          emailAddress,
+          subscriptionId,
+          resourceData: {
+            id: message.id,
+            conversationId: message.threadId,
+          },
+          logger: logger.with({ messageId: message.id }),
+        });
+      } catch (error) {
+        if (isProviderRateLimitModeError(error)) rateLimitError ??= error;
+        throw error;
+      }
+    },
   });
 
   let processedCount = 0;
+  let rateLimitedCount = 0;
   for (const { item: message, result } of results) {
     if (result.status === "fulfilled") {
       processedCount++;
+      continue;
+    }
+
+    if (isProviderRateLimitModeError(result.reason)) {
+      rateLimitedCount++;
       continue;
     }
 
@@ -100,6 +121,16 @@ export async function backfillRecentOutlookMessages({
       messageId: message.id,
       error: result.reason,
     });
+  }
+
+  if (rateLimitError) {
+    logger.warn(
+      "Stopped Outlook backfill because the account is rate limited",
+      {
+        rateLimitedCount,
+        retryAt: rateLimitError.retryAt,
+      },
+    );
   }
 
   logger.info("Finished reconciling recent Outlook messages", {

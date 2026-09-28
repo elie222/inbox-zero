@@ -253,6 +253,7 @@ export const operationAdmitResultSchema = z.discriminatedUnion("status", [
     requestId: z.string(),
     receiptId: z.string().nullable(),
     observations: z.array(providerChangeSchema),
+    bodies: z.array(bodyObservationSchema).optional(),
     targets: z.array(targetOutcomeSchema),
   }),
   z.object({
@@ -290,6 +291,18 @@ export const operationInspectRequestSchema = z.object({
   session: accountSessionSchema,
   operation: preparedOperationSchema,
   receiptId: z.string().max(256).nullable(),
+});
+
+export const operationCancelRequestSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string().min(1).max(128),
+  session: accountSessionSchema,
+});
+
+export const operationCancelResultSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string(),
+  status: z.enum(["cancelled", "too_late"]),
 });
 
 export const assistantStateRequestSchema = z.object({

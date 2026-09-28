@@ -1,11 +1,14 @@
-import type {
-  MessageAttachmentDescriptor,
-  MessageMetadata,
+import {
+  MAX_RECIPIENTS,
+  type MessageAttachmentDescriptor,
+  type MessageMetadata,
 } from "@inboxzero/mail-core/messages";
 import type { Provider } from "@inboxzero/mail-core/identities";
-import type {
-  BodyObservation,
-  ProviderChange,
+import {
+  type BodyObservation,
+  MAX_BODY_ATTACHMENTS,
+  MAX_BODY_LENGTH,
+  type ProviderChange,
 } from "@inboxzero/mail-core/sync";
 import type { ParsedMessage } from "@/utils/types";
 
@@ -19,6 +22,7 @@ const ROLE_LABELS = {
 
 export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
   const labels = message.labelIds ?? [];
+  const archived = labels.includes("ARCHIVE");
   const roles = [
     ...new Set([
       ...labels.flatMap((label) => {
@@ -27,7 +31,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
       }),
       ...rolesFromFolder(message.parentFolderId),
     ]),
-  ];
+  ].filter((role) => role !== "inbox" || !archived);
   const categoryIds = labels.filter((label) => label.startsWith("CATEGORY_"));
   const labelIds = labels.filter(
     (label) =>
@@ -89,12 +93,14 @@ export function parsedMessageBodyObservation(
   ) {
     return null;
   }
+  // Protocol limits are enforced on every page, so one oversized message
+  // would otherwise fail its whole page on every retry and stall sync.
   return {
     key: { accountId, messageId: message.id },
     version: message.historyId || null,
-    html: message.textHtml ?? null,
-    text: message.textPlain ?? null,
-    attachments,
+    html: message.textHtml?.slice(0, MAX_BODY_LENGTH) ?? null,
+    text: message.textPlain?.slice(0, MAX_BODY_LENGTH) ?? null,
+    attachments: attachments.slice(0, MAX_BODY_ATTACHMENTS),
     isMeetingInvitation,
   };
 }
@@ -150,7 +156,8 @@ function splitAddresses(value: string | undefined): string[] {
   return value
     .split(",")
     .map((part) => part.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MAX_RECIPIENTS);
 }
 
 function rolesFromFolder(
@@ -158,7 +165,9 @@ function rolesFromFolder(
 ): Array<"inbox" | "sent" | "draft" | "trash" | "spam"> {
   if (!folderId) return [];
   const folder = folderId.toLowerCase();
-  if (folder.includes("inbox")) return ["inbox"];
+  // Folder ids are often opaque. A substring match treated archive folders
+  // whose id happened to contain "inbox" as the inbox itself.
+  if (folder === "inbox") return ["inbox"];
   if (folder.includes("sent")) return ["sent"];
   if (folder.includes("draft")) return ["draft"];
   if (folder.includes("deleted") || folder.includes("trash")) return ["trash"];

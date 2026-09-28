@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { MailClient } from "@inboxzero/mail-core/engine";
@@ -146,7 +146,83 @@ describe("useEngineMailThreads", () => {
       }),
     );
   });
+
+  it("keeps unchanged rows when a pushed snapshot edits another conversation", async () => {
+    let snapshot = mailboxSnapshot([conversation("c-1"), conversation("c-2")]);
+    const listeners = new Set<() => void>();
+    const push = (next: QuerySnapshot<MailboxView>) => {
+      snapshot = next;
+      for (const listener of listeners) listener();
+    };
+    const client = {
+      observeMailbox: vi.fn(() => ({
+        getSnapshot: () => snapshot,
+        subscribe: (listener: () => void) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        close: () => undefined,
+      })),
+      requestSync: vi.fn(async () => ({ status: "scheduled" as const })),
+    } as unknown as MailClient;
+    const clientWrapper = ({ children }: { children: ReactNode }) => (
+      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { type: "inbox" } as ThreadsQuery,
+        }),
+      { wrapper: clientWrapper },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    const [first, second] = result.current.threads;
+
+    act(() =>
+      push(
+        mailboxSnapshot([
+          conversation("c-1"),
+          { ...conversation("c-2"), starred: true },
+        ]),
+      ),
+    );
+
+    expect(result.current.threads[0]).toBe(first);
+    expect(result.current.threads[1]).not.toBe(second);
+
+    const afterEdit = result.current.threads;
+    act(() =>
+      push(
+        mailboxSnapshot([
+          conversation("c-1"),
+          { ...conversation("c-2"), starred: true },
+        ]),
+      ),
+    );
+
+    expect(result.current.threads).toBe(afterEdit);
+  });
 });
+
+function conversation(
+  conversationId: string,
+): MailboxView["conversations"][number] {
+  return {
+    key: { accountId: "acc-1", conversationId },
+    subject: `Subject ${conversationId}`,
+    preview: "Preview",
+    from: "ada@example.com",
+    to: "me@example.com",
+    senders: ["ada@example.com"],
+    latestMessageAtMs: 1,
+    unread: false,
+    starred: false,
+    labelIds: [],
+    roles: ["inbox"],
+    pendingOperationIds: [],
+  };
+}
 
 function staticMailboxHandle(snapshot: QuerySnapshot<MailboxView>) {
   return {
@@ -156,29 +232,19 @@ function staticMailboxHandle(snapshot: QuerySnapshot<MailboxView>) {
   };
 }
 
-function mailboxSnapshot(): QuerySnapshot<MailboxView> {
+function mailboxSnapshot(
+  conversations = [conversation("c-1")],
+): QuerySnapshot<MailboxView> {
   return {
     status: "ready",
     revision: { databaseEpoch: "e1", sequence: 1 },
     refreshing: false,
     error: null,
     data: {
-      conversations: [
-        {
-          key: { accountId: "acc-1", conversationId: "c-1" },
-          subject: "First",
-          preview: "Preview",
-          from: "ada@example.com",
-          to: "me@example.com",
-          senders: ["ada@example.com"],
-          latestMessageAtMs: 1,
-          unread: false,
-          starred: false,
-          labelIds: [],
-          roles: ["inbox"],
-          pendingOperationIds: [],
-        },
-      ],
+      conversations: conversations.map((item) => ({
+        ...item,
+        key: { ...item.key },
+      })),
       counts: {
         matchingConversations: 2,
         unreadConversations: 0,

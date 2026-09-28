@@ -15,15 +15,20 @@ import {
   enumerationResultSchema,
   hydrationRequestSchema,
   hydrationResultSchema,
+  type MailHttpError,
   mailHttpErrorSchema,
   operationAdmitRequestSchema,
   operationAdmitResultSchema,
+  operationCancelRequestSchema,
+  operationCancelResultSchema,
   operationInspectRequestSchema,
   scopesRequestSchema,
   scopesResultSchema,
   searchRequestSchema,
   searchResultSchema,
 } from "./mail-http";
+
+const UNSTRUCTURED_ERROR_RETRY_MS = 30_000;
 
 export type MailHttpRequestFn = (input: {
   method: "GET" | "POST" | "PUT" | "DELETE";
@@ -51,7 +56,7 @@ export function createBackendMailboxSource(input: {
         path: `${base}/capabilities?requestId=${encodeURIComponent(requestId)}`,
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) return mapReadError(error);
       const parsed = capabilitiesResultSchema.parse(response.json);
       return {
@@ -76,7 +81,7 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) return mapReadError(error);
       const parsed = scopesResultSchema.parse(response.json);
       return {
@@ -97,7 +102,7 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) return mapReadError(error);
       const parsed = bootstrapResultSchema.parse(response.json);
       return {
@@ -132,7 +137,7 @@ export function createBackendMailboxSource(input: {
       });
       const reset = parseReset(response);
       if (reset) return reset;
-      const error = parseError(response);
+      const error = readError(response);
       if (error) {
         if (error.error.code === "expired_position") {
           return { status: "reset_required", scopeId: "account" };
@@ -185,7 +190,7 @@ export function createBackendMailboxSource(input: {
       });
       const reset = parseReset(response);
       if (reset) return reset;
-      const error = parseError(response);
+      const error = readError(response);
       if (error) {
         if (error.error.code === "expired_position") {
           return { status: "reset_required", scopeId: position.streamId };
@@ -207,7 +212,7 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) return mapReadError(error);
       const parsed = hydrationResultSchema.parse(response.json);
       return {
@@ -242,7 +247,7 @@ export function createBackendMailboxSource(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) return mapReadError(error);
       return {
         status: "ok",
@@ -264,7 +269,7 @@ export function createBackendMailboxSource(input: {
         signal,
       });
       if (response.status === 422) return { status: "unsupported" };
-      const error = parseError(response);
+      const error = readError(response);
       if (error) {
         if (error.error.code === "unsupported")
           return { status: "unsupported" };
@@ -296,7 +301,7 @@ export function createBackendMailboxSource(input: {
         signal,
         accept: "bytes",
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error?.error.code === "not_found" || response.status === 404) {
         return { status: "not_found" };
       }
@@ -359,6 +364,27 @@ export function createBackendOperationExecutor(input: {
       const error = parseError(response);
       if (error) return mapExecutionError(error);
       return operationAdmitResultSchema.parse(response.json);
+    },
+    async cancel({ operation, signal }) {
+      try {
+        const response = await request({
+          method: "DELETE",
+          path: `${base}/operations/${encodeURIComponent(operation.key.operationId)}`,
+          body: operationCancelRequestSchema.parse({
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: `cancel-${operation.key.operationId}`,
+            session: operation.session,
+          }),
+          signal,
+        });
+        const parsed = operationCancelResultSchema.safeParse(response.json);
+        if (response.status >= 400 || !parsed.success) {
+          return { status: "unavailable" };
+        }
+        return { status: parsed.data.status };
+      } catch {
+        return { status: "unavailable" };
+      }
     },
     async stageUpload({
       session,
@@ -433,7 +459,7 @@ export function createBackendAssistantSource(input: {
         path: `${base}/assistant-state?cursor=${encodeURIComponent(cursor ?? "")}&requestId=${encodeURIComponent(requestId)}`,
         signal,
       });
-      const error = parseError(response);
+      const error = readError(response);
       if (error) {
         if (error.error.code === "blocked_auth")
           return { status: "blocked_auth" };
@@ -463,6 +489,27 @@ function parseError(response: { status: number; json: unknown }) {
   return parsed.success ? parsed.data : null;
 }
 
+// Auth middleware, the hosting platform, and proxies answer without the mail
+// error envelope. Their bodies are not results, so classify them by status.
+function readError(response: {
+  status: number;
+  json: unknown;
+}): Pick<MailHttpError, "error"> | null {
+  if (response.status < 400) return null;
+  const structured = parseError(response);
+  if (structured) return structured;
+  if (response.status === 401) {
+    return { error: { code: "blocked_auth", retryable: true } };
+  }
+  return {
+    error: {
+      code: response.status === 429 ? "throttled" : "unavailable",
+      retryable: true,
+      retryAfterMs: UNSTRUCTURED_ERROR_RETRY_MS,
+    },
+  };
+}
+
 function parseReset(response: { status: number; json: unknown }) {
   if (
     response.json &&
@@ -479,13 +526,7 @@ function parseReset(response: { status: number; json: unknown }) {
   return null;
 }
 
-function mapReadError(error: NonNullable<ReturnType<typeof parseError>>) {
-  if (!error)
-    return {
-      status: "paused" as const,
-      retryAfterMs: 1000,
-      reason: "unavailable" as const,
-    };
+function mapReadError(error: Pick<MailHttpError, "error">) {
   if (error.error.code === "blocked_auth")
     return { status: "blocked_auth" as const };
   if (error.error.code === "throttled" || error.error.code === "unavailable") {

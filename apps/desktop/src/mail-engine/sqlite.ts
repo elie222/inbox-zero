@@ -1,4 +1,5 @@
 import {
+  nodeBodyCodec,
   openOrQuarantineNodeMailbox,
   nodeMailCrypto,
 } from "@inboxzero/mail-sqlite/node";
@@ -19,14 +20,14 @@ export async function createDesktopMailStore(
   const { driver } = await openOrQuarantineNodeMailbox(path);
   return createSqliteMailStore(
     onTransaction ? timeTransactions(driver, onTransaction) : driver,
-    { runtime: createHostRuntime(nodeMailCrypto()) },
+    { runtime: createHostRuntime(nodeMailCrypto()), bodyCodec: nodeBodyCodec },
   );
 }
 
 export { nodeMailCrypto };
 
-// Timed from the call, so a read queued behind a long sync write counts the
-// wait the caller actually felt.
+// Timed from the call, so a transaction queued behind others on its connection
+// counts the wait the caller actually felt.
 function timeTransactions(
   driver: SqliteDriver,
   onTransaction: SqliteTransactionTimer,

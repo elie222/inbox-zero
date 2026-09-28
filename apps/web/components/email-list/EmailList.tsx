@@ -214,7 +214,7 @@ export function EmailList({
       if (!client) throw new Error("Mail engine is unavailable");
       const change = mutationPayloadToChange(payload);
       if (!change) throw new Error("Unsupported mail mutation");
-      const accepted = await submitConversationChanges({
+      const { accepted } = await submitConversationChanges({
         accountId: emailAccountId,
         change,
         client,

@@ -65,7 +65,7 @@ describe("meeting follow-up draft route", () => {
     );
   });
 
-  // The draft is addressed by the id the freshly fetched draft reports, since
+  // The draft is addressed by what the freshly fetched draft reports, since
   // editing a draft replaces its message id.
   it("opens the related draft within the full Outlook client", async () => {
     getEmailAccountMock.mockResolvedValue("user@example.com");
@@ -76,13 +76,15 @@ describe("meeting follow-up draft route", () => {
     emailProvider.getDraft.mockResolvedValue({
       id: "draft-message-123",
       threadId: "thread-123",
+      externalUrl:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
     });
 
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
     expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://outlook.office.com/mail/drafts/id/draft-message-123",
+      "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
     );
   });
 

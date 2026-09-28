@@ -45,6 +45,7 @@ export async function queueReaderEmail({
   onQueued,
   mutationId,
   holdForUndo,
+  providerDraftMessageIds,
   settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
@@ -56,6 +57,8 @@ export async function queueReaderEmail({
   onQueued?: () => Promise<void>;
   mutationId?: string;
   holdForUndo?: boolean;
+  /** The mailbox draft's saved copies, which the queued send replaces. */
+  providerDraftMessageIds?: string[];
   settlementTimeoutMs?: number;
   threadId: string;
 }): Promise<ReaderEmailOutcome> {
@@ -69,7 +72,12 @@ export async function queueReaderEmail({
   );
   let queued = false;
   try {
-    const content = sendEmailToDraftContent(email, attachmentIds, threadId);
+    const content = sendEmailToDraftContent(
+      email,
+      attachmentIds,
+      threadId,
+      providerDraftMessageIds,
+    );
     const draftRevision = await saveSendableDraft(client, {
       accountId: emailAccountId,
       draftId,

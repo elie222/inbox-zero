@@ -354,6 +354,10 @@ export interface EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    labelIds?: string[];
+    /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -364,6 +368,10 @@ export interface EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
+    includeSpamTrash?: boolean;
+    folder?: "spam" | "trash";
+    labelIds?: string[];
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;

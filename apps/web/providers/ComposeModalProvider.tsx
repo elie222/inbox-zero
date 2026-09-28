@@ -12,6 +12,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useModal } from "@/hooks/useModal";
 import { useAccounts } from "@/hooks/useAccounts";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
+import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { deleteDraftAction } from "@/utils/actions/mail";
+import { getActiveMailClient } from "@/utils/mail-engine/active-client";
+import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
+import { getActionErrorMessage } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 import {
   Dialog,
   DialogClose,
@@ -21,12 +28,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 
+export type PoppedOutReply = {
+  emailAccountId: string;
+  draftSessionId: string;
+  draftKeyMessageId: string;
+  draftMode: ReplyDraftMode;
+  providerDraftMessageId?: string;
+  replyingToEmail: ReplyingToEmail;
+  /** Puts the reply back in its thread when the window is dismissed unsent. */
+  onReturn?: () => void;
+};
+
 type Context = {
   onOpen: () => void;
+  popOutReply: (reply: PoppedOutReply) => void;
+  poppedOutDraftSessionId?: string;
 };
 
 const ComposeModalContext = createContext<Context>({
   onOpen: async () => {},
+  popOutReply: () => {},
 });
 
 export const useComposeModal = () => useContext(ComposeModalContext);
@@ -34,30 +55,94 @@ export const useComposeModal = () => useContext(ComposeModalContext);
 export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { emailAccountId } = useAccount();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [isExpanded, setIsExpanded] = useState(false);
   const [composerKey, setComposerKey] = useState(0);
+  const [poppedOutReply, setPoppedOutReply] = useState<PoppedOutReply>();
+  // A popped-out reply belongs to the account it was written from.
+  const reply =
+    poppedOutReply?.emailAccountId === emailAccountId
+      ? poppedOutReply
+      : undefined;
   const isAllAccountsMailView =
     pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
   const { data: accountsData } = useAccounts(isAllAccountsMailView);
+  const isOpen = isModalOpen && (!poppedOutReply || Boolean(reply));
+  const returnOpenReply = useCallback(() => {
+    if (isOpen) reply?.onReturn?.();
+  }, [isOpen, reply]);
   const openCompose = useCallback(() => {
+    returnOpenReply();
     setIsExpanded(false);
+    setPoppedOutReply(undefined);
     openModal();
-  }, [openModal]);
-  const contextValue = useMemo(() => ({ onOpen: openCompose }), [openCompose]);
+  }, [openModal, returnOpenReply]);
+  const popOutReply = useCallback(
+    (nextReply: PoppedOutReply) => {
+      returnOpenReply();
+      setIsExpanded(false);
+      setPoppedOutReply(nextReply);
+      openModal();
+    },
+    [openModal, returnOpenReply],
+  );
+  // Keeps the popped-out reply so undo send can reopen it.
   const closeCompose = useCallback(() => {
     setIsExpanded(false);
     closeModal();
   }, [closeModal]);
+  const restoreCompose = useCallback(() => {
+    setComposerKey((key) => key + 1);
+    openModal();
+  }, [openModal]);
+  const discardReply = useCallback(
+    async (draftId?: string) => {
+      if (reply?.providerDraftMessageId) {
+        const result = await deleteDraftAction(reply.emailAccountId, {
+          draftMessageId: reply.providerDraftMessageId,
+          draftId,
+        }).catch(() => undefined);
+        if (
+          !result ||
+          result.serverError !== undefined ||
+          result.validationErrors !== undefined
+        ) {
+          toastError({
+            description: getActionErrorMessage(result ?? {}, {
+              prefix: "Failed to discard draft",
+            }),
+          });
+          return false;
+        }
+        getActiveMailClient()
+          ?.requestSync([reply.emailAccountId])
+          .catch(() => {});
+      }
+      closeCompose();
+      return true;
+    },
+    [reply, closeCompose],
+  );
+  const contextValue = useMemo(
+    () => ({
+      onOpen: openCompose,
+      popOutReply,
+      poppedOutDraftSessionId: isOpen ? reply?.draftSessionId : undefined,
+    }),
+    [openCompose, popOutReply, isOpen, reply?.draftSessionId],
+  );
 
   return (
     <ComposeModalContext.Provider value={contextValue}>
       {props.children}
       <Dialog
         modal={false}
-        open={isModalOpen}
+        open={isOpen}
         onOpenChange={(open) => {
-          if (!open) closeCompose();
+          if (open) return;
+          returnOpenReply();
+          closeCompose();
         }}
       >
         <DialogContent
@@ -94,7 +179,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 isExpanded && "text-2xl font-medium",
               )}
             >
-              New Message
+              {reply ? reply.replyingToEmail.subject || "Reply" : "New Message"}
             </DialogTitle>
             <div className="flex items-center gap-0.5">
               <Button
@@ -134,22 +219,38 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 isExpanded && "rounded-xl border shadow-lg",
               )}
             >
-              <ComposeEmailFormLazy
-                key={composerKey}
-                draftSessionId="compose:new-message"
-                fromAccounts={accountsData?.emailAccounts}
-                layout="window"
-                onClose={closeCompose}
-                onDiscard={() => {
-                  closeCompose();
-                  return true;
-                }}
-                onRestore={() => {
-                  setComposerKey((key) => key + 1);
-                  openCompose();
-                }}
-                onSuccess={closeCompose}
-              />
+              {reply ? (
+                <ComposeEmailFormLazy
+                  key={`${reply.draftSessionId}:${composerKey}`}
+                  draftKeyMessageId={reply.draftKeyMessageId}
+                  draftMode={reply.draftMode}
+                  draftSessionId={reply.draftSessionId}
+                  layout="window"
+                  onClose={closeCompose}
+                  onDiscard={discardReply}
+                  onRestore={restoreCompose}
+                  onSuccess={closeCompose}
+                  providerDraftMessageId={reply.providerDraftMessageId}
+                  replyingToEmail={reply.replyingToEmail}
+                />
+              ) : (
+                <ComposeEmailFormLazy
+                  key={composerKey}
+                  draftSessionId="compose:new-message"
+                  fromAccounts={accountsData?.emailAccounts}
+                  layout="window"
+                  onClose={closeCompose}
+                  onDiscard={() => {
+                    closeCompose();
+                    return true;
+                  }}
+                  onRestore={() => {
+                    setComposerKey((key) => key + 1);
+                    openCompose();
+                  }}
+                  onSuccess={closeCompose}
+                />
+              )}
             </div>
           </main>
         </DialogContent>

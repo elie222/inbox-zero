@@ -125,7 +125,7 @@ describe("query corpora", () => {
         messageId: "m-he",
         conversationId: "c-he",
         subject: "חשבונית",
-        text: "מצורפת החשבונית לחודש",
+        text: "מצורפת חשבונית לחודש",
       },
       {
         messageId: "m-fr",
@@ -177,6 +177,11 @@ describe("query corpora", () => {
     expect(
       conversationIds(
         await store.readMailboxView(textQuery("acc-1", "any", "請求書")),
+      ),
+    ).toEqual(["c-ja"]);
+    expect(
+      conversationIds(
+        await store.readMailboxView(textQuery("acc-1", "body", "請求書")),
       ),
     ).toEqual(["c-ja"]);
     await store.close();
@@ -233,6 +238,52 @@ describe("query corpora", () => {
     );
     expect(combined.view.counts.matchingConversations).toBe(3);
     expect(conversationIds(combined).sort()).toEqual(["c-a", "c-b", "c-c"]);
+    await store.close();
+  });
+
+  it("reads a window of pages in order and continues from its cursor", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await applyInboxPage(
+      store,
+      "acc-1",
+      [1, 2, 3, 4, 5].map((n) =>
+        messagePatch({
+          accountId: "acc-1",
+          messageId: `m-${n}`,
+          conversationId: `c-${n}`,
+          receivedAtMs: n,
+          subject: `Report ${n}`,
+        }),
+      ),
+    );
+
+    for (const predicate of [
+      inboxQuery(["acc-1"]).predicate,
+      textQuery("acc-1", "subject", "report").predicate,
+    ]) {
+      const window = await store.readMailboxWindow(
+        { ...inboxQuery(["acc-1"]), predicate, pageSize: 2 },
+        2,
+      );
+      expect(conversationIds(window)).toEqual(["c-5", "c-4", "c-3", "c-2"]);
+      expect(window.view.counts.matchingConversations).toBe(5);
+      const rest = await store.readMailboxWindow(
+        {
+          ...inboxQuery(["acc-1"]),
+          predicate,
+          pageSize: 2,
+          after: window.view.nextPage,
+        },
+        2,
+      );
+      expect(conversationIds(rest)).toEqual(["c-1"]);
+      expect(rest.view.nextPage).toBeNull();
+    }
     await store.close();
   });
 });

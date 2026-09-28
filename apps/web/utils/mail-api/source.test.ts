@@ -5,6 +5,7 @@ import {
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { syncPageSchema } from "@inboxzero/mail-core/sync";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -84,6 +85,44 @@ describe("createEmailProviderMailboxSource", () => {
       query: "invoice",
       maxResults: 20,
       pageToken: undefined,
+    });
+  });
+
+  it("includes spam when the search predicate is scoped to that mailbox", async () => {
+    const searchMessages = vi.fn(async () => ({
+      messages: [{ id: "spam-hit" }],
+      nextPageToken: undefined,
+    }));
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: { name: "google", searchMessages } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "search-spam",
+        signal: new AbortController().signal,
+        predicate: {
+          kind: "all",
+          predicates: [
+            { kind: "text", field: "any", value: "invoice", match: "phrase" },
+            { kind: "mailbox", mailbox: "spam" },
+          ],
+        },
+        page: null,
+        pageSize: 20,
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [{ messageId: "spam-hit" }] },
+    });
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "invoice",
+      maxResults: 20,
+      pageToken: undefined,
+      folder: "spam",
+      includeSpamTrash: true,
+      labelIds: ["SPAM"],
     });
   });
 
@@ -413,6 +452,7 @@ describe("createEmailProviderMailboxSource", () => {
   });
 
   it("maps folder delta removals to removed-from-scope changes", async () => {
+    const deltaCursor = `folder-cursor-${"x".repeat(2000)}`;
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
       provider: {
@@ -420,7 +460,7 @@ describe("createEmailProviderMailboxSource", () => {
         localMailSyncStrategy: "folder-delta",
         async getMailboxSyncPage() {
           return {
-            cursor: "folder-cursor-2",
+            cursor: deltaCursor,
             reset: false,
             upsertedMessages: [],
             deletedMessageIds: ["deleted-1"],
@@ -448,7 +488,6 @@ describe("createEmailProviderMailboxSource", () => {
           {
             kind: "message_deleted",
             key: { accountId: "acc-1", messageId: "deleted-1" },
-            evidence: "folder-cursor-2",
           },
           {
             kind: "removed_from_scope",
@@ -458,6 +497,8 @@ describe("createEmailProviderMailboxSource", () => {
         ],
       },
     });
+    if (result.status !== "page") throw new Error("expected a page");
+    expect(() => syncPageSchema.parse(result.page)).not.toThrow();
   });
 
   it("pages conversation membership instead of truncating the thread", async () => {

@@ -11,6 +11,8 @@ import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { Button } from "@/components/ui/button";
 import {
+  getDraftSessionMessageId,
+  getLatestDraftMessageId,
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
@@ -19,10 +21,15 @@ import {
 import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
+import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+
+const NO_OUTGOING: OutgoingThreadMessage[] = [];
 
 export function EmailThread({
   messages,
   missingBodyIds,
+  outgoing = NO_OUTGOING,
+  sendOperationIds,
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
@@ -38,12 +45,20 @@ export function EmailThread({
 }: {
   messages: ThreadMessage[];
   missingBodyIds?: Set<string>;
+  /** Sends queued on this device, shown after the thread until they sync. */
+  outgoing?: OutgoingThreadMessage[];
+  /** The send each confirmed message came from, so it replaces its outgoing copy in place. */
+  sendOperationIds?: Map<string, string>;
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
   autoOpenForwardForMessageId?: string;
   topRightComponent?: React.ReactNode;
-  onSendSuccess?: (messageId: string, threadId: string) => void;
+  onSendSuccess?: (
+    messageId: string,
+    sentThreadId: string,
+    repliedThreadId: string,
+  ) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
@@ -55,16 +70,38 @@ export function EmailThread({
     onToggleAll: () => void;
   }) => ReactNode;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
-    () => organizeThreadMessages(messages),
-    [messages],
+    (): Array<{
+      message: ThreadMessage;
+      draftMessages: ThreadMessage[];
+      outgoing?: OutgoingThreadMessage;
+    }> => [
+      ...organizeThreadMessages(
+        withoutReplacedDrafts(messages, emailAccountId),
+      ),
+      ...outgoing.map((item) => ({
+        message: {
+          ...item.message,
+          headers: { ...item.message.headers, from: userEmail },
+        },
+        draftMessages: [],
+        outgoing: item,
+      })),
+    ],
+    [messages, emailAccountId, outgoing, userEmail],
   );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
+  // A reply that hasn't reached the provider has no id to thread on yet, so
+  // replying to it threads on the newest message the provider has.
+  const replyAnchor = organizedMessages.findLast(
+    ({ message, outgoing }) =>
+      !outgoing && !message.labelIds?.includes(GmailLabel.DRAFT),
+  )?.message;
 
   const [expansionOverrides, setExpansionOverrides] = useState<
     Map<string, boolean>
@@ -92,8 +129,15 @@ export function EmailThread({
   }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  const hasLocalDraft = (id: string) =>
-    Boolean(getLocalDraftMode(localDrafts, id));
+  // Outlook sends a draft as the same message, so its local copy would reopen
+  // as a reply on the sent message until the send settles and clears it.
+  const localDraftModeFor = (message: ThreadMessage) =>
+    message.labelIds?.includes(GmailLabel.DRAFT) ||
+    sendOperationIds?.has(message.id)
+      ? undefined
+      : getLocalDraftMode(localDrafts, message.id);
+  const hasLocalDraft = (message: ThreadMessage) =>
+    Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
     expanded(
       message.id,
@@ -101,7 +145,7 @@ export function EmailThread({
         autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
         draftMessages.length > 0 ||
-        hasLocalDraft(message.id),
+        hasLocalDraft(message),
     ),
   );
 
@@ -212,7 +256,9 @@ export function EmailThread({
         )}
 
         <ul className="pt-1">
-          {organizedMessages.map(({ message, draftMessages }) => {
+          {organizedMessages.map(({ message, draftMessages, outgoing }) => {
+            const sendOperationId =
+              outgoing?.operationId ?? sendOperationIds?.get(message.id);
             const defaultComposeMode = getDefaultComposeMode({
               autoOpenMode:
                 autoOpenForwardForMessageId === message.id
@@ -220,9 +266,7 @@ export function EmailThread({
                   : autoOpenReplyForMessageId === message.id
                     ? "reply"
                     : undefined,
-              localDraftMode: message.labelIds?.includes(GmailLabel.DRAFT)
-                ? undefined
-                : getLocalDraftMode(localDrafts, message.id),
+              localDraftMode: localDraftModeFor(message),
               recoveredReply:
                 recoveredReply?.messageId === message.id
                   ? recoveredReply
@@ -254,18 +298,37 @@ export function EmailThread({
                   message.id,
                   Boolean(defaultComposeMode) || draftMessages.length > 0,
                 )}
-                hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
-                key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
+                hasDraft={draftMessages.length > 0 || hasLocalDraft(message)}
+                // A draft-only row follows its draft across Gmail's per-save
+                // message IDs, and a sent row keeps the place of its outgoing copy.
+                key={`${sendOperationId ?? getDraftSessionMessageId(emailAccountId, message.id)}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
                 message={message}
                 menu={renderMessageMenu?.(message)}
+                replyAnchor={outgoing ? replyAnchor : undefined}
+                composerSessionMessageId={
+                  sendOperationId ? `outgoing:${sendOperationId}` : undefined
+                }
+                onReplySent={() => {
+                  // The sent reply lands below as the newest message; keep this
+                  // one open and let selection fall through to the reply.
+                  setExpansionOverrides((prev) =>
+                    new Map(prev).set(message.id, true),
+                  );
+                  setSelectedMessageId(undefined);
+                }}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
+                onExpand={() =>
+                  setExpansionOverrides((prev) =>
+                    new Map(prev).set(message.id, true),
+                  )
+                }
                 onSendSuccess={(messageId, sentThreadId) => {
                   setExpansionOverrides((prev) =>
                     new Map(prev).set(messageId, true),
                   );
 
-                  onSendSuccess?.(messageId, sentThreadId);
+                  onSendSuccess?.(messageId, sentThreadId, threadId);
                 }}
                 // A one-message thread has nothing to collapse back to.
                 onToggle={
@@ -391,6 +454,23 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
       draftsByMessageId.get(message.id) ?? [],
     ),
   }));
+}
+
+// A saved draft's old and new Gmail messages can both be in the conversation
+// until sync removes the old one. Only the latest save is the draft being edited.
+function withoutReplacedDrafts(
+  messages: ThreadMessage[],
+  emailAccountId: string,
+) {
+  const messageIds = new Set(messages.map((message) => message.id));
+  return messages.filter((message) => {
+    if (!message.labelIds?.includes(GmailLabel.DRAFT)) return true;
+    const latest = getLatestDraftMessageId(
+      emailAccountId,
+      getDraftSessionMessageId(emailAccountId, message.id),
+    );
+    return !latest || latest === message.id || !messageIds.has(latest);
+  });
 }
 
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {

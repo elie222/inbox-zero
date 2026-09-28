@@ -37,6 +37,7 @@ import {
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
+import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 import {
@@ -48,10 +49,11 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
+import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 9;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 12;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -66,6 +68,10 @@ type AssistantChatOnModelResolved = NonNullable<
 type AssistantChatOnEnd = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onEnd"]
 >;
+type CalendarConnectionStatus =
+  | { state: "connected" }
+  | { state: "disconnected" }
+  | { state: "failed"; message: string };
 
 export async function aiProcessAssistantChat({
   messages,
@@ -124,10 +130,25 @@ export async function aiProcessAssistantChat({
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
+  let calendarConnection: CalendarConnectionStatus;
+  try {
+    calendarConnection = (await hasUsableCalendarConnection(emailAccountId))
+      ? { state: "connected" }
+      : { state: "disconnected" };
+  } catch (error) {
+    logger.error("Failed to check calendar connection for chat tools", {
+      error,
+    });
+    calendarConnection = {
+      state: "failed",
+      message: describeCalendarLookupError(error),
+    };
+  }
   const system = buildResolvedSystemPrompt({
     emailSendToolsEnabled,
     draftReplyActionsEnabled,
     webhookActionsEnabled,
+    calendarConnection,
     provider: user.account.provider,
     responseSurface,
     messagingPlatform,
@@ -284,8 +305,9 @@ export async function aiProcessAssistantChat({
       : {}),
 
     // Progressive disclosure groups (registered but not active by default)
-    // Calendar
-    getCalendarEvents: getCalendarEventsTool(toolOptions),
+    ...(calendarConnection.state === "connected"
+      ? { getCalendarEvents: getCalendarEventsTool(toolOptions) }
+      : {}),
     // Attachments
     readAttachment: readAttachmentTool(toolOptions),
     ...providerPolicy.getTaxonomyTools(toolOptions),
@@ -340,14 +362,19 @@ export async function aiProcessAssistantChat({
     },
     onEnd,
     stopWhen: () => false,
-    prepareStep: () => {
+    prepareStep: ({ messages: stepMessages }) => {
+      const trimmedMessages = trimStaleToolResults(stepMessages);
+      const messages =
+        trimmedMessages === stepMessages ? undefined : trimmedMessages;
+
       if (
         Date.now() - startedAt <
         ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
-        return;
+        return messages && { messages };
 
       return {
+        messages,
         activeTools: [],
         toolChoice: "none",
       };
@@ -677,6 +704,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
   webhookActionsEnabled,
+  calendarConnection,
   provider,
   responseSurface,
   messagingPlatform,
@@ -686,6 +714,7 @@ export function buildResolvedSystemPrompt({
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
   webhookActionsEnabled: boolean;
+  calendarConnection: CalendarConnectionStatus;
   provider: string;
   responseSurface: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
@@ -748,9 +777,12 @@ export function buildResolvedSystemPrompt({
 - Use the latest rule state already provided in this request. If the current rule state is not available yet, call getUserRulesAndSettings before changing an existing rule.
 - If the user asks why a specific processed email was handled a certain way, identify the exact email first and then call getRuleExecutionForMessage with that messageId. Do not guess from unrelated recent executions.
 - If a rule write reports stale rule state, refresh with getUserRulesAndSettings and retry from that latest state.`,
-    `Provider context:
-- Current provider: ${provider}.
-- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
+    getProviderContextSection({
+      provider,
+      userTimezone,
+      currentTimestamp,
+      calendarConnection,
+    }),
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine to an exact sender search before writing when needed.
@@ -794,6 +826,50 @@ export function buildResolvedSystemPrompt({
   ];
 
   return sections.filter(Boolean).join("\n\n");
+}
+
+function getProviderContextSection({
+  provider,
+  userTimezone,
+  currentTimestamp,
+  calendarConnection,
+}: {
+  provider: string;
+  userTimezone: string;
+  currentTimestamp: string;
+  calendarConnection: CalendarConnectionStatus;
+}) {
+  const lines = [
+    "Provider context:",
+    `- Current provider: ${provider}.`,
+    `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
+  ];
+
+  if (calendarConnection.state === "disconnected") {
+    lines.push(
+      "- If the user asks about their schedule or meetings, you may tell them they can connect a calendar in settings.",
+    );
+  }
+
+  if (calendarConnection.state === "failed") {
+    lines.push(
+      `- Checking the calendar connection failed (${calendarConnection.message}). If the user asks about their schedule or meetings, tell them the check failed and they can reconnect their calendar in settings or try again.`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function describeCalendarLookupError(error: unknown): string {
+  if (!(error instanceof Error)) return "Unknown error";
+
+  const firstLine = error.message.split("\n")[0]?.trim() ?? "";
+  const message = firstLine
+    .replace(/\/\/[^/\s:]+:[^@\s]+@/g, "//[redacted]@")
+    .replace(/bearer\s+\S+/gi, "bearer [redacted]")
+    .slice(0, 200);
+
+  return message ? `${error.name}: ${message}` : error.name;
 }
 
 function getFormattingRules(responseSurface: "web" | "messaging") {

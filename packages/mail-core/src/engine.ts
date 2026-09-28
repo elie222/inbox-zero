@@ -119,7 +119,7 @@ export type MailClient = {
     key: OperationKey,
   ): Promise<
     | { status: "cancelled"; revision: LocalRevision }
-    | { status: "too_late" | "not_found" }
+    | { status: "too_late" | "not_found" | "unavailable" }
   >;
   requestSync(accountIds: string[]): Promise<WorkAdmission>;
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
@@ -289,7 +289,19 @@ export function createMailEngine(input: {
       return admission;
     },
     async cancelOperation(key) {
-      const result = await store.cancelOperation(key);
+      const local = await store.cancelOperation(key);
+      if (local.status !== "too_late") {
+        await refreshViews();
+        return local;
+      }
+      const held = await store.readHeldSend(key);
+      if (!held || !executor.cancel) return local;
+      const remote = await executor.cancel({
+        operation: held,
+        signal: new AbortController().signal,
+      });
+      if (remote.status !== "cancelled") return { status: remote.status };
+      const result = await store.cancelHeldSend(key);
       await refreshViews();
       return result;
     },
@@ -340,6 +352,11 @@ export function createMailEngine(input: {
         });
         if (!work) {
           await catchUpIdleAccounts(deadlineMs, signal);
+          if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+          // Batches stay short and claimable work is checked between them,
+          // so a large backlog never delays commands or sync.
+          const { remaining } = await store.indexSearchBacklog();
+          if (remaining) continue;
           return;
         }
         if (work.kind === "command") {
@@ -647,6 +664,22 @@ export function createMailEngine(input: {
         page: scan.page,
         pageSize: 50,
       });
+      if (
+        enumerated.status === "paused" ||
+        enumerated.status === "blocked_auth"
+      ) {
+        const paused = enumerated.status === "paused";
+        await store.deferBootstrapScan({
+          session: input.session,
+          scopeId: scan.scopeId,
+          bootstrapId: scan.bootstrapId,
+          page: scan.page,
+          nextAttemptAtMs:
+            runtime.nowMs() +
+            (paused ? enumerated.retryAfterMs : idleCatchUpIntervalMs),
+          errorCode: paused ? enumerated.reason : "blocked_auth",
+        });
+      }
       if (enumerated.status !== "ok") {
         await noteConnection(input.session.accountId, enumerated.status);
         break;
@@ -761,7 +794,20 @@ export function createMailEngine(input: {
         if (visitedStreams > 0) await yieldToHost();
         visitedStreams += 1;
         if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
-        if (!stream.checkpoint) {
+        const catchUpDue = idleGateDue(
+          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
+          runtime.nowMs(),
+          idleCatchUpIntervalMs,
+        );
+        if (
+          !stream.checkpoint ||
+          (await resumesBootstrap(
+            idleGate,
+            session,
+            stream.streamId,
+            catchUpDue,
+          ))
+        ) {
           await ingestBootstrap({
             session,
             from: stream,
@@ -778,13 +824,7 @@ export function createMailEngine(input: {
           );
           continue;
         }
-        const nextCatchUpAtMs =
-          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0;
-        if (
-          !idleGateDue(nextCatchUpAtMs, runtime.nowMs(), idleCatchUpIntervalMs)
-        ) {
-          continue;
-        }
+        if (!catchUpDue) continue;
         const changes = await source.readChanges({
           session,
           requestId: runtime.randomId(),
@@ -813,7 +853,12 @@ export function createMailEngine(input: {
             idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
           }
         } else if (changes.status === "reset_required") {
-          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+          // Unfinished pages resume through resumesBootstrap, so the gate
+          // only slows a provider that keeps asking for a resync.
+          idleGate.nextStreamCatchUpAtMs.set(
+            stream.streamId,
+            runtime.nowMs() + idleCatchUpIntervalMs,
+          );
           const resetStream = { ...stream, streamId: changes.scopeId };
           await ingestBootstrap({
             session,
@@ -860,10 +905,9 @@ export function createMailEngine(input: {
     scopeId: string,
   ) {
     const scan = await store.readBootstrapScan({ session, scopeId });
-    if (
-      scan?.page &&
-      (scan.nextAttemptAtMs === null || scan.nextAttemptAtMs <= runtime.nowMs())
-    ) {
+    // A deferred scan stays active so it resumes when its retry time comes,
+    // not at the next scope discovery.
+    if (scan?.page) {
       if (!idleGate.activeBootstrapScopes.has(scopeId)) {
         idleGate.activeBootstrapScopes.set(scopeId, {
           id: scopeId,
@@ -874,6 +918,25 @@ export function createMailEngine(input: {
       return;
     }
     idleGate.activeBootstrapScopes.delete(scopeId);
+  }
+
+  // A resync keeps the stream's old checkpoint until its bootstrap finishes,
+  // so unfinished pages resume here instead of through another resync. A scan
+  // this engine didn't start, such as one left by a restart, is picked up when
+  // the stream's catch-up comes due.
+  async function resumesBootstrap(
+    idleGate: IdleCatchUpGate,
+    session: { accountId: string; generation: string },
+    scopeId: string,
+    catchUpDue: boolean,
+  ) {
+    if (!catchUpDue && !idleGate.activeBootstrapScopes.has(scopeId)) {
+      return false;
+    }
+    const scan = await store.readBootstrapScan({ session, scopeId });
+    if (scan?.page) return true;
+    idleGate.activeBootstrapScopes.delete(scopeId);
+    return false;
   }
 
   async function discoverBootstrapScopes(

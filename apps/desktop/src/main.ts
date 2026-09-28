@@ -8,7 +8,9 @@ import {
   dialog,
   ipcMain,
   nativeTheme,
+  net,
   Notification,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -18,11 +20,15 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from "electron";
-import { installDesktopLoadRecovery } from "./load-recovery";
+import {
+  type DesktopBootFailure,
+  installDesktopLoadRecovery,
+} from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
+  installDownloadedDesktopUpdate,
   logDesktopUpdateError,
   startDesktopAutoUpdate,
 } from "./auto-update";
@@ -80,6 +86,11 @@ const WINDOWS_STATE_FILE = "windows.json";
 const windows: BrowserWindow[] = [];
 const lastUrlByWindow = new WeakMap<BrowserWindow, string>();
 const unreadByContents = new Map<number, number>();
+const loadRecoveryByContents = new Map<
+  number,
+  ReturnType<typeof installDesktopLoadRecovery>
+>();
+let lastResumedAt: number | null = null;
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
@@ -97,6 +108,8 @@ const localMailUrl = shouldUseLocalMailRenderer()
   : null;
 const trackNewMail = createMailNotificationTracker();
 const mailNotifications = new Map<string, Notification>();
+let downloadPercent: number | null = null;
+let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -111,6 +124,10 @@ function startDesktopApp() {
   app.setAppUserModelId("com.getinboxzero.desktop");
   if (shouldSmokeLocalMail()) app.disableHardwareAcceleration();
 
+  ipcMain.on("desktop:ready", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    loadRecoveryByContents.get(event.sender.id)?.markReady();
+  });
   ipcMain.on("desktop:unread-count", (event, count: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
@@ -252,26 +269,58 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
-    configureDesktopApplicationMenu({
-      checkForUpdates: () => {
-        checkForDesktopUpdatesManually(() => {
-          isQuitting = true;
-        }).catch(logDesktopUpdateError);
-      },
-      createWindow: () => createAppWindow(),
-      recordDiagnostics: () => {
-        recordDesktopDiagnostics({
-          getMailOwner: () => desktopMailOwner,
-          databasePath: desktopMailboxPath(),
-        });
-      },
-    });
+    let desktopUpdateReady = false;
+    const installUpdate = () => {
+      installDownloadedDesktopUpdate(() => {
+        isQuitting = true;
+      }).catch(logDesktopUpdateError);
+    };
+    const applyDesktopMenu = () => {
+      configureDesktopApplicationMenu({
+        updateReady: desktopUpdateReady,
+        downloadPercent,
+        checkForUpdates: () => {
+          if (desktopUpdateReady) {
+            installUpdate();
+            return;
+          }
+          checkForDesktopUpdatesManually(() => {
+            isQuitting = true;
+          }).catch(logDesktopUpdateError);
+        },
+        createWindow: () => createAppWindow(),
+        recordDiagnostics: () => {
+          recordDesktopDiagnostics({
+            getMailOwner: () => desktopMailOwner,
+            databasePath: desktopMailboxPath(),
+          });
+        },
+      });
+    };
+    refreshDesktopMenu = applyDesktopMenu;
+    applyDesktopMenu();
     if (!shouldSmokeLocalMail()) {
       // Overlap TLS/socket setup with window creation and page load.
       session
         .fromPartition(PARTITION)
         .preconnect({ url: appOrigin, numSockets: 2 });
     }
+    session
+      .fromPartition(PARTITION)
+      .webRequest.onErrorOccurred({ urls: [`${appOrigin}/*`] }, (details) => {
+        if (details.webContentsId === undefined) return;
+        loadRecoveryByContents
+          .get(details.webContentsId)
+          ?.recordRequestError(details);
+      });
+    // A page fetched just before sleep, or while the network was coming back,
+    // is the usual cause of a window that never boots.
+    powerMonitor.on("resume", () => {
+      lastResumedAt = Date.now();
+      for (const recovery of loadRecoveryByContents.values()) {
+        recovery.retryIfNotBooted();
+      }
+    });
     restoreAppWindows();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
@@ -280,7 +329,13 @@ function startDesktopApp() {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
     if (!shouldSmokeLocalMail()) {
-      startDesktopAutoUpdate().catch(logDesktopUpdateError);
+      startDesktopAutoUpdate(undefined, {
+        onUpdateReady: () => {
+          desktopUpdateReady = true;
+          setDownloadPercent(null);
+        },
+        onDownloadProgress: setDownloadPercent,
+      }).catch(logDesktopUpdateError);
     }
   });
 
@@ -293,6 +348,25 @@ function startDesktopApp() {
   app.on("activate", () => {
     focusAppWindow();
   });
+}
+
+function setDownloadPercent(percent: number | null) {
+  downloadPercent = percent;
+  refreshDesktopMenu?.();
+  syncUpdateProgressBar();
+}
+
+function syncUpdateProgressBar() {
+  const onView = windows.some(
+    (window) => window.isFocused() && window.isVisible(),
+  );
+  const progress =
+    downloadPercent === null || !onView
+      ? -1
+      : Math.min(1, Math.max(0, downloadPercent / 100));
+  for (const window of windows) {
+    if (!window.isDestroyed()) window.setProgressBar(progress);
+  }
 }
 
 function restoreAppWindows() {
@@ -350,6 +424,10 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    syncUpdateProgressBar();
+  });
+  window.on("blur", () => {
+    syncUpdateProgressBar();
   });
   window.on("moved", schedulePersistWindows);
   window.on("resized", schedulePersistWindows);
@@ -370,6 +448,7 @@ function createAppWindow(options?: {
     const index = windows.indexOf(window);
     if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(contentsId);
+    loadRecoveryByContents.delete(contentsId);
     applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
     if (!isQuitting && windows.length > 0) persistWindowsNow();
@@ -383,14 +462,32 @@ function createAppWindow(options?: {
   window.webContents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
     if (isMainFrame) rememberWindowUrl(window, url);
   });
-  installDesktopLoadRecovery(
-    window.webContents,
-    appOrigin,
-    () => lastUrlByWindow.get(window) ?? startUrl,
+  loadRecoveryByContents.set(
+    contentsId,
+    installDesktopLoadRecovery(window.webContents, {
+      appOrigin,
+      getStartUrl: () => lastUrlByWindow.get(window) ?? startUrl,
+      onBootFailure: reportBootFailure,
+    }),
   );
   if (shouldSmokeLocalMail()) installLocalMailSmoke(window);
   window.loadURL(startUrl).catch(() => {});
   return window;
+}
+
+function reportBootFailure(failure: DesktopBootFailure) {
+  captureDesktopError(
+    new Error("Desktop web app did not boot"),
+    { area: "load-recovery", reason: failure.reason },
+    {
+      extra: {
+        ...failure,
+        online: net.isOnline(),
+        msSinceResume:
+          lastResumedAt === null ? null : Date.now() - lastResumedAt,
+      },
+    },
+  );
 }
 
 function resolveWindowBounds(

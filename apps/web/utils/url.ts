@@ -44,10 +44,35 @@ function getOutlookBaseUrl(isPersonalMailbox: boolean) {
     : "https://outlook.office.com/mail";
 }
 
+const OUTLOOK_WEB_HOSTS = new Set([
+  "outlook.office.com",
+  "outlook.office365.com",
+  "outlook.live.com",
+]);
+
+// Graph's `webLink` is redirected to, so only Outlook hosts are allowed.
+function toOutlookReadingPaneUrl(webLink?: string | null) {
+  if (!webLink) return null;
+
+  let url: URL;
+  try {
+    url = new URL(webLink);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "https:") return null;
+  if (!OUTLOOK_WEB_HOSTS.has(url.hostname.toLowerCase())) return null;
+
+  url.searchParams.set("ispopout", "0");
+  return url.toString();
+}
+
 // Only the fields a draft deeplink can be built from.
 type DraftLinkTarget = {
   id: string;
   threadId?: string | null;
+  externalUrl?: string | null;
 };
 
 type ProviderUrlConfig = {
@@ -88,11 +113,14 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/inbox/id/${encodedMessageId}`;
     },
-    // Drafts are addressed by Graph id, the same id space message URLs use.
-    buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) =>
-      draft.id
+    buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) => {
+      const readingPaneUrl = toOutlookReadingPaneUrl(draft.externalUrl);
+      if (readingPaneUrl) return readingPaneUrl;
+
+      return draft.id
         ? `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/drafts/id/${encodeURIComponent(draft.id)}`
-        : null,
+        : null;
+    },
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
@@ -127,7 +155,7 @@ export function getEmailUrl(
  * draft's thread while Outlook links to its message. Resolve the draft via
  * `EmailProvider.getDraft` at link time — its message id changes on every edit.
  *
- * Outlook opens the draft itself inside the full mail client.
+ * Outlook opens the draft via Graph's `webLink`, falling back to Drafts.
  * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
  * id the API does not expose).
  */

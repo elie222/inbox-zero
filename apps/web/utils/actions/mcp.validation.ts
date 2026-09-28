@@ -23,7 +23,7 @@ export const createCustomMcpServerBody = z
   .object({
     displayName: z.string().trim().min(1, "Name is required").max(50),
     serverUrl: z.string().trim().url("Enter a valid URL").max(2048),
-    authType: z.enum(["oauth", "api-token"]),
+    authType: z.enum(["oauth", "api-token", "none"]),
     apiKey: z.string().trim().max(4096).optional(),
   })
   .refine((data) => data.authType !== "api-token" || !!data.apiKey, {

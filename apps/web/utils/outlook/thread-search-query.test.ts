@@ -51,6 +51,14 @@ describe("compileOutlookThreadSearch", () => {
       flagged: false,
       category: undefined,
     });
+    expect(compileOutlookThreadSearch("invoice in:spam")).toMatchObject({
+      search: '"invoice"',
+      folderKey: "junkemail",
+    });
+    expect(compileOutlookThreadSearch("invoice in:trash")).toMatchObject({
+      search: '"invoice"',
+      folderKey: "deleteditems",
+    });
     expect(compileOutlookThreadSearch('invoice folder:"Projects"')).toEqual({
       search: '"invoice"',
       folderKey: undefined,

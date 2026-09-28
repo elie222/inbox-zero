@@ -8,11 +8,10 @@ import {
 import {
   scheduleEmail,
   cancelScheduledEmail,
+  cancelEmailReminder,
   retryScheduledEmail,
   processScheduledEmail,
 } from "@/utils/scheduled-email/service";
-import prisma from "@/utils/prisma";
-import { SafeError } from "@/utils/error";
 
 export const scheduleEmailAction = actionClient
   .metadata({ name: "scheduleEmail" })
@@ -41,12 +40,5 @@ export const cancelEmailReminderAction = actionClient
   .metadata({ name: "cancelEmailReminder" })
   .inputSchema(scheduledEmailIdBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const result = await prisma.scheduledEmail.updateMany({
-      where: { id, emailAccountId, reminderStatus: "PENDING" },
-      data: { reminderStatus: "CANCELLED" },
-    });
-    if (!result.count)
-      throw new SafeError(
-        "This reminder has already started or is no longer pending.",
-      );
+    await cancelEmailReminder(emailAccountId, id);
   });

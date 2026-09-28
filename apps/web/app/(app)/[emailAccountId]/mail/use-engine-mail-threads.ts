@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
-import type { MailPredicate } from "@inboxzero/mail-core/queries";
+import type {
+  ConversationSummary,
+  MailPredicate,
+} from "@inboxzero/mail-core/queries";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { useMailboxWindow } from "@inboxzero/mail-react/use-mailbox-window";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -14,6 +17,7 @@ import { threadsQueryToConversationQuery } from "@/utils/mail-engine/threads-que
 import { isMetadataCoverageComplete } from "@/utils/mail-engine/coverage";
 
 const EMPTY_THREADS: ListThread[] = [];
+const NO_LABELS_BY_ACCOUNT: Record<string, EmailLabels> = {};
 
 export function useEngineMailThreads({
   emailAccountId,
@@ -71,15 +75,18 @@ export function useEngineMailThreads({
     };
   }, [client, enabled, mailbox.data?.connection, resolvedAccountIds]);
 
+  const previousThreads = useRef<PreviousThreads>({
+    rows: new Map(),
+    threads: EMPTY_THREADS,
+  });
   const threads = useMemo(() => {
     if (!client || !enabled) return EMPTY_THREADS;
     const conversations = mailbox.data?.conversations;
     if (!conversations?.length) return EMPTY_THREADS;
-    return conversations.map((conversation) =>
-      conversationSummaryToListThread(
-        conversation,
-        accounts?.[conversation.key.accountId],
-      ),
+    return reuseUnchangedThreads(
+      previousThreads.current,
+      conversations,
+      accounts,
     );
   }, [accounts, client, enabled, mailbox.data?.conversations]);
 
@@ -94,7 +101,7 @@ export function useEngineMailThreads({
     loadMore: mailbox.loadMore,
     coverageComplete: isMetadataCoverageComplete(mailbox.data?.coverage ?? []),
     failedAccountIds,
-    labelsByAccount: {} as Record<string, EmailLabels>,
+    labelsByAccount: NO_LABELS_BY_ACCOUNT,
     refetch: async () => {
       await client?.requestSync(resolvedAccountIds);
     },
@@ -103,6 +110,46 @@ export function useEngineMailThreads({
 
 export function useEngineMailClient(): MailClient | null {
   return useOptionalMailClient();
+}
+
+type PreviousThreads = {
+  rows: Map<
+    string,
+    {
+      summary: string;
+      account: CombinedListThread["account"] | undefined;
+      thread: ListThread;
+    }
+  >;
+  threads: ListThread[];
+};
+
+// Every pushed snapshot is freshly deserialized, so one changed conversation
+// would otherwise hand every row a new object and re-render the whole list.
+function reuseUnchangedThreads(
+  previous: PreviousThreads,
+  conversations: ConversationSummary[],
+  accounts: Record<string, CombinedListThread["account"]> | undefined,
+): ListThread[] {
+  const rows: PreviousThreads["rows"] = new Map();
+  const threads = conversations.map((conversation) => {
+    const key = `${conversation.key.accountId}:${conversation.key.conversationId}`;
+    const account = accounts?.[conversation.key.accountId];
+    const summary = JSON.stringify(conversation);
+    const cached = previous.rows.get(key);
+    const thread =
+      cached?.summary === summary && cached.account === account
+        ? cached.thread
+        : conversationSummaryToListThread(conversation, account);
+    rows.set(key, { summary, account, thread });
+    return thread;
+  });
+  const unchanged =
+    threads.length === previous.threads.length &&
+    threads.every((thread, index) => thread === previous.threads[index]);
+  previous.rows = rows;
+  if (!unchanged) previous.threads = threads;
+  return previous.threads;
 }
 
 async function readFailedAccountIds(

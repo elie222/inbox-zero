@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   parsedMessageBodyObservation,
   parsedMessageMetadata,
+  parsedMessagePatch,
 } from "./observations";
-import { bodyObservationSchema } from "@inboxzero/mail-core/sync";
+import {
+  bodyObservationSchema,
+  providerChangeSchema,
+} from "@inboxzero/mail-core/sync";
 import type { ParsedMessage } from "@/utils/types";
 
 describe("parsedMessageMetadata", () => {
@@ -48,6 +52,23 @@ describe("parsedMessageMetadata", () => {
       "https://outlook.office.com/mail/deeplink/read/m2",
     );
     expect(metadata.inboxSection).toBe("focused");
+  });
+
+  it("does not keep the inbox role on archived mail", () => {
+    const metadata = parsedMessageMetadata({
+      id: "m3",
+      threadId: "t3",
+      historyId: "1",
+      date: "2026-01-01T00:00:00.000Z",
+      parentFolderId: "AAMk-inbox-archive",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["ARCHIVE", "UNREAD"],
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      inline: [],
+    } as ParsedMessage);
+    expect(metadata.roles).toEqual([]);
+    expect(metadata.read).toBe(false);
   });
 });
 
@@ -131,5 +152,45 @@ describe("parsedMessageBodyObservation", () => {
       ],
       isMeetingInvitation: true,
     });
+  });
+
+  it("keeps an oversized message within sync protocol limits", () => {
+    const message = {
+      id: "m5",
+      threadId: "t5",
+      historyId: "6",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["INBOX"],
+      headers: {
+        from: "ada@example.com",
+        to: Array.from(
+          { length: 600 },
+          (_, index) => `person${index}@example.com`,
+        ).join(", "),
+        date: "",
+      },
+      textHtml: `<p>${"x".repeat(5_000_001)}</p>`,
+      attachments: Array.from({ length: 150 }, (_, index) => ({
+        attachmentId: `att-${index}`,
+        filename: `file-${index}.pdf`,
+        mimeType: "application/pdf",
+        size: 10,
+        headers: {},
+      })),
+      inline: [],
+    } as unknown as ParsedMessage;
+
+    expect(() =>
+      providerChangeSchema.parse(
+        parsedMessagePatch("acc-1", "google", message),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      bodyObservationSchema.parse(
+        parsedMessageBodyObservation("acc-1", message),
+      ),
+    ).not.toThrow();
   });
 });

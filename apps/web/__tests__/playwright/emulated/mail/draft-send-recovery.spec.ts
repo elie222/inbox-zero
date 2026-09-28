@@ -5,8 +5,11 @@ import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   conversationWithSubject,
+  expectSeamlessReplyHandoff,
   openMail,
   readLatestMailMutation,
+  UNDO_WINDOW_SEND_TIMEOUT_MS,
+  watchReplyHandoff,
 } from "./mail-test-helpers";
 
 test("sends an autosaved reply using its stable mailbox draft reference", async ({
@@ -30,16 +33,20 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
   });
   await editor.fill("Edited saved reply");
   expect((await saved).ok()).toBe(true);
+  const handoff = await watchReplyHandoff(page, "Edited saved reply");
   await page.getByRole("button", { name: "Send", exact: true }).first().click();
   await expect
-    .poll(async () => {
-      const row = await readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "reply",
-        threadId: "thr_draft_indicator",
-      });
-      return row;
-    })
+    .poll(
+      async () => {
+        const row = await readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_draft_indicator",
+        });
+        return row;
+      },
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
     .toMatchObject({
       status: "succeeded",
     });
@@ -60,6 +67,11 @@ test("sends an autosaved reply using its stable mailbox draft reference", async 
   );
   expect(sent).toHaveLength(1);
   expect(sent[0].textHtml).toContain("Edited saved reply");
+  await expect(
+    page.locator(`[data-thread-message-id="${sent[0].id}"]`),
+  ).toBeVisible();
+  // The saved draft leaves at the same moment its sent message arrives.
+  expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_draft_indicator`);
   await expect(
     page.locator(`[data-thread-message-id="${sent[0].id}"]`),

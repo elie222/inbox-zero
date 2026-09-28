@@ -34,11 +34,11 @@ export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
     conditions: [{ kind: "LABEL", labelName: "Important" }],
   },
   {
-    name: "To reply",
+    name: "To Reply",
     category: "General",
     description:
       "Conversations waiting on your answer, labelled by Reply Zero.",
-    conditions: [{ kind: "LABEL", labelName: "To reply" }],
+    conditions: [{ kind: "LABEL", labelName: "To Reply" }],
   },
   {
     name: "Starred",
@@ -47,10 +47,22 @@ export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
     conditions: [{ kind: "STARRED" }],
   },
   {
-    name: "Awaiting reply",
+    name: "Awaiting Reply",
     category: "General",
     description: "You answered — they have not. Nudge-worthy threads.",
     conditions: [{ kind: "LABEL", labelName: "Awaiting Reply" }],
+  },
+  {
+    name: "FYI",
+    category: "General",
+    description: "Worth knowing about, with nothing for you to answer.",
+    conditions: [{ kind: "LABEL", labelName: "FYI" }],
+  },
+  {
+    name: "Actioned",
+    category: "General",
+    description: "Conversations that are done, with nobody waiting on anyone.",
+    conditions: [{ kind: "LABEL", labelName: "Actioned" }],
   },
   {
     name: "Calendar",

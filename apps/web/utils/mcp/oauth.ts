@@ -178,7 +178,9 @@ export async function getAuthToken({
 }: {
   integration: ResolvedMcpIntegration;
   emailAccountId: string;
-}): Promise<string> {
+}): Promise<string | null> {
+  if (integration.authType === "none") return null;
+
   if (integration.authType === "api-token") {
     const connection = await prisma.mcpConnection.findFirst({
       where: {

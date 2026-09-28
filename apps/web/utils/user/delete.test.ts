@@ -77,6 +77,7 @@ describe("deleteUser", () => {
       "Transfer organization ownership before deleting your account.",
     );
 
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
     expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
@@ -123,6 +124,9 @@ describe("deleteUser", () => {
           },
         },
       },
+    });
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
     });
     expect(prisma.user.deleteMany).toHaveBeenCalledWith({
       where: { id: "user-1" },

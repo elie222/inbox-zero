@@ -72,27 +72,29 @@ describe("chat compaction", () => {
   });
 
   it("estimates tokens across text, tool input, and tool result", () => {
+    const toolOutput = { messages: [{ id: "thread-1", snippet: "Hello" }] };
     const messages: ModelMessage[] = [
-      {
-        role: "user",
-        content: "abcd",
-      },
+      { role: "user", content: "abcd" },
       {
         role: "assistant",
         content: [
-          {
-            type: "text",
-            text: "1234",
-          },
+          { type: "text", text: "1234" },
           {
             type: "tool-call",
+            toolCallId: "call-1",
             toolName: "searchInbox",
             input: { query: "status" },
           },
+        ],
+      },
+      {
+        role: "tool",
+        content: [
           {
             type: "tool-result",
+            toolCallId: "call-1",
             toolName: "searchInbox",
-            result: { total: 2 },
+            output: { type: "json", value: toolOutput },
           },
         ],
       },
@@ -103,10 +105,64 @@ describe("chat compaction", () => {
         ("abcd".length +
           "1234".length +
           JSON.stringify({ query: "status" }).length +
-          JSON.stringify({ total: 2 }).length) /
+          JSON.stringify(toolOutput).length) /
           4,
       ),
     );
+  });
+
+  it("compacts chats whose size comes from tool results", () => {
+    const messages: ModelMessage[] = [
+      { role: "user", content: "Clean up my inbox" },
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "searchInbox",
+            output: { type: "text", value: "a".repeat(400_000) },
+          },
+        ],
+      },
+    ];
+
+    expect(shouldCompact(messages)).toBe(true);
+  });
+
+  it("includes capped tool results in the compaction prompt", async () => {
+    mockGenerateText.mockResolvedValue({ text: "Summary" });
+    mockCreateGenerateText.mockReturnValue(mockGenerateText);
+    mockGetModel.mockReturnValue({ model: {}, providerOptions: undefined });
+
+    const hugeResult = `found-thread-1 ${"x".repeat(100_000)}`;
+    const messages: ModelMessage[] = [
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "searchInbox",
+            output: { type: "text", value: hugeResult },
+          },
+        ],
+      },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        role: "user" as const,
+        content: `User message ${index}`,
+      })),
+    ];
+
+    await compactMessages({
+      messages,
+      user: getEmailAccount(),
+      logger: createTestLogger(),
+    });
+
+    const prompt: string = mockGenerateText.mock.calls.at(-1)?.[0].prompt;
+    expect(prompt).toContain("[Tool result: found-thread-1");
+    expect(prompt.length).toBeLessThan(hugeResult.length);
   });
 
   it("uses a single threshold for all providers", () => {

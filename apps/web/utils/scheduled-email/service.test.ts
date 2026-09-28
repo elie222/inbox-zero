@@ -7,10 +7,12 @@ import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
 import {
   scheduleEmail,
   cancelScheduledEmail,
+  cancelEmailReminder,
   retryScheduledEmail,
   processScheduledEmail,
   hasReplySince,
   processDueScheduledEmails,
+  releaseHeldEmail,
 } from "./service";
 import { Prisma, type ScheduledEmail } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -61,6 +63,18 @@ describe("scheduled replies", () => {
           status: { in: ["PENDING", "BLOCKED_AUTH", "FAILED"] },
         },
       }),
+    );
+  });
+  it("cancels only a pending reminder", async () => {
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    await cancelEmailReminder("account", "id");
+    expect(prisma.scheduledEmail.updateMany).toHaveBeenCalledWith({
+      where: { id: "id", emailAccountId: "account", reminderStatus: "PENDING" },
+      data: { reminderStatus: "CANCELLED" },
+    });
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
+    await expect(cancelEmailReminder("account", "id")).rejects.toThrow(
+      "pending",
     );
   });
   it.each([
@@ -579,6 +593,19 @@ describe("scheduled replies", () => {
   });
 });
 
+describe("releaseHeldEmail", () => {
+  beforeEach(() => vi.resetAllMocks());
+  it("leaves a user-scheduled email to its own time and retry", async () => {
+    const scheduled = row({ status: "BLOCKED_AUTH", heldForUndo: false });
+
+    await expect(releaseHeldEmail(scheduled, logger, now)).resolves.toBe(
+      scheduled,
+    );
+    expect(prisma.scheduledEmail.updateMany).not.toHaveBeenCalled();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+});
+
 function row(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   return {
     id: "id",
@@ -598,6 +625,7 @@ function row(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
     remindAt: null,
     reminderStatus: "NONE",
     reminderStartedAt: null,
+    heldForUndo: false,
     ...overrides,
   };
 }

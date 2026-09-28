@@ -62,11 +62,11 @@ describe("createMcpToolsForAgent", () => {
     const result = await createMcpToolsForAgent("email-account-1");
 
     // The MCP endpoint keeps its /mcp suffix (unlike the OAuth discovery URL)
-    expect(mockCreateMcpTransport).toHaveBeenCalledWith(
-      "https://mcp.notion.com/mcp",
-      "auth-token",
-      { fetch: undefined },
-    );
+    expect(mockCreateMcpTransport).toHaveBeenCalledWith({
+      url: "https://mcp.notion.com/mcp",
+      headers: { Authorization: "Bearer auth-token" },
+      fetch: undefined,
+    });
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
 
