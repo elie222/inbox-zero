@@ -6,6 +6,7 @@ import {
 } from "../health";
 import { isTransientNetworkError } from "../network-errors";
 import { createRoutedBackendPorts } from "./backend";
+import { followMailboxSignal } from "./mailbox-signals";
 import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createOriginMailRequest } from "./request";
 
@@ -86,6 +87,14 @@ export function createUtilityChildRuntime(
           },
           onSqliteTransaction: (kind, durationMs) =>
             (kind === "read" ? sqliteReads : sqliteWrites).record(durationMs),
+          followMailboxSignal: (accountId, signal, onChange) =>
+            followMailboxSignal({
+              origin: message.origin,
+              accountId,
+              cookieHeader: requestCookieHeader,
+              signal,
+              onChange,
+            }),
         });
         return null;
       case "ipc":
@@ -109,6 +118,7 @@ export function createUtilityChildRuntime(
       case "close":
         for (const unsubscribe of subscriptions.values()) unsubscribe();
         subscriptions.clear();
+        cookieRequests.clear();
         await owner?.close();
         owner = undefined;
         return null;

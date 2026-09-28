@@ -16,6 +16,13 @@ export type ApnsAlert = {
   data?: Record<string, string>;
 };
 
+export type ApnsBackground = {
+  pushType: "background";
+  data: Record<string, string>;
+};
+
+export type ApnsNotification = ApnsAlert | ApnsBackground;
+
 export type RecordedApnsSend = {
   token: string;
   topic: string;
@@ -40,20 +47,50 @@ export function takeRecordedApnsSends() {
   return recordedSends.splice(0, recordedSends.length);
 }
 
+export function isStaleApnsToken(delivery: {
+  status: number;
+  reason: string | null;
+}) {
+  // 410 Unregistered and 400 BadDeviceToken never become valid again.
+  return (
+    delivery.status === 410 ||
+    delivery.reason === "Unregistered" ||
+    delivery.reason === "BadDeviceToken"
+  );
+}
+
+export function apnsTopic() {
+  return env.APNS_BUNDLE_ID || env.APNS_TOPIC || DEFAULT_TOPIC;
+}
+
+export function isApnsConfigured() {
+  if (isFakeApnsTransport()) return true;
+  return Boolean(
+    env.APNS_KEY_ID &&
+      env.APNS_TEAM_ID &&
+      env.APNS_PRIVATE_KEY &&
+      (env.APNS_BUNDLE_ID || env.APNS_TOPIC),
+  );
+}
+
 export async function deliverApnsNotifications({
   tokens,
   notification,
   logger,
+  sandbox = apnsUsesSandbox(),
 }: {
   tokens: string[];
-  notification: ApnsAlert;
+  notification: ApnsNotification;
   logger: Logger;
+  sandbox?: boolean;
 }): Promise<{ unregisteredTokens: string[]; retryTokens: string[] }> {
   if (tokens.length === 0) return { unregisteredTokens: [], retryTokens: [] };
 
-  const topic = env.APNS_TOPIC || DEFAULT_TOPIC;
-  const sandbox = apnsUsesSandbox();
+  const topic = apnsTopic();
   const payload = apnsPayload(notification);
+  const pushType = isBackgroundNotification(notification)
+    ? "background"
+    : "alert";
 
   if (isFakeApnsTransport()) {
     for (const token of tokens) {
@@ -74,6 +111,7 @@ export async function deliverApnsNotifications({
         return await postApns({
           authorization,
           payload,
+          pushType,
           sandbox,
           token,
           topic,
@@ -89,7 +127,7 @@ export async function deliverApnsNotifications({
   const retryTokens: string[] = [];
   for (const delivery of deliveries) {
     if (delivery.status === 200) continue;
-    if (delivery.status === 410 || delivery.reason === "Unregistered") {
+    if (isStaleApnsToken(delivery)) {
       unregisteredTokens.push(delivery.token);
       continue;
     }
@@ -111,7 +149,19 @@ function apnsUsesSandbox() {
   return env.NODE_ENV !== "production";
 }
 
-function apnsPayload(notification: ApnsAlert) {
+function isBackgroundNotification(
+  notification: ApnsNotification,
+): notification is ApnsBackground {
+  return "pushType" in notification && notification.pushType === "background";
+}
+
+function apnsPayload(notification: ApnsNotification) {
+  if (isBackgroundNotification(notification)) {
+    return {
+      aps: { "content-available": 1 },
+      ...notification.data,
+    };
+  }
   return {
     aps: {
       alert: {
@@ -151,12 +201,14 @@ function apnsAuthorization() {
 function postApns({
   authorization,
   payload,
+  pushType,
   sandbox,
   token,
   topic,
 }: {
   authorization: string;
   payload: Record<string, unknown>;
+  pushType: "alert" | "background";
   sandbox: boolean;
   token: string;
   topic: string;
@@ -170,8 +222,8 @@ function postApns({
       ":method": "POST",
       ":path": `/3/device/${token}`,
       authorization: `bearer ${authorization}`,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
+      "apns-push-type": pushType,
+      "apns-priority": pushType === "background" ? "5" : "10",
       "apns-topic": topic,
       "content-type": "application/json",
     });

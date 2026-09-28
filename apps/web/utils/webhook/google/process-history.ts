@@ -22,6 +22,7 @@ import {
 } from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 import type { gmail_v1 } from "@googleapis/gmail";
 
 const MAX_GMAIL_HISTORY_ID_GAP = 3000;
@@ -142,6 +143,10 @@ export async function processHistoryForUser(
             emailAccountId: validatedEmailAccount.id,
             lastSyncedHistoryId: historyId,
           });
+          await notifyMailboxChanged({
+            emailAccountId: validatedEmailAccount.id,
+            logger,
+          });
           return NextResponse.json({ ok: true });
         }
 
@@ -175,6 +180,10 @@ export async function processHistoryForUser(
             },
             logger,
           );
+          await notifyMailboxChanged({
+            emailAccountId: validatedEmailAccount.id,
+            logger,
+          });
         } else {
           // When we truncate a large gap, Gmail can return an empty recent window.
           // We still need to advance to the webhook historyId so we don't stay

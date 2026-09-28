@@ -58,6 +58,15 @@ vi.mock("@/utils/email/rate-limit", () => ({
   withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
 
+const { notifyMailboxChangedMock } = vi.hoisted(() => ({
+  notifyMailboxChangedMock: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/mailbox-push", () => ({
+  notifyMailboxChanged: (...args: unknown[]) =>
+    notifyMailboxChangedMock(...args),
+}));
+
 describe("Outlook processHistoryForUser - Folder Filtering", () => {
   const mockEmailAccount = {
     id: "account-123",
@@ -138,6 +147,10 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       expect.any(Object),
     );
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(notifyMailboxChangedMock).toHaveBeenCalledWith({
+      emailAccountId: "account-123",
+      logger: expect.anything(),
+    });
   });
 
   it("looks up the account by email when no subscription ID is provided", async () => {
@@ -195,6 +208,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(notifyMailboxChangedMock).not.toHaveBeenCalled();
   });
 
   it("skips messages in TRASH folder without acquiring lock", async () => {

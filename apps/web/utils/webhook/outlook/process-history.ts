@@ -19,6 +19,7 @@ import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-labe
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 export async function processHistoryForUser({
   preloadedEmailAccount,
@@ -187,6 +188,10 @@ export async function processHistoryForUser({
             logger,
           },
         );
+        await notifyMailboxChanged({
+          emailAccountId: validatedEmailAccount.id,
+          logger,
+        });
 
         return NextResponse.json({ ok: true });
       },
