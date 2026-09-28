@@ -1,8 +1,3 @@
-DROP TABLE "MailboxPushDevice";
-
-DROP TYPE "MailboxPushPlatform";
-DROP TYPE "MailboxPushEnvironment";
-
 CREATE TYPE "ApnsEnvironment" AS ENUM ('sandbox', 'production');
 
 ALTER TABLE "MobilePushToken"
