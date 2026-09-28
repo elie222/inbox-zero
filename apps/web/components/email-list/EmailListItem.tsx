@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
-import { useEmail } from "@/providers/EmailProvider";
+import { useEmailLabels } from "@/providers/EmailLabelsProvider";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LabelBadges } from "@/components/LabelBadges";
 
@@ -50,7 +50,7 @@ export const EmailListItem = forwardRef(
       [lastMessage?.labelIds],
     );
 
-    const { userLabels } = useEmail();
+    const { userLabels } = useEmailLabels();
     const labels = useMemo(
       () =>
         // No provider: the current folder already conveys archived state, so

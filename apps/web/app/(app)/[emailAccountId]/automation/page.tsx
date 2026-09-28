@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { EmailProvider } from "@/providers/EmailProvider";
+import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
@@ -45,7 +45,7 @@ export default async function AutomationPage({
   }
 
   return (
-    <EmailProvider>
+    <EmailLabelsProvider>
       <Suspense>
         <PermissionsCheck />
 
@@ -86,6 +86,6 @@ export default async function AutomationPage({
           <AutomationTabs />
         </PageWrapper>
       </Suspense>
-    </EmailProvider>
+    </EmailLabelsProvider>
   );
 }

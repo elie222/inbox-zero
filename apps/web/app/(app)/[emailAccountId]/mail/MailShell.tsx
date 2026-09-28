@@ -75,7 +75,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { useEmail } from "@/providers/EmailProvider";
+import { useEmailLabels } from "@/providers/EmailLabelsProvider";
 import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabels } from "@/hooks/useLabels";
@@ -120,7 +120,7 @@ export function MailShell() {
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
-  const { userLabels } = useEmail();
+  const { userLabels } = useEmailLabels();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
