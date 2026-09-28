@@ -15,6 +15,8 @@ import {
   toDbAuthType,
 } from "@/utils/mcp/resolve-integration";
 import { assertIntegrationsTierAccess } from "@/utils/mcp/tier-access";
+import { findIntegration } from "@/utils/mcp/integrations";
+import { getIntegrationProvider } from "@/utils/mcp/providers/registry";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { getCustomMcpServerUrlError } from "@/utils/mcp/safe-fetch";
 import prisma from "@/utils/prisma";
@@ -26,6 +28,21 @@ export const disconnectMcpConnectionAction = actionClient
   .inputSchema(disconnectMcpConnectionBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
+      const connection = await prisma.mcpConnection.findUnique({
+        where: { id: connectionId, emailAccountId },
+        select: { integration: { select: { name: true } } },
+      });
+      if (!connection) throw new SafeError("Connection not found");
+
+      // Revoke at the provider first so it never keeps tokens we no longer track
+      const provider = findIntegration(connection.integration.name)?.provider;
+      if (provider) {
+        await getIntegrationProvider(provider.id).disconnect({
+          app: provider.app,
+          emailAccountId,
+        });
+      }
+
       await prisma.mcpConnection.delete({
         where: { id: connectionId, emailAccountId },
       });

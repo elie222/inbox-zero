@@ -95,7 +95,7 @@ describe("startDesktopAutoUpdate", () => {
 
   it("does not report a check that failed because the network dropped", async () => {
     vi.mocked(captureDesktopError).mockClear();
-    autoUpdater.checkForUpdatesAndNotify.mockRejectedValueOnce(
+    autoUpdater.checkForUpdates.mockRejectedValueOnce(
       new Error("net::ERR_NETWORK_CHANGED"),
     );
 

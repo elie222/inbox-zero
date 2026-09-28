@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 import { fromDbAuthType } from "@/utils/mcp/resolve-integration";
+import { getIntegrationProvider } from "@/utils/mcp/providers/registry";
 import prisma from "@/utils/prisma";
 
 export type GetIntegrationsResponse = Awaited<ReturnType<typeof getData>>;
@@ -41,17 +42,23 @@ async function getData(emailAccountId: string) {
   const findConnection = (name: string) =>
     connections.find((connection) => connection.integration.name === name);
 
-  const builtIn = Object.values(MCP_INTEGRATIONS).map((integration) => ({
-    name: integration.name,
-    displayName: integration.displayName,
-    shortName: integration.shortName,
-    description: integration.description,
-    url: integration.url,
-    comingSoon: integration.comingSoon,
-    authType: integration.authType,
-    isCustom: false,
-    connection: findConnection(integration.name),
-  }));
+  const builtIn = Object.values(MCP_INTEGRATIONS)
+    .filter(
+      (integration) =>
+        !integration.provider ||
+        getIntegrationProvider(integration.provider.id).isConfigured(),
+    )
+    .map((integration) => ({
+      name: integration.name,
+      displayName: integration.displayName,
+      shortName: integration.shortName,
+      description: integration.description,
+      url: integration.url,
+      comingSoon: integration.comingSoon,
+      authType: integration.authType,
+      isCustom: false,
+      connection: findConnection(integration.name),
+    }));
 
   const custom = customIntegrations.map((integration) => {
     const host = getHostname(integration.serverUrl);

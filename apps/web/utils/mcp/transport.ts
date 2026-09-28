@@ -1,18 +1,15 @@
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { McpServerConnection } from "@/utils/mcp/server-connection";
 
-export function createMcpTransport(
-  serverUrl: string,
-  accessToken: string | null,
-  options?: { fetch?: FetchLike },
-): StreamableHTTPClientTransport {
-  return new StreamableHTTPClientTransport(new URL(serverUrl), {
-    fetch: options?.fetch,
+export function createMcpTransport({
+  url,
+  headers,
+  fetch,
+}: McpServerConnection): StreamableHTTPClientTransport {
+  return new StreamableHTTPClientTransport(new URL(url), {
+    fetch,
     requestInit: {
-      headers: {
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        "Content-Type": "application/json",
-      },
+      headers: { ...headers, "Content-Type": "application/json" },
     },
   });
 }

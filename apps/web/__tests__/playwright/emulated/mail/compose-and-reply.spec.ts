@@ -603,15 +603,11 @@ test("keeps a sent forward in the thread it came from", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
-  const sentByMe = page.getByText("Me", { exact: true });
-  const initialSentByMeCount = await sentByMe.count();
-
+  const recipient = `forward-${testInfo.retry}@example.com`;
   await sourceMessage
     .getByRole("button", { name: "Forward", exact: true })
     .click();
-  await sourceMessage
-    .getByRole("combobox", { name: "To" })
-    .fill("recipient@example.com");
+  await sourceMessage.getByRole("combobox", { name: "To" }).fill(recipient);
   const editor = sourceMessage.getByRole("textbox", {
     name: "Email message",
   });
@@ -634,7 +630,14 @@ test("keeps a sent forward in the thread it came from", async ({
     .toMatchObject({ status: "succeeded" });
   await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
   await expect(sourceMessage).toBeVisible();
-  await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
+  // Messages sent earlier in this shared thread can still be settling when the
+  // test starts, so find this forward by its unique recipient rather than a
+  // count. The body renders in an iframe, so the header is what's matchable.
+  await expect(
+    page
+      .locator("[data-thread-message-id]")
+      .filter({ hasText: `to ${recipient}` }),
+  ).toHaveCount(1);
   await expect(
     page
       .getByRole("region", { name: "Reply delivery status" })

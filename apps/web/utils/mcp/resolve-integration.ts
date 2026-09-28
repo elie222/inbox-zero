@@ -1,6 +1,7 @@
 import type { McpAuthType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { findIntegration } from "@/utils/mcp/integrations";
+import type { IntegrationProviderId } from "@/utils/mcp/providers/types";
 
 export const CUSTOM_INTEGRATION_PREFIX = "custom_";
 
@@ -8,6 +9,7 @@ export type ResolvedMcpIntegration = {
   name: string;
   displayName: string;
   serverUrl?: string;
+  provider?: { id: IntegrationProviderId; app: string };
   authType: "oauth" | "api-token" | "none";
   scopes: string[];
   skipResourceParam?: boolean;
