@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { EmailProvider } from "@/providers/EmailProvider";
+import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
 import { Chat } from "@/components/assistant-chat/chat";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
@@ -15,7 +15,7 @@ export default async function AssistantPage({
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   return (
-    <EmailProvider>
+    <EmailLabelsProvider>
       <Suspense>
         <PermissionsCheck />
 
@@ -23,6 +23,6 @@ export default async function AssistantPage({
           <Chat open />
         </div>
       </Suspense>
-    </EmailProvider>
+    </EmailLabelsProvider>
   );
 }

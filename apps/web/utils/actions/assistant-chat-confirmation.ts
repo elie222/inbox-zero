@@ -521,7 +521,7 @@ async function confirmPendingReplyEmailAction({
   const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
-    contentOverride || output.pendingAction.content,
+    escapeHtml(contentOverride || output.pendingAction.content),
     replyOptions,
   );
 

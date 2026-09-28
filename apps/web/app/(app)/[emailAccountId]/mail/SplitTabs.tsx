@@ -1,7 +1,7 @@
 "use client";
 
 import { PlusIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,6 +28,8 @@ export type SplitTabsProps = {
   onNewSplit: () => void;
   /** Split creation stays account-scoped, so it is hidden in All accounts. */
   canCreateSplits: boolean;
+  /** Sits before the tabs, lined up with the row checkboxes below. */
+  leading?: ReactNode;
   className?: string;
 };
 
@@ -40,6 +42,7 @@ export function SplitTabs({
   onEdit,
   onNewSplit,
   canCreateSplits,
+  leading,
   className,
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -71,6 +74,7 @@ export function SplitTabs({
         className,
       )}
     >
+      {leading ? <span className="mr-1.5 flex">{leading}</span> : null}
       {splits.map((split) => {
         const active = split.id === activeSplitId;
         const countLabel = splitCountLabel(countsById?.get(split.id));

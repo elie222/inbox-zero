@@ -10,14 +10,14 @@ interface Context {
   userLabels: EmailLabels;
 }
 
-const EmailContext = createContext<Context>({
+const EmailLabelsContext = createContext<Context>({
   userLabels: {},
   labelsIsLoading: false,
 });
 
-export const useEmail = () => useContext<Context>(EmailContext);
+export const useEmailLabels = () => useContext<Context>(EmailLabelsContext);
 
-export function EmailProvider(props: { children: React.ReactNode }) {
+export function EmailLabelsProvider(props: { children: React.ReactNode }) {
   const { provider, isLoading: accountIsLoading } = useAccount();
   const { userLabels: rawUserLabels, isLoading } = useLabels();
 
@@ -45,8 +45,8 @@ export function EmailProvider(props: { children: React.ReactNode }) {
   );
 
   return (
-    <EmailContext.Provider value={value}>
+    <EmailLabelsContext.Provider value={value}>
       {props.children}
-    </EmailContext.Provider>
+    </EmailLabelsContext.Provider>
   );
 }

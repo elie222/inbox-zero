@@ -166,4 +166,59 @@ describe("email formatting", () => {
       "First paragraph.<br><br>Second paragraph.<br><br>Third paragraph.",
     );
   });
+  it("inserts HTML-safe reply content as-is, keeping signature HTML and line breaks", () => {
+    const { html } = createReplyContent({
+      textContent:
+        'Is a &lt; b?\n\n<div dir="ltr"><b>Alex</b><br>CEO &amp; Founder</div>',
+      message: getMessage(),
+    });
+
+    expect(html).toContain(
+      '<div dir="ltr">Is a &lt; b?<br><br><div dir="ltr"><b>Alex</b><br>CEO &amp; Founder</div></div>',
+    );
+  });
+
+  it("keeps escaped markup in text content escaped", () => {
+    const { html } = createReplyContent({
+      textContent:
+        'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;\nNext line',
+      message: getMessage(),
+    });
+
+    expect(html).toContain(
+      'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;<br>Next line',
+    );
+    expect(html).not.toContain("<script>");
+  });
+
+  it("escapes quoted plain text when the original has no HTML body", () => {
+    const { html, text } = createReplyContent({
+      textContent: "Thanks",
+      message: getMessage({
+        textPlain: "Contact <name@example.com>\nif a < b",
+        textHtml: undefined,
+      }),
+    });
+
+    expect(html).toContain("Contact &lt;name@example.com&gt;<br>if a &lt; b");
+    expect(html).not.toContain("<name@example.com>");
+    expect(text).toContain("> Contact <name@example.com>\n> if a < b");
+  });
 });
+
+function getMessage(
+  overrides: Partial<Pick<ParsedMessage, "textPlain" | "textHtml">> = {},
+): Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> {
+  return {
+    headers: {
+      date: "Thu, 6 Feb 2025 23:23:47 +0200",
+      from: "John Doe <john@example.com>",
+      subject: "Test Email",
+      to: "jane@example.com",
+      "message-id": "<123@example.com>",
+    },
+    textPlain: "Original message content",
+    textHtml: "<div>Original message content</div>",
+    ...overrides,
+  };
+}

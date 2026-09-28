@@ -15,6 +15,7 @@ import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenSt
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import {
   Avatar,
   AvatarFallbackColor,
@@ -130,12 +131,14 @@ export const ThreadRow = memo(function ThreadRow({
       onToggleSelect={onToggleSelect}
       participantSummary={participantSummary}
       renderSelectionControl={({ ariaLabel, checked, onClick, visible }) => (
-        <Tooltip shortcuts={["select"]}>
+        // Opening above would cover the select-all checkbox for the first row.
+        <Tooltip shortcuts={["select"]} side="right">
           <Checkbox
             aria-label={ariaLabel}
             checked={checked}
             className={cn(
-              "size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
+              mailCheckboxClassName,
+              "transition-opacity",
               visible
                 ? "opacity-100"
                 : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",

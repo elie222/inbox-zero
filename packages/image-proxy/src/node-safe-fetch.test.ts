@@ -1,10 +1,10 @@
 import { lookup } from "node:dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createSafeImageProxyFetch,
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
-} from "./node-safe-fetch";
+} from "@inboxzero/network/safe-url";
+import { createSafeImageProxyFetch } from "./node-safe-fetch";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),

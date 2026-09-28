@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { scanSensitiveContent } from "@/utils/dlp/sensitive-content";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { isSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 
 const publicCompanyContextSchema = z.strictObject({
   name: z
