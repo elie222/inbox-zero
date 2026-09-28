@@ -117,6 +117,7 @@ import type {
 import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
+import { getForwardingAddresses } from "@/utils/gmail/settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
@@ -2047,6 +2048,13 @@ export class GmailProvider implements EmailProvider {
 
   async getFolderCounts() {
     return [];
+  }
+
+  async getForwardingAddresses(): Promise<string[]> {
+    const addresses = await getForwardingAddresses(this.client);
+    return addresses
+      .map((address) => address.forwardingEmail)
+      .filter((email): email is string => !!email);
   }
 
   async renameFolder(_folderId: string, _name: string): Promise<void> {

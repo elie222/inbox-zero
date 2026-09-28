@@ -2508,6 +2508,11 @@ export class OutlookProvider implements EmailProvider {
     return addOutlookSystemFolderTypes(folders, folderIds);
   }
 
+  async getForwardingAddresses(): Promise<string[]> {
+    // Graph has no equivalent of Gmail's verified forwarding addresses list
+    return [];
+  }
+
   async getFolderCounts(): Promise<EmailFolderCount[]> {
     const folders = await this.getFolders();
     return flattenOutlookFolders(folders).map((folder) => ({
