@@ -1,6 +1,13 @@
 "use client";
 
-import { memo, useId, useRef, useState, type RefObject } from "react";
+import {
+  memo,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   ArchiveIcon,
   ChevronDownIcon,
@@ -31,7 +38,6 @@ import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-sea
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverAnchor,
@@ -60,9 +66,9 @@ export type ListToolbarProps = {
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
-  threadCount: number;
+  /** Rendered here only when the split tabs row isn't showing to hold it. */
+  selectAll?: ReactNode;
   selectedCount: number;
-  onSelectAll: () => void;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
   isUnreadSelected: boolean;
@@ -89,9 +95,8 @@ export const ListToolbar = memo(function ListToolbar({
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
-  threadCount,
+  selectAll,
   selectedCount,
-  onSelectAll,
   onArchiveSelected,
   onDeleteSelected,
   isUnreadSelected,
@@ -101,39 +106,11 @@ export const ListToolbar = memo(function ListToolbar({
   onClearSelection,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
-  const allSelected = threadCount > 0 && selectedCount === threadCount;
-  let selectAllState: boolean | "indeterminate" = false;
-  if (allSelected) {
-    selectAllState = true;
-  } else if (selectedCount > 0) {
-    selectAllState = "indeterminate";
-  }
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       <MailTitlebarNav showHistory={isDesktopApp} />
-      <Tooltip
-        content={allSelected ? "Deselect all conversations" : undefined}
-        shortcuts={
-          allSelected
-            ? undefined
-            : [{ id: "selectAll", label: "Select all conversations" }]
-        }
-      >
-        <Checkbox
-          aria-label="Select all conversations"
-          checked={selectAllState}
-          className="size-4 rounded border-input"
-          disabled={threadCount === 0}
-          onCheckedChange={(checked) => {
-            if (checked === true) {
-              onSelectAll();
-            } else {
-              onClearSelection();
-            }
-          }}
-        />
-      </Tooltip>
+      {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
           shifts down to make room for a new row. */}

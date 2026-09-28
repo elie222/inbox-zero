@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getMailCategories } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import {
@@ -48,6 +48,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   countAccountIds,
   portableLabelSplits,
   labelsByAccount,
+  leading,
 }: {
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
@@ -59,6 +60,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   countAccountIds: string[];
   portableLabelSplits?: PortableLabelSplit[];
   labelsByAccount?: Record<string, EmailLabels>;
+  leading?: ReactNode;
 }) {
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
@@ -227,6 +229,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
       <SplitTabs
         splits={splits}
         countsById={countsById}
+        leading={leading}
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
         onDelete={onDelete}
