@@ -25,6 +25,7 @@ import {
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
+import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
@@ -1333,6 +1334,7 @@ export function MailShell() {
             >
               <ListToolbar
                 layout={layout}
+                isDesktopApp={isDesktopApp}
                 searchQuery={searchParam ?? ""}
                 onSearch={setSearch}
                 searchValue={searchValue}
@@ -1435,56 +1437,66 @@ export function MailShell() {
           )}
 
           {showReader ? (
-            <MailReaderPane
-              readerEmailAccount={readerEmailAccount}
-              readerKey={openReaderThreadKey}
-              planSelection={deferredReaderSelection}
-              dataReady={
-                !openThreadSelection ||
-                (readerSelectionSettled &&
-                  Boolean(openThreadData || openThreadError))
-              }
-              onReady={setVisibleReaderThreadKey}
-              onClose={closeReader}
-              showFixWithChat={
-                !isAllAccounts ||
-                openThreadSelection?.emailAccountId === emailAccountId
-              }
-              lastMessage={openMessages.at(-1) ?? null}
-              isStarred={allStarred}
-              onToggleStar={starTargets}
-              onMarkSpam={markSpamTargets}
-              onDelete={trashTargets}
-              onLabel={canLabel ? openLabelPicker : undefined}
-              onMove={canLabel ? openMovePicker : undefined}
-              isMenuOpen={isMenuOpen}
-              onMenuOpenChange={setIsMenuOpen}
-              enableMessageNavigation={!sidePanelThreadId}
-              thread={openThread ?? null}
-              threadId={openThreadId}
-              detailSelectionSettled={readerSelectionSettled}
-              loading={
-                Boolean(openThreadSelection) &&
-                (!readerSelectionSettled || isOpenThreadLoading)
-              }
-              error={readerSelectionSettled ? openThreadError : undefined}
-              messages={openMessages}
-              localAvailability={
-                readerSelectionSettled ? openThreadLocalAvailability : undefined
-              }
-              userLabels={readerUserLabels}
-              layout={layout}
-              labelHref={labelHref}
-              onRemoveLabel={onRemoveLabel}
-              onArchive={archiveTargets}
-              isUnread={isOpenThreadUnread}
-              onMarkRead={markOpenThreadRead}
-              onMarkUnread={markUnreadTargets}
-              refetch={refetchReader}
-              onSendSuccess={onSendSuccess}
-              autoOpenReplyForMessageId={replyToMessageId}
-              autoOpenForwardForMessageId={forwardToMessageId}
-            />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {showList ? null : (
+                <MailTitlebarNav
+                  showHistory={isDesktopApp}
+                  className="px-3 pt-3"
+                />
+              )}
+              <MailReaderPane
+                readerEmailAccount={readerEmailAccount}
+                readerKey={openReaderThreadKey}
+                planSelection={deferredReaderSelection}
+                dataReady={
+                  !openThreadSelection ||
+                  (readerSelectionSettled &&
+                    Boolean(openThreadData || openThreadError))
+                }
+                onReady={setVisibleReaderThreadKey}
+                onClose={closeReader}
+                showFixWithChat={
+                  !isAllAccounts ||
+                  openThreadSelection?.emailAccountId === emailAccountId
+                }
+                lastMessage={openMessages.at(-1) ?? null}
+                isStarred={allStarred}
+                onToggleStar={starTargets}
+                onMarkSpam={markSpamTargets}
+                onDelete={trashTargets}
+                onLabel={canLabel ? openLabelPicker : undefined}
+                onMove={canLabel ? openMovePicker : undefined}
+                isMenuOpen={isMenuOpen}
+                onMenuOpenChange={setIsMenuOpen}
+                enableMessageNavigation={!sidePanelThreadId}
+                thread={openThread ?? null}
+                threadId={openThreadId}
+                detailSelectionSettled={readerSelectionSettled}
+                loading={
+                  Boolean(openThreadSelection) &&
+                  (!readerSelectionSettled || isOpenThreadLoading)
+                }
+                error={readerSelectionSettled ? openThreadError : undefined}
+                messages={openMessages}
+                localAvailability={
+                  readerSelectionSettled
+                    ? openThreadLocalAvailability
+                    : undefined
+                }
+                userLabels={readerUserLabels}
+                layout={layout}
+                labelHref={labelHref}
+                onRemoveLabel={onRemoveLabel}
+                onArchive={archiveTargets}
+                isUnread={isOpenThreadUnread}
+                onMarkRead={markOpenThreadRead}
+                onMarkUnread={markUnreadTargets}
+                refetch={refetchReader}
+                onSendSuccess={onSendSuccess}
+                autoOpenReplyForMessageId={replyToMessageId}
+                autoOpenForwardForMessageId={forwardToMessageId}
+              />
+            </div>
           ) : null}
         </div>
       </div>

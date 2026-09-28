@@ -259,16 +259,9 @@ export function MailSidebar({
         className,
       )}
     >
+      {/* Collapsed, the toggle moves beside the traffic lights (`MailTitlebarNav`). */}
       {collapsed ? (
-        <div
-          data-desktop-mac-titlebar-spacer
-          className="mb-2.5 flex shrink-0 justify-center"
-        >
-          <SidebarTrigger
-            name="left-sidebar"
-            className="text-muted-foreground"
-          />
-        </div>
+        <div data-desktop-mac-titlebar-spacer className="shrink-0" />
       ) : (
         <div className="mb-2.5 flex shrink-0 items-center gap-1">
           <Link
