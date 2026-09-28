@@ -290,8 +290,8 @@ Morgan`,
           const calendarAvailability = {
             timezone: "Asia/Jerusalem",
             suggestedTimes: [
-              { start: "2026-05-13 10:00", end: "2026-05-13 10:30" },
-              { start: "2026-05-13 14:00", end: "2026-05-13 14:30" },
+              { start: "2026-05-18 10:00", end: "2026-05-18 10:30" },
+              { start: "2026-05-19 14:00", end: "2026-05-19 14:30" },
             ],
           };
 
@@ -809,7 +809,7 @@ thanks,`,
           const paymentReplyCriterion = {
             name: "Concise contact-specific payment reply",
             description:
-              "The draft should be one or two short sentences plus an optional compact greeting/sign-off. It should not ask an unnecessary clarification question or create a multi-paragraph process update. It may either say the user is checking, commit to handling it, or answer directly in the same concise style the user uses with this sender.",
+              "The draft should be one or two short sentences plus an optional compact greeting/sign-off. It should not ask an unnecessary clarification question or create a multi-paragraph process update. It may either say the user is checking, commit to handling it, or answer directly in the same concise style the user uses with this sender. A direct answer with a short placeholder for whether the payment was sent is acceptable.",
           };
           const expectedPaymentReply =
             "A short, direct reply suitable for a close/contact-specific relationship. It should avoid unnecessary clarification and processy filler. A useful action-oriented reply is acceptable because the user can complete the action before sending.";
@@ -1275,11 +1275,11 @@ Sam`,
             input: result.modelEvidence,
             output: result.reply,
             expected:
-              "A draft written as the user, in the sender's language, that leaves the roadmap answer for the user to fill in, without inventing plans. It must not substitute a promise to check, look into it, or follow up later for the answer, and must not voice the drafter's own lack of information or reluctance to guess.",
+              "A draft written as the user, in the sender's language, that answers whether the features are planned. Saying nothing is planned or confirmed yet is a valid answer.",
             criterion: {
               name: "No stalling or drafter uncertainty",
               description:
-                "The user knows their own roadmap even though the drafter was not told it. The draft fails if it replaces the answer with a deferral such as checking and getting back to the sender, or if it narrates that the writer lacks the information or does not want to guess. It also fails if it invents concrete plans or timelines. A short placeholder for the unknown facts is acceptable.",
+                "The draft fails if it promises to check, confirm, or get back to the sender later instead of answering; if it refers to its own inputs, such as not seeing something in the thread, not having it in front of the writer, or not wanting to guess; or if it invents specific plans or dates. A direct answer passes. Saying the features are not decided, or that the writer can't yet say whether or when they will happen, is a direct answer.",
             },
           });
           const pass =
@@ -1289,7 +1289,8 @@ Sam`,
             testName,
             model: model.label,
             pass,
-            expected: "no deferral or drafter uncertainty, not high confidence",
+            expected:
+              "answers without a check-back or drafter leak, not high confidence",
             actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
               result.reply,
               judgeResult,

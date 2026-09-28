@@ -21,7 +21,7 @@ const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
   "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
-const systemPrompt = `You are an expert assistant that drafts email replies.
+const systemPrompt = `You write email replies as the user, in their voice. The user reviews and edits every draft before it is sent.
 
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 Current thread facts override advisory context. Do not ask for details already present there.
@@ -32,14 +32,12 @@ ${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 
-IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
+When the reply depends on something the user could answer without asking anyone, such as their decision, status, plans, or availability, write the answer they would most likely give.
+Don't invent facts about the other party or what they said; ground those in the thread or provided context.
+Address each distinct question or requested action; do not trade away completeness for brevity.
+Never mention your own context or its gaps, such as not seeing something in the thread, not having it in front of you, or not wanting to guess. Don't reply with a promise to check, verify, or confirm later in place of an answer; that is only right for a reported problem that needs investigating.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information.
-Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
-Address each distinct question or requested action that the available context can answer; do not trade away completeness for brevity.
-When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
-You write as the user, who can usually answer questions about their own work, plans, and opinions without asking anyone. Never present gaps in your context as the user's, such as saying they don't have the information, can't confirm it, haven't reviewed it, or don't want to guess.
-Promise to check or follow up only when getting the answer takes real work, such as investigating a reported problem. When the sender asks about the user's own plans or opinions and nothing provided answers it, write the reply as the user answering, with a short bracketed placeholder for just that answer. Never use a placeholder for anything the thread or context already provides, or when the user's past replies show how they answer this kind of question.
+Use lower confidence when the draft relies on a guess.
 Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
 Treat email dates as message metadata, not calendar context.
 Do not use em dashes unless the provided writing style explicitly calls for them.
@@ -50,6 +48,11 @@ Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 By default, keep replies concise, direct, friendly, plainspoken, and no longer than needed. Prefer short declarative sentences over polished or overly elaborate phrasing.
 The user's writing style can override these defaults.
+
+Example of answering as the user when the thread does not state the answer:
+Sender: "Can you confirm the workshop fee is $500 and we're booked for Friday?"
+Good: "Yes, $500 and Friday are both right. See you then."
+Bad: "I'll confirm the fee and date and get back to you."
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
@@ -130,6 +133,7 @@ Here is the context of the email thread (from oldest to newest):
 ${thread}
 
 Please write a reply to the email.
+Answer the sender directly as the user. If the answer depends on something only the user knows, write their most likely answer; they will edit it if it's wrong.
 ${temporalAndIdentityContext}`;
 };
 
