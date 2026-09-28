@@ -57,7 +57,7 @@ vi.mock("@/utils/webhook-validation", async (importOriginal) => ({
   validateWebhookUrl: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
-vi.mock("@/utils/network/safe-http-url", () => ({
+vi.mock("@inboxzero/network/safe-url", () => ({
   resolveSafeExternalHttpUrl: vi.fn(async (url: string) => ({
     url: new URL(url),
     lookup: (

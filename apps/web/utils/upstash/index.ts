@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { isSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 
 const logger = createScopedLogger("upstash");
 

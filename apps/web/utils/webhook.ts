@@ -4,7 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { ExecutedRule } from "@/generated/prisma/client";
-import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { resolveSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 import {
   allowPrivateIps,
   validateWebhookUrl,

@@ -293,6 +293,9 @@ importers:
       '@inboxzero/mail-ui':
         specifier: workspace:*
         version: link:../../packages/mail-ui
+      '@inboxzero/network':
+        specifier: workspace:*
+        version: link:../../packages/network
       '@inboxzero/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -961,9 +964,9 @@ importers:
 
   packages/image-proxy:
     dependencies:
-      ipaddr.js:
-        specifier: 2.5.0
-        version: 2.5.0
+      '@inboxzero/network':
+        specifier: workspace:*
+        version: link:../network
     devDependencies:
       '@types/node':
         specifier: 24.10.1
@@ -1072,6 +1075,22 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/network:
+    dependencies:
+      ipaddr.js:
+        specifier: 2.5.0
+        version: 2.5.0
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/scheduling:
     dependencies:
