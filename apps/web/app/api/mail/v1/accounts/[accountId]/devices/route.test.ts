@@ -80,6 +80,16 @@ describe("/api/mail/v1/accounts/:accountId/devices", () => {
     expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
   });
 
+  it("returns 400 for invalid JSON", async () => {
+    const register = await POST(rawRequest("POST", "{"), context());
+    const unregister = await DELETE(rawRequest("DELETE", "{"), context());
+
+    expect(register.status).toBe(400);
+    expect(unregister.status).toBe(400);
+    expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
+    expect(prisma.mobilePushToken.findFirst).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-hex device token", async () => {
     await expect(
       POST(
@@ -124,6 +134,17 @@ function deviceBody(overrides?: { token?: string }) {
     appVersion: "1.2.3",
     ...overrides,
   };
+}
+
+function rawRequest(method: "DELETE" | "POST", body: string) {
+  return new NextRequest(
+    "http://localhost:3000/api/mail/v1/accounts/email-account-1/devices",
+    {
+      method,
+      body,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 function request(method: "DELETE" | "POST", body: unknown) {

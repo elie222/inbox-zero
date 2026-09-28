@@ -47,6 +47,8 @@ export async function watchMailboxSignals(input: {
   rescanMs?: number;
 }) {
   const active = new Map<string, AbortController>();
+  const follows = new Set<Promise<void>>();
+  const changes = new Set<Promise<void>>();
   try {
     while (!input.signal.aborted) {
       let accountIds: string[];
@@ -74,6 +76,8 @@ export async function watchMailboxSignals(input: {
           controller,
           active,
           abortChild,
+          follows,
+          changes,
         });
       }
       await abortableDelay(input.rescanMs ?? ACCOUNT_RESCAN_MS, input.signal);
@@ -81,6 +85,10 @@ export async function watchMailboxSignals(input: {
   } finally {
     for (const controller of active.values()) controller.abort();
     active.clear();
+    // Followers can still emit a sync while they unwind. Drain that after
+    // the followers themselves so close does not race the engine.
+    await Promise.allSettled(follows);
+    await Promise.allSettled(changes);
   }
 }
 
@@ -90,23 +98,29 @@ function startAccountFollow({
   controller,
   active,
   abortChild,
+  follows,
+  changes,
 }: {
   input: Parameters<typeof watchMailboxSignals>[0];
   accountId: string;
   controller: AbortController;
   active: Map<string, AbortController>;
   abortChild: () => void;
+  follows: Set<Promise<void>>;
+  changes: Set<Promise<void>>;
 }) {
-  input
-    .follow(accountId, controller.signal, () => {
-      const pending = input.onChange(accountId);
-      if (pending instanceof Promise) pending.catch(() => undefined);
-    })
-    .finally(() => {
-      input.signal.removeEventListener("abort", abortChild);
-      if (active.get(accountId) === controller) active.delete(accountId);
-    })
-    .catch(() => undefined);
+  track(
+    follows,
+    input
+      .follow(accountId, controller.signal, () => {
+        const pending = input.onChange(accountId);
+        if (pending instanceof Promise) track(changes, pending);
+      })
+      .finally(() => {
+        input.signal.removeEventListener("abort", abortChild);
+        if (active.get(accountId) === controller) active.delete(accountId);
+      }),
+  );
 }
 
 async function readMailboxSignal(
@@ -196,6 +210,17 @@ function abortableDelay(ms: number, signal: AbortSignal) {
       resolve();
     };
     signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function track(work: Set<Promise<void>>, pending: Promise<unknown>) {
+  const settled = pending.then(
+    () => undefined,
+    () => undefined,
+  );
+  work.add(settled);
+  settled.finally(() => {
+    work.delete(settled);
   });
 }
 

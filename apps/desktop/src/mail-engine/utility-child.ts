@@ -43,7 +43,13 @@ export function createUtilityChildRuntime(
 ) {
   let owner: DesktopMailOwner | undefined;
   const subscriptions = new Map<string, () => void>();
-  const cookieRequests = new Map<string, (cookieHeader: string) => void>();
+  const cookieRequests = new Map<
+    string,
+    {
+      resolve: (cookieHeader: string) => void;
+      reject: (error: Error) => void;
+    }
+  >();
   const eventLoopDelay = startEventLoopDelayMonitor();
   const sqliteReads = createDurationRecorder();
   const sqliteWrites = createDurationRecorder();
@@ -51,10 +57,17 @@ export function createUtilityChildRuntime(
   // Session cookies stay in the main process; it answers per request.
   function requestCookieHeader(url: string) {
     const requestId = randomUUID();
-    return new Promise<string>((resolve) => {
-      cookieRequests.set(requestId, resolve);
+    return new Promise<string>((resolve, reject) => {
+      cookieRequests.set(requestId, { resolve, reject });
       post({ type: "cookieHeaderRequest", requestId, url });
     });
+  }
+
+  function rejectPendingCookieRequests() {
+    for (const pending of cookieRequests.values()) {
+      pending.reject(new Error("mail engine is closed"));
+    }
+    cookieRequests.clear();
   }
 
   function requireOwner() {
@@ -118,14 +131,14 @@ export function createUtilityChildRuntime(
       case "close":
         for (const unsubscribe of subscriptions.values()) unsubscribe();
         subscriptions.clear();
-        cookieRequests.clear();
+        rejectPendingCookieRequests();
         await owner?.close();
         owner = undefined;
         return null;
       case "health":
         return health();
       case "cookieHeader":
-        cookieRequests.get(message.requestId)?.(message.cookieHeader);
+        cookieRequests.get(message.requestId)?.resolve(message.cookieHeader);
         cookieRequests.delete(message.requestId);
         return null;
       default: {

@@ -86,4 +86,50 @@ describe("mailbox change signals", () => {
     parent.abort();
     await done;
   });
+
+  it("waits for follower cleanup and in-flight sync before resolving", async () => {
+    const parent = new AbortController();
+    let releaseFollow: () => void = () => undefined;
+    let releaseSync: () => void = () => undefined;
+    const followCleanup = new Promise<void>((resolve) => {
+      releaseFollow = resolve;
+    });
+    const sync = new Promise<void>((resolve) => {
+      releaseSync = resolve;
+    });
+    let started = false;
+    const done = watchMailboxSignals({
+      readAccountIds: async () => ["acc-1"],
+      follow: async (_accountId, signal, onChange) => {
+        started = true;
+        onChange();
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) resolve();
+          else
+            signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+        await followCleanup;
+      },
+      onChange: () => sync,
+      signal: parent.signal,
+      rescanMs: 60_000,
+    });
+
+    await vi.waitFor(() => expect(started).toBe(true));
+    parent.abort();
+    let settled = false;
+    const watching = done.then(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+
+    releaseFollow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+
+    releaseSync();
+    await watching;
+    expect(settled).toBe(true);
+  });
 });

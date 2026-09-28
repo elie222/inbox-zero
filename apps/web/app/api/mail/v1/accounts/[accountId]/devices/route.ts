@@ -35,7 +35,9 @@ export const POST = withEmailAccount(
       );
     }
 
-    const device = registerDeviceSchema.parse(await request.json());
+    const json = await readJsonBody(request);
+    if (!json.ok) return json.response;
+    const device = registerDeviceSchema.parse(json.value);
     const environment =
       device.environment === "sandbox"
         ? ApnsEnvironment.SANDBOX
@@ -85,7 +87,9 @@ export const DELETE = withEmailAccount(
       );
     }
 
-    const { token } = unregisterDeviceSchema.parse(await request.json());
+    const json = await readJsonBody(request);
+    if (!json.ok) return json.response;
+    const { token } = unregisterDeviceSchema.parse(json.value);
     const existing = await prisma.mobilePushToken.findFirst({
       where: {
         token,
@@ -106,3 +110,24 @@ export const DELETE = withEmailAccount(
     return NextResponse.json({ ok: true });
   },
 );
+
+async function readJsonBody(
+  request: Request,
+): Promise<
+  { ok: true; value: unknown } | { ok: false; response: NextResponse }
+> {
+  try {
+    return { ok: true, value: await request.json() };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Invalid JSON", isKnownError: true },
+          { status: 400 },
+        ),
+      };
+    }
+    throw error;
+  }
+}
