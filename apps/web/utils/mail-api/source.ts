@@ -1,4 +1,5 @@
 import type { Provider } from "@inboxzero/mail-core/identities";
+import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
   MailboxSource,
   ScopeDescriptor,
@@ -207,7 +208,9 @@ export function createEmailProviderMailboxSource(input: {
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
                 key: { accountId, messageId },
-                evidence: page.cursor,
+                // Delta cursors can outgrow the evidence limit; the page
+                // already carries the cursor as its checkpoint.
+                evidence: requestId,
               })),
               ...(page.removedMessageIds ?? []).map((messageId) => ({
                 kind: "removed_from_scope" as const,
@@ -297,11 +300,19 @@ export function createEmailProviderMailboxSource(input: {
       }
     },
     async search({ predicate, page, pageSize }) {
-      if (predicate.kind !== "text") return { status: "unsupported" };
+      const compiled = compileMailboxSearch(predicate);
+      if (!compiled) return { status: "unsupported" };
       const result = await provider.searchMessages({
-        query: predicate.value,
+        query: compiled.query,
         maxResults: Math.min(pageSize, maxPageSize),
         pageToken: page ?? undefined,
+        ...(compiled.folder
+          ? {
+              folder: compiled.folder,
+              includeSpamTrash: true as const,
+              labelIds: [compiled.folder === "spam" ? "SPAM" : "TRASH"],
+            }
+          : {}),
       });
       return {
         status: "ok",
@@ -478,6 +489,47 @@ function mapProviderError(error: unknown) {
     retryAfterMs: 1000,
     reason: "unavailable" as const,
   };
+}
+
+function compileMailboxSearch(predicate: MailPredicate): {
+  query: string;
+  folder?: "spam" | "trash";
+} | null {
+  if (predicate.kind === "text") return { query: predicate.value };
+  if (predicate.kind !== "all") return null;
+
+  let query: string | null = null;
+  let folder: "spam" | "trash" | undefined;
+  for (const child of predicate.predicates) {
+    if (child.kind === "text") {
+      if (query) return null;
+      query = child.value;
+      continue;
+    }
+    const childFolder = spamTrashPredicateFolder(child);
+    if (!childFolder || (folder && folder !== childFolder)) return null;
+    folder = childFolder;
+  }
+  if (!query || !folder) return null;
+  return { query, folder };
+}
+
+function spamTrashPredicateFolder(
+  predicate: MailPredicate,
+): "spam" | "trash" | null {
+  if (
+    predicate.kind === "mailbox" &&
+    (predicate.mailbox === "spam" || predicate.mailbox === "trash")
+  ) {
+    return predicate.mailbox;
+  }
+  if (
+    predicate.kind === "role" &&
+    (predicate.role === "spam" || predicate.role === "trash")
+  ) {
+    return predicate.role;
+  }
+  return null;
 }
 
 async function* streamToIterable(stream: ReadableStream<Uint8Array>) {

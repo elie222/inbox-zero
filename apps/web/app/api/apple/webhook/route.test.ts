@@ -107,6 +107,10 @@ describe("Apple webhook route", () => {
       logger: expect.any(Object),
       originalTransactionId: "orig-1",
       transactionId: "txn-1",
+      verifiedTransaction: {
+        originalTransactionId: "orig-1",
+        transactionId: "txn-1",
+      },
     });
   });
 
@@ -177,6 +181,7 @@ describe("Apple webhook route", () => {
       logger: expect.any(Object),
       originalTransactionId: "orig-forward-error",
       transactionId: null,
+      verifiedTransaction: null,
     });
   });
 
@@ -204,6 +209,7 @@ describe("Apple webhook route", () => {
       logger: expect.any(Object),
       originalTransactionId: "orig-only",
       transactionId: null,
+      verifiedTransaction: null,
     });
   });
 });

@@ -113,6 +113,7 @@ describe("google oauth helpers", () => {
         headers: {
           Authorization: "Bearer token",
         },
+        signal: expect.any(AbortSignal),
       },
     );
   });

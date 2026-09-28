@@ -1,3 +1,4 @@
+import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
   EmailComposerAttachment,
@@ -41,6 +42,11 @@ type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
 
 const drafts = new Map<string, StoredReplyDraft>();
 const pendingWrites = new Map<string, Promise<unknown>>();
+const engineRevisions = new Map<string, number>();
+// Gmail stores every draft save as a new message. Remembering which message a
+// draft was first opened from keeps its composer and local draft across saves.
+const draftSessionMessageIds = new Map<string, Map<string, string>>();
+const latestDraftMessageIds = new Map<string, Map<string, string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -53,6 +59,60 @@ export function getReplyDraftSessionId(
   mode: ReplyDraftMode,
 ) {
   return `${messageId}:${mode}`;
+}
+
+export function rememberReplacedDraftMessage(
+  emailAccountId: string,
+  previousMessageId: string,
+  nextMessageId: string,
+) {
+  const sessionMessageId = getDraftSessionMessageId(
+    emailAccountId,
+    previousMessageId,
+  );
+  accountMap(draftSessionMessageIds, emailAccountId).set(
+    nextMessageId,
+    sessionMessageId,
+  );
+  accountMap(latestDraftMessageIds, emailAccountId).set(
+    sessionMessageId,
+    nextMessageId,
+  );
+}
+
+export function getDraftSessionMessageId(
+  emailAccountId: string,
+  draftMessageId: string,
+) {
+  return (
+    draftSessionMessageIds.get(emailAccountId)?.get(draftMessageId) ??
+    draftMessageId
+  );
+}
+
+/** Every mailbox message a draft has been saved as while it was open here. */
+export function getDraftSessionMessageIds(
+  emailAccountId: string,
+  draftMessageId: string,
+) {
+  const sessionMessageId = getDraftSessionMessageId(
+    emailAccountId,
+    draftMessageId,
+  );
+  const ids = new Set([sessionMessageId, draftMessageId]);
+  for (const [messageId, session] of draftSessionMessageIds.get(
+    emailAccountId,
+  ) ?? []) {
+    if (session === sessionMessageId) ids.add(messageId);
+  }
+  return [...ids];
+}
+
+export function getLatestDraftMessageId(
+  emailAccountId: string,
+  sessionMessageId: string,
+) {
+  return latestDraftMessageIds.get(emailAccountId)?.get(sessionMessageId);
 }
 
 channel?.addEventListener("message", (event) => {
@@ -241,6 +301,9 @@ export function createReplyDraftWriter(
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
+    engineRevisions.clear();
+    draftSessionMessageIds.clear();
+    latestDraftMessageIds.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
@@ -248,8 +311,24 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   accountEpoch.set(emailAccountId, currentEpoch(emailAccountId) + 1);
   for (const [key, draft] of drafts) {
-    if (draft.emailAccountId === emailAccountId) drafts.delete(key);
+    if (draft.emailAccountId !== emailAccountId) continue;
+    drafts.delete(key);
+    engineRevisions.delete(key);
   }
+  draftSessionMessageIds.delete(emailAccountId);
+  latestDraftMessageIds.delete(emailAccountId);
+}
+
+function accountMap(
+  maps: Map<string, Map<string, string>>,
+  emailAccountId: string,
+) {
+  let map = maps.get(emailAccountId);
+  if (!map) {
+    map = new Map();
+    maps.set(emailAccountId, map);
+  }
+  return map;
 }
 
 function draftKey(identity: ReplyDraftIdentity) {
@@ -260,7 +339,7 @@ function draftKey(identity: ReplyDraftIdentity) {
   ]);
 }
 
-export async function restoreCancelledSendDraft(input: {
+export async function restoreUnsentReplyDraft(input: {
   emailAccountId: string;
   threadId: string;
   messageId: string;
@@ -360,7 +439,7 @@ async function persistEngineReplyDraft(
       draftId,
     });
     if (current.status !== "found") return;
-    await client.saveDraft({
+    const cleared = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
       expectedRevision: current.draftRevision,
       content: {
@@ -373,9 +452,10 @@ async function persistEngineReplyDraft(
         attachmentIds: [],
       },
     });
+    rememberEngineRevision(identity, cleared);
     return;
   }
-  let expectedRevision: number | null = null;
+  let expectedRevision = engineRevisions.get(draftKey(identity)) ?? null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const saved = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
@@ -394,8 +474,10 @@ async function persistEngineReplyDraft(
           : {}),
       },
     });
-    if (saved.status === "saved") return;
-    if (saved.status !== "conflict") return;
+    if (saved.status !== "conflict") {
+      rememberEngineRevision(identity, saved);
+      return;
+    }
     expectedRevision = saved.currentDraftRevision;
   }
 }
@@ -411,6 +493,7 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   try {
     const content = JSON.parse(stored.content.clientState) as ReplyDraftContent;
     if (!content?.draft || !content.values) return;
+    engineRevisions.set(draftKey(identity), stored.draftRevision);
     const restored: StoredReplyDraft = {
       ...identity,
       content,
@@ -422,6 +505,14 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   } catch {
     return;
   }
+}
+
+function rememberEngineRevision(
+  identity: ReplyDraftIdentity,
+  result: DraftSaveResult,
+) {
+  if (result.status === "saved")
+    engineRevisions.set(draftKey(identity), result.draftRevision);
 }
 
 function engineDraftId(identity: ReplyDraftIdentity) {

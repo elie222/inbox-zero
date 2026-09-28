@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
+import groupBy from "lodash/groupBy";
 import { toast } from "sonner";
 import { toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -17,7 +18,7 @@ import {
   mutationPayloadToChange,
   type ThreadMutationPayload,
 } from "@/utils/mail-engine/mutation-change";
-import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 type UndoableAction = "archive" | "trash";
@@ -98,20 +99,25 @@ export function useThreadActions({
       }
       const change = mutationPayloadToChange(payload);
       if (!change) return { snapshots: [], rejectionCodes: [] };
-      const snapshots = [];
+      const snapshots: ThreadSnapshot[] = [];
       const rejectionCodes: string[] = [];
-      for (const target of targets) {
-        const { admission, commandId } = await submitConversationChange({
-          accountId: target.emailAccountId,
+      for (const [accountId, accountTargets] of Object.entries(
+        groupBy(targets, (target) => target.emailAccountId),
+      )) {
+        const result = await submitConversationChanges({
+          accountId,
           change,
           client,
-          conversationId: target.threadId,
+          conversationIds: accountTargets.map((target) => target.threadId),
         });
-        if (admission.status === "rejected") {
-          rejectionCodes.push(admission.code);
-          continue;
+        rejectionCodes.push(...result.rejectionCodes);
+        const commandIds = new Map(
+          result.accepted.map((item) => [item.conversationId, item.commandId]),
+        );
+        for (const target of accountTargets) {
+          const mutationId = commandIds.get(target.threadId);
+          if (mutationId) snapshots.push({ ...target, mutationId });
         }
-        snapshots.push({ ...target, mutationId: commandId });
       }
       return { snapshots, rejectionCodes };
     },
@@ -131,47 +137,49 @@ export function useThreadActions({
       );
       if (!compensation) return [];
       const results = await Promise.allSettled(
-        batch.snapshots.map(async (snapshot) => {
+        Object.values(
+          groupBy(batch.snapshots, (snapshot) => snapshot.mutationId),
+        ).map(async (snapshots) => {
+          const { emailAccountId, mutationId } = snapshots[0];
           const cancelled =
             (
               await client.cancelOperation({
-                accountId: snapshot.emailAccountId,
-                operationId: snapshot.mutationId,
+                accountId: emailAccountId,
+                operationId: mutationId,
               })
             ).status === "cancelled";
           if (!cancelled) {
-            const diagnostics = await client.getDiagnostics(
-              snapshot.emailAccountId,
-            );
-            await client.submitConversations({
-              accountId: snapshot.emailAccountId,
+            const diagnostics = await client.getDiagnostics(emailAccountId);
+            const admission = await client.submitConversations({
+              accountId: emailAccountId,
               commandId: randomUuid(),
-              conversations: [
-                {
-                  accountId: snapshot.emailAccountId,
-                  conversationId: snapshot.threadId,
-                },
-              ],
+              conversations: snapshots.map((snapshot) => ({
+                accountId: emailAccountId,
+                conversationId: snapshot.threadId,
+              })),
               change: compensation,
               observedRevision: diagnostics.revision,
             });
+            if (admission.status === "rejected") {
+              throw new Error(admission.code);
+            }
           }
-          return snapshot.key;
+          return snapshots.map((snapshot) => snapshot.key);
         }),
       );
       const restoredKeys = results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
+        result.status === "fulfilled" ? result.value : [],
       );
-      const failedCount = results.length - restoredKeys.length;
+      const failedCount = batch.snapshots.length - restoredKeys.length;
 
       if (restoredKeys.length) {
         toast.success(summarise("Restored", restoredKeys.length));
       }
       if (failedCount) {
         toast.error(
-          failedCount === results.length
+          failedCount === batch.snapshots.length
             ? "Couldn't restore"
-            : `Couldn't restore ${failedCount} of ${results.length}`,
+            : `Couldn't restore ${failedCount} of ${batch.snapshots.length}`,
         );
       }
       if (!restoredKeys.length) {

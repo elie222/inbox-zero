@@ -238,15 +238,16 @@ export function IntegrationRow({
                 )}
                 {isCustom && <Badge variant="secondary">Custom</Badge>}
               </div>
-              <MutedText>{integration.description}</MutedText>
+              {integration.description && (
+                <MutedText>{integration.description}</MutedText>
+              )}
             </div>
           </div>
         </TableCell>
         <TableCell className="whitespace-nowrap">
           {integration.comingSoon ? (
             <RequestAccessDialog integrationName={integration.displayName} />
-          ) : integration.authType === "oauth" ||
-            integration.authType === "api-token" ? (
+          ) : connected || integration.authType !== "none" ? (
             <div className="flex items-center gap-2">
               {connected ? (
                 isActive ? (

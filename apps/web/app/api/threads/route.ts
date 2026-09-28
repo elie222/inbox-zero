@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveNativeThreadsQuery } from "@/utils/mail/native-categories";
 import { withEmailProvider } from "@/utils/middleware";
 import { threadsQuery, threadsView } from "@/utils/threads/validation";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
@@ -16,7 +17,14 @@ export const GET = withEmailProvider(
     const fromEmail = searchParams.get("fromEmail");
     const type = searchParams.get("type");
     const folderId = searchParams.get("folderId");
-    const inboxSection = searchParams.get("inboxSection");
+    const rawInboxSection = searchParams.get("inboxSection");
+    const inboxSection =
+      rawInboxSection === "focused" || rawInboxSection === "other"
+        ? rawInboxSection
+        : undefined;
+    const category =
+      searchParams.get("category") ??
+      (rawInboxSection && !inboxSection ? rawInboxSection : undefined);
     const nextPageToken = searchParams.get("nextPageToken");
     const q = searchParams.get("q");
     const labelId = searchParams.get("labelId");
@@ -40,6 +48,8 @@ export const GET = withEmailProvider(
       type,
       folderId,
       inboxSection,
+      category,
+      splitId: searchParams.get("splitId"),
       nextPageToken,
       q,
       labelId,
@@ -53,8 +63,13 @@ export const GET = withEmailProvider(
     });
 
     try {
-      const threads = await loadThreads({
+      const resolved = await resolveNativeThreadsQuery({
+        emailAccountId,
+        emailProvider,
         query,
+      });
+      const threads = await loadThreads({
+        query: resolved,
         emailAccountId,
         emailProvider,
         messageFormat: view === "list" ? "metadata" : "full",

@@ -119,6 +119,16 @@ const APPLE_PRODUCT_ID_CONFIG: Partial<Record<PremiumTier, string>> = {
   STARTER_ANNUALLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID,
 };
 
+/**
+ * App Store products sold by the native iOS app. Both grant the `pro`
+ * Superwall entitlement, which is the Starter tier (the same tier Stripe's
+ * business prices and Lemon's business variants map to).
+ */
+const APPLE_STARTER_PRODUCT_IDS: Record<string, PremiumTier> = {
+  "com.getinboxzero.starter.monthly.v2": "STARTER_MONTHLY",
+  "com.getinboxzero.starter.annual.v2": "STARTER_ANNUALLY",
+};
+
 export function getStripeSubscriptionTier({
   priceId,
 }: {
@@ -155,6 +165,9 @@ export function getAppleSubscriptionTier({
 }: {
   productId: string;
 }): PremiumTier | null {
+  const starterTier = APPLE_STARTER_PRODUCT_IDS[productId];
+  if (starterTier) return starterTier;
+
   for (const [tier, configuredProductId] of Object.entries(
     APPLE_PRODUCT_ID_CONFIG,
   )) {

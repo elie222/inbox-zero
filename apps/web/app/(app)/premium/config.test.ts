@@ -172,6 +172,19 @@ describe("getAppleSubscriptionTier", () => {
     );
   });
 
+  it("maps the native App Store starter products to the Starter tier", () => {
+    expect(
+      getAppleSubscriptionTier({
+        productId: "com.getinboxzero.starter.monthly.v2",
+      }),
+    ).toBe("STARTER_MONTHLY");
+    expect(
+      getAppleSubscriptionTier({
+        productId: "com.getinboxzero.starter.annual.v2",
+      }),
+    ).toBe("STARTER_ANNUALLY");
+  });
+
   it("returns null for unknown Apple products", () => {
     expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
       null,

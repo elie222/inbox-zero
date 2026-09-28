@@ -25,6 +25,7 @@ import {
   ChevronDownIcon,
   ImageIcon,
   PaperclipIcon,
+  PictureInPicture2Icon,
   TrashIcon,
   XIcon,
 } from "lucide-react";
@@ -88,7 +89,9 @@ import {
 } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
+  getDraftSessionMessageIds,
   getReplyDraft,
+  rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
@@ -166,6 +169,7 @@ type ComposeEmailFormProps = {
   onClose?: () => void;
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
+  onPopOut?: () => void;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -272,6 +276,7 @@ function ComposeEmailFormContent({
   onClose,
   onRestore,
   onDiscard,
+  onPopOut,
   localDraftIdentity,
 }: ComposeEmailFormProps & {
   localDraftIdentity?: ReplyDraftIdentity;
@@ -578,8 +583,18 @@ function ComposeEmailFormContent({
       });
       if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
       providerDraftId.current = result.data.draftId;
+      const { messageId } = result.data;
+      const replacedMessage = messageId && messageId !== providerDraftMessageId;
+      if (replacedMessage)
+        rememberReplacedDraftMessage(
+          selectedEmailAccountId,
+          providerDraftMessageId,
+          messageId,
+        );
       captureLocalDraft();
       await flushDraft();
+      if (replacedMessage)
+        await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
     },
   });
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
@@ -921,6 +936,12 @@ function ComposeEmailFormContent({
             emailAccountId: selectedEmailAccountId,
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
+            providerDraftMessageIds: providerDraftMessageId
+              ? getDraftSessionMessageIds(
+                  selectedEmailAccountId,
+                  providerDraftMessageId,
+                )
+              : [],
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -990,7 +1011,7 @@ function ComposeEmailFormContent({
               ) {
                 toastError({
                   description:
-                    "This reply may have sent. Check Sent before retrying.",
+                    "This reply may have been sent. Check Sent before retrying.",
                 });
               }
             })
@@ -1014,7 +1035,7 @@ function ComposeEmailFormContent({
           if (outcome.ownsNotification) {
             toastError({
               description:
-                "This reply may have sent. Check Sent before retrying.",
+                "This reply may have been sent. Check Sent before retrying.",
             });
           }
           onClose?.();
@@ -1055,6 +1076,7 @@ function ComposeEmailFormContent({
       onMarkDone,
       onSuccess,
       preservedBlocks,
+      providerDraftMessageId,
       refetch,
       replyingToEmail,
       selectedEmailAccountId,
@@ -1200,6 +1222,28 @@ function ComposeEmailFormContent({
     resumeProviderAutosave,
   ]);
 
+  // The popped-out composer reopens from the local draft, so keep writing
+  // here if the latest edits could not be saved.
+  const handlePopOut = async () => {
+    if (!onPopOut || isSubmitting) return;
+    if (await flushDraft()) onPopOut();
+  };
+  const popOutButton = onPopOut && (
+    <Tooltip shortcuts={["popOutDraft"]}>
+      <Button
+        aria-label="Pop out draft"
+        className="ml-auto size-7 shrink-0 hover:bg-transparent"
+        disabled={isSubmitting}
+        onClick={handlePopOut}
+        size="icon"
+        type="button"
+        variant="ghostMuted"
+      >
+        <PictureInPicture2Icon className="size-4" />
+      </Button>
+    </Tooltip>
+  );
+
   useShortcuts({
     send: (event) => {
       if (
@@ -1242,6 +1286,12 @@ function ComposeEmailFormContent({
         return;
       attachmentInputRef.current?.click();
     },
+    popOutDraft: onPopOut
+      ? (event) => {
+          if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
+            handlePopOut();
+        }
+      : undefined,
     discardDraft: onDiscard
       ? (event) => {
           if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
@@ -1255,21 +1305,23 @@ function ComposeEmailFormContent({
       data-inline-reply={isInlineReply || undefined}
       ref={formRef}
       style={
-        isInlineReply
+        isInlineReply && !isComposeWindow
           ? ({
               "--email-editor-content-min-height": "56px",
               "--email-editor-content-padding": "0.25rem 0",
             } as CSSProperties)
           : undefined
       }
-      onInput={() => captureDraft()}
       onSubmit={handleSubmit(onSubmit)}
       className={cn(
         isComposeWindow
           ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
           : "space-y-2",
         isInlineReply &&
-          "space-y-2 border-t border-border pt-4 [&_[data-email-editor-root]]:text-neutral-900 dark:[&_[data-email-editor-root]]:text-neutral-100",
+          "[&_[data-email-editor-root]]:text-neutral-900 dark:[&_[data-email-editor-root]]:text-neutral-100",
+        isInlineReply &&
+          !isComposeWindow &&
+          "space-y-2 border-t border-border pt-4",
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4 pt-3" : "contents")}>
@@ -1304,23 +1356,27 @@ function ComposeEmailFormContent({
           </div>
         )}
         {showInlineReplySummary ? (
-          <button
-            type="button"
-            aria-expanded={false}
-            ref={inlineReplySummaryButtonRef}
-            onClick={openInlineReplyFields}
-            className="flex items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="text-emerald-600 dark:text-emerald-400">
-              Draft
-            </span>
-            <span className="min-w-0 truncate">
-              to{" "}
-              {extractNameFromEmail(watch("to") || replyingToEmail?.to || "") ||
-                "recipients"}
-            </span>
-            <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
-          </button>
+          <div className="flex min-h-7 items-center gap-2">
+            <button
+              type="button"
+              aria-expanded={false}
+              ref={inlineReplySummaryButtonRef}
+              onClick={openInlineReplyFields}
+              className="flex min-w-0 items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="text-emerald-600 dark:text-emerald-400">
+                Draft
+              </span>
+              <span className="min-w-0 truncate">
+                to{" "}
+                {extractNameFromEmail(
+                  watch("to") || replyingToEmail?.to || "",
+                ) || "recipients"}
+              </span>
+              <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
+            </button>
+            {popOutButton}
+          </div>
         ) : (
           <div className="space-y-1 [&_input]:bg-transparent">
             {(["to", "cc", "bcc"] as const).map((field) => (
@@ -1363,6 +1419,7 @@ function ComposeEmailFormContent({
                     <ChevronDownIcon className="size-3 rotate-180" />
                   </button>
                 )}
+                {field === "to" && popOutButton}
               </div>
             ))}
             <div className="pt-3">

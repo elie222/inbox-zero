@@ -23,6 +23,7 @@ import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -54,6 +55,8 @@ export type ThreadReaderProps = {
   messages: ThreadMessage[];
   localAvailability?: {
     missingBodyIds: Set<string>;
+    outgoing: OutgoingThreadMessage[];
+    sendOperationIds: Map<string, string>;
     hasMore: boolean;
     loadingMore: boolean;
     loadMore: () => unknown;
@@ -70,7 +73,11 @@ export type ThreadReaderProps = {
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
-  onSendSuccess?: (messageId: string, threadId: string) => void;
+  onSendSuccess?: (
+    messageId: string,
+    sentThreadId: string,
+    repliedThreadId: string,
+  ) => void;
   /**
    * Set by the reply action. Left unset the composer still opens on its own for
    * a message that already has an AI draft.
@@ -212,6 +219,8 @@ export function ThreadReader({
           key={threadId}
           messages={messages}
           missingBodyIds={localAvailability?.missingBodyIds}
+          outgoing={localAvailability?.outgoing}
+          sendOperationIds={localAvailability?.sendOperationIds}
           onMarkDone={onArchive}
           onOpenSenderContext={(message) => {
             const senderEmail = extractEmailAddress(message.headers.from);

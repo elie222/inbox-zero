@@ -57,6 +57,10 @@ export async function deleteUser({
     DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   );
 
+  // Drop every session before the slower resource cleanup so a second device
+  // cannot keep calling the API while deletion is in progress.
+  await prisma.session.deleteMany({ where: { userId } });
+
   logger.info("Deleting user resources");
 
   try {

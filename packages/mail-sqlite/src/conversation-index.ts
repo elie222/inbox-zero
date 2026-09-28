@@ -24,8 +24,43 @@ export async function migrateConversationIndex(tx: SqlTransaction) {
     ${rebuildConversations("1 = 1")}
   `);
 
-  // SQLite maintains this disposable index in the same transaction as every
-  // effective-state write, including removals and account cleanup.
+  await installConversationTriggers(tx);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (2, '0002-role-conversation-index')",
+  );
+}
+
+// Existing mailboxes kept inbox role on messages that had already left the
+// inbox, so the dock badge counted archived unread conversations.
+export async function migrateInboxUnreadExcludesArchive(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 5",
+  );
+  if (applied.length) return;
+
+  const indexed = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 2",
+  );
+  if (indexed.length) {
+    for (const event of ["insert", "delete", "update"]) {
+      await tx.exec(
+        `DROP TRIGGER IF EXISTS effective_conversations_after_${event}`,
+      );
+    }
+    await tx.exec(`
+      ${clearArchiveInboxRole("messages")}
+      ${clearArchiveInboxRole("effective_messages")}
+      DELETE FROM effective_role_conversations;
+      ${rebuildConversations("1 = 1")}
+    `);
+    await installConversationTriggers(tx);
+  }
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (5, '0005-inbox-unread-excludes-archive')",
+  );
+}
+
+async function installConversationTriggers(tx: SqlTransaction) {
   for (const [event, identities] of [
     ["INSERT", ["NEW"]],
     ["DELETE", ["OLD"]],
@@ -46,9 +81,6 @@ export async function migrateConversationIndex(tx: SqlTransaction) {
       END;
     `);
   }
-  await tx.execute(
-    "INSERT INTO schema_migrations(id, name) VALUES (2, '0002-role-conversation-index')",
-  );
 }
 
 function rebuildConversations(predicate: string) {
@@ -58,8 +90,37 @@ function rebuildConversations(predicate: string) {
     SELECT account_id, conversation_id, roles.value,
            MAX(received_at_ms), MAX(1 - read), MAX(starred)
     FROM effective_messages, json_each(roles_json) AS roles
-    WHERE ${predicate}
+    WHERE (${predicate})
+      AND NOT (
+        roles.value = 'inbox'
+        AND (
+          effective_messages.in_inbox = 0
+          OR EXISTS (
+            SELECT 1 FROM json_each(effective_messages.label_ids_json) AS labels
+            WHERE labels.value = 'ARCHIVE'
+          )
+        )
+      )
     GROUP BY account_id, conversation_id, roles.value;`;
+}
+
+function clearArchiveInboxRole(table: string) {
+  return `UPDATE ${table}
+    SET in_inbox = 0,
+        roles_json = COALESCE((
+          SELECT json_group_array(value)
+          FROM json_each(${table}.roles_json)
+          WHERE value != 'inbox'
+        ), '[]')
+    WHERE EXISTS (
+      SELECT 1 FROM json_each(${table}.label_ids_json) WHERE value = 'ARCHIVE'
+    )
+    AND (
+      in_inbox = 1
+      OR EXISTS (
+        SELECT 1 FROM json_each(${table}.roles_json) WHERE value = 'inbox'
+      )
+    );`;
 }
 
 const DELETE_OLD_MEMBERSHIPS = `DELETE FROM effective_message_memberships

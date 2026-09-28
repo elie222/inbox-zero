@@ -29,7 +29,10 @@ export function initDesktopSentry() {
 export function captureDesktopError(
   error: unknown,
   tags: Record<string, string>,
-  now = Date.now(),
+  {
+    extra,
+    now = Date.now(),
+  }: { extra?: Record<string, unknown>; now?: number } = {},
 ) {
   if (!DSN) return;
   const key = `${JSON.stringify(tags)}:${error instanceof Error ? error.message : String(error)}`;
@@ -37,7 +40,7 @@ export function captureDesktopError(
   if (last !== undefined && now - last < REPEAT_REPORT_INTERVAL_MS) return;
   if (lastReportedAt.size >= 200) lastReportedAt.clear();
   lastReportedAt.set(key, now);
-  Sentry.captureException(error, { tags });
+  Sentry.captureException(error, { tags, extra });
 }
 
 export function isDesktopSentryEnabled() {

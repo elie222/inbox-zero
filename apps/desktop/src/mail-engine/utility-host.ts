@@ -167,11 +167,6 @@ export function createDesktopMailProcessOwner(input: {
     if (running !== current) return;
     current = undefined;
     if (closed) return;
-    if (!running.exitReported) {
-      input.onEngineError(
-        new Error(`mail engine process exited unexpectedly with code ${code}`),
-      );
-    }
     consecutiveCrashes =
       Date.now() - running.startedAt >= STABLE_UPTIME_MS
         ? 1
@@ -180,8 +175,18 @@ export function createDesktopMailProcessOwner(input: {
       RESTART_MAX_DELAY_MS,
       RESTART_BASE_DELAY_MS * 2 ** (consecutiveCrashes - 1),
     );
+    // Quitting or installing an update can kill the child before the app's
+    // quit handlers run. Reporting only when the restart is still due, after
+    // close() had its chance to cancel it, keeps those exits out of crash reports.
     restartTimer = setTimeout(() => {
       restartTimer = undefined;
+      if (!running.exitReported) {
+        input.onEngineError(
+          new Error(
+            `mail engine process exited unexpectedly with code ${code}`,
+          ),
+        );
+      }
       restarts += 1;
       spawn();
     }, delay);

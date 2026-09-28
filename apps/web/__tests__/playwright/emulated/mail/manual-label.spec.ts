@@ -164,7 +164,7 @@ test("creates and applies a label to selected conversations with L", async ({
   }
 });
 
-test("L labels the open conversation after it leaves the unread list", async ({
+test("L labels the open conversation after it leaves the unread list, and its chip removes the label", async ({
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
@@ -259,6 +259,44 @@ test("L labels the open conversation after it leaves the unread list", async ({
       { timeout: 60_000 },
     )
     .toBe(true);
+
+  const removeLabel = page.getByRole("button", {
+    name: "Remove Project Alpha label",
+  });
+  // The remove control only takes pointer events while its chip is hovered.
+  await removeLabel.locator("..").hover();
+  await removeLabel.click();
+  await expect(removeLabel).toBeHidden();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_membership",
+          threadId: "thr_playwright_3",
+          payload: {
+            membership: "label",
+            id: "Label_project",
+            present: false,
+          },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_3",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        if (!response.ok()) return true;
+        const { thread } = await response.json();
+        return thread.messages[0]?.labelIds?.includes("Label_project");
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(false);
 });
 
 test("keeps a queued label visible while provider execute is held", async ({

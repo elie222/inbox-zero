@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type RefObject } from "react";
+import { memo, useId, useRef, useState, type RefObject } from "react";
 import {
   ArchiveIcon,
   ChevronDownIcon,
@@ -15,6 +15,7 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
@@ -42,6 +43,7 @@ import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
+  isDesktopApp: boolean;
   showLayoutToggle?: boolean;
   expandedPreview: boolean;
   /** Committed search query. */
@@ -71,8 +73,9 @@ export type ListToolbarProps = {
   onClearSelection: () => void;
 };
 
-export function ListToolbar({
+export const ListToolbar = memo(function ListToolbar({
   layout,
+  isDesktopApp,
   showLayoutToggle = true,
   expandedPreview,
   searchQuery = "",
@@ -108,6 +111,7 @@ export function ListToolbar({
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
+      <MailTitlebarNav showHistory={isDesktopApp} />
       <Tooltip
         content={allSelected ? "Deselect all conversations" : undefined}
         shortcuts={
@@ -285,7 +289,7 @@ export function ListToolbar({
       ) : null}
     </div>
   );
-}
+});
 
 function MailSearchInput({
   searchQuery,

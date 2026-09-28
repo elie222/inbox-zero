@@ -29,8 +29,11 @@ import {
 } from "@inboxzero/mail-core/messages";
 import {
   DEFERRED_DISPATCH_MIN_HOLD_MS,
+  EXECUTABLE_OPERATION_STATUSES,
   isPendingEffectStatus,
+  preparedOperationSchema,
   type OperationState,
+  type OperationStatus,
   type PreparedOperation,
   type TargetOutcome,
 } from "@inboxzero/mail-core/operations";
@@ -57,10 +60,24 @@ import {
 } from "./mailbox-view-readers";
 import { migrateMailbox } from "./migrations";
 import {
+  completeSearchIndexIfFull,
   deleteAccountSearchIndex,
   indexMessageContent,
+  indexMessageMetadata,
+  indexMetadataBacklog,
+  indexSearchBacklog,
+  readSearchIndexComplete,
 } from "./message-search-index";
 import { probeSqliteCapabilities } from "./capabilities";
+import { htmlToSearchText } from "./search-text";
+import {
+  decodeMessageBody,
+  encodeMessageBody,
+  storedTextPart,
+  streamBodyCodec,
+  type MessageBodyCodec,
+} from "./message-body-codec";
+import { migrateCompressedMessageBodies } from "./message-body-migration";
 import {
   connectionStatus,
   metadataFromEffective,
@@ -69,6 +86,9 @@ import {
 } from "./store-read-utils";
 
 const MAX_QUEUE = 5000;
+// A send that failed or was undone goes back to being a draft, so only these
+// still show as an outgoing message.
+const OUTGOING_SEND_STATUSES = EXECUTABLE_OPERATION_STATUSES;
 const PENDING_STATUSES = [
   "preparing",
   "queued",
@@ -84,6 +104,8 @@ const HYDRATION_JOB_KEY_LIMIT = 20;
 export type SqliteMailStoreOptions = {
   maxPendingOperations?: number;
   runtime?: Pick<HostRuntime, "randomId" | "sha256" | "nowMs">;
+  /** Defaults to the Compression Streams API; Node hosts pass zlib. */
+  bodyCodec?: MessageBodyCodec;
 };
 
 export async function createSqliteMailStore(
@@ -95,9 +117,11 @@ export async function createSqliteMailStore(
   );
   const runtime = resolveStoreRuntime(options.runtime);
   const digest = (value: unknown) => hashCanonical(value, runtime.sha256);
+  const bodyCodec = options.bodyCodec ?? streamBodyCodec;
   await driver.write(async (tx) => {
     await migrateMailbox(tx, runtime.randomId());
   });
+  await migrateCompressedMessageBodies(driver, bodyCodec);
   const capabilities = await probeSqliteCapabilities(driver);
   if (!capabilities.savepoints) {
     throw new Error("SQLite savepoints are required for mailbox migrations");
@@ -105,6 +129,26 @@ export async function createSqliteMailStore(
   if (!capabilities.jsonEach) {
     throw new Error("SQLite json_each is required for mailbox queries");
   }
+  // A build with FTS5 can still lack the index if creating it failed (for
+  // example, SQLite older than contentless_delete); search then falls back
+  // to substring matching instead of failing.
+  const fts5 =
+    capabilities.fts5 &&
+    (
+      await driver.read((tx) =>
+        tx.query("SELECT 1 FROM sqlite_master WHERE name = 'message_fts'"),
+      )
+    ).length > 0;
+  // Whenever the index is marked incomplete (a rebuild, eviction, or a failed
+  // write), a pass walks the bodies, then the messages still missing a search
+  // row, in engine-paced batches, and ends by checking every message has one.
+  let searchBacklog: SearchBacklog | null = null;
+  // Until the index is complete, text search also checks the messages without
+  // a search row by substring.
+  const searchSupport = async (tx: SqlTransaction) => ({
+    fts5,
+    complete: fts5 && (await readSearchIndexComplete(tx)),
+  });
 
   const store: MailStore = {
     async ensureAccount(input) {
@@ -131,6 +175,46 @@ export async function createSqliteMailStore(
     },
     evictReplaceableContent() {
       return evictReplaceableMessageContent(driver);
+    },
+    async indexSearchBacklog() {
+      if (!fts5) return { remaining: false };
+      if (!searchBacklog) {
+        if (await driver.read(readSearchIndexComplete)) {
+          return { remaining: false };
+        }
+        searchBacklog = { phase: "content", after: null, progressed: false };
+      }
+      while (searchBacklog) {
+        const current: SearchBacklog = searchBacklog;
+        const { phase, after, progressed } = current;
+        const batch = await driver.write((tx) =>
+          phase === "content"
+            ? indexSearchBacklog(tx, bodyCodec, after)
+            : indexMetadataBacklog(tx, after),
+        );
+        // A failed batch leaves the index incomplete; a later call retries.
+        if (!batch.indexed) {
+          searchBacklog = null;
+          return { remaining: false };
+        }
+        if (batch.last) {
+          searchBacklog = { phase, after: batch.last, progressed: true };
+          return { remaining: true };
+        }
+        if (phase === "content") {
+          searchBacklog = { phase: "metadata", after: null, progressed };
+          continue;
+        }
+        const complete = await driver.write(completeSearchIndexIfFull);
+        // Rows dropped behind the cursor during the pass get another one,
+        // unless this pass could not index anything.
+        searchBacklog =
+          complete || !progressed
+            ? null
+            : { phase: "content", after: null, progressed: false };
+        return { remaining: searchBacklog !== null };
+      }
+      return { remaining: false };
     },
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
@@ -623,6 +707,7 @@ export async function createSqliteMailStore(
           requiredHydration: input.page.requiredHydration,
           bodies,
           digest,
+          bodyCodec,
         });
         await tx.execute(
           `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
@@ -693,7 +778,7 @@ export async function createSqliteMailStore(
         for (const body of input.bodies) {
           if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
           applied += 1;
-          await insertMessageContent(tx, body);
+          await insertMessageContent(tx, body, bodyCodec);
         }
         if (
           applied === 0 &&
@@ -742,6 +827,15 @@ export async function createSqliteMailStore(
           );
           for (const change of input.result.observations)
             await applyChange(tx, change);
+          for (const body of input.result.bodies ?? []) {
+            if (
+              !observedKeys.has(`${body.key.accountId}:${body.key.messageId}`)
+            )
+              continue;
+            if (await isStaleMessageVersion(tx, body.key, body.version))
+              continue;
+            await insertMessageContent(tx, body, bodyCodec);
+          }
           if (input.operation.intent.kind === "metadata") {
             for (const target of targets.filter(
               (item) =>
@@ -760,11 +854,14 @@ export async function createSqliteMailStore(
             }
           }
           await tx.execute(
-            `UPDATE operations SET status = ?, receipt_id = ?, claimed_by = NULL, attempt_id = NULL
+            `UPDATE operations SET status = ?, receipt_id = ?, sent_message_id = ?, claimed_by = NULL, attempt_id = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
               operationStatusFromTargets(targets, "succeeded"),
               input.result.receiptId,
+              input.operation.intent.kind === "send"
+                ? sentMessageIdFromObservations(input.result.observations)
+                : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
@@ -912,6 +1009,41 @@ export async function createSqliteMailStore(
         return { status: "cancelled", revision: await bumpRevision(tx) };
       });
     },
+    async readHeldSend(key) {
+      return driver.read(async (tx) => {
+        const row = await loadOperation(tx, key.accountId, key.operationId);
+        const outgoing: readonly string[] = OUTGOING_SEND_STATUSES;
+        if (!row || !outgoing.includes(String(row.status))) {
+          return null;
+        }
+        const prepared = await toPrepared(tx, row);
+        if (prepared?.intent.kind !== "send") return null;
+        return prepared.intent.sendAtMs === undefined ? null : prepared;
+      });
+    },
+    async cancelHeldSend(key) {
+      return driver.write(async (tx) => {
+        const current = await loadOperation(tx, key.accountId, key.operationId);
+        if (!current) return { status: "not_found" };
+        if (current.status === "succeeded" || current.status === "superseded") {
+          return { status: "too_late" };
+        }
+        // A rejection that raced the server's cancellation still ends here.
+        await tx.execute(
+          `UPDATE operations
+           SET status = 'cancelled', claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL
+           WHERE account_id = ? AND command_id = ?`,
+          [key.accountId, key.operationId],
+        );
+        await unfreezeSendDraft(
+          tx,
+          key.accountId,
+          current.payload_json,
+          key.operationId,
+        );
+        return { status: "cancelled", revision: await bumpRevision(tx) };
+      });
+    },
     async saveDraft(input) {
       return driver.write((tx) => saveDraftRow(tx, input));
     },
@@ -1019,6 +1151,14 @@ export async function createSqliteMailStore(
             (replied[0] ? String(replied[0].conversation_id) : null) ??
             replyToConversationId;
         }
+        const nowMs = Date.now();
+        // Undo windows are held by the server so they outlast this device;
+        // connectivity holds stay here until the device is back online.
+        const sendAtMs =
+          input.notBeforeMs !== undefined &&
+          input.notBeforeMs - nowMs < DEFERRED_DISPATCH_MIN_HOLD_MS
+            ? input.notBeforeMs
+            : undefined;
         const payload = {
           kind: "send" as const,
           frozenDraftId: input.draft.draftId,
@@ -1035,9 +1175,14 @@ export async function createSqliteMailStore(
             : {}),
           replyToMessageId: input.replyTo?.messageId ?? null,
           replyToConversationId,
-          queuedAtMs: Date.now(),
+          queuedAtMs: nowMs,
+          ...(sendAtMs === undefined ? {} : { sendAtMs }),
         };
-        const hash = await digest({ ...payload, queuedAtMs: 0 });
+        const hash = await digest({
+          ...payload,
+          queuedAtMs: 0,
+          sendAtMs: undefined,
+        });
         const existing = await loadOperation(
           tx,
           input.draft.accountId,
@@ -1082,8 +1227,8 @@ export async function createSqliteMailStore(
             hash,
             JSON.stringify(payload),
             JSON.stringify(payload),
-            Date.now(),
-            input.notBeforeMs ?? null,
+            nowMs,
+            sendAtMs === undefined ? (input.notBeforeMs ?? null) : null,
           ],
         );
         return {
@@ -1099,25 +1244,34 @@ export async function createSqliteMailStore(
     async readMailboxView(query) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxViewFromSql(tx, query),
-          capabilities,
+          await readMailboxViewFromSql(tx, query, await searchSupport(tx)),
+          { fts5 },
         ),
       );
     },
     async readMailboxCounts(query) {
-      return driver.read((tx) => readMailboxCountsFromSql(tx, query));
+      return driver.read(async (tx) =>
+        readMailboxCountsFromSql(tx, query, await searchSupport(tx)),
+      );
     },
     async readMailboxWindow(query, pageCount) {
       return driver.read(async (tx) =>
         withIndexedCoverage(
-          await readMailboxWindowFromSql(tx, query, pageCount),
-          capabilities,
+          await readMailboxWindowFromSql(
+            tx,
+            query,
+            pageCount,
+            await searchSupport(tx),
+          ),
+          { fts5 },
         ),
       );
     },
     async readConversation(key, page) {
       return driver.read(async (tx) => {
         const revision = await readRevision(tx);
+        const sends = await readConversationSends(tx, key);
+        const replacedDrafts = sends.flatMap((send) => send.draftMessageIds);
         const after = page.after
           ? await tx.query(
               `SELECT received_at_ms, message_id FROM effective_messages
@@ -1139,6 +1293,7 @@ export async function createSqliteMailStore(
                OR received_at_ms > ?
                OR (received_at_ms = ? AND message_id > ?)
              )
+             ${replacedDrafts.length ? `AND NOT (in_draft = 1 AND message_id IN (${replacedDrafts.map(() => "?").join(",")}))` : ""}
            ORDER BY received_at_ms ASC, message_id ASC
            LIMIT ?`,
           [
@@ -1148,6 +1303,7 @@ export async function createSqliteMailStore(
             cursor?.receivedAtMs ?? 0,
             cursor?.receivedAtMs ?? 0,
             cursor?.messageId ?? "",
+            ...replacedDrafts,
             page.pageSize + 1,
           ],
         );
@@ -1157,7 +1313,22 @@ export async function createSqliteMailStore(
           [key.accountId, ...slice.map((row) => String(row.message_id))],
         );
         const contentById = new Map(
-          contents.map((row) => [String(row.message_id), row]),
+          await Promise.all(
+            contents.map(
+              async (row) =>
+                [
+                  String(row.message_id),
+                  {
+                    status: "available" as const,
+                    html: await decodeMessageBody(bodyCodec, row.html),
+                    text: await decodeMessageBody(bodyCodec, row.text),
+                    attachments: parseStoredAttachments(row.attachments_json),
+                    isMeetingInvitation:
+                      Number(row.is_meeting_invitation) === 1,
+                  },
+                ] as const,
+            ),
+          ),
         );
         return {
           revision,
@@ -1171,23 +1342,23 @@ export async function createSqliteMailStore(
                   messageId: String(row.message_id),
                 },
                 metadata: metadataFromEffective(row),
-                content: content
-                  ? {
-                      status: "available" as const,
-                      html: content.html === null ? null : String(content.html),
-                      text: content.text === null ? null : String(content.text),
-                      attachments: parseStoredAttachments(
-                        content.attachments_json,
-                      ),
-                      isMeetingInvitation:
-                        Number(content.is_meeting_invitation) === 1,
-                    }
-                  : { status: "not_requested" as const },
+                content: content ?? { status: "not_requested" as const },
                 pendingOperationIds: JSON.parse(
                   String(row.pending_operation_ids_json),
                 ) as string[],
+                sendOperationId: sends.find(
+                  (send) => send.sentMessageId === String(row.message_id),
+                )?.operationId,
               };
             }),
+            // Pending sends are newer than anything synced, so they close the
+            // conversation's last page.
+            outgoing:
+              rows.length > page.pageSize
+                ? []
+                : sends.flatMap((send) =>
+                    send.outgoing ? [send.outgoing] : [],
+                  ),
             nextPage:
               rows.length > page.pageSize
                 ? String(slice.at(-1)?.message_id ?? "")
@@ -1511,6 +1682,7 @@ export async function createSqliteMailStore(
           requiredHydration: input.requiredHydration,
           bodies,
           digest,
+          bodyCodec,
         });
         if (input.nextPage) {
           await tx.execute(
@@ -2260,6 +2432,7 @@ async function applyPageFacts(
     requiredHydration: MessageKey[];
     bodies: BodyObservation[];
     digest: (value: unknown) => Promise<string>;
+    bodyCodec: MessageBodyCodec;
   },
 ) {
   for (const change of input.changes) {
@@ -2267,7 +2440,7 @@ async function applyPageFacts(
   }
   for (const body of input.bodies) {
     if (await isStaleMessageVersion(tx, body.key, body.version)) continue;
-    await insertMessageContent(tx, body);
+    await insertMessageContent(tx, body, input.bodyCodec);
   }
   await enqueueHydrationJobs(tx, {
     keys: input.requiredHydration,
@@ -2471,16 +2644,32 @@ async function applyChange(tx: SqlTransaction, change: ProviderChange) {
   if (change.kind === "removed_from_scope") {
     const current = await loadConfirmed(tx, change.key);
     if (!current) return;
-    if (change.scopeId === "inbox" || change.scopeId.endsWith(":inbox")) {
-      const next = applyMetadataChange(current, { kind: "archive" });
-      await upsertConfirmed(tx, { ...current, ...next });
-      await recomputeTargets(tx, [change.key]);
+    const scopeFolderId = folderIdForBootstrapScope(change.scopeId);
+    const namedInbox =
+      change.scopeId === "inbox" || change.scopeId.endsWith(":inbox");
+    const leftItsFolder =
+      current.folderId != null &&
+      (current.folderId === scopeFolderId ||
+        current.folderId === change.scopeId);
+    if (!namedInbox && !(leftItsFolder && current.roles.includes("inbox"))) {
+      return;
     }
+    const next = applyMetadataChange(current, { kind: "archive" });
+    await upsertConfirmed(tx, {
+      ...current,
+      ...next,
+      folderId: leftItsFolder ? null : current.folderId,
+    });
+    await recomputeTargets(tx, [change.key]);
   }
 }
 
 async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   const flags = roleFlags(message.roles);
+  const [previous] = await tx.query(
+    "SELECT subject, preview, from_address FROM messages WHERE account_id = ? AND message_id = ?",
+    [message.accountId, message.messageId],
+  );
   await tx.execute(
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
@@ -2542,6 +2731,16 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.deleted ? 1 : 0,
     ],
   );
+  if (
+    previous?.subject !== message.subject ||
+    previous?.preview !== message.preview ||
+    previous?.from_address !== message.from
+  ) {
+    await indexMessageMetadata(tx, {
+      accountId: message.accountId,
+      messageId: message.messageId,
+    });
+  }
 }
 
 async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
@@ -2885,7 +3084,15 @@ async function hasUnsatisfiedDependency(
   return blockers.length > 0;
 }
 
-async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
+async function insertMessageContent(
+  tx: SqlTransaction,
+  body: BodyObservation,
+  codec: MessageBodyCodec,
+) {
+  const stored = {
+    html: body.html,
+    text: storedTextPart(body.html, body.text),
+  };
   await tx.execute(
     `INSERT INTO message_content(account_id, message_id, version, html, text, attachments_json, is_meeting_invitation)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -2897,13 +3104,15 @@ async function insertMessageContent(tx: SqlTransaction, body: BodyObservation) {
       body.key.accountId,
       body.key.messageId,
       body.version,
-      body.html,
-      body.text,
+      await encodeMessageBody(codec, stored.html),
+      await encodeMessageBody(codec, stored.text),
       JSON.stringify(body.attachments ?? []),
       body.isMeetingInvitation ? 1 : 0,
     ],
   );
-  await indexMessageContent(tx, body.key, body.text ?? body.html ?? "");
+  // Indexed from what is stored, so a later rebuild from the stored body
+  // produces the same search row.
+  await indexMessageContent(tx, body.key, stored);
 }
 
 async function isStaleMessageVersion(
@@ -3044,6 +3253,90 @@ async function unfreezeSendDraft(
   );
 }
 
+async function readConversationSends(tx: SqlTransaction, key: ConversationKey) {
+  const draftJoin = `LEFT JOIN drafts d
+       ON d.account_id = o.account_id
+      AND d.draft_id = json_extract(o.payload_json, '$.frozenDraftId')`;
+  const pending = await tx.query(
+    `SELECT o.command_id, o.status, o.payload_json, o.sent_message_id, d.content_json
+     FROM operations o
+     ${draftJoin}
+     WHERE o.status IN (${OUTGOING_SEND_STATUSES.map(() => "?").join(",")})
+       AND o.account_id = ?
+       AND json_extract(o.payload_json, '$.kind') = 'send'
+       AND json_extract(o.payload_json, '$.replyToConversationId') = ?
+     ORDER BY o.created_at_ms ASC, o.rowid ASC`,
+    [...OUTGOING_SEND_STATUSES, key.accountId, key.conversationId],
+  );
+  // Reached through the sent message so the lookup stays indexed however many
+  // commands the account has settled.
+  const confirmed = await tx.query(
+    `SELECT o.command_id, o.status, o.payload_json, o.sent_message_id, d.content_json
+     FROM messages m
+     JOIN operations o
+       ON o.account_id = m.account_id AND o.sent_message_id = m.message_id
+     ${draftJoin}
+     WHERE m.account_id = ? AND m.conversation_id = ?
+       AND o.status = 'succeeded'`,
+    [key.accountId, key.conversationId],
+  );
+  return [...confirmed, ...pending].flatMap((row) => {
+    const intent = preparedOperationSchema.shape.intent.safeParse(
+      JSON.parse(String(row.payload_json)),
+    );
+    if (!intent.success || intent.data.kind !== "send") return [];
+    const send = intent.data;
+    const draft =
+      row.content_json == null
+        ? null
+        : draftContentSchema.safeParse(JSON.parse(String(row.content_json)));
+    const status = String(row.status) as OperationStatus;
+    const html = `${send.html}${send.quotedHtml}`;
+    return [
+      {
+        operationId: String(row.command_id),
+        sentMessageId:
+          row.sent_message_id == null ? null : String(row.sent_message_id),
+        draftMessageIds: draft?.success
+          ? (draft.data.providerDraftMessageIds ?? [])
+          : [],
+        outgoing:
+          status === "succeeded"
+            ? null
+            : {
+                operationId: String(row.command_id),
+                status,
+                html,
+                metadata: {
+                  subject: send.subject,
+                  preview: htmlToSearchText(send.html).slice(0, 200),
+                  from: "",
+                  to: send.to,
+                  cc: send.cc,
+                  receivedAtMs: send.queuedAtMs,
+                  read: true,
+                  starred: false,
+                  folderId: null,
+                  inboxSection: null,
+                  labelIds: [],
+                  categoryIds: [],
+                  roles: ["sent" as const],
+                  hasAttachments: send.attachmentIds.length > 0,
+                  snoozedUntilMs: null,
+                },
+              },
+      },
+    ];
+  });
+}
+
+function sentMessageIdFromObservations(observations: ProviderChange[]) {
+  return (
+    observations.find((change) => change.kind === "message_patch")?.key
+      .messageId ?? null
+  );
+}
+
 function parseOperationPayload(value: import("./driver").SqlValue) {
   try {
     const payload = JSON.parse(String(value)) as {
@@ -3095,12 +3388,18 @@ export function clampMaxPendingOperations(value: number | undefined): number {
   return Math.min(Math.floor(value), MAX_QUEUE);
 }
 
+type SearchBacklog = {
+  phase: "content" | "metadata";
+  after: MessageKey | null;
+  progressed: boolean;
+};
+
 function withIndexedCoverage<
   T extends {
     view: { coverage: import("@inboxzero/mail-core/queries").Coverage[] };
   },
->(result: T, capabilities: { fts5: boolean }): T {
-  if (capabilities.fts5) return result;
+>(result: T, search: { fts5: boolean }): T {
+  if (search.fts5) return result;
   return {
     ...result,
     view: {

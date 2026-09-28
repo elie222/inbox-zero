@@ -34,6 +34,7 @@ import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
@@ -41,6 +42,7 @@ import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  getDraftSessionMessageId,
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/mail-engine/reply-drafts";
@@ -62,6 +64,7 @@ export function EmailMessage({
   draftMessages,
   expanded,
   onToggle,
+  onExpand,
   onSendSuccess,
   onMarkDone,
   onOpenSenderContext,
@@ -70,6 +73,9 @@ export function EmailMessage({
   onSelect,
   onNavigateMessage,
   sentMessageOpen,
+  replyAnchor,
+  composerSessionMessageId,
+  onReplySent,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -82,6 +88,11 @@ export function EmailMessage({
   expanded: boolean;
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
+  /**
+   * Keeps the message open once a composer opens in it. Otherwise a newer
+   * message arriving would collapse it and hide the reply being written.
+   */
+  onExpand?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
@@ -90,29 +101,51 @@ export function EmailMessage({
   onSelect?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   sentMessageOpen?: SentMessageOpenState;
+  /** For a reply the provider hasn't sent yet: the message replies thread on. */
+  replyAnchor?: ThreadMessage;
+  /** Keeps a composer's draft when this message's id changes under it. */
+  composerSessionMessageId?: string;
+  /** A reply or forward from this message just left its composer. */
+  onReplySent?: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  const { poppedOutDraftSessionId } = useComposeModal();
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
   const [composeOverride, setComposeOverride] = useState<
     ReplyDraftMode | "closed" | null
   >(null);
-  const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
-  const serverDrafts = draftMessages ?? [];
+  const composeMode = resolveComposeMode(
+    composeOverride,
+    defaultComposeMode,
+    (mode) =>
+      getReplyDraftSessionId(composerSessionMessageId ?? message.id, mode) ===
+      poppedOutDraftSessionId,
+  );
+  const serverDrafts = (draftMessages ?? []).map((draft) => ({
+    message: draft,
+    sessionMessageId: getDraftSessionMessageId(emailAccountId, draft.id),
+  }));
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  const setDraftDismissed = (draftId: string, dismissed: boolean) => {
+  const setDraftDismissed = (sessionMessageId: string, dismissed: boolean) => {
     setDismissedDraftIds((previous) => {
-      if (previous.has(draftId) === dismissed) return previous;
+      if (previous.has(sessionMessageId) === dismissed) return previous;
       const next = new Set(previous);
-      if (dismissed) next.add(draftId);
-      else next.delete(draftId);
+      if (dismissed) next.add(sessionMessageId);
+      else next.delete(sessionMessageId);
       return next;
     });
   };
   const visibleDrafts = serverDrafts.filter(
-    (draft) => !dismissedDraftIds.has(draft.id),
+    (draft) =>
+      !dismissedDraftIds.has(draft.sessionMessageId) &&
+      getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
+        poppedOutDraftSessionId,
+  );
+  const isDraftRow = serverDrafts.some(
+    (draft) => draft.message.id === message.id,
   );
   const hasOpenComposer = Boolean(composeMode) || visibleDrafts.length > 0;
 
@@ -122,11 +155,13 @@ export function EmailMessage({
   const onReply = useCallback(() => {
     composeSessionRef.current += 1;
     setComposeOverride("reply");
-  }, []);
+    onExpand?.();
+  }, [onExpand]);
   const onForward = useCallback(() => {
     composeSessionRef.current += 1;
     setComposeOverride("forward");
-  }, []);
+    onExpand?.();
+  }, [onExpand]);
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
@@ -249,13 +284,13 @@ export function EmailMessage({
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 
-          {!bodyAvailable && composeMode !== "forward" && (
+          {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
             <p className="text-muted-foreground text-sm">
               This message hasn’t loaded yet.
             </p>
           )}
           {bodyAvailable &&
-            !serverDrafts.some((draft) => draft.id === message.id) &&
+            !isDraftRow &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -273,20 +308,24 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {visibleDrafts.map((draft, index) => (
+          {visibleDrafts.map(({ message: draft, sessionMessageId }, index) => (
             <ReplyPanel
-              key={draft.id}
+              key={sessionMessageId}
               autoScroll={!composeMode && index === visibleDrafts.length - 1}
               draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
+              draftSessionMessageId={sessionMessageId}
               message={message}
-              onCloseCompose={() => setDraftDismissed(draft.id, true)}
-              onRestoreCompose={() => setDraftDismissed(draft.id, false)}
-              onRestore={() => setDraftDismissed(draft.id, false)}
+              onCloseCompose={() => setDraftDismissed(sessionMessageId, true)}
+              onRestoreCompose={() =>
+                setDraftDismissed(sessionMessageId, false)
+              }
+              onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
+              onSent={onReplySent}
               onMarkDone={onMarkDone}
               onStartDiscard={() => {
-                setDraftDismissed(draft.id, true);
+                setDraftDismissed(sessionMessageId, true);
                 return {
                   id: composeSessionRef.current,
                   mode: "reply" as const,
@@ -301,11 +340,14 @@ export function EmailMessage({
               key={composerKey}
               autoScroll
               bodyAvailable={bodyAvailable}
+              draftSessionMessageId={composerSessionMessageId}
               message={message}
+              replyAnchor={replyAnchor}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onSent={onReplySent}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
@@ -393,13 +435,8 @@ function MessageHeader({
     tabIndex: 0,
   };
 
-  /**
-   * The composer renders inside the collapsed-away body, so replying to a
-   * collapsed message has to open it first.
-   */
   const compose = (open: () => void) => (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!expanded) onToggle?.();
     open();
   };
 
@@ -544,6 +581,7 @@ function ReplyPanel({
   message,
   refetch,
   onSendSuccess,
+  onSent,
   onMarkDone,
   onCloseCompose,
   onRestore,
@@ -551,13 +589,16 @@ function ReplyPanel({
   onStartDiscard,
   composeMode,
   draftMessage,
+  draftSessionMessageId,
   draftBodyAvailable = true,
   autoScroll = false,
   bodyAvailable = true,
+  replyAnchor,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onSent?: () => void;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
   onRestore?: () => void;
@@ -565,11 +606,19 @@ function ReplyPanel({
   onStartDiscard: () => ComposeSession | undefined;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  draftSessionMessageId?: string;
   draftBodyAvailable?: boolean;
   autoScroll?: boolean;
   bodyAvailable?: boolean;
+  replyAnchor?: ParsedMessage;
 }) {
   const { emailAccountId } = useAccount();
+  const { popOutReply } = useComposeModal();
+  const replyTargetId = replyAnchor?.id ?? message.id;
+  const draftSessionId = getReplyDraftSessionId(
+    draftSessionMessageId ?? message.id,
+    composeMode,
+  );
 
   const replyRef = useRef<HTMLDivElement>(null);
   // A forward owns its original source once composing starts. A later cache
@@ -577,6 +626,11 @@ function ReplyPanel({
   const [forwardSource, setForwardSource] = useState<ParsedMessage>();
   if (composeMode === "forward" && bodyAvailable && !forwardSource)
     setForwardSource(message);
+  // Once open, the composer and its local draft own the reply. A saved draft
+  // that sync brings back before its body loads must not replace them.
+  const [draftSource, setDraftSource] = useState<ParsedMessage>();
+  if (draftMessage && draftBodyAvailable && !draftSource)
+    setDraftSource(draftMessage);
 
   // scroll to the reply panel when it first opens
   useEffect(() => {
@@ -592,12 +646,14 @@ function ReplyPanel({
 
   const replyingToEmail = useMemo((): ReplyingToEmail | undefined => {
     if (composeMode === "reply") {
-      if (draftMessage) return prepareDraftReplyEmail(draftMessage);
+      if (draftSource) return prepareDraftReplyEmail(draftSource);
 
-      return prepareReplyingToEmail(message);
+      return prepareReplyingToEmail(message, replyAnchor);
     }
-    return forwardSource ? prepareForwardingEmail(forwardSource) : undefined;
-  }, [composeMode, message, draftMessage, forwardSource]);
+    return forwardSource
+      ? prepareForwardingEmail(forwardSource, Boolean(replyAnchor))
+      : undefined;
+  }, [composeMode, message, draftSource, forwardSource, replyAnchor]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -652,7 +708,7 @@ function ReplyPanel({
     ],
   );
 
-  if (draftMessage && !draftBodyAvailable) {
+  if (draftMessage && !draftSource) {
     return (
       <p className="mt-5 text-muted-foreground text-sm">
         This message hasn’t loaded yet.
@@ -678,15 +734,28 @@ function ReplyPanel({
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
         }
-        draftKeyMessageId={message.id}
+        draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
-        draftSessionId={getReplyDraftSessionId(
-          draftMessage?.id ?? message.id,
-          composeMode,
-        )}
-        onClose={onCloseCompose}
+        draftSessionId={draftSessionId}
+        onClose={() => {
+          onCloseCompose();
+          onSent?.();
+        }}
         onRestore={onRestore}
         onDiscard={onDiscard}
+        onPopOut={() => {
+          popOutReply({
+            emailAccountId,
+            draftSessionId,
+            draftKeyMessageId: replyTargetId,
+            draftMode: composeMode,
+            providerDraftMessageId:
+              composeMode === "reply" ? draftMessage?.id : undefined,
+            replyingToEmail,
+            onReturn: onRestore,
+          });
+          onCloseCompose();
+        }}
         onMarkDone={onMarkDone}
         onSuccess={(messageId: string, threadId: string) => {
           onSendSuccess(messageId, threadId);
@@ -710,10 +779,13 @@ function initialsFor(name: string) {
 function resolveComposeMode(
   override: ReplyDraftMode | "closed" | null,
   defaultComposeMode: ReplyDraftMode | undefined,
+  isPoppedOut: (mode: ReplyDraftMode) => boolean,
 ) {
   if (override === "closed") return;
-  if (override) return override;
-  return defaultComposeMode;
+  const mode = override ?? defaultComposeMode;
+  // A popped-out reply is written in its own window, not inline.
+  if (mode && isPoppedOut(mode)) return;
+  return mode;
 }
 
 /** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
@@ -736,7 +808,7 @@ function recipientSummary(to: string | undefined, userEmail: string) {
 
 const prepareReplyingToEmail = (
   message: ParsedMessage,
-  content = "",
+  threadOn: ParsedMessage = message,
 ): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
@@ -749,25 +821,29 @@ const prepareReplyingToEmail = (
     subject: sentFromUser
       ? message.headers.subject
       : formatReplySubject(message.headers.subject),
-    headerMessageId: message.headers["message-id"] || undefined,
-    messageId: message.id || undefined,
-    threadId: message.threadId || undefined,
+    headerMessageId: threadOn.headers["message-id"] || undefined,
+    messageId: threadOn.id || undefined,
+    threadId: threadOn.threadId || undefined,
     // Keep original CC
     cc: message.headers.cc,
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
-    references: message.headers.references,
-    draftHtml: content || "",
+    references: threadOn.headers.references,
+    draftHtml: "",
     quotedContentHtml: html,
   };
 };
 
-const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
+const prepareForwardingEmail = (
+  message: ParsedMessage,
+  unsent = false,
+): ReplyingToEmail => ({
   to: "",
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
-  forwardedMessageId: message.id || undefined,
+  // The provider has no copy of an unsent message to forward from.
+  forwardedMessageId: unsent ? undefined : message.id || undefined,
   forwardedAttachments: message.attachments?.map((attachment) => ({
     id: attachment.attachmentId,
     filename: attachment.filename,

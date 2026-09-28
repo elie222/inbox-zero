@@ -113,6 +113,8 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     return events.map((event) => this.parseEvent(event));
   }
 
+  // Google Calendar keeps the organizer's UID, so it does not need the mailbox
+  // event id that Outlook relies on.
   async findInvitationEvent(
     invitation: CalendarInvitation,
   ): Promise<InvitationEvent | null> {

@@ -1,16 +1,33 @@
 import { createHash } from "node:crypto";
-import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
+import chunk from "lodash/chunk";
+import type {
+  ExecutionResult,
+  OperationExecutor,
+} from "@inboxzero/mail-core/ports/operation-executor";
 import type {
   PreparedOperation,
   TargetOutcome,
 } from "@inboxzero/mail-core/operations";
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
+import type {
+  BodyObservation,
+  ProviderChange,
+} from "@inboxzero/mail-core/sync";
 import type { EmailProvider } from "@/utils/email/types";
 import {
+  parsedMessageBodyObservation,
   parsedMessageMetadata,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
+import {
+  cancelHeldEmail,
+  findScheduledEmail,
+  holdEmailForUndo,
+  releaseHeldEmail,
+} from "@/utils/scheduled-email/service";
+import type { ScheduledEmail } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import {
   activatePreparedSnoozedThread,
@@ -29,8 +46,14 @@ import {
   releaseAccountUploadHolds,
 } from "@/utils/mail-api/upload-blobs";
 import type { ParsedMessage } from "@/utils/types";
+import type { Attachment } from "@/utils/types/mail";
+import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 
 const logger = createScopedLogger("mail-api/operations");
+const HELD_SEND_POLL_MS = 2000;
+const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
+const METADATA_OBSERVATION_BATCH_SIZE = 20;
+type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
 };
@@ -59,76 +82,36 @@ export function createEmailProviderOperationExecutor(input: {
           },
         });
       }
-      const targets: TargetOutcome[] = [];
-      const observations: ReturnType<typeof parsedMessagePatch>[] = [];
-      for (const target of operation.intent.targets) {
-        try {
-          await applyChange(provider, operation.intent.change, [
-            target.messageId,
-          ]);
-          try {
-            const message = await provider.getMessage(target.messageId);
-            observations.push(
-              parsedMessagePatch(accountId, providerName, message),
-            );
-            if (!metadataChangeSatisfied(message, operation.intent.change)) {
-              targets.push({
-                key: target,
-                outcome: "uncertain",
-                code: "not_applied",
-              });
-              continue;
-            }
-          } catch {
-            // Mutation applied; catch-up can fill the observation.
-          }
-          targets.push({
-            key: target,
-            outcome: "applied" as const,
-            code: null,
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "provider_error";
-          if (/auth|unauthorized|401/i.test(message) && targets.length === 0) {
-            return {
-              status: "not_dispatched",
-              reason: "blocked_auth",
-              retryAfterMs: null,
-            };
-          }
-          targets.push({
-            key: target,
-            outcome: /not.?found|404/i.test(message)
-              ? ("rejected" as const)
-              : ("uncertain" as const),
-            code: /not.?found|404/i.test(message)
-              ? "not_found"
-              : "provider_error",
-          });
+      const metadataOperation = { ...operation, intent: operation.intent };
+      try {
+        await applyChange(
+          provider,
+          operation.intent.change,
+          operation.intent.targets.map((target) => target.messageId),
+        );
+      } catch (error) {
+        if (isAuthError(error)) {
+          return {
+            status: "not_dispatched",
+            reason: "blocked_auth",
+            retryAfterMs: null,
+          };
         }
+        // One bad message fails the whole bulk call; per-message retries
+        // isolate it so the rest still apply.
+        return executeMetadataPerTarget(
+          provider,
+          accountId,
+          providerName,
+          metadataOperation,
+        );
       }
-      const applied = targets.some((target) => target.outcome === "applied");
-      const rejected = targets.every((target) => target.outcome === "rejected");
-      if (rejected && !applied) {
-        return {
-          status: "rejected",
-          code: targets[0]?.code ?? "provider_error",
-          targets,
-        };
-      }
-      if (!applied) {
-        return {
-          status: "uncertain",
-          receiptId: operation.key.operationId,
-        };
-      }
-      return {
-        status: "confirmed",
-        receiptId: operation.key.operationId,
-        observations,
-        targets,
-      };
+      return observeAppliedMetadata(
+        provider,
+        accountId,
+        providerName,
+        metadataOperation,
+      );
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
@@ -143,6 +126,106 @@ export function createEmailProviderOperationExecutor(input: {
       });
     },
   };
+}
+
+async function executeMetadataPerTarget(
+  provider: EmailProvider,
+  accountId: string,
+  providerName: "google" | "microsoft",
+  operation: PreparedMetadataOperation,
+): Promise<ExecutionResult> {
+  const targets: TargetOutcome[] = [];
+  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  for (const target of operation.intent.targets) {
+    try {
+      await applyChange(provider, operation.intent.change, [target.messageId]);
+      try {
+        const message = await provider.getMessage(target.messageId);
+        observations.push(parsedMessagePatch(accountId, providerName, message));
+        if (!metadataChangeSatisfied(message, operation.intent.change)) {
+          targets.push({
+            key: target,
+            outcome: "uncertain",
+            code: "not_applied",
+          });
+          continue;
+        }
+      } catch {
+        // Mutation applied; catch-up can fill the observation.
+      }
+      targets.push({ key: target, outcome: "applied", code: null });
+    } catch (error) {
+      if (isAuthError(error) && targets.length === 0) {
+        return {
+          status: "not_dispatched",
+          reason: "blocked_auth",
+          retryAfterMs: null,
+        };
+      }
+      targets.push(failedTargetOutcome(target, error));
+    }
+  }
+  return metadataResult(operation, targets, observations);
+}
+
+async function observeAppliedMetadata(
+  provider: EmailProvider,
+  accountId: string,
+  providerName: "google" | "microsoft",
+  operation: PreparedMetadataOperation,
+): Promise<ExecutionResult> {
+  const targets: TargetOutcome[] = [];
+  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  for (const batch of chunk(
+    operation.intent.targets,
+    METADATA_OBSERVATION_BATCH_SIZE,
+  )) {
+    const messages = await readMessagesForObservation(
+      provider,
+      batch.map((target) => target.messageId),
+    );
+    const messagesById = new Map(
+      messages.map((message) => [message.id, message]),
+    );
+    for (const target of batch) {
+      const message = messagesById.get(target.messageId);
+      if (message) {
+        observations.push(parsedMessagePatch(accountId, providerName, message));
+        if (!metadataChangeSatisfied(message, operation.intent.change)) {
+          targets.push({
+            key: target,
+            outcome: "uncertain",
+            code: "not_applied",
+          });
+          continue;
+        }
+      }
+      targets.push({ key: target, outcome: "applied", code: null });
+    }
+  }
+  return metadataResult(operation, targets, observations);
+}
+
+// One failed read rejects a whole provider batch, so retry individually to
+// keep the other messages observable. Unreadable messages stay unobserved;
+// the mutation already applied and catch-up can fill them in.
+async function readMessagesForObservation(
+  provider: EmailProvider,
+  messageIds: string[],
+) {
+  try {
+    return await provider.getMessagesBatch(messageIds);
+  } catch (error) {
+    logger.warn("Batched read failed after applying mail operation", {
+      error,
+    });
+    const messages = await Promise.all(
+      messageIds.map((messageId) =>
+        provider.getMessage(messageId).catch(() => null),
+      ),
+    );
+    return messages.filter((message) => message !== null);
+  }
 }
 
 async function inspectMetadataOperation(
@@ -167,14 +250,17 @@ async function inspectMetadataOperation(
         code: satisfied ? null : "not_applied",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "provider_error";
-      targets.push({
-        key: target,
-        outcome: /not.?found|404/i.test(message) ? "rejected" : "uncertain",
-        code: /not.?found|404/i.test(message) ? "not_found" : "provider_error",
-      });
+      targets.push(failedTargetOutcome(target, error));
     }
   }
+  return metadataResult(operation, targets, observations);
+}
+
+function metadataResult(
+  operation: PreparedMetadataOperation,
+  targets: TargetOutcome[],
+  observations: ReturnType<typeof parsedMessagePatch>[],
+) {
   const applied = targets.some((target) => target.outcome === "applied");
   const rejected = targets.every((target) => target.outcome === "rejected");
   if (rejected && !applied) {
@@ -196,6 +282,26 @@ async function inspectMetadataOperation(
     observations,
     targets,
   };
+}
+
+function failedTargetOutcome(
+  target: TargetOutcome["key"],
+  error: unknown,
+): TargetOutcome {
+  const notFound = /not.?found|404/i.test(errorMessage(error));
+  return {
+    key: target,
+    outcome: notFound ? "rejected" : "uncertain",
+    code: notFound ? "not_found" : "provider_error",
+  };
+}
+
+function isAuthError(error: unknown) {
+  return /auth|unauthorized|401/i.test(errorMessage(error));
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "provider_error";
 }
 
 async function applyChange(
@@ -457,6 +563,9 @@ async function executeSend(
   if (operation.intent.kind !== "send") {
     return { status: "rejected" as const, code: "unsupported", targets: [] };
   }
+  if (operation.intent.sendAtMs !== undefined) {
+    return driveHeldSend(provider, accountId, operation);
+  }
   try {
     await holdAccountUploads(accountId, operation.intent.attachmentIds);
     const loadedAttachments = await loadSendAttachments(
@@ -479,34 +588,7 @@ async function executeSend(
       input: {
         mutationId: sendMutationId(operation.key.operationId),
         queuedAt: operation.intent.queuedAtMs,
-        threadId: operation.intent.replyToMessageId
-          ? operation.intent.replyToConversationId
-          : null,
-        messageIds: operation.intent.replyToMessageId
-          ? [operation.intent.replyToMessageId]
-          : [operation.intent.frozenDraftId],
-        email: {
-          to: operation.intent.to.join(", "),
-          cc: operation.intent.cc.join(", ") || undefined,
-          bcc: operation.intent.bcc.join(", ") || undefined,
-          subject: operation.intent.subject,
-          messageHtml: `${operation.intent.html}${operation.intent.quotedHtml}`,
-          replyToEmail:
-            operation.intent.replyToMessageId &&
-            operation.intent.replyToConversationId
-              ? {
-                  threadId: operation.intent.replyToConversationId,
-                  messageId: operation.intent.replyToMessageId,
-                }
-              : undefined,
-          attachments:
-            loadedAttachments.attachments.length > 0
-              ? loadedAttachments.attachments
-              : undefined,
-          ...(operation.intent.providerDraftId
-            ? { providerDraftId: operation.intent.providerDraftId }
-            : {}),
-        },
+        ...sendRequest(operation.intent, loadedAttachments.attachments),
       },
     });
     const result = mapSendOutcome(
@@ -524,6 +606,141 @@ async function executeSend(
 }
 
 async function inspectSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+) {
+  if (
+    operation.intent.kind === "send" &&
+    operation.intent.sendAtMs !== undefined
+  ) {
+    return driveHeldSend(provider, accountId, operation);
+  }
+  return inspectSendOperation(provider, accountId, operation);
+}
+
+/**
+ * Sends the server holds for their undo window. Execute and inspect both land
+ * here: the first call holds the email, and any call after its window sends
+ * it, so a client that stays around doesn't wait on the cron.
+ */
+async function driveHeldSend(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+): Promise<ExecutionResult> {
+  const { intent } = operation;
+  if (intent.kind !== "send" || intent.sendAtMs === undefined) {
+    return { status: "rejected", code: "unsupported", targets: [] };
+  }
+  const mutationId = sendMutationId(operation.key.operationId);
+  let row = await findScheduledEmail(accountId, mutationId);
+  if (!row) {
+    const held = await holdEngineSend(accountId, mutationId, {
+      ...intent,
+      sendAtMs: intent.sendAtMs,
+    });
+    if (held.status === "rejected") return held;
+    row = held.row;
+  }
+  if (!row.heldForUndo) {
+    return { status: "rejected", code: "invalid", targets: [] };
+  }
+  const current = await releaseHeldEmail(row, logger);
+  return heldSendResult(provider, accountId, operation, current);
+}
+
+async function holdEngineSend(
+  accountId: string,
+  mutationId: string,
+  intent: SendIntent & { sendAtMs: number },
+): Promise<
+  | { status: "held"; row: ScheduledEmail }
+  | Extract<ExecutionResult, { status: "rejected" }>
+> {
+  if (intent.queuedAtMs < Date.now() - MAIL_MUTATION_RETRY_WINDOW_MS) {
+    return {
+      status: "rejected",
+      code: "Queued email is too old to send safely",
+      targets: [],
+    };
+  }
+  try {
+    await holdAccountUploads(accountId, intent.attachmentIds);
+    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
+    if (loaded.status === "missing") {
+      return { status: "rejected", code: "missing_attachment", targets: [] };
+    }
+    const input = scheduleEmailBody.safeParse({
+      clientMutationId: mutationId,
+      ...sendRequest(intent, loaded.attachments),
+      sendAt: null,
+      remindAt: null,
+    });
+    if (!input.success) {
+      return { status: "rejected", code: "invalid", targets: [] };
+    }
+    const row = await holdEmailForUndo({
+      emailAccountId: accountId,
+      input: input.data,
+      sendAt: new Date(intent.sendAtMs),
+      logger,
+    });
+    // The hold carries the files now, so the uploads aren't needed again.
+    await releaseSendAttachments(accountId, intent.attachmentIds);
+    return { status: "held", row };
+  } finally {
+    await releaseAccountUploadHolds(accountId, intent.attachmentIds);
+  }
+}
+
+async function heldSendResult(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedOperation,
+  row: ScheduledEmail,
+): Promise<ExecutionResult> {
+  const receiptId = sendMutationId(operation.key.operationId);
+  switch (row.status) {
+    case "PENDING":
+    case "PROCESSING":
+      return {
+        status: "accepted",
+        receiptId,
+        retryAfterMs: Math.max(
+          row.sendAt.getTime() - Date.now(),
+          HELD_SEND_POLL_MS,
+        ),
+      };
+    case "SENT":
+      return inspectSendOperation(provider, accountId, operation);
+    case "CANCELLED":
+      return { status: "rejected", code: "cancelled", targets: [] };
+    case "FAILED":
+      return {
+        status: "rejected",
+        code: row.error ?? "send_failed",
+        targets: [],
+      };
+    case "UNCERTAIN":
+      return { status: "uncertain", receiptId };
+    case "BLOCKED_AUTH":
+      return {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: BLOCKED_HELD_SEND_RETRY_MS,
+      };
+  }
+}
+
+export async function cancelHeldEngineSend(
+  accountId: string,
+  operationId: string,
+) {
+  return cancelHeldEmail(accountId, sendMutationId(operationId));
+}
+
+async function inspectSendOperation(
   provider: EmailProvider,
   accountId: string,
   operation: PreparedOperation,
@@ -547,11 +764,11 @@ async function inspectSend(
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
-      observations: await observeSentMessage(
+      ...(await observeSentMessage(
         provider,
         accountId,
         sentMessageIdFromResult(found.result),
-      ),
+      )),
       targets: [],
     };
   }
@@ -564,14 +781,14 @@ async function inspectSend(
 function mapSendOutcome(
   operationId: string,
   outcome: Awaited<ReturnType<typeof executeDurableEmailSend>>,
-  observations: ReturnType<typeof parsedMessagePatch>[] = [],
+  sent: Awaited<ReturnType<typeof observeSentMessage>>,
 ) {
   const receiptId = sendMutationId(operationId);
   if (outcome.status === "applied" || outcome.status === "already_applied") {
     return {
       status: "confirmed" as const,
       receiptId,
-      observations,
+      ...sent,
       targets: [],
     };
   }
@@ -597,6 +814,33 @@ function mapSendOutcome(
     };
   }
   return { status: "uncertain" as const, receiptId };
+}
+
+function sendRequest(intent: SendIntent, attachments: Attachment[]) {
+  return {
+    threadId: intent.replyToMessageId ? intent.replyToConversationId : null,
+    messageIds: intent.replyToMessageId
+      ? [intent.replyToMessageId]
+      : [intent.frozenDraftId],
+    email: {
+      to: intent.to.join(", "),
+      cc: intent.cc.join(", ") || undefined,
+      bcc: intent.bcc.join(", ") || undefined,
+      subject: intent.subject,
+      messageHtml: `${intent.html}${intent.quotedHtml}`,
+      replyToEmail:
+        intent.replyToMessageId && intent.replyToConversationId
+          ? {
+              threadId: intent.replyToConversationId,
+              messageId: intent.replyToMessageId,
+            }
+          : undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      ...(intent.providerDraftId
+        ? { providerDraftId: intent.providerDraftId }
+        : {}),
+    },
+  };
 }
 
 function sendMutationId(operationId: string) {
@@ -761,23 +1005,29 @@ async function threadIdForSnooze(
   }
 }
 
+// The body rides along so the sent message replaces the device's outgoing
+// copy fully rendered, rather than as a header waiting on its body.
 async function observeSentMessage(
   provider: EmailProvider,
   accountId: string,
   messageId: string | null,
-) {
-  if (!messageId) return [];
+): Promise<{ observations: ProviderChange[]; bodies: BodyObservation[] }> {
+  if (!messageId) return { observations: [], bodies: [] };
   try {
     const message = await provider.getMessage(messageId);
-    return [
-      parsedMessagePatch(
-        accountId,
-        provider.name === "microsoft" ? "microsoft" : "google",
-        message,
-      ),
-    ];
+    const body = parsedMessageBodyObservation(accountId, message);
+    return {
+      observations: [
+        parsedMessagePatch(
+          accountId,
+          provider.name === "microsoft" ? "microsoft" : "google",
+          message,
+        ),
+      ],
+      bodies: body ? [body] : [],
+    };
   } catch {
-    return [];
+    return { observations: [], bodies: [] };
   }
 }
 

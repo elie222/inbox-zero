@@ -9,7 +9,8 @@ import {
 /**
  * Generic "knowledge base" MCP emulator standing in for a user-registered
  * custom remote MCP server. Streamable HTTP, API key auth
- * (`Authorization: Bearer <apiKey>`, 401 otherwise).
+ * (`Authorization: Bearer <apiKey>`, 401 otherwise). Pass `apiKey: null` for a
+ * public server that accepts every request.
  *
  * `search-documents` and `get-document` are annotated read-only, so they start
  * enabled. `update-document` has no annotations, so it starts disabled.
@@ -28,7 +29,6 @@ export type KnowledgeBaseToolCall = {
 
 export type KnowledgeBaseMcpEmulator = {
   url: string;
-  apiKey: string;
   toolCalls: KnowledgeBaseToolCall[];
   unauthorizedRequests: number;
   close: () => Promise<void>;
@@ -61,7 +61,7 @@ export async function createKnowledgeBaseMcpEmulator({
   documents = DEFAULT_DOCUMENTS,
 }: {
   port?: number;
-  apiKey?: string;
+  apiKey?: string | null;
   documents?: KnowledgeBaseDocument[];
 } = {}): Promise<KnowledgeBaseMcpEmulator> {
   const state = {
@@ -89,7 +89,6 @@ export async function createKnowledgeBaseMcpEmulator({
 
   return {
     url: `http://127.0.0.1:${boundPort}/mcp`,
-    apiKey,
     toolCalls: state.toolCalls,
     get unauthorizedRequests() {
       return state.unauthorizedRequests;
@@ -103,7 +102,7 @@ export async function createKnowledgeBaseMcpEmulator({
 }
 
 type EmulatorState = {
-  apiKey: string;
+  apiKey: string | null;
   documents: KnowledgeBaseDocument[];
   toolCalls: KnowledgeBaseToolCall[];
   unauthorizedRequests: number;
@@ -120,7 +119,10 @@ async function handleRequest(
     return;
   }
 
-  if (req.headers.authorization !== `Bearer ${state.apiKey}`) {
+  if (
+    state.apiKey !== null &&
+    req.headers.authorization !== `Bearer ${state.apiKey}`
+  ) {
     state.unauthorizedRequests += 1;
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "invalid_token" }));

@@ -7,7 +7,7 @@ import {
 } from "@/utils/mail/split-library";
 
 const otpEntry = SPLIT_LIBRARY.find((entry) => entry.name === "OTP");
-const toReplyEntry = SPLIT_LIBRARY.find((entry) => entry.name === "To reply");
+const toReplyEntry = SPLIT_LIBRARY.find((entry) => entry.name === "To Reply");
 
 describe("availableLibraryFilters", () => {
   it("hides label-backed splits when the account has no matching label", () => {

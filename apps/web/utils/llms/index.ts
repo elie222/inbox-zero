@@ -186,10 +186,7 @@ type LlmFallbackFailure = {
   category: LlmFallbackFailureCategory;
 };
 
-type ProviderCostSource =
-  | "openrouter_usage"
-  | "openrouter_usage_with_step_fallback"
-  | "openrouter_step_usage_sum";
+type ProviderCostSource = "openrouter_usage" | "openrouter_step_usage_sum";
 
 type UsageMetadata = {
   providerReportedCost?: number;
@@ -1832,73 +1829,37 @@ function getOpenRouterProviderCost(result: unknown): {
   providerUpstreamInferenceCost?: number;
   providerCostSource?: ProviderCostSource;
 } {
+  // The SDK's top-level providerMetadata only describes the final step, so
+  // per-step usage is the source of truth for multi-step calls.
+  const stepUsages = (getObjectArrayProperty(result, "steps") ?? [])
+    .map(getOpenRouterUsage)
+    .filter((usage) => usage !== null);
+
+  if (stepUsages.length > 0) {
+    return {
+      providerReportedCost: sumDefined(stepUsages.map((usage) => usage.cost)),
+      providerUpstreamInferenceCost: sumDefined(
+        stepUsages.map((usage) => usage.upstreamInferenceCost),
+      ),
+      providerCostSource: "openrouter_step_usage_sum",
+    };
+  }
+
   const directUsage = getOpenRouterUsage(result);
-
-  const steps = getObjectArrayProperty(result, "steps");
-  if (!steps && !directUsage) return {};
-
-  let totalCost = 0;
-  let foundCost = false;
-  let totalUpstreamInferenceCost = 0;
-  let foundUpstreamInferenceCost = false;
-
-  if (steps) {
-    for (const step of steps) {
-      const stepUsage = getOpenRouterUsage(step);
-      if (!stepUsage) continue;
-
-      if (stepUsage.cost !== undefined) {
-        totalCost += stepUsage.cost;
-        foundCost = true;
-      }
-
-      if (stepUsage.upstreamInferenceCost !== undefined) {
-        totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
-        foundUpstreamInferenceCost = true;
-      }
-    }
-  }
-
-  const providerReportedCost =
-    directUsage?.cost ?? (foundCost ? totalCost : undefined);
-  const providerUpstreamInferenceCost =
-    directUsage?.upstreamInferenceCost ??
-    (foundUpstreamInferenceCost ? totalUpstreamInferenceCost : undefined);
-
-  if (
-    providerReportedCost === undefined &&
-    providerUpstreamInferenceCost === undefined
-  ) {
-    return {};
-  }
+  if (!directUsage) return {};
 
   return {
-    providerReportedCost,
-    providerUpstreamInferenceCost,
-    providerCostSource: getOpenRouterCostSource({
-      directUsage,
-      usedStepFallback:
-        (directUsage?.cost === undefined && foundCost) ||
-        (directUsage?.upstreamInferenceCost === undefined &&
-          foundUpstreamInferenceCost),
-    }),
+    providerReportedCost: directUsage.cost,
+    providerUpstreamInferenceCost: directUsage.upstreamInferenceCost,
+    providerCostSource: "openrouter_usage",
   };
 }
 
-function getOpenRouterCostSource({
-  directUsage,
-  usedStepFallback,
-}: {
-  directUsage: ReturnType<typeof getOpenRouterUsage>;
-  usedStepFallback: boolean;
-}) {
-  if (directUsage && usedStepFallback) {
-    return "openrouter_usage_with_step_fallback";
-  }
+function sumDefined(values: Array<number | undefined>) {
+  const defined = values.filter((value) => value !== undefined);
+  if (defined.length === 0) return;
 
-  if (directUsage) return "openrouter_usage";
-
-  return "openrouter_step_usage_sum";
+  return defined.reduce((total, value) => total + value, 0);
 }
 
 function getOpenRouterUsage(value: unknown): {

@@ -10,19 +10,27 @@ const DEFAULT_OUTPUT_PATH = resolve(
 );
 
 async function main() {
-  const { baseUrl, outputPath } = parseOptions(process.argv.slice(2));
-  await writeEmulateSeed(outputPath, baseUrl);
+  const { baseUrl, outputPath, teammates } = parseOptions(
+    process.argv.slice(2),
+  );
+  await writeEmulateSeed(outputPath, baseUrl, teammates);
   console.log(`Wrote emulator seed to ${relativeToRoot(outputPath)}`);
 }
 
 function parseOptions(args: string[]) {
   let baseUrl: string | undefined;
   let outputPath = DEFAULT_OUTPUT_PATH;
+  let teammates = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
-    const value = args[index + 1];
 
+    if (option === "--teammates") {
+      teammates = true;
+      continue;
+    }
+
+    const value = args[index + 1];
     if (!value) throw new Error(`Missing value for ${option}`);
 
     switch (option) {
@@ -39,7 +47,7 @@ function parseOptions(args: string[]) {
     }
   }
 
-  return { baseUrl, outputPath };
+  return { baseUrl, outputPath, teammates };
 }
 
 function relativeToRoot(path: string) {

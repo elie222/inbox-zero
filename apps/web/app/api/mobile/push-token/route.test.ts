@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MobilePushPlatform } from "@/generated/prisma/enums";
+import {
+  MobilePushPlatform,
+  MobilePushTokenType,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
@@ -40,14 +43,59 @@ describe("/api/mobile/push-token", () => {
       create: {
         token: "ExpoPushToken[new-token]",
         platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.EXPO,
         userId: "user-1",
       },
       update: {
         platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.EXPO,
         userId: "user-1",
       },
     });
     expect(response.status).toBe(200);
+  });
+
+  it("registers a raw APNs device token", async () => {
+    const token = "a".repeat(64);
+    const response = await POST(
+      request("POST", {
+        token,
+        platform: "ios",
+        tokenType: "apns",
+      }),
+      {} as never,
+    );
+
+    expect(prisma.mobilePushToken.upsert).toHaveBeenCalledWith({
+      where: { token },
+      create: {
+        token,
+        platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.APNS,
+        userId: "user-1",
+      },
+      update: {
+        platform: MobilePushPlatform.IOS,
+        tokenType: MobilePushTokenType.APNS,
+        userId: "user-1",
+      },
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects an APNs token on Android", async () => {
+    await expect(
+      POST(
+        request("POST", {
+          token: "b".repeat(64),
+          platform: "android",
+          tokenType: "apns",
+        }),
+        {} as never,
+      ),
+    ).rejects.toThrow();
+
+    expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
   });
 
   it("only unregisters the authenticated user's token", async () => {

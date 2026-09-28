@@ -61,7 +61,7 @@ export function AddCustomMcpServerDialog() {
         reset();
         onClose();
 
-        if (input.authType === "api-token") {
+        if (input.authType !== "oauth") {
           toastSuccess({ description: "Server added" });
           return;
         }
@@ -135,6 +135,7 @@ export function AddCustomMcpServerDialog() {
                   <SelectContent>
                     <SelectItem value="oauth">OAuth</SelectItem>
                     <SelectItem value="api-token">API key</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>
               )}

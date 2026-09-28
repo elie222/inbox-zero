@@ -2,11 +2,20 @@ import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
-import { canCancelOperation } from "@inboxzero/mail-core/operations";
+import type { OperationStatus } from "@inboxzero/mail-core/operations";
 import { cancelSendAttachments } from "@/utils/mail-engine/stage-attachments";
 
-export const UNDO_SEND_DELAY_MS = 5000;
+export const UNDO_SEND_DELAY_MS = 30_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
+// The server holds the send while it is executing or verifying, so undo stays
+// open until the send leaves it or the window ends.
+const UNDOABLE_STATUSES = new Set<OperationStatus>([
+  "preparing",
+  "queued",
+  "executing",
+  "verifying",
+  "retry_wait",
+]);
 
 type PendingUndoSend = {
   client: MailClient;
@@ -68,7 +77,7 @@ export function beginUndoSend({
   const inspect = () => {
     if (pending !== current || current.undone) return;
     const status = handle.getSnapshot().data?.status;
-    if (status && !canCancelOperation(status)) clearUndoSendOffer(current);
+    if (status && !UNDOABLE_STATUSES.has(status)) clearUndoSendOffer(current);
   };
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
@@ -76,8 +85,10 @@ export function beginUndoSend({
     message: "Email sent!",
     shortcut: getShortcutHint("undo"),
     duration,
+    // A dismissed toast can still fire during its exit animation, after a
+    // newer send has taken over.
     onUndo: async () => {
-      await undoPendingSend();
+      if (pending === current) await undoPendingSend();
     },
   });
   inspect();
@@ -91,14 +102,12 @@ export async function undoPendingSend() {
     accountId: current.emailAccountId,
     operationId: current.operationId,
   });
-  if (result.status !== "cancelled") {
+  if (result.status === "unavailable") {
+    // The send is still held, so the user can try again within the window.
     current.undone = false;
-    if (pending === current) {
-      pending = null;
-      current.release();
-    }
-    toast.dismiss(current.toastId);
-    toastError({ description: "Couldn't undo send" });
+    toastError({
+      description: "Couldn't reach the server to undo. Try again.",
+    });
     return false;
   }
   if (pending === current) {
@@ -106,6 +115,16 @@ export async function undoPendingSend() {
     current.release();
   }
   toast.dismiss(current.toastId);
+  if (result.status !== "cancelled") {
+    current.undone = false;
+    toastError({
+      description:
+        result.status === "too_late"
+          ? "Too late to undo. This email was already sent."
+          : "Couldn't undo send",
+    });
+    return false;
+  }
   current.restoreComposer();
   try {
     await cancelSendAttachments(current.emailAccountId, current.attachmentIds);

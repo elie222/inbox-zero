@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 type DraftAutosaveSession = {
   cancel: () => void;
@@ -24,6 +30,7 @@ export function useProviderDraftAutosave<T>({
   const [error, setError] = useState("");
   const latest = useRef({ enabled, getContent, save });
   latest.current = { enabled, getContent, save };
+  const dirty = useRef(false);
   const pendingContent = useRef<T | undefined>(undefined);
   const savedSnapshot = useRef<string | undefined>(undefined);
   const activeSave = useRef<Promise<void> | undefined>(undefined);
@@ -33,20 +40,27 @@ export function useProviderDraftAutosave<T>({
   const cleanup = useRef<() => void>(() => {});
 
   const capture = useCallback(() => {
-    if (latest.current.enabled && !paused.current)
-      pendingContent.current = latest.current.getContent();
+    if (latest.current.enabled && !paused.current) dirty.current = true;
   }, []);
 
-  const isPendingContentSaved = useCallback(
-    () =>
+  const readPendingContent = useCallback(() => {
+    if (!dirty.current) return;
+    dirty.current = false;
+    pendingContent.current = latest.current.getContent();
+  }, []);
+
+  const isPendingContentSaved = useCallback(() => {
+    readPendingContent();
+    return (
       pendingContent.current === undefined ||
-      JSON.stringify(pendingContent.current) === savedSnapshot.current,
-    [],
-  );
+      JSON.stringify(pendingContent.current) === savedSnapshot.current
+    );
+  }, [readPendingContent]);
 
   const flush = useCallback(() => {
     if (activeSave.current) return activeSave.current;
     if (!navigator.onLine) return Promise.resolve();
+    readPendingContent();
     const content = pendingContent.current;
     if (!latest.current.enabled || paused.current || content === undefined)
       return Promise.resolve();
@@ -83,7 +97,7 @@ export function useProviderDraftAutosave<T>({
     activeSave.current = request;
     if (session) session.active = request;
     return request;
-  }, [isPendingContentSaved, sessionKey]);
+  }, [isPendingContentSaved, readPendingContent, sessionKey]);
 
   const stop = useCallback(async () => {
     paused.current = true;
@@ -94,6 +108,10 @@ export function useProviderDraftAutosave<T>({
     paused.current = false;
     capture();
   }, [capture]);
+
+  // The editor handle detaches before passive cleanups run, so read the last
+  // keystrokes while it is still mounted and let the unmount flush save them.
+  useLayoutEffect(() => () => readPendingContent(), [readPendingContent]);
 
   useEffect(() => {
     mounted.current = true;

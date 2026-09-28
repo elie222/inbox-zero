@@ -19,11 +19,22 @@ import {
   accountMailUploadDirectory,
   cancelAccountUpload,
 } from "./upload-blobs";
+import {
+  findScheduledEmail,
+  holdEmailForUndo,
+} from "@/utils/scheduled-email/service";
+import type { ScheduledEmail } from "@/generated/prisma/client";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/durable-email-send", () => ({
   executeDurableEmailSend: vi.fn(),
+}));
+vi.mock("@/utils/scheduled-email/service", () => ({
+  findScheduledEmail: vi.fn(),
+  holdEmailForUndo: vi.fn(),
+  releaseHeldEmail: vi.fn(async (row: unknown) => row),
+  cancelHeldEmail: vi.fn(),
 }));
 vi.mock("@/utils/snooze/scheduler", () => ({
   prepareSnoozedThread: vi.fn(),
@@ -35,7 +46,85 @@ describe("createEmailProviderOperationExecutor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-  it("records per-target applied and rejected outcomes in one bulk archive", async () => {
+  it("archives every target with one provider call and one batched read", async () => {
+    const archiveMessages = vi.fn();
+    const getMessage = vi.fn();
+    const getMessagesBatch = vi.fn(async (ids: string[]) =>
+      ids.map((id) => ({
+        id,
+        threadId: `t-${id}`,
+        headers: { from: "ada@example.com", to: "me@example.com" },
+        labelIds: id === "still-inbox" ? ["INBOX"] : [],
+        snippet: id,
+      })),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+        getMessage,
+        getMessagesBatch,
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledTimes(1);
+    expect(archiveMessages).toHaveBeenCalledWith(["m1", "m2", "still-inbox"]);
+    expect(getMessagesBatch).toHaveBeenCalledTimes(1);
+    expect(getMessage).not.toHaveBeenCalled();
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
+  });
+
+  it("keeps verifying other messages when a batched read fails", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages: vi.fn(),
+        getMessagesBatch: vi.fn().mockRejectedValue(new Error("throttled")),
+        async getMessage(id: string) {
+          if (id === "unreadable") throw new Error("throttled");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+        { accountId: "acc-1", messageId: "unreadable" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "still-inbox:uncertain", "unreadable:applied"]);
+  });
+
+  it("falls back to per-message outcomes when the bulk call fails", async () => {
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
       provider: {
@@ -135,6 +224,7 @@ describe("createEmailProviderOperationExecutor", () => {
       provider: {
         name: "google",
         markNotSpam,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
         async getMessage(id: string) {
           return {
             id,
@@ -202,6 +292,8 @@ describe("createEmailProviderOperationExecutor", () => {
       headers: { from: "me@example.com", to: "ada@example.com" },
       labelIds: ["SENT"],
       snippet: "Hi",
+      historyId: "7",
+      textHtml: "<p>Hi</p>",
     }));
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
@@ -220,6 +312,13 @@ describe("createEmailProviderOperationExecutor", () => {
         kind: "message_patch",
         key: { accountId: "acc-1", messageId: "sent-1" },
         fields: expect.objectContaining({ roles: ["sent"] }),
+      }),
+    ]);
+    expect(result.bodies).toEqual([
+      expect.objectContaining({
+        key: { accountId: "acc-1", messageId: "sent-1" },
+        version: "7",
+        html: "<p>Hi</p>",
       }),
     ]);
   });
@@ -486,6 +585,89 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(result.status).toBe("confirmed");
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("holds an undo-window send on the server instead of sending it", async () => {
+    const sendAtMs = Date.now() + 30_000;
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    vi.mocked(holdEmailForUndo).mockImplementation(async ({ input, sendAt }) =>
+      heldRow({ payload: input, sendAt }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: heldSendOperation(sendAtMs),
+      attemptId: "a-held",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "accepted" });
+    expect(result.status === "accepted" && result.retryAfterMs).toBeGreaterThan(
+      25_000,
+    );
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+    expect(holdEmailForUndo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        sendAt: new Date(sendAtMs),
+        input: expect.objectContaining({
+          threadId: "thread-1",
+          messageIds: ["msg-1"],
+          email: expect.objectContaining({
+            to: "ada@example.com",
+            replyToEmail: { threadId: "thread-1", messageId: "msg-1" },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("confirms a held send from its receipt once the server sent it", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(
+      heldRow({ status: "SENT" }),
+    );
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      status: "SENT",
+      result: { messageId: "sent-1", threadId: "thread-1" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.inspect({
+      operation: heldSendOperation(Date.now() - 1000),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects a held send that was undone", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(
+      heldRow({ status: "CANCELLED" }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.inspect({
+      operation: heldSendOperation(Date.now() + 10_000),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({
+      status: "rejected",
+      code: "cancelled",
+      targets: [],
+    });
   });
 
   it("transfers snooze ownership to the server scheduler after archive", async () => {
@@ -872,6 +1054,40 @@ function sendOperation(
       replyToConversationId: reply?.replyToConversationId ?? null,
       queuedAtMs: Date.now(),
     },
+  };
+}
+
+function heldSendOperation(sendAtMs: number): PreparedOperation {
+  const operation = sendOperation([], undefined, {
+    replyToMessageId: "msg-1",
+    replyToConversationId: "thread-1",
+  });
+  if (operation.intent.kind !== "send") throw new Error("expected send");
+  return { ...operation, intent: { ...operation.intent, sendAtMs } };
+}
+
+function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
+  const now = new Date();
+  return {
+    id: "held-1",
+    createdAt: now,
+    updatedAt: now,
+    emailAccountId: "acc-1",
+    clientMutationId: "7f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",
+    payloadHash: "hash",
+    payload: {},
+    threadId: "thread-1",
+    sendAt: new Date(now.getTime() + 30_000),
+    status: "PENDING",
+    processingStartedAt: null,
+    executionQueuedAt: null,
+    sentAt: null,
+    error: null,
+    remindAt: null,
+    reminderStatus: "NONE",
+    reminderStartedAt: null,
+    heldForUndo: true,
+    ...overrides,
   };
 }
 

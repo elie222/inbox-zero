@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+import { MobilePushTokenType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
+import { deliverApnsNotifications } from "@/utils/apns";
 import { sendMobilePushNotification } from "./mobile-push";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/apns", () => ({
+  deliverApnsNotifications: vi.fn(async () => ({
+    unregisteredTokens: [],
+    retryTokens: [],
+  })),
+}));
 
 const logger = createTestLogger();
 
@@ -178,6 +186,38 @@ describe("sendMobilePushNotification", () => {
     });
   });
 
+  it("sends raw APNs tokens through APNs and Expo tokens through Expo", async () => {
+    mockClaimedTokens([
+      {
+        id: "expo",
+        token: "ExponentPushToken[expo]",
+        tokenType: MobilePushTokenType.EXPO,
+      },
+      {
+        id: "apns",
+        token: "a".repeat(64),
+        tokenType: MobilePushTokenType.APNS,
+      },
+    ]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ status: "ok" }] }), {
+        status: 200,
+      }),
+    );
+
+    await sendNotification();
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual([
+      expect.objectContaining({ to: "ExponentPushToken[expo]" }),
+    ]);
+    expect(deliverApnsNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokens: ["a".repeat(64)],
+        notification: expect.objectContaining({ title: "Verification code" }),
+      }),
+    );
+  });
+
   it("keeps claims when Expo returns fewer tickets than requested", async () => {
     mockClaimedTokens([
       { id: "token-1", token: "ExponentPushToken[first]" },
@@ -220,7 +260,9 @@ function sendNotification() {
   });
 }
 
-function mockClaimedTokens(tokens: Array<{ id: string; token: string }>) {
+function mockClaimedTokens(
+  tokens: Array<{ id: string; token: string; tokenType?: string }>,
+) {
   prisma.mobilePushToken.findMany.mockResolvedValue(tokens as never);
   prisma.mobilePushDelivery.createManyAndReturn.mockResolvedValue(
     tokens.map(({ id }) => ({ mobilePushTokenId: id })) as never,

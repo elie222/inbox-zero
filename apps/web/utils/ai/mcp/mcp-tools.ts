@@ -5,10 +5,8 @@ import {
 } from "@/utils/mcp/resolve-integration";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
-import { getMcpFetch } from "@/utils/mcp/safe-fetch";
-import { getMcpServerUrl } from "@/utils/mcp/server-url";
+import { getMcpServerConnection } from "@/utils/mcp/server-connection";
 import { isValidMcpToolName } from "@/utils/mcp/tool-name";
 
 type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
@@ -80,24 +78,10 @@ export async function createMcpToolsForAgent(
         continue;
       }
 
-      // registeredServerUrl is the OAuth discovery base URL, not the MCP endpoint
-      const serverUrl = getMcpServerUrl(integrationConfig);
-      if (!serverUrl) {
-        logger.warn("No server URL available", {
-          integration: integration.name,
-        });
-        continue;
-      }
-
       try {
-        const authToken = await getAuthToken({
-          integration: integrationConfig,
-          emailAccountId,
-        });
-
-        const transport = createMcpTransport(serverUrl, authToken, {
-          fetch: getMcpFetch(integrationConfig),
-        });
+        const transport = createMcpTransport(
+          await getMcpServerConnection(integrationConfig, emailAccountId),
+        );
 
         const mcpClient = await createMCPClient({ transport });
         clients.push(mcpClient);

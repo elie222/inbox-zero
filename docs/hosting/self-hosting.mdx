@@ -84,10 +84,10 @@ Browser unsubscribe is also optional. Docker Compose and `pnpm dev` never start 
 
 ### 3. Deploy
 
-Pull and start the services with your domain:
+Start the services with the command setup printed. From a cloned repo, you can also run:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.

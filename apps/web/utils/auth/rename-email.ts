@@ -3,6 +3,36 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { assertAllowedAuthSignupEmail } from "@/utils/auth-signup-policy";
 import { invalidateAccountValidation } from "@/utils/redis/account-validation";
+import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+
+// Gmail push notifications identify the mailbox only by its current address,
+// so a renamed address stops matching until the stored email catches up.
+export async function syncGoogleEmailFromProfile({
+  account,
+  mailbox,
+  userEmail,
+  accessToken,
+}: {
+  account: Pick<Account, "id" | "userId" | "providerId" | "accountId">;
+  mailbox: { id: string; email: string };
+  userEmail: string;
+  accessToken: string;
+}) {
+  const profile = await fetchGoogleOpenIdProfile(accessToken);
+  return renameGoogleEmail({
+    account,
+    mailbox,
+    userEmail,
+    profile: {
+      email: profile.email,
+      sub: profile.sub,
+      emailVerified: profile.email_verified,
+      hostedDomain: profile.hd,
+      name: profile.name,
+      image: profile.picture ?? null,
+    },
+  });
+}
 
 export async function renameGoogleEmail({
   account,

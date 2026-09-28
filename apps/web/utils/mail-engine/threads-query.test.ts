@@ -143,7 +143,7 @@ describe("threadsQueryToPredicate", () => {
       kind: "text",
       field: "any",
       value: "invoice",
-      match: "phrase",
+      match: "term",
     });
   });
 

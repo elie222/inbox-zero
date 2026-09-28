@@ -58,39 +58,40 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    /* Charcoal rather than near-black, matching the Mail screen */
+    --background: 220 7% 16%; /* #26282C */
+    --foreground: 220 8% 92%; /* #E9EAEC */
+    --card: 220 7% 19%; /* #2D2F34 */
+    --card-foreground: 220 8% 92%;
+    --popover: 220 7% 19%; /* #2D2F34 */
+    --popover-foreground: 220 8% 92%;
     --primary: 0 0% 98%;
     --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --secondary: 220 7% 24%; /* #393C41 */
+    --secondary-foreground: 220 8% 85%; /* #D6D8DC */
+    --muted: 220 7% 21%; /* #323439 */
+    --muted-foreground: 220 5% 62%; /* #999CA3 */
+    --accent: 220 7% 24%; /* #393C41 */
+    --accent-foreground: 220 8% 95%; /* #F1F2F3 */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --border-strong: 240 3.7% 22%;
+    --border: 220 6% 22%; /* #35373B */
+    --input: 220 6% 22%;
+    --border-strong: 220 6% 28%; /* #43464C */
     --ring: 240 4.9% 83.9%;
     --chart-1: oklch(0.7 0.2 250);
     --chart-2: oklch(0.6 0.22 250);
     --chart-3: oklch(0.5 0.24 250);
     --chart-4: oklch(0.4 0.22 250);
     --chart-5: oklch(0.3 0.18 250);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-background: 220 7% 14%; /* #212326 */
+    --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
     --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-accent: 220 7% 21%; /* #323439 */
+    --sidebar-accent-foreground: 220 8% 95%;
+    --sidebar-border: 220 6% 20%; /* #303236 */
     --sidebar-ring: 240 4.9% 83.9%;
   }
 }
@@ -102,8 +103,7 @@
    * Intended to be promoted to `:root` in a follow-up PR, at which point this
    * block and the `data-theme` attribute go away.
    *
-   * The dark variant below swaps the near-black app palette for charcoal so
-   * the mail screen reads as one soft surface rather than panels on void.
+   * The dark variant shares the app's charcoal surfaces and only swaps accents.
    */
   :root[data-theme="mail"]:not(.dark) {
     --background: 0 0% 99.2%; /* #FDFDFD */
@@ -149,45 +149,18 @@
   }
 
   :root[data-theme="mail"].dark {
-    --background: 220 7% 16%; /* #26282C */
-    --foreground: 220 8% 92%; /* #E9EAEC */
-
-    --muted: 220 7% 21%; /* #323439 */
-    --muted-foreground: 220 5% 62%; /* #999CA3 */
-
-    --popover: 220 7% 19%; /* #2D2F34 */
-    --popover-foreground: 220 8% 92%;
-
-    --card: 220 7% 19%; /* #2D2F34 */
-    --card-foreground: 220 8% 92%;
-
-    --border: 220 6% 22%; /* #35373B */
-    --input: 220 6% 22%;
-    --border-strong: 220 6% 28%; /* #43464C */
-
     /* Lighter fills with dark text so both the fill and the tinted text on the
        charcoal background clear WCAG AA contrast */
     --primary: 213.1 93.9% 67.8%; /* #60A5FA */
     --primary-foreground: 220 7% 12%; /* #1C1E21 */
-
-    --secondary: 220 7% 24%; /* #393C41 */
-    --secondary-foreground: 220 8% 85%; /* #D6D8DC */
-
-    --accent: 220 7% 24%; /* #393C41 */
-    --accent-foreground: 220 8% 95%; /* #F1F2F3 */
 
     --destructive: 0 90.6% 70.8%; /* #F87171 */
     --destructive-foreground: 220 7% 12%;
 
     --ring: 213.1 93.9% 67.8%;
 
-    --sidebar-background: 220 7% 14%; /* #212326 */
-    --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
     --sidebar-primary: 213.1 93.9% 67.8%;
     --sidebar-primary-foreground: 220 7% 12%;
-    --sidebar-accent: 220 7% 21%; /* #323439 */
-    --sidebar-accent-foreground: 220 8% 95%;
-    --sidebar-border: 220 6% 20%; /* #303236 */
     --sidebar-ring: 213.1 93.9% 67.8%;
   }
 }

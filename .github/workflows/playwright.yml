@@ -238,7 +238,7 @@ jobs:
     env:
       PLAYWRIGHT_CHANGED_TEST_FILES: ${{ needs.select.outputs.changed_tests }}
       PLAYWRIGHT_MAIL_PROVIDER: ${{ matrix.batch.provider }}
-      MAIL_REQUIRE_ELECTRON: ${{ contains(join(matrix.batch.paths, ' '), 'hosted-electron-archive.spec.ts') && '1' || '0' }}
+      MAIL_REQUIRE_ELECTRON: ${{ contains(join(matrix.batch.paths, ' '), 'hosted-electron-') && '1' || '0' }}
 
     steps:
       - name: Checkout repository

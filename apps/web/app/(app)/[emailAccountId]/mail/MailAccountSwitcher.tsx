@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ChevronsUpDownIcon,
@@ -35,7 +35,7 @@ import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-accoun
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { cn } from "@/utils";
 
-export function MailAccountSwitcher({
+export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
   isDesktopApp,
   onSelectAccount,
@@ -192,7 +192,7 @@ export function MailAccountSwitcher({
       ) : null}
     </div>
   );
-}
+});
 
 function AccountItem({
   account,

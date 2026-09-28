@@ -881,6 +881,8 @@ model ScheduledEmail {
   remindAt            DateTime?
   reminderStatus      EmailReminderStatus  @default(NONE)
   reminderStartedAt   DateTime?
+  // A just-sent email the server holds for the undo window, not one the user scheduled.
+  heldForUndo         Boolean              @default(false)
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])
@@ -1973,6 +1975,7 @@ model McpIntegration {
 enum McpAuthType {
   OAUTH
   API_TOKEN
+  NONE
 }
 
 model McpConnection {
@@ -2021,6 +2024,7 @@ model MobilePushToken {
   updatedAt DateTime           @updatedAt
   token     String             @unique
   platform  MobilePushPlatform
+  tokenType MobilePushTokenType @default(EXPO)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2046,6 +2050,11 @@ model MobilePushDelivery {
 enum MobilePushPlatform {
   ANDROID @map("android")
   IOS     @map("ios")
+}
+
+enum MobilePushTokenType {
+  EXPO @map("expo")
+  APNS @map("apns")
 }
 
 enum ActionType {

@@ -3,6 +3,11 @@ import { withEmailAccount } from "@/utils/middleware";
 import { Prisma } from "@/generated/prisma/client";
 import type { ScheduledEmailStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
+import {
+  processScheduledEmail,
+  scheduleEmail,
+} from "@/utils/scheduled-email/service";
 
 const UPCOMING_STATUSES: ScheduledEmailStatus[] = [
   "PENDING",
@@ -27,6 +32,8 @@ export type UpcomingScheduledEmailsResponse = Awaited<
   ReturnType<typeof getUpcomingData>
 >;
 
+export type ScheduleEmailResponse = { id: string };
+
 export const GET = withEmailAccount(async (request) => {
   const threadId = request.nextUrl.searchParams.get("threadId");
   const { emailAccountId } = request.auth;
@@ -37,11 +44,26 @@ export const GET = withEmailAccount(async (request) => {
   );
 });
 
+/**
+ * REST equivalent of `scheduleEmailAction`. A null `sendAt` sends now,
+ * matching the action, so clients share that send path.
+ */
+export const POST = withEmailAccount(
+  "user/scheduled-emails",
+  async (request) => {
+    const body = scheduleEmailBody.parse(await request.json());
+    const row = await scheduleEmail(request.auth.emailAccountId, body);
+    if (!body.sendAt) await processScheduledEmail(row.id, request.logger);
+    return NextResponse.json({ id: row.id } satisfies ScheduleEmailResponse);
+  },
+);
+
 async function getThreadData(emailAccountId: string, threadId: string) {
   const scheduledEmails = await prisma.scheduledEmail.findMany({
     where: {
       emailAccountId,
       threadId,
+      heldForUndo: false,
       status: { not: "CANCELLED" },
       OR: [
         { status: { not: "SENT" } },
@@ -79,6 +101,7 @@ async function getUpcomingData(emailAccountId: string) {
       "payload" -> 'email' ->> 'subject' AS "subject"
     FROM "ScheduledEmail"
     WHERE "emailAccountId" = ${emailAccountId}
+      AND NOT "heldForUndo"
       AND "status"::text IN (${Prisma.join(UPCOMING_STATUSES)})
     ORDER BY "sendAt" ASC
     LIMIT 200

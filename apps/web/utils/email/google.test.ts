@@ -666,6 +666,59 @@ describe("GmailProvider.searchThreads", () => {
       expect.objectContaining({
         q: "invoice from:billing@example.com",
         labelIds: [],
+        includeSpamTrash: false,
+      }),
+    );
+  });
+
+  it("includes spam when the search is scoped to that folder", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({
+      query: "invoice",
+      folder: "spam",
+      includeSpamTrash: true,
+    });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice",
+        labelIds: [GmailLabel.SPAM],
+        includeSpamTrash: true,
+      }),
+    );
+  });
+
+  it("includes trash when the query itself names that folder", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({ query: "invoice in:trash" });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice in:trash",
+        labelIds: [],
+        includeSpamTrash: true,
       }),
     );
   });

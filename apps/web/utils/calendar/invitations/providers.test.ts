@@ -173,6 +173,35 @@ describe("Microsoft invitation responses", () => {
     });
   });
 
+  it("answers the mailbox event linked to the invitation email", async () => {
+    mocks.get.mockResolvedValue({
+      id: "linked/event",
+      organizer: { emailAddress: { address: invitation.organizer } },
+      attendees: [{ emailAddress: { address: invitation.attendee } }],
+      responseStatus: { response: "none" },
+      singleValueExtendedProperties: [
+        {
+          id: "Integer {00062002-0000-0000-C000-000000000046} Id 0x8201",
+          value: "2",
+        },
+      ],
+    });
+    expect(
+      await microsoft.findInvitationEvent(invitation, "linked/event"),
+    ).toEqual({ id: "linked/event", response: "none" });
+    // Exchange rewrites the iCalUId of invitations from other providers, so the
+    // lookup by UID must not run once the mailbox has named the event.
+    expect(mocks.api).toHaveBeenCalledWith("/me/events/linked%2Fevent");
+    expect(mocks.api).not.toHaveBeenCalledWith("/me/calendar/events");
+  });
+
+  it("falls back to the email reply when the linked event is gone", async () => {
+    mocks.get.mockRejectedValue({ statusCode: 404 });
+    expect(
+      await microsoft.findInvitationEvent(invitation, "linked-event"),
+    ).toBeNull();
+  });
+
   it.each([
     ["accepted", "accept"],
     ["declined", "decline"],

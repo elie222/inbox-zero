@@ -7,6 +7,8 @@ export const DESKTOP_WEB_UPDATE_LAST_PROMPTED_KEY =
   "inbox-zero:desktop-web-update-last-prompted-at";
 
 export type InboxZeroDesktopApi = {
+  /** Tells the shell this page hydrated; without it the shell reloads the page. */
+  signalReady?: () => void;
   setUnreadCount?: (count: number) => void;
   notifyNewMail?: (payload: {
     emailAccountId: string;

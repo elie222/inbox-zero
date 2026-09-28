@@ -25,7 +25,7 @@ describe("thread mail mutation batches", () => {
     mail.client.submitConversations.mockResolvedValue({ status: "queued" });
   });
 
-  it("submits each complete thread snapshot through the engine", async () => {
+  it("submits the complete thread snapshots as one engine command", async () => {
     const result = await enqueueThreadMailMutationBatch(
       {
         clientSource: { kind: "sender", sender: "news@example.com" },
@@ -66,7 +66,15 @@ describe("thread mail mutation batches", () => {
         status: "succeeded",
       },
     ]);
-    expect(mail.client.submitConversations).toHaveBeenCalledTimes(2);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversations: [
+          { accountId: "account", conversationId: "thread-1" },
+          { accountId: "account", conversationId: "thread-2" },
+        ],
+      }),
+    );
   });
 
   it("waits until the mail engine is published", async () => {
