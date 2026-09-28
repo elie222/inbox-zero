@@ -1,10 +1,5 @@
-import { load } from "cheerio";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  buildQuotedPlainText,
-  quotePlainTextContent,
-} from "@/utils/email/quoted-plain-text";
-import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
+import { buildReplyQuote } from "@/utils/email/reply-quote";
 
 export const createOutlookReplyContent = ({
   textContent,
@@ -18,78 +13,26 @@ export const createOutlookReplyContent = ({
   html: string;
   text: string;
 } => {
-  const quotedDate = formatEmailDate(new Date(message.headers.date));
-  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
+  const {
+    dirAttribute,
+    contentHtml,
+    quotedHeaderHtml,
+    quotedContentHtml,
+    text,
+  } = buildReplyQuote({ textContent, htmlContent, message });
 
-  // Detect text direction from original message
-  const textDirection = detectTextDirection(textContent || "");
-  const dirAttribute = `dir="${textDirection}"`;
-
-  // Format plain text version with proper quoting
-  const quotedContent = quotePlainTextContent(message.textPlain);
-  const plainText = buildQuotedPlainText({
-    textContent,
-    quotedHeader,
-    quotedContent,
-  });
-
-  const messageContent =
-    message.textHtml ||
-    (message.textPlain ? convertNewlinesToBr(message.textPlain) : "");
-
-  const contentHtml =
-    htmlContent || (textContent ? renderMixedContentAsHtml(textContent) : "");
-
-  // Outlook-specific font styling with Aptos as default
   const outlookFontStyle =
     "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);";
 
-  // Format HTML version with Outlook-style formatting
   const html =
     `<div ${dirAttribute} style="${outlookFontStyle}">${contentHtml}</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div ${dirAttribute} style="font-size: 11pt; color: rgb(0, 0, 0);">${escapeHtml(quotedHeader)}<br></div>
+  <div ${dirAttribute} style="font-size: 11pt; color: rgb(0, 0, 0);">${quotedHeaderHtml}<br></div>
   <div style="margin-top: 10px;">
-    ${messageContent}
+    ${quotedContentHtml}
   </div>
 </div>`.trim();
 
-  return {
-    text: plainText,
-    html,
-  };
+  return { text, html };
 };
-
-function detectTextDirection(text: string): "ltr" | "rtl" {
-  // Basic RTL detection - checks for RTL characters at the start of the text
-  const rtlRegex =
-    /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
-  return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
-}
-
-function renderMixedContentAsHtml(content: string): string {
-  const $ = load(content, null, false);
-
-  $.root()
-    .contents()
-    .each((_index, node) => {
-      if (node.type !== "text") return;
-
-      $(node).replaceWith(convertNewlinesToBr(escapeHtml(node.data)));
-    });
-
-  return $.root().html() ?? "";
-}
-
-export function formatEmailDate(date: Date): string {
-  const weekday = date.toLocaleString("en-US", { weekday: "short" });
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const day = date.getDate();
-  const year = date.getFullYear();
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-
-  // Format: "Thu, 6 Feb 2025 at 23:23"
-  return `${weekday}, ${day} ${month} ${year} at ${hour}:${minute.toString().padStart(2, "0")}`;
-}

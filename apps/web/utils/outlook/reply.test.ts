@@ -210,4 +210,43 @@ On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:
 > Original message content`,
     );
   });
+  it("escapes plain-text reply content while keeping line breaks", () => {
+    const { html } = createOutlookReplyContent({
+      textContent: "Is a < b & c?\nNext line",
+      message: getMessage(),
+    });
+
+    expect(html).toContain("Is a &lt; b &amp; c?<br>Next line");
+  });
+
+  it("escapes quoted plain text when the original has no HTML body", () => {
+    const { html, text } = createOutlookReplyContent({
+      textContent: "Thanks",
+      message: getMessage({
+        textPlain: "Contact <name@example.com>\nif a < b",
+        textHtml: undefined,
+      }),
+    });
+
+    expect(html).toContain("Contact &lt;name@example.com&gt;<br>if a &lt; b");
+    expect(html).not.toContain("<name@example.com>");
+    expect(text).toContain("> Contact <name@example.com>\n> if a < b");
+  });
 });
+
+function getMessage(
+  overrides: Partial<Pick<ParsedMessage, "textPlain" | "textHtml">> = {},
+): Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> {
+  return {
+    headers: {
+      date: "Thu, 6 Feb 2025 23:23:47 +0200",
+      from: "John Doe <john@example.com>",
+      subject: "Test Email",
+      to: "jane@example.com",
+      "message-id": "<123@example.com>",
+    },
+    textPlain: "Original message content",
+    textHtml: "<div>Original message content</div>",
+    ...overrides,
+  };
+}
