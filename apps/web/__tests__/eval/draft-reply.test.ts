@@ -1220,6 +1220,233 @@ Maya`,
         TIMEOUT,
       );
 
+      test.each([
+        {
+          language: "English",
+          content: `Hi,
+
+We've been using the product across our team for a month. Two things would make it work for us: sharing one integration connection across the whole team, and setting permissions per action instead of per integration.
+
+Is either of these planned?
+
+Thanks,
+Sam`,
+        },
+        {
+          language: "German",
+          content: `Hallo,
+
+wir nutzen das Produkt seit einem Monat im ganzen Team. Zwei Dinge würden uns sehr helfen: eine gemeinsame Integrationsverbindung für das ganze Team und Berechtigungen pro Aktion statt pro Integration.
+
+Ist eines davon geplant?
+
+Viele Grüße
+Sam`,
+        },
+      ])(
+        "does not stall with a promise to check when only the user knows the answer ($language)",
+        async ({ language, content }) => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Sam Rivera <sam@teamco.example>",
+                to: emailAccount.email,
+                subject: "Team features",
+                content,
+              }),
+              date: new Date("2026-05-08T10:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = `missing roadmap context (${language})`;
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A draft written as the user, in the sender's language, that leaves the roadmap answer for the user to fill in, without inventing plans. It must not substitute a promise to check, look into it, or follow up later for the answer, and must not voice the drafter's own lack of information or reluctance to guess.",
+            criterion: {
+              name: "No stalling or drafter uncertainty",
+              description:
+                "The user knows their own roadmap even though the drafter was not told it. The draft fails if it replaces the answer with a deferral such as checking and getting back to the sender, or if it narrates that the writer lacks the information or does not want to guess. It also fails if it invents concrete plans or timelines. A short placeholder for the unknown facts is acceptable.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "no deferral or drafter uncertainty, not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not stall or voice drafter uncertainty.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "answers a plans question from the knowledge base instead of a placeholder",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Sam Rivera <sam@teamco.example>",
+                to: emailAccount.email,
+                subject: "Team features",
+                content: `Hi,
+
+Is a shared team connection for integrations planned? We'd rather not have everyone connect their own account.
+
+Thanks,
+Sam`,
+              }),
+              date: new Date("2026-05-08T10:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent:
+              "Shared team connections for integrations are in beta. Team admins can turn them on under Settings > Integrations.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "plans question answered by knowledge base";
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A reply that answers from the knowledge base: shared team connections are in beta and admins can enable them in the integration settings.",
+            criterion: {
+              name: "Knowledge base answer, no placeholder",
+              description:
+                "The draft should answer the question with the supplied knowledge base facts. It fails if it leaves a bracketed placeholder for the answer, defers with a promise to check, or contradicts the knowledge base.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "answers from knowledge base without a placeholder",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should answer from the knowledge base.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "commits to investigating a reported bug without a placeholder",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Blake <jordan@example.com>",
+                to: emailAccount.email,
+                subject: "CSV export broken",
+                content: `Hi,
+
+Since yesterday, every CSV export I start stops at 50% and then shows "Export failed". I've tried two browsers.
+
+Can you take a look?
+
+Jordan`,
+              }),
+              date: new Date("2026-05-11T16:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "reported bug needs investigation";
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A short reply that acknowledges the failing exports and commits to looking into it, without claiming a cause or fix.",
+            criterion: {
+              name: "Investigation commitment",
+              description:
+                "A reported bug needs investigation, so committing to look into it is correct. The draft fails if it uses a bracketed placeholder in place of that commitment, invents a cause, fix, or timeline, or narrates that the writer lacks information.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "commits to investigate, no placeholder, not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should commit to investigating.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
       test(
         "uses supplied pricing terms before the signing deadline",
         async () => {
@@ -1694,6 +1921,7 @@ Priya`,
             calendarAvailability: null,
             writingStyle: null,
             mcpContext: null,
+            currentDate: new Date("2026-05-06T16:00:00Z"),
             meetingContext: null,
           });
 
@@ -1744,6 +1972,7 @@ Priya`,
             calendarAvailability: null,
             writingStyle: null,
             mcpContext: null,
+            currentDate: new Date("2026-05-06T16:00:00Z"),
             meetingContext:
               "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
           });

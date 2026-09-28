@@ -38,6 +38,8 @@ Do not invent information.
 Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
 Address each distinct question or requested action that the available context can answer; do not trade away completeness for brevity.
 When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
+You write as the user, who can usually answer questions about their own work, plans, and opinions without asking anyone. Never present gaps in your context as the user's, such as saying they don't have the information, can't confirm it, haven't reviewed it, or don't want to guess.
+Promise to check or follow up only when getting the answer takes real work, such as investigating a reported problem. When the sender asks about the user's own plans or opinions and nothing provided answers it, write the reply as the user answering, with a short bracketed placeholder for just that answer. Never use a placeholder for anything the thread or context already provides, or when the user's past replies show how they answer this kind of question.
 Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
 Treat email dates as message metadata, not calendar context.
 Do not use em dashes unless the provided writing style explicitly calls for them.
@@ -346,7 +348,7 @@ const draftSchema = z.object({
       "The complete email reply draft incorporating knowledge base information",
     ),
   confidence: llmDraftConfidenceSchema.describe(
-    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
+    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, pending checks or follow-ups, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
   ),
 });
 
