@@ -3,7 +3,7 @@
 import { CrownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 
 export function UpgradeToPlusButton({ tooltip }: { tooltip: string }) {
   const { PremiumModal, openModal } = usePremiumModal();

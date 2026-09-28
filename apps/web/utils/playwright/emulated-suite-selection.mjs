@@ -474,7 +474,6 @@ function isBrowserSourceFile(appPath) {
     "store/",
     "styles/",
     "utils/",
-    "lib/",
     "ee/billing/",
   ].some((prefix) => appPath.startsWith(prefix));
 }

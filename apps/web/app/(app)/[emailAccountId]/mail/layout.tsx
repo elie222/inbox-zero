@@ -5,8 +5,8 @@ import {
   clampMailSidebarWidth,
   MAIL_SIDEBAR_WIDTH_COOKIE,
 } from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
-import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
-import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
+import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
+import { MAIL_SHORTCUT_SCOPES } from "@/utils/shortcuts/registry";
 
 export default async function MailLayout({
   children,

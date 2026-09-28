@@ -11,7 +11,7 @@ import {
 import {
   ApiKeysCreateButtonModal,
   ApiKeysDeactivateButton,
-} from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
+} from "@/app/(app)/settings/ApiKeysCreateForm";
 import {
   Item,
   ItemContent,

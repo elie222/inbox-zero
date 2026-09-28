@@ -20,7 +20,7 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  *
  * `mail_action`: a mail command run from the keyboard or the command palette.
  * Clicks are covered by autocapture.
- * - `action`: shortcut id from `lib/shortcuts/registry.ts` (e.g. "archive",
+ * - `action`: shortcut id from `utils/shortcuts/registry.ts` (e.g. "archive",
  *   "reply", "snooze") or command palette command id (e.g. "mail-archive",
  *   "nav-inbox", "rule-<ruleId>").
  * - `source`: "shortcut" | "palette".

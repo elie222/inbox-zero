@@ -60,7 +60,7 @@ import {
   createMessagingLinkCodeAction,
   disconnectChannelAction,
 } from "@/utils/actions/messaging-channels";
-import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import { useSlackNotifications } from "@/app/(app)/settings/ConnectedAppsSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";

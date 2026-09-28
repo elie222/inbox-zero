@@ -13,7 +13,7 @@ vi.mock("@/hooks/usePremium", () => ({
   usePremium: () => mockUsePremium(),
 }));
 
-vi.mock("@/app/(app)/premium/PremiumModal", () => ({
+vi.mock("@/components/PremiumModal", () => ({
   usePremiumModal: () => ({ PremiumModal: () => null, openModal: vi.fn() }),
 }));
 

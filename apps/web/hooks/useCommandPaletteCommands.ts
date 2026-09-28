@@ -17,7 +17,7 @@ import {
   InboxIcon,
   MailsIcon,
 } from "lucide-react";
-import type { Command } from "@/lib/commands/types";
+import type { Command } from "@/utils/commands/types";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { AboutSection } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
+import { AboutSection } from "@/app/(app)/settings/AboutSectionForm";
 
 export function AboutSetting() {
   const [open, setOpen] = useState(false);

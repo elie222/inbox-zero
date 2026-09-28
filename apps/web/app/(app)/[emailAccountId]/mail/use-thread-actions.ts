@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import groupBy from "lodash/groupBy";
 import { toast } from "sonner";
 import { toastUndo } from "@/components/Toast";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { getShortcutHint } from "@/utils/shortcuts/registry";
 import { randomUuid } from "@/utils/uuid";
 import {
   getListThreadEmailAccountId,

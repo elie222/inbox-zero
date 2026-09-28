@@ -22,7 +22,7 @@ import {
 import {
   getPremiumTierName,
   shouldShowLegacyStripePricingNotice,
-} from "@/app/(app)/premium/config";
+} from "@/utils/premium/config";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateStripeInvoiceEmailsAction } from "@/utils/actions/premium";

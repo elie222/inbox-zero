@@ -5,7 +5,7 @@ import {
   SectionContent,
 } from "@/components/new-landing/common/Section";
 import { SectionHeading } from "@/components/new-landing/common/Typography";
-import { tiers } from "@/app/(app)/premium/config";
+import { tiers } from "@/utils/premium/config";
 
 type FeatureValue = boolean | string;
 

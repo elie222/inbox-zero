@@ -37,7 +37,7 @@ vi.mock("@inboxzero/tinybird-ai-analytics", () => ({
   getAiGenerationCountByEmailAccounts: mockGetAiGenerationCountByEmailAccounts,
 }));
 
-vi.mock("@/app/(app)/premium/config", () => ({
+vi.mock("@/utils/premium/config", () => ({
   getStripeSubscriptionTier: mockGetStripeSubscriptionTier,
 }));
 

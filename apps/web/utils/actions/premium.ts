@@ -29,7 +29,6 @@ import {
   billingAccessPremiumSelect,
   billingAccessSelect,
 } from "@/utils/premium/billing-access";
-import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
@@ -37,7 +36,7 @@ import {
   BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
   BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
   getStripePriceId,
-} from "@/app/(app)/premium/config";
+} from "@/utils/premium/config";
 import {
   actionClientUser,
   adminActionClient,
@@ -45,6 +44,7 @@ import {
 import {
   activateLicenseKeySchema,
   CHECKOUT_RETURN_TO_PARAM,
+  changePremiumStatusSchema,
   checkoutReturnToSchema,
 } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";

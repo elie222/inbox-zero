@@ -12,11 +12,11 @@ import { adminChangePremiumStatusAction } from "@/utils/actions/premium";
 import {
   changePremiumStatusSchema,
   type ChangePremiumStatusOptions,
-} from "@/app/(app)/admin/validation";
+} from "@/utils/actions/premium.validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { PremiumTier } from "@/generated/prisma/enums";
-import { tiers } from "@/app/(app)/premium/config";
+import { tiers } from "@/utils/premium/config";
 import {
   Select,
   SelectContent,

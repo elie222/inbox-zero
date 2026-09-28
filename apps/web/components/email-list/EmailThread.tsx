@@ -1,7 +1,7 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { isTypingTarget } from "@/lib/shortcuts/registry";
+import { isTypingTarget } from "@/utils/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import type { ThreadMessage } from "@/components/email-list/types";

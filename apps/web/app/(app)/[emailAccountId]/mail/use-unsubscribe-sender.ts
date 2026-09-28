@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { usePremium } from "@/hooks/usePremium";
 import { useAccount } from "@/providers/EmailAccountProvider";

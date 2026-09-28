@@ -10,7 +10,7 @@ import {
   ItemActions,
   ItemSeparator,
 } from "@/components/ui/item";
-import { CopyRulesDialog } from "@/app/(app)/[emailAccountId]/settings/CopyRulesDialog";
+import { CopyRulesDialog } from "@/app/(app)/settings/CopyRulesDialog";
 
 type Account = {
   id: string;

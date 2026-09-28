@@ -1,7 +1,7 @@
 import { MailShell } from "@/app/(app)/[emailAccountId]/mail/MailShell";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
-import { MailEngineHost } from "@/utils/mail-engine/MailEngineHost";
+import { MailEngineHost } from "@/components/MailEngineHost";
 
 export const maxDuration = 180;
 

@@ -49,7 +49,7 @@ vi.mock("@/hooks/usePremium", () => ({
   usePremium: () => ({ hasAiAccess: true }),
 }));
 
-vi.mock("@/app/(app)/premium/PremiumModal", () => ({
+vi.mock("@/components/PremiumModal", () => ({
   usePremiumModal: () => ({
     PremiumModal: () => null,
     openModal: vi.fn(),

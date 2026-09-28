@@ -16,24 +16,24 @@ import {
   UsersIcon,
   WebhookIcon,
 } from "lucide-react";
-import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { McpSection } from "@/app/(app)/[emailAccountId]/settings/McpSection";
+import { ApiKeysSection } from "@/app/(app)/settings/ApiKeysSection";
+import { McpSection } from "@/app/(app)/settings/McpSection";
 import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
-import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
-import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
-import { SentMessageOpenTrackingSetting } from "@/app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting";
-import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
-import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
-import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
-import { DecisionModelSection } from "@/app/(app)/[emailAccountId]/settings/DecisionModelSection";
-import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
-import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
-import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
-import { CopyRulesSection } from "@/app/(app)/[emailAccountId]/settings/CopyRulesSection";
+import { BillingSection } from "@/app/(app)/settings/BillingSection";
+import { CleanupDraftsSection } from "@/app/(app)/settings/CleanupDraftsSection";
+import { SentMessageOpenTrackingSetting } from "@/app/(app)/settings/SentMessageOpenTrackingSetting";
+import { useSlackNotifications } from "@/app/(app)/settings/ConnectedAppsSection";
+import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
+import { ModelSection } from "@/app/(app)/settings/ModelSection";
+import { DecisionModelSection } from "@/app/(app)/settings/DecisionModelSection";
+import { OrgAnalyticsConsentSection } from "@/app/(app)/settings/OrgAnalyticsConsentSection";
+import { ResetAnalyticsSection } from "@/app/(app)/settings/ResetAnalyticsSection";
+import { WebhookSection } from "@/app/(app)/settings/WebhookSection";
+import { CopyRulesSection } from "@/app/(app)/settings/CopyRulesSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
-import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/ToggleAllRulesSection";
+import { ToggleAllRulesSection } from "@/app/(app)/settings/ToggleAllRulesSection";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Badge } from "@/components/ui/badge";

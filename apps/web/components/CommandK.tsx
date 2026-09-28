@@ -38,15 +38,15 @@ import type {
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
-import { fuzzySearch } from "@/lib/commands/fuzzy-search";
-import type { Command, CommandSection } from "@/lib/commands/types";
-import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
-import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import { fuzzySearch } from "@/utils/commands/fuzzy-search";
+import type { Command, CommandSection } from "@/utils/commands/types";
+import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
+import { useShortcuts } from "@/hooks/useShortcuts";
 import {
   buildShortcutPaletteCommands,
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
-} from "@/lib/shortcuts/registry";
+} from "@/utils/shortcuts/registry";
 import { useThread } from "@/hooks/useThread";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { mutationPayloadToChange } from "@/utils/mail-engine/mutation-change";

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { HotkeysProvider, useHotkeysContext } from "react-hotkeys-hook";
-import type { ShortcutScope } from "@/lib/shortcuts/registry";
+import type { ShortcutScope } from "@/utils/shortcuts/registry";
 
 /**
  * Enables the given shortcut scopes for everything it wraps. Bindings from

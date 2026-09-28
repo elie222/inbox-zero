@@ -33,8 +33,8 @@ vi.mock("@/env", () => ({
 }));
 
 import { HtmlEmail, PlainEmail } from "./EmailContents";
-import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
-import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
+import { useShortcuts } from "@/hooks/useShortcuts";
 
 (globalThis as { React?: typeof React }).React = React;
 

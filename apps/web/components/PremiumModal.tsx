@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Pricing from "@/app/(app)/premium/Pricing";
-import { tiers } from "@/app/(app)/premium/config";
+import { tiers } from "@/utils/premium/config";
 
 const modalTiers = tiers.filter((tier) => tier.name !== "Enterprise");
 

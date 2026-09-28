@@ -12,7 +12,7 @@ import {
   type ResponseBodyV2DecodedPayload,
 } from "@apple/app-store-server-library";
 import { after } from "next/server";
-import { getAppleSubscriptionTier } from "@/app/(app)/premium/config";
+import { getAppleSubscriptionTier } from "@/utils/premium/config";
 import { env } from "@/env";
 import { SafeError, captureException } from "@/utils/error";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";

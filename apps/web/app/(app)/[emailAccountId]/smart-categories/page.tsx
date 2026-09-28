@@ -5,7 +5,7 @@ import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
-import { GroupedTable } from "@/components/GroupedTable";
+import { GroupedTable } from "@/app/(app)/[emailAccountId]/smart-categories/GroupedTable";
 import { TopBar } from "@/components/TopBar";
 import { CreateCategoryButton } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import { getUserCategoriesWithRules } from "@/utils/category.server";

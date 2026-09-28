@@ -13,8 +13,8 @@ import {
   StarIcon,
   Trash2Icon,
 } from "lucide-react";
-import type { Command } from "@/lib/commands/types";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import type { Command } from "@/utils/commands/types";
+import { getShortcutHint } from "@/utils/shortcuts/registry";
 
 type MailCommandActions = {
   archive: () => void;

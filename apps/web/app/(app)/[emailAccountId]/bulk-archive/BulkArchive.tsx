@@ -9,7 +9,7 @@ import {
   BulkArchiveSettingsModal,
   type BulkActionType,
 } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
-import { BulkArchiveCards } from "@/components/BulkArchiveCards";
+import { BulkArchiveCards } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveCards";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import { CategorizeWithAiButton } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
