@@ -30,7 +30,7 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 vi.mock("@/components/email-list/EmailContents", () => ({
   HtmlEmail: () => null,
-  PlainEmail: () => null,
+  PlainEmail: () => <div data-testid="message-body" />,
 }));
 vi.mock("@/components/email-list/EmailAttachments", () => ({
   EmailAttachments: () => null,
@@ -48,14 +48,8 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
     children: React.ReactNode;
   }) => children,
 }));
-const { localDrafts, undoSend } = vi.hoisted(() => ({
+const { localDrafts } = vi.hoisted(() => ({
   localDrafts: { current: [] as StoredReplyDraft[] },
-  undoSend: { openId: null as string | null, undo: vi.fn() },
-}));
-
-vi.mock("@/app/(app)/[emailAccountId]/compose/undo-send", () => ({
-  useUndoableSendId: () => undoSend.openId,
-  undoPendingSend: undoSend.undo,
 }));
 
 vi.mock("@/hooks/useReplyDrafts", () => ({
@@ -140,11 +134,7 @@ describe("EmailThread reply composer", () => {
 });
 
 describe("EmailThread outgoing replies", () => {
-  afterEach(() => {
-    cleanup();
-    undoSend.openId = null;
-    undoSend.undo.mockReset();
-  });
+  afterEach(cleanup);
 
   // A queued reply shows in the thread as soon as the composer closes, and the
   // provider's copy takes over the same row so its body does not reload.
@@ -186,38 +176,48 @@ describe("EmailThread outgoing replies", () => {
     expect(sentRow).toBe(outgoingRow);
   });
 
-  it("offers Undo on the sent reply only while its undo window is open", () => {
-    undoSend.openId = "send-1";
+  // The sent reply becomes the newest message, so selection follows it there,
+  // while the message it answered stays open instead of collapsing.
+  it("moves selection to a sent reply and keeps the replied-to message open", () => {
     const parent = createReaderMessage("parent", "1000");
-    const outgoing = [
-      {
-        operationId: "send-1",
-        status: "verifying" as const,
-        message: createSentMessage("outgoing:send-1", "3000"),
-      },
-    ];
     const view = render(
       <EmailThread
+        enableMessageNavigation
         messages={[parent]}
-        outgoing={outgoing}
         refetch={vi.fn()}
         showReplyButton
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Undo send" }));
-    expect(undoSend.undo).toHaveBeenCalledWith("send-1");
-
-    undoSend.openId = null;
     view.rerender(
       <EmailThread
+        enableMessageNavigation
         messages={[parent]}
-        outgoing={outgoing}
+        outgoing={[
+          {
+            operationId: "send-1",
+            status: "verifying",
+            message: createSentMessage("outgoing:send-1", "3000"),
+          },
+        ]}
         refetch={vi.fn()}
         showReplyButton
       />,
     );
-    expect(screen.queryByRole("button", { name: "Undo send" })).toBeNull();
+
+    const parentRow = view.container.querySelector<HTMLElement>(
+      '[data-thread-message-id="parent"]',
+    );
+    const sentRow = view.container.querySelector<HTMLElement>(
+      '[data-thread-message-id="outgoing:send-1"]',
+    );
+    expect(
+      parentRow?.querySelector('[data-testid="message-body"]'),
+    ).toBeTruthy();
+    expect(parentRow?.dataset.selected).toBe("false");
+    expect(sentRow?.dataset.selected).toBe("true");
   });
 
   // The reply has no provider message yet, so a reply to it threads on the
@@ -482,21 +482,28 @@ function MockComposer({
   draftKeyMessageId,
   draftSessionId,
   providerDraftMessageId,
+  onClose,
 }: {
   draftKeyMessageId?: string;
   draftSessionId?: string;
   providerDraftMessageId?: string;
+  onClose?: () => void;
 }) {
   useState(() => {
     composerMounts += 1;
   });
   return (
-    <textarea
-      aria-label="Email message"
-      data-draft-key-message-id={draftKeyMessageId}
-      data-draft-session-id={draftSessionId}
-      data-provider-draft-message-id={providerDraftMessageId}
-    />
+    <>
+      <textarea
+        aria-label="Email message"
+        data-draft-key-message-id={draftKeyMessageId}
+        data-draft-session-id={draftSessionId}
+        data-provider-draft-message-id={providerDraftMessageId}
+      />
+      <button onClick={onClose} type="button">
+        Send
+      </button>
+    </>
   );
 }
 

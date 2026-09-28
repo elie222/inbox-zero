@@ -45,14 +45,16 @@ for (const tier of ["PLUS_MONTHLY", "PROFESSIONAL_MONTHLY"] as const) {
     await generateDraftReplies.click();
     await expect(generateDraftReplies).not.toBeChecked();
 
-    const includeRead = dialog.getByRole("switch").first();
+    const includeRead = dialog.getByRole("switch", {
+      name: "Include read emails",
+    });
 
     if (tier === "PLUS_MONTHLY") {
-      await expect(includeRead).toBeDisabled();
+      await expect(includeRead).toHaveCount(0);
       await expect(
-        dialog.getByText(
-          "Including read emails is available on the Professional plan.",
-        ),
+        dialog.getByRole("button", {
+          name: "Upgrade to use include read emails",
+        }),
       ).toBeVisible();
     } else {
       await expect(includeRead).toBeEnabled();

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import chunk from "lodash/chunk";
 import type {
   ExecutionResult,
   OperationExecutor,
@@ -51,6 +52,7 @@ import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 const logger = createScopedLogger("mail-api/operations");
 const HELD_SEND_POLL_MS = 2000;
 const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
+const METADATA_OBSERVATION_BATCH_SIZE = 20;
 type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
@@ -80,76 +82,36 @@ export function createEmailProviderOperationExecutor(input: {
           },
         });
       }
-      const targets: TargetOutcome[] = [];
-      const observations: ReturnType<typeof parsedMessagePatch>[] = [];
-      for (const target of operation.intent.targets) {
-        try {
-          await applyChange(provider, operation.intent.change, [
-            target.messageId,
-          ]);
-          try {
-            const message = await provider.getMessage(target.messageId);
-            observations.push(
-              parsedMessagePatch(accountId, providerName, message),
-            );
-            if (!metadataChangeSatisfied(message, operation.intent.change)) {
-              targets.push({
-                key: target,
-                outcome: "uncertain",
-                code: "not_applied",
-              });
-              continue;
-            }
-          } catch {
-            // Mutation applied; catch-up can fill the observation.
-          }
-          targets.push({
-            key: target,
-            outcome: "applied" as const,
-            code: null,
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "provider_error";
-          if (/auth|unauthorized|401/i.test(message) && targets.length === 0) {
-            return {
-              status: "not_dispatched",
-              reason: "blocked_auth",
-              retryAfterMs: null,
-            };
-          }
-          targets.push({
-            key: target,
-            outcome: /not.?found|404/i.test(message)
-              ? ("rejected" as const)
-              : ("uncertain" as const),
-            code: /not.?found|404/i.test(message)
-              ? "not_found"
-              : "provider_error",
-          });
+      const metadataOperation = { ...operation, intent: operation.intent };
+      try {
+        await applyChange(
+          provider,
+          operation.intent.change,
+          operation.intent.targets.map((target) => target.messageId),
+        );
+      } catch (error) {
+        if (isAuthError(error)) {
+          return {
+            status: "not_dispatched",
+            reason: "blocked_auth",
+            retryAfterMs: null,
+          };
         }
+        // One bad message fails the whole bulk call; per-message retries
+        // isolate it so the rest still apply.
+        return executeMetadataPerTarget(
+          provider,
+          accountId,
+          providerName,
+          metadataOperation,
+        );
       }
-      const applied = targets.some((target) => target.outcome === "applied");
-      const rejected = targets.every((target) => target.outcome === "rejected");
-      if (rejected && !applied) {
-        return {
-          status: "rejected",
-          code: targets[0]?.code ?? "provider_error",
-          targets,
-        };
-      }
-      if (!applied) {
-        return {
-          status: "uncertain",
-          receiptId: operation.key.operationId,
-        };
-      }
-      return {
-        status: "confirmed",
-        receiptId: operation.key.operationId,
-        observations,
-        targets,
-      };
+      return observeAppliedMetadata(
+        provider,
+        accountId,
+        providerName,
+        metadataOperation,
+      );
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
@@ -164,6 +126,106 @@ export function createEmailProviderOperationExecutor(input: {
       });
     },
   };
+}
+
+async function executeMetadataPerTarget(
+  provider: EmailProvider,
+  accountId: string,
+  providerName: "google" | "microsoft",
+  operation: PreparedMetadataOperation,
+): Promise<ExecutionResult> {
+  const targets: TargetOutcome[] = [];
+  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  for (const target of operation.intent.targets) {
+    try {
+      await applyChange(provider, operation.intent.change, [target.messageId]);
+      try {
+        const message = await provider.getMessage(target.messageId);
+        observations.push(parsedMessagePatch(accountId, providerName, message));
+        if (!metadataChangeSatisfied(message, operation.intent.change)) {
+          targets.push({
+            key: target,
+            outcome: "uncertain",
+            code: "not_applied",
+          });
+          continue;
+        }
+      } catch {
+        // Mutation applied; catch-up can fill the observation.
+      }
+      targets.push({ key: target, outcome: "applied", code: null });
+    } catch (error) {
+      if (isAuthError(error) && targets.length === 0) {
+        return {
+          status: "not_dispatched",
+          reason: "blocked_auth",
+          retryAfterMs: null,
+        };
+      }
+      targets.push(failedTargetOutcome(target, error));
+    }
+  }
+  return metadataResult(operation, targets, observations);
+}
+
+async function observeAppliedMetadata(
+  provider: EmailProvider,
+  accountId: string,
+  providerName: "google" | "microsoft",
+  operation: PreparedMetadataOperation,
+): Promise<ExecutionResult> {
+  const targets: TargetOutcome[] = [];
+  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  for (const batch of chunk(
+    operation.intent.targets,
+    METADATA_OBSERVATION_BATCH_SIZE,
+  )) {
+    const messages = await readMessagesForObservation(
+      provider,
+      batch.map((target) => target.messageId),
+    );
+    const messagesById = new Map(
+      messages.map((message) => [message.id, message]),
+    );
+    for (const target of batch) {
+      const message = messagesById.get(target.messageId);
+      if (message) {
+        observations.push(parsedMessagePatch(accountId, providerName, message));
+        if (!metadataChangeSatisfied(message, operation.intent.change)) {
+          targets.push({
+            key: target,
+            outcome: "uncertain",
+            code: "not_applied",
+          });
+          continue;
+        }
+      }
+      targets.push({ key: target, outcome: "applied", code: null });
+    }
+  }
+  return metadataResult(operation, targets, observations);
+}
+
+// One failed read rejects a whole provider batch, so retry individually to
+// keep the other messages observable. Unreadable messages stay unobserved;
+// the mutation already applied and catch-up can fill them in.
+async function readMessagesForObservation(
+  provider: EmailProvider,
+  messageIds: string[],
+) {
+  try {
+    return await provider.getMessagesBatch(messageIds);
+  } catch (error) {
+    logger.warn("Batched read failed after applying mail operation", {
+      error,
+    });
+    const messages = await Promise.all(
+      messageIds.map((messageId) =>
+        provider.getMessage(messageId).catch(() => null),
+      ),
+    );
+    return messages.filter((message) => message !== null);
+  }
 }
 
 async function inspectMetadataOperation(
@@ -188,14 +250,17 @@ async function inspectMetadataOperation(
         code: satisfied ? null : "not_applied",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "provider_error";
-      targets.push({
-        key: target,
-        outcome: /not.?found|404/i.test(message) ? "rejected" : "uncertain",
-        code: /not.?found|404/i.test(message) ? "not_found" : "provider_error",
-      });
+      targets.push(failedTargetOutcome(target, error));
     }
   }
+  return metadataResult(operation, targets, observations);
+}
+
+function metadataResult(
+  operation: PreparedMetadataOperation,
+  targets: TargetOutcome[],
+  observations: ReturnType<typeof parsedMessagePatch>[],
+) {
   const applied = targets.some((target) => target.outcome === "applied");
   const rejected = targets.every((target) => target.outcome === "rejected");
   if (rejected && !applied) {
@@ -217,6 +282,26 @@ async function inspectMetadataOperation(
     observations,
     targets,
   };
+}
+
+function failedTargetOutcome(
+  target: TargetOutcome["key"],
+  error: unknown,
+): TargetOutcome {
+  const notFound = /not.?found|404/i.test(errorMessage(error));
+  return {
+    key: target,
+    outcome: notFound ? "rejected" : "uncertain",
+    code: notFound ? "not_found" : "provider_error",
+  };
+}
+
+function isAuthError(error: unknown) {
+  return /auth|unauthorized|401/i.test(errorMessage(error));
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "provider_error";
 }
 
 async function applyChange(

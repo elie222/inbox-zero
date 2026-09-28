@@ -428,6 +428,9 @@ function idleCatchUpStore(
     async registerSyncScopes() {
       return false;
     },
+    async readBootstrapScan() {
+      return null;
+    },
     async applyAssistantEntries(
       input: Parameters<MailStore["applyAssistantEntries"]>[0],
     ) {
