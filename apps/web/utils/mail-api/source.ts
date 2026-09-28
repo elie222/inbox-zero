@@ -1,4 +1,3 @@
-import type { Provider } from "@inboxzero/mail-core/identities";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
   MailboxSource,
@@ -51,8 +50,6 @@ export function createEmailProviderMailboxSource(input: {
 }): MailboxSource {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
-  const providerName: Provider =
-    provider.name === "microsoft" ? "microsoft" : "google";
   return {
     async describe() {
       return {
@@ -127,7 +124,7 @@ export function createEmailProviderMailboxSource(input: {
           includeDrafts: true,
         });
         const changes = syncPage.messages.map((message) =>
-          parsedMessagePatch(accountId, providerName, message),
+          parsedMessagePatch(accountId, provider.name, message),
         );
         const { requiredHydration, bodies } = parsedMessageBodies(
           accountId,
@@ -203,7 +200,7 @@ export function createEmailProviderMailboxSource(input: {
             },
             changes: [
               ...page.upsertedMessages.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
+                parsedMessagePatch(accountId, provider.name, message),
               ),
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
@@ -245,7 +242,7 @@ export function createEmailProviderMailboxSource(input: {
           status: "ok" as const,
           value: {
             changes: messages.map((message) =>
-              parsedMessagePatch(accountId, providerName, message),
+              parsedMessagePatch(accountId, provider.name, message),
             ),
             bodies:
               purpose === "body" ? hydratedBodies(accountId, messages) : [],
@@ -284,7 +281,7 @@ export function createEmailProviderMailboxSource(input: {
                 messageId: message.id,
               })),
               changes: slice.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
+                parsedMessagePatch(accountId, provider.name, message),
               ),
               nextPage:
                 start + pageSize < messages.length
