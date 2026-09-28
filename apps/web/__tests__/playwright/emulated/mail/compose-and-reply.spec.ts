@@ -603,12 +603,11 @@ test("keeps a sent forward in the thread it came from", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  const recipient = `forward-${testInfo.retry}@example.com`;
   await sourceMessage
     .getByRole("button", { name: "Forward", exact: true })
     .click();
-  await sourceMessage
-    .getByRole("combobox", { name: "To" })
-    .fill("recipient@example.com");
+  await sourceMessage.getByRole("combobox", { name: "To" }).fill(recipient);
   const editor = sourceMessage.getByRole("textbox", {
     name: "Email message",
   });
@@ -632,9 +631,12 @@ test("keeps a sent forward in the thread it came from", async ({
   await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
   await expect(sourceMessage).toBeVisible();
   // Messages sent earlier in this shared thread can still be settling when the
-  // test starts, so assert on this forward's unique body rather than a count
+  // test starts, so find this forward by its unique recipient rather than a
+  // count. The body renders in an iframe, so the header is what's matchable.
   await expect(
-    page.locator("[data-thread-message-id]").filter({ hasText: forwardBody }),
+    page
+      .locator("[data-thread-message-id]")
+      .filter({ hasText: `to ${recipient}` }),
   ).toHaveCount(1);
   await expect(
     page
