@@ -2,12 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { formatEmailDate } from "@/utils/gmail/reply";
 
+import type { gmail_v1 } from "@googleapis/gmail";
 import {
   buildReplyMessageText,
   createMail,
   convertTextToHtmlParagraphs,
+  replyToEmail,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
+
+vi.mock("@/utils/mail", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/mail")>();
+  return {
+    ...actual,
+    ensureEmailSendingEnabled: vi.fn(),
+  };
+});
 
 describe("createMail", () => {
   it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
@@ -48,11 +58,6 @@ describe("createMail", () => {
     expect(message).toContain('src="cid:diagram@example"');
   });
 });
-
-vi.mock("@/utils/mail", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/mail")>()),
-  ensureEmailSendingEnabled: vi.fn(),
-}));
 
 describe("convertTextToHtmlParagraphs", () => {
   it("separates paragraphs on blank lines", () => {
@@ -124,6 +129,54 @@ describe("convertTextToHtmlParagraphs", () => {
   });
 });
 
+describe("replyToEmail", () => {
+  it("includes original to and cc recipients when sending a reply all", async () => {
+    const send = vi.fn(async () => ({
+      data: { id: "sent-message-1", threadId: "thread-1" },
+    }));
+    const gmail = {
+      users: {
+        messages: {
+          send,
+        },
+      },
+    } as unknown as gmail_v1.Gmail;
+
+    await replyToEmail(
+      gmail,
+      {
+        threadId: "thread-1",
+        headers: {
+          from: "Sender <sender@example.com>",
+          to: "Owner <owner@example.com>, Teammate <teammate@example.com>",
+          cc: "Manager <manager@example.com>",
+          subject: "Project update",
+          date: "Thu, 6 Feb 2025 23:23:47 +0200",
+          "message-id": "<original@example.com>",
+        },
+        textPlain: "Original message content",
+        textHtml: "<div>Original message content</div>",
+      },
+      "Thanks for the update.",
+      "Owner <owner@example.com>",
+      {
+        replyAll: true,
+        userEmails: ["owner@example.com", "alias@example.com"],
+      },
+    );
+
+    const raw = send.mock.calls[0][0].requestBody.raw;
+    const decoded = decodeRawMessage(raw);
+
+    expect(decoded).toContain("To: Sender <sender@example.com>");
+    expect(decoded).toContain("Cc:");
+    expect(decoded).toContain("manager@example.com");
+    expect(decoded).toContain("teammate@example.com");
+    expect(decoded).not.toContain("Cc: owner@example.com");
+    expect(decoded).not.toContain("alias@example.com");
+  });
+});
+
 describe("stripHtmlTagsForPlainText", () => {
   it("skips HTML comments while preserving surrounding text", () => {
     expect(
@@ -139,3 +192,9 @@ describe("stripHtmlTagsForPlainText", () => {
     );
   });
 });
+
+function decodeRawMessage(raw: string) {
+  return Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64")
+    .toString("utf8")
+    .replace(/\r\n/g, "\n");
+}
