@@ -3,6 +3,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
 
 vi.mock("@/utils/prisma", () => ({
@@ -199,5 +200,48 @@ describe("backfillRecentOutlookMessages", () => {
     expect(result).toEqual({ processedCount: 6, candidateCount: 6 });
     expect(processHistoryForUser).toHaveBeenCalledTimes(6);
     expect(maxActive).toBe(5);
+  });
+
+  it("stops processing and logs once when the provider rate limits the account", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessagesWithPagination: vi.fn().mockResolvedValue({
+        messages: Array.from({ length: 12 }, (_, index) => ({
+          id: `message-${index + 1}`,
+          threadId: `thread-${index + 1}`,
+          date: new Date(Date.UTC(2026, 3, 16, index)).toISOString(),
+        })),
+      }),
+    } as any);
+    vi.mocked(prisma.emailMessage.findMany).mockResolvedValue([]);
+    vi.mocked(processHistoryForUser).mockImplementation(async (options) => {
+      if (options.resourceData?.id === "message-2") {
+        throw new ProviderRateLimitModeError({
+          provider: "microsoft",
+          retryAt: new Date("2026-04-16T12:00:00.000Z"),
+        });
+      }
+    });
+    const errorSpy = vi.spyOn(logger, "error");
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    const result = await backfillRecentOutlookMessages({
+      emailAccountId: "email-account-id",
+      emailAddress: "user@example.com",
+      after: new Date("2026-04-15T00:00:00.000Z"),
+      maxMessages: 12,
+      logger,
+    });
+
+    expect(result).toEqual({ processedCount: 4, candidateCount: 12 });
+    expect(processHistoryForUser).toHaveBeenCalledTimes(5);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Stopped Outlook backfill because the account is rate limited",
+      expect.objectContaining({
+        skippedCount: 8,
+        retryAt: "2026-04-16T12:00:00.000Z",
+      }),
+    );
   });
 });
