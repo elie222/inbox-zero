@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
-import { formatEmailDate } from "@/utils/gmail/reply";
+import { formatEmailDate } from "@/utils/email/reply-quote";
 
 import {
   buildReplyMessageText,
