@@ -28,6 +28,7 @@ import { configureDesktopApplicationMenu } from "./application-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
+  installDownloadedDesktopUpdate,
   logDesktopUpdateError,
   startDesktopAutoUpdate,
 } from "./auto-update";
@@ -107,6 +108,8 @@ const localMailUrl = shouldUseLocalMailRenderer()
   : null;
 const trackNewMail = createMailNotificationTracker();
 const mailNotifications = new Map<string, Notification>();
+let downloadPercent: number | null = null;
+let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -266,20 +269,36 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
-    configureDesktopApplicationMenu({
-      checkForUpdates: () => {
-        checkForDesktopUpdatesManually(() => {
-          isQuitting = true;
-        }).catch(logDesktopUpdateError);
-      },
-      createWindow: () => createAppWindow(),
-      recordDiagnostics: () => {
-        recordDesktopDiagnostics({
-          getMailOwner: () => desktopMailOwner,
-          databasePath: desktopMailboxPath(),
-        });
-      },
-    });
+    let desktopUpdateReady = false;
+    const installUpdate = () => {
+      installDownloadedDesktopUpdate(() => {
+        isQuitting = true;
+      }).catch(logDesktopUpdateError);
+    };
+    const applyDesktopMenu = () => {
+      configureDesktopApplicationMenu({
+        updateReady: desktopUpdateReady,
+        downloadPercent,
+        checkForUpdates: () => {
+          if (desktopUpdateReady) {
+            installUpdate();
+            return;
+          }
+          checkForDesktopUpdatesManually(() => {
+            isQuitting = true;
+          }).catch(logDesktopUpdateError);
+        },
+        createWindow: () => createAppWindow(),
+        recordDiagnostics: () => {
+          recordDesktopDiagnostics({
+            getMailOwner: () => desktopMailOwner,
+            databasePath: desktopMailboxPath(),
+          });
+        },
+      });
+    };
+    refreshDesktopMenu = applyDesktopMenu;
+    applyDesktopMenu();
     if (!shouldSmokeLocalMail()) {
       // Overlap TLS/socket setup with window creation and page load.
       session
@@ -310,7 +329,13 @@ function startDesktopApp() {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
     if (!shouldSmokeLocalMail()) {
-      startDesktopAutoUpdate().catch(logDesktopUpdateError);
+      startDesktopAutoUpdate(undefined, {
+        onUpdateReady: () => {
+          desktopUpdateReady = true;
+          setDownloadPercent(null);
+        },
+        onDownloadProgress: setDownloadPercent,
+      }).catch(logDesktopUpdateError);
     }
   });
 
@@ -323,6 +348,25 @@ function startDesktopApp() {
   app.on("activate", () => {
     focusAppWindow();
   });
+}
+
+function setDownloadPercent(percent: number | null) {
+  downloadPercent = percent;
+  refreshDesktopMenu?.();
+  syncUpdateProgressBar();
+}
+
+function syncUpdateProgressBar() {
+  const onView = windows.some(
+    (window) => window.isFocused() && window.isVisible(),
+  );
+  const progress =
+    downloadPercent === null || !onView
+      ? -1
+      : Math.min(1, Math.max(0, downloadPercent / 100));
+  for (const window of windows) {
+    if (!window.isDestroyed()) window.setProgressBar(progress);
+  }
 }
 
 function restoreAppWindows() {
@@ -380,6 +424,10 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    syncUpdateProgressBar();
+  });
+  window.on("blur", () => {
+    syncUpdateProgressBar();
   });
   window.on("moved", schedulePersistWindows);
   window.on("resized", schedulePersistWindows);
