@@ -46,6 +46,37 @@ describe("isSafeExternalHttpUrl", () => {
     );
   });
 
+  it.each([
+    ["0.0.0.0/8", "http://0.1.2.3/x"],
+    ["CGNAT 100.64/10", "http://100.64.0.1/x"],
+    ["benchmarking 198.18/15", "http://198.19.0.1/x"],
+    ["IPv4 multicast", "http://224.0.0.1/x"],
+    ["IPv4 broadcast", "http://255.255.255.255/x"],
+    ["NAT64 rfc6052", "http://[64:ff9b::7f00:1]/x"],
+    ["6to4", "http://[2002:7f00:1::]/x"],
+    ["teredo", "http://[2001::1]/x"],
+    ["IPv6 multicast", "http://[ff02::1]/x"],
+    ["IPv6 documentation", "http://[2001:db8::1]/x"],
+    ["IPv6 unique local", "http://[fd00::1]/x"],
+    ["IPv6 link local", "http://[fe80::1]/x"],
+  ])("rejects %s literals", (_label, url) => {
+    expect(isSafeExternalHttpUrl(url)).toBe(false);
+  });
+
+  it.each([
+    ["NAT64", "64:ff9b::a00:1", 6],
+    ["6to4", "2002:a00:1::", 6],
+    ["CGNAT", "100.100.100.100", 4],
+  ] as const)("rejects hostnames that resolve to %s addresses", async (_label, address, family) => {
+    vi.mocked(dns.lookup).mockResolvedValue([{ address, family }] as Awaited<
+      ReturnType<typeof dns.lookup>
+    >);
+
+    await expect(
+      resolveSafeExternalHttpUrl("https://news.example.com/unsubscribe"),
+    ).resolves.toBeNull();
+  });
+
   it("allows public IPv4-mapped IPv6 addresses", () => {
     expect(isSafeExternalHttpUrl("https://[::ffff:808:808]/unsubscribe")).toBe(
       true,

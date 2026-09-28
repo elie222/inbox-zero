@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     "./node-safe-fetch": "./src/node-safe-fetch.ts",
+    "./pinned-dns": "./src/pinned-dns.ts",
+    "./upstream-host-policy": "./src/upstream-host-policy.ts",
     "./proxy-url": "./src/proxy-url.ts",
     "./proxy-service": "./src/proxy-service.ts"
   },
