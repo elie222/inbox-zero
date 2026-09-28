@@ -259,7 +259,7 @@ export function NewSplitDialog({
 
       return existingSplits.find(
         (split) =>
-          split.name === entry.name &&
+          split.name.toLowerCase() === entry.name.toLowerCase() &&
           split.matchAll === (entry.matchAll ?? true) &&
           split.filters.length === filters.length &&
           JSON.stringify(
