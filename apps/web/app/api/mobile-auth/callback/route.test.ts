@@ -77,7 +77,10 @@ describe("mobile auth callback route", () => {
       ),
       {} as never,
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/app-sign-in-error",
+    );
     expect(createMobileAuthCodeMock).not.toHaveBeenCalled();
   });
 
@@ -91,8 +94,44 @@ describe("mobile auth callback route", () => {
       ),
       {} as never,
     );
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/app-sign-in-error",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(createMobileAuthCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a recovery page when provider failure state is invalid", async () => {
+    consumeMobileAuthFailureStateMock.mockRejectedValue(
+      new SafeError("Invalid authentication state", 401),
+    );
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&error=access_denied",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/app-sign-in-error",
+    );
+  });
+
+  it("shows a recovery page when the callback state is malformed", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=invalid",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/app-sign-in-error",
+    );
+    expect(authMock).not.toHaveBeenCalled();
   });
 
   it("returns provider failures to the initiating app without minting a code", async () => {
@@ -214,7 +253,10 @@ describe("mobile auth callback route", () => {
     );
 
     expect(createMobileAuthCodeMock).not.toHaveBeenCalled();
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/app-sign-in-error",
+    );
     expect(consumeMobileAuthStateMock).not.toHaveBeenCalled();
   });
 });

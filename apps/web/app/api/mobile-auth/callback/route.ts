@@ -9,27 +9,41 @@ import {
   createMobileAuthCode,
   isValidMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
-import { getMobileAuthAppCallbackUrl } from "@/utils/mobile-auth/url";
+import {
+  getMobileAuthAppCallbackUrl,
+  getMobileAuthBaseUrlOrigin,
+} from "@/utils/mobile-auth/url";
 
 const callbackQuerySchema = z.object({
   state: z.string().trim().min(1).max(256),
 });
 
 export const GET = withError("mobile-auth/callback", async (request) => {
-  const query = callbackQuerySchema.parse({
+  const query = callbackQuerySchema.safeParse({
     state: request.nextUrl.searchParams.get("state"),
   });
 
-  if (!isValidMobileAuthState(query.state)) {
-    throw new SafeError("Invalid authentication state", 400);
+  if (!query.success || !isValidMobileAuthState(query.data.state)) {
+    request.logger.warn("Mobile auth callback state rejected", {
+      reason: "invalid_format",
+    });
+    return redirectToAuthError();
   }
 
   if (request.nextUrl.searchParams.has("error")) {
-    const { returnUrlMode } = await consumeMobileAuthFailureState({
-      state: query.state,
-    });
+    let returnUrlMode: Awaited<
+      ReturnType<typeof consumeMobileAuthFailureState>
+    >["returnUrlMode"];
+    try {
+      ({ returnUrlMode } = await consumeMobileAuthFailureState({
+        state: query.data.state,
+      }));
+    } catch (error) {
+      if (error instanceof SafeError) return redirectToAuthError();
+      throw error;
+    }
     return redirectToMobileCallback(
-      query.state,
+      query.data.state,
       {
         error: "authentication_failed",
         error_description:
@@ -42,24 +56,33 @@ export const GET = withError("mobile-auth/callback", async (request) => {
   const session = await auth(request.headers);
   const userId = session?.user?.id;
   if (!userId || !session.session.token) {
-    throw new SafeError("Authentication session was not found", 401);
+    request.logger.warn("Mobile auth callback rejected", {
+      reason: "missing_session",
+    });
+    return redirectToAuthError();
   }
 
   if (session.session.emailOtp) {
-    throw new SafeError(
-      "Sign in with your connected provider to connect the mobile app.",
-      403,
-    );
+    request.logger.warn("Mobile auth callback rejected", {
+      reason: "email_otp_session",
+    });
+    return redirectToAuthError();
   }
 
-  const { returnUrlMode, codeChallenge } = await consumeMobileAuthState({
-    state: query.state,
-    sessionToken: session.session.token,
-  });
+  let grant: Awaited<ReturnType<typeof consumeMobileAuthState>>;
+  try {
+    grant = await consumeMobileAuthState({
+      state: query.data.state,
+      sessionToken: session.session.token,
+    });
+  } catch (error) {
+    if (error instanceof SafeError) return redirectToAuthError();
+    throw error;
+  }
 
   const code = await createMobileAuthCode({
-    codeChallenge,
-    state: query.state,
+    codeChallenge: grant.codeChallenge,
+    state: query.data.state,
     userId,
   });
 
@@ -67,8 +90,21 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     userId,
   });
 
-  return redirectToMobileCallback(query.state, { code }, returnUrlMode);
+  return redirectToMobileCallback(
+    query.data.state,
+    { code },
+    grant.returnUrlMode,
+  );
 });
+
+function redirectToAuthError() {
+  const response = NextResponse.redirect(
+    new URL("/login/app-sign-in-error", getMobileAuthBaseUrlOrigin()),
+    302,
+  );
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
 
 function redirectToMobileCallback(
   state: string,
