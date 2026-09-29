@@ -50,6 +50,19 @@ test("toggles a star with S and the command palette while preserving unread", as
     row.getByText("Starred conversation", { exact: true }),
   ).toHaveCount(0);
   await expectCompletedStarMutation(page, emailAccountId, false);
+
+  await row.getByRole("checkbox").click();
+  const starAction = page.getByRole("button", { name: "Star", exact: true });
+  await expect(starAction).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "list-toolbar-star-action");
+  await starAction.click();
+  await expect(starStatus).toHaveCount(1);
+  await expectCompletedStarMutation(page, emailAccountId, true);
+  await row.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Unstar", exact: true }).click();
+  await expect(starStatus).toHaveCount(0);
+  await expectCompletedStarMutation(page, emailAccountId, false);
+
   await row.click();
   const readerStarStatus = page
     .getByTestId("thread-reader")

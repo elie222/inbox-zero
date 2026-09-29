@@ -1377,6 +1377,8 @@ export function MailShell() {
                 )}
                 onMarkReadSelected={markReadTargets}
                 onMarkUnreadSelected={markUnreadTargets}
+                isStarredSelected={allStarred}
+                onStarSelected={starTargets}
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
               />
