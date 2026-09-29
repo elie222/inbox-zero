@@ -148,14 +148,11 @@ function textQueryPredicates(query: string): MailPredicate[] {
       match: "phrase",
     });
   });
-  remaining = takePrefixedValue(remaining, "from:", (value) => {
-    clauses.push({
-      kind: "address",
-      field: "from",
-      value,
-      match: "address",
+  for (const field of ["from", "to"] as const) {
+    remaining = takePrefixedValue(remaining, `${field}:`, (value) => {
+      clauses.push({ kind: "address", field, value, match: "address" });
     });
-  });
+  }
   remaining = takeToken(remaining, "has:attachment", () => {
     clauses.push({ kind: "has_attachment", value: true });
   });
