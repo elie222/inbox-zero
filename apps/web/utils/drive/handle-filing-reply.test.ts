@@ -151,7 +151,7 @@ describe("processFilingReply", () => {
     );
     expect(params.emailProvider.replyToEmail).toHaveBeenCalledWith(
       params.message,
-      expect.stringContaining("couldn't complete"),
+      expect.stringContaining("couldn&#x27;t complete"),
       expect.any(Object),
     );
     expect(params.emailProvider.replyToEmail).not.toHaveBeenCalledWith(
@@ -176,7 +176,7 @@ describe("processFilingReply", () => {
     expect(prisma.documentFiling.update).not.toHaveBeenCalled();
     expect(params.emailProvider.replyToEmail).toHaveBeenCalledWith(
       params.message,
-      expect.stringContaining("couldn't complete"),
+      expect.stringContaining("couldn&#x27;t complete"),
       expect.any(Object),
     );
   });

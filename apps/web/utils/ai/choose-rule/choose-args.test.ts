@@ -274,8 +274,49 @@ describe("combineActionsWithAiArgs", () => {
       const result = combineActionsWithAiArgs(actions, aiArgs, null);
 
       expect(result[0].content).toBe(
-        "Dear Mr. Johnson,\n\nThank you for your email. I'd be happy to help with your request.\n\nBest regards",
+        "Dear Mr. Johnson,\n\nThank you for your email. I&#x27;d be happy to help with your request.\n\nBest regards",
       );
+    });
+
+    it("escapes AI-filled values in reply bodies but keeps the user's template text", () => {
+      const actions = [
+        createMockAction({
+          id: "1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "<b>Hi</b> {{name}},\n\n{{reply}}",
+          label: "{{label}}",
+        }),
+        createMockAction({
+          id: "2",
+          type: ActionType.REPLY,
+          content: "{{reply}}",
+        }),
+        createMockAction({
+          id: "3",
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          content: "{{reply}}",
+        }),
+      ];
+
+      const result = combineActionsWithAiArgs(
+        actions,
+        {
+          "DRAFT_EMAIL-1": {
+            content: { var1: "Sam", var2: "Email <sam@example.com> & me" },
+            label: { var1: "A & B" },
+          },
+          "REPLY-2": { content: { var1: "a < b" } },
+          "DRAFT_MESSAGING_CHANNEL-3": { content: { var1: "a < b" } },
+        },
+        null,
+      );
+
+      expect(result[0].content).toBe(
+        "<b>Hi</b> Sam,\n\nEmail &lt;sam@example.com&gt; &amp; me",
+      );
+      expect(result[0].label).toBe("A & B");
+      expect(result[1].content).toBe("a &lt; b");
+      expect(result[2].content).toBe("a < b");
     });
 
     it("stores attribution for template-generated draft content", () => {

@@ -9,7 +9,7 @@ import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 import { TabsToolbar } from "@/components/TabsToolbar";
-import { GmailProvider } from "@/providers/GmailProvider";
+import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
 import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
@@ -65,7 +65,7 @@ export default async function ReplyTrackerPage(props: {
   const timeRange = searchParams.timeRange || "all";
 
   return (
-    <GmailProvider>
+    <EmailLabelsProvider>
       <Tabs defaultValue="needsReply" className="flex h-full flex-col">
         <TabsToolbar>
           <div className="w-full overflow-x-auto">
@@ -130,6 +130,6 @@ export default async function ReplyTrackerPage(props: {
           />
         </TabsContent>
       </Tabs>
-    </GmailProvider>
+    </EmailLabelsProvider>
   );
 }

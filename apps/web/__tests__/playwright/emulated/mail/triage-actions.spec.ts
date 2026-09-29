@@ -314,7 +314,7 @@ test("selects ranges and opens conversations with the keyboard", async ({
   await expect(conversations).toBeVisible();
 });
 
-test("selects and clears all conversations from the list toolbar", async ({
+test("selects and clears all conversations from the split tabs row", async ({
   page,
 }, testInfo) => {
   const { conversations } = await openMail(page);
@@ -325,7 +325,11 @@ test("selects and clears all conversations from the list toolbar", async ({
   const selectAll = page.getByRole("checkbox", {
     name: "Select all conversations",
   });
-  await expect(selectAll).not.toBeChecked();
+  await expect(selectAll).toBeHidden();
+
+  await options.first().hover();
+  await options.first().getByRole("checkbox").click();
+  await expect(selectAll).toHaveAttribute("aria-checked", "mixed");
 
   await selectAll.click();
 
@@ -348,7 +352,7 @@ test("selects and clears all conversations from the list toolbar", async ({
   await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
 
   await selectAll.click();
-  await expect(selectAll).not.toBeChecked();
+  await expect(selectAll).toBeHidden();
   await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
   await expect.poll(() => allRowsAreSelected(options, false)).toBe(true);
 });

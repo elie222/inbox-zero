@@ -83,7 +83,7 @@ function decodeHtmlEntities(text: string): string {
  * Normalizes content for Gmail (plain text) comparison.
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
-function normalizeForGmail(content: string, stripSignature = false): string {
+function normalizePlainText(content: string, stripSignature = false): string {
   const signatureStripped = stripSignature
     ? stripProviderSignatureHtml(content)
     : content;
@@ -184,7 +184,7 @@ function normalizePair({
 
   if (typeof providerMessage === "string") {
     // Legacy: plain string from before ParsedMessage was threaded through callers
-    normalizeContent = normalizeForGmail;
+    normalizeContent = normalizePlainText;
     normalizedStoredContent = normalizeContent(storedContent, stripSignature);
     normalizedProviderMessage = normalizeContent(
       providerMessage,
@@ -193,7 +193,7 @@ function normalizePair({
   } else {
     const isOutlook = providerMessage.bodyContentType === "html";
     const text = providerMessage.textHtml || providerMessage.textPlain || "";
-    normalizeContent = isOutlook ? normalizeForOutlook : normalizeForGmail;
+    normalizeContent = isOutlook ? normalizeForOutlook : normalizePlainText;
 
     normalizedStoredContent = normalizeContent(storedContent, stripSignature);
     normalizedProviderMessage = normalizeContent(text, stripSignature);

@@ -63,14 +63,3 @@ export function usePricingFrequencyDefault():
     | PricingFrequencyDefault
     | undefined;
 }
-
-// Not currently wired up: the chat onboarding is parked and not rendered.
-// See Onboarding.tsx for how to re-enable it.
-export type OnboardingChatVariant = "control" | "chat";
-
-export function useOnboardingChatVariant() {
-  return (
-    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
-    "control"
-  );
-}

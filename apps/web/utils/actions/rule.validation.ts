@@ -17,12 +17,6 @@ import {
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
-import {
-  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
-  INVALID_STATIC_FROM_MESSAGE,
-  isInvalidStaticFromValue,
-  STATIC_FROM_CONDITION_DESCRIPTION,
-} from "@/utils/ai/rule/rule-condition-descriptions";
 
 export const delayInMinutesSchema = z
   .number()
@@ -41,34 +35,6 @@ export const delayInMinutesLlmSchema = z
   .describe(
     `Minutes to wait before executing this action (minimum 1, maximum ${NINETY_DAYS_MINUTES}). Only add when the user asks for a delay.`,
   );
-
-export const updateRuleConditionSchema = z.object({
-  ruleName: z.string().describe("The name of the rule to update"),
-  condition: z.object({
-    aiInstructions: z
-      .string()
-      .nullish()
-      .transform((v) => (v?.trim() ? v : null))
-      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
-    static: z
-      .object({
-        from: z
-          .string()
-          .nullish()
-          .transform((v) => (v?.trim() ? v : null))
-          .refine((value) => !isInvalidStaticFromValue(value), {
-            message: INVALID_STATIC_FROM_MESSAGE,
-          })
-          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
-        to: z.string().nullish(),
-        subject: z.string().nullish(),
-      })
-      .nullish(),
-    conditionalOperator: z
-      .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullish(),
-  }),
-});
 
 const zodActionType = z.enum([
   ActionType.ARCHIVE,

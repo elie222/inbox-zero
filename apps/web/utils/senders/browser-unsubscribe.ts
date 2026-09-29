@@ -6,7 +6,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { canonicalizeEmailAddress } from "@/utils/email";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { isSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 import type { Logger } from "@/utils/logger";
 import type { AutomaticUnsubscribeResult } from "@/utils/senders/unsubscribe";
 
