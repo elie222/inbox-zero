@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   ChevronDownIcon,
   ColumnsIcon,
   MailIcon,
@@ -70,6 +71,8 @@ export type ListToolbarProps = {
   selectAll?: ReactNode;
   selectedCount: number;
   onArchiveSelected: () => void;
+  /** Set when every selected conversation is already archived; replaces Archive. */
+  onMoveToInboxSelected?: () => void;
   onDeleteSelected: () => void;
   isUnreadSelected: boolean;
   onMarkReadSelected: () => void;
@@ -98,6 +101,7 @@ export const ListToolbar = memo(function ListToolbar({
   selectAll,
   selectedCount,
   onArchiveSelected,
+  onMoveToInboxSelected,
   onDeleteSelected,
   isUnreadSelected,
   onMarkReadSelected,
@@ -121,16 +125,29 @@ export const ListToolbar = memo(function ListToolbar({
             className="min-w-0 flex-1 truncate font-medium text-sm"
           >{`${selectedCount} selected`}</span>
 
-          <Tooltip shortcuts={["archive"]}>
-            <button
-              type="button"
-              onClick={onArchiveSelected}
-              aria-label="Archive"
-              className={cn(toolbarButton, "w-8 justify-center px-0")}
-            >
-              <ArchiveIcon className="size-3.5" />
-            </button>
-          </Tooltip>
+          {onMoveToInboxSelected ? (
+            <Tooltip content="Move to inbox">
+              <button
+                type="button"
+                onClick={onMoveToInboxSelected}
+                aria-label="Move to inbox"
+                className={cn(toolbarButton, "w-8 justify-center px-0")}
+              >
+                <ArchiveRestoreIcon className="size-3.5" />
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip shortcuts={["archive"]}>
+              <button
+                type="button"
+                onClick={onArchiveSelected}
+                aria-label="Archive"
+                className={cn(toolbarButton, "w-8 justify-center px-0")}
+              >
+                <ArchiveIcon className="size-3.5" />
+              </button>
+            </Tooltip>
+          )}
 
           <Tooltip
             content={isUnreadSelected ? "Mark as read" : undefined}

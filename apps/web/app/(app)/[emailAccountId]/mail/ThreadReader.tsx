@@ -67,6 +67,7 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  onMoveToInbox?: () => void;
   isUnread: boolean;
   onMarkRead: () => void;
   onMarkUnread: () => void;
@@ -104,6 +105,7 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  onMoveToInbox,
   isUnread,
   onMarkRead,
   onMarkUnread,
@@ -169,6 +171,7 @@ export function ThreadReader({
       labels={labels}
       menu={menu}
       onArchive={onArchive}
+      onMoveToInbox={onMoveToInbox}
       onMarkRead={onMarkRead}
       onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}

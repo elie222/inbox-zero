@@ -57,7 +57,10 @@ import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnec
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
 import { useMailPerformanceTelemetry } from "@/app/(app)/[emailAccountId]/mail/use-mail-performance-telemetry";
-import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import {
+  isThreadArchived,
+  isThreadUnread,
+} from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -574,6 +577,7 @@ export function MailShell() {
   ]);
   const {
     archive,
+    moveToInbox,
     trash,
     markSpam,
     setReadState,
@@ -792,6 +796,14 @@ export function MailShell() {
     () => runOn(archive, true, true),
     [archive, runOn],
   );
+  // Archiving again would be a no-op, so archived targets offer the way back.
+  const moveToInboxTargets = useCallback(
+    () => runOn(moveToInbox, true, true),
+    [moveToInbox, runOn],
+  );
+  const targetsArchived =
+    actionTargets.length > 0 &&
+    actionTargets.every((target) => isThreadArchived(target.messages));
   const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
   const markSpamTargets = useCallback(
     () => runOn(markSpam, true),
@@ -891,6 +903,7 @@ export function MailShell() {
     () => ({
       actions: {
         archive: archiveTargets,
+        moveToInbox: targetsArchived ? moveToInboxTargets : undefined,
         forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
         star: starTargets,
@@ -925,6 +938,8 @@ export function MailShell() {
     }),
     [
       archiveTargets,
+      moveToInboxTargets,
+      targetsArchived,
       actionTargets,
       canLabel,
       isReaderTarget,
@@ -1071,7 +1086,7 @@ export function MailShell() {
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
       move: canLabel ? openMovePicker : undefined,
-      archive: archiveTargets,
+      archive: targetsArchived ? undefined : archiveTargets,
       star: starTargets,
       markSpam: markSpamTargets,
       markUnread: markUnreadTargets,
@@ -1371,6 +1386,9 @@ export function MailShell() {
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
                 onArchiveSelected={archiveTargets}
+                onMoveToInboxSelected={
+                  targetsArchived ? moveToInboxTargets : undefined
+                }
                 onDeleteSelected={trashTargets}
                 isUnreadSelected={actionTargets.some((target) =>
                   isThreadUnread(target.messages),
@@ -1505,6 +1523,7 @@ export function MailShell() {
                 labelHref={labelHref}
                 onRemoveLabel={onRemoveLabel}
                 onArchive={archiveTargets}
+                onMoveToInbox={targetsArchived ? moveToInboxTargets : undefined}
                 isUnread={isOpenThreadUnread}
                 onMarkRead={markOpenThreadRead}
                 onMarkUnread={markUnreadTargets}
