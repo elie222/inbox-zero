@@ -56,6 +56,7 @@ async function deleteRows(datasource: string, deleteCondition: string) {
           method: "POST",
           body: new URLSearchParams({ delete_condition: deleteCondition }),
           headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(30_000),
         },
       );
 

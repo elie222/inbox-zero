@@ -83,6 +83,29 @@ describe("deleteUser", () => {
     expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
+  it("keeps Tinybird data when deleting the user fails", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+        emailAccount: {
+          id: "email-account-1",
+          email: "owner@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockRejectedValue(new Error("database unavailable"));
+
+    await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
+      "database unavailable",
+    );
+    expect(deleteTinybirdData).not.toHaveBeenCalled();
+  });
+
   it("deletes solo organizations before deleting the user", async () => {
     prisma.account.findMany.mockResolvedValue([
       {

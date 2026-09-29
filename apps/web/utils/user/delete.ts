@@ -70,16 +70,6 @@ export async function deleteUser({
       captureException(error);
     });
 
-    const emails = accounts
-      .map((account) => account.emailAccount?.email)
-      .filter((email): email is string => Boolean(email));
-    after(() =>
-      deleteTinybirdData({ userIds: [userId], emails }).catch((error) => {
-        logger.error("Error deleting Tinybird data", { error });
-        captureException(error);
-      }),
-    );
-
     clearCachedResearchForUser(userId).catch((error) => {
       logger.error("Error clearing cached research", { error });
       captureException(error);
@@ -133,6 +123,16 @@ export async function deleteUser({
         throw originalError;
       }
     });
+
+    const emails = accounts
+      .map((account) => account.emailAccount?.email)
+      .filter((email): email is string => Boolean(email));
+    after(() =>
+      deleteTinybirdData({ userIds: [userId], emails }).catch((error) => {
+        logger.error("Error deleting Tinybird data", { error });
+        captureException(error);
+      }),
+    );
   } catch (error) {
     logger.error("Error during user resources deletion process", {
       error,

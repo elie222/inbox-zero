@@ -19,6 +19,9 @@ const BATCH_SIZE = 100;
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  if (!process.env.TINYBIRD_DELETE_TOKEN) {
+    throw new Error("TINYBIRD_DELETE_TOKEN is not set");
+  }
 
   const [emailAccounts, users] = await Promise.all([
     prisma.emailAccount.findMany({ select: { email: true } }),
@@ -45,10 +48,13 @@ async function main() {
     );
   }
 
-  const aiCallUsers = (await getDistinctValues("aiCall", "userId")) ?? [];
-  const orphanedUserIds = aiCallUsers.filter((id) => !liveUserIds.has(id));
+  const aiCallUsers = await getDistinctValues("aiCall", "userId");
+  const orphanedUserIds =
+    aiCallUsers?.filter((id) => !liveUserIds.has(id)) ?? [];
   console.log(
-    `aiCall: ${aiCallUsers.length} users, ${orphanedUserIds.length} orphaned`,
+    aiCallUsers
+      ? `aiCall: ${aiCallUsers.length} users, ${orphanedUserIds.length} orphaned`
+      : "aiCall: datasource not found, skipping",
   );
 
   if (!apply) {
