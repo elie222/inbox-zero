@@ -3,6 +3,7 @@
 import type { ReactElement, ReactNode } from "react";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   ArrowLeftIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
@@ -32,6 +33,8 @@ type ReaderToolbarProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  /** Set when the thread is already archived; swaps out the Archive button. */
+  onMoveToInbox?: () => void;
   onMarkRead: () => void;
   onMarkUnread: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
@@ -56,6 +59,7 @@ export function ReaderToolbar({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  onMoveToInbox,
   onMarkRead,
   onMarkUnread,
   menu,
@@ -69,6 +73,7 @@ export function ReaderToolbar({
         collapse_all: <ChevronsDownUpIcon className="size-3.5" />,
         expand_all: <ChevronsUpDownIcon className="size-3.5" />,
         mark_read: <MailOpenIcon className="size-3.5" />,
+        move_to_inbox: <ArchiveRestoreIcon className="size-3.5" />,
         mark_unread: <MailIcon className="size-3.5" />,
       }}
       isStarred={isStarred}
@@ -85,6 +90,7 @@ export function ReaderToolbar({
       menu={menu}
       messageExpansion={messageExpansion}
       onArchive={onArchive}
+      onMoveToInbox={onMoveToInbox}
       onBackToInbox={onBackToInbox}
       onMarkRead={onMarkRead}
       onMarkUnread={onMarkUnread}
@@ -115,6 +121,9 @@ function renderActionTooltip(
 ) {
   if (button.action === "archive") {
     return <Tooltip shortcuts={["archive"]}>{children}</Tooltip>;
+  }
+  if (button.action === "move_to_inbox") {
+    return <Tooltip content="Move to inbox">{children}</Tooltip>;
   }
   if (button.action === "mark_unread") {
     return <Tooltip shortcuts={["markUnread"]}>{children}</Tooltip>;
