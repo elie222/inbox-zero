@@ -92,19 +92,9 @@ export async function handleCalendarCallback(
     );
 
     if (existingConnection) {
-      if (!refreshToken && !existingConnection.refreshToken) {
-        throw new Error("No refresh token available for calendar connection");
-      }
-
       await prisma.calendarConnection.update({
         where: { id: existingConnection.id },
-        data: {
-          accessToken,
-          // Google may omit the refresh token on subsequent authorizations.
-          ...(refreshToken && { refreshToken }),
-          expiresAt,
-          isConnected: true,
-        },
+        data: { accessToken, refreshToken, expiresAt, isConnected: true },
       });
       logger.info("Calendar connection tokens updated", {
         emailAccountId,
@@ -118,10 +108,6 @@ export async function handleCalendarCallback(
         "calendar_connected",
         redirectHeaders,
       );
-    }
-
-    if (!refreshToken) {
-      throw new Error("No refresh token returned for new calendar connection");
     }
 
     // Step 7: Create calendar connection

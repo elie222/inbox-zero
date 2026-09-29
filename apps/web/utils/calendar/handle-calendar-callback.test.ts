@@ -97,7 +97,7 @@ describe("handleCalendarCallback", () => {
     undefined,
     null,
     "",
-  ])("preserves the stored refresh token when Google returns %s", async (refreshToken) => {
+  ])("rejects a reconnect when Google returns %s as the refresh token", async (refreshToken) => {
     googleAuth.getToken.mockResolvedValue({
       tokens: {
         access_token: "fresh-access-token",
@@ -109,17 +109,11 @@ describe("handleCalendarCallback", () => {
 
     const response = await runCallback();
 
-    expect(prisma.calendarConnection.update).toHaveBeenCalledExactlyOnceWith({
-      where: { id: connection.id },
-      data: {
-        accessToken: "fresh-access-token",
-        expiresAt: null,
-        isConnected: true,
-      },
-    });
     expect(response.headers.get("location")).toContain(
-      "message=calendar_connected",
+      "error=connection_failed",
     );
+    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
+    expect(setOAuthCodeResult).not.toHaveBeenCalled();
   });
 
   it("rejects a new connection without a refresh token", async () => {
@@ -135,25 +129,6 @@ describe("handleCalendarCallback", () => {
       "error=connection_failed",
     );
     expect(prisma.calendarConnection.create).not.toHaveBeenCalled();
-    expect(setOAuthCodeResult).not.toHaveBeenCalled();
-  });
-
-  it("rejects reconnect when neither Google nor the existing row has a refresh token", async () => {
-    prisma.calendarConnection.findFirst.mockResolvedValue({
-      ...connection,
-      refreshToken: null,
-    });
-    googleAuth.getToken.mockResolvedValue({
-      tokens: { access_token: "fresh-access-token", id_token: "id-token" },
-      res: null,
-    });
-
-    const response = await runCallback();
-
-    expect(response.headers.get("location")).toContain(
-      "error=connection_failed",
-    );
-    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
     expect(setOAuthCodeResult).not.toHaveBeenCalled();
   });
 

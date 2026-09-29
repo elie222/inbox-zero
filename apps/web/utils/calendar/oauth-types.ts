@@ -4,7 +4,7 @@ export interface CalendarTokens {
   accessToken: string;
   email: string;
   expiresAt: Date | null;
-  refreshToken?: string | null;
+  refreshToken: string;
 }
 
 export interface CalendarOAuthProvider {
