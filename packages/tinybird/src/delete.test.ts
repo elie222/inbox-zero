@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteTinybirdData } from "./delete";
+import { deleteTinybirdEmailData } from "./delete";
 
 const fetchMock = vi.fn();
 
-describe("deleteTinybirdData", () => {
+describe("deleteTinybirdEmailData", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("TINYBIRD_TOKEN", "tinybird-token");
@@ -17,11 +17,8 @@ describe("deleteTinybirdData", () => {
     vi.unstubAllEnvs();
   });
 
-  it("deletes AI calls and every mailbox datasource", async () => {
-    await deleteTinybirdData({
-      userIds: ["user-1"],
-      emails: ["a@example.com", "b@example.com"],
-    });
+  it("deletes mailbox rows and only AI usage rows keyed by the email address", async () => {
+    await deleteTinybirdEmailData(["a@example.com", "b@example.com"]);
 
     const calls = fetchMock.mock.calls.map(([url, init]) => ({
       path: new URL(url).pathname,
@@ -32,7 +29,7 @@ describe("deleteTinybirdData", () => {
     expect(calls).toEqual([
       {
         path: "/v0/datasources/aiCall/delete",
-        condition: "userId IN ('user-1')",
+        condition: "userId IN ('a@example.com', 'b@example.com')",
         auth: "Bearer tinybird-token",
       },
       ...["email_action", "email", "last_and_oldest_emails_mv"].map(
@@ -46,28 +43,28 @@ describe("deleteTinybirdData", () => {
   });
 
   it("escapes quotes in values", async () => {
-    await deleteTinybirdData({ emails: ["o'brien@example.com"] });
+    await deleteTinybirdEmailData(["o'brien@example.com"]);
 
     expect(
       new URLSearchParams(fetchMock.mock.calls[0][1].body).get(
         "delete_condition",
       ),
-    ).toBe("ownerEmail IN ('o\\'brien@example.com')");
+    ).toBe("userId IN ('o\\'brien@example.com')");
   });
 
   it("skips datasources that do not exist", async () => {
     fetchMock.mockResolvedValueOnce(new Response("not found", { status: 404 }));
 
     await expect(
-      deleteTinybirdData({ emails: ["a@example.com"] }),
+      deleteTinybirdEmailData(["a@example.com"]),
     ).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("does nothing when Tinybird is not configured", async () => {
     vi.stubEnv("TINYBIRD_TOKEN", "");
 
-    await deleteTinybirdData({ userIds: ["user-1"] });
+    await deleteTinybirdEmailData(["a@example.com"]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

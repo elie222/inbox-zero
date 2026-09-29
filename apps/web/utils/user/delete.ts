@@ -2,7 +2,7 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
-import { deleteTinybirdData } from "@inboxzero/tinybird";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { after } from "next/server";
 import {
   deletePosthogUser,
@@ -138,12 +138,10 @@ export async function deleteUser({
       .map((account) => account.emailAccount?.email)
       .filter((email): email is string => Boolean(email));
     after(() =>
-      deleteTinybirdData({ userIds: [userId], emailAccountIds, emails }).catch(
-        (error) => {
-          logger.error("Error deleting Tinybird data", { error });
-          captureException(error);
-        },
-      ),
+      deleteTinybirdEmailData(emails).catch((error) => {
+        logger.error("Error deleting Tinybird data", { error });
+        captureException(error);
+      }),
     );
   } catch (error) {
     logger.error("Error during user resources deletion process", {

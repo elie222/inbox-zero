@@ -1,4 +1,4 @@
-// Deletes Tinybird rows that belong to users or mailboxes that no longer exist,
+// Deletes Tinybird rows that identify mailboxes that no longer exist,
 // left behind before account deletion cleaned up Tinybird.
 //
 // TINYBIRD_TOKEN needs read and delete (DATASOURCES:CREATE) access to the datasources.
@@ -7,7 +7,7 @@
 
 import "dotenv/config";
 import chunk from "lodash/chunk";
-import { deleteTinybirdData } from "@inboxzero/tinybird";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import prisma from "@/utils/prisma";
 
 const EMAIL_DATASOURCES = [
@@ -23,14 +23,12 @@ async function main() {
     throw new Error("TINYBIRD_TOKEN is not set");
   }
 
-  const [emailAccounts, users] = await Promise.all([
-    prisma.emailAccount.findMany({ select: { email: true } }),
-    prisma.user.findMany({ select: { id: true } }),
-  ]);
+  const emailAccounts = await prisma.emailAccount.findMany({
+    select: { email: true },
+  });
   const liveEmails = new Set(
     emailAccounts.map(({ email }) => email.toLowerCase()),
   );
-  const liveUserIds = new Set(users.map(({ id }) => id));
 
   const orphanedEmails = new Set<string>();
   for (const datasource of EMAIL_DATASOURCES) {
@@ -48,12 +46,17 @@ async function main() {
     );
   }
 
+  // AI usage rows are kept; only rows that fell back to an email address as
+  // the user id identify a person.
   const aiCallUsers = await getDistinctValues("aiCall", "userId");
-  const orphanedUserIds =
-    aiCallUsers?.filter((id) => !liveUserIds.has(id)) ?? [];
+  const orphanedAiCallEmails =
+    aiCallUsers?.filter(
+      (value) => value.includes("@") && !liveEmails.has(value.toLowerCase()),
+    ) ?? [];
+  for (const email of orphanedAiCallEmails) orphanedEmails.add(email);
   console.log(
     aiCallUsers
-      ? `aiCall: ${aiCallUsers.length} users, ${orphanedUserIds.length} orphaned`
+      ? `aiCall: ${orphanedAiCallEmails.length} orphaned email-keyed users`
       : "aiCall: datasource not found, skipping",
   );
 
@@ -63,10 +66,7 @@ async function main() {
   }
 
   for (const emails of chunk([...orphanedEmails], BATCH_SIZE)) {
-    await deleteTinybirdData({ emails });
-  }
-  for (const userIds of chunk(orphanedUserIds, BATCH_SIZE)) {
-    await deleteTinybirdData({ userIds });
+    await deleteTinybirdEmailData(emails);
   }
   console.log("Delete jobs submitted.");
 }

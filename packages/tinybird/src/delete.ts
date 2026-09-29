@@ -7,32 +7,16 @@ const EMAIL_DATASOURCES = [
   "last_and_oldest_emails_mv",
 ] as const;
 
-export async function deleteTinybirdData({
-  userIds = [],
-  emailAccountIds = [],
-  emails = [],
-}: {
-  userIds?: string[];
-  emailAccountIds?: string[];
-  emails?: string[];
-}) {
-  if (!process.env.TINYBIRD_TOKEN) return;
+// Deletes rows that identify a mailbox by its address. AI usage rows are kept
+// for cost reporting; they are keyed by user id except when usage tracking
+// fell back to the email address, and those rows are deleted too.
+export async function deleteTinybirdEmailData(emails: string[]) {
+  if (!process.env.TINYBIRD_TOKEN || !emails.length) return;
 
-  const aiCallConditions = [
-    userIds.length ? `userId IN (${userIds.map(quote).join(", ")})` : null,
-    emailAccountIds.length
-      ? `emailAccountId IN (${emailAccountIds.map(quote).join(", ")})`
-      : null,
-  ].filter(Boolean);
-  if (aiCallConditions.length) {
-    await deleteRows("aiCall", aiCallConditions.join(" OR "));
-  }
-
-  if (emails.length) {
-    const condition = `ownerEmail IN (${emails.map(quote).join(", ")})`;
-    for (const datasource of EMAIL_DATASOURCES) {
-      await deleteRows(datasource, condition);
-    }
+  const quotedEmails = emails.map(quote).join(", ");
+  await deleteRows("aiCall", `userId IN (${quotedEmails})`);
+  for (const datasource of EMAIL_DATASOURCES) {
+    await deleteRows(datasource, `ownerEmail IN (${quotedEmails})`);
   }
 }
 

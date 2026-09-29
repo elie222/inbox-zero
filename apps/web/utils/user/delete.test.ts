@@ -5,7 +5,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
-import { deleteTinybirdData } from "@inboxzero/tinybird";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { createEmailProvider } from "@/utils/email/provider";
 
 vi.mock("@/utils/prisma");
@@ -22,7 +22,7 @@ vi.mock("@inboxzero/transactional-email", () => ({
   deleteContact: vi.fn(),
 }));
 vi.mock("@inboxzero/tinybird", () => ({
-  deleteTinybirdData: vi.fn(() => Promise.resolve()),
+  deleteTinybirdEmailData: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/posthog", () => ({
   deletePosthogUser: vi.fn(() => Promise.resolve()),
@@ -104,7 +104,7 @@ describe("deleteUser", () => {
     await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
       "database unavailable",
     );
-    expect(deleteTinybirdData).not.toHaveBeenCalled();
+    expect(deleteTinybirdEmailData).not.toHaveBeenCalled();
   });
 
   it("deletes solo organizations before deleting the user", async () => {
@@ -135,11 +135,7 @@ describe("deleteUser", () => {
     prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
 
     await deleteUser({ userId: "user-1", logger });
-    expect(deleteTinybirdData).toHaveBeenCalledWith({
-      userIds: ["user-1"],
-      emailAccountIds: ["email-account-1"],
-      emails: ["owner@example.com"],
-    });
+    expect(deleteTinybirdEmailData).toHaveBeenCalledWith(["owner@example.com"]);
     expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
       ["email-account-1"],
       expect.any(Function),
