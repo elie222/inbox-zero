@@ -361,9 +361,23 @@ describe("loading calendar invitations", () => {
       invitation: {
         title: "Calendar invitation",
         organizer: "organizer@example.com",
+        organizerName: null,
         recurring: false,
         response: "accepted",
         calendarSynced: true,
+        start: "2026-10-01T10:00:00.000Z",
+        end: null,
+        allDay: false,
+        location: null,
+        conferenceUrl: null,
+        attendees: [
+          {
+            email: "user@example.com",
+            name: null,
+            response: null,
+            optional: false,
+          },
+        ],
       },
     });
     expect(mocks.connections).toHaveBeenCalledWith({
