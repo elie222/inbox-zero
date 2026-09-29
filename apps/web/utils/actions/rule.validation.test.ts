@@ -4,7 +4,6 @@ import {
   createRuleBody,
   type CreateRuleBody,
   updateRuleBody,
-  updateRuleConditionSchema,
 } from "./rule.validation";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
@@ -622,24 +621,5 @@ describe("INTEGRATION action validation", () => {
         "Unsupported integration tool",
       );
     }
-  });
-});
-
-describe("updateRuleConditionSchema", () => {
-  it("accepts null aiInstructions for sender-only updates", () => {
-    const result = updateRuleConditionSchema.safeParse({
-      ruleName: "Newsletters",
-      condition: {
-        aiInstructions: null,
-        static: {
-          from: "@briefing.example",
-          to: null,
-          subject: null,
-        },
-        conditionalOperator: null,
-      },
-    });
-
-    expect(result.success).toBe(true);
   });
 });

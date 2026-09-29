@@ -6,6 +6,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { deleteTinybirdData } from "@inboxzero/tinybird";
+import { createEmailProvider } from "@/utils/email/provider";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/mail-api/upload-blobs", () => ({
@@ -162,6 +163,33 @@ describe("deleteUser", () => {
     expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
       "email-account-1",
     );
+  });
+
+  it("deletes a user when a revoked token prevents provider creation", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        access_token: "expired-token",
+        refresh_token: null,
+        expires_at: null,
+        emailAccount: {
+          id: "email-account-1",
+          email: "user@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      new Error("invalid_grant"),
+    );
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    await deleteUser({ userId: "user-1", logger });
+
+    expect(prisma.user.deleteMany).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+    });
   });
 
   it("deletes ownerless solo organizations before deleting the user", async () => {

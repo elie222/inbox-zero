@@ -1,12 +1,4 @@
-import type { gmail_v1 } from "@googleapis/gmail";
-import uniq from "lodash/uniq";
-import uniqBy from "lodash/uniqBy";
-import { queryBatchMessagesPages } from "@/utils/gmail/message";
-import { GroupItemType } from "@/generated/prisma/enums";
-import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
-import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
-import type { Logger } from "@/utils/logger";
 
 // Predefined lists of receipt senders and subjects
 const defaultReceiptSenders = [
@@ -38,81 +30,6 @@ const defaultReceiptSubjects = [
   "Purchase receipt",
 ];
 
-// Find additional receipts from the user's inbox that don't match the predefined lists
-export async function findReceipts(
-  gmail: gmail_v1.Gmail,
-  userEmail: string,
-  logger: Logger,
-) {
-  const senders = await findReceiptSenders(gmail, logger);
-  const subjects = await findReceiptSubjects(gmail, logger);
-
-  // filter out senders that would match the default list
-  const filteredSenders = senders.filter(
-    (sender) =>
-      !findMatchingGroupItem(
-        { from: sender, subject: "" },
-        defaultReceiptSenders.map((sender) => ({
-          type: GroupItemType.FROM,
-          value: sender,
-          exclude: false,
-        })),
-      ) && !sender?.includes(userEmail),
-  );
-
-  const sendersList = uniq([...filteredSenders, ...defaultReceiptSenders]);
-
-  // filter out subjects that would match the default list
-  const filteredSubjects = subjects.filter(
-    (email) =>
-      !findMatchingGroupItem(
-        email,
-        defaultReceiptSubjects.map((subject) => ({
-          type: GroupItemType.SUBJECT,
-          value: subject,
-          exclude: false,
-        })),
-      ) &&
-      !findMatchingGroupItem(
-        email,
-        sendersList.map((sender) => ({
-          type: GroupItemType.FROM,
-          value: sender,
-          exclude: false,
-        })),
-      ),
-  );
-
-  const subjectsList = uniq([
-    ...filteredSubjects,
-    ...defaultReceiptSubjects.map((subject) => ({ subject })),
-  ]);
-
-  return [
-    ...sendersList.map((sender) => ({
-      type: GroupItemType.FROM,
-      value: sender,
-    })),
-    ...subjectsList.map((subject) => ({
-      type: GroupItemType.SUBJECT,
-      value: subject.subject,
-    })),
-  ];
-}
-
-const receiptSenders = ["invoice", "receipt", "payment"];
-
-async function findReceiptSenders(gmail: gmail_v1.Gmail, logger: Logger) {
-  const query = `from:(${receiptSenders.join(" OR ")})`;
-  const messages = await queryBatchMessagesPages(gmail, {
-    query,
-    maxResults: 100,
-    logger,
-  });
-
-  return uniq(messages.map((message) => message.headers.from));
-}
-
 const receiptSubjects = [
   "invoice",
   "receipt",
@@ -122,23 +39,6 @@ const receiptSubjects = [
   '"order confirmation"',
   '"billing statement"',
 ];
-
-async function findReceiptSubjects(gmail: gmail_v1.Gmail, logger: Logger) {
-  const query = `subject:(${receiptSubjects.join(" OR ")})`;
-  const messages = await queryBatchMessagesPages(gmail, {
-    query,
-    maxResults: 100,
-    logger,
-  });
-
-  return uniqBy(
-    messages.map((message) => ({
-      from: message.headers.from,
-      subject: generalizeSubject(message.headers.subject),
-    })),
-    (message) => message.from,
-  );
-}
 
 export function isReceiptSender(sender: string) {
   return defaultReceiptSenders.some((receipt) => sender?.includes(receipt));

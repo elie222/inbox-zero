@@ -6,14 +6,6 @@ import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rul
 import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
 import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
 import type {
-  UpdateRuleActionsOutput,
-  UpdateRuleActionsTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-actions-tool";
-import type {
-  UpdateRuleConditionsOutput,
-  UpdateRuleConditionsTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
-import type {
   UpdateRuleOutput,
   UpdateRuleTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
@@ -1178,10 +1170,10 @@ export function UpdatedRuleConditions({
   actions,
   preview,
 }: {
-  args: UpdateRuleConditionsTool["input"];
+  args: { ruleName: string; condition: ConditionTextInput };
   ruleId: string;
-  originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
-  updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
+  originalConditions?: ConditionTextInput;
+  updatedConditions?: ConditionTextInput;
   actions?: Array<{ type: string; fields?: RuleActionFields | null }>;
   preview?: boolean;
 }) {
@@ -1237,10 +1229,13 @@ export function UpdatedRuleActions({
   condition,
   preview,
 }: {
-  args: UpdateRuleActionsTool["input"];
+  args: {
+    ruleName: string;
+    actions: Array<{ type: string; fields?: RuleActionFields | null }>;
+  };
   ruleId: string;
-  originalActions?: UpdateRuleActionsOutput["originalActions"];
-  updatedActions?: UpdateRuleActionsOutput["updatedActions"];
+  originalActions?: LegacyRuleActionForDiff[];
+  updatedActions?: LegacyRuleActionForDiff[];
   condition?: {
     aiInstructions?: string | null;
     static?: {
@@ -2302,6 +2297,12 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
     </EmailLookupProvider>
   );
 }
+
+type LegacyRuleActionForDiff = {
+  type: string;
+  fields: Record<string, string | null>;
+  delayInMinutes?: number | null;
+};
 
 type ConditionTextInput = {
   aiInstructions?: string | null;

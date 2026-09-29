@@ -13,9 +13,7 @@ type OnboardingAnalyticsProps = {
   skipped?: boolean;
 };
 
-export function useOnboardingAnalytics(
-  variant: "onboarding" | "welcome" | "onboarding-chat",
-) {
+export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
   const posthog = usePostHog();
 
   return useMemo(() => {
