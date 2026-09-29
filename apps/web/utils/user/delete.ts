@@ -91,14 +91,24 @@ export async function deleteUser({
       const resourcesPromise = accounts.map(async (account) => {
         if (!account.emailAccount) return Promise.resolve();
 
-        // Create email provider for unwatching
-        const emailProvider = account.access_token
-          ? await createEmailProvider({
+        let emailProvider: EmailProvider | null = null;
+        if (account.access_token) {
+          try {
+            emailProvider = await createEmailProvider({
               emailAccountId: account.emailAccount.id,
               provider: account.provider,
               logger,
-            })
-          : null;
+            });
+          } catch (error) {
+            logger.warn(
+              "Could not create provider to unwatch deleted account",
+              {
+                emailAccountId: account.emailAccount.id,
+                error,
+              },
+            );
+          }
+        }
 
         return deleteResources({
           emailAccountId: account.emailAccount.id,
