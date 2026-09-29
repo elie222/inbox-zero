@@ -55,6 +55,7 @@ export async function getCalendarInvitation({
     invitation: {
       title: invitation.title,
       organizer: invitation.organizer,
+      attendee: invitation.attendee,
       organizerName: invitation.organizerName,
       recurring: invitation.recurring,
       start: invitation.start,

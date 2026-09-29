@@ -135,7 +135,7 @@ function getEmail(value: unknown) {
 // display-only; responding relies on the fields above.
 function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
   const timeZone = getParameter(event.getFirstProperty("dtstart"), "tzid");
-  const end = getEnd(event, start);
+  const end = getEnd(event, start, timeZone);
   const location = getText(
     event,
     "location",
@@ -143,7 +143,7 @@ function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
   );
   return {
     start: toDisplayTime(start, timeZone),
-    end: end && toDisplayTime(end, timeZone),
+    end: end && toDisplayTime(end.time, end.timeZone),
     allDay: start.isDate,
     location,
     conferenceUrl:
@@ -174,14 +174,25 @@ function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
   };
 }
 
-function getEnd(event: ICAL.Component, start: ICAL.Time) {
+// An event may end in a different zone than it starts in, so DTEND carries its
+// own TZID. An end derived from DURATION stays in the start's zone.
+function getEnd(
+  event: ICAL.Component,
+  start: ICAL.Time,
+  startTimeZone: string | null,
+) {
   const end = event.getFirstPropertyValue("dtend");
-  if (end instanceof ICAL.Time) return end;
+  if (end instanceof ICAL.Time)
+    return {
+      time: end,
+      timeZone:
+        getParameter(event.getFirstProperty("dtend"), "tzid") ?? startTimeZone,
+    };
   const duration = event.getFirstPropertyValue("duration");
   if (!(duration instanceof ICAL.Duration)) return null;
   const derived = start.clone();
   derived.addDuration(duration);
-  return derived;
+  return { time: derived, timeZone: startTimeZone };
 }
 
 /**

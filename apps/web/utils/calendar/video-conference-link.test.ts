@@ -19,6 +19,14 @@ describe("findVideoConferenceLink", () => {
     ).toBe("https://zoom.us/j/8123456789?pwd=secret&from=calendar");
   });
 
+  // Following an http:// join link would put the meeting id and passcode on the
+  // wire in cleartext before the host redirects.
+  it("upgrades an http join link to https", () => {
+    expect(
+      findVideoConferenceLink("Join: http://zoom.us/j/8123456789?pwd=secret"),
+    ).toBe("https://zoom.us/j/8123456789?pwd=secret");
+  });
+
   it("finds a link whose hostname is entity-encoded", () => {
     expect(
       findVideoConferenceLink(

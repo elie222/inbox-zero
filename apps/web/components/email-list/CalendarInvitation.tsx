@@ -33,10 +33,8 @@ const RESPONSE_OPTIONS = [
   ["tentative", "Maybe"],
 ] as const satisfies ReadonlyArray<readonly [InvitationResponse, string]>;
 
-const RESPONSE_LABEL = Object.fromEntries(RESPONSE_OPTIONS) as Record<
-  InvitationResponse,
-  string
->;
+const RESPONSE_LABEL: Record<string, string | undefined> =
+  Object.fromEntries(RESPONSE_OPTIONS);
 
 // The card reads the meeting time in the zone the viewer's device is set to.
 const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -120,7 +118,7 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
               </DetailRow>
             )}
 
-            <Guests invitation={invitation} />
+            <Guests invitation={invitation} response={response} />
 
             <fieldset className="flex flex-wrap gap-2">
               <legend className="sr-only">Your response</legend>
@@ -147,7 +145,13 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
   );
 }
 
-function Guests({ invitation }: { invitation: Invitation }) {
+function Guests({
+  invitation,
+  response,
+}: {
+  invitation: Invitation;
+  response: string | null | undefined;
+}) {
   const [expanded, setExpanded] = useState(false);
   const guests = getGuests(invitation);
   const visible = expanded ? guests : guests.slice(0, COLLAPSED_GUESTS);
@@ -155,10 +159,15 @@ function Guests({ invitation }: { invitation: Invitation }) {
     <DetailRow icon={UsersIcon}>
       <ul className="space-y-0.5">
         {visible.map((guest) => {
+          // The viewer's own row follows the RSVP on the buttons: the PARTSTAT in
+          // the invitation is the organizer's copy, so it goes stale as soon as
+          // they answer.
+          const guestResponse =
+            guest.email === invitation.attendee ? response : guest.response;
           const tags = [
             guest.email === invitation.organizer && "Organizer",
             guest.optional && "Optional",
-            guest.response && RESPONSE_LABEL[guest.response],
+            guestResponse && RESPONSE_LABEL[guestResponse],
           ].filter(Boolean);
           return (
             <li key={guest.email} className="break-words">

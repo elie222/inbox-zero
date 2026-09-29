@@ -92,6 +92,24 @@ describe("calendar invitation details", () => {
     expect(parsed.start).toBe("2026-09-29T16:00:00.000Z");
   });
 
+  // A meeting can end in another zone than it starts in, and neither zone need
+  // be defined as a VTIMEZONE.
+  it("resolves an end that names its own timezone", () => {
+    const parsed = parseCalendarInvitation(
+      detailedInvite
+        .replace(`${timezone}\r\n`, "")
+        .replace(
+          "DTEND;TZID=America/Sao_Paulo:20260929T130500",
+          "DTEND;TZID=Europe/Lisbon:20260929T170500",
+        ),
+      "user@example.com",
+    )!;
+    expect(parsed).toMatchObject({
+      start: "2026-09-29T16:00:00.000Z",
+      end: "2026-09-29T16:05:00.000Z",
+    });
+  });
+
   it("derives the end from a duration", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite.replace(

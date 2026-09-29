@@ -361,6 +361,7 @@ describe("loading calendar invitations", () => {
       invitation: {
         title: "Calendar invitation",
         organizer: "organizer@example.com",
+        attendee: "user@example.com",
         organizerName: null,
         recurring: false,
         response: "accepted",
