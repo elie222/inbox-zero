@@ -60,9 +60,6 @@ vi.mock("@/hooks/useSentMessageOpens", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
 vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
-vi.mock("@/utils/actions/generate-reply", () => ({
-  generateNudgeReplyAction: vi.fn(),
-}));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: MockComposer,
 }));
