@@ -1,9 +1,5 @@
 import "server-only";
-import {
-  ApnsEnvironment,
-  MobilePushTokenType,
-  type ApnsEnvironment as ApnsEnvironmentValue,
-} from "@/generated/prisma/enums";
+import { MobilePushTokenType } from "@/generated/prisma/enums";
 import { isApnsConfigured, deliverApnsNotifications } from "@/utils/apns";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -39,32 +35,32 @@ async function sendMailboxPushes({
   const acquired = await reserveMailboxPush(emailAccountId, logger);
   if (!acquired) return;
 
-  const devices = await prisma.mobilePushToken.findMany({
-    where: {
-      tokenType: MobilePushTokenType.APNS,
-      emailAccounts: { some: { id: emailAccountId } },
-    },
-    select: { token: true, environment: true },
-  });
-  if (devices.length === 0) return;
-
-  const staleTokens: string[] = [];
-  for (const [environment, tokens] of groupTokens(devices)) {
-    const { unregisteredTokens } = await deliverApnsNotifications({
-      tokens,
-      ...(environment
-        ? { sandbox: environment === ApnsEnvironment.SANDBOX }
-        : {}),
-      notification: {
-        pushType: "background",
-        data: { emailAccountId, hint: "mailbox" },
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      user: {
+        select: {
+          mobilePushTokens: {
+            where: { tokenType: MobilePushTokenType.APNS },
+            select: { token: true },
+          },
+        },
       },
-      logger,
-    });
-    staleTokens.push(...unregisteredTokens);
-  }
+    },
+  });
+  const tokens = account?.user.mobilePushTokens.map((device) => device.token);
+  if (!tokens || tokens.length === 0) return;
 
-  const rejectedTokens = [...new Set(staleTokens)];
+  const { unregisteredTokens } = await deliverApnsNotifications({
+    tokens,
+    notification: {
+      pushType: "background",
+      data: { emailAccountId, hint: "mailbox" },
+    },
+    logger,
+  });
+
+  const rejectedTokens = [...new Set(unregisteredTokens)];
   if (rejectedTokens.length === 0) return;
   await prisma.mobilePushToken.deleteMany({
     where: { token: { in: rejectedTokens } },
@@ -86,19 +82,4 @@ async function reserveMailboxPush(emailAccountId: string, logger: Logger) {
     logger.warn("Mailbox push cooldown check failed", { error });
     return true;
   }
-}
-
-function groupTokens(
-  devices: Array<{
-    token: string;
-    environment: ApnsEnvironmentValue | null;
-  }>,
-) {
-  const grouped = new Map<ApnsEnvironmentValue | null, string[]>();
-  for (const device of devices) {
-    const tokens = grouped.get(device.environment) ?? [];
-    tokens.push(device.token);
-    grouped.set(device.environment, tokens);
-  }
-  return grouped;
 }

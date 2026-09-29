@@ -11,7 +11,6 @@ import {
   vi,
 } from "vitest";
 import { followMailboxSignal } from "../../../desktop/src/mail-engine/mailbox-signals";
-import { ApnsEnvironment } from "@/generated/prisma/enums";
 import { takeRecordedApnsSends } from "@/utils/apns";
 import {
   createGmailTestHarness,
@@ -86,11 +85,14 @@ vi.mock("@/utils/redis", () => ({
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    emailAccount: {
+      findUnique: vi.fn(async () => ({
+        user: {
+          mobilePushTokens: [{ token: DEVICE_A }, { token: DEVICE_B }],
+        },
+      })),
+    },
     mobilePushToken: {
-      findMany: vi.fn(async () => [
-        { token: DEVICE_A, environment: ApnsEnvironment.SANDBOX },
-        { token: DEVICE_B, environment: ApnsEnvironment.PRODUCTION },
-      ]),
       deleteMany: vi.fn(),
     },
   },
@@ -263,7 +265,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
 
       expect(silentSends(GMAIL_ACCOUNT)).toEqual([
         expect.objectContaining({ token: DEVICE_A, sandbox: true }),
-        expect.objectContaining({ token: DEVICE_B, sandbox: false }),
+        expect.objectContaining({ token: DEVICE_B, sandbox: true }),
       ]);
 
       const repeat = await postGoogleWebhook(

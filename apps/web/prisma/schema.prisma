@@ -258,7 +258,6 @@ model EmailAccount {
   apiKeys                ApiKey[]
   classificationFeedback ClassificationFeedback[]
   mailSplits             MailSplit[]
-  mobilePushTokens       MobilePushToken[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -2020,19 +2019,17 @@ model McpTool {
 }
 
 model MobilePushToken {
-  id          String              @id @default(cuid())
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  token       String              @unique
-  platform    MobilePushPlatform
-  tokenType   MobilePushTokenType @default(EXPO)
-  appVersion  String?
-  environment ApnsEnvironment?
+  id         String              @id @default(cuid())
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  token      String              @unique
+  platform   MobilePushPlatform
+  tokenType  MobilePushTokenType @default(EXPO)
+  appVersion String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  emailAccounts        EmailAccount[]
   mobilePushDeliveries MobilePushDelivery[]
 
   @@index([userId])
@@ -2059,11 +2056,6 @@ enum MobilePushPlatform {
 enum MobilePushTokenType {
   EXPO @map("expo")
   APNS @map("apns")
-}
-
-enum ApnsEnvironment {
-  SANDBOX    @map("sandbox")
-  PRODUCTION @map("production")
 }
 
 enum ActionType {
