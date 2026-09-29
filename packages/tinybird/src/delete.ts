@@ -38,13 +38,6 @@ export async function deleteTinybirdData({
 
 // Tinybird runs one delete job at a time and answers 429 while one is running.
 async function deleteRows(datasource: string, deleteCondition: string) {
-  const token = process.env.TINYBIRD_DELETE_TOKEN;
-  if (!token) {
-    throw new Error(
-      "TINYBIRD_DELETE_TOKEN is not set, so Tinybird data cannot be deleted",
-    );
-  }
-
   await pRetry(
     async () => {
       const response = await fetch(
@@ -55,7 +48,7 @@ async function deleteRows(datasource: string, deleteCondition: string) {
         {
           method: "POST",
           body: new URLSearchParams({ delete_condition: deleteCondition }),
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${process.env.TINYBIRD_TOKEN}` },
           signal: AbortSignal.timeout(30_000),
         },
       );

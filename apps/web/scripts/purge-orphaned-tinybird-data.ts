@@ -1,7 +1,7 @@
 // Deletes Tinybird rows that belong to users or mailboxes that no longer exist,
 // left behind before account deletion cleaned up Tinybird.
 //
-// Needs TINYBIRD_DELETE_TOKEN with read and delete access to the datasources.
+// TINYBIRD_TOKEN needs read and delete (DATASOURCES:CREATE) access to the datasources.
 // Dry run (counts only): `pnpm --filter inbox-zero-ai exec tsx scripts/purge-orphaned-tinybird-data.ts`
 // Delete: `pnpm --filter inbox-zero-ai exec tsx scripts/purge-orphaned-tinybird-data.ts --apply`
 
@@ -19,8 +19,8 @@ const BATCH_SIZE = 100;
 
 async function main() {
   const apply = process.argv.includes("--apply");
-  if (!process.env.TINYBIRD_DELETE_TOKEN) {
-    throw new Error("TINYBIRD_DELETE_TOKEN is not set");
+  if (!process.env.TINYBIRD_TOKEN) {
+    throw new Error("TINYBIRD_TOKEN is not set");
   }
 
   const [emailAccounts, users] = await Promise.all([
@@ -82,7 +82,7 @@ async function getDistinctValues(datasource: string, column: string) {
   );
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.TINYBIRD_DELETE_TOKEN}` },
+    headers: { Authorization: `Bearer ${process.env.TINYBIRD_TOKEN}` },
   });
   if (response.status === 404) return null;
   if (!response.ok) {

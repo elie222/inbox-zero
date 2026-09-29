@@ -6,8 +6,7 @@ const fetchMock = vi.fn();
 describe("deleteTinybirdData", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubEnv("TINYBIRD_TOKEN", "append-token");
-    vi.stubEnv("TINYBIRD_DELETE_TOKEN", "delete-token");
+    vi.stubEnv("TINYBIRD_TOKEN", "tinybird-token");
     vi.stubEnv("TINYBIRD_BASE_URL", "https://tinybird.test/");
     fetchMock.mockReset();
     fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
@@ -18,7 +17,7 @@ describe("deleteTinybirdData", () => {
     vi.unstubAllEnvs();
   });
 
-  it("deletes AI calls and every mailbox datasource with the delete token", async () => {
+  it("deletes AI calls and every mailbox datasource", async () => {
     await deleteTinybirdData({
       userIds: ["user-1"],
       emails: ["a@example.com", "b@example.com"],
@@ -34,13 +33,13 @@ describe("deleteTinybirdData", () => {
       {
         path: "/v0/datasources/aiCall/delete",
         condition: "userId IN ('user-1')",
-        auth: "Bearer delete-token",
+        auth: "Bearer tinybird-token",
       },
       ...["email_action", "email", "last_and_oldest_emails_mv"].map(
         (datasource) => ({
           path: `/v0/datasources/${datasource}/delete`,
           condition: "ownerEmail IN ('a@example.com', 'b@example.com')",
-          auth: "Bearer delete-token",
+          auth: "Bearer tinybird-token",
         }),
       ),
     ]);
@@ -63,15 +62,6 @@ describe("deleteTinybirdData", () => {
       deleteTinybirdData({ emails: ["a@example.com"] }),
     ).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it("fails loudly when Tinybird is enabled without a delete token", async () => {
-    vi.stubEnv("TINYBIRD_DELETE_TOKEN", "");
-
-    await expect(deleteTinybirdData({ userIds: ["user-1"] })).rejects.toThrow(
-      "TINYBIRD_DELETE_TOKEN is not set",
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("does nothing when Tinybird is not configured", async () => {
