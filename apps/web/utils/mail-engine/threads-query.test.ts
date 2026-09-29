@@ -178,4 +178,28 @@ describe("threadsQueryToPredicate", () => {
       ],
     });
   });
+
+  it("maps a repeated operator onto one predicate per value", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: "to:ada@example.com to:grace@example.com",
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "address",
+          field: "to",
+          value: "ada@example.com",
+          match: "address",
+        },
+        {
+          kind: "address",
+          field: "to",
+          value: "grace@example.com",
+          match: "address",
+        },
+      ],
+    });
+  });
 });
