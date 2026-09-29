@@ -25,8 +25,8 @@ export function createGoogleCalendarProvider(
       const { tokens } = await googleAuth.getToken(code);
       const { access_token, refresh_token, expiry_date } = tokens;
 
-      if (!access_token || !refresh_token) {
-        throw new Error("No refresh_token returned from Google");
+      if (!access_token) {
+        throw new Error("No access_token returned from Google");
       }
 
       const payload = isGoogleOauthEmulationEnabled()

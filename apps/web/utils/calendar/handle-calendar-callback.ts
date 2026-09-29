@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 import type { CalendarOAuthProvider } from "./oauth-types";
 import {
   validateOAuthCallback,
@@ -91,18 +92,36 @@ export async function handleCalendarCallback(
     );
 
     if (existingConnection) {
-      logger.info("Calendar connection already exists", {
+      if (!refreshToken && !existingConnection.refreshToken) {
+        throw new Error("No refresh token available for calendar connection");
+      }
+
+      await prisma.calendarConnection.update({
+        where: { id: existingConnection.id },
+        data: {
+          accessToken,
+          // Google may omit the refresh token on subsequent authorizations.
+          ...(refreshToken && { refreshToken }),
+          expiresAt,
+          isConnected: true,
+        },
+      });
+      logger.info("Calendar connection tokens updated", {
         emailAccountId,
         email,
         provider: provider.name,
       });
       // Cache the result for duplicate requests
-      await setOAuthCodeResult(code, { message: "calendar_already_connected" });
+      await setOAuthCodeResult(code, { message: "calendar_connected" });
       return redirectWithMessage(
         finalRedirectUrl,
-        "calendar_already_connected",
+        "calendar_connected",
         redirectHeaders,
       );
+    }
+
+    if (!refreshToken) {
+      throw new Error("No refresh token returned for new calendar connection");
     }
 
     // Step 7: Create calendar connection
