@@ -1,67 +1,78 @@
 import pRetry, { AbortError } from "p-retry";
-import { isTinybirdEnabled } from "./client";
 
-const TINYBIRD_BASE_URL = process.env.TINYBIRD_BASE_URL;
-const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
+// Datasources that store rows per mailbox, keyed by the mailbox address.
+const EMAIL_DATASOURCES = [
+  "email_action",
+  "email",
+  "last_and_oldest_emails_mv",
+] as const;
 
-async function deleteFromDatasource(
-  datasource: string,
-  deleteCondition: string, // e.g. "email='abc@example.com'"
-): Promise<unknown> {
-  if (!isTinybirdEnabled()) return;
+export async function deleteTinybirdData({
+  userIds = [],
+  emailAccountIds = [],
+  emails = [],
+}: {
+  userIds?: string[];
+  emailAccountIds?: string[];
+  emails?: string[];
+}) {
+  if (!process.env.TINYBIRD_TOKEN) return;
 
-  const url = new URL(
-    `/v0/datasources/${datasource}/delete`,
-    TINYBIRD_BASE_URL,
-  );
-  const res = await fetch(url, {
-    method: "POST",
-    body: `delete_condition=(${deleteCondition})`,
-    headers: {
-      Authorization: `Bearer ${TINYBIRD_TOKEN}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
+  const aiCallConditions = [
+    userIds.length ? `userId IN (${userIds.map(quote).join(", ")})` : null,
+    emailAccountIds.length
+      ? `emailAccountId IN (${emailAccountIds.map(quote).join(", ")})`
+      : null,
+  ].filter(Boolean);
+  if (aiCallConditions.length) {
+    await deleteRows("aiCall", aiCallConditions.join(" OR "));
+  }
 
-  if (!res.ok) {
+  if (emails.length) {
+    const condition = `ownerEmail IN (${emails.map(quote).join(", ")})`;
+    for (const datasource of EMAIL_DATASOURCES) {
+      await deleteRows(datasource, condition);
+    }
+  }
+}
+
+// Tinybird runs one delete job at a time and answers 429 while one is running.
+async function deleteRows(datasource: string, deleteCondition: string) {
+  const token = process.env.TINYBIRD_DELETE_TOKEN;
+  if (!token) {
     throw new Error(
-      `Unable to delete for datasource ${datasource}: [${
-        res.status
-      }] ${await res.text()}`,
+      "TINYBIRD_DELETE_TOKEN is not set, so Tinybird data cannot be deleted",
     );
   }
 
-  return await res.json();
+  await pRetry(
+    async () => {
+      const response = await fetch(
+        new URL(
+          `/v0/datasources/${datasource}/delete`,
+          process.env.TINYBIRD_BASE_URL || "https://api.us-east.tinybird.co/",
+        ),
+        {
+          method: "POST",
+          body: new URLSearchParams({ delete_condition: deleteCondition }),
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.ok) return;
+      // The datasource does not exist in this workspace, so there is nothing to delete.
+      if (response.status === 404) return;
+
+      const error = new Error(
+        `Unable to delete from Tinybird datasource ${datasource}: [${response.status}] ${await response.text()}`,
+      );
+      if (response.status === 429) throw error;
+      throw new AbortError(error);
+    },
+    { retries: 6, factor: 2, minTimeout: 1000, maxTimeout: 15_000 },
+  );
 }
 
-// Tinybird only allows 1 delete at a time
-async function _deleteFromDatasourceWithRetry(
-  datasource: string,
-  deleteCondition: string,
-): Promise<unknown> {
-  return pRetry(
-    async () => {
-      try {
-        return await deleteFromDatasource(datasource, deleteCondition);
-      } catch (error) {
-        // Only retry on rate limit errors
-        if (error instanceof Error && error.message.includes("429")) {
-          throw error; // pRetry will handle this
-        }
-        throw new AbortError(error as Error); // Don't retry other errors
-      }
-    },
-    {
-      retries: 5,
-      factor: 2,
-      minTimeout: 1000,
-      maxTimeout: 30_000,
-      randomize: true,
-      onFailedAttempt: (error) => {
-        console.log(
-          `Rate limited when deleting from ${datasource}. Attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
-        );
-      },
-    },
-  );
+function quote(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }

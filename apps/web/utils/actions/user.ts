@@ -23,6 +23,7 @@ import {
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
+import { deleteTinybirdData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
   cleanupAIDraftsForAccount,
@@ -241,6 +242,16 @@ export const deleteEmailAccountAction = actionClientUser
           { emailAccountId, logger, userEmail },
         );
       }
+
+      after(() =>
+        deleteTinybirdData({
+          emailAccountIds: [emailAccountId],
+          emails: [emailAccount.email],
+        }).catch((error) => {
+          logger.error("Error deleting Tinybird data", { error });
+          captureException(error);
+        }),
+      );
 
       await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
         logger.error("Failed to delete account mail uploads", {
