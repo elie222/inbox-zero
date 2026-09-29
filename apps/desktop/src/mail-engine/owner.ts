@@ -18,6 +18,7 @@ import {
   type SqliteTransactionTimer,
 } from "./sqlite";
 import { desktopStoragePressure } from "./storage-pressure";
+import { watchMailboxSignals } from "./mailbox-signals";
 import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
 export type DesktopMailOwner = {
@@ -104,6 +105,11 @@ type OwnedEngineInput = {
   /** The loop keeps retrying after a failed run; the host decides whether to report it. */
   onEngineError?: (error: unknown) => void;
   onSqliteTransaction?: SqliteTransactionTimer;
+  followMailboxSignal?: (
+    accountId: string,
+    signal: AbortSignal,
+    onChange: () => void,
+  ) => Promise<void>;
 };
 
 async function createOwnedEngine(input: OwnedEngineInput): Promise<{
@@ -129,13 +135,29 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
     ownerId: "desktop-owner",
   });
   const abort = new AbortController();
+  const signalsAbort = new AbortController();
   const loop = pumpEngine(engine, abort.signal, input.onEngineError);
+  const signals = input.followMailboxSignal
+    ? watchMailboxSignals({
+        readAccountIds: async () =>
+          (await store.readAccountSyncStates()).map(
+            (account) => account.accountId,
+          ),
+        follow: input.followMailboxSignal,
+        onChange: async (accountId) => {
+          await engine.requestSync([accountId]);
+        },
+        signal: signalsAbort.signal,
+      })
+    : Promise.resolve();
   return {
     engine,
     store,
     async stop() {
       abort.abort();
+      signalsAbort.abort();
       await loop;
+      await signals;
       await engine.close();
     },
   };

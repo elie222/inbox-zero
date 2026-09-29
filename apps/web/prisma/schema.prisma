@@ -2019,12 +2019,13 @@ model McpTool {
 }
 
 model MobilePushToken {
-  id        String             @id @default(cuid())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  token     String             @unique
-  platform  MobilePushPlatform
-  tokenType MobilePushTokenType @default(EXPO)
+  id         String              @id @default(cuid())
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  token      String              @unique
+  platform   MobilePushPlatform
+  tokenType  MobilePushTokenType @default(EXPO)
+  appVersion String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
