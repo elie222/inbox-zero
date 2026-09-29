@@ -24,6 +24,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
+import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
 import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
@@ -74,7 +75,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { useEmail } from "@/providers/EmailProvider";
+import { useEmailLabels } from "@/providers/EmailLabelsProvider";
 import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabels } from "@/hooks/useLabels";
@@ -119,7 +120,7 @@ export function MailShell() {
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
-  const { userLabels } = useEmail();
+  const { userLabels } = useEmailLabels();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
@@ -1244,6 +1245,22 @@ export function MailShell() {
         : NO_SEARCH_OPTIONS,
     [folders, isAllAccounts, isOutlook],
   );
+  const showSplitTabs = !isScoped && !searchQuery;
+  const threadCount = threads.length;
+  const { selectedCount, selectAll, clear: clearSelection } = selection;
+  // Only offered once something is selected, so the tabs sit flush otherwise.
+  const selectAllCheckbox = useMemo(
+    () =>
+      selectedCount > 0 ? (
+        <SelectAllCheckbox
+          threadCount={threadCount}
+          selectedCount={selectedCount}
+          onSelectAll={selectAll}
+          onClearSelection={clearSelection}
+        />
+      ) : null,
+    [threadCount, selectedCount, selectAll, clearSelection],
+  );
 
   const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
@@ -1351,9 +1368,8 @@ export function MailShell() {
                 onTogglePreview={togglePreview}
                 onToggleAssistant={onToggleAssistant}
                 showLayoutToggle={!isAllAccounts}
-                threadCount={threads.length}
+                selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
-                onSelectAll={selection.selectAll}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
                 isUnreadSelected={actionTargets.some((target) =>
@@ -1364,8 +1380,9 @@ export function MailShell() {
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
               />
-              {!isScoped && !searchQuery && (
+              {showSplitTabs && (
                 <MailSplitTabs
+                  leading={selectAllCheckbox}
                   splits={splitTabs}
                   activeSplitId={displayedActiveSplitId}
                   onSelectSplit={setActiveSplitId}

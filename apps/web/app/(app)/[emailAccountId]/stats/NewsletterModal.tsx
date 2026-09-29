@@ -71,7 +71,7 @@ export function NewsletterModal(props: {
                   Unsubscribe
                 </a>
               </Button>
-              <Tooltip content="Auto archive emails using Gmail filters">
+              <Tooltip content="Auto archive emails from this sender">
                 <Button
                   size="sm"
                   variant="outline"

@@ -30,12 +30,16 @@ export function isBlockedHostname(hostname: string) {
   const normalized = normalizeHostname(hostname);
   if (!normalized) return true;
 
+  return isInternalHostname(normalized) || isBlockedIpAddress(normalized);
+}
+
+// Name-based checks only. Expects a hostname from normalizeHostname.
+export function isInternalHostname(hostname: string) {
   return (
-    BLOCKED_HOSTNAMES.has(normalized) ||
-    normalized.endsWith(".local") ||
-    normalized.endsWith(".localhost") ||
-    isSingleLabelHostname(normalized) ||
-    isBlockedIpAddress(normalized)
+    BLOCKED_HOSTNAMES.has(hostname) ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".localhost") ||
+    isSingleLabelHostname(hostname)
   );
 }
 
@@ -59,7 +63,7 @@ export function stripIpv6Brackets(hostname: string) {
   return hostname;
 }
 
-function isBlockedIpAddress(hostname: string) {
+export function isBlockedIpAddress(hostname: string) {
   const candidate = stripIpv6Brackets(hostname);
   if (
     looksLikeIpv4Address(candidate) &&

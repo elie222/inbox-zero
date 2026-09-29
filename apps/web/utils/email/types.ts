@@ -169,6 +169,7 @@ export interface EmailProvider {
     args: {
       to?: string;
       subject?: string;
+      /** HTML-safe: escape untrusted text; newlines become line breaks. */
       content: string;
       cc?: string;
       bcc?: string;
@@ -339,6 +340,7 @@ export interface EmailProvider {
   renameFolder(folderId: string, name: string): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
+    /** HTML-safe: escape untrusted text; newlines become line breaks. */
     content: string,
     options?: {
       replyTo?: string;

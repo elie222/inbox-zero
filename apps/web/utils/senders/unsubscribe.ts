@@ -14,7 +14,7 @@ import {
 import {
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
-} from "@/utils/network/safe-http-url";
+} from "@inboxzero/network/safe-url";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import {
   encodeFormBody,

@@ -10,7 +10,8 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
-import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
+import { createReplyContent } from "@/utils/gmail/reply";
+import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
@@ -404,14 +405,10 @@ export function buildReplyMessageText({
   textContent?: string;
   message: Pick<ParsedMessage, "headers" | "textPlain">;
 }) {
-  const quotedDate = formatEmailDate(new Date(message.headers.date));
-  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
-  const quotedContent = quotePlainTextContent(message.textPlain);
-
   return buildQuotedPlainText({
     textContent: renderReplyBodyAsPlainText(textContent),
-    quotedHeader,
-    quotedContent,
+    quotedHeader: formatReplyQuotedHeader(message.headers),
+    quotedContent: quotePlainTextContent(message.textPlain),
   });
 }
 

@@ -12,13 +12,9 @@ import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailProvider } from "@/utils/email/types";
-import { renderEmailTextWithSafeLinks } from "@/utils/email/render-safe-links";
+import { buildDraftReplyBody } from "@/utils/email/reply-body";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
-import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
-import { generateReferralLink } from "@/utils/referral/referral-link";
-import { renderReferralSignatureHtml } from "@/utils/referral/signature";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
-import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import {
   getMeetingContext,
@@ -107,37 +103,11 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     };
   }
 
-  const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
-    where: { id: emailAccount.id },
-    select: {
-      allowHiddenAiDraftLinks: true,
-      includeReferralSignature: true,
-      signature: true,
-    },
+  const finalResult = await buildDraftReplyBody({
+    text: draft,
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
   });
-
-  // Escape untrusted AI output, but preserve sanitized links so drafts can
-  // include clickable URLs without allowing arbitrary HTML rendering.
-  let finalResult = renderEmailTextWithSafeLinks(draft, {
-    allowHiddenLinks:
-      emailAccountWithSignatures?.allowHiddenAiDraftLinks ?? false,
-  });
-
-  if (emailAccountWithSignatures?.signature) {
-    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
-  }
-
-  if (
-    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
-    emailAccountWithSignatures?.includeReferralSignature
-  ) {
-    const referralSignature = await getOrCreateReferralCode(
-      emailAccount.userId,
-    );
-    const referralLink = generateReferralLink(referralSignature.code);
-    const htmlSignature = renderReferralSignatureHtml(referralLink);
-    finalResult = `${finalResult}\n\n${htmlSignature}`;
-  }
 
   return {
     draft: finalResult,

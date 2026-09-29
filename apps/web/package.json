@@ -83,6 +83,7 @@
     "@inboxzero/mail-sqlite": "workspace:*",
     "@inboxzero/mail-ui": "workspace:*",
     "@inboxzero/image-proxy": "workspace:*",
+    "@inboxzero/network": "workspace:*",
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/scheduling": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
