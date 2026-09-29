@@ -138,10 +138,12 @@ export async function deleteUser({
       .map((account) => account.emailAccount?.email)
       .filter((email): email is string => Boolean(email));
     after(() =>
-      deleteTinybirdData({ userIds: [userId], emails }).catch((error) => {
-        logger.error("Error deleting Tinybird data", { error });
-        captureException(error);
-      }),
+      deleteTinybirdData({ userIds: [userId], emailAccountIds, emails }).catch(
+        (error) => {
+          logger.error("Error deleting Tinybird data", { error });
+          captureException(error);
+        },
+      ),
     );
   } catch (error) {
     logger.error("Error during user resources deletion process", {

@@ -137,6 +137,7 @@ describe("deleteUser", () => {
     await deleteUser({ userId: "user-1", logger });
     expect(deleteTinybirdData).toHaveBeenCalledWith({
       userIds: ["user-1"],
+      emailAccountIds: ["email-account-1"],
       emails: ["owner@example.com"],
     });
     expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
