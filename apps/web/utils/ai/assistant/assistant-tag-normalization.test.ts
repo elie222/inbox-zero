@@ -262,9 +262,9 @@ describe("writeNormalizedAssistantTagStream", () => {
     ]);
   });
 
-  // A terminal error ends the stream without a `text-end`, so the wrapper has
-  // to release what it was holding back or that text never reaches the client.
-  it("releases buffered text when the stream ends without a text-end", async () => {
+  // A terminal error ends the stream without a `text-end`, and `Chat` stops
+  // reading at the error chunk, so held-back text has to precede it.
+  it("releases buffered text before forwarding an error chunk", async () => {
     const { writer, written } = createWriter();
 
     await writeNormalizedAssistantTagStream({
@@ -279,8 +279,8 @@ describe("writeNormalizedAssistantTagStream", () => {
     expect(written).toEqual([
       { type: "text-start", id: "t" },
       { type: "text-delta", id: "t", delta: "Found " },
-      { type: "error", errorText: "boom" },
       { type: "text-delta", id: "t", delta: "&lt;email threadid" },
+      { type: "error", errorText: "boom" },
     ]);
   });
 

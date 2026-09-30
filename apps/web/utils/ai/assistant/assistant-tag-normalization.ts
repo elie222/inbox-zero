@@ -79,6 +79,11 @@ export async function writeNormalizedAssistantTagStream({
   writer: UIMessageStreamWriter;
 }) {
   const normalizer = createAssistantTagStreamNormalizer();
+  const releaseHeldBackText = () => {
+    for (const [id, delta] of normalizer.flushAll()) {
+      writer.write({ type: "text-delta", id, delta });
+    }
+  };
 
   try {
     for await (const chunk of stream) {
@@ -94,14 +99,16 @@ export async function writeNormalizedAssistantTagStream({
         if (delta) writer.write({ type: "text-delta", id: chunk.id, delta });
       }
 
+      // `Chat` throws out of its stream processor on an error chunk and reads
+      // nothing after it, so held-back text has to go out ahead of that chunk.
+      if (chunk.type === "error") releaseHeldBackText();
+
       writer.write(chunk);
     }
   } finally {
-    // A stream that errors or is aborted mid-part never sends `text-end`, so
-    // release what is still held back instead of dropping it.
-    for (const [id, delta] of normalizer.flushAll()) {
-      writer.write({ type: "text-delta", id, delta });
-    }
+    // An aborted or truncated stream never sends `text-end`, so release what
+    // is still held back instead of dropping it.
+    releaseHeldBackText();
   }
 }
 
