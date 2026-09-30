@@ -80,20 +80,28 @@ export async function writeNormalizedAssistantTagStream({
 }) {
   const normalizer = createAssistantTagStreamNormalizer();
 
-  for await (const chunk of stream) {
-    if (chunk.type === "text-delta") {
-      const delta = normalizer.push(chunk.id, chunk.delta);
-      if (delta) writer.write({ ...chunk, delta });
-      continue;
-    }
+  try {
+    for await (const chunk of stream) {
+      if (chunk.type === "text-delta") {
+        const delta = normalizer.push(chunk.id, chunk.delta);
+        if (delta) writer.write({ ...chunk, delta });
+        continue;
+      }
 
-    // Release whatever the part ended mid-tag on before closing it out.
-    if (chunk.type === "text-end") {
-      const delta = normalizer.flush(chunk.id);
-      if (delta) writer.write({ type: "text-delta", id: chunk.id, delta });
-    }
+      // Release whatever the part ended mid-tag on before closing it out.
+      if (chunk.type === "text-end") {
+        const delta = normalizer.flush(chunk.id);
+        if (delta) writer.write({ type: "text-delta", id: chunk.id, delta });
+      }
 
-    writer.write(chunk);
+      writer.write(chunk);
+    }
+  } finally {
+    // A stream that errors or is aborted mid-part never sends `text-end`, so
+    // release what is still held back instead of dropping it.
+    for (const [id, delta] of normalizer.flushAll()) {
+      writer.write({ type: "text-delta", id, delta });
+    }
   }
 }
 
@@ -117,6 +125,16 @@ export function createAssistantTagStreamNormalizer() {
       buffers.delete(partId);
 
       return normalizeAssistantTagMarkup(buffer);
+    },
+    flushAll() {
+      const remaining: [partId: string, delta: string][] = [];
+      for (const [partId, buffer] of buffers) {
+        const delta = normalizeAssistantTagMarkup(buffer);
+        if (delta) remaining.push([partId, delta]);
+      }
+      buffers.clear();
+
+      return remaining;
     },
   };
 }

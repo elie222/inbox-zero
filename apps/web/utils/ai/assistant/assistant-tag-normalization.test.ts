@@ -1,7 +1,9 @@
+import type { UIMessageChunk, UIMessageStreamWriter } from "ai";
 import { describe, expect, it } from "vitest";
 import {
   createAssistantTagStreamNormalizer,
   normalizeAssistantTagMarkup,
+  writeNormalizedAssistantTagStream,
 } from "@/utils/ai/assistant/assistant-tag-normalization";
 
 describe("normalizeAssistantTagMarkup", () => {
@@ -217,5 +219,92 @@ describe("createAssistantTagStreamNormalizer", () => {
     expect(streamDeltas(['<email threadid="unterminated'])).toBe(
       '<email threadid="unterminated',
     );
+  });
+});
+
+describe("writeNormalizedAssistantTagStream", () => {
+  function createWriter() {
+    const written: UIMessageChunk[] = [];
+    const writer = {
+      write: (chunk: UIMessageChunk) => written.push(chunk),
+    } as unknown as UIMessageStreamWriter;
+
+    return { writer, written };
+  }
+
+  async function* chunks(values: UIMessageChunk[], error?: Error) {
+    yield* values;
+    if (error) throw error;
+  }
+
+  it("normalizes text deltas and forwards other chunks in order", async () => {
+    const { writer, written } = createWriter();
+
+    await writeNormalizedAssistantTagStream({
+      stream: chunks([
+        { type: "text-start", id: "t" },
+        { type: "text-delta", id: "t", delta: "Here:\n&lt;emails&gt;&lt;emai" },
+        {
+          type: "text-delta",
+          id: "t",
+          delta: "l threadid=&quot;t-1&quot;&gt;",
+        },
+        { type: "text-end", id: "t" },
+      ]),
+      writer,
+    });
+
+    expect(written).toEqual([
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "Here:\n<emails>" },
+      { type: "text-delta", id: "t", delta: '<email threadid="t-1">' },
+      { type: "text-end", id: "t" },
+    ]);
+  });
+
+  // A terminal error ends the stream without a `text-end`, so the wrapper has
+  // to release what it was holding back or that text never reaches the client.
+  it("releases buffered text when the stream ends without a text-end", async () => {
+    const { writer, written } = createWriter();
+
+    await writeNormalizedAssistantTagStream({
+      stream: chunks([
+        { type: "text-start", id: "t" },
+        { type: "text-delta", id: "t", delta: "Found &lt;email threadid" },
+        { type: "error", errorText: "boom" },
+      ]),
+      writer,
+    });
+
+    expect(written).toEqual([
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "Found " },
+      { type: "error", errorText: "boom" },
+      { type: "text-delta", id: "t", delta: "&lt;email threadid" },
+    ]);
+  });
+
+  it("releases buffered text when the stream throws", async () => {
+    const { writer, written } = createWriter();
+    const failure = new Error("aborted");
+
+    await expect(
+      writeNormalizedAssistantTagStream({
+        stream: chunks(
+          [
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: "Found <email threadid" },
+          ],
+          failure,
+        ),
+        writer,
+      }),
+    ).rejects.toThrow(failure);
+
+    expect(written).toEqual([
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "Found " },
+      { type: "text-delta", id: "t", delta: "<email threadid" },
+    ]);
   });
 });
