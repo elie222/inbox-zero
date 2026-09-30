@@ -4,7 +4,7 @@ import {
   MailSplitFilterKind,
   SystemType,
 } from "@/generated/prisma/enums";
-import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
+import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import {
   isOptInSystemType,
   STANDARD_CATEGORY_SYSTEM_TYPES,

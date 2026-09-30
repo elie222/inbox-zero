@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { removeLabelFromMailSplits } from "@/utils/mail/splits.server";
+import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";

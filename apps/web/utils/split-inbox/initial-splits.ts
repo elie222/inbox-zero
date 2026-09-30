@@ -1,4 +1,4 @@
-import type { MailSplit } from "@/utils/mail/split-query";
+import type { MailSplit } from "@/utils/split-inbox/split-query";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 
 export const INITIAL_MAIL_SPLITS = [

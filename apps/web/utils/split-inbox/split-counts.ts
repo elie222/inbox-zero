@@ -5,7 +5,7 @@ import {
   mailSplitToThreadsQuery,
   otherMailSplitQuery,
   type MailSplit,
-} from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-query";
 
 /**
  * Counts use the same predicate as the thread list. A client-side count of the

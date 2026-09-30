@@ -1,9 +1,9 @@
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 import { randomUUID } from "node:crypto";
 import prisma from "@/utils/prisma";
-import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
-import { lockMailSplits } from "@/utils/mail/split-lock";
+import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
+import { lockMailSplits } from "@/utils/split-inbox/split-lock";
 import { DEFAULT_MAIL_SPLIT_SYSTEM_TYPES } from "@/utils/rule/consts";
 
 export async function getDefaultMailSplitDraftsForAccount(

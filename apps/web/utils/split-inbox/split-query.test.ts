@@ -5,7 +5,7 @@ import {
   mailSplitToThreadsQuery,
   threadListQueryRequiresInbox,
   type MailSplit,
-} from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-query";
 
 const NOW = new Date("2026-09-09T12:00:00.000Z");
 

@@ -8,7 +8,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   getDefaultMailSplitDraftsForAccount,
   setDefaultMailSplits,
-} from "@/utils/mail/default-splits.server";
+} from "@/utils/split-inbox/default-splits.server";
 
 vi.mock("@/utils/prisma");
 

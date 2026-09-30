@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
-import type { MicrosoftIdTokenClaims } from "@/utils/microsoft/oauth";
+import type { MicrosoftIdTokenClaims } from "@/utils/outlook/oauth";
 
 const logger = createScopedLogger("auth/microsoft-account-subject");
 

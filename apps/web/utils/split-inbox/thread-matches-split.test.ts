@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { EmailThread } from "@/utils/email/types";
-import { otherMailSplitQuery, type MailSplit } from "@/utils/mail/split-query";
-import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
+import {
+  otherMailSplitQuery,
+  type MailSplit,
+} from "@/utils/split-inbox/split-query";
+import { createOtherSplitFilter } from "@/utils/split-inbox/thread-matches-split";
 
 const now = new Date("2026-01-10T12:00:00Z");
 const important: MailSplit = {

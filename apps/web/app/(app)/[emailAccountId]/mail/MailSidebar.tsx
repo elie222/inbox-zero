@@ -40,7 +40,7 @@ import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { cn } from "@/utils";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
+import { OUTLOOK_INBOX_SECTIONS } from "@/utils/outlook/inbox-sections";
 import { getLabelTree, type SidebarLabel } from "./label-tree";
 import { splitLabelsByListVisibility } from "./label-visibility";
 import { getMailSidebarFolders } from "./outlook-folder-list";

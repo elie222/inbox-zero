@@ -1,7 +1,7 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
+import { requestMicrosoftToken } from "@/utils/outlook/oauth";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getCalendarClientWithRefresh } from "./calendar-client";
 
@@ -13,7 +13,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   getMicrosoftGraphClientOptions: vi.fn(() => ({
     baseUrl: "http://localhost:4003/",
   })),

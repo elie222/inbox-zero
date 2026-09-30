@@ -36,7 +36,7 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   isMicrosoftEmulationEnabled: vi.fn(() => false),
 }));
 
@@ -1943,7 +1943,7 @@ describe("OutlookProvider.deleteLabel", () => {
 
 describe("OutlookProvider.searchContacts", () => {
   it("skips Graph contact lookups during Microsoft emulation", async () => {
-    const oauth = await import("@/utils/microsoft/oauth");
+    const oauth = await import("@/utils/outlook/oauth");
     vi.mocked(oauth.isMicrosoftEmulationEnabled).mockReturnValue(true);
     const provider = new OutlookProvider({} as never, createTestLogger());
 

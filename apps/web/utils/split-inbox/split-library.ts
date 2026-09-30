@@ -1,5 +1,5 @@
 import { MailSplitFilterKind, SystemType } from "@/generated/prisma/enums";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
 
 /**
  * A condition in the prepared library, written against label *names* so one

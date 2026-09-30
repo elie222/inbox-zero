@@ -5,7 +5,7 @@ import type { MailFolder, Message } from "@microsoft/microsoft-graph-types";
 import { z } from "zod";
 import { toLocalMailMessage } from "@/utils/email/local-mail-sync";
 import type { Logger } from "@/utils/logger";
-import { extractErrorInfo } from "@/utils/microsoft/retry";
+import { extractErrorInfo } from "@/utils/outlook/retry";
 import {
   LocalMailSyncPausedError,
   withLocalMailSyncBudget,

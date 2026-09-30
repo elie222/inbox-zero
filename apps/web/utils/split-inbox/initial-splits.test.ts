@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensureAllMailSplit } from "@/utils/mail/initial-splits";
+import { ensureAllMailSplit } from "@/utils/split-inbox/initial-splits";
 
 describe("ensureAllMailSplit", () => {
   it("restores the unfiltered inbox when its tab was deleted", () => {

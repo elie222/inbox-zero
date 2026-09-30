@@ -1,6 +1,6 @@
 "use server";
 
-import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
+import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import { revalidatePath } from "next/cache";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
@@ -62,7 +62,7 @@ import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
-import { setDefaultMailSplits } from "@/utils/mail/default-splits.server";
+import { setDefaultMailSplits } from "@/utils/split-inbox/default-splits.server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })

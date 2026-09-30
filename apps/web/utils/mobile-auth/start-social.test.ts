@@ -30,11 +30,11 @@ vi.mock("@/utils/auth", () => ({
   },
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: isGoogleOauthEmulationEnabledMock,
 }));
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   isMicrosoftEmulationEnabled: isMicrosoftEmulationEnabledMock,
 }));
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { senderFilterSchema } from "@/utils/mail/sender-filter";
+import { senderFilterSchema } from "@/utils/split-inbox/sender-filter";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
+import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 
 /** UNREAD and STARRED are whole conditions on their own; the rest name a target. */
 const KINDS_REQUIRING_VALUE = new Set<MailSplitFilterKind>([

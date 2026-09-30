@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   getFolderIds: vi.fn(),
 }));
 
-vi.mock("@/utils/microsoft/retry", () => ({
+vi.mock("@/utils/outlook/retry", () => ({
   withMicrosoftGraphRetry: (operation: () => Promise<unknown>) => operation(),
   withMicrosoftGraphWriteRetry: (operation: () => Promise<unknown>) =>
     operation(),

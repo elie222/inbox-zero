@@ -1,6 +1,6 @@
 import type { UploadSession } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 
 // Per-request bound so a hung connection stalls the upload for at most this
 // long. Chunk uploads already retry transient failures via
