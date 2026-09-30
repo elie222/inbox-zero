@@ -264,6 +264,33 @@ describe("searchContacts", () => {
     expect(searchContactsMock).toHaveBeenCalled();
     expect(searchOtherContactsMock).not.toHaveBeenCalled();
   });
+
+  it("reports missing access when saved contacts are the only source", async () => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const { client } = createPeopleClient({
+      searchContactsMock: vi.fn().mockRejectedValue(
+        Object.assign(new Error("Access denied"), {
+          errors: [{ reason: "insufficientPermissions" }],
+        }),
+      ),
+    });
+
+    await expect(
+      searchContacts(client, "contact", createTestLogger()),
+    ).rejects.toThrow(ContactsAccessDeniedError);
+  });
+
+  it("propagates unrelated failures when saved contacts are the only source", async () => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const providerError = new Error("People API exploded");
+    const { client } = createPeopleClient({
+      searchContactsMock: vi.fn().mockRejectedValue(providerError),
+    });
+
+    await expect(
+      searchContacts(client, "contact", createTestLogger()),
+    ).rejects.toBe(providerError);
+  });
 });
 
 function createPeopleClient({

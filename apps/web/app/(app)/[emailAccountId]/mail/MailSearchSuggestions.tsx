@@ -55,12 +55,15 @@ export function useMailSearchSuggestions({
     {
       dedupingInterval: 5 * 60 * 1000,
       keepPreviousData: false,
-      onSuccess: (data) => {
-        if (data.reconnectRequired) setContactsUnavailable(true);
-      },
       onError: () => setContactsUnavailable(true),
     },
   );
+
+  // SWR runs onSuccess only for the hook that starts a request, so a cached or
+  // deduplicated response has to latch from the data instead of a callback.
+  if (contacts?.reconnectRequired && !contactsUnavailable) {
+    setContactsUnavailable(true);
+  }
 
   if (!enabled) return [];
 

@@ -1690,6 +1690,12 @@ function ComposeContactRecipientField({
     },
   );
 
+  // The parent latch stops further requests, but SWR runs onSuccess only for
+  // the hook that starts one: a remount served a cached or deduplicated
+  // response would never latch, so the prompt reads the data directly.
+  const showReconnectPrompt =
+    reconnectRequired || contacts?.reconnectRequired === true;
+
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedQuery(normalizedQuery), 200);
     return () => clearTimeout(timeout);
@@ -1794,7 +1800,7 @@ function ComposeContactRecipientField({
             value={searchQuery}
           />
 
-          {active && reconnectRequired && (
+          {active && showReconnectPrompt && (
             <div
               className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
               role="status"
