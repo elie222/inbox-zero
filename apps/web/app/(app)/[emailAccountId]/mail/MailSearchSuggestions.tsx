@@ -55,6 +55,9 @@ export function useMailSearchSuggestions({
     {
       dedupingInterval: 5 * 60 * 1000,
       keepPreviousData: false,
+      onSuccess: (data) => {
+        if (data.reconnectRequired) setContactsUnavailable(true);
+      },
       onError: () => setContactsUnavailable(true),
     },
   );

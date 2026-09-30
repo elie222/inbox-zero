@@ -9,6 +9,7 @@ vi.mock("@/env", () => ({
   env: envMock,
 }));
 
+import { ContactsAccessDeniedError } from "@/utils/email/contact";
 import { searchContacts } from "./contact";
 
 describe("searchContacts", () => {
@@ -187,7 +188,7 @@ describe("searchContacts", () => {
 
     await expect(
       searchContacts(client, "contact", createTestLogger()),
-    ).rejects.toBe(savedError);
+    ).rejects.toThrow(ContactsAccessDeniedError);
   });
 
   it("does not treat a Gmail rate-limit as missing contact access", async () => {

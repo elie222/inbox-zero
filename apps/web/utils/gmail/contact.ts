@@ -1,5 +1,6 @@
 import type { people_v1 } from "@googleapis/people";
 import {
+  ContactsAccessDeniedError,
   type EmailContact,
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
@@ -41,7 +42,9 @@ export async function searchContacts(
     ),
   ]);
 
-  if (saved.deniedError && other.deniedError) throw saved.deniedError;
+  if (saved.deniedError && other.deniedError) {
+    throw new ContactsAccessDeniedError({ cause: saved.deniedError });
+  }
 
   return normalizeContactCandidates([
     ...(saved.contacts ?? []),

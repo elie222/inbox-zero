@@ -41,10 +41,7 @@ import {
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
-import type {
-  ContactsErrorResponse,
-  ContactsResponse,
-} from "@/app/api/user/contacts/route";
+import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { Input } from "@/components/Input";
@@ -1676,7 +1673,7 @@ function ComposeContactRecipientField({
   const label = RECIPIENT_LABELS[name];
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
-  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
+  const { data: contacts } = useSWR<ContactsResponse>(
     reconnectRequired || !active
       ? null
       : [
@@ -1687,8 +1684,8 @@ function ComposeContactRecipientField({
       dedupingInterval: 5 * 60 * 1000,
       keepPreviousData: false,
       revalidateOnFocus: true,
-      onError(error) {
-        if (error.info?.reconnectRequired) onReconnectRequired();
+      onSuccess(data) {
+        if (data.reconnectRequired) onReconnectRequired();
       },
     },
   );
@@ -1860,11 +1857,6 @@ function ComposeContactRecipientField({
     </Combobox>
   );
 }
-
-type ContactsFetchError = Error & {
-  info?: Partial<ContactsErrorResponse>;
-  status?: number;
-};
 
 function createComposeAttachmentMetadata(
   file: File,
