@@ -8,11 +8,11 @@ import { resolveSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 import {
   allowPrivateIps,
   validateWebhookUrl,
-} from "@/utils/webhook-validation";
+} from "@/utils/outbound-webhook/url-validation";
 import {
   ensureWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
+} from "@/utils/outbound-webhook/action";
 
 const logger = createScopedLogger("webhook");
 const WEBHOOK_REQUEST_TIMEOUT_MS = 1000;
