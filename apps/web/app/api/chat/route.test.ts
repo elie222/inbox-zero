@@ -17,6 +17,7 @@ const {
   mockGetToolFailureWarning,
   mockCreateUIMessageStream,
   mockCreateUIMessageStreamResponse,
+  mockWriterWrite,
   streamState,
 } = vi.hoisted(() => ({
   mockAiProcessAssistantChat: vi.fn(),
@@ -31,12 +32,14 @@ const {
   mockGetToolFailureWarning: vi.fn(),
   mockCreateUIMessageStream: vi.fn(),
   mockCreateUIMessageStreamResponse: vi.fn(),
+  mockWriterWrite: vi.fn(),
   streamState: {
     finishMessages: [] as Array<{
       id: string;
       role: "assistant";
       parts: Array<{ type: "text"; text: string }>;
     }>,
+    chunks: [] as Array<Record<string, unknown>>,
   },
 }));
 
@@ -122,6 +125,7 @@ describe("chat route rule freshness persistence", () => {
         parts: [{ type: "text", text: "Done" }],
       },
     ];
+    streamState.chunks = [];
 
     mockGetEmailAccountWithAi.mockResolvedValue(getEmailAccount());
     mockGetInboxStatsForChatContext.mockResolvedValue(null);
@@ -140,8 +144,7 @@ describe("chat route rule freshness persistence", () => {
     mockGetToolFailureWarning.mockReturnValue(null);
     mockCreateUIMessageStream.mockImplementation((options) => options);
     mockCreateUIMessageStreamResponse.mockImplementation(async ({ stream }) => {
-      const writer = { write: vi.fn() };
-      await stream.execute({ writer });
+      await stream.execute({ writer: { write: mockWriterWrite } });
       await stream.onEnd({ messages: streamState.finishMessages });
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
@@ -199,6 +202,33 @@ describe("chat route rule freshness persistence", () => {
         lastSeenRulesRevision: 6,
       },
     });
+  });
+
+  it("normalizes escaped inline email tags before streaming them to clients", async () => {
+    streamState.chunks = [
+      {
+        type: "text-delta",
+        id: "part-1",
+        delta: "Found it: &lt;emails&gt;&lt;emai",
+      },
+      {
+        type: "text-delta",
+        id: "part-1",
+        delta: "l threadid=&quot;t-1&quot; /&gt;",
+      },
+    ];
+
+    await POST(createRequest());
+
+    const streamedText = mockWriterWrite.mock.calls
+      .map(([chunk]) => chunk)
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => chunk.delta)
+      .join("");
+
+    expect(streamedText).toBe(
+      'Found it: <emails><email threadid="t-1"></email>',
+    );
   });
 
   it("returns 404 when the email account cannot be loaded", async () => {
@@ -590,6 +620,7 @@ function createAssistantStreamResult({
           responseMessage: finishMessage,
         });
         yield { type: "text-start", id: "part-1" };
+        for (const chunk of streamState.chunks) yield chunk;
         yield { type: "text-end", id: "part-1" };
       })(),
   };

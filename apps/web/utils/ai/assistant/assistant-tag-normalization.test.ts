@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAssistantTagMarkup } from "@/components/assistant-chat/assistant-tag-normalization";
+import {
+  createAssistantTagStreamNormalizer,
+  normalizeAssistantTagMarkup,
+} from "@/utils/ai/assistant/assistant-tag-normalization";
 
 describe("normalizeAssistantTagMarkup", () => {
   it.each([
@@ -120,5 +123,99 @@ describe("normalizeAssistantTagMarkup", () => {
     "&lt;email threadid=&quot;unterminated&gt;",
   ])("leaves unsupported or malformed markup unchanged: %s", (content) => {
     expect(normalizeAssistantTagMarkup(content)).toBe(content);
+  });
+});
+
+describe("createAssistantTagStreamNormalizer", () => {
+  function streamDeltas(deltas: string[]) {
+    const normalizer = createAssistantTagStreamNormalizer();
+    const emitted = deltas.map((delta) => normalizer.push("part-1", delta));
+    return emitted.join("") + normalizer.flush("part-1");
+  }
+
+  it.each([
+    {
+      name: "entity-escaped tags split across deltas",
+      deltas: [
+        "Here you go:\n&lt;emai",
+        "ls&gt;&lt;email threadid=&quot;t-1",
+        "&quot;&gt;Receipt&lt;/email&gt;&lt;/emails&gt;",
+      ],
+      expected:
+        'Here you go:\n<emails><email threadid="t-1">Receipt</email></emails>',
+    },
+    {
+      name: "self-closing tags",
+      deltas: ['<email-detail threadid="t-1" />'],
+      expected: '<email-detail threadid="t-1"></email-detail>',
+    },
+    {
+      name: "smart quotes containing a greater-than sign",
+      deltas: [
+        "<rule-suggestion name=“Big”",
+        " when=“size > 10MB”>Review</rule-suggestion>",
+      ],
+      expected:
+        '<rule-suggestion name="Big" when="size > 10MB">Review</rule-suggestion>',
+    },
+    {
+      name: "backslash-escaped tags",
+      deltas: [
+        String.raw`\<email-detail threadid="t-1">Receipt\</email-detail>`,
+      ],
+      expected: '<email-detail threadid="t-1">Receipt</email-detail>',
+    },
+  ])("normalizes $name", ({ deltas, expected }) => {
+    expect(streamDeltas(deltas)).toBe(expected);
+  });
+
+  it("streams prose immediately instead of buffering it until the part ends", () => {
+    const normalizer = createAssistantTagStreamNormalizer();
+
+    expect(normalizer.push("part-1", "You have 3 emails ")).toBe(
+      "You have 3 emails ",
+    );
+    expect(normalizer.push("part-1", "from Acme & Co < Beta")).toBe(
+      "from Acme & Co < Beta",
+    );
+    expect(normalizer.flush("part-1")).toBe("");
+  });
+
+  it("holds back only the unfinished tag", () => {
+    const normalizer = createAssistantTagStreamNormalizer();
+
+    expect(normalizer.push("part-1", "## Today\n&lt;emails&gt;&lt;email")).toBe(
+      "## Today\n<emails>",
+    );
+    expect(normalizer.push("part-1", " threadid=&quot;t-1&quot;&gt;Hi")).toBe(
+      '<email threadid="t-1">Hi',
+    );
+  });
+
+  it("keeps buffers separate per text part", () => {
+    const normalizer = createAssistantTagStreamNormalizer();
+
+    expect(normalizer.push("part-1", "&lt;emails")).toBe("");
+    expect(normalizer.push("part-2", "plain text")).toBe("plain text");
+    expect(normalizer.push("part-1", "&gt;")).toBe("<emails>");
+    expect(normalizer.flush("part-1")).toBe("");
+  });
+
+  it("stops holding back a tag-like run that never closes", () => {
+    const normalizer = createAssistantTagStreamNormalizer();
+
+    expect(normalizer.push("part-1", "I checked <email addresses")).toBe(
+      "I checked ",
+    );
+
+    const prose = "and found nothing. ".repeat(40);
+    expect(normalizer.push("part-1", prose)).toContain("found nothing");
+    expect(normalizer.push("part-1", "Done.")).toBe("Done.");
+  });
+
+  it("emits malformed markup unchanged when the part ends", () => {
+    expect(streamDeltas(['<email threadid="unterminated'])).toBe(
+      '<email threadid="unterminated',
+    );
   });
 });
