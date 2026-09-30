@@ -20,6 +20,7 @@ import { LearnedPatternExclusionHint } from "@/app/(app)/[emailAccountId]/assist
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { RuleActions } from "@/components/RuleActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { KNOWN_COLD_EMAIL_SENDER_REASON } from "@/utils/cold-email/prompt";
 
 export function ResultsDisplay({
   results,
@@ -237,8 +238,10 @@ function PrettyConditions({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {conditions.map((condition, index) => (
-        <div key={index} className="flex items-center gap-1.5">
-          <MutedText>{condition}</MutedText>
+        <div key={index} className="flex min-w-0 items-center gap-1.5">
+          <MutedText className="line-clamp-2 whitespace-pre-line break-words">
+            {condition}
+          </MutedText>
           {index < conditions.length - 1 && (
             <Badge color="purple" className="text-xs">
               {operator}
@@ -257,7 +260,11 @@ export function getRuleResultReasonDisplay(reason: string): {
   const actionFailureMessages: string[] = [];
   const reasonLines: string[] = [];
 
-  const plainText = stripHtmlTagsFromReason(he.decode(reason));
+  // Older cold email results stored this internal code as the reason.
+  const plainText =
+    reason === "ai-already-labeled"
+      ? KNOWN_COLD_EMAIL_SENDER_REASON
+      : stripHtmlTagsFromReason(he.decode(reason));
 
   for (const line of plainText.split(/\r?\n/)) {
     const trimmedLine = line.replace(/\s+/g, " ").trim();

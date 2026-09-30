@@ -211,6 +211,12 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
+  it("shows readable copy for the legacy known cold email sender code", () => {
+    expect(getRuleResultReasonDisplay("ai-already-labeled").reason).toBe(
+      "This sender was previously identified as a cold emailer.",
+    );
+  });
+
   it("passes plain text through unchanged", () => {
     expect(getRuleResultReasonDisplay("The email is a newsletter.")).toEqual({
       reason: "The email is a newsletter.",

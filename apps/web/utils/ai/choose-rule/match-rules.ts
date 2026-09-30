@@ -45,6 +45,7 @@ import {
   type ColdEmailPatternMatch,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
+import { KNOWN_COLD_EMAIL_SENDER_REASON } from "@/utils/cold-email/prompt";
 import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
 import { getDecisionModelConfig } from "@/utils/decision-model/decision-model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
@@ -120,7 +121,7 @@ export async function findMatchingRules({
       return buildColdEmailMatch({
         coldEmailRuleId: coldEmailRule.id,
         matchReasons: getColdEmailMatchReasons(coldEmailResult),
-        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        reasoning: getColdEmailReasoning(coldEmailResult),
         selectionMetadata: createRuleSelectionMetadata({ isThread }),
       });
     }
@@ -213,7 +214,7 @@ export async function findMatchingRules({
       return buildColdEmailMatch({
         coldEmailRuleId: pendingColdEmailRule.id,
         matchReasons: getColdEmailMatchReasons(coldEmailResult),
-        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        reasoning: getColdEmailReasoning(coldEmailResult),
         selectionMetadata,
       });
     }
@@ -255,6 +256,16 @@ function getColdEmailMatchReasons(result: {
         },
       ]
     : [{ type: ConditionType.AI }];
+}
+
+function getColdEmailReasoning(result: {
+  reason: string;
+  aiReason?: string | null;
+}) {
+  if (result.aiReason) return result.aiReason;
+  if (result.reason === "ai-already-labeled")
+    return KNOWN_COLD_EMAIL_SENDER_REASON;
+  return "";
 }
 
 async function buildColdEmailMatch({
