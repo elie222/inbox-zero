@@ -484,14 +484,14 @@ describe("GmailProvider.getSentMessageIds", () => {
 });
 
 describe("GmailProvider.getMessagesWithPagination", () => {
-  it("limits the listing to the requested label", async () => {
+  it("limits the listing to the requested folder label", async () => {
     const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
     const provider = new GmailProvider({
       users: { messages: { list } },
     } as any);
 
     await provider.getMessagesWithPagination({
-      labelId: GmailLabel.INBOX,
+      folderId: GmailLabel.INBOX,
       maxResults: 50,
       includeDrafts: true,
     });
@@ -501,7 +501,7 @@ describe("GmailProvider.getMessagesWithPagination", () => {
     );
   });
 
-  it("lists the whole mailbox without a label", async () => {
+  it("lists the whole mailbox without a folder", async () => {
     const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
     const provider = new GmailProvider({
       users: { messages: { list } },

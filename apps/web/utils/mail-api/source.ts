@@ -122,13 +122,9 @@ export function createEmailProviderMailboxSource(input: {
       try {
         const token = JSON.parse(page) as BootstrapToken;
         scopeId = token.scopeId ?? scopeId;
-        // Gmail has no folders: a Gmail scope's folderId is a label id such as INBOX.
-        const scopeContainer = token.folderId ?? undefined;
         const syncPage = await provider.getMessagesWithPagination({
           maxResults: Math.min(pageSize, maxPageSize),
-          ...(provider.name === "microsoft"
-            ? { folderId: scopeContainer }
-            : { labelId: scopeContainer }),
+          folderId: token.folderId ?? undefined,
           pageToken: token.pageToken,
           includeDrafts: true,
         });

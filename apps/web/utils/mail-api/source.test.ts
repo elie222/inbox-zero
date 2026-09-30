@@ -618,31 +618,6 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
-  it("enumerates a Gmail scope by its label", async () => {
-    const getMessagesWithPagination = vi.fn().mockResolvedValue({
-      messages: [],
-    });
-    const source = createEmailProviderMailboxSource({
-      accountId: "acc-1",
-      provider: {
-        name: "google",
-        localMailSyncStrategy: "history",
-        getMessagesWithPagination,
-      } as unknown as EmailProvider,
-    });
-    await source.enumerate({
-      session: { accountId: "acc-1", generation: "g1" },
-      requestId: "r1",
-      signal: new AbortController().signal,
-      bootstrapId: "mailbox",
-      page: JSON.stringify({ scopeId: "inbox", folderId: "INBOX" }),
-      pageSize: 50,
-    });
-    const [options] = getMessagesWithPagination.mock.calls[0];
-    expect(options.labelId).toBe("INBOX");
-    expect(options).not.toHaveProperty("folderId");
-  });
-
   it("advertises and uses the Outlook list page size for Microsoft enumeration", async () => {
     const getMessagesWithPagination = vi.fn().mockResolvedValue({
       messages: [],

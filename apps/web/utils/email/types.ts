@@ -251,8 +251,6 @@ export interface EmailProvider {
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
-    /** Gmail only. Outlook scopes use `folderId`. */
-    labelId?: string;
     before?: Date;
     after?: Date;
     inboxOnly?: boolean;
