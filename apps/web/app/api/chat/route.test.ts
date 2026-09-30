@@ -201,6 +201,22 @@ describe("chat route rule freshness persistence", () => {
     });
   });
 
+  it("only enables inline email cards for clients that declare support", async () => {
+    await POST(createRequest());
+
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({ supportsInlineEmailCards: false }),
+    );
+
+    await POST(
+      createRequest("Update my rules", { supportsInlineEmailCards: true }),
+    );
+
+    expect(mockAiProcessAssistantChat).toHaveBeenLastCalledWith(
+      expect.objectContaining({ supportsInlineEmailCards: true }),
+    );
+  });
+
   it("returns 404 when the email account cannot be loaded", async () => {
     mockGetEmailAccountWithAi.mockResolvedValueOnce(null);
 
@@ -555,7 +571,10 @@ describe("chat route rule freshness persistence", () => {
   });
 });
 
-function createRequest(text = "Update my rules") {
+function createRequest(
+  text = "Update my rules",
+  body: Record<string, unknown> = {},
+) {
   return new NextRequest("http://localhost/api/chat", {
     method: "POST",
     headers: {
@@ -568,6 +587,7 @@ function createRequest(text = "Update my rules") {
         role: "user",
         parts: [{ type: "text", text }],
       },
+      ...body,
     }),
   });
 }

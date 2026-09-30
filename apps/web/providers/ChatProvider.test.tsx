@@ -19,6 +19,7 @@ const {
   mockUseSWRConfig,
   mockConvertToUIMessages,
   mockCaptureException,
+  mockChatTransport,
   accountState,
   queryState,
 } = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
   mockUseSWRConfig: vi.fn(),
   mockConvertToUIMessages: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockChatTransport: vi.fn(),
   accountState: {
     emailAccountId: "account-a",
   },
@@ -58,7 +60,7 @@ vi.mock("@ai-sdk/react", () => ({
 }));
 
 vi.mock("ai", () => ({
-  DefaultChatTransport: class DefaultChatTransport {},
+  DefaultChatTransport: mockChatTransport,
 }));
 
 vi.mock("nuqs", async () => {
@@ -327,6 +329,16 @@ describe("ChatProvider", () => {
     expect(JSON.stringify(mockClientLoggerWarn.mock.calls)).not.toContain(
       draft,
     );
+  });
+
+  it("tells the chat API that this client renders inline email cards", () => {
+    renderWithProvider(null);
+
+    const request = mockChatTransport.mock.calls
+      .at(-1)?.[0]
+      .prepareSendMessagesRequest({ messages: [], body: undefined });
+
+    expect(request.body.supportsInlineEmailCards).toBe(true);
   });
 });
 

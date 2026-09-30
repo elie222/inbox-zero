@@ -103,6 +103,7 @@ export async function captureAssistantChatTrace({
     emailAccountId: emailAccount.id,
     user: emailAccount,
     inboxStats,
+    supportsInlineEmailCards: true,
     context,
     chatHasHistory,
     chatLastSeenRulesRevision,
