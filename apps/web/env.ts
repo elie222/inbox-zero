@@ -291,6 +291,7 @@ const parsedEnv = createEnv({
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
+    TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
 
     API_KEY_SALT: z.string().optional(),

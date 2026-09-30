@@ -157,6 +157,7 @@
         "LEMON_SQUEEZY_API_KEY",
 
         "TINYBIRD_TOKEN",
+        "TINYBIRD_DELETE_TOKEN",
         "TINYBIRD_BASE_URL",
 
         "POSTHOG_API_SECRET",

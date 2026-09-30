@@ -1,7 +1,8 @@
 // Deletes Tinybird rows that identify mailboxes that no longer exist,
 // left behind before account deletion cleaned up Tinybird.
 //
-// TINYBIRD_TOKEN needs read and delete (DATASOURCES:CREATE) access to the datasources.
+// Run with TINYBIRD_DELETE_TOKEN set to a token that can also read the datasources
+// (for example the workspace admin token).
 // Dry run (counts only): `pnpm --filter inbox-zero-ai exec tsx scripts/purge-orphaned-tinybird-data.ts`
 // Delete: `pnpm --filter inbox-zero-ai exec tsx scripts/purge-orphaned-tinybird-data.ts --apply`
 
@@ -19,8 +20,8 @@ const BATCH_SIZE = 100;
 
 async function main() {
   const apply = process.argv.includes("--apply");
-  if (!process.env.TINYBIRD_TOKEN) {
-    throw new Error("TINYBIRD_TOKEN is not set");
+  if (!process.env.TINYBIRD_TOKEN || !process.env.TINYBIRD_DELETE_TOKEN) {
+    throw new Error("TINYBIRD_TOKEN and TINYBIRD_DELETE_TOKEN must be set");
   }
 
   const emailAccounts = await prisma.emailAccount.findMany({
@@ -82,7 +83,7 @@ async function getDistinctValues(datasource: string, column: string) {
   );
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.TINYBIRD_TOKEN}` },
+    headers: { Authorization: `Bearer ${process.env.TINYBIRD_DELETE_TOKEN}` },
   });
   if (response.status === 404) return null;
   if (!response.ok) {
