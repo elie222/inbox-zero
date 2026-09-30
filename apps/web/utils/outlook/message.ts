@@ -533,12 +533,15 @@ export async function queryBatchMessages(
 
   const [folderIds, categoryMap] = await Promise.all([
     getFolderIds(client, logger, {
-      includeDrafts: Boolean(options.includeDrafts),
+      includeDrafts:
+        Boolean(options.includeDrafts) || folderId?.toLowerCase() === "drafts",
     }),
     getCategoryMap(client, logger),
   ]);
   const parseMessages = (messages: Message[]) =>
     convertMessages(messages, folderIds, categoryMap, options.includeDrafts);
+  // Messages carry the folder's opaque id, so a well-known name like "inbox" must be resolved before comparing.
+  const expectedParentFolderId = resolveFolderId(folderId, folderIds);
 
   const metadataSearch = createOutlookMetadataFilters({
     searchQuery,
@@ -555,7 +558,11 @@ export async function queryBatchMessages(
       );
 
     const filteredMessages = response.value.filter((message) => {
-      if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        expectedParentFolderId &&
+        message.parentFolderId !== expectedParentFolderId
+      )
+        return false;
       if (
         normalizedFromEmail &&
         !matchesOutlookSender(message, normalizedFromEmail)
@@ -617,7 +624,11 @@ export async function queryBatchMessages(
       await withMicrosoftGraphRetry(() => request.get(), logger);
 
     const filteredMessages = response.value.filter((message) => {
-      if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        expectedParentFolderId &&
+        message.parentFolderId !== expectedParentFolderId
+      )
+        return false;
       if (
         normalizedFromEmail &&
         !matchesOutlookSender(message, normalizedFromEmail)
@@ -1191,4 +1202,13 @@ function getInternetHeader(message: Message, name: string) {
       (header) => header.name?.toLowerCase() === name,
     )?.value ?? undefined
   );
+}
+
+/** Maps a well-known folder name (`inbox`, `sentitems`, ...) to its id. Other ids pass through. */
+function resolveFolderId(
+  folderId: string | undefined,
+  folderIds: Record<string, string>,
+): string | undefined {
+  if (!folderId) return;
+  return folderIds[folderId.toLowerCase()] ?? folderId;
 }

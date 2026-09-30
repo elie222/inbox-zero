@@ -335,6 +335,37 @@ describe("queryBatchMessages", () => {
     );
   });
 
+  it("resolves well-known folder names on continuation pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "inside",
+          conversationId: "thread-1",
+          parentFolderId: "inbox-folder-id",
+        },
+        {
+          id: "outside",
+          conversationId: "thread-2",
+          parentFolderId: "archive-folder-id",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skip=40",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "inbox",
+        pageToken:
+          "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["inside"]);
+  });
+
   it("uses metadata filters for unread category searches", async () => {
     const request = createMockMessagesRequest();
     const api = vi.fn().mockReturnValue(request);
