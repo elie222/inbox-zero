@@ -22,7 +22,7 @@ overrides:
   prosemirror-model: 1.25.11
   prosemirror-view: 1.42.2
   svelte: 5.55.5
-  undici@>=7.0.0 <8.0.0: 7.29.0
+  undici@>=7.0.0 <8.0.0: 7.29.1
   vite: 7.3.6
   webpack: 5.106.2
 
@@ -12770,8 +12770,8 @@ packages:
     resolution: {integrity: sha512-ZgpWDC5gmNiuY9CnLVXEH8rl50xhRCuLNA97fAUnKi8RRuV4E6KG31pDTsLVUKnohJE0I3XDrTeEydAXRw47xg==}
     engines: {node: '>=18.17'}
 
-  undici@7.29.0:
-    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+  undici@7.29.1:
+    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
     engines: {node: '>=20.18.1'}
 
   undici@8.10.2:
@@ -13599,7 +13599,7 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.0.8
-      undici: 7.29.0
+      undici: 7.29.1
       zod: 4.2.1
 
   '@ai-sdk/provider@4.0.14':
@@ -15084,7 +15084,7 @@ snapshots:
       semver: 7.8.5
       sumchecker: 3.0.1(supports-color@10.2.2)
     optionalDependencies:
-      undici: 7.29.0
+      undici: 7.29.1
     transitivePeerDependencies:
       - supports-color
 
@@ -16324,7 +16324,7 @@ snapshots:
       isomorphic-ws: 5.0.0(ws@8.21.0)
       node-schedule: 2.1.1
       typescript: 6.0.3
-      undici: 7.29.0
+      undici: 7.29.1
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
@@ -20906,7 +20906,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.29.0
+      undici: 7.29.1
       whatwg-mimetype: 4.0.0
 
   chokidar@3.6.0:
@@ -22255,7 +22255,7 @@ snapshots:
 
   get-it@9.5.4(vitest@4.1.10):
     dependencies:
-      undici: 7.29.0
+      undici: 7.29.1
     optionalDependencies:
       vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@27.3.0(supports-color@8.1.1))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
@@ -23018,7 +23018,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 7.29.0
+      undici: 7.29.1
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -23045,7 +23045,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 7.29.0
+      undici: 7.29.1
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -23916,7 +23916,7 @@ snapshots:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.2
-      undici: 7.29.0
+      undici: 7.29.1
       workerd: 1.20260908.1
       ws: 8.21.0
       youch: 4.1.0-beta.10
@@ -26662,7 +26662,7 @@ snapshots:
 
   undici@6.25.0: {}
 
-  undici@7.29.0: {}
+  undici@7.29.1: {}
 
   undici@8.10.2: {}
 

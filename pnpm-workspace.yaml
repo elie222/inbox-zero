@@ -32,7 +32,7 @@ overrides:
   prosemirror-model: "1.25.11"
   prosemirror-view: "1.42.2"
   svelte: "5.55.5"
-  "undici@>=7.0.0 <8.0.0": "7.29.0"
+  "undici@>=7.0.0 <8.0.0": "7.29.1"
   vite: "7.3.6"
   webpack: "5.106.2"
 
