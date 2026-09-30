@@ -236,6 +236,7 @@ export function ThreadReader({
           }}
           refetch={refetch}
           onSendSuccess={onSendSuccess}
+          onThreadDiscarded={onBackToInbox}
           showReplyButton
         />
       ) : (
