@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
-import { DELETE, PUT } from "./route";
+import { DELETE, GET, PUT } from "./route";
 
 const createEmailProvider = vi.hoisted(() => vi.fn());
 const authMock = vi.hoisted(() => vi.fn());
@@ -45,6 +45,32 @@ describe("/api/user/drafts/[draftId]", () => {
     });
     provider.deleteDraft.mockResolvedValue(true);
     createEmailProvider.mockResolvedValue(provider);
+  });
+
+  it("reports a draft the mailbox still holds", async () => {
+    const response = await read("draft-1");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ exists: true });
+    expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
+  });
+
+  it("reports a draft deleted from the mailbox", async () => {
+    provider.getDraft.mockResolvedValue(null);
+
+    const response = await read("draft-1");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ exists: false });
+  });
+
+  it("rejects a read without a session", async () => {
+    authMock.mockResolvedValue(null);
+
+    const response = await read("draft-1");
+
+    expect(response.status).toBe(401);
+    expect(provider.getDraft).not.toHaveBeenCalled();
   });
 
   it("rejects an update without a session", async () => {
@@ -124,6 +150,15 @@ function draftBody(message = "Hello") {
       messageHtml: `<p>${message}</p>`,
     },
   };
+}
+
+function read(draftId: string) {
+  return GET(
+    new NextRequest(`http://127.0.0.1/api/user/drafts/${draftId}`, {
+      headers: accountHeaders(),
+    }),
+    { params: Promise.resolve({ draftId }) },
+  );
 }
 
 function update(draftId: string, body: unknown) {

@@ -13,6 +13,19 @@ type SaveComposeDraftResponse = Awaited<ReturnType<typeof saveComposeDraft>>;
 
 export type DiscardComposeDraftResponse = { success: true };
 
+export type GetComposeDraftResponse = { exists: boolean };
+
+export const GET = withEmailProvider(
+  "user/drafts/get",
+  async (request, context) => {
+    const { draftId } = discardComposeDraftBody.parse(await context.params);
+    const draft = await request.emailProvider.getDraft(draftId);
+    return NextResponse.json({
+      exists: Boolean(draft),
+    } satisfies GetComposeDraftResponse);
+  },
+);
+
 export const PUT = withEmailProvider(
   "user/drafts/update",
   async (request, context) => {

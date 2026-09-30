@@ -5,7 +5,9 @@ import type {
   PreparedEmailDraft,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
+import type { GetComposeDraftResponse } from "@/app/api/user/drafts/[draftId]/route";
 import { splitRecipientList } from "@/utils/email";
+import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
@@ -296,6 +298,36 @@ export function createReplyDraftWriter(
       });
     },
   };
+}
+
+/**
+ * Once a draft reaches the mailbox the mailbox owns it, so deleting it there
+ * must not leave the composer reopening this copy. Only a definite "gone"
+ * discards it; an unreachable mailbox keeps what the user wrote.
+ */
+export async function dropReplyDraftDeletedFromMailbox(
+  draft: StoredReplyDraft | undefined,
+) {
+  const providerDraftId = draft?.content?.providerDraftId;
+  if (!draft || !providerDraftId) return draft;
+  try {
+    const response = await fetchWithAccount({
+      url: `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
+      emailAccountId: draft.emailAccountId,
+      init: { cache: "no-store" },
+    });
+    if (!response.ok) return draft;
+    const { exists } = (await response.json()) as GetComposeDraftResponse;
+    if (exists) return draft;
+  } catch {
+    return draft;
+  }
+  await createReplyDraftWriter(draft, draft.revision)
+    .clear()
+    .catch(() => {});
+  // Hand back whatever the store holds now so the composer writes at its
+  // revision instead of restarting from zero and rejecting its own saves.
+  return getReplyDraft(draft);
 }
 
 export function clearLocalReplyDrafts(emailAccountId?: string) {

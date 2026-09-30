@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
+  dropReplyDraftDeletedFromMailbox,
   getReplyDraft,
   getReplyDraftForSession,
   getReplyDrafts,
@@ -492,6 +493,93 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 });
+
+describe("drafts deleted from the mailbox", () => {
+  beforeEach(() => {
+    clearLocalReplyDrafts();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("opens the composer blank once the mailbox draft is deleted", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(false);
+
+    const stored = await getReplyDraft(identity);
+    const dropped = await dropReplyDraftDeletedFromMailbox(stored);
+
+    expect(dropped?.content).toBeNull();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
+  it("keeps saving what the user writes next into the emptied draft", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(false);
+
+    const dropped = await dropReplyDraftDeletedFromMailbox(
+      await getReplyDraft(identity),
+    );
+    await createReplyDraftWriter(identity, dropped?.revision).save({
+      ...content,
+      requestId: "compose-2",
+    });
+
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      requestId: "compose-2",
+    });
+  });
+
+  it("keeps the draft while the mailbox copy is still there", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(true);
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+    });
+  });
+
+  it("keeps the draft when the mailbox cannot be reached", async () => {
+    await saveDraftWithProvider();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+    });
+  });
+
+  it("does not ask the mailbox about a draft it never reached", async () => {
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      requestId: "compose-1",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+async function saveDraftWithProvider() {
+  await createReplyDraftWriter(identity).save({
+    ...content,
+    requestId: "compose-1",
+  });
+  await updateReplyDraftProviderState(identity, "compose-1", "provider-1");
+}
+
+function stubMailboxDraftLookup(exists: boolean) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, json: async () => ({ exists }) }),
+  );
+}
 
 function createRevisionCheckingClient() {
   const drafts = new Map<
