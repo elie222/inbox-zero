@@ -1,4 +1,4 @@
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode, type TouchEvent } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
 import { MessagingChannelHint } from "./messaging-channel-hint";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
+import { isTypingTarget } from "@/lib/shortcuts/registry";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -43,7 +44,10 @@ export function Messages({
 
   return (
     <EmailLookupProvider value={emailLookup}>
-      <Conversation className="flex min-w-0 flex-1">
+      <Conversation
+        className="flex min-w-0 flex-1"
+        onTouchStart={dismissKeyboardOnTouch}
+      >
         <ConversationContent
           className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
           scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
@@ -102,6 +106,23 @@ export function Messages({
       </Conversation>
     </EmailLookupProvider>
   );
+}
+
+const KEEP_FOCUS_SELECTOR =
+  'a, button, form, input, select, textarea, [role="button"], [contenteditable="true"]';
+
+// Touch keyboards stay up until the field blurs, hiding half the conversation
+// while the user reads a reply.
+function dismissKeyboardOnTouch(event: TouchEvent<HTMLDivElement>) {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement) || !isTypingTarget(focused)) return;
+  if (
+    event.target instanceof Element &&
+    event.target.closest(KEEP_FOCUS_SELECTOR)
+  ) {
+    return;
+  }
+  focused.blur();
 }
 
 function buildEmailLookup(messages: Array<ChatMessage>): EmailLookup {
