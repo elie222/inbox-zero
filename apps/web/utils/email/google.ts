@@ -1346,7 +1346,7 @@ export class GmailProvider implements EmailProvider {
     query?: string;
     maxResults?: number;
     pageToken?: string;
-    folderId?: string;
+    labelId?: string;
     before?: Date;
     after?: Date;
     inboxOnly?: boolean;
@@ -1383,7 +1383,7 @@ export class GmailProvider implements EmailProvider {
       query: query.trim() || undefined,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
-      labelIds: options.folderId ? [options.folderId] : undefined,
+      labelIds: options.labelId ? [options.labelId] : undefined,
     });
 
     const messages = response.messages || [];
