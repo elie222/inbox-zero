@@ -224,6 +224,16 @@ export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
   return config.buildSearchUrl(from, emailAddress);
 }
 
+const OPEN_IN_MAILBOX_LABELS: Record<string, string> = {
+  google: "Open in Gmail",
+  microsoft: "Open in Outlook",
+};
+
+export function getOpenInMailboxLabel(provider?: string | null) {
+  if (!provider) return null;
+  return OPEN_IN_MAILBOX_LABELS[provider] ?? null;
+}
+
 export function getEmailSearchUrl(
   from: string,
   emailAddress?: string | null,

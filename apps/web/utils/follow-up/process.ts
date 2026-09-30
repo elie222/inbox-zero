@@ -40,13 +40,12 @@ import {
   extractNameFromEmail,
   isSameEmailAddress,
 } from "@/utils/email";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import { emailToContent } from "@/utils/mail";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForOptionalMessage,
+  getOpenInMailboxLabel,
+} from "@/utils/url";
 import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
@@ -619,7 +618,7 @@ async function processFollowUpsForType({
                   emailAddress: emailAccount.email,
                   provider: providerName,
                 }) ?? undefined,
-              threadLinkLabel: getThreadLinkLabel(providerName),
+              threadLinkLabel: getOpenInMailboxLabel(providerName) ?? undefined,
               trackerId: tracker.id,
               logger: threadLogger,
             });
@@ -881,10 +880,4 @@ function resolveFollowUpCounterparty({
   const email = extractEmailAddress(header || "") || header || "";
   const name = extractNameFromEmail(header || "") || email || "someone";
   return { name, email };
-}
-
-function getThreadLinkLabel(provider: string) {
-  if (isGoogleProvider(provider)) return "Open in Gmail";
-  if (isMicrosoftProvider(provider)) return "Open in Outlook";
-  return "Open email";
 }

@@ -63,7 +63,6 @@ export function createEmailProviderOperationExecutor(input: {
   accountId: string;
 }): OperationExecutor {
   const { provider, accountId } = input;
-  const providerName = provider.name === "microsoft" ? "microsoft" : "google";
   return {
     async execute({ operation }) {
       if (operation.intent.kind === "send") {
@@ -99,19 +98,9 @@ export function createEmailProviderOperationExecutor(input: {
         }
         // One bad message fails the whole bulk call; per-message retries
         // isolate it so the rest still apply.
-        return executeMetadataPerTarget(
-          provider,
-          accountId,
-          providerName,
-          metadataOperation,
-        );
+        return executeMetadataPerTarget(provider, accountId, metadataOperation);
       }
-      return observeAppliedMetadata(
-        provider,
-        accountId,
-        providerName,
-        metadataOperation,
-      );
+      return observeAppliedMetadata(provider, accountId, metadataOperation);
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
@@ -120,7 +109,7 @@ export function createEmailProviderOperationExecutor(input: {
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
       }
-      return inspectMetadataOperation(provider, accountId, providerName, {
+      return inspectMetadataOperation(provider, accountId, {
         ...operation,
         intent: operation.intent,
       });
@@ -131,7 +120,6 @@ export function createEmailProviderOperationExecutor(input: {
 async function executeMetadataPerTarget(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
@@ -141,7 +129,9 @@ async function executeMetadataPerTarget(
       await applyChange(provider, operation.intent.change, [target.messageId]);
       try {
         const message = await provider.getMessage(target.messageId);
-        observations.push(parsedMessagePatch(accountId, providerName, message));
+        observations.push(
+          parsedMessagePatch(accountId, provider.name, message),
+        );
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -171,7 +161,6 @@ async function executeMetadataPerTarget(
 async function observeAppliedMetadata(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
@@ -190,7 +179,9 @@ async function observeAppliedMetadata(
     for (const target of batch) {
       const message = messagesById.get(target.messageId);
       if (message) {
-        observations.push(parsedMessagePatch(accountId, providerName, message));
+        observations.push(
+          parsedMessagePatch(accountId, provider.name, message),
+        );
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -231,7 +222,6 @@ async function readMessagesForObservation(
 async function inspectMetadataOperation(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ) {
   const targets: TargetOutcome[] = [];
@@ -239,7 +229,7 @@ async function inspectMetadataOperation(
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
-      observations.push(parsedMessagePatch(accountId, providerName, message));
+      observations.push(parsedMessagePatch(accountId, provider.name, message));
       const satisfied = metadataChangeSatisfied(
         message,
         operation.intent.change,
@@ -460,7 +450,6 @@ async function executeSnooze(
 
   const targets: TargetOutcome[] = [];
   const observations: ReturnType<typeof parsedMessagePatch>[] = [];
-  const providerName = provider.name === "microsoft" ? "microsoft" : "google";
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
@@ -478,7 +467,7 @@ async function executeSnooze(
           continue;
         }
         observations.push(
-          parsedMessagePatch(accountId, providerName, archivedMessage),
+          parsedMessagePatch(accountId, provider.name, archivedMessage),
         );
       } catch {
         // Mutation applied; catch-up can fill the observation.
@@ -504,7 +493,7 @@ async function executeSnooze(
             continue;
           }
           observations.push(
-            parsedMessagePatch(accountId, providerName, archivedMessage),
+            parsedMessagePatch(accountId, provider.name, archivedMessage),
           );
         } catch {
           // Mutation applied; catch-up can fill the observation.
@@ -583,7 +572,7 @@ async function executeSend(
       logger,
       emailAccountId: accountId,
       getEmailProvider: async () => provider,
-      provider: provider.name === "microsoft" ? "microsoft" : "google",
+      provider: provider.name,
       attachmentIds: operation.intent.attachmentIds,
       input: {
         mutationId: sendMutationId(operation.key.operationId),
@@ -1017,13 +1006,7 @@ async function observeSentMessage(
     const message = await provider.getMessage(messageId);
     const body = parsedMessageBodyObservation(accountId, message);
     return {
-      observations: [
-        parsedMessagePatch(
-          accountId,
-          provider.name === "microsoft" ? "microsoft" : "google",
-          message,
-        ),
-      ],
+      observations: [parsedMessagePatch(accountId, provider.name, message)],
       bodies: body ? [body] : [],
     };
   } catch {

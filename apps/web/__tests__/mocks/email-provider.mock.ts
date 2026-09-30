@@ -161,6 +161,7 @@ export function createMockEmailProvider(
 
     // Filters
     getFiltersList: vi.fn().mockResolvedValue([]),
+    getForwardingAddresses: vi.fn().mockResolvedValue([]),
     createFilter: vi.fn().mockResolvedValue({ status: 200 }),
     deleteFilter: vi.fn().mockResolvedValue({ status: 200 }),
     createAutoArchiveFilter: vi.fn().mockResolvedValue({ status: 200 }),

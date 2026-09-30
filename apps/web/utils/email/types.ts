@@ -206,6 +206,7 @@ export interface EmailProvider {
   getFiltersList(): Promise<EmailFilter[]>;
   getFolderCounts(): Promise<EmailFolderCount[]>;
   getFolders(): Promise<OutlookFolder[]>;
+  getForwardingAddresses(): Promise<string[]>;
   getInboxMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getInboxStats(): Promise<{ total: number; unread: number }>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;

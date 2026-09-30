@@ -110,6 +110,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       setUnavailable(true);
       return;
     }
+    const mailProvider = isMicrosoftProvider(provider) ? "microsoft" : "google";
     const abort = new AbortController();
     let published: MailClient | undefined;
 
@@ -128,7 +129,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
     if (mode === "desktop-ipc") {
       const client = createDesktopIpcMailClient({
-        provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+        provider: mailProvider,
       });
       publishClient(client, "owner", "desktop-ipc").catch(() => {
         if (!abort.signal.aborted) setUnavailable(true);
@@ -160,7 +161,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           bus.post({
             type: "hello",
             accountId: emailAccountId,
-            provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+            provider: mailProvider,
           });
           return;
         }
@@ -175,7 +176,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         publishClient(
           createTabFollowerClient({
             accountId: emailAccountId,
-            provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+            provider: mailProvider,
             bus,
           }),
           "follower",
@@ -185,7 +186,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       bus.post({
         type: "hello",
         accountId: emailAccountId,
-        provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+        provider: mailProvider,
       });
     }
 
@@ -204,7 +205,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       const create = async () => {
         engine = await createBrowserMailEngine({
           accountId: emailAccountId,
-          provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+          provider: mailProvider,
           online: typeof navigator === "undefined" || navigator.onLine,
         });
         if (abort.signal.aborted) {
