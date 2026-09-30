@@ -2,7 +2,8 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
-import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
+import { after } from "next/server";
 import {
   deletePosthogUser,
   trackUserDeleted,
@@ -69,14 +70,6 @@ export async function deleteUser({
       captureException(error);
     });
 
-    deleteTinybirdAiCalls({ userId }).catch((error) => {
-      logger.error("Error deleting Tinybird AI calls", {
-        error,
-        userId,
-      });
-      captureException(error);
-    });
-
     clearCachedResearchForUser(userId).catch((error) => {
       logger.error("Error clearing cached research", { error });
       captureException(error);
@@ -140,6 +133,16 @@ export async function deleteUser({
         throw originalError;
       }
     });
+
+    const emails = accounts
+      .map((account) => account.emailAccount?.email)
+      .filter((email): email is string => Boolean(email));
+    after(() =>
+      deleteTinybirdEmailData(emails).catch((error) => {
+        logger.error("Error deleting Tinybird data", { error });
+        captureException(error);
+      }),
+    );
   } catch (error) {
     logger.error("Error during user resources deletion process", {
       error,
