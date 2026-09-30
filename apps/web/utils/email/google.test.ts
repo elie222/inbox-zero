@@ -483,6 +483,41 @@ describe("GmailProvider.getSentMessageIds", () => {
   });
 });
 
+describe("GmailProvider.getMessagesWithPagination", () => {
+  it("limits the listing to the requested folder label", async () => {
+    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    const provider = new GmailProvider({
+      users: { messages: { list } },
+    } as any);
+
+    await provider.getMessagesWithPagination({
+      folderId: GmailLabel.INBOX,
+      maxResults: 50,
+      includeDrafts: true,
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ labelIds: [GmailLabel.INBOX] }),
+    );
+  });
+
+  it("lists the whole mailbox without a folder", async () => {
+    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    const provider = new GmailProvider({
+      users: { messages: { list } },
+    } as any);
+
+    await provider.getMessagesWithPagination({
+      maxResults: 50,
+      includeDrafts: true,
+    });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ labelIds: undefined }),
+    );
+  });
+});
+
 describe("GmailProvider.getThreadsWithQuery", () => {
   it("filters domain candidates on the same inbox message and continues paging", async () => {
     const list = vi
