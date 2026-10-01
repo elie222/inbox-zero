@@ -174,7 +174,9 @@ function textQueryPredicates(query: string): MailPredicate[] {
   if (hasAttachment !== undefined) {
     clauses.push({ kind: "has_attachment", value: hasAttachment });
   }
-  remaining = remaining.replaceAll(/\s+/g, " ").trim();
+  // The local index has no boolean grouping, so parens left behind by the
+  // operators above would otherwise be matched as literal search terms.
+  remaining = remaining.replaceAll(/[()]/g, " ").replaceAll(/\s+/g, " ").trim();
   if (remaining) {
     clauses.push({
       kind: "text",
@@ -204,8 +206,7 @@ function takePrefixedValue(
     if (!onValue(value)) return input;
     return `${input.slice(0, at)} ${input.slice(closing + 1)}`;
   }
-  const space = input.indexOf(" ", valueStart);
-  const valueEnd = space === -1 ? input.length : space;
+  const valueEnd = findValueEnd(input, valueStart);
   const value = input.slice(valueStart, valueEnd);
   if (!value) return input;
   if (!onValue(value)) return input;
@@ -227,10 +228,27 @@ function findStandaloneToken(input: string, token: string) {
     const at = haystack.indexOf(needle, start);
     if (at === -1) return -1;
     const before = at === 0 ? " " : input[at - 1];
-    if (before === " " || before === "(") return at;
+    const standalone = before === " " || before === "(";
+    if (standalone && !isInsideQuotes(input, at)) return at;
     start = at + 1;
   }
   return -1;
+}
+
+// An operator inside a quoted phrase belongs to the phrase, not to the query.
+function isInsideQuotes(input: string, at: number) {
+  let quotes = 0;
+  for (let index = 0; index < at; index++) {
+    if (input[index] === '"') quotes += 1;
+  }
+  return quotes % 2 === 1;
+}
+
+// A closing paren ends a value so grouped queries like (hasattachments:true)
+// still reach their operator.
+function findValueEnd(input: string, from: number) {
+  const match = input.slice(from).match(/[\s)]/);
+  return match?.index === undefined ? input.length : from + match.index;
 }
 
 function splitFilterToPredicate(filter: {

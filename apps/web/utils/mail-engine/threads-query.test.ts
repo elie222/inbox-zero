@@ -210,4 +210,30 @@ describe("threadsQueryToPredicate", () => {
       match: "term",
     });
   });
+
+  it("reads operators inside a parenthesized group without leaving the parens as text", () => {
+    expect(threadsQueryToPredicate({ q: "(hasattachments:true)" })).toEqual({
+      kind: "has_attachment",
+      value: true,
+    });
+    expect(threadsQueryToPredicate({ q: "(subject:invoice)" })).toEqual({
+      kind: "text",
+      field: "subject",
+      value: "invoice",
+      match: "phrase",
+    });
+  });
+
+  it("leaves operators inside a quoted phrase in the phrase", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: '"looking for hasattachments:true in email"',
+      }),
+    ).toEqual({
+      kind: "text",
+      field: "any",
+      value: '"looking for hasattachments:true in email"',
+      match: "term",
+    });
+  });
 });
