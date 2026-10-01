@@ -25,7 +25,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";

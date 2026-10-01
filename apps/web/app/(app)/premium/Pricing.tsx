@@ -26,7 +26,7 @@ import {
   shouldShowLegacyStripePricingNotice,
   type Tier,
   tiers,
-} from "@/app/(app)/premium/config";
+} from "@/utils/premium/config";
 import { AlertBasic } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";

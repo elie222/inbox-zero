@@ -6,7 +6,7 @@ import {
   StarIcon,
   type LucideIcon,
 } from "lucide-react";
-import type { Command, CommandSection } from "@/lib/commands/types";
+import type { Command, CommandSection } from "@/utils/commands/types";
 import { createClientLogger } from "@/utils/logger-client";
 
 const logger = createClientLogger("shortcuts");

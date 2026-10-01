@@ -19,7 +19,7 @@ import {
   type ShortcutId,
   type ShortcutScope,
   SHORTCUTS,
-} from "@/lib/shortcuts/registry";
+} from "@/utils/shortcuts/registry";
 import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 type HotkeysEvent = Parameters<HotkeyCallback>[1];

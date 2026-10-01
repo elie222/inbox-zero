@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CopyInput } from "@/components/CopyInput";
-import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
+import { RegenerateSecretButton } from "@/app/(app)/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import {

@@ -3,7 +3,7 @@ import {
   getShortcut,
   getShortcutKeyLabels,
   type ShortcutId,
-} from "@/lib/shortcuts/registry";
+} from "@/utils/shortcuts/registry";
 
 export type ShortcutTooltipItem =
   | ShortcutId

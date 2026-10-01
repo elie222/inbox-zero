@@ -29,7 +29,7 @@ import {
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { type Tier, tiers } from "@/app/(app)/premium/config";
+import { type Tier, tiers } from "@/utils/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";

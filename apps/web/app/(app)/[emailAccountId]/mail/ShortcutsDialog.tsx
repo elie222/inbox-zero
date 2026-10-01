@@ -14,7 +14,7 @@ import {
   formatShortcutKeys,
   getShortcutGroups,
   type ShortcutScope,
-} from "@/lib/shortcuts/registry";
+} from "@/utils/shortcuts/registry";
 import { shortcutsDialogOpenAtom } from "@/store/command-palette";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 

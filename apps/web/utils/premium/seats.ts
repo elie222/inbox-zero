@@ -1,5 +1,5 @@
 import sumBy from "lodash/sumBy";
-import { hasIncludedEmailAccountsStripePriceId } from "@/app/(app)/premium/config";
+import { hasIncludedEmailAccountsStripePriceId } from "@/utils/premium/config";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";

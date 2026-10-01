@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 import { getStripeTrialStartedProperties } from "./posthog-events";
 
-vi.mock("@/app/(app)/premium/config", () => ({
+vi.mock("@/utils/premium/config", () => ({
   getStripeSubscriptionTier: vi.fn(({ priceId }: { priceId: string }) =>
     priceId === "price_annual" ? "STARTER_ANNUALLY" : null,
   ),

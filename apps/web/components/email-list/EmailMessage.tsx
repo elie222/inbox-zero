@@ -37,7 +37,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
-import { isTypingTarget } from "@/lib/shortcuts/registry";
+import { isTypingTarget } from "@/utils/shortcuts/registry";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";

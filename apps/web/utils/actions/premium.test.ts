@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockOrganizationMembership } from "@/__tests__/helpers";
-import { getStripePriceId } from "@/app/(app)/premium/config";
+import { getStripePriceId } from "@/utils/premium/config";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   endStripeTrialAction,

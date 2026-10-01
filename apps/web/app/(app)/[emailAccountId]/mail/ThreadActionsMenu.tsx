@@ -24,7 +24,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { getShortcutHint } from "@/utils/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";

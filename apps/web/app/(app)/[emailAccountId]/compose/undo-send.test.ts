@@ -22,7 +22,7 @@ vi.mock("@/components/Toast", () => ({
 vi.mock("sonner", () => ({
   toast: { dismiss: notifications.dismiss },
 }));
-vi.mock("@/lib/shortcuts/registry", () => ({
+vi.mock("@/utils/shortcuts/registry", () => ({
   getShortcutHint: () => "z",
 }));
 vi.mock("@/utils/mail-engine/stage-attachments", () => ({

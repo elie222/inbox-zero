@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 import type { ButtonProps } from "@/components/ui/button";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import { Tooltip } from "@/components/Tooltip";

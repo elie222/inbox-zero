@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { toastError, toastUndo } from "@/components/Toast";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { getShortcutHint } from "@/utils/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
 import { cancelSendAttachments } from "@/utils/mail-engine/stage-attachments";

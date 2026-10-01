@@ -9,7 +9,7 @@ import { ChatProvider } from "@/providers/ChatProvider";
 import { EmailAccountProvider } from "@/providers/EmailAccountProvider";
 import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
-import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
+import { MailEngineRuntime } from "@/components/MailEngineHost";
 
 export function AppProviders(props: { children: React.ReactNode }) {
   return (

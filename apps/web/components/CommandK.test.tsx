@@ -2,7 +2,7 @@
 
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
+import type { ShortcutHandlers } from "@/utils/shortcuts/registry";
 import { CommandK } from "./CommandK";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
@@ -55,15 +55,15 @@ vi.mock("@/components/Toast", () => ({ toastError: notifications.error }));
 vi.mock("@/hooks/useCommandPaletteCommands", () => ({
   useCommandPaletteCommands: () => ({ commands: [], isLoading: false }),
 }));
-vi.mock("@/lib/shortcuts/useShortcuts", () => ({
+vi.mock("@/hooks/useShortcuts", () => ({
   useShortcuts: (handlers: ShortcutHandlers) => {
     shortcuts.handlers = handlers;
   },
 }));
-vi.mock("@/lib/shortcuts/ShortcutsProvider", () => ({
+vi.mock("@/providers/ShortcutsProvider", () => ({
   ShortcutsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock("@/lib/shortcuts/registry", () => ({
+vi.mock("@/utils/shortcuts/registry", () => ({
   buildShortcutPaletteCommands: () => [],
   MAIL_SHORTCUT_SCOPES: [],
 }));
@@ -76,7 +76,7 @@ vi.mock("@/app/(app)/[emailAccountId]/mail/ShortcutsDialog", () => ({
 vi.mock("@/app/(app)/[emailAccountId]/mail/snooze-command-palette", () => ({
   buildSnoozeCommandPalette: () => [],
 }));
-vi.mock("@/lib/commands/fuzzy-search", () => ({ fuzzySearch: () => [] }));
+vi.mock("@/utils/commands/fuzzy-search", () => ({ fuzzySearch: () => [] }));
 vi.mock("@/components/ui/command", () => ({
   CommandDialog: ({ children }: { children: React.ReactNode }) => children,
   CommandEmpty: () => null,

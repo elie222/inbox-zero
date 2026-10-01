@@ -30,7 +30,7 @@ import {
   formatShortcutKeys,
   getShortcut,
   getShortcutHint,
-} from "@/lib/shortcuts/registry";
+} from "@/utils/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { cn } from "@/utils";

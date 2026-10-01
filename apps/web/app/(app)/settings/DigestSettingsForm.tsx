@@ -42,7 +42,7 @@ import {
 } from "@/utils/schedule";
 import { getEstimatedDigestDeliveryAt } from "@/utils/digest/schedule";
 import { getAccountScopedKey } from "@/utils/swr";
-import { reconcileDigestSelection } from "@/app/(app)/[emailAccountId]/settings/digest-selection";
+import { reconcileDigestSelection } from "@/app/(app)/settings/digest-selection";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),

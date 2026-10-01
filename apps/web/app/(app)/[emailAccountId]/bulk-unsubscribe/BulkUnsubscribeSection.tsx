@@ -39,7 +39,7 @@ import {
   SUGGESTION_READ_RATE_THRESHOLD,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import {
   BulkUnsubscribeDesktop,

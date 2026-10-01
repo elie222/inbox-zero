@@ -22,7 +22,7 @@ vi.mock("@/utils/premium/seats", () => ({ syncPremiumSeats: vi.fn() }));
 vi.mock("@/utils/email/watch-manager", () => ({
   ensureEmailAccountsWatched: vi.fn(),
 }));
-vi.mock("@/app/(app)/premium/config", () => ({
+vi.mock("@/utils/premium/config", () => ({
   getStripeSubscriptionTier: () => "PRO_MONTHLY",
 }));
 vi.mock("@/ee/billing/stripe", () => ({

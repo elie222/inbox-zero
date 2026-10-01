@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { Clock3Icon } from "lucide-react";
 import * as chrono from "chrono-node";
-import type { Command } from "@/lib/commands/types";
+import type { Command } from "@/utils/commands/types";
 
 export function buildSnoozeCommandPalette({
   now = new Date(),

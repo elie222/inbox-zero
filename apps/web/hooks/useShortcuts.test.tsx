@@ -9,8 +9,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Suspense, startTransition } from "react";
-import type { ShortcutHandlers, ShortcutScope } from "./registry";
-import { ShortcutsProvider } from "./ShortcutsProvider";
+import type {
+  ShortcutHandlers,
+  ShortcutScope,
+} from "@/utils/shortcuts/registry";
+import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
 import { useShortcuts } from "./useShortcuts";
 
 const MAIL_SCOPES: ShortcutScope[] = ["global", "mail"];

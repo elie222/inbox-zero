@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/item";
 import { hasTierAccess } from "@/utils/premium";
 import { RERUN_MINIMUM_TIER } from "@/utils/premium/rerun";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
   bulkRunReducer,

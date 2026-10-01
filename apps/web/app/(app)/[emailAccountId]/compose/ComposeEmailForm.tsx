@@ -70,9 +70,9 @@ import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
-import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
-import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
-import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import { MAIL_SHORTCUT_SCOPES } from "@/utils/shortcuts/registry";
+import { ShortcutsProvider } from "@/providers/ShortcutsProvider";
+import { useShortcuts } from "@/hooks/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import {

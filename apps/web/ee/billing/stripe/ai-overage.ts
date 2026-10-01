@@ -4,7 +4,7 @@ import { getAiGenerationCountByEmailAccounts } from "@inboxzero/tinybird-ai-anal
 import { env } from "@/env";
 import type { PremiumTier } from "@/generated/prisma/enums";
 import { getStripe } from "@/ee/billing/stripe";
-import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
+import { getStripeSubscriptionTier } from "@/utils/premium/config";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 

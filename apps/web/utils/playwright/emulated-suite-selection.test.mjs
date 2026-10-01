@@ -127,7 +127,6 @@ describe("emulated Playwright suite selection", () => {
 
   test.each([
     "utils/feature.ts",
-    "lib/feature.ts",
   ])("selects feature dependencies outside component directories: %s", (file) => {
     withFeatureFixture((root, write) => {
       write("hooks/useFeature.ts", `import "@/${file}";`);

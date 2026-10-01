@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { getStripe } from "@/ee/billing/stripe";
-import { getPremiumTierName } from "@/app/(app)/premium/config";
+import { getPremiumTierName } from "@/utils/premium/config";
 
 export type GetTrialPreviewResponse = Awaited<
   ReturnType<typeof getTrialPreview>

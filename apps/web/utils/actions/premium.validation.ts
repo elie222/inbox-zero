@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PremiumTier } from "@/generated/prisma/enums";
 
 export const activateLicenseKeySchema = z.object({
   licenseKey: z.string(),
@@ -13,3 +14,14 @@ export type ActivateLicenseKeyOptions = z.infer<
 export const CHECKOUT_RETURN_TO_PARAM = "returnTo";
 export const checkoutReturnToSchema = z.enum(["onboarding"]);
 export type CheckoutReturnTo = z.infer<typeof checkoutReturnToSchema>;
+
+export const changePremiumStatusSchema = z.object({
+  email: z.string().email(),
+  emailAccountsAccess: z.number().optional(),
+  period: z.nativeEnum(PremiumTier),
+  count: z.number().optional(),
+  upgrade: z.boolean(),
+});
+export type ChangePremiumStatusOptions = z.infer<
+  typeof changePremiumStatusSchema
+>;

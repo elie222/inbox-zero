@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
+import { getStripeSubscriptionTier } from "@/utils/premium/config";
 import type { PremiumTier } from "@/generated/prisma/enums";
 
 export function getStripeTrialStartedProperties(

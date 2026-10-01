@@ -3,7 +3,7 @@
 import { CrownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/components/PremiumModal";
 
 export function IntegrationsPremiumAlert() {
   const { PremiumModal, openModal } = usePremiumModal();
