@@ -1,5 +1,5 @@
 diff --git a/dist/dist-JYOXR3UP.js b/dist/dist-JYOXR3UP.js
-index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80ec1b9125 100644
+index 8f3e6ed63256db303a769d8201df5c2bec28692b..1b344b6c359c3545e27b303118ce97a652660717 100644
 --- a/dist/dist-JYOXR3UP.js
 +++ b/dist/dist-JYOXR3UP.js
 @@ -73,7 +73,23 @@ var OUTLOOK_COLORS = [
@@ -56,7 +56,133 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
      case "from/emailAddress/address":
        return message.from_address;
      default:
-@@ -890,6 +914,26 @@ function resolveMessage(ctx, userEmail, messageId) {
+@@ -766,34 +790,103 @@ function evaluateMessageFilter(message, expression) {
+   if (operator === "ne") return actualText !== expectedText;
+   return true;
+ }
++var InvalidMessageSearchError = class extends Error {
++};
+ function searchMessages(messages, searchExpression) {
+   if (!searchExpression) return messages;
+-  const raw = parseQuotedValue(searchExpression);
+-  const [field, ...rest] = raw.split(":");
+-  if (rest.length > 0 && field.toLowerCase() === "participants") {
+-    const value = rest.join(":").toLowerCase();
+-    return messages.filter((message) => {
+-      const recipients = [
+-        ...message.from_address ? [message.from_address] : [],
++  const terms = parseMessageSearch(searchExpression);
++  return messages.filter(
++    (message) => terms.every(({ field, value }) => {
++      const participants = [
++        message.from_address ?? "",
+         ...message.to_recipients.map((recipient) => recipient.address),
+-        ...message.cc_recipients.map((recipient) => recipient.address)
++        ...message.cc_recipients.map((recipient) => recipient.address),
++        ...message.bcc_recipients.map((recipient) => recipient.address)
+       ];
+-      return recipients.some((recipient) => recipient.toLowerCase().includes(value));
+-    });
+-  }
+-  const text = raw.toLowerCase();
+-  return messages.filter(
+-    (message) => [
+-      message.subject,
+-      message.body_preview,
+-      message.body_content,
+-      message.from_address ?? "",
+-      ...message.to_recipients.map((recipient) => recipient.address),
+-      ...message.cc_recipients.map((recipient) => recipient.address),
+-      message.internet_message_id
+-    ].join(" ").toLowerCase().includes(text)
++      let values;
++      switch (field) {
++        case "subject":
++          values = [message.subject];
++          break;
++        case "body":
++          values = [message.body_preview, message.body_content];
++          break;
++        case "participants":
++          values = participants;
++          break;
++        case "from":
++          values = [message.from_address ?? ""];
++          break;
++        case "to":
++          values = message.to_recipients.map((recipient) => recipient.address);
++          break;
++        case "cc":
++          values = message.cc_recipients.map((recipient) => recipient.address);
++          break;
++        case "bcc":
++          values = message.bcc_recipients.map((recipient) => recipient.address);
++          break;
++        default:
++          values = [
++            message.subject,
++            message.body_preview,
++            message.body_content,
++            ...participants,
++            message.internet_message_id
++          ];
++      }
++      return values.some((text) => text.toLowerCase().includes(value));
++    })
+   );
+ }
++function parseMessageSearch(expression) {
++  let raw = expression.trim();
++  if (raw.startsWith('"')) {
++    try {
++      raw = JSON.parse(raw).trim();
++    } catch {
++      throw new InvalidMessageSearchError("The search expression must be enclosed in one quoted string.");
++    }
++  }
++  if (!raw.includes('"') && !/\bAND\b/.test(raw) && !/^(subject|body|participants|from|to|cc|bcc):/i.test(raw)) {
++    return [{ value: raw.toLowerCase() }];
++  }
++  const terms = [];
++  const token = /(?:([a-z]+):)?("(?:\\.|[^"\\])*"|[^\s"():]+)\s*/iy;
++  let offset = 0;
++  let needsTerm = true;
++  while (offset < raw.length) {
++    token.lastIndex = offset;
++    const match = token.exec(raw);
++    if (!match) throw new InvalidMessageSearchError("Unsupported mail search syntax.");
++    offset = token.lastIndex;
++    const field = match[1]?.toLowerCase();
++    const literal = match[2];
++    if (!field && literal === "AND") {
++      if (needsTerm) throw new InvalidMessageSearchError("AND requires a search term on each side.");
++      needsTerm = true;
++      continue;
++    }
++    if (!field && ["OR", "NOT"].includes(literal)) {
++      throw new InvalidMessageSearchError("Only AND combinations are supported by the mail search emulator.");
++    }
++    if (field && !["subject", "body", "participants", "from", "to", "cc", "bcc"].includes(field)) {
++      throw new InvalidMessageSearchError("Unsupported mail search property.");
++    }
++    let value = literal;
++    if (literal.startsWith('"')) {
++      try {
++        value = JSON.parse(literal);
++      } catch {
++        throw new InvalidMessageSearchError("Invalid quoted search literal.");
++      }
++    }
++    terms.push({ field, value: value.toLowerCase() });
++    needsTerm = false;
++  }
++  if (needsTerm || terms.length === 0) throw new InvalidMessageSearchError("A mail search term is required.");
++  return terms;
++}
+ function sortMessages(messages, orderByExpression) {
+   if (!orderByExpression) return messages;
+   const [field, direction] = orderByExpression.trim().split(/\s+/);
+@@ -890,6 +983,26 @@ function resolveMessage(ctx, userEmail, messageId) {
  function resolveFolder(ctx, userEmail, folderId) {
    return getFolderByIdOrWellKnownName(getMicrosoftStore(ctx.store), userEmail, folderId);
  }
@@ -83,7 +209,7 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
  function resolveCalendar(ctx, userEmail, calendarId) {
    const ms = getMicrosoftStore(ctx.store);
    if (calendarId === "primary") {
-@@ -919,6 +963,16 @@ function patchMessageFromBody(ctx, messageId, body) {
+@@ -919,6 +1032,16 @@ function patchMessageFromBody(ctx, messageId, body) {
      patch.categories = body.categories.filter((value) => typeof value === "string");
    }
    if (typeof body.isRead === "boolean") patch.is_read = body.isRead;
@@ -100,7 +226,26 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
    if (body.importance === "low" || body.importance === "normal" || body.importance === "high") {
      patch.importance = body.importance;
    }
-@@ -973,6 +1027,41 @@ function graphRoutes(ctx) {
+@@ -960,19 +1083,54 @@ function graphRoutes(ctx) {
+     if (authEmail instanceof Response) return authEmail;
+     const ms = getMicrosoftStore(ctx.store);
+     const { top, skip } = getTopAndSkip(c);
+-    const filtered = sortMessages(
+-      searchMessages(
+-        filterMessages(ms.messages.findBy("user_email", authEmail), c.req.query("$filter")),
+-        c.req.query("$search")
+-      ),
+-      c.req.query("$orderby")
++    const searched = searchGraphMessages(
++      c,
++      filterMessages(ms.messages.findBy("user_email", authEmail), c.req.query("$filter")),
++      c.req.query("$search")
+     );
++    if (searched instanceof Response) return searched;
++    const filtered = sortMessages(searched, c.req.query("$orderby"));
+     const { items, nextSkip } = paginateResults(filtered, top, skip);
+     return c.json({
+       value: items.map((message) => formatMessageResource(ms, message)),
        ...nextSkip != null ? { "@odata.nextLink": buildNextLink(c.req.url, nextSkip) } : {}
      });
    });
@@ -142,7 +287,32 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
    app.get("/v1.0/me/mailFolders/:folderId/messages", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -1214,6 +1303,22 @@ function graphRoutes(ctx) {
+@@ -980,16 +1138,16 @@ function graphRoutes(ctx) {
+     if (!folder) return microsoftGraphError(c, 404, "ErrorFolderNotFound", "Folder not found.");
+     const ms = getMicrosoftStore(ctx.store);
+     const { top, skip } = getTopAndSkip(c);
+-    const filtered = sortMessages(
+-      searchMessages(
+-        filterMessages(
+-          ms.messages.findBy("user_email", authEmail).filter((message) => message.parent_folder_id === folder.microsoft_id),
+-          c.req.query("$filter")
+-        ),
+-        c.req.query("$search")
++    const searched = searchGraphMessages(
++      c,
++      filterMessages(
++        ms.messages.findBy("user_email", authEmail).filter((message) => message.parent_folder_id === folder.microsoft_id),
++        c.req.query("$filter")
+       ),
+-      c.req.query("$orderby")
++      c.req.query("$search")
+     );
++    if (searched instanceof Response) return searched;
++    const filtered = sortMessages(searched, c.req.query("$orderby"));
+     const { items, nextSkip } = paginateResults(filtered, top, skip);
+     return c.json({
+       value: items.map((message) => formatMessageResource(ms, message)),
+@@ -1214,6 +1372,22 @@ function graphRoutes(ctx) {
        return microsoftGraphError(c, 404, "ErrorItemNotFound", "Destination folder not found.");
      }
    });
@@ -165,7 +335,7 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
    app.get("/v1.0/me/messages/:messageId/attachments/:attachmentId", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -1413,6 +1518,19 @@ function graphRoutes(ctx) {
+@@ -1413,6 +1587,19 @@ function graphRoutes(ctx) {
      if (!category) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Category not found.");
      return c.json(formatCategoryResource(category));
    });
@@ -185,7 +355,23 @@ index 8f3e6ed63256db303a769d8201df5c2bec28692b..c04ca2b26f7eb3e0d5fddbcf199a1c80
    app.delete("/v1.0/me/outlook/masterCategories/:categoryId", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -3009,6 +3127,8 @@ function seedFromConfig(store, baseUrl, config) {
+@@ -1998,6 +2185,15 @@ async function createDriveChild(ctx, c, authEmail, parentId) {
+   const parent = parentId ? ms.driveItems.findOneBy("microsoft_id", parentId) ?? null : null;
+   return c.json(formatDriveItemResource(created, parent), 201);
+ }
++function searchGraphMessages(c, ...args) {
++  try {
++    return searchMessages(...args);
++  } catch (error) {
++    if (error instanceof InvalidMessageSearchError)
++      return microsoftGraphError(c, 400, "ErrorInvalidSearchQuery", error.message);
++    throw error;
++  }
++}
+ function createErrorHandler(documentationUrl) {
+   return async (c, next) => {
+     if (documentationUrl) {
+@@ -3009,6 +3205,8 @@ function seedFromConfig(store, baseUrl, config) {
          received_date_time: message.received_date_time,
          is_draft: message.is_draft,
          is_read: message.is_read,

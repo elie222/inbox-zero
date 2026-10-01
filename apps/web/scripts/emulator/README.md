@@ -26,16 +26,6 @@ MICROSOFT_BASE_URL=http://127.0.0.1:<port>
 
 Point a client at `BASE_URL`.
 
-To verify changes to the Microsoft provider emulator before its next package release,
-build a local checkout of `inbox-zero/emulate` and use its CLI entry point:
-
-```sh
-MICROSOFT_EMULATE_CLI_PATH=/absolute/path/to/emulate/packages/emulate/dist/index.js pnpm -F inbox-zero-ai emulator:up
-```
-
-The override applies only to Microsoft; Google stays on the pinned `emulate`
-package. Without it both providers use the pinned package. Stop the existing stack before switching emulator versions.
-
 Stop it, including the database volume:
 
 ```sh
