@@ -4,10 +4,7 @@ import { capitalCase } from "capital-case";
 import he from "he";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
-import {
-  conditionTypesToString,
-  LEARNED_PATTERN_MATCH_REASON,
-} from "@/utils/condition";
+import { conditionTypesToString } from "@/utils/condition";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -273,10 +270,7 @@ export function getRuleResultReasonDisplay(reason: string): {
 
   for (const line of plainText.split(/\r?\n/)) {
     const trimmedLine = line.replace(/\s+/g, " ").trim();
-    const legacyReason = LEGACY_REASON_CODES.get(trimmedLine);
-    if (legacyReason !== undefined) {
-      reasonLines.push(legacyReason);
-    } else if (trimmedLine.startsWith("Action failures:")) {
+    if (trimmedLine.startsWith("Action failures:")) {
       actionFailureMessages.push(
         ...getActionFailureMessages(
           trimmedLine.slice("Action failures:".length),
@@ -292,12 +286,6 @@ export function getRuleResultReasonDisplay(reason: string): {
     actionFailureMessages,
   };
 }
-
-// Older results stored internal codes as the reason.
-const LEGACY_REASON_CODES = new Map([
-  ["ai-already-labeled", LEARNED_PATTERN_MATCH_REASON],
-  ["ai", ""],
-]);
 
 function stripHtmlTagsFromReason(reason: string) {
   let plainText = "";
@@ -425,7 +413,11 @@ const ACTION_FAILURE_MESSAGES: Partial<
 };
 
 function getActionFailureMessage(actionType: string, errorCode: string) {
-  const entry = ACTION_FAILURE_MESSAGES[actionType as ActionType];
+  const entry = Object.hasOwn(ACTION_FAILURE_MESSAGES, actionType)
+    ? ACTION_FAILURE_MESSAGES[actionType as ActionType]
+    : undefined;
   if (!entry) return "An action could not be completed.";
-  return entry.codes[errorCode] ?? entry.fallback;
+  return Object.hasOwn(entry.codes, errorCode)
+    ? entry.codes[errorCode]
+    : entry.fallback;
 }

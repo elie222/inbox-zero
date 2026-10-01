@@ -211,21 +211,6 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
-  it("shows readable copy for legacy reason codes", () => {
-    expect(
-      getRuleResultReasonDisplay(
-        "ai-already-labeled\nAction failures: NOTIFY_SENDER:SEND_FAILED",
-      ),
-    ).toEqual({
-      reason: "The sender matches a learned pattern for this rule.",
-      actionFailureMessages: ["The sender notification could not be sent."],
-    });
-    expect(getRuleResultReasonDisplay("ai").reason).toBe("");
-    expect(getRuleResultReasonDisplay("constructor").reason).toBe(
-      "constructor",
-    );
-  });
-
   it("passes plain text through unchanged", () => {
     expect(getRuleResultReasonDisplay("The email is a newsletter.")).toEqual({
       reason: "The email is a newsletter.",
@@ -277,6 +262,17 @@ describe("getRuleResultReasonDisplay", () => {
       reason: "Rule matched.",
       actionFailureMessages: ["The sender notification could not be sent."],
     });
+  });
+
+  it("falls back for action failure parts that match built-in object keys", () => {
+    expect(
+      getRuleResultReasonDisplay("Action failures: constructor:toString")
+        .actionFailureMessages,
+    ).toEqual(["An action could not be completed."]);
+    expect(
+      getRuleResultReasonDisplay("Action failures: NOTIFY_SENDER:toString")
+        .actionFailureMessages,
+    ).toEqual(["The sender notification could not be completed."]);
   });
 
   it("does not expose unknown internal action failure codes", () => {

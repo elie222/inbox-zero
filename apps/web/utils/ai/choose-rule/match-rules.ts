@@ -1,8 +1,4 @@
-import {
-  getConditionTypes,
-  isAIRule,
-  LEARNED_PATTERN_MATCH_REASON,
-} from "@/utils/condition";
+import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
   getGroupsWithRules,
@@ -267,7 +263,7 @@ function getColdEmailReasoning(result: {
 }) {
   if (result.aiReason) return result.aiReason;
   if (result.reason === "ai-already-labeled")
-    return LEARNED_PATTERN_MATCH_REASON;
+    return "The sender matches a learned pattern for this rule.";
   return "";
 }
 
