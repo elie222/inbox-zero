@@ -3,6 +3,7 @@ import type {
   MailPredicate,
 } from "@inboxzero/mail-core/queries";
 import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
+import { isTrueSearchValue } from "@/utils/tokenize-search-query";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export function threadsQueryToConversationQuery(input: {
@@ -156,9 +157,16 @@ function textQueryPredicates(query: string): MailPredicate[] {
       match: "address",
     });
   });
+  let hasAttachment = false;
   remaining = takeToken(remaining, "has:attachment", () => {
-    clauses.push({ kind: "has_attachment", value: true });
+    hasAttachment = true;
   });
+  // The Outlook search form emits hasattachments:true where the Gmail form
+  // emits has:attachment. See outlook-search-query.ts and mail-search-query.ts.
+  remaining = takePrefixedValue(remaining, "hasattachments:", (value) => {
+    if (isTrueSearchValue(value)) hasAttachment = true;
+  });
+  if (hasAttachment) clauses.push({ kind: "has_attachment", value: true });
   remaining = remaining.replaceAll(/\s+/g, " ").trim();
   if (remaining) {
     clauses.push({

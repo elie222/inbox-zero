@@ -171,4 +171,20 @@ describe("threadsQueryToPredicate", () => {
       ],
     });
   });
+
+  it("maps the Outlook attachment operator onto the attachment predicate", () => {
+    expect(threadsQueryToPredicate({ q: "hasattachments:true" })).toEqual({
+      kind: "has_attachment",
+      value: true,
+    });
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:yes" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: true },
+        { kind: "text", field: "any", value: "invoice", match: "term" },
+      ],
+    });
+  });
 });

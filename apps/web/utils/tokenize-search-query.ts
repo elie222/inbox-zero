@@ -45,3 +45,8 @@ export function unquoteSearchValue(value: string): string {
   }
   return value;
 }
+
+/** Boolean operators like hasattachments: are written true by our search forms, but hand-typed queries also use yes. */
+export function isTrueSearchValue(value: string): boolean {
+  return /^(true|yes)$/i.test(value);
+}

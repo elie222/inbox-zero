@@ -54,6 +54,19 @@ describe("parsedMessageMetadata", () => {
     expect(metadata.inboxSection).toBe("focused");
   });
 
+  it("prefers the provider attachment flag over an unfetched attachment list", () => {
+    const metadata = parsedMessageMetadata({
+      id: "m2a",
+      threadId: "t2a",
+      historyId: "1",
+      date: "2026-01-01T00:00:00.000Z",
+      hasAttachment: true,
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      inline: [],
+    } as ParsedMessage);
+    expect(metadata.hasAttachments).toBe(true);
+  });
+
   it("does not keep the inbox role on archived mail", () => {
     const metadata = parsedMessageMetadata({
       id: "m3",
