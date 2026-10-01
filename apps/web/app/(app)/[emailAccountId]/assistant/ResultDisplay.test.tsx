@@ -221,6 +221,9 @@ describe("getRuleResultReasonDisplay", () => {
       actionFailureMessages: ["The sender notification could not be sent."],
     });
     expect(getRuleResultReasonDisplay("ai").reason).toBe("");
+    expect(getRuleResultReasonDisplay("constructor").reason).toBe(
+      "constructor",
+    );
   });
 
   it("passes plain text through unchanged", () => {

@@ -273,7 +273,7 @@ export function getRuleResultReasonDisplay(reason: string): {
 
   for (const line of plainText.split(/\r?\n/)) {
     const trimmedLine = line.replace(/\s+/g, " ").trim();
-    const legacyReason = LEGACY_REASON_CODES[trimmedLine];
+    const legacyReason = LEGACY_REASON_CODES.get(trimmedLine);
     if (legacyReason !== undefined) {
       reasonLines.push(legacyReason);
     } else if (trimmedLine.startsWith("Action failures:")) {
@@ -294,10 +294,10 @@ export function getRuleResultReasonDisplay(reason: string): {
 }
 
 // Older results stored internal codes as the reason.
-const LEGACY_REASON_CODES: Record<string, string> = {
-  "ai-already-labeled": LEARNED_PATTERN_MATCH_REASON,
-  ai: "",
-};
+const LEGACY_REASON_CODES = new Map([
+  ["ai-already-labeled", LEARNED_PATTERN_MATCH_REASON],
+  ["ai", ""],
+]);
 
 function stripHtmlTagsFromReason(reason: string) {
   let plainText = "";
