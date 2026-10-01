@@ -505,6 +505,44 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(75);
   });
 
+  it("stops paging through a large completed backlog", async () => {
+    let page = 0;
+    const provider = createMockProvider({
+      getThreadsWithQuery: vi.fn().mockImplementation(async () => {
+        page++;
+        return {
+          threads: Array.from({ length: 50 }, (_, index) => ({
+            id: `completed-${page}-${index}`,
+            messages: [],
+            snippet: "",
+          })),
+          nextPageToken: page < 10 ? `page-${page + 1}` : undefined,
+        };
+      }),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockImplementation(async (id) => mockAwaitingMessage(id, OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation((async ({
+      where,
+    }: {
+      where: { threadId: { in: string[] } };
+    }) =>
+      where.threadId.in.map((threadId) => ({
+        threadId,
+        messageId: threadId,
+      }))) as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(5);
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
   it("stops when the provider repeats a page token without new candidates", async () => {
     const provider = createMockProvider({
       getThreadsWithQuery: vi
