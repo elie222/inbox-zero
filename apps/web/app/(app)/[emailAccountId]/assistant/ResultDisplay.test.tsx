@@ -211,10 +211,16 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
-  it("shows readable copy for the legacy learned pattern code", () => {
-    expect(getRuleResultReasonDisplay("ai-already-labeled").reason).toBe(
-      "The sender matches a learned pattern for this rule.",
-    );
+  it("shows readable copy for legacy reason codes", () => {
+    expect(
+      getRuleResultReasonDisplay(
+        "ai-already-labeled\nAction failures: NOTIFY_SENDER:SEND_FAILED",
+      ),
+    ).toEqual({
+      reason: "The sender matches a learned pattern for this rule.",
+      actionFailureMessages: ["The sender notification could not be sent."],
+    });
+    expect(getRuleResultReasonDisplay("ai").reason).toBe("");
   });
 
   it("passes plain text through unchanged", () => {
