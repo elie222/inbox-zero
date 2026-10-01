@@ -2158,8 +2158,8 @@ function gmailMailboxQuery(search: ProviderMailboxSearch): string {
   if (search.text) {
     const terms =
       search.text.match === "phrase"
-        ? [search.text.value]
-        : search.text.value.trim().split(/\s+/);
+        ? [search.text.value.trim()].filter(Boolean)
+        : search.text.value.trim().split(/\s+/).filter(Boolean);
     for (const term of terms) {
       const literal = `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
       parts.push(

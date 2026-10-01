@@ -1099,11 +1099,192 @@ function searchMessage(id: string, labelIds: string[] = []) {
     subject: "invoice",
     snippet: "invoice",
     labelIds,
-    internalDate: "2026-01-01T00:00:00.000Z",
+    internalDate: "1767225600000",
   };
 }
 
 describe("structured mailbox search", () => {
+  it.each([
+    "google",
+    "microsoft",
+  ])("rechecks %s text candidates using a single canonical field", async (name) => {
+    const messages = [
+      {
+        ...searchMessage("split-fields"),
+        subject: "alpha",
+        snippet: "beta",
+        textPlain: "",
+      },
+      {
+        ...searchMessage("subject-match"),
+        subject: "alpha beta",
+        snippet: "",
+        textPlain: "",
+      },
+      {
+        ...searchMessage("body-match"),
+        subject: "Elsewhere",
+        snippet: "",
+        textPlain: "alpha beta",
+      },
+      {
+        ...searchMessage("html-match"),
+        subject: "Elsewhere",
+        snippet: "",
+        textHtml: "<p>alpha <strong>beta</strong></p>",
+      },
+    ];
+    const getMessage = vi.fn();
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name,
+        searchMessages: async () => ({ messages }),
+        getMessage,
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "a", generation: "1" },
+        requestId: "search",
+        signal: new AbortController().signal,
+        page: null,
+        pageSize: 20,
+        predicate: {
+          kind: "text",
+          field: "any",
+          value: "alpha beta",
+          match: "term",
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: {
+        matches: [
+          { messageId: "subject-match" },
+          { messageId: "body-match" },
+          { messageId: "html-match" },
+        ],
+      },
+    });
+    expect(getMessage).not.toHaveBeenCalled();
+  });
+
+  it("rejects metadata exclusions before loading omitted candidate bodies", async () => {
+    const getMessage = vi.fn();
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name: "microsoft",
+        getMessage,
+        searchMessages: async () => ({
+          messages: [
+            { ...searchMessage("already-read"), subject: "", snippet: "" },
+            {
+              ...searchMessage("spam", ["SPAM", "UNREAD"]),
+              subject: "",
+              snippet: "",
+            },
+            {
+              ...searchMessage("sent", ["SENT", "UNREAD"]),
+              subject: "",
+              snippet: "",
+            },
+          ],
+        }),
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "a", generation: "1" },
+        requestId: "search",
+        signal: new AbortController().signal,
+        page: null,
+        pageSize: 20,
+        predicate: {
+          kind: "all",
+          predicates: [
+            { kind: "text", field: "any", value: "alpha beta", match: "term" },
+            { kind: "read", value: false },
+            { kind: "not", predicate: { kind: "role", role: "sent" } },
+          ],
+        },
+      }),
+    ).resolves.toMatchObject({ status: "ok", value: { matches: [] } });
+    expect(getMessage).not.toHaveBeenCalled();
+  });
+
+  it("loads a missing body projection before rejecting an any-field match and keeps pagination", async () => {
+    const getMessage = vi.fn(async () => ({
+      ...searchMessage("body-hit"),
+      textPlain: "alpha beta",
+    }));
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name: "microsoft",
+        getMessage,
+        searchMessages: async () => ({
+          messages: [
+            { ...searchMessage("body-hit"), subject: "alpha", snippet: "beta" },
+          ],
+          nextPageToken: "next",
+        }),
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "a", generation: "1" },
+        requestId: "search",
+        signal: new AbortController().signal,
+        page: null,
+        pageSize: 20,
+        predicate: {
+          kind: "text",
+          field: "any",
+          value: "alpha beta",
+          match: "term",
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [{ messageId: "body-hit" }], nextPage: "next" },
+    });
+    expect(getMessage).toHaveBeenCalledWith("body-hit");
+  });
+
+  it("does not hide a missing body when provider hydration fails", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name: "microsoft",
+        getMessage: vi
+          .fn()
+          .mockRejectedValue(new Error("body download failed")),
+        searchMessages: async () => ({
+          messages: [
+            { ...searchMessage("body-hit"), subject: "alpha", snippet: "beta" },
+          ],
+        }),
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search({
+        session: { accountId: "a", generation: "1" },
+        requestId: "search",
+        signal: new AbortController().signal,
+        page: null,
+        pageSize: 20,
+        predicate: {
+          kind: "text",
+          field: "any",
+          value: "alpha beta",
+          match: "term",
+        },
+      }),
+    ).rejects.toThrow("body download failed");
+  });
+
   it("filters all chips on the same message and preserves an empty-page continuation", async () => {
     const searchMessages = vi.fn(
       async ({ pageToken }: { pageToken?: string }) => ({

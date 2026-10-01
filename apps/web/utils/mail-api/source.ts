@@ -19,6 +19,8 @@ import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-erro
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
 import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
+import { mapWithConcurrency } from "@/utils/async";
+import { convertEmailHtmlToText } from "@/utils/mail";
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -307,18 +309,30 @@ export function createEmailProviderMailboxSource(input: {
         maxResults: Math.min(pageSize, maxPageSize),
         pageToken: page ?? undefined,
       });
-      const matches = result.messages.filter((message) =>
-        messageMatchesPredicate(
-          {
-            ...parsedMessageMetadata(message),
-            accountId,
-            messageId: message.id,
-            conversationId: message.threadId,
-            pendingOperationIds: [],
-          },
-          compiled.filter,
-        ),
+      const candidates = await mapWithConcurrency(
+        result.messages,
+        5,
+        async (message) => {
+          const fields = searchMessageFields(accountId, message);
+          if (!messageMatchesPredicate(fields, compiled.filter)) return null;
+          const text = compiled.search.text;
+          if (!text || messageMatchesPredicate(fields, text)) return message;
+          if (
+            text.field !== "any" ||
+            message.textPlain != null ||
+            message.textHtml != null
+          )
+            return null;
+          // List projections can omit the body that made the provider return this candidate.
+          const fullMessage = await provider.getMessage(message.id);
+          const fullFields = searchMessageFields(accountId, fullMessage);
+          return messageMatchesPredicate(fullFields, compiled.filter) &&
+            messageMatchesPredicate(fullFields, text)
+            ? fullMessage
+            : null;
+        },
       );
+      const matches = candidates.filter((message) => message !== null);
       return {
         status: "ok",
         value: {
@@ -570,4 +584,19 @@ async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+function searchMessageFields(accountId: string, message: ParsedMessage) {
+  return {
+    ...parsedMessageMetadata(message),
+    accountId,
+    messageId: message.id,
+    conversationId: message.threadId,
+    pendingOperationIds: [],
+    bodyText:
+      message.textPlain ||
+      (message.textHtml
+        ? convertEmailHtmlToText({ htmlText: message.textHtml })
+        : message.textPlain),
+  };
 }

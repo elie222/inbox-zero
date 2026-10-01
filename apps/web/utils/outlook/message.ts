@@ -653,7 +653,11 @@ export async function queryBatchMessages(
       metadataFilters: metadataSearch.odataFilters,
     });
 
-    request = request.search(effectiveSearchQuery!);
+    request = request.search(
+      options.mailboxSearch
+        ? encodeURIComponent(effectiveSearchQuery!)
+        : effectiveSearchQuery!,
+    );
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
@@ -1253,8 +1257,9 @@ function outlookMailboxText(search: ProviderMailboxSearch): string {
   const terms =
     search.text.match === "phrase"
       ? [search.text.value]
-      : search.text.value.trim().split(/\s+/);
-  return terms
+      : search.text.value.trim().split(/\s+/).filter(Boolean);
+  if (!terms.some((term) => term.trim())) return "";
+  const expression = terms
     .map((term) => {
       const literal = `"${escapeSearchValue(term)}"`;
       return search.text?.field === "any"
@@ -1262,4 +1267,5 @@ function outlookMailboxText(search: ProviderMailboxSearch): string {
         : `${search.text?.field}:${literal}`;
     })
     .join(" AND ");
+  return JSON.stringify(expression);
 }

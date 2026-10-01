@@ -64,6 +64,7 @@ async function up({ foreground }) {
   assertLocalTargets(env);
   const composeProject = `emulator${id}`;
   const pids = [];
+  const microsoftCLI = process.env.MICROSOFT_EMULATE_CLI_PATH;
   const state = {
     baseUrl,
     googleBaseUrl,
@@ -117,10 +118,11 @@ async function up({ foreground }) {
         path.join(runDir, "google.log"),
       ),
       spawnLogged(
-        "pnpm",
+        microsoftCLI ? process.execPath : "pnpm",
         [
-          "exec",
-          "emulate",
+          ...(microsoftCLI
+            ? [path.resolve(microsoftCLI)]
+            : ["exec", "emulate"]),
           "start",
           "--service",
           "microsoft",
