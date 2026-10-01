@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import { isSameCalendarInvitation } from "@/utils/calendar/invitations/content";
 import { escapeSearchValue } from "@/utils/outlook/search-escape";
@@ -426,6 +427,8 @@ function splitOutlookQueryTerms(query: string) {
 
 type OutlookMetadataFilters = {
   isRead?: boolean;
+  starred?: boolean;
+  hasAttachment?: boolean;
   categoryNames: string[];
 };
 
@@ -433,6 +436,8 @@ function createOutlookMetadataFilters(options: {
   searchQuery?: string;
   readState?: "read" | "unread";
   categoryNames?: string[];
+  starred?: boolean;
+  hasAttachment?: boolean;
 }): {
   filters: OutlookMetadataFilters;
   odataFilters: string[];
@@ -443,7 +448,9 @@ function createOutlookMetadataFilters(options: {
   const queryReadState =
     hasRead === hasUnread ? undefined : hasRead ? "read" : "unread";
   const readState = options.readState ?? queryReadState;
-  const filters = {
+  const filters: OutlookMetadataFilters = {
+    starred: options.starred,
+    hasAttachment: options.hasAttachment,
     isRead:
       readState === "read" ? true : readState === "unread" ? false : undefined,
     categoryNames: [...new Set(options.categoryNames ?? [])],
@@ -465,6 +472,17 @@ function matchesOutlookMetadataFilters(
   ) {
     return false;
   }
+
+  if (
+    filters.starred !== undefined &&
+    (message.flag?.flagStatus === "flagged") !== filters.starred
+  )
+    return false;
+  if (
+    filters.hasAttachment !== undefined &&
+    Boolean(message.hasAttachments) !== filters.hasAttachment
+  )
+    return false;
 
   if (filters.categoryNames.length) {
     const messageCategories = new Set(message.categories ?? []);
@@ -490,6 +508,13 @@ function createOutlookMetadataODataFilters(filters: OutlookMetadataFilters) {
     odataFilters.push(`isRead eq ${filters.isRead}`);
   }
 
+  if (filters.starred !== undefined)
+    odataFilters.push(
+      `flag/flagStatus ${filters.starred ? "eq" : "ne"} 'flagged'`,
+    );
+  if (filters.hasAttachment !== undefined)
+    odataFilters.push(`hasAttachments eq ${filters.hasAttachment}`);
+
   for (const categoryName of filters.categoryNames) {
     odataFilters.push(
       `categories/any(category: category eq '${escapeODataString(categoryName)}')`,
@@ -511,6 +536,7 @@ export async function queryBatchMessages(
     readState?: "read" | "unread";
     categoryNames?: string[];
     includeDrafts?: boolean;
+    mailboxSearch?: ProviderMailboxSearch;
   },
   logger: Logger,
 ) {
@@ -543,10 +569,18 @@ export async function queryBatchMessages(
   // Messages carry the folder's opaque id, so a well-known name like "inbox" must be resolved before comparing.
   const expectedParentFolderId = resolveFolderId(folderId, folderIds);
 
+  let readState = options.readState;
+  if (options.mailboxSearch?.read !== undefined) {
+    readState = options.mailboxSearch.read ? "read" : "unread";
+  }
   const metadataSearch = createOutlookMetadataFilters({
-    searchQuery,
-    readState: options.readState,
+    searchQuery: options.mailboxSearch ? undefined : searchQuery,
+    readState,
     categoryNames: options.categoryNames,
+    starred:
+      options.mailboxSearch?.starred ??
+      (options.mailboxSearch?.mailbox === "starred" ? true : undefined),
+    hasAttachment: options.mailboxSearch?.hasAttachment,
   });
 
   const nextLink = resolveMicrosoftGraphNextLink(pageToken);
@@ -576,11 +610,12 @@ export async function queryBatchMessages(
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
-  const rawSearchQuery = stripStandaloneOutlookStateTerms(
-    searchQuery?.trim() || "",
-  ).trim();
-  const { sanitized: cleanedSearchQuery, wasSanitized } =
-    sanitizeOutlookSearchQuery(rawSearchQuery);
+  const rawSearchQuery = options.mailboxSearch
+    ? outlookMailboxText(options.mailboxSearch)
+    : stripStandaloneOutlookStateTerms(searchQuery?.trim() || "").trim();
+  const { sanitized: cleanedSearchQuery, wasSanitized } = options.mailboxSearch
+    ? { sanitized: rawSearchQuery, wasSanitized: false }
+    : sanitizeOutlookSearchQuery(rawSearchQuery);
   const effectiveSearchQuery = cleanedSearchQuery || undefined;
 
   logger.info("Building Outlook request", {
@@ -618,7 +653,11 @@ export async function queryBatchMessages(
       metadataFilters: metadataSearch.odataFilters,
     });
 
-    request = request.search(effectiveSearchQuery!);
+    request = request.search(
+      options.mailboxSearch
+        ? encodeURIComponent(effectiveSearchQuery!)
+        : effectiveSearchQuery!,
+    );
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
@@ -1211,4 +1250,22 @@ function resolveFolderId(
 ): string | undefined {
   if (!folderId) return;
   return folderIds[folderId.toLowerCase()] ?? folderId;
+}
+
+function outlookMailboxText(search: ProviderMailboxSearch): string {
+  if (!search.text) return "";
+  const terms =
+    search.text.match === "phrase"
+      ? [search.text.value]
+      : search.text.value.trim().split(/\s+/).filter(Boolean);
+  if (!terms.some((term) => term.trim())) return "";
+  const expression = terms
+    .map((term) => {
+      const literal = `"${escapeSearchValue(term)}"`;
+      return search.text?.field === "any"
+        ? literal
+        : `${search.text?.field}:${literal}`;
+    })
+    .join(" AND ");
+  return JSON.stringify(expression);
 }

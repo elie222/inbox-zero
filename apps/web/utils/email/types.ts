@@ -1,3 +1,4 @@
+import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import type { ParsedMessage } from "@/utils/types";
@@ -112,6 +113,23 @@ export type GetThreadOptions = {
   complete?: boolean;
   signal?: AbortSignal;
   includeDrafts?: boolean;
+};
+
+export type ProviderMailboxSearch = {
+  text?: Extract<MailPredicate, { kind: "text" }>;
+  mailbox:
+    | "all"
+    | "inbox"
+    | "sent"
+    | "drafts"
+    | "spam"
+    | "trash"
+    | "archive"
+    | "starred";
+  read?: boolean;
+  starred?: boolean;
+  hasAttachment?: boolean;
+  excludedRoles?: Array<Extract<MailPredicate, { kind: "role" }>["role"]>;
 };
 
 export interface EmailProvider {
@@ -361,6 +379,7 @@ export interface EmailProvider {
     /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
+    mailboxSearch?: ProviderMailboxSearch;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;

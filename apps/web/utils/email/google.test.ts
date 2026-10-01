@@ -57,6 +57,51 @@ vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
 }));
 
+describe("GmailProvider.searchMessages structured search", () => {
+  it.each([
+    "term",
+    "phrase",
+  ] as const)("does not turn whitespace-only %s text into an empty Gmail literal", async (match) => {
+    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    const provider = new GmailProvider(createGmailClient({ list }));
+    await provider.searchMessages({
+      query: "",
+      mailboxSearch: {
+        mailbox: "all",
+        text: { kind: "text", field: "subject", value: " \t ", match },
+        read: false,
+      },
+    });
+    expect(list.mock.calls[0]?.[0]).toMatchObject({ q: "is:unread" });
+  });
+
+  it("compiles typed chips and treats provider-looking text literally", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValue({ data: { messages: [], nextPageToken: "next" } });
+    const provider = new GmailProvider(createGmailClient({ list }));
+    const result = await provider.searchMessages({
+      query: "",
+      mailboxSearch: {
+        mailbox: "sent",
+        text: {
+          kind: "text",
+          field: "any",
+          value: "in:trash invoice",
+          match: "term",
+        },
+        read: false,
+        starred: true,
+        hasAttachment: true,
+      },
+    });
+    expect(list.mock.calls[0]?.[0]).toMatchObject({
+      q: '"in:trash" "invoice" in:sent is:unread is:starred has:attachment',
+    });
+    expect(result.nextPageToken).toBe("next");
+  });
+});
+
 describe("GmailProvider.sendEmail", () => {
   it("returns the provider message ID", async () => {
     gmailMailMock.sendEmailWithPlainText.mockResolvedValueOnce({
