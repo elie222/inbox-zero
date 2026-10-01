@@ -5,7 +5,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { betterAuthConfig } from "@/utils/auth";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
@@ -37,9 +36,6 @@ vi.mock("next/headers", () => ({
 vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 vi.mock("@/utils/cookies.server", () => ({
   clearLastEmailAccountCookie: vi.fn(() => Promise.resolve()),
-}));
-vi.mock("@/utils/mail-api/upload-blobs", () => ({
-  deleteAccountUploadDirectory: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@inboxzero/tinybird", () => ({
   deleteTinybirdEmailData: vi.fn(() => Promise.resolve()),
@@ -93,7 +89,6 @@ describe("deleteEmailAccountAction", () => {
     });
     expect(result?.serverError).toBeDefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("promotes another account before deleting the primary account", async () => {
@@ -148,12 +143,6 @@ describe("deleteEmailAccountAction", () => {
     expect(prisma.account.delete).toHaveBeenCalledWith({
       where: { id: "account-1", userId: "user-1" },
     });
-    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
-      "primary-email-account",
-    );
-    expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],
-    );
     expect(aliasPosthogUser).toHaveBeenCalledWith({
       oldEmail: "primary@example.com",
       newEmail: "alternate@example.com",
@@ -179,7 +168,6 @@ describe("deleteEmailAccountAction", () => {
     expect(result?.serverError).toBe("Email account already changed");
     expect(aliasPosthogUser).not.toHaveBeenCalled();
     expect(updateAccountSeats).not.toHaveBeenCalled();
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("does not delete a promoted account with a stale non-primary request", async () => {
@@ -204,10 +192,9 @@ describe("deleteEmailAccountAction", () => {
       },
     });
     expect(updateAccountSeats).not.toHaveBeenCalled();
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
-  it("deletes staged mail uploads after a successful non-primary account delete", async () => {
+  it("deletes a non-primary email account", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
@@ -219,12 +206,6 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
-      "secondary-account",
-    );
-    expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],
-    );
     expect(deleteTinybirdEmailData).toHaveBeenCalledWith([
       "secondary@example.com",
     ]);
@@ -323,30 +304,6 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
-      "secondary-account",
-    );
-    expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
-  });
-
-  it("still deletes the account when staged mail uploads cannot be removed", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      email: "secondary@example.com",
-      accountId: "account-2",
-      user: { email: "primary@example.com" },
-    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
-    vi.mocked(deleteAccountUploadDirectory).mockRejectedValueOnce(
-      new Error("ENOSPC"),
-    );
-
-    const result = await deleteEmailAccountAction({
-      emailAccountId: "secondary-account",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
-      "secondary-account",
-    );
     expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
   });
 

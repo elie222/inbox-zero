@@ -56,16 +56,6 @@ export const PUT = withEmailProvider(
           { status: 404 },
         );
       }
-      if (result.status === "unavailable") {
-        return NextResponse.json(
-          mailHttpErrorResponse({
-            requestId,
-            code: "unavailable",
-            retryable: true,
-          }),
-          { status: 503 },
-        );
-      }
       if (result.status === "rejected") {
         const tooLarge = result.code === "too_large";
         return NextResponse.json(

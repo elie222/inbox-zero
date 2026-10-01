@@ -1,33 +1,15 @@
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import { rm } from "node:fs/promises";
-import { env } from "@/env";
+import { createHash } from "node:crypto";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import {
-  createFileBlobStore,
-  deleteUnheldBlob,
-  hasFinalizedBlob,
-  holdBlob,
-  readBlobMetadata,
-  releaseBlobHold,
-  writeBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
+  collectBlobBytes,
+  isAdmissibleBlobSize,
+} from "@inboxzero/mail-core/ports/blob-store";
+import type { Attachment } from "@/utils/types/mail";
+import prisma from "@/utils/prisma";
 
-export function mailUploadRoot() {
-  return resolve(
-    env.MAIL_UPLOAD_DIR ?? join(tmpdir(), "inbox-zero-mail-uploads"),
-  );
-}
-
-export function accountMailUploadDirectory(accountId: string) {
-  return join(mailUploadRoot(), accountId);
-}
-
-export async function deleteAccountUploadDirectory(accountId: string) {
-  const directory = resolvedAccountUploadDirectory(accountId);
-  if (!directory) return;
-  await rm(directory, { recursive: true, force: true });
-}
+// A send holds its uploads only while it is in flight; anything older is a
+// hold the browser never released, not an upload the mailbox still needs.
+const HOLD_TTL_MS = 60 * 60 * 1000;
 
 export async function admitAccountUpload(
   accountId: string,
@@ -41,11 +23,23 @@ export async function admitAccountUpload(
 ) {
   const parsed = blobIdSchema.safeParse(input.uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  await writeBlobMetadata(accountMailUploadDirectory(accountId), parsed.data, {
+  if (!isAdmissibleBlobSize(input.sizeBytes)) {
+    return { status: "invalid" as const };
+  }
+  const metadata = {
     filename: input.filename,
     contentType: input.contentType,
     checksum: input.checksum,
     sizeBytes: input.sizeBytes,
+  };
+  await prisma.mailUpload.upsert({
+    where: {
+      emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
+    },
+    create: { emailAccountId: accountId, blobId: parsed.data, ...metadata },
+    // Re-admitting the same id restarts the upload, so any half-finished
+    // content and its hold are discarded.
+    update: { ...metadata, content: null, heldAt: null },
   });
   return { status: "admitted" as const, blobId: parsed.data };
 }
@@ -57,36 +51,36 @@ export async function putAccountUploadContent(
 ) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  const directory = accountMailUploadDirectory(accountId);
-  const metadata = await readBlobMetadata(directory, parsed.data);
-  if (!metadata?.checksum || metadata.sizeBytes == null) {
-    return { status: "missing" as const };
+  const admitted = await prisma.mailUpload.findUnique({
+    where: {
+      emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
+    },
+    select: { checksum: true, sizeBytes: true },
+  });
+  if (!admitted) return { status: "missing" as const };
+  const collected = await collectBlobBytes(bytes, admitted.sizeBytes);
+  if (collected.status === "too_large") {
+    return { status: "rejected" as const, code: "too_large" as const };
   }
-  const store = createFileBlobStore(directory);
-  try {
-    const staged = await store.stage({
-      blobId: parsed.data,
-      bytes,
-      checksum: metadata.checksum,
-      sizeBytes: metadata.sizeBytes,
-    });
-    if (staged.status !== "staged") {
-      return { status: "rejected" as const, code: staged.code };
-    }
-    const finalized = await store.finalize(parsed.data);
-    if (!finalized) return { status: "unavailable" as const };
-    return {
-      status: "staged" as const,
-      blobId: finalized.blobId,
-      sizeBytes: finalized.sizeBytes,
-      checksum: finalized.checksum,
-    };
-  } catch (error) {
-    if (isDiskFullError(error)) {
-      return { status: "rejected" as const, code: "too_large" as const };
-    }
-    throw error;
+  if (
+    collected.bytes.byteLength !== admitted.sizeBytes ||
+    createHash("sha256").update(collected.bytes).digest("hex") !==
+      admitted.checksum
+  ) {
+    return { status: "rejected" as const, code: "checksum_mismatch" as const };
   }
+  const updated = await prisma.mailUpload.updateMany({
+    where: { emailAccountId: accountId, blobId: parsed.data },
+    data: { content: collected.bytes },
+  });
+  // The upload was cancelled while its content was still streaming in.
+  if (updated.count === 0) return { status: "missing" as const };
+  return {
+    status: "staged" as const,
+    blobId: parsed.data,
+    sizeBytes: collected.bytes.byteLength,
+    checksum: admitted.checksum,
+  };
 }
 
 export async function inspectAccountUpload(
@@ -95,24 +89,38 @@ export async function inspectAccountUpload(
 ) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  if (
-    !(await hasFinalizedBlob(
-      accountMailUploadDirectory(accountId),
-      parsed.data,
-    ))
-  ) {
-    return { status: "missing" as const };
-  }
+  const staged = await prisma.mailUpload.findFirst({
+    where: {
+      emailAccountId: accountId,
+      blobId: parsed.data,
+      content: { not: null },
+    },
+    select: { id: true },
+  });
+  if (!staged) return { status: "missing" as const };
   return { status: "ready" as const, blobId: parsed.data };
 }
 
 export async function cancelAccountUpload(accountId: string, uploadId: string) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  const directory = accountMailUploadDirectory(accountId);
-  if ((await deleteUnheldBlob(directory, parsed.data)) === "in_use") {
-    return { status: "in_use" as const, blobId: parsed.data };
+  const deleted = await prisma.mailUpload.deleteMany({
+    where: {
+      emailAccountId: accountId,
+      blobId: parsed.data,
+      OR: [{ heldAt: null }, { heldAt: { lt: expiredHoldBefore() } }],
+    },
+  });
+  if (deleted.count > 0) {
+    return { status: "deleted" as const, blobId: parsed.data };
   }
+  const held = await prisma.mailUpload.findUnique({
+    where: {
+      emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
+    },
+    select: { id: true },
+  });
+  if (held) return { status: "in_use" as const, blobId: parsed.data };
   return { status: "deleted" as const, blobId: parsed.data };
 }
 
@@ -123,48 +131,94 @@ export async function setAccountUploadHold(
 ) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  const directory = accountMailUploadDirectory(accountId);
   if (!held) {
-    await releaseBlobHold(directory, parsed.data);
+    await releaseAccountUploadHolds(accountId, [parsed.data]);
     return { status: "released" as const, blobId: parsed.data };
   }
-  const result = await holdBlob(directory, parsed.data);
-  if (result === "missing") return { status: "missing" as const };
+  const heldCount = await holdAccountUploads(accountId, [parsed.data]);
+  if (heldCount === 0) return { status: "missing" as const };
   return { status: "held" as const, blobId: parsed.data };
 }
 
 export async function holdAccountUploads(accountId: string, blobIds: string[]) {
-  const directory = accountMailUploadDirectory(accountId);
-  for (const blobId of blobIds) {
-    const parsed = blobIdSchema.safeParse(blobId);
-    if (!parsed.success) continue;
-    await holdBlob(directory, parsed.data);
-  }
+  if (blobIds.length === 0) return 0;
+  const held = await prisma.mailUpload.updateMany({
+    where: {
+      emailAccountId: accountId,
+      blobId: { in: blobIds },
+      content: { not: null },
+    },
+    data: { heldAt: new Date() },
+  });
+  return held.count;
 }
 
 export async function releaseAccountUploadHolds(
   accountId: string,
   blobIds: string[],
 ) {
-  const directory = accountMailUploadDirectory(accountId);
+  if (blobIds.length === 0) return;
+  await prisma.mailUpload.updateMany({
+    where: { emailAccountId: accountId, blobId: { in: blobIds } },
+    data: { heldAt: null },
+  });
+}
+
+export async function readAccountUploads(accountId: string, blobIds: string[]) {
+  if (blobIds.length === 0) {
+    return { status: "ok" as const, uploads: [] as Attachment[] };
+  }
+  const rows = await prisma.mailUpload.findMany({
+    where: {
+      emailAccountId: accountId,
+      blobId: { in: blobIds },
+      content: { not: null },
+    },
+    select: {
+      blobId: true,
+      filename: true,
+      contentType: true,
+      content: true,
+    },
+  });
+  const byBlobId = new Map(rows.map((row) => [row.blobId, row]));
+  const uploads: Attachment[] = [];
   for (const blobId of blobIds) {
-    const parsed = blobIdSchema.safeParse(blobId);
-    if (!parsed.success) continue;
-    await releaseBlobHold(directory, parsed.data);
+    const row = byBlobId.get(blobId);
+    if (!row?.content) return { status: "missing" as const, blobId };
+    // Buffer.from(Uint8Array) copies the whole attachment; a view does not.
+    const content = Buffer.from(
+      row.content.buffer,
+      row.content.byteOffset,
+      row.content.byteLength,
+    );
+    uploads.push({
+      filename: row.filename,
+      contentType: row.contentType,
+      content: content.toString("base64"),
+      size: content.byteLength,
+    });
   }
+  return { status: "ok" as const, uploads };
 }
 
-function isDiskFullError(error: unknown) {
-  if (!error || typeof error !== "object" || !("code" in error)) return false;
-  return error.code === "ENOSPC" || error.code === "EDQUOT";
+export async function deleteAccountUploads(
+  accountId: string,
+  blobIds: string[],
+) {
+  if (blobIds.length === 0) return;
+  await prisma.mailUpload.deleteMany({
+    where: { emailAccountId: accountId, blobId: { in: blobIds } },
+  });
 }
 
-function resolvedAccountUploadDirectory(accountId: string) {
-  if (!accountId) return null;
-  const root = mailUploadRoot();
-  const directory = resolve(accountMailUploadDirectory(accountId));
-  if (directory === root || !directory.startsWith(`${root}${sep}`)) {
-    return null;
-  }
-  return directory;
+export async function deleteStaleMailUploads(olderThan: Date) {
+  const result = await prisma.mailUpload.deleteMany({
+    where: { updatedAt: { lt: olderThan } },
+  });
+  return result.count;
+}
+
+function expiredHoldBefore() {
+  return new Date(Date.now() - HOLD_TTL_MS);
 }

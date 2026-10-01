@@ -7,6 +7,7 @@ import {
   messageIdSchema,
   messageKeySchema,
 } from "../identities";
+import { MAX_BLOB_BYTES } from "../ports/blob-store";
 import { mailPredicateSchema } from "../queries";
 import {
   bodyObservationSchema,
@@ -340,7 +341,7 @@ export const uploadAdmitRequestSchema = z.object({
   requestId: z.string().min(1).max(128),
   session: accountSessionSchema,
   uploadId: blobIdSchema,
-  sizeBytes: z.number().int().nonnegative().max(25_000_000),
+  sizeBytes: z.number().int().nonnegative().max(MAX_BLOB_BYTES),
   checksum: z.string().min(1).max(128),
   contentType: z.string().max(256),
   filename: z.string().max(1024).optional(),

@@ -37,12 +37,9 @@ import {
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import {
-  createFileBlobStore,
-  readBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
+  deleteAccountUploads,
   holdAccountUploads,
+  readAccountUploads,
   releaseAccountUploadHolds,
 } from "@/utils/mail-api/upload-blobs";
 import type { ParsedMessage } from "@/utils/types";
@@ -557,7 +554,7 @@ async function executeSend(
   }
   try {
     await holdAccountUploads(accountId, operation.intent.attachmentIds);
-    const loadedAttachments = await loadSendAttachments(
+    const loadedAttachments = await readAccountUploads(
       accountId,
       operation.intent.attachmentIds,
     );
@@ -577,7 +574,7 @@ async function executeSend(
       input: {
         mutationId: sendMutationId(operation.key.operationId),
         queuedAt: operation.intent.queuedAtMs,
-        ...sendRequest(operation.intent, loadedAttachments.attachments),
+        ...sendRequest(operation.intent, loadedAttachments.uploads),
       },
     });
     const result = mapSendOutcome(
@@ -586,7 +583,7 @@ async function executeSend(
       await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
     );
     if (result.status === "confirmed") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+      await deleteAccountUploads(accountId, operation.intent.attachmentIds);
     }
     return result;
   } finally {
@@ -656,13 +653,13 @@ async function holdEngineSend(
   }
   try {
     await holdAccountUploads(accountId, intent.attachmentIds);
-    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
+    const loaded = await readAccountUploads(accountId, intent.attachmentIds);
     if (loaded.status === "missing") {
       return { status: "rejected", code: "missing_attachment", targets: [] };
     }
     const input = scheduleEmailBody.safeParse({
       clientMutationId: mutationId,
-      ...sendRequest(intent, loaded.attachments),
+      ...sendRequest(intent, loaded.uploads),
       sendAt: null,
       remindAt: null,
     });
@@ -676,7 +673,7 @@ async function holdEngineSend(
       logger,
     });
     // The hold carries the files now, so the uploads aren't needed again.
-    await releaseSendAttachments(accountId, intent.attachmentIds);
+    await deleteAccountUploads(accountId, intent.attachmentIds);
     return { status: "held", row };
   } finally {
     await releaseAccountUploadHolds(accountId, intent.attachmentIds);
@@ -748,7 +745,7 @@ async function inspectSendOperation(
   }
   if (found.status === EmailSendOperationStatus.SENT) {
     if (operation.intent.kind === "send") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
+      await deleteAccountUploads(accountId, operation.intent.attachmentIds);
     }
     return {
       status: "confirmed" as const,
@@ -846,57 +843,6 @@ function sendMutationId(operationId: string) {
 
 function isHexChar(value: string) {
   return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
-}
-
-async function releaseSendAttachments(
-  accountId: string,
-  attachmentIds: string[],
-) {
-  if (attachmentIds.length === 0) return;
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  for (const blobId of attachmentIds) {
-    await store.delete(blobId).catch(() => undefined);
-  }
-}
-
-async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
-  if (attachmentIds.length === 0) {
-    return { status: "ok" as const, attachments: [] };
-  }
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  const attachments: Array<{
-    filename: string;
-    content: string;
-    contentType: string;
-    size: number;
-  }> = [];
-  for (const blobId of attachmentIds) {
-    let stream: AsyncIterable<Uint8Array> | null;
-    try {
-      stream = await store.read(blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    if (!stream) return { status: "missing" as const, blobId };
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    const bytes = Buffer.concat(chunks);
-    let metadata: Awaited<ReturnType<typeof readBlobMetadata>>;
-    try {
-      metadata = await readBlobMetadata(directory, blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    attachments.push({
-      filename: metadata?.filename ?? blobId,
-      content: bytes.toString("base64"),
-      contentType: metadata?.contentType ?? "application/octet-stream",
-      size: bytes.byteLength,
-    });
-  }
-  return { status: "ok" as const, attachments };
 }
 
 function metadataChangeSatisfied(

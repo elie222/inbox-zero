@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { installMailUploadTable } from "@/__tests__/mocks/mail-upload.mock";
 import { createEmailProviderOperationExecutor } from "./operations";
 import type { EmailProvider } from "@/utils/email/types";
 import type { PreparedOperation } from "@inboxzero/mail-core/operations";
@@ -12,12 +12,10 @@ import {
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
 import {
-  createFileBlobStore,
-  writeBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
+  admitAccountUpload,
   cancelAccountUpload,
+  inspectAccountUpload,
+  putAccountUploadContent,
 } from "./upload-blobs";
 import {
   findScheduledEmail,
@@ -45,6 +43,7 @@ vi.mock("@/utils/snooze/scheduler", () => ({
 describe("createEmailProviderOperationExecutor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    installMailUploadTable(prisma);
   });
   it("archives every target with one provider call and one batched read", async () => {
     const archiveMessages = vi.fn();
@@ -387,20 +386,8 @@ describe("createEmailProviderOperationExecutor", () => {
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
       "base64",
     );
-    const directory = accountMailUploadDirectory("acc-1");
-    await mkdir(directory, { recursive: true });
-    const store = createFileBlobStore(directory);
-    const checksum = createHash("sha256").update(png).digest("hex");
-    await store.stage({
-      blobId: "blob-1",
-      bytes: (async function* () {
-        yield png;
-      })(),
-      checksum,
-      sizeBytes: png.byteLength,
-    });
-    await store.finalize("blob-1");
-    await writeBlobMetadata(directory, "blob-1", {
+    await stageAccountUpload("acc-1", "blob-1", {
+      bytes: png,
       filename: "dot.png",
       contentType: "image/png",
     });
@@ -418,7 +405,9 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-1")).toBeNull();
+    expect(await inspectAccountUpload("acc-1", "blob-1")).toEqual({
+      status: "missing",
+    });
     expect(executeDurableEmailSend).toHaveBeenCalledWith(
       expect.objectContaining({
         attachmentIds: ["blob-1"],
@@ -456,7 +445,7 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it("keeps staged blobs when send is still uncertain", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-hold");
+    await stageAccountUpload("acc-1", "blob-hold");
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "uncertain",
     });
@@ -470,7 +459,10 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("uncertain");
-    expect(await store.read("blob-hold")).not.toBeNull();
+    expect(await inspectAccountUpload("acc-1", "blob-hold")).toEqual({
+      status: "ready",
+      blobId: "blob-hold",
+    });
     expect(await cancelAccountUpload("acc-1", "blob-hold")).toEqual({
       status: "deleted",
       blobId: "blob-hold",
@@ -478,13 +470,16 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it("refuses cancel of a blob while send execute still needs it", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-live");
+    await stageAccountUpload("acc-1", "blob-live");
     vi.mocked(executeDurableEmailSend).mockImplementation(async () => {
       expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
         status: "in_use",
         blobId: "blob-live",
       });
-      expect(await store.read("blob-live")).not.toBeNull();
+      expect(await inspectAccountUpload("acc-1", "blob-live")).toEqual({
+        status: "ready",
+        blobId: "blob-live",
+      });
       return {
         status: "applied",
         result: { messageId: "sent-live", threadId: "t-live" },
@@ -500,7 +495,9 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-live")).toBeNull();
+    expect(await inspectAccountUpload("acc-1", "blob-live")).toEqual({
+      status: "missing",
+    });
     expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
       status: "deleted",
       blobId: "blob-live",
@@ -508,7 +505,7 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it("drops the hold when send execute throws", async () => {
-    await stageAccountBlob("acc-1", "blob-throw");
+    await stageAccountUpload("acc-1", "blob-throw");
     vi.mocked(executeDurableEmailSend).mockRejectedValue(
       new Error("provider down"),
     );
@@ -530,8 +527,8 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it("does not delete a sibling staged upload when another send confirms", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-send");
-    await stageAccountBlob("acc-1", "blob-sibling");
+    await stageAccountUpload("acc-1", "blob-send");
+    await stageAccountUpload("acc-1", "blob-sibling");
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
       result: { messageId: "sent-keep", threadId: "t-keep" },
@@ -546,12 +543,17 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-send")).toBeNull();
-    expect(await store.read("blob-sibling")).not.toBeNull();
+    expect(await inspectAccountUpload("acc-1", "blob-send")).toEqual({
+      status: "missing",
+    });
+    expect(await inspectAccountUpload("acc-1", "blob-sibling")).toEqual({
+      status: "ready",
+      blobId: "blob-sibling",
+    });
   });
 
   it("deletes staged blobs when inspect confirms a send", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-inspect");
+    await stageAccountUpload("acc-1", "blob-inspect");
     prisma.emailSendOperation.findUnique.mockResolvedValue({
       status: "SENT",
       result: { messageId: "sent-3" },
@@ -566,7 +568,9 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-inspect")).toBeNull();
+    expect(await inspectAccountUpload("acc-1", "blob-inspect")).toEqual({
+      status: "missing",
+    });
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 
@@ -1091,22 +1095,28 @@ function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   };
 }
 
-async function stageAccountBlob(accountId: string, blobId: string) {
-  const png = Buffer.from("blob", "utf8");
-  const directory = accountMailUploadDirectory(accountId);
-  await mkdir(directory, { recursive: true });
-  const store = createFileBlobStore(directory);
-  const checksum = createHash("sha256").update(png).digest("hex");
+async function stageAccountUpload(
+  accountId: string,
+  blobId: string,
+  options: { bytes?: Buffer; filename?: string; contentType?: string } = {},
+) {
+  const bytes = options.bytes ?? Buffer.from("blob", "utf8");
   expect(
-    await store.stage({
-      blobId,
-      bytes: (async function* () {
-        yield png;
-      })(),
-      checksum,
-      sizeBytes: png.byteLength,
+    await admitAccountUpload(accountId, {
+      uploadId: blobId,
+      checksum: createHash("sha256").update(bytes).digest("hex"),
+      sizeBytes: bytes.byteLength,
+      filename: options.filename ?? "note.txt",
+      contentType: options.contentType ?? "text/plain",
     }),
-  ).toEqual({ status: "staged" });
-  expect(await store.finalize(blobId)).toMatchObject({ blobId });
-  return store;
+  ).toEqual({ status: "admitted", blobId });
+  expect(
+    await putAccountUploadContent(
+      accountId,
+      blobId,
+      (async function* () {
+        yield bytes;
+      })(),
+    ),
+  ).toMatchObject({ status: "staged" });
 }

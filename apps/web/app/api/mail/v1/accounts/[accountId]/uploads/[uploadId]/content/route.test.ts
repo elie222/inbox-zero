@@ -1,15 +1,14 @@
 import { createHash } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { installMailUploadTable } from "@/__tests__/mocks/mail-upload.mock";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  accountMailUploadDirectory,
-  admitAccountUpload,
-} from "@/utils/mail-api/upload-blobs";
+import prisma from "@/utils/__mocks__/prisma";
+import { admitAccountUpload } from "@/utils/mail-api/upload-blobs";
 import { PUT } from "./route";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/middleware", () => ({
   withEmailProvider:
@@ -42,11 +41,8 @@ vi.mock("@/utils/middleware", () => ({
 const accountId = "acc-1";
 
 describe("PUT /uploads/[uploadId]/content", () => {
-  afterEach(async () => {
-    await rm(accountMailUploadDirectory(accountId), {
-      recursive: true,
-      force: true,
-    });
+  beforeEach(() => {
+    installMailUploadTable(prisma);
   });
 
   it("returns not_found when the upload was not admitted", async () => {

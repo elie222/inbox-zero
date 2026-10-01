@@ -1,3 +1,5 @@
+export const MAX_BLOB_BYTES = 25_000_000;
+
 export type BlobReference = {
   blobId: string;
   sizeBytes: number;
@@ -17,4 +19,33 @@ export interface BlobStore {
     | { status: "staged" }
     | { status: "rejected"; code: "too_large" | "checksum_mismatch" }
   >;
+}
+
+export function isAdmissibleBlobSize(sizeBytes: number) {
+  return (
+    Number.isSafeInteger(sizeBytes) &&
+    sizeBytes >= 0 &&
+    sizeBytes <= MAX_BLOB_BYTES
+  );
+}
+
+/**
+ * Buffers a staged blob whose length was already admitted. Callers must have
+ * passed `sizeBytes` through `isAdmissibleBlobSize` first, because the buffer
+ * is allocated up front rather than concatenated from chunks afterwards.
+ */
+export async function collectBlobBytes(
+  bytes: AsyncIterable<Uint8Array>,
+  sizeBytes: number,
+) {
+  const collected = new Uint8Array(sizeBytes);
+  let size = 0;
+  for await (const chunk of bytes) {
+    if (size + chunk.byteLength > sizeBytes) {
+      return { status: "too_large" as const };
+    }
+    collected.set(chunk, size);
+    size += chunk.byteLength;
+  }
+  return { status: "ok" as const, bytes: collected.subarray(0, size) };
 }
