@@ -15,7 +15,7 @@ describe("createEmailProviderMailboxSource", () => {
   it("continues provider search after the first page", async () => {
     const searchMessages = vi.fn(
       async ({ pageToken }: { pageToken?: string }) => ({
-        messages: [{ id: pageToken ? "second" : "first" }],
+        messages: [searchMessage(pageToken ? "second" : "first")],
         nextPageToken: pageToken ? undefined : "next-page",
       }),
     );
@@ -48,7 +48,11 @@ describe("createEmailProviderMailboxSource", () => {
       value: { matches: [{ messageId: "second" }], nextPage: null },
     });
     expect(searchMessages).toHaveBeenLastCalledWith({
-      query: "invoice",
+      query: "",
+      mailboxSearch: {
+        mailbox: "all",
+        text: { kind: "text", field: "any", value: "invoice", match: "phrase" },
+      },
       maxResults: 20,
       pageToken: "next-page",
     });
@@ -57,7 +61,7 @@ describe("createEmailProviderMailboxSource", () => {
   it("caps Microsoft provider searches to Outlook list page size", async () => {
     const searchMessages = vi.fn(
       async ({ pageToken }: { pageToken?: string }) => ({
-        messages: [{ id: pageToken ? "second" : "first" }],
+        messages: [searchMessage(pageToken ? "second" : "first")],
         nextPageToken: pageToken ? undefined : "next-page",
       }),
     );
@@ -82,7 +86,11 @@ describe("createEmailProviderMailboxSource", () => {
       pageSize: 50,
     });
     expect(searchMessages).toHaveBeenCalledWith({
-      query: "invoice",
+      query: "",
+      mailboxSearch: {
+        mailbox: "all",
+        text: { kind: "text", field: "any", value: "invoice", match: "phrase" },
+      },
       maxResults: 20,
       pageToken: undefined,
     });
@@ -90,7 +98,7 @@ describe("createEmailProviderMailboxSource", () => {
 
   it("includes spam when the search predicate is scoped to that mailbox", async () => {
     const searchMessages = vi.fn(async () => ({
-      messages: [{ id: "spam-hit" }],
+      messages: [searchMessage("spam-hit", ["SPAM"])],
       nextPageToken: undefined,
     }));
     const source = createEmailProviderMailboxSource({
@@ -117,12 +125,13 @@ describe("createEmailProviderMailboxSource", () => {
       value: { matches: [{ messageId: "spam-hit" }] },
     });
     expect(searchMessages).toHaveBeenCalledWith({
-      query: "invoice",
+      query: "",
+      mailboxSearch: {
+        mailbox: "spam",
+        text: { kind: "text", field: "any", value: "invoice", match: "phrase" },
+      },
       maxResults: 20,
       pageToken: undefined,
-      folder: "spam",
-      includeSpamTrash: true,
-      labelIds: ["SPAM"],
     });
   });
 
@@ -1078,6 +1087,134 @@ describe("createEmailProviderMailboxSource", () => {
       }),
     ).resolves.toEqual({
       status: "not_found",
+    });
+  });
+});
+
+function searchMessage(id: string, labelIds: string[] = []) {
+  return {
+    id,
+    threadId: id,
+    headers: { from: "sender@example.com", to: "user@example.com" },
+    subject: "invoice",
+    snippet: "invoice",
+    labelIds,
+    internalDate: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+describe("structured mailbox search", () => {
+  it("filters all chips on the same message and preserves an empty-page continuation", async () => {
+    const searchMessages = vi.fn(
+      async ({ pageToken }: { pageToken?: string }) => ({
+        messages: [
+          pageToken
+            ? {
+                ...searchMessage("match", ["UNREAD", "STARRED"]),
+                hasAttachment: true,
+              }
+            : { ...searchMessage("wrong", ["UNREAD"]), hasAttachment: true },
+        ],
+        nextPageToken: pageToken ? undefined : "second",
+      }),
+    );
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name: "microsoft",
+        searchMessages,
+      } as unknown as EmailProvider,
+    });
+    const input = {
+      session: { accountId: "a", generation: "1" },
+      requestId: "search",
+      signal: new AbortController().signal,
+      pageSize: 20,
+      predicate: {
+        kind: "all",
+        predicates: [
+          { kind: "read", value: false },
+          { kind: "starred", value: true },
+          { kind: "has_attachment", value: true },
+        ],
+      } as const,
+    };
+    await expect(
+      source.search({
+        ...input,
+        predicate: { kind: "all", predicates: [...input.predicate.predicates] },
+        page: null,
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [], nextPage: "second" },
+    });
+    await expect(
+      source.search({
+        ...input,
+        predicate: { kind: "all", predicates: [...input.predicate.predicates] },
+        page: "second",
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [{ messageId: "match" }], nextPage: null },
+    });
+  });
+
+  it("keeps canonical archive scope and permits explicit sent/draft exclusions", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "a",
+      provider: {
+        name: "microsoft",
+        searchMessages: async () => ({
+          messages: [
+            searchMessage("custom"),
+            searchMessage("sent", ["SENT"]),
+            searchMessage("draft", ["DRAFT"]),
+            searchMessage("inbox", ["INBOX"]),
+            searchMessage("spam", ["SPAM"]),
+            searchMessage("trash", ["TRASH"]),
+          ],
+        }),
+      } as unknown as EmailProvider,
+    });
+    const input = {
+      session: { accountId: "a", generation: "1" },
+      requestId: "search",
+      signal: new AbortController().signal,
+      pageSize: 20,
+      page: null,
+    };
+    await expect(
+      source.search({
+        ...input,
+        predicate: { kind: "mailbox", mailbox: "archive" },
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: {
+        matches: [
+          { messageId: "custom" },
+          { messageId: "sent" },
+          { messageId: "draft" },
+        ],
+      },
+    });
+    await expect(
+      source.search({
+        ...input,
+        predicate: {
+          kind: "all",
+          predicates: [
+            { kind: "mailbox", mailbox: "archive" },
+            { kind: "not", predicate: { kind: "role", role: "sent" } },
+            { kind: "not", predicate: { kind: "role", role: "draft" } },
+          ],
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      value: { matches: [{ messageId: "custom" }] },
     });
   });
 });

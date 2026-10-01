@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import {
@@ -1327,6 +1328,7 @@ export class OutlookProvider implements EmailProvider {
 
   async searchMessages(options: {
     query: string;
+    mailboxSearch?: ProviderMailboxSearch;
     maxResults?: number;
     pageToken?: string;
     fromEmail?: string;
@@ -1347,6 +1349,19 @@ export class OutlookProvider implements EmailProvider {
         logger: this.logger,
         folder: options.folder ?? spamTrashFolderFromLabels(options.labelIds),
       }));
+    const mailbox = options.mailboxSearch?.mailbox;
+    const wellKnownFolder = mailbox
+      ? {
+          inbox: "inbox",
+          sent: "sentitems",
+          drafts: "drafts",
+          spam: "junkemail",
+          trash: "deleteditems",
+          all: undefined,
+          archive: undefined,
+          starred: undefined,
+        }[mailbox]
+      : undefined;
     const categoryNames = scope.categoryNames;
 
     const response = await queryBatchMessages(
@@ -1357,8 +1372,10 @@ export class OutlookProvider implements EmailProvider {
         pageToken: options.pageToken,
         fromEmail: options.fromEmail,
         readState: options.readState,
-        folderId,
+        folderId: wellKnownFolder ?? folderId,
         categoryNames,
+        mailboxSearch: options.mailboxSearch,
+        includeDrafts: options.mailboxSearch !== undefined,
       },
       this.logger,
     );

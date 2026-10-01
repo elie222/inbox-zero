@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import { getCompleteGmailThread } from "@/utils/gmail/thread";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
@@ -1399,27 +1400,36 @@ export class GmailProvider implements EmailProvider {
 
   async searchMessages(options: {
     query: string;
+    mailboxSearch?: ProviderMailboxSearch;
     maxResults?: number;
     pageToken?: string;
     labelIds?: string[];
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const query = options.mailboxSearch
+      ? gmailMailboxQuery(options.mailboxSearch)
+      : options.query;
+    const folder =
+      options.mailboxSearch?.mailbox === "spam" ||
+      options.mailboxSearch?.mailbox === "trash"
+        ? options.mailboxSearch.mailbox
+        : options.folder;
     const labelIds =
       options.labelIds ??
-      (options.folder === "spam"
+      (folder === "spam"
         ? [GmailLabel.SPAM]
-        : options.folder === "trash"
+        : folder === "trash"
           ? [GmailLabel.TRASH]
           : undefined);
     const response = await getMessages(this.client, {
-      query: options.query,
+      query,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
       labelIds,
       includeSpamTrash:
         options.includeSpamTrash ||
-        queryIncludesSpamOrTrash(options.query) ||
+        queryIncludesSpamOrTrash(query) ||
         labelIds?.some(
           (labelId) =>
             labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
@@ -2141,4 +2151,43 @@ function searchLabelIds(options: {
   if (options.folder === "spam") return [GmailLabel.SPAM];
   if (options.folder === "trash") return [GmailLabel.TRASH];
   return [];
+}
+
+function gmailMailboxQuery(search: ProviderMailboxSearch): string {
+  const parts: string[] = [];
+  if (search.text) {
+    const terms =
+      search.text.match === "phrase"
+        ? [search.text.value]
+        : search.text.value.trim().split(/\s+/);
+    for (const term of terms) {
+      const literal = `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      parts.push(
+        search.text.field === "any"
+          ? literal
+          : `${search.text.field}:${literal}`,
+      );
+    }
+  }
+  const mailboxQueries = {
+    all: "",
+    inbox: "in:inbox",
+    sent: "in:sent",
+    drafts: "in:drafts",
+    spam: "in:spam",
+    trash: "in:trash",
+    archive: "-in:inbox -in:spam -in:trash",
+    starred: "is:starred",
+  };
+  if (mailboxQueries[search.mailbox])
+    parts.push(mailboxQueries[search.mailbox]);
+  for (const role of search.excludedRoles ?? [])
+    parts.push(`-in:${role === "draft" ? "drafts" : role}`);
+  if (search.read !== undefined)
+    parts.push(search.read ? "is:read" : "is:unread");
+  if (search.starred !== undefined)
+    parts.push(search.starred ? "is:starred" : "-is:starred");
+  if (search.hasAttachment !== undefined)
+    parts.push(search.hasAttachment ? "has:attachment" : "-has:attachment");
+  return parts.join(" ");
 }

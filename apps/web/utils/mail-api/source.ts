@@ -1,3 +1,4 @@
+import { messageMatchesPredicate } from "@inboxzero/mail-core/query-semantics";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
   MailboxSource,
@@ -8,8 +9,9 @@ import {
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, ProviderMailboxSearch } from "@/utils/email/types";
 import {
+  parsedMessageMetadata,
   parsedMessageBodyObservation,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
@@ -300,21 +302,27 @@ export function createEmailProviderMailboxSource(input: {
       const compiled = compileMailboxSearch(predicate);
       if (!compiled) return { status: "unsupported" };
       const result = await provider.searchMessages({
-        query: compiled.query,
+        query: "",
+        mailboxSearch: compiled.search,
         maxResults: Math.min(pageSize, maxPageSize),
         pageToken: page ?? undefined,
-        ...(compiled.folder
-          ? {
-              folder: compiled.folder,
-              includeSpamTrash: true as const,
-              labelIds: [compiled.folder === "spam" ? "SPAM" : "TRASH"],
-            }
-          : {}),
       });
+      const matches = result.messages.filter((message) =>
+        messageMatchesPredicate(
+          {
+            ...parsedMessageMetadata(message),
+            accountId,
+            messageId: message.id,
+            conversationId: message.threadId,
+            pendingOperationIds: [],
+          },
+          compiled.filter,
+        ),
+      );
       return {
         status: "ok",
         value: {
-          matches: result.messages.map((message) => ({
+          matches: matches.map((message) => ({
             accountId,
             messageId: message.id,
           })),
@@ -488,45 +496,67 @@ function mapProviderError(error: unknown) {
   };
 }
 
-function compileMailboxSearch(predicate: MailPredicate): {
-  query: string;
-  folder?: "spam" | "trash";
-} | null {
-  if (predicate.kind === "text") return { query: predicate.value };
-  if (predicate.kind !== "all") return null;
-
-  let query: string | null = null;
-  let folder: "spam" | "trash" | undefined;
-  for (const child of predicate.predicates) {
-    if (child.kind === "text") {
-      if (query) return null;
-      query = child.value;
-      continue;
-    }
-    const childFolder = spamTrashPredicateFolder(child);
-    if (!childFolder || (folder && folder !== childFolder)) return null;
-    folder = childFolder;
-  }
-  if (!query || !folder) return null;
-  return { query, folder };
-}
-
-function spamTrashPredicateFolder(
+function compileMailboxSearch(
   predicate: MailPredicate,
-): "spam" | "trash" | null {
-  if (
-    predicate.kind === "mailbox" &&
-    (predicate.mailbox === "spam" || predicate.mailbox === "trash")
-  ) {
-    return predicate.mailbox;
+): { search: ProviderMailboxSearch; filter: MailPredicate } | null {
+  const compiled: ProviderMailboxSearch = { mailbox: "all" };
+  const children: MailPredicate[] = [];
+  function flatten(part: MailPredicate) {
+    if (part.kind === "all") part.predicates.forEach(flatten);
+    else children.push(part);
   }
-  if (
-    predicate.kind === "role" &&
-    (predicate.role === "spam" || predicate.role === "trash")
-  ) {
-    return predicate.role;
+  flatten(predicate);
+  let scoped = false;
+  for (const child of children) {
+    switch (child.kind) {
+      case "text":
+        if (compiled.text || child.field === "body") return null;
+        compiled.text = child;
+        break;
+      case "mailbox":
+      case "role": {
+        const mailbox =
+          child.kind === "mailbox"
+            ? child.mailbox
+            : child.role === "draft"
+              ? "drafts"
+              : child.role;
+        if (mailbox === "snoozed" || scoped) return null;
+        compiled.mailbox = mailbox;
+        scoped = true;
+        break;
+      }
+      case "read":
+        if (compiled.read !== undefined && compiled.read !== child.value)
+          return null;
+        compiled.read = child.value;
+        break;
+      case "starred":
+        if (compiled.starred !== undefined && compiled.starred !== child.value)
+          return null;
+        compiled.starred = child.value;
+        break;
+      case "has_attachment":
+        if (
+          compiled.hasAttachment !== undefined &&
+          compiled.hasAttachment !== child.value
+        )
+          return null;
+        compiled.hasAttachment = child.value;
+        break;
+      case "not":
+        if (child.predicate.kind !== "role") return null;
+        compiled.excludedRoles ??= [];
+        compiled.excludedRoles.push(child.predicate.role);
+        break;
+      default:
+        return null;
+    }
   }
-  return null;
+  const filters = children.filter((child) => child.kind !== "text");
+  if (compiled.mailbox !== "spam" && compiled.mailbox !== "trash")
+    filters.push({ kind: "mailbox", mailbox: "all" });
+  return { search: compiled, filter: { kind: "all", predicates: filters } };
 }
 
 async function* streamToIterable(stream: ReadableStream<Uint8Array>) {

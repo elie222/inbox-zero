@@ -274,6 +274,37 @@ describe("convertMessage", () => {
 });
 
 describe("queryBatchMessages", () => {
+  it("uses literal Graph search with local metadata filtering, retaining empty-page cursors", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [{ id: "read", isRead: true }],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          read: false,
+          text: {
+            kind: "text",
+            field: "any",
+            value: "in:sent read",
+            match: "term",
+          },
+        },
+      },
+      createTestLogger(),
+    );
+    expect(request.search).toHaveBeenCalledWith('"in:sent" AND "read"');
+    expect(request.filter).not.toHaveBeenCalled();
+    expect(request.orderby).not.toHaveBeenCalled();
+    expect(result.messages).toEqual([]);
+    expect(result.nextPageToken).toContain("$skip=20");
+  });
+
   it("rejects full URL page tokens outside Microsoft Graph", async () => {
     const api = vi.fn().mockReturnValue({ get: vi.fn() });
     const client = createCachedOutlookClient(api);

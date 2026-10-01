@@ -67,6 +67,40 @@ afterEach(() => {
 });
 
 describe("OutlookProvider.searchMessages", () => {
+  it.each([
+    ["sent", "sentitems", "sent-folder-id", false, "SENT"],
+    ["drafts", "drafts", "drafts-folder-id", true, "DRAFT"],
+    ["spam", "junkemail", "spam-folder-id", false, "SPAM"],
+    ["trash", "deleteditems", "trash-folder-id", false, "TRASH"],
+  ] as const)("queries the Graph %s folder and preserves its roles", async (mailbox, folder, folderID, isDraft, role) => {
+    const client = createMockOutlookClient(
+      [createMessage({ id: "hit", parentFolderId: folderID, isDraft })],
+      {
+        folderIdCache: {
+          inbox: "inbox-folder-id",
+          sentitems: "sent-folder-id",
+          drafts: "drafts-folder-id",
+          junkemail: "spam-folder-id",
+          deleteditems: "trash-folder-id",
+        },
+        categoryMapCache: new Map(),
+      },
+    );
+    const provider = new OutlookProvider(client, createTestLogger());
+    const result = await provider.searchMessages({
+      query: "",
+      mailboxSearch: { mailbox },
+    });
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: `/me/mailFolders/${folder}/messages`,
+        search: undefined,
+        filter: undefined,
+      }),
+    );
+    expect(result.messages[0]?.labelIds).toContain(role);
+  });
+
   it("resolves a nested folder and searches its messages without a category filter", async () => {
     const message = createMessage({
       id: "matching-message",
