@@ -114,6 +114,16 @@ export const POST = withEmailProvider(
         { status: 404 },
       );
     }
+    if (updated.status === "unavailable") {
+      return NextResponse.json(
+        mailHttpErrorResponse({
+          requestId,
+          code: "unavailable",
+          retryable: true,
+        }),
+        { status: 503 },
+      );
+    }
     return NextResponse.json({
       protocolVersion: MAIL_PROTOCOL_VERSION,
       requestId,

@@ -205,10 +205,11 @@ describe("mail upload staging", () => {
     prisma.mailUpload.deleteMany.mockRejectedValueOnce(new Error("no db"));
 
     // A send that already left the mailbox must not be reported as failed
-    // because its staged bytes could not be swept up.
+    // because its staged bytes could not be swept up, but the release still has
+    // to say it did not land so the hold endpoint can pass that on.
     await expect(
       releaseAccountUploadHolds(accountId, ["file-1"]),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     await expect(
       deleteAccountUploads(accountId, ["file-1"]),
     ).resolves.toBeUndefined();

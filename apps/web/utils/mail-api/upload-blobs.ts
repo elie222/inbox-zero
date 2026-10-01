@@ -142,7 +142,10 @@ export async function setAccountUploadHold(
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
   if (!held) {
-    await releaseAccountUploadHolds(accountId, [parsed.data]);
+    const released = await releaseAccountUploadHolds(accountId, [parsed.data]);
+    // The caller asked for this release and can retry it, so it has to hear
+    // that the hold is still there rather than read "released" and move on.
+    if (!released) return { status: "unavailable" as const };
     return { status: "released" as const, blobId: parsed.data };
   }
   const heldCount = await holdAccountUploads(accountId, [parsed.data]);
@@ -163,18 +166,23 @@ export async function holdAccountUploads(accountId: string, blobIds: string[]) {
   return held.count;
 }
 
+// Reports whether the release landed. The send paths run this from a `finally`
+// and ignore the answer, because throwing there would discard a result the
+// mailbox has already committed; the expired hold is the backstop for them.
 export async function releaseAccountUploadHolds(
   accountId: string,
   blobIds: string[],
 ) {
-  if (blobIds.length === 0) return;
+  if (blobIds.length === 0) return true;
   try {
     await prisma.mailUpload.updateMany({
       where: { emailAccountId: accountId, blobId: { in: blobIds } },
       data: { heldAt: null },
     });
+    return true;
   } catch (error) {
     logger.warn("Failed to release upload holds", { error, blobIds });
+    return false;
   }
 }
 

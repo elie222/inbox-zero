@@ -105,6 +105,25 @@ describe("DELETE /uploads/[uploadId]", () => {
     });
   });
 
+  it("returns a retryable 503 when a release could not be written", async () => {
+    await stageReadyBlob("file-1");
+    expect(
+      (await POST(holdRequest("file-1", true), params("file-1"))).status,
+    ).toBe(200);
+    prisma.mailUpload.updateMany.mockRejectedValueOnce(new Error("no db"));
+
+    // Reporting "released" here would leave the client believing the hold is
+    // gone while every later DELETE answers 409.
+    const response = await POST(holdRequest("file-1", false), params("file-1"));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "unavailable", retryable: true },
+    });
+    expect(
+      (await DELETE(deleteRequest("file-1"), params("file-1"))).status,
+    ).toBe(409);
+  });
+
   it("returns 400 when the upload id is invalid", async () => {
     const response = await POST(
       holdRequest("../escape", true),
