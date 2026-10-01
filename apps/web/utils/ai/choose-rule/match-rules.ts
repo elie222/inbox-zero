@@ -1,4 +1,8 @@
-import { getConditionTypes, isAIRule } from "@/utils/condition";
+import {
+  getConditionTypes,
+  isAIRule,
+  LEARNED_PATTERN_MATCH_REASON,
+} from "@/utils/condition";
 import {
   findMatchingGroup,
   getGroupsWithRules,
@@ -45,7 +49,6 @@ import {
   type ColdEmailPatternMatch,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
-import { KNOWN_COLD_EMAIL_SENDER_REASON } from "@/utils/cold-email/prompt";
 import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
 import { getDecisionModelConfig } from "@/utils/decision-model/decision-model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
@@ -264,7 +267,7 @@ function getColdEmailReasoning(result: {
 }) {
   if (result.aiReason) return result.aiReason;
   if (result.reason === "ai-already-labeled")
-    return KNOWN_COLD_EMAIL_SENDER_REASON;
+    return LEARNED_PATTERN_MATCH_REASON;
   return "";
 }
 

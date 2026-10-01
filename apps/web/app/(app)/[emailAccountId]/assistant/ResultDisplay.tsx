@@ -4,7 +4,10 @@ import { capitalCase } from "capital-case";
 import he from "he";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
-import { conditionTypesToString } from "@/utils/condition";
+import {
+  conditionTypesToString,
+  LEARNED_PATTERN_MATCH_REASON,
+} from "@/utils/condition";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -20,7 +23,6 @@ import { LearnedPatternExclusionHint } from "@/app/(app)/[emailAccountId]/assist
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { RuleActions } from "@/components/RuleActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { KNOWN_COLD_EMAIL_SENDER_REASON } from "@/utils/cold-email/prompt";
 
 export function ResultsDisplay({
   results,
@@ -260,10 +262,10 @@ export function getRuleResultReasonDisplay(reason: string): {
   const actionFailureMessages: string[] = [];
   const reasonLines: string[] = [];
 
-  // Older cold email results stored this internal code as the reason.
+  // Older results stored this internal code as the reason.
   const plainText =
     reason === "ai-already-labeled"
-      ? KNOWN_COLD_EMAIL_SENDER_REASON
+      ? LEARNED_PATTERN_MATCH_REASON
       : stripHtmlTagsFromReason(he.decode(reason));
 
   for (const line of plainText.split(/\r?\n/)) {

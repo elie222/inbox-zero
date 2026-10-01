@@ -211,9 +211,9 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
-  it("shows readable copy for the legacy known cold email sender code", () => {
+  it("shows readable copy for the legacy learned pattern code", () => {
     expect(getRuleResultReasonDisplay("ai-already-labeled").reason).toBe(
-      "This sender was previously identified as a cold emailer.",
+      "The sender matches a learned pattern for this rule.",
     );
   });
 

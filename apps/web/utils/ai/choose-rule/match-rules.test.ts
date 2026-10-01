@@ -2123,7 +2123,7 @@ describe("findMatchingRules - Integration Tests", () => {
       },
     ]);
     expect(result.reasoning).toBe(
-      "This sender was previously identified as a cold emailer.",
+      "The sender matches a learned pattern for this rule.",
     );
   });
 
@@ -3162,7 +3162,7 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     expect(decisionModelChooseRule).not.toHaveBeenCalled();
     expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
     expect(result.reasoning).toBe(
-      "This sender was previously identified as a cold emailer.",
+      "The sender matches a learned pattern for this rule.",
     );
   });
 

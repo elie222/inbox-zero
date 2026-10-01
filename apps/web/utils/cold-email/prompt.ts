@@ -26,6 +26,3 @@ Emails that are NOT cold emails include:
 - Calendar invites
 
 Regular marketing or automated emails are NOT cold emails, even if unwanted.`;
-
-export const KNOWN_COLD_EMAIL_SENDER_REASON =
-  "This sender was previously identified as a cold emailer.";

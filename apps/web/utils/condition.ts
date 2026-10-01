@@ -7,6 +7,9 @@ import type {
 } from "@/utils/actions/rule.validation";
 import type { Logger } from "@/utils/logger";
 
+export const LEARNED_PATTERN_MATCH_REASON =
+  "The sender matches a learned pattern for this rule.";
+
 export type RuleConditions = Partial<
   Pick<
     Rule,
