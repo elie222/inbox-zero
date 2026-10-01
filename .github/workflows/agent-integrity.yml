@@ -1,0 +1,92 @@
+name: Agent integrity
+
+# Checks the committed eyebrowlock.json against the agent-facing files in
+# this repo: skills under .claude/skills and clawhub/, the reviewer subagent,
+# Cursor rules, the Codex config, AGENTS.md and CLAUDE.md. It runs on every
+# push and pull request because test.yml skips Markdown changes, and skills
+# are Markdown.
+#
+# What fails the build (see eyebrow.policy.json):
+# - any change to a locked file, and any locked file added or removed,
+#   until eyebrowlock.json is refreshed in the same change
+# - a skill named in skills-lock.json whose folder no longer hashes to the
+#   recorded value, or a skills-lock.json entry whose value was edited
+#   (SKILLS-LOCK-MISMATCH)
+# - the clawhub/ skill gaining a network host it did not have when locked
+# - a new high or critical finding that is not muted in the policy
+#
+# To refresh after an intended change, install eyebrow
+# (`brew install alexverify/tap/eyebrow`, or the release archive this
+# workflow pins) and run `eyebrow scan` at the repo root, then commit
+# eyebrowlock.json with the change. The lockfile diff is the review
+# surface: it shows which files' hashes moved and any new capability.
+#
+# The eyebrow binary is not taken from a third-party action. It is a single
+# static Go binary (MIT, github.com/alexverify/eyebrow) downloaded from a
+# release and accepted only if both hold:
+# 1. its sha256 equals EYEBROW_SHA256 below, a constant in this file, so a
+#    replaced release asset cannot run here;
+# 2. `gh attestation verify` proves GitHub Actions built it from the
+#    alexverify/eyebrow repository at the tagged commit, so the bytes trace
+#    to reviewable source rather than to an upload.
+# To upgrade: change EYEBROW_VERSION and EYEBROW_SHA256 (from the release's
+# checksums.txt, linux_amd64 line) in one reviewed change.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EYEBROW_VERSION: v0.5.4
+  EYEBROW_SHA256: d65e37322babaaba591abe9183eaec4a6536396acb98aa01a20ed4a731e2a2e6
+
+jobs:
+  verify:
+    name: eyebrow verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install eyebrow (pinned checksum, attested provenance)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive="eyebrow_${EYEBROW_VERSION#v}_linux_amd64.tar.gz"
+          url="https://github.com/alexverify/eyebrow/releases/download/${EYEBROW_VERSION}/${archive}"
+          dir="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "${dir}/${archive}" "${url}"
+          echo "${EYEBROW_SHA256}  ${dir}/${archive}" | sha256sum --check --strict
+          gh attestation verify "${dir}/${archive}" \
+            --repo alexverify/eyebrow \
+            --signer-workflow alexverify/eyebrow/.github/workflows/release.yml
+          tar -xzf "${dir}/${archive}" -C "${dir}" eyebrow
+          echo "${dir}" >> "${GITHUB_PATH}"
+          "${dir}/eyebrow" --version
+
+      - name: eyebrow verify --ci
+        run: |
+          set -uo pipefail
+          out="$(eyebrow verify --ci --path . --lockfile eyebrowlock.json --policy eyebrow.policy.json 2>&1)"
+          code=$?
+          echo "${out}"
+          {
+            echo "### eyebrow verify --ci (exit ${code})"
+            echo '```'
+            echo "${out}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${code}" -ne 0 ]; then
+            echo "::error::eyebrow verify --ci failed (exit ${code}); see the step summary"
+          fi
+          exit "${code}"
