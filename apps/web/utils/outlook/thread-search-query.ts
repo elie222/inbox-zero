@@ -1,5 +1,5 @@
 import {
-  isTrueSearchValue,
+  parseBooleanSearchValue,
   tokenizeSearchQuery,
   unquoteSearchValue,
 } from "@/utils/tokenize-search-query";
@@ -180,7 +180,7 @@ function toKqlTerm(parsed: OutlookSearchToken): string | null {
     return kqlValue ? `${field}:${kqlValue}` : null;
   }
 
-  if (field === "hasattachments" && isTrueSearchValue(value)) {
+  if (field === "hasattachments" && parseBooleanSearchValue(value) === true) {
     return "hasattachments:true";
   }
 

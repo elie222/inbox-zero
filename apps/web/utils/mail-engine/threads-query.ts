@@ -3,7 +3,7 @@ import type {
   MailPredicate,
 } from "@inboxzero/mail-core/queries";
 import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
-import { isTrueSearchValue } from "@/utils/tokenize-search-query";
+import { parseBooleanSearchValue } from "@/utils/tokenize-search-query";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export function threadsQueryToConversationQuery(input: {
@@ -148,6 +148,7 @@ function textQueryPredicates(query: string): MailPredicate[] {
       value,
       match: "phrase",
     });
+    return true;
   });
   remaining = takePrefixedValue(remaining, "from:", (value) => {
     clauses.push({
@@ -156,17 +157,23 @@ function textQueryPredicates(query: string): MailPredicate[] {
       value,
       match: "address",
     });
+    return true;
   });
-  let hasAttachment = false;
+  let hasAttachment: boolean | undefined;
   remaining = takeToken(remaining, "has:attachment", () => {
     hasAttachment = true;
   });
   // The Outlook search form emits hasattachments:true where the Gmail form
   // emits has:attachment. See outlook-search-query.ts and mail-search-query.ts.
   remaining = takePrefixedValue(remaining, "hasattachments:", (value) => {
-    if (isTrueSearchValue(value)) hasAttachment = true;
+    const parsed = parseBooleanSearchValue(value);
+    if (parsed === undefined) return false;
+    hasAttachment = parsed;
+    return true;
   });
-  if (hasAttachment) clauses.push({ kind: "has_attachment", value: true });
+  if (hasAttachment !== undefined) {
+    clauses.push({ kind: "has_attachment", value: hasAttachment });
+  }
   remaining = remaining.replaceAll(/\s+/g, " ").trim();
   if (remaining) {
     clauses.push({
@@ -182,7 +189,9 @@ function textQueryPredicates(query: string): MailPredicate[] {
 function takePrefixedValue(
   input: string,
   prefix: string,
-  onValue: (value: string) => void,
+  // Returning false declines the token, leaving it in the remaining text so a
+  // value we cannot interpret still reaches the free-text clause.
+  onValue: (value: string) => boolean,
 ) {
   const at = findStandaloneToken(input, prefix);
   if (at === -1) return input;
@@ -192,14 +201,14 @@ function takePrefixedValue(
     if (closing === -1) return input;
     const value = input.slice(valueStart + 1, closing);
     if (!value) return input;
-    onValue(value);
+    if (!onValue(value)) return input;
     return `${input.slice(0, at)} ${input.slice(closing + 1)}`;
   }
   const space = input.indexOf(" ", valueStart);
   const valueEnd = space === -1 ? input.length : space;
   const value = input.slice(valueStart, valueEnd);
   if (!value) return input;
-  onValue(value);
+  if (!onValue(value)) return input;
   return `${input.slice(0, at)} ${input.slice(valueEnd)}`;
 }
 

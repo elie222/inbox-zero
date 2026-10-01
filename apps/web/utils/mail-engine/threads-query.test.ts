@@ -187,4 +187,27 @@ describe("threadsQueryToPredicate", () => {
       ],
     });
   });
+
+  it("negates the attachment predicate for hasattachments:false", () => {
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:false" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: false },
+        { kind: "text", field: "any", value: "invoice", match: "term" },
+      ],
+    });
+  });
+
+  it("keeps an attachment operator with an uninterpretable value as text", () => {
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:maybe" }),
+    ).toEqual({
+      kind: "text",
+      field: "any",
+      value: "invoice hasattachments:maybe",
+      match: "term",
+    });
+  });
 });
