@@ -5,7 +5,10 @@ import {
   isAdmissibleBlobSize,
 } from "@inboxzero/mail-core/ports/blob-store";
 import type { Attachment } from "@/utils/types/mail";
+import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+
+const logger = createScopedLogger("mail-api/upload-blobs");
 
 // A send holds its uploads only while it is in flight; anything older is a
 // hold the browser never released, not an upload the mailbox still needs.
@@ -70,10 +73,17 @@ export async function putAccountUploadContent(
     return { status: "rejected" as const, code: "checksum_mismatch" as const };
   }
   const updated = await prisma.mailUpload.updateMany({
-    where: { emailAccountId: accountId, blobId: parsed.data },
+    // Writing against the admission these bytes were verified against keeps a
+    // re-admission that landed mid-stream from taking content it never checked.
+    where: {
+      emailAccountId: accountId,
+      blobId: parsed.data,
+      checksum: admitted.checksum,
+      sizeBytes: admitted.sizeBytes,
+    },
     data: { content: collected.bytes },
   });
-  // The upload was cancelled while its content was still streaming in.
+  // The upload was cancelled or restarted while its content was streaming in.
   if (updated.count === 0) return { status: "missing" as const };
   return {
     status: "staged" as const,
@@ -158,10 +168,14 @@ export async function releaseAccountUploadHolds(
   blobIds: string[],
 ) {
   if (blobIds.length === 0) return;
-  await prisma.mailUpload.updateMany({
-    where: { emailAccountId: accountId, blobId: { in: blobIds } },
-    data: { heldAt: null },
-  });
+  try {
+    await prisma.mailUpload.updateMany({
+      where: { emailAccountId: accountId, blobId: { in: blobIds } },
+      data: { heldAt: null },
+    });
+  } catch (error) {
+    logger.warn("Failed to release upload holds", { error, blobIds });
+  }
 }
 
 export async function readAccountUploads(accountId: string, blobIds: string[]) {
@@ -207,9 +221,15 @@ export async function deleteAccountUploads(
   blobIds: string[],
 ) {
   if (blobIds.length === 0) return;
-  await prisma.mailUpload.deleteMany({
-    where: { emailAccountId: accountId, blobId: { in: blobIds } },
-  });
+  // A send that already reached the mailbox must not fail because its staged
+  // bytes could not be swept up; the retention sweep is the backstop.
+  try {
+    await prisma.mailUpload.deleteMany({
+      where: { emailAccountId: accountId, blobId: { in: blobIds } },
+    });
+  } catch (error) {
+    logger.warn("Failed to delete consumed uploads", { error, blobIds });
+  }
 }
 
 export async function deleteStaleMailUploads(olderThan: Date) {

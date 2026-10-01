@@ -70,6 +70,34 @@ describe("mail upload staging", () => {
     });
   });
 
+  it("does not stage content into an upload that was re-admitted mid-stream", async () => {
+    await admit("file-1");
+    const replacement = Buffer.from("a replacement blob", "utf8");
+
+    const staged = await putAccountUploadContent(
+      accountId,
+      "file-1",
+      (async function* () {
+        yield bytes.subarray(0, 4);
+        // The composer restarted this upload with a different file while the
+        // first request was still streaming its bytes in.
+        await admitAccountUpload(accountId, {
+          uploadId: "file-1",
+          checksum: createHash("sha256").update(replacement).digest("hex"),
+          sizeBytes: replacement.byteLength,
+          filename: "replacement.txt",
+          contentType: "text/plain",
+        });
+        yield bytes.subarray(4);
+      })(),
+    );
+
+    expect(staged).toEqual({ status: "missing" });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+  });
+
   it("rejects content longer than the admitted size", async () => {
     await admit("file-1");
     expect(
@@ -146,6 +174,22 @@ describe("mail upload staging", () => {
       status: "missing",
       blobId: "file-1",
     });
+  });
+
+  it("survives a database failure while cleaning up after a send", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    prisma.mailUpload.updateMany.mockRejectedValueOnce(new Error("no db"));
+    prisma.mailUpload.deleteMany.mockRejectedValueOnce(new Error("no db"));
+
+    // A send that already left the mailbox must not be reported as failed
+    // because its staged bytes could not be swept up.
+    await expect(
+      releaseAccountUploadHolds(accountId, ["file-1"]),
+    ).resolves.toBeUndefined();
+    await expect(
+      deleteAccountUploads(accountId, ["file-1"]),
+    ).resolves.toBeUndefined();
   });
 
   it("does not read another account's uploads", async () => {
