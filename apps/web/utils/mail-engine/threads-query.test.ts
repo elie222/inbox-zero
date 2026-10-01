@@ -236,4 +236,27 @@ describe("threadsQueryToPredicate", () => {
       match: "term",
     });
   });
+
+  it("keeps parens inside a quoted phrase", () => {
+    expect(threadsQueryToPredicate({ q: '"invoice (paid)"' })).toEqual({
+      kind: "text",
+      field: "any",
+      value: '"invoice (paid)"',
+      match: "term",
+    });
+    expect(
+      threadsQueryToPredicate({ q: '(hasattachments:true) "invoice (paid)"' }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: true },
+        {
+          kind: "text",
+          field: "any",
+          value: '"invoice (paid)"',
+          match: "term",
+        },
+      ],
+    });
+  });
 });

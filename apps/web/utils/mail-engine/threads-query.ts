@@ -174,9 +174,7 @@ function textQueryPredicates(query: string): MailPredicate[] {
   if (hasAttachment !== undefined) {
     clauses.push({ kind: "has_attachment", value: hasAttachment });
   }
-  // The local index has no boolean grouping, so parens left behind by the
-  // operators above would otherwise be matched as literal search terms.
-  remaining = remaining.replaceAll(/[()]/g, " ").replaceAll(/\s+/g, " ").trim();
+  remaining = stripGroupingParens(remaining);
   if (remaining) {
     clauses.push({
       kind: "text",
@@ -249,6 +247,32 @@ function isInsideQuotes(input: string, at: number) {
 function findValueEnd(input: string, from: number) {
   const match = input.slice(from).match(/[\s)]/);
   return match?.index === undefined ? input.length : from + match.index;
+}
+
+// The local index has no boolean grouping, so parens left behind by the
+// operators above would otherwise be matched as literal search terms. A quoted
+// phrase keeps its parens and spacing: there they are search text, and the
+// clause is also handed to the provider search, where quoting is meaningful.
+function stripGroupingParens(input: string) {
+  let output = "";
+  let quoted = false;
+  for (const char of input) {
+    if (char === '"') {
+      quoted = !quoted;
+      output += char;
+      continue;
+    }
+    if (quoted) {
+      output += char;
+      continue;
+    }
+    if (char === "(" || char === ")" || /\s/.test(char)) {
+      if (!output.endsWith(" ")) output += " ";
+      continue;
+    }
+    output += char;
+  }
+  return output.trim();
 }
 
 function splitFilterToPredicate(filter: {
