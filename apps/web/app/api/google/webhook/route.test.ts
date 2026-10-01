@@ -150,6 +150,7 @@ describe("Google webhook route", () => {
       expect.anything(),
     );
     expect(runWithBackgroundLoggerFlushMock).toHaveBeenCalledTimes(1);
+    expect(markGmailHistoryCatchUp).not.toHaveBeenCalled();
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: "123" },
       { preloadedEmailAccount: { id: "account-1" } },

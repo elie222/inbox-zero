@@ -510,17 +510,19 @@ describe("processAccountFollowUps - dedup logic", () => {
     const eligibleDate = String(Date.now() - 30 * 24 * 60 * 60 * 1000);
     let page = 0;
     const provider = createMockProvider({
-      getThreadsWithQuery: vi.fn().mockImplementation(async () => {
-        page++;
-        return {
-          threads: Array.from({ length: 50 }, (_, index) => ({
-            id: `completed-${page}-${index}`,
-            messages: [],
-            snippet: "",
-          })),
-          nextPageToken: page < 10 ? `page-${page + 1}` : undefined,
-        };
-      }),
+      getThreadsWithQuery: vi
+        .fn()
+        .mockImplementation(async ({ maxResults }) => {
+          page++;
+          return {
+            threads: Array.from({ length: maxResults }, (_, index) => ({
+              id: `completed-${page}-${index}`,
+              messages: [],
+              snippet: "",
+            })),
+            nextPageToken: page < 10 ? `page-${page + 1}` : undefined,
+          };
+        }),
       getLatestMessageInThread: vi
         .fn()
         .mockImplementation(async (id) =>
@@ -544,6 +546,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
 
     expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(5);
+    expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(250);
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 

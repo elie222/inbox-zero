@@ -12,7 +12,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { processHistoryItem } from "@/utils/webhook/google/process-history-item";
 import {
   clearGmailHistoryCatchUp,
-  hasGmailHistoryCatchUp,
+  getGmailHistoryCatchUp,
   markGmailHistoryCatchUp,
 } from "@/utils/redis/gmail-history-catch-up";
 
@@ -51,12 +51,19 @@ vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
 
 vi.mock("@/utils/email/rate-limit", () => ({
   getEmailProviderRateLimitState: vi.fn().mockResolvedValue(null),
-  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
+  withRateLimitRecording: vi.fn(async (context, operation) => {
+    try {
+      return await operation();
+    } catch (error) {
+      await context.onRateLimitRecorded?.(null, error);
+      throw error;
+    }
+  }),
 }));
 
 vi.mock("@/utils/redis/gmail-history-catch-up", () => ({
   markGmailHistoryCatchUp: vi.fn().mockResolvedValue(undefined),
-  hasGmailHistoryCatchUp: vi.fn().mockResolvedValue(false),
+  getGmailHistoryCatchUp: vi.fn().mockResolvedValue(null),
   clearGmailHistoryCatchUp: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -353,7 +360,7 @@ describe("processHistoryForUser - 404 Handling", () => {
         hasAiAccess: false,
       },
     } as any);
-    vi.mocked(hasGmailHistoryCatchUp).mockResolvedValueOnce(true);
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValueOnce("catch-up-token");
     vi.mocked(getHistory).mockResolvedValue({
       history: [{ id: "4900", messagesAdded: [] }],
     });
@@ -365,10 +372,11 @@ describe("processHistoryForUser - 404 Handling", () => {
       expect.objectContaining({ startHistoryId: "1000" }),
       expect.any(Object),
     );
-    expect(clearGmailHistoryCatchUp).toHaveBeenCalledWith(
-      "account-123",
-      expect.anything(),
-    );
+    expect(clearGmailHistoryCatchUp).toHaveBeenCalledWith({
+      emailAccountId: "account-123",
+      token: "catch-up-token",
+      logger: expect.anything(),
+    });
   });
 
   it("keeps the cursor before history that Gmail rate limited", async () => {
@@ -396,7 +404,7 @@ describe("processHistoryForUser - 404 Handling", () => {
         hasAiAccess: false,
       },
     } as any);
-    vi.mocked(hasGmailHistoryCatchUp).mockResolvedValueOnce(true);
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValueOnce("catch-up-token");
     vi.mocked(getHistory).mockResolvedValue({
       history: [
         {
@@ -430,6 +438,10 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(vi.mocked(prisma.$executeRaw).mock.calls[0]).toContain("1100");
     expect(clearGmailHistoryCatchUp).not.toHaveBeenCalled();
+    expect(markGmailHistoryCatchUp).toHaveBeenCalledWith(
+      "account-123",
+      expect.anything(),
+    );
   });
 
   it("uses BigInt math for large Gmail history IDs", async () => {

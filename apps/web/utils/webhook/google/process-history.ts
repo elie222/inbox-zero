@@ -4,12 +4,8 @@ import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { GmailLabel } from "@/utils/gmail/label";
-import {
-  captureException,
-  isGmailRateLimitExceededError,
-  isInvalidGrantError,
-} from "@/utils/error";
-import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { captureException, isInvalidGrantError } from "@/utils/error";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -28,7 +24,7 @@ import {
 import prisma from "@/utils/prisma";
 import {
   clearGmailHistoryCatchUp,
-  hasGmailHistoryCatchUp,
+  getGmailHistoryCatchUp,
   markGmailHistoryCatchUp,
 } from "@/utils/redis/gmail-history-catch-up";
 import type { Logger } from "@/utils/logger";
@@ -132,9 +128,13 @@ export async function processHistoryForUser(
         provider: "google",
         logger,
         source: "google/webhook",
-        onRateLimitRecorded: async (state) => {
-          if (state)
+        onRateLimitRecorded: async (state, error) => {
+          if (
+            state ||
+            isEmailProviderRateLimitError({ error, provider: "google" })
+          ) {
             await markGmailHistoryCatchUp(validatedEmailAccount.id, logger);
+          }
         },
       },
       async () => {
@@ -147,11 +147,11 @@ export async function processHistoryForUser(
           logger,
         });
 
-        const isCatchingUp = await hasGmailHistoryCatchUp(
+        const catchUpToken = await getGmailHistoryCatchUp(
           validatedEmailAccount.id,
           logger,
         );
-        const maxHistoryIdGap = isCatchingUp
+        const maxHistoryIdGap = catchUpToken
           ? MAX_GMAIL_CATCH_UP_HISTORY_ID_GAP
           : MAX_GMAIL_HISTORY_ID_GAP;
 
@@ -169,8 +169,13 @@ export async function processHistoryForUser(
             emailAccountId: validatedEmailAccount.id,
             lastSyncedHistoryId: historyId,
           });
-          if (isCatchingUp)
-            await clearGmailHistoryCatchUp(validatedEmailAccount.id, logger);
+          if (catchUpToken) {
+            await clearGmailHistoryCatchUp({
+              emailAccountId: validatedEmailAccount.id,
+              token: catchUpToken,
+              logger,
+            });
+          }
           return NextResponse.json({ ok: true });
         }
 
@@ -223,8 +228,13 @@ export async function processHistoryForUser(
           });
         }
 
-        if (isCatchingUp)
-          await clearGmailHistoryCatchUp(validatedEmailAccount.id, logger);
+        if (catchUpToken) {
+          await clearGmailHistoryCatchUp({
+            emailAccountId: validatedEmailAccount.id,
+            token: catchUpToken,
+            logger,
+          });
+        }
 
         return NextResponse.json({ ok: true });
       },
@@ -316,10 +326,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       } catch (error) {
         // Stop before the cursor passes mail Gmail refused to serve, so the
         // catch-up after the rate limit picks it up again.
-        if (
-          isGmailRateLimitExceededError(error) ||
-          isProviderRateLimitModeError(error)
-        ) {
+        if (isEmailProviderRateLimitError({ error, provider: "google" })) {
           throw error;
         }
         captureException(error, {
