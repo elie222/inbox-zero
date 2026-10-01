@@ -95,6 +95,23 @@ it("preserves literal Graph searches and continuation pages in the installed emu
         ).toEqual(new Set(expected));
       }
       for (const expression of [
+        "hasattachments:true",
+        "size>1000000",
+        "received<2000-01-01",
+        "importance:low",
+      ]) {
+        const url = new URL(route, emulator.url);
+        url.searchParams.set(
+          "$search",
+          JSON.stringify(`(${expression}) AND "${marker}"`),
+        );
+        const response = await fetch(url, { headers });
+        expect(response.status).toBe(200);
+        const result = await response.json();
+        expect(result.value).toEqual([]);
+        expect(result["@odata.nextLink"]).toBeUndefined();
+      }
+      for (const expression of [
         'subject:"report" OR',
         'subject:("report"',
         "unsupported:Native",
