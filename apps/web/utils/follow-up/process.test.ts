@@ -506,6 +506,8 @@ describe("processAccountFollowUps - dedup logic", () => {
   });
 
   it("stops paging through a large completed backlog", async () => {
+    // Recent enough that business-day counting stays cheap across 250 threads.
+    const eligibleDate = String(Date.now() - 30 * 24 * 60 * 60 * 1000);
     let page = 0;
     const provider = createMockProvider({
       getThreadsWithQuery: vi.fn().mockImplementation(async () => {
@@ -521,7 +523,9 @@ describe("processAccountFollowUps - dedup logic", () => {
       }),
       getLatestMessageInThread: vi
         .fn()
-        .mockImplementation(async (id) => mockAwaitingMessage(id, OLD_DATE)),
+        .mockImplementation(async (id) =>
+          mockAwaitingMessage(id, eligibleDate),
+        ),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     vi.mocked(prisma.threadTracker.findMany).mockImplementation((async ({
