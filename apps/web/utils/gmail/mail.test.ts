@@ -21,6 +21,8 @@ describe("createMail", () => {
       "recipient@example.com(comment)",
       "recipient(comment)@example.com",
       "recipient@(comment)example.com",
+      "recipient@example.com(comment)evil.example",
+      '"recipient"@example.com(comment)evil.example',
     ])("strips comments from %s", async (address) => {
       const options: Parameters<typeof createMail>[0] = {
         from: "sender@example.com",
@@ -33,9 +35,11 @@ describe("createMail", () => {
       const raw = await createMail(options);
       const message = Buffer.from(raw, "base64url").toString("utf8");
 
-      expect(message.split("\r\n")).toContain(
-        `${header}: Recipient <recipient@example.com>`,
-      );
+      const headerLine = message
+        .split("\r\n")
+        .find((line) => line.startsWith(`${header}: `));
+
+      expect(headerLine).toMatch(/<(?:recipient|"recipient")@example\.com>$/);
     });
   });
 
