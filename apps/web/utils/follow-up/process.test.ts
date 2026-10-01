@@ -742,7 +742,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       if (args?.where?.OR) return Promise.resolve([]);
       return Promise.resolve([
         {
@@ -751,7 +753,7 @@ describe("processAccountFollowUps - dedup logic", () => {
           sentAt: new Date(Number(OLD_DATE)),
         } as any,
       ]);
-    });
+    }) as any);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-first-follow-up",
@@ -825,7 +827,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
     let findManyCallCount = 0;
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       findManyCallCount += 1;
       if (findManyCallCount === 1) return Promise.resolve([]);
 
@@ -839,7 +843,7 @@ describe("processAccountFollowUps - dedup logic", () => {
           messageId: "msg-duplicate-check",
         } as any,
       ]);
-    });
+    }) as any);
 
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
@@ -1364,7 +1368,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
 
     let rowType: string | null = null;
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       const requestedType = args?.where?.type;
       if (!rowType) return Promise.resolve([]);
       if (requestedType && rowType === requestedType) {
@@ -1378,20 +1384,20 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]);
       }
       return Promise.resolve([]);
-    });
+    }) as any);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.threadTracker.create).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.create).mockImplementation(((args: any) => {
       const createType = args?.data?.type;
       if (rowType === null) {
         rowType = createType;
         return Promise.resolve({ id: "tracker-shared" } as any);
       }
       return Promise.reject(duplicateError);
-    });
-    vi.mocked(prisma.threadTracker.update).mockImplementation((args: any) => {
+    }) as any);
+    vi.mocked(prisma.threadTracker.update).mockImplementation(((args: any) => {
       rowType = args?.data?.type ?? rowType;
       return Promise.resolve({ id: "tracker-shared" } as any);
-    });
+    }) as any);
 
     const emailAccount = createMockAccount({
       followUpAwaitingReplyDays: 3,

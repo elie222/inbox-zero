@@ -89,7 +89,7 @@ describe("Google webhook route", () => {
       token: "test-google-webhook-token",
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -103,7 +103,7 @@ describe("Google webhook route", () => {
       token: "invalid-token",
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
     const body = await response.json();
 
     expect(response.status).toBe(403);
@@ -119,7 +119,7 @@ describe("Google webhook route", () => {
       historyId: 123,
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -140,7 +140,7 @@ describe("Google webhook route", () => {
       historyId: 123,
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -165,7 +165,7 @@ describe("Google webhook route", () => {
       historyId: "90071992547409931234",
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
 
     expect(response.status).toBe(200);
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
@@ -192,7 +192,7 @@ describe("Google webhook route", () => {
       historyId: 123,
     });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, {} as never);
     const body = await response.json();
 
     expect(response.status).toBe(200);
