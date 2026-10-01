@@ -140,7 +140,7 @@ function leafToPredicate(leaf: {
 function textQueryPredicates(query: string): MailPredicate[] {
   const clauses: MailPredicate[] = [];
   let remaining = query.trim();
-  remaining = takePrefixedValue(remaining, "subject:", (value) => {
+  remaining = takePrefixedValues(remaining, "subject:", (value) => {
     clauses.push({
       kind: "text",
       field: "subject",
@@ -148,14 +148,11 @@ function textQueryPredicates(query: string): MailPredicate[] {
       match: "phrase",
     });
   });
-  remaining = takePrefixedValue(remaining, "from:", (value) => {
-    clauses.push({
-      kind: "address",
-      field: "from",
-      value,
-      match: "address",
+  for (const field of ["from", "to"] as const) {
+    remaining = takePrefixedValues(remaining, `${field}:`, (value) => {
+      clauses.push({ kind: "address", field, value, match: "address" });
     });
-  });
+  }
   remaining = takeToken(remaining, "has:attachment", () => {
     clauses.push({ kind: "has_attachment", value: true });
   });
@@ -171,28 +168,35 @@ function textQueryPredicates(query: string): MailPredicate[] {
   return clauses;
 }
 
-function takePrefixedValue(
+// Consumes every occurrence, so `to:ada@x to:grace@x` yields two address
+// predicates instead of leaving the second operator behind as literal search
+// text that matches nothing.
+function takePrefixedValues(
   input: string,
   prefix: string,
   onValue: (value: string) => void,
 ) {
-  const at = findStandaloneToken(input, prefix);
-  if (at === -1) return input;
-  const valueStart = at + prefix.length;
-  if (input[valueStart] === '"') {
-    const closing = input.indexOf('"', valueStart + 1);
-    if (closing === -1) return input;
-    const value = input.slice(valueStart + 1, closing);
-    if (!value) return input;
+  let remaining = input;
+  while (true) {
+    const at = findStandaloneToken(remaining, prefix);
+    if (at === -1) return remaining;
+    const valueStart = at + prefix.length;
+    if (remaining[valueStart] === '"') {
+      const closing = remaining.indexOf('"', valueStart + 1);
+      if (closing === -1) return remaining;
+      const value = remaining.slice(valueStart + 1, closing);
+      if (!value) return remaining;
+      onValue(value);
+      remaining = `${remaining.slice(0, at)} ${remaining.slice(closing + 1)}`;
+      continue;
+    }
+    const space = remaining.indexOf(" ", valueStart);
+    const valueEnd = space === -1 ? remaining.length : space;
+    const value = remaining.slice(valueStart, valueEnd);
+    if (!value) return remaining;
     onValue(value);
-    return `${input.slice(0, at)} ${input.slice(closing + 1)}`;
+    remaining = `${remaining.slice(0, at)} ${remaining.slice(valueEnd)}`;
   }
-  const space = input.indexOf(" ", valueStart);
-  const valueEnd = space === -1 ? input.length : space;
-  const value = input.slice(valueStart, valueEnd);
-  if (!value) return input;
-  onValue(value);
-  return `${input.slice(0, at)} ${input.slice(valueEnd)}`;
 }
 
 function takeToken(input: string, token: string, onMatch: () => void) {
