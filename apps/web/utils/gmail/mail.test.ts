@@ -10,26 +10,33 @@ import {
 } from "@/utils/gmail/mail";
 
 describe("createMail", () => {
-  it.each([
+  describe.each([
     ["from", "From"],
     ["to", "To"],
     ["cc", "Cc"],
     ["bcc", "Bcc"],
     ["replyTo", "Reply-To"],
-  ])("strips comments inside angle-bracket %s addresses", async (field, header) => {
-    const raw = await createMail({
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      [field]: "Recipient <recipient@example.com(comment)>",
-      subject: "Comment parsing",
-      text: "Message",
+  ] as const)("angle-bracket %s addresses", (field, header) => {
+    it.each([
+      "recipient@example.com(comment)",
+      "recipient(comment)@example.com",
+      "recipient@(comment)example.com",
+    ])("strips comments from %s", async (address) => {
+      const options: Parameters<typeof createMail>[0] = {
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Comment parsing",
+        text: "Message",
+      };
+      options[field] = `Recipient <${address}>`;
+
+      const raw = await createMail(options);
+      const message = Buffer.from(raw, "base64url").toString("utf8");
+
+      expect(message.split("\r\n")).toContain(
+        `${header}: Recipient <recipient@example.com>`,
+      );
     });
-
-    const message = Buffer.from(raw, "base64url").toString("utf8");
-
-    expect(message.split("\r\n")).toContain(
-      `${header}: Recipient <recipient@example.com>`,
-    );
   });
 
   it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
