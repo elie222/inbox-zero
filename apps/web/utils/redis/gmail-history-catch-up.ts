@@ -1,14 +1,16 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { redis } from "@/utils/redis";
+import { isEmailProviderRateLimitRedisConfigured } from "@/utils/redis/email-provider-rate-limit";
 import { clearOwnedLock } from "@/utils/redis/owned-lock";
 
 const GMAIL_HISTORY_CATCH_UP_KEY_PREFIX = "gmail-history-catch-up";
 const GMAIL_HISTORY_CATCH_UP_TTL_SECONDS = 24 * 60 * 60;
 
 // Failures only cost the wider catch-up window, so they never fail the webhook.
+// Shares the rate-limit state's Redis check: without that state, webhooks never
+// skip history, so there is nothing to catch up on.
 
 /**
  * Records that webhook history was left unprocessed because Gmail was rate
@@ -19,7 +21,7 @@ export async function markGmailHistoryCatchUp(
   emailAccountId: string,
   logger: Logger,
 ) {
-  if (!isGmailHistoryCatchUpRedisConfigured()) return;
+  if (!isEmailProviderRateLimitRedisConfigured()) return;
 
   try {
     await redis.set(getGmailHistoryCatchUpKey(emailAccountId), randomUUID(), {
@@ -34,7 +36,7 @@ export async function getGmailHistoryCatchUp(
   emailAccountId: string,
   logger: Logger,
 ): Promise<string | null> {
-  if (!isGmailHistoryCatchUpRedisConfigured()) return null;
+  if (!isEmailProviderRateLimitRedisConfigured()) return null;
 
   try {
     return await redis.get<string>(getGmailHistoryCatchUpKey(emailAccountId));
@@ -53,7 +55,7 @@ export async function clearGmailHistoryCatchUp({
   token: string;
   logger: Logger;
 }) {
-  if (!isGmailHistoryCatchUpRedisConfigured()) return;
+  if (!isEmailProviderRateLimitRedisConfigured()) return;
 
   try {
     await clearOwnedLock({
@@ -63,13 +65,6 @@ export async function clearGmailHistoryCatchUp({
   } catch (error) {
     logger.warn("Failed to clear Gmail history catch-up", { error });
   }
-}
-
-function isGmailHistoryCatchUpRedisConfigured() {
-  return (
-    env.NODE_ENV === "test" ||
-    Boolean(env.REDIS_HTTP_URL && env.REDIS_HTTP_TOKEN)
-  );
 }
 
 function getGmailHistoryCatchUpKey(emailAccountId: string) {
