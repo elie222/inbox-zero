@@ -98,6 +98,28 @@ describe("mail upload staging", () => {
     });
   });
 
+  it("restarts an upload re-admitted under the same id", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    await holdAccountUploads(accountId, ["file-1"]);
+
+    await admit("file-1");
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+
+    expect(await stage("file-1", bytes)).toMatchObject({
+      status: "staged",
+      blobId: "file-1",
+    });
+    // The hold the first attempt took went with it, so a cancel takes the
+    // restarted upload instead of reporting it in use.
+    expect(await cancelAccountUpload(accountId, "file-1")).toEqual({
+      status: "deleted",
+      blobId: "file-1",
+    });
+  });
+
   it("rejects content longer than the admitted size", async () => {
     await admit("file-1");
     expect(

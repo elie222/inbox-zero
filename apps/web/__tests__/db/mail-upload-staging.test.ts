@@ -64,7 +64,10 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
 
     it("rejects content that does not match what was admitted", async () => {
       await admit("file-1");
-      expect(await stage("file-1", Buffer.from("tampered", "utf8"))).toEqual({
+      // Same length as the admitted bytes, so this reaches the checksum
+      // comparison rather than stopping at the size guard.
+      const tampered = Buffer.from("a staged attachmenX", "utf8");
+      expect(await stage("file-1", tampered)).toEqual({
         status: "rejected",
         code: "checksum_mismatch",
       });

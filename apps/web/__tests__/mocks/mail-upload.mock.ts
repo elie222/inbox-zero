@@ -94,9 +94,12 @@ function matches(row: MailUpload, where: Where): boolean {
     if (condition === null) return value === null;
     if (condition && typeof condition === "object") {
       const filter = condition as { in?: unknown[]; lt?: Date; not?: unknown };
-      if (filter.in) return filter.in.includes(value);
-      if (filter.lt) return value instanceof Date && value < filter.lt;
-      if ("not" in filter) return value !== filter.not;
+      if (filter.in && !filter.in.includes(value)) return false;
+      if (filter.lt && !(value instanceof Date && value < filter.lt)) {
+        return false;
+      }
+      if ("not" in filter && value === filter.not) return false;
+      return true;
     }
     return value === condition;
   });
