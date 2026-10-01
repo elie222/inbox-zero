@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type AddressInfo } from "node:net";
 import { createEmulator } from "emulate";
 import { expect, it } from "vitest";
 
 it("preserves literal Graph searches and continuation pages in the installed emulator", async () => {
-  const email = "user@example.com";
+  const email = "graph-query-test@example.com";
+  const marker = randomUUID().replaceAll("-", "");
   const probe = createServer();
   await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
   const port = (probe.address() as AddressInfo).port;
@@ -33,13 +35,24 @@ it("preserves literal Graph searches and continuation pages in the installed emu
         method: "POST",
         headers,
         body: JSON.stringify({
-          subject,
+          subject: `${marker} ${subject}`,
           body: { contentType: "Text", content: "Example body" },
         }),
       });
       expect(created.status).toBe(201);
       const message = await created.json();
-      if (subject.includes("scheduled")) expected.push(message.id);
+      if (subject.includes("scheduled")) {
+        expected.push(message.id);
+        const updated = await fetch(
+          new URL(`/v1.0/me/messages/${message.id}`, emulator.url),
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({ importance: "high" }),
+          },
+        );
+        expect(updated.status).toBe(200);
+      }
     }
     for (const route of [
       "/v1.0/me/messages",
@@ -48,9 +61,18 @@ it("preserves literal Graph searches and continuation pages in the installed emu
       for (const expression of [
         '"Native" AND "scheduled"',
         'subject:"report & C# 50%"',
+        "NOT unrelated",
+        "size>=0 NOT unrelated",
+        "importance:high",
+        "hasattachments:false NOT unrelated",
+        "received>=2000-01-01 NOT unrelated",
+        '(subject:"report" OR subject:"unrelated") NOT unrelated',
+        'subject:"report" OR (subject:"unrelated" AND body:"absent")',
+        'NOT (subject:"unrelated" OR body:"absent")',
       ]) {
         const url = new URL(route, emulator.url);
-        url.searchParams.set("$search", JSON.stringify(expression));
+        const query = JSON.stringify(`(${expression}) AND "${marker}"`);
+        url.searchParams.set("$search", query);
         url.searchParams.set("$top", "1");
         const response = await fetch(url, { headers });
         expect(response.status).toBe(200);
@@ -58,9 +80,7 @@ it("preserves literal Graph searches and continuation pages in the installed emu
         expect(first.value).toHaveLength(1);
         expect(first["@odata.nextLink"]).toBeTruthy();
         const nextURL = new URL(first["@odata.nextLink"], emulator.url);
-        expect(nextURL.searchParams.get("$search")).toBe(
-          JSON.stringify(expression),
-        );
+        expect(nextURL.searchParams.get("$search")).toBe(query);
         const next = await fetch(nextURL, { headers });
         expect(next.status).toBe(200);
         const last = await next.json();
@@ -74,14 +94,21 @@ it("preserves literal Graph searches and continuation pages in the installed emu
           ),
         ).toEqual(new Set(expected));
       }
-      const invalidURL = new URL(route, emulator.url);
-      invalidURL.searchParams.set(
-        "$search",
-        JSON.stringify('subject:"report" OR body:"other"'),
-      );
-      const invalid = await fetch(invalidURL, { headers });
-      expect(invalid.status).toBe(400);
-      expect((await invalid.json()).error.code).toBe("ErrorInvalidSearchQuery");
+      for (const expression of [
+        'subject:"report" OR',
+        'subject:("report"',
+        "unsupported:Native",
+        "unsupported>5",
+        "size>5MB",
+      ]) {
+        const invalidURL = new URL(route, emulator.url);
+        invalidURL.searchParams.set("$search", JSON.stringify(expression));
+        const invalid = await fetch(invalidURL, { headers });
+        expect(invalid.status).toBe(400);
+        expect((await invalid.json()).error.code).toBe(
+          "ErrorInvalidSearchQuery",
+        );
+      }
     }
   } finally {
     await emulator.close();

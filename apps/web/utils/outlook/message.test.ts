@@ -671,46 +671,6 @@ describe("queryBatchMessages", () => {
 });
 
 describe("queryMessagesWithFilters", () => {
-  it("keeps matching unread messages when applying metadata to text search", async () => {
-    const request = createMockMessagesRequest();
-    request.get.mockResolvedValue({
-      value: [
-        { id: "read", isRead: true },
-        { id: "unread", isRead: false },
-      ],
-    });
-    const result = await queryBatchMessages(
-      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
-      {
-        mailboxSearch: {
-          mailbox: "all",
-          read: false,
-          text: { kind: "text", field: "any", value: "report", match: "term" },
-        },
-      },
-      createTestLogger(),
-    );
-    expect(result.messages?.map((message) => message.id)).toEqual(["unread"]);
-  });
-
-  it.each([
-    "term",
-    "phrase",
-  ] as const)("omits whitespace-only %s search literals", async (match) => {
-    const request = createMockMessagesRequest();
-    await queryBatchMessages(
-      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
-      {
-        mailboxSearch: {
-          mailbox: "all",
-          text: { kind: "text", field: "any", value: "   ", match },
-        },
-      },
-      createTestLogger(),
-    );
-    expect(request.search).not.toHaveBeenCalled();
-  });
-
   it("rejects full URL page tokens outside Microsoft Graph", async () => {
     const api = vi.fn().mockReturnValue({ get: vi.fn() });
     const client = createCachedOutlookClient(api);
@@ -728,46 +688,6 @@ describe("queryMessagesWithFilters", () => {
 });
 
 describe("queryMessagesWithAttachments", () => {
-  it("keeps matching unread messages when applying metadata to text search", async () => {
-    const request = createMockMessagesRequest();
-    request.get.mockResolvedValue({
-      value: [
-        { id: "read", isRead: true },
-        { id: "unread", isRead: false },
-      ],
-    });
-    const result = await queryBatchMessages(
-      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
-      {
-        mailboxSearch: {
-          mailbox: "all",
-          read: false,
-          text: { kind: "text", field: "any", value: "report", match: "term" },
-        },
-      },
-      createTestLogger(),
-    );
-    expect(result.messages?.map((message) => message.id)).toEqual(["unread"]);
-  });
-
-  it.each([
-    "term",
-    "phrase",
-  ] as const)("omits whitespace-only %s search literals", async (match) => {
-    const request = createMockMessagesRequest();
-    await queryBatchMessages(
-      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
-      {
-        mailboxSearch: {
-          mailbox: "all",
-          text: { kind: "text", field: "any", value: "   ", match },
-        },
-      },
-      createTestLogger(),
-    );
-    expect(request.search).not.toHaveBeenCalled();
-  });
-
   it("rejects full URL page tokens outside Microsoft Graph", async () => {
     const api = vi.fn().mockReturnValue({ get: vi.fn() });
     const client = createCachedOutlookClient(api);
