@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cx } from "./utils";
 
 export function getMailSidebarRowPresentation({
   active,
@@ -56,8 +57,4 @@ export function getMailSidebarRowPresentation({
   );
 
   return { className, content };
-}
-
-function cx(...values: Array<string | boolean | undefined>) {
-  return values.filter(Boolean).join(" ");
 }
