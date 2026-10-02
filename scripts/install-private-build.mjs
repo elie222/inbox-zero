@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -12,8 +12,7 @@ async function installPrivateBuild() {
   }
   const repository = env.PRIVATE_BUILD_REPOSITORY;
   const token = env.PRIVATE_BUILD_TOKEN;
-  const ref = env.PRIVATE_BUILD_REF || "main";
-  if (!repository && !token && !env.PRIVATE_BUILD_REF) {
+  if (!repository && !token) {
     console.log("Private build integration is not configured; skipping.");
     return;
   }
@@ -23,11 +22,9 @@ async function installPrivateBuild() {
   if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(repository) || /\s/.test(token)) {
     throw new Error("Invalid private build configuration.");
   }
-  if (ref.startsWith("-") || /\s/.test(ref)) {
-    throw new Error("Invalid private build reference.");
-  }
+  const ref = (await readFile(path.join(root, ".private-build-revision"), "utf8")).trim();
   if (!/^[a-fA-F0-9]{40}$/.test(ref)) {
-    run("git", ["check-ref-format", "--branch", ref], { cwd: root, env }, "reference validation");
+    throw new Error("Private build revision must be a full commit SHA.");
   }
 
   const temporary = await mkdtemp(path.join(os.tmpdir(), "private-build-"));
@@ -44,10 +41,10 @@ async function installPrivateBuild() {
     run("git", ["init", "--quiet", temporary], { cwd: root, env: gitEnv }, "checkout preparation");
     run("git", [
       "-c", "credential.helper=", "fetch", "--quiet", "--depth=1",
-      `https://github.com/${repository}.git`, /^[a-fA-F0-9]{40}$/.test(ref) ? ref : `refs/heads/${ref}`,
+      `https://github.com/${repository}.git`, ref,
     ], { cwd: temporary, env: gitEnv }, "source download");
     const commit = run("git", ["rev-parse", "--verify", "FETCH_HEAD"], { cwd: temporary, env: gitEnv }, "revision verification").trim();
-    if (!/^[a-fA-F0-9]{40}$/.test(commit) || (/^[a-fA-F0-9]{40}$/.test(ref) && commit.toLowerCase() !== ref.toLowerCase())) {
+    if (!/^[a-fA-F0-9]{40}$/.test(commit) || commit.toLowerCase() !== ref.toLowerCase()) {
       throw new Error("Private build revision verification failed.");
     }
     run("git", ["checkout", "--quiet", "--detach", commit], { cwd: temporary, env: gitEnv }, "source checkout");
