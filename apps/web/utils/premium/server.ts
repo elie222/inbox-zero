@@ -148,7 +148,7 @@ export async function applyPendingPremiumGrant({
   email: string;
 }) {
   const grant = await prisma.pendingPremiumGrant.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: email.trim().toLowerCase() },
   });
   if (!grant) return;
 
