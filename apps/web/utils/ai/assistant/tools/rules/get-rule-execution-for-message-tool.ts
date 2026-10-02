@@ -130,13 +130,20 @@ export const getRuleExecutionForMessageTool = ({
         let resolvedMessageId = messageId;
         let executedRules = await prisma.executedRule.findMany(query);
         if (!executedRules.length) {
-          const emailProvider = await createEmailProvider({
-            emailAccountId,
-            provider,
-            logger,
-          });
-          const message = await emailProvider.getMessage(messageId);
-          resolvedMessageId = message.id;
+          try {
+            const emailProvider = await createEmailProvider({
+              emailAccountId,
+              provider,
+              logger,
+            });
+            const message = await emailProvider.getMessage(messageId);
+            resolvedMessageId = message.id;
+          } catch (error) {
+            logger.warn(
+              "Could not resolve canonical message ID for execution history",
+              { error, messageId },
+            );
+          }
           if (resolvedMessageId !== messageId) {
             executedRules = await prisma.executedRule.findMany({
               ...query,

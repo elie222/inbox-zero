@@ -59,6 +59,31 @@ describe("execution history message identity", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
+  it("preserves missing evidence when the provider is unavailable", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      new Error("Provider unavailable"),
+    );
+    expect(await run()).toMatchObject({
+      evidence: { state: "NO_EXECUTION_RECORDS", rootCauseKnown: false },
+      executions: [],
+    });
+  });
+
+  it("does not hide a database error during the canonical-ID lookup", async () => {
+    vi.mocked(prisma.executedRule.findMany)
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error("Database unavailable"));
+    const provider = createMockEmailProvider();
+    vi.mocked(provider.getMessage).mockResolvedValue({
+      id: "immutable-id",
+    } as never);
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    expect(await run()).toMatchObject({
+      error: "Failed to load rule execution for message",
+    });
+  });
+
   it("preserves missing evidence without substituting another message's thread history", async () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
     const provider = createMockEmailProvider();

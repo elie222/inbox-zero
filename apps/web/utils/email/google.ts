@@ -2079,7 +2079,7 @@ export class GmailProvider implements EmailProvider {
     _messageId: string,
     _folderId: string,
   ): Promise<void> {
-    throw new Error("Moving messages to folders is not supported for Gmail");
+    this.logger.warn("Moving messages to folders is not supported for Gmail");
   }
 
   async moveThreadToFolder(
