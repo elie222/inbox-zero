@@ -1,4 +1,5 @@
 import type { MouseEventHandler, ReactNode, Ref } from "react";
+import { cx } from "./utils";
 
 export type MailThreadRowSelectionInput = {
   ariaLabel: string;
@@ -241,8 +242,4 @@ function rowBackground({
   if (isSelected) return "bg-primary/10";
   if (isFocused) return "bg-primary/5";
   return "bg-background hover:bg-muted/50";
-}
-
-function cx(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
 }
