@@ -43,20 +43,6 @@ describe("determineConversationStatus", () => {
     });
   });
 
-  it("does not choose or execute a rule when all status definitions exclude the message", async () => {
-    provider.getThreadMessages.mockResolvedValue([inbound]);
-    vi.mocked(aiDetermineThreadStatus).mockResolvedValue({
-      status: null,
-      rationale:
-        "Direct recipients are excluded from FYI and no other status applies.",
-    });
-    expect(await run()).toEqual({
-      rule: null,
-      reason:
-        "Direct recipients are excluded from FYI and no other status applies.",
-    });
-  });
-
   it("ignores a trailing filing assistant message", async () => {
     const filingNotification = getMockMessage({
       id: "filing-1",

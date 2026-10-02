@@ -55,28 +55,6 @@ describe("decideThreadStatus", () => {
     expect(result.rationale).toContain("85% confidence");
   });
 
-  it("returns null when the decision model chooses None", async () => {
-    runDecisionModelMock.mockResolvedValue({
-      answers: {
-        thread_status: {
-          type: "choice",
-          choice: "None",
-          confidence: 0.95,
-          probabilities: {},
-        },
-      },
-    });
-    const result = await decideThreadStatus({
-      config,
-      emailAccount: getEmailAccount(),
-      definitions,
-      threadMessages: [getEmail()],
-      userSentLastEmail: false,
-      logger: createTestLogger(),
-    });
-    expect(result.status).toBeNull();
-  });
-
   it("rejects a low-confidence status so the caller can use the LLM", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {

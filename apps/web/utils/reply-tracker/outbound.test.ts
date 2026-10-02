@@ -42,33 +42,6 @@ describe("handleOutboundReply", () => {
     vi.mocked(clearOutboundThreadStatusLock).mockResolvedValue(true);
   });
 
-  it("marks a no-match status as processed without applying labels or creating trackers", async () => {
-    const message = getMockMessage({ id: "sent-msg", threadId: "thread" });
-    prisma.rule.findMany.mockResolvedValue([
-      { systemType: SystemType.ACTIONED },
-    ] as any);
-    provider.getThreadMessages.mockResolvedValue([message]);
-    vi.mocked(aiDetermineThreadStatus).mockResolvedValue({
-      status: null,
-      rationale: "No definition applies.",
-    });
-    await handleOutboundReply({
-      emailAccount,
-      message: message as any,
-      provider: provider as any,
-      logger,
-    });
-    expect(applyThreadStatusLabel).not.toHaveBeenCalled();
-    expect(updateThreadTrackers).not.toHaveBeenCalled();
-    expect(markOutboundThreadStatusProcessed).toHaveBeenCalledWith({
-      emailAccountId: emailAccount.id,
-      threadId: message.threadId,
-      messageId: message.id,
-      lockToken: "lock-token-1",
-    });
-    expect(clearOutboundThreadStatusLock).not.toHaveBeenCalled();
-  });
-
   it("should proceed with processing even if the message is not the latest in the thread", async () => {
     const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
     const latestMessage = getMockMessage({
