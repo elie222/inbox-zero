@@ -94,7 +94,11 @@ function AvailabilityEditor({
   return (
     <div className="mt-4 space-y-4">
       <WeeklyHoursEditor controller={controller} />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs text-muted-foreground">
+          We hide times where you already have events on your connected
+          calendar.
+        </p>
         <Button onClick={handleSave} loading={isSaving}>
           Save
         </Button>

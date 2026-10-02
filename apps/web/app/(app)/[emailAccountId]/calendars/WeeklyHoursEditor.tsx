@@ -202,10 +202,6 @@ export function WeeklyHoursEditor({
           );
         })}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        We hide times where you already have events on your connected calendar.
-      </p>
     </div>
   );
 }

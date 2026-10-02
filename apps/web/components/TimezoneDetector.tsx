@@ -156,8 +156,8 @@ export function TimezoneDetector() {
           <DialogDescription>
             Your saved timezone is <strong>{data.timezone}</strong>, but we
             detected that your current timezone is{" "}
-            <strong>{detectedTimezone}</strong>. Would you like to update your
-            timezone?
+            <strong>{detectedTimezone}</strong>. Updating also moves your
+            availability hours and booking link to this timezone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
