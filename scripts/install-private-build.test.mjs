@@ -36,6 +36,16 @@ test("unconfigured integrations skip without fetching", async () => {
   assert.match(state.logs[0], /skipping/);
 });
 
+test("OAuth proxy skips even incomplete integration configuration", async () => {
+  const logs = [];
+  await installPrivateBuild({
+    env: { IS_OAUTH_PROXY_SERVER: "true", PRIVATE_BUILD_REPOSITORY: "example/private" },
+    run: () => { throw new Error("Unexpected download"); },
+    log: (message) => logs.push(message),
+  });
+  assert.match(logs[0], /OAuth proxy/);
+});
+
 test("partial configuration fails before downloading", async () => {
   for (const env of [{ PRIVATE_BUILD_REPOSITORY: configuration.PRIVATE_BUILD_REPOSITORY }, { PRIVATE_BUILD_TOKEN: credential }, { PRIVATE_BUILD_REF: "main" }]) {
     const state = fixture();
@@ -67,6 +77,7 @@ test("uses askpass rather than credentials in Git arguments, strips installer cr
   const installer = state.calls.find((call) => call.command === process.execPath);
   assert.equal(installer.args[0], "scripts/install-overlay.mjs");
   assert.equal(installer.options.env.PRIVATE_BUILD_COMMIT, commit);
+  assert.equal(installer.options.cwd, fetch.options.cwd);
   assert.equal(installer.options.env.PRIVATE_BUILD_TOKEN, undefined);
   assert.equal(state.env.PRIVATE_BUILD_TOKEN, credential);
   await assert.rejects(access(askpass), { code: "ENOENT" });

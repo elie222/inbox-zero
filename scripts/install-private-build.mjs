@@ -10,6 +10,10 @@ export async function installPrivateBuild({
   run = runCommand,
   log = console.log,
 } = {}) {
+  if (env.IS_OAUTH_PROXY_SERVER === "true") {
+    log("Private build integration is not needed on the OAuth proxy; skipping.");
+    return;
+  }
   const repository = env.PRIVATE_BUILD_REPOSITORY;
   const token = env.PRIVATE_BUILD_TOKEN;
   const ref = env.PRIVATE_BUILD_REF || "main";
@@ -76,8 +80,8 @@ function runCommand(command, args, options) {
   return spawnSync(command, args, {
     ...options,
     encoding: "utf8",
-    timeout: 120_000,
-    maxBuffer: 1024 * 1024,
+    timeout: command === process.execPath ? 10 * 60_000 : 120_000,
+    maxBuffer: command === process.execPath ? 16 * 1024 * 1024 : 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
   });
 }

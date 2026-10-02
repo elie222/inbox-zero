@@ -2,6 +2,7 @@ name: Private build hook
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - scripts/install-private-build.mjs
       - scripts/install-private-build.test.mjs
@@ -14,6 +15,10 @@ on:
       - scripts/install-private-build.test.mjs
       - apps/web/vercel.json
       - .github/workflows/private-build-hook.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
