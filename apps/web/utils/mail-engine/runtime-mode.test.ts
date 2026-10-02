@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { selectMailEngineRuntimeMode } from "./runtime-mode";
+import {
+  selectMailEngineRuntimeMode,
+  shouldStartMailEngine,
+} from "./runtime-mode";
 
 describe("selectMailEngineRuntimeMode", () => {
   it("prefers desktop IPC over OPFS", () => {
@@ -21,5 +24,51 @@ describe("selectMailEngineRuntimeMode", () => {
     expect(
       selectMailEngineRuntimeMode({ desktopIpc: false, opfs: false }),
     ).toBe("unavailable");
+  });
+});
+
+describe("shouldStartMailEngine", () => {
+  it.each([
+    "/account/assistant",
+    "/account/automation",
+    "/account/settings",
+    "/account/debug/rules",
+    "/accounts",
+    null,
+  ])("does not start browser sync on %s", (pathname) => {
+    expect(shouldStartMailEngine({ pathname, desktopIpc: false })).toBe(false);
+  });
+
+  it.each([
+    "/account/mail",
+    "/account/mail/",
+    "/account/compose",
+    "/account/debug/mail-queue",
+  ])("starts browser sync for mail consumers on %s", (pathname) => {
+    expect(shouldStartMailEngine({ pathname, desktopIpc: false })).toBe(true);
+  });
+
+  it("preserves desktop background sync outside Mail", () => {
+    expect(
+      shouldStartMailEngine({
+        pathname: "/account/assistant",
+        desktopIpc: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("only matches account-level mail routes", () => {
+    expect(
+      shouldStartMailEngine({
+        pathname: "/organization/mail/settings",
+        desktopIpc: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartMailEngine({
+        pathname: "/account/settings/mail",
+        desktopIpc: false,
+      }),
+    ).toBe(false);
   });
 });

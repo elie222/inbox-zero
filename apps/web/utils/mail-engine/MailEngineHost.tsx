@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,7 +22,10 @@ import {
   createDesktopIpcMailClient,
   hasDesktopMailEngineIpc,
 } from "@/utils/mail-engine/desktop-ipc";
-import { selectMailEngineRuntimeMode } from "@/utils/mail-engine/runtime-mode";
+import {
+  selectMailEngineRuntimeMode,
+  shouldStartMailEngine,
+} from "@/utils/mail-engine/runtime-mode";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 import {
@@ -97,13 +101,21 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
 
 function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
+  const pathname = usePathname();
+  const desktopIpc = useSyncExternalStore(
+    subscribeNever,
+    hasDesktopMailEngineIpc,
+    () => false,
+  );
+  const enabled = shouldStartMailEngine({ pathname, desktopIpc });
   const [client, setClient] = useState<MailClient | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    if (!emailAccountId) return;
+    if (!emailAccountId || !enabled) return;
+    setUnavailable(false);
     const mode = selectMailEngineRuntimeMode({
-      desktopIpc: hasDesktopMailEngineIpc(),
+      desktopIpc,
       opfs: browserMailEngineCapabilities().opfs,
     });
     if (mode === "unavailable") {
@@ -255,7 +267,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       engine?.close().catch(() => undefined);
       setClient(null);
     };
-  }, [emailAccountId, provider]);
+  }, [emailAccountId, provider, enabled, desktopIpc]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
