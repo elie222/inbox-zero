@@ -68,8 +68,12 @@ describe("attachment image previews", () => {
   });
 
   it("types PDFs from their signature for the full preview", async () => {
-    for (const type of ["application/octet-stream", "text/html", ""]) {
-      const blob = new Blob(["%PDF-1.7\n"], { type });
+    for (const [type, content] of [
+      ["application/octet-stream", "%PDF-1.7\n"],
+      ["text/html", "%PDF-1.7\n"],
+      ["", "\r\n%PDF-1.4\n"],
+    ]) {
+      const blob = new Blob([content], { type });
       const preview = await getAttachmentPreview(blob);
       expect(preview?.type).toBe("application/pdf");
       expect(await preview?.arrayBuffer()).toEqual(await blob.arrayBuffer());

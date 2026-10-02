@@ -9,10 +9,18 @@ export function isPreviewableImageType(mimeType: string) {
   return rasterTypes.has(normalizeMimeType(mimeType));
 }
 
-export function isPreviewableAttachmentType(mimeType: string) {
+export function isPreviewableAttachment({
+  mimeType,
+  filename,
+}: {
+  mimeType: string;
+  filename: string;
+}) {
+  // Senders often label PDFs as octet-stream; the bytes are checked before rendering.
   return (
     isPreviewableImageType(mimeType) ||
-    normalizeMimeType(mimeType) === "application/pdf"
+    normalizeMimeType(mimeType) === "application/pdf" ||
+    filename.toLowerCase().endsWith(".pdf")
   );
 }
 
@@ -21,8 +29,11 @@ export async function getAttachmentPreview(
 ): Promise<Blob | undefined> {
   const image = await getAttachmentImagePreview(blob);
   if (image) return image;
-  const bytes = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
-  if (matches(bytes, [37, 80, 68, 70, 45]))
+  // PDF readers accept the header anywhere in the first 1024 bytes.
+  const header = new TextDecoder("latin1").decode(
+    await blob.slice(0, 1024).arrayBuffer(),
+  );
+  if (header.includes("%PDF-"))
     return blob.slice(0, blob.size, "application/pdf");
 }
 

@@ -18,7 +18,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import {
   getAttachmentPreview,
-  isPreviewableAttachmentType,
+  isPreviewableAttachment,
   isPreviewableImageType,
 } from "@/utils/attachments/image-preview";
 import {
@@ -27,12 +27,22 @@ import {
   saveBlob,
 } from "@/utils/attachments/download";
 
-type Attachment = NonNullable<ThreadMessage["attachments"]>[number];
-
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
   const [isDownloading, setIsDownloading] = useState(false);
-  const [previewing, setPreviewing] = useState<Attachment>();
+  const [previewingId, setPreviewingId] = useState<string>();
+  const previewing = message.attachments?.find(
+    (attachment) => attachment.attachmentId === previewingId,
+  );
+  // Keyed by URL so a different account or message never shows a stale file.
+  const previewUrl =
+    previewing && emailAccountId
+      ? getAttachmentUrl({
+          accountId: emailAccountId,
+          messageId: message.id,
+          attachmentId: previewing.attachmentId,
+        })
+      : "";
   const controller = useRef(new AbortController());
   useEffect(() => {
     if (!emailAccountId || !message.id) return;
@@ -79,7 +89,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
           : "";
 
         const canPreview =
-          !!emailAccountId && isPreviewableAttachmentType(attachment.mimeType);
+          !!emailAccountId && isPreviewableAttachment(attachment);
 
         return (
           <CardBasic
@@ -95,7 +105,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                 className="absolute inset-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 aria-label={`Preview ${attachment.filename}`}
                 title={attachment.filename}
-                onClick={() => setPreviewing(attachment)}
+                onClick={() => setPreviewingId(attachment.attachmentId)}
               />
             ) : null}
             {isPreviewableImageType(attachment.mimeType) && emailAccountId ? (
@@ -144,18 +154,14 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
       <Dialog
         open={!!previewing}
         onOpenChange={(open) => {
-          if (!open) setPreviewing(undefined);
+          if (!open) setPreviewingId(undefined);
         }}
       >
         {previewing && emailAccountId ? (
           <AttachmentPreviewDialogContent
-            key={previewing.attachmentId}
+            key={previewUrl}
             filename={previewing.filename}
-            url={getAttachmentUrl({
-              accountId: emailAccountId,
-              messageId: message.id,
-              attachmentId: previewing.attachmentId,
-            })}
+            url={previewUrl}
             emailAccountId={emailAccountId}
           />
         ) : null}
