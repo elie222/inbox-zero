@@ -5,6 +5,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followMailboxChanges } from "./follow-mailbox-changes";
 
+const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+  document,
+  "visibilityState",
+);
+
 describe("followMailboxChanges", () => {
   let sources: FakeEventSource[];
   let stops: (() => void)[];
@@ -17,7 +22,12 @@ describe("followMailboxChanges", () => {
 
   afterEach(() => {
     for (const stop of stops) stop();
-    setVisibility("visible");
+    vi.useRealTimers();
+    if (visibilityDescriptor) {
+      Object.defineProperty(document, "visibilityState", visibilityDescriptor);
+    } else {
+      Reflect.deleteProperty(document, "visibilityState");
+    }
   });
 
   function follow(onChange = vi.fn()) {
@@ -45,8 +55,17 @@ describe("followMailboxChanges", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it("holds no connection while hidden and catches up when shown again", () => {
+  it("catches up each time the stream (re)connects", () => {
     const { onChange } = follow();
+
+    sources[0].emit("ready");
+    sources[0].emit("ready");
+
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds no connection while hidden and reconnects when shown again", () => {
+    follow();
 
     setVisibility("hidden");
     expect(sources[0].closed).toBe(true);
@@ -54,7 +73,21 @@ describe("followMailboxChanges", () => {
     setVisibility("visible");
     expect(sources).toHaveLength(2);
     expect(sources[1].closed).toBe(false);
-    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("reopens a stream the browser gave up on", () => {
+    vi.useFakeTimers();
+    follow();
+
+    sources[0].readyState = 0;
+    sources[0].emit("error");
+    vi.advanceTimersByTime(60_000);
+    expect(sources).toHaveLength(1);
+
+    sources[0].readyState = 2;
+    sources[0].emit("error");
+    vi.advanceTimersByTime(30_000);
+    expect(sources).toHaveLength(2);
   });
 
   it("does not connect while starting hidden", () => {
@@ -78,6 +111,7 @@ describe("followMailboxChanges", () => {
 
 class FakeEventSource {
   closed = false;
+  readyState = 1;
   private readonly listeners = new Map<string, Set<() => void>>();
 
   readonly url: string;
@@ -94,6 +128,7 @@ class FakeEventSource {
 
   close() {
     this.closed = true;
+    this.readyState = 2;
   }
 
   emit(type: string) {

@@ -267,7 +267,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     // account stays too, since an org admin may be viewing a member's mail.
     fetchEmailAccounts()
       .then(({ emailAccounts }) => {
-        if (cancelled) return;
+        if (cancelled || emailAccounts.length === 0) return;
         return client.retainAccounts([
           emailAccountId,
           ...emailAccounts.map((account) => account.id),
