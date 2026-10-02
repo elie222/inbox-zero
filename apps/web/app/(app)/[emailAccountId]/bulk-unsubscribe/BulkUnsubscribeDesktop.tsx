@@ -39,55 +39,60 @@ export function BulkUnsubscribeDesktop({
   onToggleSelectAll: () => void;
 }) {
   return (
-    <Table
-      className="bulk-unsub-table"
-      containerClassName="lg:overflow-visible"
-    >
-      <TableHeader
-        sticky
-        className="[&_th:first-child]:rounded-tl-lg [&_th:last-child]:rounded-tr-lg"
+    // Only let the header stick to the page once the widest rows fit (~843px);
+    // narrower, e.g. with the chat sidebar open, the table keeps its own
+    // horizontal scroll so the actions column isn't clipped.
+    <div className="[container-type:inline-size]">
+      <Table
+        className="bulk-unsub-table"
+        containerClassName="[@container(min-width:844px)]:overflow-visible"
       >
-        <TableRow>
-          <TableHead className="w-10 pr-0">
-            <ButtonCheckbox
-              label={
-                isAllSelected ? "Deselect all senders" : "Select all senders"
-              }
-              checked={isAllSelected}
-              indeterminate={isSomeSelected && !isAllSelected}
-              onChange={() => onToggleSelectAll()}
-            />
-          </TableHead>
-          <TableHead className="pl-8">
-            <span className="text-sm font-medium">From</span>
-          </TableHead>
-          <TableHead className="whitespace-nowrap">
-            <HeaderButton
-              sorted={sortColumn === "emails"}
-              sortDirection={
-                sortColumn === "emails" ? sortDirection : undefined
-              }
-              onClick={() => onSort("emails")}
-            >
-              Emails
-            </HeaderButton>
-          </TableHead>
-          <TableHead className="whitespace-nowrap">
-            <HeaderButton
-              sorted={sortColumn === "unread"}
-              sortDirection={
-                sortColumn === "unread" ? sortDirection : undefined
-              }
-              onClick={() => onSort("unread")}
-            >
-              Read
-            </HeaderButton>
-          </TableHead>
-          <TableHead className="w-[196px]" />
-        </TableRow>
-      </TableHeader>
-      <TableBody>{tableRows}</TableBody>
-    </Table>
+        <TableHeader
+          sticky
+          className="[&_th:first-child]:rounded-tl-lg [&_th:last-child]:rounded-tr-lg"
+        >
+          <TableRow>
+            <TableHead className="w-10 pr-0">
+              <ButtonCheckbox
+                label={
+                  isAllSelected ? "Deselect all senders" : "Select all senders"
+                }
+                checked={isAllSelected}
+                indeterminate={isSomeSelected && !isAllSelected}
+                onChange={() => onToggleSelectAll()}
+              />
+            </TableHead>
+            <TableHead className="pl-8">
+              <span className="text-sm font-medium">From</span>
+            </TableHead>
+            <TableHead className="whitespace-nowrap">
+              <HeaderButton
+                sorted={sortColumn === "emails"}
+                sortDirection={
+                  sortColumn === "emails" ? sortDirection : undefined
+                }
+                onClick={() => onSort("emails")}
+              >
+                Emails
+              </HeaderButton>
+            </TableHead>
+            <TableHead className="whitespace-nowrap">
+              <HeaderButton
+                sorted={sortColumn === "unread"}
+                sortDirection={
+                  sortColumn === "unread" ? sortDirection : undefined
+                }
+                onClick={() => onSort("unread")}
+              >
+                Read
+              </HeaderButton>
+            </TableHead>
+            <TableHead className="w-[196px]" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>{tableRows}</TableBody>
+      </Table>
+    </div>
   );
 }
 
