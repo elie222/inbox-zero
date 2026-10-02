@@ -80,7 +80,12 @@ export function createProcessManager(cwd: string, env: NodeJS.ProcessEnv) {
         } catch (error) {
           lastError = error;
         }
-        await delay(500, undefined, { signal: controller.signal });
+        try {
+          await delay(500, undefined, { signal: controller.signal });
+        } catch (error) {
+          controller.signal.throwIfAborted();
+          throw error;
+        }
       }
       throw new Error(`${name} did not become ready: ${String(lastError)}`);
     },

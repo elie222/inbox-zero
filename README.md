@@ -99,7 +99,7 @@ For complete self-hosting instructions, production deployment, OAuth setup, and 
 
 ### Local Development
 
-> **Prerequisites**: [Node.js](https://nodejs.org/) v24 and the pnpm version pinned in `package.json`. Install either [Docker Desktop](https://docs.docker.com/desktop/) with Compose or native PostgreSQL and Redis. On macOS, native services can be installed with `brew install postgresql@16 redis`.
+> **Prerequisites**: macOS or Linux (WSL on Windows), [Node.js](https://nodejs.org/) v24, and the pnpm version pinned in `package.json`. Install either [Docker Desktop](https://docs.docker.com/desktop/) with Compose or native PostgreSQL and Redis. On macOS, native services can be installed with `brew install postgresql@16 redis`.
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git

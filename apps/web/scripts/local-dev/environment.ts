@@ -24,8 +24,8 @@ export function createLocalEnvironment({
     encryption: string;
     redis: string;
   };
-  inherited: NodeJS.ProcessEnv;
-}): Record<string, string> {
+  inherited: Partial<NodeJS.ProcessEnv>;
+}): Record<string, string> & { NODE_ENV: "development" } {
   const systemEnv: Record<string, string> = {};
   for (const key of [
     "PATH",

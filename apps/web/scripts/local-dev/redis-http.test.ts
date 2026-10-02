@@ -48,6 +48,56 @@ test("requires the token and rejects malformed command bodies before running Red
   expect(call).not.toHaveBeenCalled();
 });
 
+test("supports single commands and authenticated health checks", async () => {
+  const server = await createRedisHttpServer({
+    redis: {
+      ping: async () => "PONG",
+      pipeline: () => ({
+        call: vi.fn(),
+        exec: async () => [[null, "hello 世界"]],
+      }),
+    } as unknown as Redis,
+    token: "local-token",
+  });
+  servers.push(server);
+  const redis = new HttpRedis({ url: server.url, token: "local-token" });
+  expect(await redis.get("message")).toBe("hello 世界");
+  const response = await fetch(`${server.url}/health`, {
+    headers: { authorization: "Bearer local-token" },
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ result: "PONG" });
+});
+
+test("drains an active request before closing the HTTP server", async () => {
+  const started = Promise.withResolvers<void>();
+  const result = Promise.withResolvers<unknown[]>();
+  const server = await createRedisHttpServer({
+    redis: {
+      pipeline: () => ({
+        call: vi.fn(),
+        exec: () => {
+          started.resolve();
+          return result.promise;
+        },
+      }),
+    } as unknown as Redis,
+    token: "local-token",
+  });
+  servers.push(server);
+  const response = fetch(server.url, {
+    method: "POST",
+    headers: { authorization: "Bearer local-token" },
+    body: '["GET", "message"]',
+  });
+  await started.promise;
+  const closed = server.close();
+  result.resolve([[null, "completed"]]);
+  expect(await (await response).json()).toEqual({ result: "completed" });
+  await closed;
+  servers.splice(servers.indexOf(server), 1);
+});
+
 test("uses a Redis transaction for multi-exec and returns command errors", async () => {
   const multi = vi.fn(() => ({
     call: vi.fn(),

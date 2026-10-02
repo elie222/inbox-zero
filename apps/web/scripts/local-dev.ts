@@ -18,6 +18,7 @@ import { createLlmEmulator } from "../__tests__/emulators/llm";
 import { createStripeEmulator } from "../__tests__/emulators/stripe";
 import { writeEmulateSeed } from "./emulate-seed";
 import { createLocalEnvironment } from "./local-dev/environment";
+import { acquireLocalLock } from "./local-dev/lock";
 import { createProcessManager } from "./local-dev/processes";
 import { createRedisHttpServer } from "./local-dev/redis-http";
 
@@ -51,6 +52,10 @@ async function main() {
   }
   if (Number(process.versions.node.split(".")[0]) !== 24)
     throw new Error("Use Node.js 24, matching package.json engines.");
+  if (process.platform === "win32")
+    throw new Error(
+      "Local development currently supports macOS and Linux. On Windows, run this command inside WSL.",
+    );
   const appPort = Number(values.port);
   if (!Number.isInteger(appPort) || appPort < 1 || appPort > 65_535)
     throw new Error("--port must be an integer between 1 and 65535");
@@ -84,7 +89,7 @@ async function main() {
   }
 
   mkdirSync(DATA_DIR, { recursive: true });
-  const unlock = acquireLock();
+  const unlock = await acquireLocalLock(join(DATA_DIR, "launcher.pid"));
   const cleanup: { close: () => Promise<unknown>; timeout?: number }[] = [];
   let manager: ReturnType<typeof createProcessManager> | undefined;
   let interrupted = false;
@@ -438,24 +443,4 @@ async function checkUrl(url: string, headers?: Record<string, string>) {
   });
   if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
   await response.body?.cancel();
-}
-
-function acquireLock() {
-  const path = join(DATA_DIR, "launcher.pid");
-  if (existsSync(path)) {
-    const pid = Number(readFileSync(path, "utf8"));
-    if (!Number.isInteger(pid) || pid <= 0)
-      throw new Error(`Invalid launcher PID file: ${path}`);
-    try {
-      process.kill(pid, 0);
-      throw new Error(
-        `Local development is already running (PID ${pid}). Stop it before starting another instance.`,
-      );
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-      unlinkSync(path);
-    }
-  }
-  writeFileSync(path, String(process.pid), { flag: "wx", mode: 0o600 });
-  return () => unlinkSync(path);
 }
