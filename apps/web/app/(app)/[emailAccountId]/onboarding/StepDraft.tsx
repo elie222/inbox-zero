@@ -5,7 +5,7 @@ import { CheckIcon, PenIcon, XIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { OnboardingButton } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingButton";
@@ -18,19 +18,33 @@ export function StepDraft({
   provider: string;
   onNext: () => void;
 }) {
+  // One choice in flight. enableDraftRepliesAction calls revalidatePath, so
+  // Next commits the canonical URL captured when the action started. Overlapping
+  // actions still commit ?step=draft after onNext has moved on, and router.push
+  // only discards the single pending action.
+  const submittedRef = useRef(false);
+
   const onSetDraftReplies = useCallback(
     async (value: string) => {
-      const result = await enableDraftRepliesAction(emailAccountId, {
-        enable: value === "yes",
-      });
+      if (submittedRef.current) return;
+      submittedRef.current = true;
 
-      if (result?.serverError) {
-        toastError({
-          description: `There was an error: ${result.serverError || ""}`,
+      try {
+        const result = await enableDraftRepliesAction(emailAccountId, {
+          enable: value === "yes",
         });
-      }
 
-      onNext();
+        if (result?.serverError) {
+          toastError({
+            description: `There was an error: ${result.serverError || ""}`,
+          });
+        }
+
+        onNext();
+      } catch (error) {
+        submittedRef.current = false;
+        throw error;
+      }
     },
     [onNext, emailAccountId],
   );

@@ -116,6 +116,18 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
   const hasTrackedStart = useRef(false);
+  const advancedFromStepRef = useRef<string | null>(null);
+  const renderedStepRef = useRef<string | undefined>(undefined);
+
+  // A return to a step already advanced (back button, or a stale router commit)
+  // must be able to advance again. Leaving the step does not clear the guard,
+  // so a late onNext closed over the old step still no-ops.
+  if (renderedStepRef.current !== currentStepKey) {
+    renderedStepRef.current = currentStepKey;
+    if (advancedFromStepRef.current === currentStepKey) {
+      advancedFromStepRef.current = null;
+    }
+  }
   const { completeAndRedirect, destination } = useCompleteOnboarding();
 
   const getOnboardingStepPath = useCallback(
@@ -154,20 +166,23 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
+    if (advancedFromStepRef.current === currentStepKey) return;
+    const isLastStep = clampedStep >= steps.length;
+    const followingStepKey = isLastStep ? undefined : nextStepKey;
+    if (!isLastStep && !followingStepKey) return;
+    advancedFromStepRef.current = currentStepKey;
 
     analytics.onNext({
       step: clampedStep,
       stepKey: currentStepKey,
       totalSteps,
-      nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
-      nextStepKey,
+      nextStep: followingStepKey ? clampedStep + 1 : undefined,
+      nextStepKey: followingStepKey,
       isOptional: isOptionalOnboardingStep(currentStepKey),
     });
 
-    if (clampedStep < steps.length) {
-      if (!nextStepKey) return;
-
-      router.push(getOnboardingStepPath(nextStepKey));
+    if (followingStepKey) {
+      router.push(getOnboardingStepPath(followingStepKey));
     } else {
       analytics.onComplete({
         step: clampedStep,
@@ -191,7 +206,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   ]);
 
   const onSkipInviteTeam = useCallback(() => {
-    if (!currentStepKey) return;
+    if (!currentStepKey || !nextStepKey) return;
+    if (advancedFromStepRef.current === currentStepKey) return;
+    advancedFromStepRef.current = currentStepKey;
 
     analytics.onSkip({
       step: clampedStep,
@@ -203,8 +220,6 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     });
 
     // Navigate directly — do not call onNext() which would also fire completion analytics.
-    if (!nextStepKey) return;
-
     router.push(getOnboardingStepPath(nextStepKey));
   }, [
     analytics,

@@ -6,10 +6,14 @@ import { OnboardingContent } from "./OnboardingContent";
 const mocks = vi.hoisted(() => ({
   analyzePersona: vi.fn(),
   mutate: vi.fn(),
-  analytics: { onStart: vi.fn(), onStepViewed: vi.fn() },
+  push: vi.fn(),
+  draftOnNext: undefined as (() => void) | undefined,
+  analytics: { onStart: vi.fn(), onStepViewed: vi.fn(), onNext: vi.fn() },
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mocks.push }),
+}));
 vi.mock("@/hooks/usePersona", () => ({
   usePersona: () => ({ data: undefined, mutate: mocks.mutate }),
 }));
@@ -39,7 +43,12 @@ vi.mock("./StepEmailsSorted", () => ({ StepEmailsSorted: () => null }));
 vi.mock("./StepDraftReplies", () => ({ StepDraftReplies: () => null }));
 vi.mock("./StepBulkUnsubscribe", () => ({ StepBulkUnsubscribe: () => null }));
 vi.mock("./StepLabels", () => ({ StepLabels: () => null }));
-vi.mock("./StepDraft", () => ({ StepDraft: () => null }));
+vi.mock("./StepDraft", () => ({
+  StepDraft: ({ onNext }: { onNext: () => void }) => {
+    mocks.draftOnNext = onNext;
+    return null;
+  },
+}));
 vi.mock("./StepCustomRules", () => ({ StepCustomRules: () => null }));
 vi.mock("./StepInboxProcessed", () => ({ StepInboxProcessed: () => null }));
 vi.mock("./StepCompanySize", () => ({ StepCompanySize: () => null }));
@@ -62,6 +71,35 @@ describe("onboarding persona analysis", () => {
     await act(async () => analysis.resolve());
 
     expect(mocks.mutate).not.toHaveBeenCalled();
+  });
+
+  it("advances from draft once when next is requested again before the step changes", () => {
+    render(<OnboardingContent step="draft" />);
+
+    act(() => {
+      mocks.draftOnNext?.();
+      mocks.draftOnNext?.();
+    });
+
+    expect(mocks.push).toHaveBeenCalledTimes(1);
+    expect(mocks.push).toHaveBeenCalledWith(
+      "/account-test/onboarding?step=customRules",
+    );
+  });
+
+  it("can advance again after the draft step is shown a second time", () => {
+    const { rerender } = render(<OnboardingContent step="draft" />);
+    act(() => {
+      mocks.draftOnNext?.();
+    });
+
+    rerender(<OnboardingContent step="customRules" />);
+    rerender(<OnboardingContent step="draft" />);
+    act(() => {
+      mocks.draftOnNext?.();
+    });
+
+    expect(mocks.push).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes persona data when analysis finishes while onboarding is mounted", async () => {
