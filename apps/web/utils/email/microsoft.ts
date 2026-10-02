@@ -260,12 +260,12 @@ export class OutlookProvider implements EmailProvider {
       () =>
         this.client
           .getClient()
-          .api(`/me/messages/${messageId}`)
+          .api(`/me/messages/${encodeURIComponent(messageId)}`)
           .select("id")
           .get(),
       this.logger,
     );
-    if (!message.id)
+    if (!message?.id)
       throw new Error("Message response is missing its canonical ID");
     return message.id;
   }
