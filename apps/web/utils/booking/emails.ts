@@ -8,7 +8,8 @@ import {
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
-import { formatDateTimeInUserTimezone, getAccountTimezone } from "@/utils/date";
+import { formatDateTimeInUserTimezone } from "@/utils/date";
+import { getAccountTimezone } from "@/utils/timezone";
 
 type BookingEmailPayload = {
   cancellationReason?: string | null;

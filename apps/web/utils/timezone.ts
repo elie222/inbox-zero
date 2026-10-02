@@ -42,6 +42,10 @@ export function getSupportedTimezonesWithOffsets(
     });
 }
 
+export function getAccountTimezone(timezone: string | null | undefined) {
+  return timezone && isValidTimeZone(timezone) ? timezone : "UTC";
+}
+
 export function getTimezoneOffsetMinutes(zone: string, now: Date): number {
   try {
     const parts = getTimezoneParts(zone, now);

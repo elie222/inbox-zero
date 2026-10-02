@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { addMinutes } from "date-fns";
-import { getAccountTimezone } from "@/utils/date";
+import { getAccountTimezone } from "@/utils/timezone";
 import {
   generateBookableSlots,
   validateSelectedSlot,

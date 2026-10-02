@@ -1,5 +1,4 @@
 import { format } from "date-fns/format";
-import { isValidTimeZone } from "@inboxzero/scheduling";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { isSameDay } from "date-fns/isSameDay";
 import { isSameMonth } from "date-fns/isSameMonth";
@@ -8,6 +7,8 @@ import { isWeekend } from "date-fns/isWeekend";
 import { startOfDay } from "date-fns/startOfDay";
 import { subDays } from "date-fns/subDays";
 import { TZDate } from "@date-fns/tz";
+import { createScopedLogger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export const ONE_MINUTE_MS = 1000 * 60;
 export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
@@ -142,6 +143,7 @@ export function sortByInternalDate<T extends { internalDate?: string | null }>(
 }
 
 const DEFAULT_TIMEZONE = "UTC";
+const logger = createScopedLogger("date-utils");
 
 /**
  * Formats a date/time in the user's timezone.
@@ -156,7 +158,22 @@ export function formatInUserTimezone(
   timezone: string | null | undefined,
   formatString: string,
 ): string {
-  return format(new TZDate(date, getAccountTimezone(timezone)), formatString);
+  const tz = timezone || DEFAULT_TIMEZONE;
+  try {
+    const dateInTZ = new TZDate(date, tz);
+    return format(dateInTZ, formatString);
+  } catch (error) {
+    // Invalid timezone (corrupted/legacy/non-IANA) - log and fall back to UTC
+    logger.error("Invalid timezone, falling back to UTC", {
+      timezone: tz,
+      error,
+    });
+    captureException(error, {
+      extra: { timezone: tz, context: "formatInUserTimezone" },
+    });
+    const dateInUTC = new TZDate(date, DEFAULT_TIMEZONE);
+    return format(dateInUTC, formatString);
+  }
 }
 
 /**
@@ -284,8 +301,4 @@ function shortDateFormatter(kind: keyof typeof shortDateFormats) {
     shortDateFormatters.set(kind, formatter);
   }
   return formatter;
-}
-
-export function getAccountTimezone(timezone: string | null | undefined) {
-  return timezone && isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE;
 }
