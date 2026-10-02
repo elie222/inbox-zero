@@ -43,9 +43,10 @@ export function BulkUnsubscribeDesktop({
       className="bulk-unsub-table"
       containerClassName="lg:overflow-visible"
     >
-      {/* Table borders collapse onto the table, so a sticky row loses its
-          bottom border; the inset shadow draws one that moves with it. */}
-      <TableHeader className="lg:sticky lg:top-0 lg:z-10 [&_th]:bg-card lg:[&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_th:first-child]:rounded-tl-lg [&_th:last-child]:rounded-tr-lg">
+      <TableHeader
+        sticky
+        className="[&_th:first-child]:rounded-tl-lg [&_th:last-child]:rounded-tr-lg"
+      >
         <TableRow>
           <TableHead className="w-10 pr-0">
             <ButtonCheckbox
