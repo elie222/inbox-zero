@@ -569,6 +569,18 @@ model Premium {
   @@index([pendingInvites])
 }
 
+// Admin grant for an email that has not signed up yet. Applied and deleted on sign-up.
+model PendingPremiumGrant {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email               String      @unique
+  tier                PremiumTier
+  count               Int         @default(1)
+  emailAccountsAccess Int?
+}
+
 model VerificationToken {
   id         String   @id @default(cuid())
   createdAt  DateTime @default(now())
