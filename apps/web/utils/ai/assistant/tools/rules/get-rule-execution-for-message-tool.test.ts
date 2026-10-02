@@ -67,6 +67,7 @@ describe("execution history message identity", () => {
       evidence: { state: "NO_EXECUTION_RECORDS", rootCauseKnown: false },
       executions: [],
     });
+    expect(prisma.executedRule.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("does not hide a database error during the canonical-ID lookup", async () => {
