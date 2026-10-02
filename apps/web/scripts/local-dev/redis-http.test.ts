@@ -9,12 +9,16 @@ afterEach(async () => {
 });
 
 test("round-trips strings, nested arrays, numbers, and null through the real Upstash client", async () => {
-  const server = await startServer([
-    [null, "שלום 世界"],
-    [null, ["OK", "hello", ["nested", 3], null]],
-    [null, 4],
-    [null, null],
-  ]);
+  const call = vi.fn();
+  const server = await startServer(
+    [
+      [null, "שלום 世界"],
+      [null, ["OK", "hello", ["nested", 3], null]],
+      [null, 4],
+      [null, null],
+    ],
+    call,
+  );
   const redis = new HttpRedis({ url: server.url, token: "local-token" });
   const pipeline = redis.pipeline();
   pipeline.get("unicode");
@@ -26,6 +30,12 @@ test("round-trips strings, nested arrays, numbers, and null through the real Ups
     ["OK", "hello", ["nested", 3], null],
     4,
     null,
+  ]);
+  expect(call.mock.calls).toEqual([
+    ["get", "unicode"],
+    ["lrange", "list", 0, -1],
+    ["incr", "counter"],
+    ["get", "missing"],
   ]);
 });
 
@@ -99,8 +109,9 @@ test("drains an active request before closing the HTTP server", async () => {
 });
 
 test("uses a Redis transaction for multi-exec and returns command errors", async () => {
+  const call = vi.fn();
   const multi = vi.fn(() => ({
-    call: vi.fn(),
+    call,
     exec: async () => [[new Error("WRONGTYPE"), null]],
   }));
   const server = await createRedisHttpServer({
@@ -114,6 +125,7 @@ test("uses a Redis transaction for multi-exec and returns command errors", async
     body: '[["GET", "key"]]',
   });
   expect(multi).toHaveBeenCalledOnce();
+  expect(call).toHaveBeenCalledExactlyOnceWith("GET", "key");
   expect(await response.json()).toEqual([{ error: "WRONGTYPE" }]);
 });
 

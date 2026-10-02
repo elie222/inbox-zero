@@ -14,7 +14,7 @@ test("fails readiness immediately when a managed service crashes", async () => {
         async () => {
           throw new Error("not ready");
         },
-        60_000,
+        2000,
       ),
     ).rejects.toThrow("crashing service exited (7)");
     expect(manager.signal.aborted).toBe(true);

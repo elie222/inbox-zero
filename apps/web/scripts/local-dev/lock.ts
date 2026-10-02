@@ -1,31 +1,39 @@
-import { execFile } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { promisify } from "node:util";
-
-const exec = promisify(execFile);
+import { createHash } from "node:crypto";
+import { unlinkSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 
 export async function acquireLocalLock(path: string) {
-  if (existsSync(path)) {
-    const pid = Number(readFileSync(path, "utf8"));
-    if (!Number.isInteger(pid) || pid <= 0)
-      throw new Error(`Invalid launcher PID file: ${path}`);
-    try {
-      process.kill(pid, 0);
-      const { stdout } = await exec(
-        "ps",
-        ["-p", String(pid), "-o", "command="],
-        { timeout: 5000 },
-      );
-      if (stdout.includes("apps/web/scripts/local-dev.ts"))
-        throw new Error(
-          `Local development is already running (PID ${pid}). Stop it before starting another instance.`,
+  // The kernel releases this checkout-specific lease after a crash. PID files
+  // alone cannot safely arbitrate concurrent stale-lock recovery.
+  const port =
+    49_152 +
+    (createHash("sha256").update(path).digest().readUInt32BE(0) % 16_384);
+  const server = createServer((socket) => socket.end());
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", (error) => {
+      if ((error as NodeJS.ErrnoException).code === "EADDRINUSE")
+        reject(
+          new Error(
+            `Local development lock port ${port} is in use. Stop the other launcher or process before starting again.`,
+          ),
         );
-      unlinkSync(path);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-      unlinkSync(path);
-    }
+      else reject(error);
+    });
+    server.listen(port, "127.0.0.1", resolve);
+  });
+  try {
+    writeFileSync(path, String(process.pid), { mode: 0o600 });
+  } catch (error) {
+    server.close();
+    throw error;
   }
-  writeFileSync(path, String(process.pid), { flag: "wx", mode: 0o600 });
-  return () => unlinkSync(path);
+  return async () => {
+    try {
+      unlinkSync(path);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  };
 }

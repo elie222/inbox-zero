@@ -355,7 +355,7 @@ async function main() {
     try {
       await manager?.stop();
     } finally {
-      unlock();
+      await unlock();
       process.removeListener("SIGINT", interrupt);
       process.removeListener("SIGTERM", interrupt);
     }

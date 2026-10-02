@@ -71,7 +71,7 @@ test("Next does not import credentials from an existing checkout environment fil
         `require(${JSON.stringify(envLoader)}).loadEnvConfig(${JSON.stringify(directory)}, true); console.log(JSON.stringify({key:process.env.OPENAI_API_KEY,proxy:process.env.OAUTH_PROXY_URL}));`,
       ],
       {
-        env: { NODE_ENV: "test", __NEXT_PROCESSED_ENV: "true" },
+        env: { NODE_ENV: "development", __NEXT_PROCESSED_ENV: "true" },
         encoding: "utf8",
         timeout: 5000,
       },
