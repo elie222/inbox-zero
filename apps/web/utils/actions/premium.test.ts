@@ -639,6 +639,9 @@ describe("adminChangePremiumStatusAction", () => {
     });
 
     expect(result?.data).toEqual({ pending: true });
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: "new.user@example.com" } }),
+    );
     expect(prisma.pendingPremiumGrant.upsert).toHaveBeenCalledWith({
       where: { email: "new.user@example.com" },
       create: {

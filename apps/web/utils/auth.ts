@@ -499,11 +499,13 @@ async function postSignUp({
     loops(),
     resend,
     dub,
-    handlePendingPremiumInvite({ email }),
-    applyPendingPremiumGrant({ userId, email }).catch((error) => {
-      logger.error("Error applying pending premium grant", { email, error });
-      captureException(error, { userEmail: email });
-    }),
+    // Sequential so the admin grant lands on whichever premium the invite assigns.
+    handlePendingPremiumInvite({ email }).then(() =>
+      applyPendingPremiumGrant({ userId, email }).catch((error) => {
+        logger.error("Error applying pending premium grant", { email, error });
+        captureException(error, { userEmail: email });
+      }),
+    ),
     handleReferralOnSignUp({ userId, email }),
   ]);
 }

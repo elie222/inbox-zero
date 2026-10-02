@@ -49,6 +49,7 @@ import {
 } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { TEN_YEARS_MS } from "@/utils/date";
 import { getStripe } from "@/ee/billing/stripe";
 import {
   trackStripeCheckoutCreated,
@@ -60,7 +61,6 @@ import {
   getConversionClickMetadata,
 } from "@/utils/analytics/server-conversion-events";
 
-const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 const checkoutOfferSchema = z.enum(["BRIEF_MY_MEETING"]);
 
 export const decrementUnsubscribeCreditAction = actionClientUser
@@ -292,7 +292,7 @@ export const activateLicenseKeyAction = actionClientUser
       lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
       lemonSqueezySubscriptionId: null,
       lemonSqueezySubscriptionItemId: null,
-      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS),
+      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS_MS),
     });
   });
 
@@ -303,8 +303,9 @@ export const adminChangePremiumStatusAction = adminActionClient
     async ({
       parsedInput: { email, period, count, emailAccountsAccess, upgrade },
     }) => {
+      const normalizedEmail = email.trim().toLowerCase();
       const userToUpgrade = await prisma.emailAccount.findUnique({
-        where: { email },
+        where: { email: normalizedEmail },
         select: {
           id: true,
           user: { select: { id: true, premiumId: true } },
@@ -312,8 +313,6 @@ export const adminChangePremiumStatusAction = adminActionClient
       });
 
       if (!userToUpgrade?.user) {
-        const pendingEmail = email.toLowerCase();
-
         if (upgrade) {
           const grant = {
             tier: period,
@@ -321,15 +320,15 @@ export const adminChangePremiumStatusAction = adminActionClient
             emailAccountsAccess: emailAccountsAccess ?? null,
           };
           await prisma.pendingPremiumGrant.upsert({
-            where: { email: pendingEmail },
-            create: { email: pendingEmail, ...grant },
+            where: { email: normalizedEmail },
+            create: { email: normalizedEmail, ...grant },
             update: grant,
           });
           return { pending: true };
         }
 
         const { count: deleted } = await prisma.pendingPremiumGrant.deleteMany({
-          where: { email: pendingEmail },
+          where: { email: normalizedEmail },
         });
         if (!deleted) throw new SafeError("User not found");
         return { pending: true };

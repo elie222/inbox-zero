@@ -30,6 +30,7 @@ describe("applyPendingPremiumGrant", () => {
       count: 2,
       emailAccountsAccess: 3,
     } as Awaited<ReturnType<typeof prisma.pendingPremiumGrant.findUnique>>);
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 1 });
     prisma.user.findUnique.mockResolvedValue({ premiumId: null } as Awaited<
       ReturnType<typeof prisma.user.findUnique>
     >);
@@ -55,7 +56,7 @@ describe("applyPendingPremiumGrant", () => {
       },
       select: { users: { select: { id: true, email: true } } },
     });
-    expect(prisma.pendingPremiumGrant.delete).toHaveBeenCalledWith({
+    expect(prisma.pendingPremiumGrant.deleteMany).toHaveBeenCalledWith({
       where: { id: "grant-1" },
     });
   });
@@ -70,6 +71,25 @@ describe("applyPendingPremiumGrant", () => {
 
     expect(prisma.premium.create).not.toHaveBeenCalled();
     expect(prisma.premium.update).not.toHaveBeenCalled();
-    expect(prisma.pendingPremiumGrant.delete).not.toHaveBeenCalled();
+    expect(prisma.pendingPremiumGrant.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("does not grant when another sign-up already claimed the grant", async () => {
+    prisma.pendingPremiumGrant.findUnique.mockResolvedValue({
+      id: "grant-1",
+      email: "new.user@example.com",
+      tier: "PLUS_ANNUALLY",
+      count: 1,
+      emailAccountsAccess: null,
+    } as Awaited<ReturnType<typeof prisma.pendingPremiumGrant.findUnique>>);
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 0 });
+
+    await applyPendingPremiumGrant({
+      userId: "user-1",
+      email: "new.user@example.com",
+    });
+
+    expect(prisma.premium.create).not.toHaveBeenCalled();
+    expect(prisma.premium.update).not.toHaveBeenCalled();
   });
 });

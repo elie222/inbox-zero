@@ -2,7 +2,7 @@ import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import type { ActionType } from "@/generated/prisma/enums";
 import { PremiumTier } from "@/generated/prisma/enums";
-import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
+import { ONE_MONTH_MS, ONE_YEAR_MS, TEN_YEARS_MS } from "@/utils/date";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
@@ -16,8 +16,6 @@ import { env } from "@/env";
 import { isAddingDigestAction } from "@/utils/premium/digest";
 
 const logger = createScopedLogger("premium");
-
-const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
 export async function upgradeToPremiumLemon(options: {
   userId: string;
@@ -154,14 +152,18 @@ export async function applyPendingPremiumGrant({
   });
   if (!grant) return;
 
+  // Claim before granting so a grant is never applied twice or left behind.
+  const { count: claimed } = await prisma.pendingPremiumGrant.deleteMany({
+    where: { id: grant.id },
+  });
+  if (!claimed) return;
+
   await grantPremiumAdmin({
     userId,
     tier: grant.tier,
     adminGrantExpiresAt: getAdminGrantExpiresAt(grant),
     emailAccountsAccess: grant.emailAccountsAccess ?? undefined,
   });
-
-  await prisma.pendingPremiumGrant.delete({ where: { id: grant.id } });
 
   logger.info("Applied pending premium grant", { userId });
 }
