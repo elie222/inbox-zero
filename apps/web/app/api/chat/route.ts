@@ -42,6 +42,7 @@ import {
   saveLastSeenRulesRevision,
 } from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
+import { writeNormalizedAssistantTagStream } from "@/utils/ai/assistant/assistant-tag-normalization";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
 export const maxDuration = 800;
@@ -326,14 +327,15 @@ export const POST = withEmailAccount("chat", async (request) => {
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
 
-        for await (const chunk of result.toUIMessageStream({
-          sendFinish: false,
-          onEnd: ({ responseMessage: finishedResponseMessage }) => {
-            responseMessage = finishedResponseMessage;
-          },
-        })) {
-          writer.write(chunk);
-        }
+        await writeNormalizedAssistantTagStream({
+          stream: result.toUIMessageStream({
+            sendFinish: false,
+            onEnd: ({ responseMessage: finishedResponseMessage }) => {
+              responseMessage = finishedResponseMessage;
+            },
+          }),
+          writer,
+        });
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;

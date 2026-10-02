@@ -23,7 +23,7 @@ import {
 import {
   assistantAllowedTags,
   normalizeAssistantTagMarkup,
-} from "@/components/assistant-chat/assistant-tag-normalization";
+} from "@/utils/ai/assistant/assistant-tag-normalization";
 
 type AssistantInlineEmailResponseProps = ComponentProps<typeof Streamdown>;
 
@@ -57,6 +57,8 @@ export const AssistantInlineEmailResponse = memo(
         normalizeHtmlIndentation: true,
         ...props,
       },
+      // Chat rows persisted before the server normalized its stream still hold
+      // escaped markup, so history has to be normalized on the way out too.
       typeof children === "string"
         ? normalizeAssistantTagMarkup(children)
         : children,
