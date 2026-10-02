@@ -15,9 +15,8 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
-import { DomainIcon } from "@/components/charts/DomainIcon";
+import { SenderIcon } from "@/components/SenderIcon";
 import { Progress } from "@/components/ui/progress";
-import { extractDomainFromEmail } from "@/utils/email";
 import { cn } from "@/utils";
 import { isUnsubscribeSuggestion } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 
@@ -114,7 +113,6 @@ export function BulkUnsubscribeRowDesktop({
   filter,
   readPercentage,
 }: RowProps) {
-  const domain = extractDomainFromEmail(item.name) || item.name;
   const isSuggested = isUnsubscribeSuggestion(item);
 
   return (
@@ -138,7 +136,7 @@ export function BulkUnsubscribeRowDesktop({
         data-cell="from"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <DomainIcon domain={domain} size={32} variant="circular" />
+          <SenderIcon email={item.name} name={item.fromName} size={32} />
           <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
             <div className="truncate font-medium">
               {item.fromName || item.name}

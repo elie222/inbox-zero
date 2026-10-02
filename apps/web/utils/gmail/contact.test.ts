@@ -47,7 +47,7 @@ describe("searchContacts", () => {
     });
     expect(searchOtherContactsMock).toHaveBeenCalledWith({
       query: "first",
-      readMask: "names,emailAddresses",
+      readMask: "names,emailAddresses,photos",
       pageSize: 10,
     });
     expect(result).toEqual([
@@ -64,7 +64,7 @@ describe("searchContacts", () => {
     ]);
   });
 
-  it("includes people from Gmail other contacts alongside saved contacts", async () => {
+  it("includes people and their photos from Gmail other contacts, skipping generated placeholder photos", async () => {
     const { client } = createPeopleClient({
       searchContactsMock: vi.fn().mockResolvedValue({
         data: {
@@ -73,6 +73,9 @@ describe("searchContacts", () => {
               person: {
                 names: [{ displayName: "Saved Contact" }],
                 emailAddresses: [{ value: "saved@example.com" }],
+                photos: [
+                  { url: "https://example.com/generated.jpg", default: true },
+                ],
               },
             },
           ],
@@ -85,6 +88,7 @@ describe("searchContacts", () => {
               person: {
                 names: [{ displayName: "Recent Correspondent" }],
                 emailAddresses: [{ value: "recent@example.com" }],
+                photos: [{ url: "https://example.com/recent.jpg" }],
               },
             },
           ],
@@ -103,7 +107,7 @@ describe("searchContacts", () => {
       {
         emailAddress: "recent@example.com",
         name: "Recent Correspondent",
-        profilePictureUrl: undefined,
+        profilePictureUrl: "https://example.com/recent.jpg",
       },
     ]);
   });

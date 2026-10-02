@@ -13,8 +13,7 @@ import {
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 
-const SAVED_CONTACT_READ_MASK = "names,emailAddresses,photos";
-const OTHER_CONTACT_READ_MASK = "names,emailAddresses";
+const CONTACT_READ_MASK = "names,emailAddresses,photos";
 
 export async function searchContacts(
   client: people_v1.People,
@@ -93,7 +92,7 @@ function isContactSourceDenied(error: unknown) {
 async function searchSavedContacts(client: people_v1.People, query: string) {
   const res = await client.people.searchContacts({
     query,
-    readMask: SAVED_CONTACT_READ_MASK,
+    readMask: CONTACT_READ_MASK,
     pageSize: MAX_CONTACT_RESULTS,
   });
 
@@ -103,7 +102,7 @@ async function searchSavedContacts(client: people_v1.People, query: string) {
 async function searchOtherContacts(client: people_v1.People, query: string) {
   const res = await client.otherContacts.search({
     query,
-    readMask: OTHER_CONTACT_READ_MASK,
+    readMask: CONTACT_READ_MASK,
     pageSize: MAX_CONTACT_RESULTS,
   });
 
@@ -124,7 +123,9 @@ function mapSearchResults(
               {
                 emailAddress: emailAddress.value,
                 name: person.names?.[0]?.displayName ?? undefined,
-                profilePictureUrl: person.photos?.[0]?.url ?? undefined,
+                profilePictureUrl:
+                  person.photos?.find((photo) => !photo.default)?.url ??
+                  undefined,
               },
             ]
           : [],
