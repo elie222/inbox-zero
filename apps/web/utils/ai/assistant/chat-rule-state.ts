@@ -5,8 +5,13 @@ import {
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import { filterNullProperties } from "@/utils";
+import { createEmailProvider } from "@/utils/email/provider";
+import { createScopedLogger } from "@/utils/logger";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import prisma from "@/utils/prisma";
+import { isDefined } from "@/utils/types";
+
+const logger = createScopedLogger("chat-rule-state");
 
 export type RuleReadState = {
   readAt: number;
@@ -59,6 +64,7 @@ export async function loadAssistantRuleSnapshot({
     select: {
       about: true,
       rulesRevision: true,
+      account: { select: { provider: true } },
       rules: {
         select: {
           name: true,
@@ -75,6 +81,7 @@ export async function loadAssistantRuleSnapshot({
               type: true,
               content: true,
               label: true,
+              labelId: true,
               to: true,
               cc: true,
               bcc: true,
@@ -100,6 +107,14 @@ export async function loadAssistantRuleSnapshot({
         },
       },
     },
+  });
+
+  const currentLabelNames = await loadCurrentLabelNames({
+    emailAccountId,
+    provider: emailAccount?.account?.provider,
+    labelIds: (emailAccount?.rules ?? []).flatMap((rule) =>
+      rule.actions.map((action) => action.labelId),
+    ),
   });
 
   const ruleNotificationDestinations = Array.from(
@@ -138,7 +153,10 @@ export async function loadAssistantRuleSnapshot({
         actions: rule.actions.map((action) => ({
           type: action.type,
           fields: filterNullProperties({
-            label: action.label,
+            // Users rename labels in Gmail; the stored name goes stale while the ID stays valid
+            label:
+              (action.labelId && currentLabelNames.get(action.labelId)) ||
+              action.label,
             content: action.content,
             to: action.to,
             cc: action.cc,
@@ -198,4 +216,31 @@ function stripRuleUpdatedAt(
 ): Omit<AssistantRuleSnapshot["rules"][number], "updatedAt"> {
   const { updatedAt: _updatedAt, ...visibleRule } = rule;
   return visibleRule;
+}
+
+async function loadCurrentLabelNames({
+  emailAccountId,
+  provider,
+  labelIds,
+}: {
+  emailAccountId: string;
+  provider: string | undefined;
+  labelIds: (string | null)[];
+}): Promise<Map<string, string>> {
+  if (!provider || !labelIds.some(isDefined)) return new Map();
+
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const labels = await emailProvider.getLabels({ includeHidden: true });
+    return new Map(labels.map((label) => [label.id, label.name]));
+  } catch (error) {
+    logger.warn("Failed to load current label names for rule snapshot", {
+      error,
+    });
+    return new Map();
+  }
 }
