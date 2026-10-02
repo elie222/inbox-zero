@@ -15,6 +15,7 @@
     "./MailProductFrame": "./src/MailProductFrame.tsx",
     "./host": "./src/host.ts",
     "./MailboxSurface": "./src/MailboxSurface.tsx",
+    "./MailSidebarRow": "./src/MailSidebarRow.tsx",
     "./MailThreadRow": "./src/MailThreadRow.tsx",
     "./MailReaderSurface": "./src/MailReaderSurface.tsx",
     "./sanitize-html": "./src/sanitize-html.ts"
