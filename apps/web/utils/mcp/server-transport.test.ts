@@ -49,6 +49,10 @@ it("initializes a real MCP client and handles scoped tool calls over stateless H
     expect(tools.tools.map((tool) => tool.name)).toContain(
       "list_email_accounts",
     );
+    for (const tool of tools.tools) {
+      expect(tool.annotations?.title).toEqual(expect.any(String));
+      expect(tool.annotations?.title).toBe(tool.title);
+    }
     prisma.emailAccount.findMany.mockResolvedValue([
       {
         id: "inbox",
