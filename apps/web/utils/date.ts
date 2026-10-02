@@ -8,8 +8,6 @@ import { isWeekend } from "date-fns/isWeekend";
 import { startOfDay } from "date-fns/startOfDay";
 import { subDays } from "date-fns/subDays";
 import { TZDate } from "@date-fns/tz";
-import { createScopedLogger } from "@/utils/logger";
-import { captureException } from "@/utils/error";
 
 export const ONE_MINUTE_MS = 1000 * 60;
 export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
@@ -144,7 +142,6 @@ export function sortByInternalDate<T extends { internalDate?: string | null }>(
 }
 
 const DEFAULT_TIMEZONE = "UTC";
-const logger = createScopedLogger("date-utils");
 
 /**
  * Formats a date/time in the user's timezone.
@@ -159,22 +156,7 @@ export function formatInUserTimezone(
   timezone: string | null | undefined,
   formatString: string,
 ): string {
-  const tz = timezone || DEFAULT_TIMEZONE;
-  try {
-    const dateInTZ = new TZDate(date, tz);
-    return format(dateInTZ, formatString);
-  } catch (error) {
-    // Invalid timezone (corrupted/legacy/non-IANA) - log and fall back to UTC
-    logger.error("Invalid timezone, falling back to UTC", {
-      timezone: tz,
-      error,
-    });
-    captureException(error, {
-      extra: { timezone: tz, context: "formatInUserTimezone" },
-    });
-    const dateInUTC = new TZDate(date, DEFAULT_TIMEZONE);
-    return format(dateInUTC, formatString);
-  }
+  return format(new TZDate(date, getAccountTimezone(timezone)), formatString);
 }
 
 /**

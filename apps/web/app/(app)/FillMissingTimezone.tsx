@@ -6,7 +6,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { updateEmailAccountTimezoneAction } from "@/utils/actions/calendar";
+import { fillMissingTimezoneAction } from "@/utils/actions/calendar";
 import { isValidTimeZone } from "@inboxzero/scheduling";
 
 // Briefings, drafts and digests fall back to UTC when no timezone is saved,
@@ -19,13 +19,18 @@ export function FillMissingTimezone() {
   const attemptedAccountIdRef = useRef<string | null>(null);
 
   const { execute } = useAction(
-    updateEmailAccountTimezoneAction.bind(null, emailAccountId),
+    fillMissingTimezoneAction.bind(null, emailAccountId),
     {
-      onSuccess: ({ input }) => {
-        analytics.captureAction("timezone_auto_set", {
-          detected_timezone: input.timezone,
-        });
+      onSuccess: ({ data, input }) => {
+        if (data?.updated) {
+          analytics.captureAction("timezone_auto_set", {
+            detected_timezone: input.timezone,
+          });
+        }
         mutate();
+      },
+      onError: () => {
+        attemptedAccountIdRef.current = null;
       },
     },
   );
