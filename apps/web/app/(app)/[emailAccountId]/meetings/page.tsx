@@ -7,6 +7,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { TimezoneDetector } from "@/components/TimezoneDetector";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
@@ -131,6 +132,7 @@ function MeetingRecorderPageContent() {
 
   return (
     <PageWrapper>
+      <TimezoneDetector />
       <div className="flex items-start justify-between gap-4">
         <PageHeader title="Meetings" />
 

@@ -18,6 +18,7 @@ import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding
 import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
 import { DeliveryChannelsSetting } from "@/app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { TimezoneDetector } from "@/components/TimezoneDetector";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
@@ -70,6 +71,7 @@ export default function MeetingBriefsPage() {
 
   return (
     <PageWrapper>
+      <TimezoneDetector />
       <PageHeader title="Meeting Briefs" />
 
       <div className="mt-4 space-y-4 max-w-3xl">
