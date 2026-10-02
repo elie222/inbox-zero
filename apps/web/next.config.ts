@@ -353,9 +353,19 @@ const nextConfig: NextConfig = {
         source: "/request-access",
       },
       {
-        destination: "/reply-zero",
-        permanent: false,
+        destination: "/",
+        permanent: true,
         source: "/reply-tracker",
+      },
+      {
+        destination: "/",
+        permanent: true,
+        source: "/reply-zero/:path*",
+      },
+      {
+        destination: "/",
+        permanent: true,
+        source: "/:emailAccountId/reply-zero/:path*",
       },
       {
         destination: "/",
