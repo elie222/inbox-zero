@@ -14,7 +14,10 @@ import { hostname } from "node:os";
 import { resolve, sep } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
-import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
+import {
+  type BlobStore,
+  isAdmissibleBlobSize,
+} from "@inboxzero/mail-core/ports/blob-store";
 
 const HOSTNAME = hostname();
 const PROCESS_STARTED_AT_MS = Math.round(Date.now() - process.uptime() * 1000);
@@ -29,11 +32,7 @@ export function createFileBlobStore(
   return {
     async stage(input) {
       const stagingPath = blobFile(directory, input.blobId, ".staging");
-      if (
-        !Number.isSafeInteger(input.sizeBytes) ||
-        input.sizeBytes < 0 ||
-        input.sizeBytes > 25_000_000
-      ) {
+      if (!isAdmissibleBlobSize(input.sizeBytes)) {
         return { status: "rejected", code: "too_large" };
       }
       const temporaryPath = blobFile(
@@ -251,9 +250,7 @@ export async function readBlobMetadata(
         ? { checksum: parsed.checksum }
         : {}),
       ...(typeof parsed.sizeBytes === "number" &&
-      Number.isInteger(parsed.sizeBytes) &&
-      parsed.sizeBytes >= 0 &&
-      parsed.sizeBytes <= 25_000_000
+      isAdmissibleBlobSize(parsed.sizeBytes)
         ? { sizeBytes: parsed.sizeBytes }
         : {}),
     };

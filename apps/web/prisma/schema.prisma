@@ -234,6 +234,7 @@ model EmailAccount {
   scheduledActions    ScheduledAction[]
   snoozedThreads      SnoozedThread[]
   emailSendOperations EmailSendOperation[]
+  mailUploads         MailUpload[]
   sentMessageOpens    SentMessageOpen[]
   scheduledEmails     ScheduledEmail[]
   responseTimes       ResponseTime[]
@@ -938,6 +939,28 @@ model EmailSendOperation {
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, updatedAt])
+}
+
+// Attachments the mail client stages before a send. Serverless instances do not
+// share a filesystem, so the bytes have to outlive the request that staged them.
+model MailUpload {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  blobId      String
+  filename    String
+  contentType String
+  checksum    String
+  sizeBytes   Int
+  // Null until the content upload finalizes the blob.
+  content     Bytes?
+  heldAt      DateTime?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, blobId])
+  @@index([updatedAt])
 }
 
 // Open status for emails sent from the mail client. A unique token is embedded

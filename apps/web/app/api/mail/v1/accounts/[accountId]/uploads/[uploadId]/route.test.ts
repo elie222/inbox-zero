@@ -1,16 +1,19 @@
-import { mkdir, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { installMailUploadTable } from "@/__tests__/mocks/mail-upload.mock";
 import { createScopedLogger } from "@/utils/logger";
+import prisma from "@/utils/__mocks__/prisma";
 import {
-  accountMailUploadDirectory,
+  admitAccountUpload,
   holdAccountUploads,
+  inspectAccountUpload,
+  putAccountUploadContent,
 } from "@/utils/mail-api/upload-blobs";
-import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 import { DELETE, POST } from "./route";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/middleware", () => ({
   withEmailProvider:
@@ -43,11 +46,8 @@ vi.mock("@/utils/middleware", () => ({
 const accountId = "acc-1";
 
 describe("DELETE /uploads/[uploadId]", () => {
-  afterEach(async () => {
-    await rm(accountMailUploadDirectory(accountId), {
-      recursive: true,
-      force: true,
-    });
+  beforeEach(() => {
+    installMailUploadTable(prisma);
   });
 
   it("returns 409 invalid when a send still needs the blob", async () => {
@@ -58,8 +58,10 @@ describe("DELETE /uploads/[uploadId]", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: "invalid", retryable: false },
     });
-    const store = createFileBlobStore(accountMailUploadDirectory(accountId));
-    expect(await store.read("file-1")).not.toBeNull();
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "ready",
+      blobId: "file-1",
+    });
   });
 
   it("deletes an unheld blob", async () => {
@@ -103,6 +105,25 @@ describe("DELETE /uploads/[uploadId]", () => {
     });
   });
 
+  it("returns a retryable 503 when a release could not be written", async () => {
+    await stageReadyBlob("file-1");
+    expect(
+      (await POST(holdRequest("file-1", true), params("file-1"))).status,
+    ).toBe(200);
+    prisma.mailUpload.updateMany.mockRejectedValueOnce(new Error("no db"));
+
+    // Reporting "released" here would leave the client believing the hold is
+    // gone while every later DELETE answers 409.
+    const response = await POST(holdRequest("file-1", false), params("file-1"));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "unavailable", retryable: true },
+    });
+    expect(
+      (await DELETE(deleteRequest("file-1"), params("file-1"))).status,
+    ).toBe(409);
+  });
+
   it("returns 400 when the upload id is invalid", async () => {
     const response = await POST(
       holdRequest("../escape", true),
@@ -113,22 +134,23 @@ describe("DELETE /uploads/[uploadId]", () => {
 });
 
 async function stageReadyBlob(blobId: string) {
-  const directory = accountMailUploadDirectory(accountId);
-  await mkdir(directory, { recursive: true });
-  const store = createFileBlobStore(directory);
   const bytes = Buffer.from("blob", "utf8");
-  const checksum = createHash("sha256").update(bytes).digest("hex");
+  await admitAccountUpload(accountId, {
+    uploadId: blobId,
+    checksum: createHash("sha256").update(bytes).digest("hex"),
+    sizeBytes: bytes.byteLength,
+    filename: "note.txt",
+    contentType: "text/plain",
+  });
   expect(
-    await store.stage({
+    await putAccountUploadContent(
+      accountId,
       blobId,
-      bytes: (async function* () {
+      (async function* () {
         yield bytes;
       })(),
-      checksum,
-      sizeBytes: bytes.byteLength,
-    }),
-  ).toEqual({ status: "staged" });
-  expect(await store.finalize(blobId)).toMatchObject({ blobId });
+    ),
+  ).toMatchObject({ status: "staged" });
 }
 
 function holdRequest(uploadId: string, held: boolean) {

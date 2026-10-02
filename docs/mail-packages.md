@@ -13,9 +13,9 @@ before queueing the send. Either way, the queued send is watched with
 
 ## Staged uploads
 
-`MAIL_UPLOAD_DIR` is the directory for accepted attachment uploads. Set it to
-a durable directory shared by every web instance. When it is unset, uploads
-use a temp directory and do not survive a restart or another machine.
+Web stages accepted attachment uploads in the `MailUpload` table, because the
+admit, content, and send requests can each land on a different instance. The
+retention cron sweeps uploads no send can still claim.
 
 ## Release
 

@@ -186,7 +186,7 @@ async function cancelStagedUploads(
         signal: AbortSignal.timeout(30_000),
       });
     } catch {
-      // Best-effort cancel; tmpdir cleanup remains the backstop.
+      // Best-effort cancel; the retention sweep remains the backstop.
     }
   }
 }

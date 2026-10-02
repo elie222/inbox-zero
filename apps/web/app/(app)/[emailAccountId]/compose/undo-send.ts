@@ -129,7 +129,7 @@ export async function undoPendingSend() {
   try {
     await cancelSendAttachments(current.emailAccountId, current.attachmentIds);
   } catch {
-    // The send is already cancelled; tmpdir cleanup remains the backstop.
+    // The send is already cancelled; the retention sweep is the backstop.
   }
   return true;
 }

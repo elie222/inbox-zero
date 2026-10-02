@@ -47,6 +47,13 @@
     "components/email-list/ThreadDeliveryStatus.tsx",
     "components/ShortcutTooltipContent.tsx"
   ],
+  "compose-attachment-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "utils/mail-engine/stage-attachments.ts",
+    "app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/route.ts",
+    "app/api/mail/v1/accounts/[accountId]/uploads/[uploadId]/content/route.ts",
+    "utils/mail-api/upload-blobs.ts"
+  ],
   "composer-editing.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/ShortcutTooltipContent.tsx"
