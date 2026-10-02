@@ -47,6 +47,7 @@ export function createMockEmailProvider(
     toJSON: vi.fn(() => ({ name: "google", type: "mock" })),
 
     // Message operations
+    getCanonicalMessageId: vi.fn(async (messageId: string) => messageId),
     getMessage: vi.fn().mockResolvedValue(defaultMessage),
     getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
     getMessagesBatch: vi.fn().mockResolvedValue([defaultMessage]),

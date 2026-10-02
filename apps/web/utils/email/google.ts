@@ -255,6 +255,10 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
+  async getCanonicalMessageId(messageId: string): Promise<string> {
+    return messageId;
+  }
+
   async getMessage(
     messageId: string,
     options?: { includeCalendarContent?: boolean },

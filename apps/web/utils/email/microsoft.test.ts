@@ -66,6 +66,22 @@ afterEach(() => {
   });
 });
 
+describe("OutlookProvider.getCanonicalMessageId", () => {
+  it("resolves an immutable ID without downloading the message body", async () => {
+    const get = vi.fn().mockResolvedValue({ id: "immutable-id" });
+    const select = vi.fn().mockReturnValue({ get });
+    const api = vi.fn().mockReturnValue({ select });
+    const provider = new OutlookProvider({
+      getClient: () => ({ api }),
+    } as never);
+    expect(await provider.getCanonicalMessageId("rest-id")).toBe(
+      "immutable-id",
+    );
+    expect(api).toHaveBeenCalledWith("/me/messages/rest-id");
+    expect(select).toHaveBeenCalledWith("id");
+  });
+});
+
 describe("OutlookProvider.searchMessages", () => {
   it.each([
     ["sent", "sentitems", "sent-folder-id", false, "SENT"],

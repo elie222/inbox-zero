@@ -254,6 +254,22 @@ export class OutlookProvider implements EmailProvider {
     return { category, usedFallback };
   }
 
+  async getCanonicalMessageId(messageId: string): Promise<string> {
+    if (isMicrosoftEmulationEnabled()) return messageId;
+    const message = await withMicrosoftGraphRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${messageId}`)
+          .select("id")
+          .get(),
+      this.logger,
+    );
+    if (!message.id)
+      throw new Error("Message response is missing its canonical ID");
+    return message.id;
+  }
+
   async getMessage(
     messageId: string,
     options?: { includeCalendarContent?: boolean },

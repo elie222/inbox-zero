@@ -32,9 +32,7 @@ describe("execution history message identity", () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([execution] as never);
     const provider = createMockEmailProvider();
-    vi.mocked(provider.getMessage).mockResolvedValue({
-      id: "immutable-id",
-    } as never);
+    vi.mocked(provider.getCanonicalMessageId).mockResolvedValue("immutable-id");
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     const result = await run();
     expect(result).toMatchObject({
@@ -42,6 +40,7 @@ describe("execution history message identity", () => {
       evidence: { state: "RECORDED_EXECUTIONS" },
       executions: [{ executedRuleId: "execution" }],
     });
+    expect(provider.getMessage).not.toHaveBeenCalled();
     expect(prisma.executedRule.findMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
         where: { emailAccountId: "account", messageId: "immutable-id" },
@@ -75,9 +74,7 @@ describe("execution history message identity", () => {
       .mockResolvedValueOnce([])
       .mockRejectedValueOnce(new Error("Database unavailable"));
     const provider = createMockEmailProvider();
-    vi.mocked(provider.getMessage).mockResolvedValue({
-      id: "immutable-id",
-    } as never);
+    vi.mocked(provider.getCanonicalMessageId).mockResolvedValue("immutable-id");
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     expect(await run()).toMatchObject({
       error: "Failed to load rule execution for message",
@@ -87,10 +84,7 @@ describe("execution history message identity", () => {
   it("preserves missing evidence without substituting another message's thread history", async () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
     const provider = createMockEmailProvider();
-    vi.mocked(provider.getMessage).mockResolvedValue({
-      id: "search-id",
-      threadId: "thread-with-other-executions",
-    } as never);
+    vi.mocked(provider.getCanonicalMessageId).mockResolvedValue("search-id");
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     expect(await run()).toMatchObject({
       evidence: { state: "NO_EXECUTION_RECORDS", rootCauseKnown: false },

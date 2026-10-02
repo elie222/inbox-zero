@@ -136,8 +136,8 @@ export const getRuleExecutionForMessageTool = ({
               provider,
               logger,
             });
-            const message = await emailProvider.getMessage(messageId);
-            resolvedMessageId = message.id;
+            resolvedMessageId =
+              await emailProvider.getCanonicalMessageId(messageId);
           } catch (error) {
             logger.warn(
               "Could not resolve canonical message ID for execution history",

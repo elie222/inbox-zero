@@ -55,7 +55,7 @@ describe("decideThreadStatus", () => {
     expect(result.rationale).toContain("85% confidence");
   });
 
-  it("returns no status when every rule is ineligible", async () => {
+  it("returns null when the decision model chooses None", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {
         thread_status: {

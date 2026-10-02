@@ -42,7 +42,7 @@ describe("handleOutboundReply", () => {
     vi.mocked(clearOutboundThreadStatusLock).mockResolvedValue(true);
   });
 
-  it("marks an ineligible status as processed without applying labels or creating trackers", async () => {
+  it("marks a no-match status as processed without applying labels or creating trackers", async () => {
     const message = getMockMessage({ id: "sent-msg", threadId: "thread" });
     prisma.rule.findMany.mockResolvedValue([
       { systemType: SystemType.ACTIONED },
@@ -60,7 +60,12 @@ describe("handleOutboundReply", () => {
     });
     expect(applyThreadStatusLabel).not.toHaveBeenCalled();
     expect(updateThreadTrackers).not.toHaveBeenCalled();
-    expect(markOutboundThreadStatusProcessed).toHaveBeenCalled();
+    expect(markOutboundThreadStatusProcessed).toHaveBeenCalledWith({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      lockToken: "lock-token-1",
+    });
     expect(clearOutboundThreadStatusLock).not.toHaveBeenCalled();
   });
 

@@ -51,6 +51,7 @@ export const createMockEmailProvider = (
   getFolderCounts: vi.fn().mockResolvedValue([]),
   getSignatures: vi.fn().mockResolvedValue([]),
   getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
+  getCanonicalMessageId: vi.fn(async (messageId: string) => messageId),
   getMessage: vi.fn().mockResolvedValue({
     id: "msg1",
     threadId: "thread1",
