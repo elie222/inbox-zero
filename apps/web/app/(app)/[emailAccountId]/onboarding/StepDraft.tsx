@@ -18,10 +18,11 @@ export function StepDraft({
   provider: string;
   onNext: () => void;
 }) {
-  // One choice in flight. enableDraftRepliesAction calls revalidatePath, so
-  // Next commits the canonical URL captured when the action started. Overlapping
-  // actions still commit ?step=draft after onNext has moved on, and router.push
-  // only discards the single pending action.
+  // A second click must not start another enableDraftRepliesAction.
+  // That action calls revalidatePath, and Next later commits the canonical URL
+  // captured when the action started. router.push discards only the one pending
+  // action, so any other in-flight choice writes ?step=draft back after the
+  // page has already moved, with no further click.
   const submittedRef = useRef(false);
 
   const onSetDraftReplies = useCallback(

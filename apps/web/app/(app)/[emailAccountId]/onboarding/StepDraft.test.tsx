@@ -110,6 +110,10 @@ describe("StepDraft overlapping choices", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, please" }));
     fireEvent.click(screen.getByRole("button", { name: "No, thanks" }));
 
+    // The extra clicks never start an action, so they have no captured draft URL
+    // to commit after the page moves.
+    expect(mocks.enableDraftRepliesAction).toHaveBeenCalledTimes(1);
+
     const actions = mocks.enableDraftRepliesAction.mock.results.map(
       (result) =>
         result.value as ReturnType<typeof router.enableDraftRepliesAction>,
