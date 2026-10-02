@@ -126,6 +126,30 @@ describe("runActionFunction", () => {
     });
   });
 
+  it("moves only the matched message, preserving earlier messages in the conversation", async () => {
+    const moveMessageToFolder = vi.fn().mockResolvedValue(undefined);
+    const client = createMockEmailProvider({ moveMessageToFolder });
+    await runActionFunction({
+      client,
+      email,
+      emailAccount,
+      logger,
+      action: {
+        id: "move-action",
+        type: ActionType.MOVE_FOLDER,
+        folderId: "fyi-folder",
+      },
+      executedRule: {
+        id: "execution",
+        threadId: email.threadId,
+        emailAccountId: emailAccount.id,
+        ruleId: "fyi",
+      } as any,
+    });
+    expect(moveMessageToFolder).toHaveBeenCalledWith(email.id, "fyi-folder");
+    expect(client.moveThreadToFolder).not.toHaveBeenCalled();
+  });
+
   it("passes resolved drive attachments into draft creation", async () => {
     const client = createMockEmailProvider();
 

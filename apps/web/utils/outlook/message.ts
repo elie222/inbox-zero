@@ -16,6 +16,7 @@ import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
+import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
@@ -605,7 +606,15 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await parseMessages(filteredMessages);
+    const isSearchPage = new URL(
+      nextLink,
+      "https://graph.microsoft.com",
+    ).searchParams.has("$search");
+    const messages = await parseMessages(
+      isSearchPage
+        ? await normalizeOutlookSearchIds(client, filteredMessages, logger)
+        : filteredMessages,
+    );
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
@@ -676,7 +685,9 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await parseMessages(filteredMessages);
+    const messages = await parseMessages(
+      await normalizeOutlookSearchIds(client, filteredMessages, logger),
+    );
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -1268,4 +1279,47 @@ function outlookMailboxText(search: ProviderMailboxSearch): string {
     })
     .join(" AND ");
   return JSON.stringify(expression);
+}
+
+async function normalizeOutlookSearchIds(
+  client: OutlookClient,
+  messages: Message[],
+  logger: Logger,
+): Promise<Message[]> {
+  const inputIds = [
+    ...new Set(messages.flatMap((message) => (message.id ? [message.id] : []))),
+  ];
+  if (!inputIds.length) return messages;
+
+  // The emulator already uses stable IDs and does not implement Exchange ID translation.
+  if (isMicrosoftEmulationEnabled()) return messages;
+
+  // Graph's $search can return folder-dependent REST IDs despite the ImmutableId preference.
+  const response: { value: { sourceId: string; targetId?: string }[] } =
+    await withMicrosoftGraphRetry(
+      () =>
+        client.getClient().api("/me/translateExchangeIds").post({
+          inputIds,
+          sourceIdType: "restId",
+          targetIdType: "restImmutableEntryId",
+        }),
+      logger,
+    );
+  const ids = new Map(
+    response.value.map((item) => [item.sourceId, item.targetId]),
+  );
+  const unresolvedIds = inputIds.filter((id) => !ids.get(id));
+  if (unresolvedIds.length) {
+    logger.warn("Some Outlook search messages could not be resolved", {
+      unresolvedCount: unresolvedIds.length,
+      messageCount: messages.length,
+    });
+    logger.trace("Unresolved Outlook search message IDs", {
+      messageIds: unresolvedIds,
+    });
+  }
+  return messages.flatMap((message) => {
+    const id = message.id ? ids.get(message.id) : null;
+    return id ? [{ ...message, id }] : [];
+  });
 }

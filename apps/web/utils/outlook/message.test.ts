@@ -1,5 +1,6 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { describe, it, expect, vi } from "vitest";
+import * as outlookOauth from "@/utils/outlook/oauth";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -275,6 +276,94 @@ describe("convertMessage", () => {
 });
 
 describe("queryBatchMessages", () => {
+  it("returns immutable search IDs so execution history remains addressable after moves", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        { id: "mutable", conversationId: "thread", subject: "Documents" },
+      ],
+    });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { searchQuery: "Documents" },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+    expect(result.messages[0].threadId).toBe("thread");
+    expect(post).toHaveBeenCalledWith({
+      inputIds: ["mutable"],
+      sourceIdType: "restId",
+      targetIdType: "restImmutableEntryId",
+    });
+  });
+
+  it("normalizes IDs on subsequent search pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({ value: [{ id: "mutable" }] });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        pageToken:
+          "https://graph.microsoft.com/v1.0/me/messages?$search=Documents&$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+  });
+
+  it("keeps valid search results and pagination when another message cannot be resolved", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [{ id: "stale" }, { id: "valid" }],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$search=Documents&$skip=20",
+    });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "valid", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { searchQuery: "Documents" },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["immutable"]);
+    expect(result.nextPageToken).toContain("$skip=20");
+  });
+
+  it("uses the emulator's stable IDs without calling its unavailable translation API", async () => {
+    const emulation = vi
+      .spyOn(outlookOauth, "isMicrosoftEmulationEnabled")
+      .mockReturnValue(true);
+    try {
+      const request = createMockMessagesRequest();
+      request.get.mockResolvedValue({ value: [{ id: "stable" }] });
+      const result = await queryBatchMessages(
+        createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+        { searchQuery: "Documents" },
+        createTestLogger(),
+      );
+      expect(result.messages[0].id).toBe("stable");
+      expect(request.post).not.toHaveBeenCalled();
+    } finally {
+      emulation.mockRestore();
+    }
+  });
+
   it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
     const request = createMockMessagesRequest();
     await queryBatchMessages(
@@ -933,6 +1022,9 @@ function createMockMessagesRequest() {
     filter: vi.fn().mockReturnThis(),
     orderby: vi.fn().mockReturnThis(),
     search: vi.fn().mockReturnThis(),
+    post: vi.fn(async ({ inputIds }: { inputIds: string[] }) => ({
+      value: inputIds.map((id) => ({ sourceId: id, targetId: id })),
+    })),
     get: vi.fn().mockResolvedValue({ value: [] }),
   };
 
