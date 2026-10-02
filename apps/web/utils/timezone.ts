@@ -1,3 +1,5 @@
+import { isValidTimeZone } from "@inboxzero/scheduling";
+
 export type TimezoneEntry = {
   zone: string;
   city: string;
@@ -21,6 +23,7 @@ export function getSupportedTimezonesWithOffsets(
   if (current) allZones.add(current);
   const now = new Date();
   return [...allZones]
+    .filter(isValidTimeZone)
     .map((zone) => {
       const offsetMinutes = getTimezoneOffsetMinutes(zone, now);
       return {

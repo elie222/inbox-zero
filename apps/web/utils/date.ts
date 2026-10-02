@@ -1,4 +1,5 @@
 import { format } from "date-fns/format";
+import { isValidTimeZone } from "@inboxzero/scheduling";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { isSameDay } from "date-fns/isSameDay";
 import { isSameMonth } from "date-fns/isSameMonth";
@@ -158,7 +159,7 @@ export function formatInUserTimezone(
   timezone: string | null | undefined,
   formatString: string,
 ): string {
-  const tz = getAccountTimezone(timezone);
+  const tz = timezone || DEFAULT_TIMEZONE;
   try {
     const dateInTZ = new TZDate(date, tz);
     return format(dateInTZ, formatString);
@@ -304,5 +305,5 @@ function shortDateFormatter(kind: keyof typeof shortDateFormats) {
 }
 
 export function getAccountTimezone(timezone: string | null | undefined) {
-  return timezone || DEFAULT_TIMEZONE;
+  return timezone && isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE;
 }

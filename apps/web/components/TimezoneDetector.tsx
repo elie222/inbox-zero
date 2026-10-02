@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { toastSuccess } from "@/components/Toast";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
+import { isValidTimeZone } from "@inboxzero/scheduling";
 
 export function TimezoneDetector() {
   const { emailAccountId } = useAccount();
@@ -50,13 +51,16 @@ export function TimezoneDetector() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: executeUpdateTimezone is stable from useAction and causes infinite loops if included
   useEffect(() => {
-    if (!data || !isAccountOwner) return;
+    if (!data || !isAccountOwner) {
+      closeDialog();
+      return;
+    }
 
     const currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const savedTimezone = data.timezone;
 
     // A missing timezone is filled app-wide by FillMissingTimezone.
-    if (savedTimezone === null) return;
+    if (savedTimezone === null || !isValidTimeZone(currentTimezone)) return;
 
     if (
       shouldShowTimezonePrompt(savedTimezone, currentTimezone, dismissedPrompts)

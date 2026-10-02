@@ -12,6 +12,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 import { updateEmailAccountTimezoneAction } from "@/utils/actions/calendar";
 import { getSupportedTimezonesWithOffsets } from "@/utils/timezone";
+import { isValidTimeZone } from "@inboxzero/scheduling";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function CalendarSettings() {
@@ -21,7 +22,10 @@ export function CalendarSettings() {
   const timezone = data?.timezone || null;
 
   const [selectedTimezone, setSelectedTimezone] = useState<string | null>(null);
-  const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const detectedTimezone = isValidTimeZone(browserTimezone)
+    ? browserTimezone
+    : "UTC";
   const timezoneValue = selectedTimezone ?? timezone ?? detectedTimezone;
 
   const timezoneOptions = useMemo(() => {
@@ -48,8 +52,11 @@ export function CalendarSettings() {
           had_existing_timezone: Boolean(timezone),
         });
         toastSuccess({ description: "Timezone updated!" });
-        await mutate();
-        setSelectedTimezone(null);
+        try {
+          await mutate();
+        } finally {
+          setSelectedTimezone(null);
+        }
       },
     });
 

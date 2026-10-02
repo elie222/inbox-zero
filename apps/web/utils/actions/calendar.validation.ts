@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidTimeZone } from "@inboxzero/scheduling";
 
 export const disconnectCalendarBody = z.object({
   connectionId: z.string(),
@@ -12,7 +13,9 @@ export const toggleCalendarBody = z.object({
 export type ToggleCalendarBody = z.infer<typeof toggleCalendarBody>;
 
 export const updateTimezoneBody = z.object({
-  timezone: z.string().min(1, "Timezone is required"),
+  timezone: z.string().refine(isValidTimeZone, {
+    message: "Use a valid IANA timezone",
+  }),
 });
 export type UpdateTimezoneBody = z.infer<typeof updateTimezoneBody>;
 

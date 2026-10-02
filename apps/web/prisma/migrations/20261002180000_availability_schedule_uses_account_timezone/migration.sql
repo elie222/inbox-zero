@@ -7,5 +7,6 @@ WHERE s."emailAccountId" = ea."id"
   AND s."isDefault" = true
   AND ea."timezone" IS NULL;
 
--- AlterTable
-ALTER TABLE "AvailabilitySchedule" ALTER COLUMN "timezone" DROP NOT NULL;
+-- New code no longer writes this column. The default keeps it non-null for
+-- any deployment that still reads it until the column is dropped.
+ALTER TABLE "AvailabilitySchedule" ALTER COLUMN "timezone" SET DEFAULT 'UTC';
