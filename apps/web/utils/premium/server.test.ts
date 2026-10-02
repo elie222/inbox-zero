@@ -40,7 +40,7 @@ describe("applyPendingPremiumGrant", () => {
 
     await applyPendingPremiumGrant({
       userId: "user-1",
-      email: "New.User@example.com",
+      email: " New.User@example.com ",
     });
 
     expect(prisma.pendingPremiumGrant.findUnique).toHaveBeenCalledWith({
