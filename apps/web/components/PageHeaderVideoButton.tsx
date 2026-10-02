@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PlayIcon } from "lucide-react";
-import { OnboardingDialogContent } from "@/components/OnboardingModal";
+import { VideoPlayerDialog } from "@/components/VideoPlayerDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
@@ -34,7 +34,7 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
           Watch demo
         </Button>
       </DialogTrigger>
-      <OnboardingDialogContent
+      <VideoPlayerDialog
         title={video.title}
         description={video.description}
         youtubeVideoId={video.youtubeVideoId}

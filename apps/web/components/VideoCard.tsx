@@ -4,16 +4,10 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MutedText } from "@/components/Typography";
-import { MuxVideo } from "@/components/MuxVideo";
-import { YouTubeVideo } from "@/components/YouTubeVideo";
+import { VideoPlayerDialog } from "@/components/VideoPlayerDialog";
 import {
   useVideoAnalytics,
   type VideoAnalyticsConfig,
@@ -182,43 +176,16 @@ const VideoCard = React.forwardRef<
                     </div>
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-6xl border-0 bg-transparent p-0 overflow-hidden">
-                  <DialogTitle className="sr-only">Video: {title}</DialogTitle>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                    {muxPlaybackId ? (
-                      <MuxVideo
-                        playbackId={muxPlaybackId}
-                        className="size-full rounded-lg"
-                        playerClassName="size-full rounded-lg"
-                        playerStyle={{ overflow: "hidden" }}
-                        title={title}
-                        autoPlay
-                        onVideoCompleted={analytics.trackCompleted}
-                        onVideoProgress={analytics.trackProgress}
-                        onVideoStarted={analytics.trackStarted}
-                      />
-                    ) : youtubeVideoId ? (
-                      <YouTubeVideo
-                        videoId={youtubeVideoId}
-                        title={`Video: ${title}`}
-                        onVideoCompleted={analytics.trackCompleted}
-                        onVideoProgress={analytics.trackProgress}
-                        onVideoStarted={analytics.trackStarted}
-                        opts={{
-                          playerVars: { autoplay: 1 },
-                        }}
-                      />
-                    ) : (
-                      <iframe
-                        src={`${videoSrc}${videoSrc?.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
-                        className="size-full rounded-lg"
-                        title={`Video: ${title}`}
-                        allowFullScreen
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      />
-                    )}
-                  </div>
-                </DialogContent>
+                <VideoPlayerDialog
+                  title={title}
+                  description={description}
+                  youtubeVideoId={youtubeVideoId}
+                  muxPlaybackId={muxPlaybackId}
+                  videoSrc={videoSrc}
+                  onVideoCompleted={analytics.trackCompleted}
+                  onVideoProgress={analytics.trackProgress}
+                  onVideoStarted={analytics.trackStarted}
+                />
               </Dialog>
             </div>
           </div>
