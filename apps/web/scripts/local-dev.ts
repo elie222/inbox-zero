@@ -89,7 +89,10 @@ async function main() {
   }
 
   mkdirSync(DATA_DIR, { recursive: true });
-  const unlock = await acquireLocalLock(join(DATA_DIR, "launcher.pid"));
+  const unlock = await acquireLocalLock(
+    join(DATA_DIR, "launcher.pid"),
+    appPort,
+  );
   const cleanup: { close: () => Promise<unknown>; timeout?: number }[] = [];
   let manager: ReturnType<typeof createProcessManager> | undefined;
   let interrupted = false;
@@ -355,9 +358,15 @@ async function main() {
     try {
       await manager?.stop();
     } finally {
-      await unlock();
-      process.removeListener("SIGINT", interrupt);
-      process.removeListener("SIGTERM", interrupt);
+      try {
+        await unlock();
+      } catch (error) {
+        console.error("[local] Could not release launcher lock", error);
+        process.exitCode = 1;
+      } finally {
+        process.removeListener("SIGINT", interrupt);
+        process.removeListener("SIGTERM", interrupt);
+      }
     }
   }
 }

@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -52,6 +58,20 @@ test("releases the lock so the next launcher can start", async () => {
   try {
     const unlock = await acquireLocalLock(path);
     await unlock();
+    const nextUnlock = await acquireLocalLock(path);
+    await nextUnlock();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("releases the lock even if its informational PID file is removed", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "local-dev-lock-"));
+  const path = join(directory, "launcher.pid");
+  try {
+    const unlock = await acquireLocalLock(path);
+    unlinkSync(path);
+    await expect(unlock()).resolves.toBeUndefined();
     const nextUnlock = await acquireLocalLock(path);
     await nextUnlock();
   } finally {
