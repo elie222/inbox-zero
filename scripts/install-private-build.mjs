@@ -2,23 +2,19 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-export async function installPrivateBuild({
-  env = process.env,
-  root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
-  run = runCommand,
-  log = console.log,
-} = {}) {
+async function installPrivateBuild() {
+  const env = process.env;
+  const root = path.resolve(import.meta.dirname, "..");
   if (env.IS_OAUTH_PROXY_SERVER === "true") {
-    log("Private build integration is not needed on the OAuth proxy; skipping.");
+    console.log("Private build integration is not needed on the OAuth proxy; skipping.");
     return;
   }
   const repository = env.PRIVATE_BUILD_REPOSITORY;
   const token = env.PRIVATE_BUILD_TOKEN;
   const ref = env.PRIVATE_BUILD_REF || "main";
   if (!repository && !token && !env.PRIVATE_BUILD_REF) {
-    log("Private build integration is not configured; skipping.");
+    console.log("Private build integration is not configured; skipping.");
     return;
   }
   if (!repository || !token) {
@@ -31,7 +27,7 @@ export async function installPrivateBuild({
     throw new Error("Invalid private build reference.");
   }
   if (!/^[a-fA-F0-9]{40}$/.test(ref)) {
-    execute(run, "git", ["check-ref-format", "--branch", ref], { cwd: root, env }, "reference validation");
+    run("git", ["check-ref-format", "--branch", ref], { cwd: root, env }, "reference validation");
   }
 
   const temporary = await mkdtemp(path.join(os.tmpdir(), "private-build-"));
@@ -45,29 +41,35 @@ export async function installPrivateBuild({
       GIT_CONFIG_NOSYSTEM: "1",
       GIT_CONFIG_GLOBAL: "/dev/null",
     };
-    execute(run, "git", ["init", "--quiet", temporary], { cwd: root, env: gitEnv }, "checkout preparation");
-    execute(run, "git", [
+    run("git", ["init", "--quiet", temporary], { cwd: root, env: gitEnv }, "checkout preparation");
+    run("git", [
       "-c", "credential.helper=", "fetch", "--quiet", "--depth=1",
       `https://github.com/${repository}.git`, /^[a-fA-F0-9]{40}$/.test(ref) ? ref : `refs/heads/${ref}`,
     ], { cwd: temporary, env: gitEnv }, "source download");
-    const commit = execute(run, "git", ["rev-parse", "--verify", "FETCH_HEAD"], { cwd: temporary, env: gitEnv }, "revision verification").trim();
+    const commit = run("git", ["rev-parse", "--verify", "FETCH_HEAD"], { cwd: temporary, env: gitEnv }, "revision verification").trim();
     if (!/^[a-fA-F0-9]{40}$/.test(commit) || (/^[a-fA-F0-9]{40}$/.test(ref) && commit.toLowerCase() !== ref.toLowerCase())) {
       throw new Error("Private build revision verification failed.");
     }
-    execute(run, "git", ["checkout", "--quiet", "--detach", commit], { cwd: temporary, env: gitEnv }, "source checkout");
+    run("git", ["checkout", "--quiet", "--detach", commit], { cwd: temporary, env: gitEnv }, "source checkout");
     const childEnv = { ...env, PRIVATE_BUILD_COMMIT: commit };
     childEnv.PRIVATE_BUILD_TOKEN = undefined;
-    const output = execute(run, process.execPath, ["scripts/install-overlay.mjs", root], { cwd: temporary, env: childEnv }, "overlay installation");
-    if (output.trim()) log(output.replaceAll(token, "[redacted]").trim());
-    log("Private build integration installed.");
+    const output = run(process.execPath, ["scripts/install-overlay.mjs", root], { cwd: temporary, env: childEnv }, "overlay installation");
+    if (output.trim()) console.log(output.replaceAll(token, "[redacted]").trim());
+    console.log("Private build integration installed.");
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
 }
 
-function execute(run, command, args, options, step) {
+function run(command, args, options, step) {
   try {
-    const result = run(command, args, options);
+    const result = spawnSync(command, args, {
+      ...options,
+      encoding: "utf8",
+      timeout: command === process.execPath ? 10 * 60_000 : 120_000,
+      maxBuffer: command === process.execPath ? 16 * 1024 * 1024 : 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     if (result.error || result.status !== 0) throw new Error("Child process failed");
     return result.stdout || "";
   } catch {
@@ -76,19 +78,7 @@ function execute(run, command, args, options, step) {
   }
 }
 
-export function runCommand(command, args, options) {
-  return spawnSync(command, args, {
-    ...options,
-    encoding: "utf8",
-    timeout: command === process.execPath ? 10 * 60_000 : 120_000,
-    maxBuffer: command === process.execPath ? 16 * 1024 * 1024 : 1024 * 1024,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  installPrivateBuild().catch((error) => {
-    console.error(error.message);
-    process.exitCode = 1;
-  });
-}
+installPrivateBuild().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
