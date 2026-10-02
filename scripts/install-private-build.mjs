@@ -76,7 +76,7 @@ function execute(run, command, args, options, step) {
   }
 }
 
-function runCommand(command, args, options) {
+export function runCommand(command, args, options) {
   return spawnSync(command, args, {
     ...options,
     encoding: "utf8",

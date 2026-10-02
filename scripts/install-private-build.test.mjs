@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
-import { installPrivateBuild } from "./install-private-build.mjs";
+import { installPrivateBuild, runCommand } from "./install-private-build.mjs";
 
 const commit = "0123456789abcdef0123456789abcdef01234567";
 const credential = "synthetic-read-only-secret";
@@ -134,5 +134,17 @@ test("redacts credentials even if an installer prints a captured value", async (
 
 test("Vercel installs overlay before marketing and dependencies and clears the build token", async () => {
   const config = JSON.parse(await readFile(new URL("../apps/web/vercel.json", import.meta.url), "utf8"));
+  assert.match(config.buildCommand, /^cd \.\.\/\.\. && unset PRIVATE_BUILD_TOKEN &&/);
   assert.match(config.installCommand, /node scripts\/install-private-build\.mjs && unset PRIVATE_BUILD_TOKEN && bash clone-marketing\.sh && corepack pnpm install/);
+});
+
+test("installer runner accepts output larger than the Git allowance", () => {
+  const outputSize = 2 * 1024 * 1024;
+  const result = runCommand(process.execPath, ["-e", "process.stdout.write('x'.repeat(2 * 1024 * 1024))"], {});
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.length, outputSize);
+  const git = runCommand("git", ["--version"], {});
+  assert.equal(git.status, 0);
+  assert.match(git.stdout, /^git version/);
 });
