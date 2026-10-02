@@ -5,8 +5,9 @@ const envMock = vi.hoisted(() => ({
   DEFAULT_DECISION_MODEL: undefined as string | undefined,
   DEFAULT_DECISION_MODEL_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
+  OPENROUTER_API_KEY: undefined as string | undefined,
 }));
-const decideWithTypeSafeMock = vi.hoisted(() => vi.fn());
+const decideWithSystemOneMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/env", () => ({ env: envMock }));
 vi.mock("@/utils/prisma");
@@ -14,8 +15,8 @@ vi.mock("@/utils/llms/model-usage-guard", () => ({
   assertTrialAiUsageAllowed: vi.fn(),
 }));
 vi.mock("@/utils/usage", () => ({ saveAiUsage: vi.fn() }));
-vi.mock("@/utils/decision-model/typesafe", () => ({
-  decideWithTypeSafe: decideWithTypeSafeMock,
+vi.mock("@/utils/decision-model/system-one", () => ({
+  decideWithSystemOne: decideWithSystemOneMock,
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
@@ -45,6 +46,7 @@ describe("getDecisionModelConfig", () => {
     envMock.DEFAULT_DECISION_MODEL = "typesafe:jev-latest";
     envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
+    envMock.OPENROUTER_API_KEY = undefined;
   });
 
   function mockUserSetting(
@@ -69,6 +71,35 @@ describe("getDecisionModelConfig", () => {
     mockUserSetting(true);
 
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
+  });
+
+  it("selects OpenRouter credentials without requiring a TypeSafe key", async () => {
+    envMock.DEFAULT_DECISION_MODEL = "openrouter:typesafe/jev-1.13";
+    envMock.TYPESAFE_API_KEY = undefined;
+    envMock.OPENROUTER_API_KEY = "openrouter-key";
+    mockUserSetting(true);
+
+    expect(await getDecisionModelConfig(getEmailAccount())).toEqual({
+      provider: "openrouter",
+      model: "typesafe/jev-1.13",
+      apiKey: "openrouter-key",
+    });
+  });
+
+  it("does not use a TypeSafe key for an OpenRouter decision model", async () => {
+    envMock.DEFAULT_DECISION_MODEL = "openrouter:typesafe/jev-1.13";
+    mockUserSetting(true);
+
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
+  });
+
+  it("retains the direct TypeSafe key when both provider keys exist", async () => {
+    envMock.OPENROUTER_API_KEY = "openrouter-key";
+    mockUserSetting(true);
+
+    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
+      deploymentConfig,
+    );
   });
 
   it("is opt-in when the deployment default is off", async () => {
@@ -122,12 +153,12 @@ describe("runDecisionModel", () => {
         logger,
       }),
     ).rejects.toThrow("blocked by your account settings");
-    expect(decideWithTypeSafeMock).not.toHaveBeenCalled();
+    expect(decideWithSystemOneMock).not.toHaveBeenCalled();
   });
 
   it("sends redacted state to the provider under a REDACT policy", async () => {
     const secret = "c".repeat(24);
-    decideWithTypeSafeMock.mockResolvedValue({
+    decideWithSystemOneMock.mockResolvedValue({
       model: "test-model",
       inputTokens: 1,
       outputTokens: 0,
@@ -143,12 +174,12 @@ describe("runDecisionModel", () => {
       logger,
     });
 
-    const sent = JSON.stringify(decideWithTypeSafeMock.mock.calls[0]?.[0]);
+    const sent = JSON.stringify(decideWithSystemOneMock.mock.calls[0]?.[0]);
     expect(sent).not.toContain(secret);
   });
 
   it("records usage for the configured model", async () => {
-    decideWithTypeSafeMock.mockResolvedValue({
+    decideWithSystemOneMock.mockResolvedValue({
       model: "test-model",
       inputTokens: 1200,
       outputTokens: 12,
@@ -177,6 +208,40 @@ describe("runDecisionModel", () => {
       }),
     );
   });
+
+  it("records OpenRouter decision usage under OpenRouter rather than TypeSafe", async () => {
+    decideWithSystemOneMock.mockResolvedValue({
+      model: "typesafe/jev-1.13",
+      inputTokens: 42,
+      outputTokens: 0,
+      answers: { applies: { type: "yesNo", probability: 0.8 } },
+    });
+
+    await runDecisionModel({
+      config: {
+        provider: "openrouter",
+        model: "typesafe/jev-1.13",
+        apiKey: "openrouter-key",
+      },
+      emailAccount: getEmailAccount(),
+      state: {},
+      questions: {},
+      label: "test",
+      logger,
+    });
+
+    expect(saveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "openrouter",
+        model: "typesafe/jev-1.13",
+        usage: expect.objectContaining({
+          inputTokens: 42,
+          outputTokens: 0,
+          totalTokens: 42,
+        }),
+      }),
+    );
+  });
 });
 
 describe("runDecisionModelOrFallback", () => {
@@ -185,6 +250,7 @@ describe("runDecisionModelOrFallback", () => {
     envMock.DEFAULT_DECISION_MODEL = "typesafe:jev-latest";
     envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
+    envMock.OPENROUTER_API_KEY = undefined;
   });
 
   it("keeps the original path when the decision model is not enabled", async () => {
@@ -243,5 +309,40 @@ describe("runDecisionModelOrFallback", () => {
     expect(result).toBe("llm");
     expect(decide).not.toHaveBeenCalled();
     expect(fallback).toHaveBeenCalledOnce();
+  });
+
+  it("uses the normal LLM path without recording decision usage when OpenRouter fails", async () => {
+    envMock.DEFAULT_DECISION_MODEL = "openrouter:typesafe/jev-1.13";
+    envMock.TYPESAFE_API_KEY = undefined;
+    envMock.OPENROUTER_API_KEY = "openrouter-key";
+    prisma.user.findUnique.mockResolvedValue({
+      decisionModelEnabled: true,
+      aiApiKey: null,
+    } as never);
+    decideWithSystemOneMock.mockRejectedValue(
+      new Error("OpenRouter request failed with status 429"),
+    );
+    const emailAccount = getEmailAccount();
+    const fallback = vi.fn().mockResolvedValue("normal-llm-result");
+
+    const result = await runDecisionModelOrFallback({
+      emailAccount,
+      logger,
+      feature: "test",
+      decide: (decisionConfig) =>
+        runDecisionModel({
+          config: decisionConfig,
+          emailAccount,
+          state: {},
+          questions: {},
+          label: "test",
+          logger,
+        }),
+      fallback,
+    });
+
+    expect(result).toBe("normal-llm-result");
+    expect(fallback).toHaveBeenCalledOnce();
+    expect(saveAiUsage).not.toHaveBeenCalled();
   });
 });

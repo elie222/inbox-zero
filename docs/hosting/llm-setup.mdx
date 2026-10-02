@@ -62,6 +62,32 @@ Provider-specific keys (for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) also 
 
 The app also has **Settings → AI** for per-user keys/models, but self-hosted deployments usually keep configuration at the environment-variable level.
 
+## Structured Decision Model (Optional)
+
+Jev can handle supported structured choices separately from the models in `*_LLMS`. Choose one deployment-level provider:
+
+```env
+DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13
+OPENROUTER_API_KEY=your-openrouter-api-key
+DEFAULT_DECISION_MODEL_ENABLED=false
+```
+
+Alternatively, call TypeSafe directly:
+
+```env
+DEFAULT_DECISION_MODEL=typesafe:jev-latest
+TYPESAFE_API_KEY=your-typesafe-api-key
+DEFAULT_DECISION_MODEL_ENABLED=false
+```
+
+Only the selected provider's key is required. `LLM_API_KEY` is not used for decision requests. OpenRouter uses `https://openrouter.ai/api/v1/systemone`; direct TypeSafe uses `https://api.typesafe.ai/v1/systemone`. Both use the structured state/questions API, not chat completions.
+
+With `DEFAULT_DECISION_MODEL_ENABLED=false`, users must opt in through **Settings → AI**. Set it to `true` to enable the decision model for users who have not made a choice and do not have their own AI API key. Explicit user choices still take precedence. Leave `DEFAULT_DECISION_MODEL` unset to disable this feature.
+
+Decision requests send task state, which can include email content and contextual information, along with decision questions to the selected external provider. With OpenRouter, data passes through OpenRouter to the model provider; direct TypeSafe sends it to TypeSafe. The account's sensitive-data policy applies before sending the state, and usage is recorded against the selected provider/model. Review the providers' data-handling terms before enabling this for your deployment.
+
+Keep your normal `*_LLMS` configuration: unsupported tasks still use it, and failed decision requests fall back to the existing LLM path.
+
 ## Sensitive Data Protection
 
 Self-hosted deployments can choose how LLM requests handle sensitive data matches before they are sent to an AI provider. The current scanner targets likely credentials/tokens and payment-card-like numbers; it is not a full DLP or PHI classifier.

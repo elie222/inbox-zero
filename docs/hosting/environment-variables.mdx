@@ -74,6 +74,10 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NANO_LLM_MODEL` | Deprecated | Legacy nano model. Converted into `NANO_LLMS` at startup. | — |
 | `DRAFT_LLM_PROVIDER` | Deprecated | Legacy draft provider. Converted into `DRAFT_LLMS` at startup. | — |
 | `DRAFT_LLM_MODEL` | Deprecated | Legacy draft model. Converted into `DRAFT_LLMS` at startup. | — |
+| **Structured Decision Model (Optional)** ||||
+| `DEFAULT_DECISION_MODEL` | No | Deployment decision provider/model: `openrouter:typesafe/jev-1.13` or direct `typesafe:jev-latest`. Uses the structured state/questions API. Requires the selected provider's key. See [LLM setup](/hosting/llm-setup#structured-decision-model-optional) for external data flow. | Disabled |
+| `DEFAULT_DECISION_MODEL_ENABLED` | No | Enable the decision model for users without an explicit choice or their own AI API key. When `false`, users must opt in. | `false` |
+| `TYPESAFE_API_KEY` | Conditional | Required for a `typesafe:` decision model; not required for `openrouter:`. | — |
 | **LLM Provider Credentials** ||||
 | `LLM_API_KEY` | No | Shared fallback API key for simple single-provider setups; use provider-specific keys when mixing providers. | — |
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
@@ -83,7 +87,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `GOOGLE_THINKING_BUDGET` | No | Override the thinking budget for Gemini 2.x/2.5 models used through Google, Vertex, or AI Gateway. Set to `0` to omit the budget. Gemini 3 models still use minimal thinking. | `128` |
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `CEREBRAS_API_KEY` | No | Cerebras API key | — |
-| `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
+| `OPENROUTER_API_KEY` | Conditional | OpenRouter API key; required for an `openrouter:` decision model even when `LLM_API_KEY` is set. | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
 | `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |
 | **Azure OpenAI** ||||
