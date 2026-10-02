@@ -16,7 +16,6 @@ import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
-import { FillMissingTimezone } from "@/app/(app)/FillMissingTimezone";
 import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
@@ -108,7 +107,6 @@ export default async function AppLayout({
 
               <CommandK />
               <AssessUser />
-              <FillMissingTimezone />
               <SentryIdentify email={session.user.email} />
             </ErrorBoundary>
           </MailEngineRuntime>

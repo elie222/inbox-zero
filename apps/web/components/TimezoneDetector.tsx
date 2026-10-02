@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useCalendars } from "@/hooks/useCalendars";
 import { useAction } from "next-safe-action/hooks";
-import { updateEmailAccountTimezoneAction } from "@/utils/actions/calendar";
+import {
+  fillMissingTimezoneAction,
+  updateEmailAccountTimezoneAction,
+} from "@/utils/actions/calendar";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   addDismissedPrompt,
@@ -32,6 +35,7 @@ export function TimezoneDetector() {
   const analytics = useProductAnalytics();
   const [showDialog, setShowDialog] = useState(false);
   const trackedPromptRef = useRef<string | null>(null);
+  const fillAttemptedAccountIdRef = useRef<string | null>(null);
   const [dismissedPrompts, setDismissedPrompts] = useLocalStorage<
     DismissedPrompt[]
   >(`timezone-prompts-dismissed-${emailAccountId}`, []);
@@ -49,6 +53,23 @@ export function TimezoneDetector() {
     },
   );
 
+  const { execute: executeFillTimezone } = useAction(
+    fillMissingTimezoneAction.bind(null, emailAccountId),
+    {
+      onSuccess: ({ data: result, input }) => {
+        if (result?.updated) {
+          analytics.captureAction("timezone_auto_set", {
+            detected_timezone: input.timezone,
+          });
+        }
+        mutate();
+      },
+      onError: () => {
+        fillAttemptedAccountIdRef.current = null;
+      },
+    },
+  );
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: executeUpdateTimezone is stable from useAction and causes infinite loops if included
   useEffect(() => {
     if (!data || !isAccountOwner) {
@@ -59,8 +80,14 @@ export function TimezoneDetector() {
     const currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const savedTimezone = data.timezone;
 
-    // A missing timezone is filled app-wide by FillMissingTimezone.
-    if (savedTimezone === null || !isValidTimeZone(currentTimezone)) return;
+    if (!isValidTimeZone(currentTimezone)) return;
+
+    if (savedTimezone === null) {
+      if (fillAttemptedAccountIdRef.current === emailAccountId) return;
+      fillAttemptedAccountIdRef.current = emailAccountId;
+      executeFillTimezone({ timezone: currentTimezone });
+      return;
+    }
 
     if (
       shouldShowTimezonePrompt(savedTimezone, currentTimezone, dismissedPrompts)
