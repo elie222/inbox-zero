@@ -259,7 +259,7 @@
     "cross-env": "10.1.0",
     "dotenv": "17.4.2",
     "dotenv-cli": "11.0.0",
-    "emulate": "npm:@inbox-zero/emulate@0.11.1",
+    "emulate": "npm:@inbox-zero/emulate@0.12.0",
     "esbuild": "0.28.2",
     "jsdom": "27.3.0",
     "pngjs": "7.0.0",
