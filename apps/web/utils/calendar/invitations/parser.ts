@@ -1,4 +1,9 @@
-import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
+import {
+  CALENDAR_INVITATION_LIMITS,
+  CALENDAR_INVITATION_RENDER_LIMITS,
+} from "@/utils/calendar/invitations/constants";
+import { findVideoConferenceLink } from "@/utils/calendar/video-conference-link";
+import { TZDate } from "@date-fns/tz";
 import ICAL from "ical.js";
 import { z } from "zod";
 
@@ -29,28 +34,18 @@ export function parseCalendarInvitation(content: string, email: string) {
       organizer === email.toLowerCase()
     )
       return null;
-    const response = attendee
-      .getParameter("partstat")
-      ?.toString()
-      .toLowerCase();
     return {
       uid,
       organizer,
       attendee: email.toLowerCase(),
-      title: String(
-        event.getFirstPropertyValue("summary") || "Calendar invitation",
-      ),
-      start: start.toString(),
+      title:
+        getText(event, "summary", CALENDAR_INVITATION_RENDER_LIMITS.text) ??
+        "Calendar invitation",
       sequence,
       recurrenceId,
       recurring:
         event.hasProperty("rrule") || event.hasProperty("recurrence-id"),
-      response:
-        response === "accepted" ||
-        response === "declined" ||
-        response === "tentative"
-          ? response
-          : null,
+      ...getInvitationDetails(event, start),
       content,
     };
   } catch {
@@ -134,4 +129,137 @@ function getEmail(value: unknown) {
     return null;
   const result = z.email().safeParse(value.slice(7));
   return result.success ? result.data.toLowerCase() : null;
+}
+
+// The details the reader shows alongside the RSVP buttons. Everything here is
+// display-only; responding relies on the fields above.
+function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
+  const timeZone = getParameter(event.getFirstProperty("dtstart"), "tzid");
+  const end = getEnd(event, start, timeZone);
+  const location = getText(
+    event,
+    "location",
+    CALENDAR_INVITATION_RENDER_LIMITS.text,
+  );
+  return {
+    start: toDisplayTime(start, timeZone),
+    end: end && toDisplayTime(end.time, end.timeZone),
+    allDay: start.isDate,
+    location,
+    conferenceUrl:
+      findVideoConferenceLink(
+        // Every vendor names the join URL in its own X- property, so scan them
+        // all rather than enumerating names that keep growing.
+        ...getExtensionValues(event),
+        location,
+        // Read in full rather than truncated: the description is only scanned
+        // for a join link, and invitations bury it in a long agenda.
+        getText(event, "description"),
+      ) ?? null,
+    organizerName: getName(event.getFirstProperty("organizer")),
+    attendees: event
+      .getAllProperties("attendee")
+      .slice(0, CALENDAR_INVITATION_RENDER_LIMITS.attendees)
+      .flatMap((property) => {
+        const email = getEmail(property.getFirstValue());
+        if (!email) return [];
+        return {
+          email,
+          name: getName(property),
+          response: toResponse(getParameter(property, "partstat")),
+          optional:
+            getParameter(property, "role")?.toUpperCase() === "OPT-PARTICIPANT",
+        };
+      }),
+  };
+}
+
+// An event may end in a different zone than it starts in, so DTEND carries its
+// own TZID. An end derived from DURATION stays in the start's zone.
+function getEnd(
+  event: ICAL.Component,
+  start: ICAL.Time,
+  startTimeZone: string | null,
+) {
+  const end = event.getFirstPropertyValue("dtend");
+  if (end instanceof ICAL.Time)
+    return {
+      time: end,
+      timeZone:
+        getParameter(event.getFirstProperty("dtend"), "tzid") ?? startTimeZone,
+    };
+  const duration = event.getFirstPropertyValue("duration");
+  if (!(duration instanceof ICAL.Duration)) return null;
+  const derived = start.clone();
+  derived.addDuration(duration);
+  return { time: derived, timeZone: startTimeZone };
+}
+
+/**
+ * Serialises a time for the reader: a plain date for all-day events, an
+ * absolute instant when the zone is known, and a floating wall clock otherwise.
+ */
+function toDisplayTime(time: ICAL.Time, timeZone: string | null) {
+  if (time.isDate) return time.toString();
+  if (time.zone !== ICAL.Timezone.localTimezone)
+    return time.toJSDate().toISOString();
+  // ical.js only resolves a TZID that the invitation defines as a VTIMEZONE.
+  // Senders that omit it still name a zone the runtime can look up.
+  return (timeZone && toInstant(time, timeZone)) ?? time.toString();
+}
+
+function toInstant(time: ICAL.Time, timeZone: string) {
+  const zoned = new TZDate(
+    time.year,
+    time.month - 1,
+    time.day,
+    time.hour,
+    time.minute,
+    time.second,
+    timeZone,
+  );
+  // A TZID the runtime cannot resolve (a Windows zone name) leaves it floating.
+  return Number.isNaN(zoned.getTime())
+    ? null
+    : new Date(zoned.getTime()).toISOString();
+}
+
+function getExtensionValues(event: ICAL.Component) {
+  return event
+    .getAllProperties()
+    .filter((property) => property.name.startsWith("x-"))
+    .map((property) => {
+      const value = property.getFirstValue();
+      return typeof value === "string" ? value : null;
+    });
+}
+
+function getText(event: ICAL.Component, name: string, limit?: number) {
+  const value = event.getFirstPropertyValue(name);
+  if (typeof value !== "string" || !value) return null;
+  return limit ? value.slice(0, limit) : value;
+}
+
+function getParameter(property: ICAL.Property | null, name: string) {
+  const value = property?.getParameter(name);
+  if (typeof value !== "string" || !value) return null;
+  return value;
+}
+
+function getName(property: ICAL.Property | null) {
+  return (
+    getParameter(property, "cn")?.slice(
+      0,
+      CALENDAR_INVITATION_RENDER_LIMITS.name,
+    ) ?? null
+  );
+}
+
+function toResponse(value: string | null): InvitationResponse | null {
+  const response = value?.toLowerCase();
+  return response === "accepted" ||
+    response === "declined" ||
+    response === "tentative"
+    ? response
+    : null;
 }
