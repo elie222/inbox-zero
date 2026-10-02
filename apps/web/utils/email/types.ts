@@ -216,7 +216,6 @@ export interface EmailProvider {
     attachmentId: string,
     signal?: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>>;
-  getCanonicalMessageId(messageId: string): Promise<string>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   getDraftReferenceForMessage(
     messageId: string,

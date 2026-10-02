@@ -6,7 +6,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import { OutlookProvider } from "./microsoft";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
-import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
   envMock: {
@@ -56,7 +55,6 @@ afterEach(() => {
   vi.useRealTimers();
   envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
   vi.clearAllMocks();
-  vi.mocked(isMicrosoftEmulationEnabled).mockReturnValue(false);
   outlookMailMock.draftEmail.mockResolvedValue({ id: "draft-1" });
   getFolderIdsMock.mockResolvedValue({
     inbox: "inbox-folder-id",
@@ -65,46 +63,6 @@ afterEach(() => {
     deleteditems: "trash-folder-id",
     junkemail: "spam-folder-id",
     sentitems: "sent-folder-id",
-  });
-});
-
-describe("OutlookProvider.getCanonicalMessageId", () => {
-  it("keeps stable emulator IDs without calling Graph", async () => {
-    vi.mocked(isMicrosoftEmulationEnabled).mockReturnValue(true);
-    const getClient = vi.fn();
-    const provider = new OutlookProvider({ getClient } as never);
-    expect(await provider.getCanonicalMessageId("emulated-id")).toBe(
-      "emulated-id",
-    );
-    expect(getClient).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    null,
-    undefined,
-    {},
-  ])("reports a missing ID for an empty response %s", async (response) => {
-    const get = vi.fn().mockResolvedValue(response);
-    const provider = new OutlookProvider({
-      getClient: () => ({ api: () => ({ select: () => ({ get }) }) }),
-    } as never);
-    await expect(provider.getCanonicalMessageId("rest-id")).rejects.toThrow(
-      "Message response is missing its canonical ID",
-    );
-  });
-
-  it("resolves an immutable ID without downloading the message body", async () => {
-    const get = vi.fn().mockResolvedValue({ id: "immutable-id" });
-    const select = vi.fn().mockReturnValue({ get });
-    const api = vi.fn().mockReturnValue({ select });
-    const provider = new OutlookProvider({
-      getClient: () => ({ api }),
-    } as never);
-    expect(await provider.getCanonicalMessageId("rest/id+?=")).toBe(
-      "immutable-id",
-    );
-    expect(api).toHaveBeenCalledWith("/me/messages/rest%2Fid%2B%3F%3D");
-    expect(select).toHaveBeenCalledWith("id");
   });
 });
 

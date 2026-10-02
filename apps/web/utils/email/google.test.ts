@@ -57,17 +57,6 @@ vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
 }));
 
-describe("GmailProvider.getCanonicalMessageId", () => {
-  it("keeps Gmail's stable ID without fetching a message", async () => {
-    const get = vi.fn();
-    const provider = new GmailProvider({
-      users: { messages: { get } },
-    } as never);
-    expect(await provider.getCanonicalMessageId("gmail-id")).toBe("gmail-id");
-    expect(get).not.toHaveBeenCalled();
-  });
-});
-
 describe("GmailProvider.searchMessages structured search", () => {
   it.each([
     "term",
