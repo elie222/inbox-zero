@@ -96,6 +96,12 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     timezoneSaved: "calendar_timezone_saved",
     timezoneSaveStarted: "calendar_timezone_save_started",
   },
+  timezone: {
+    autoSet: "timezone_auto_set",
+    promptAccepted: "timezone_prompt_accepted",
+    promptDismissed: "timezone_prompt_dismissed",
+    promptShown: "timezone_prompt_shown",
+  },
   meetingBriefs: {
     emailDeliverySaved: "meeting_briefs_email_delivery_saved",
     emailDeliveryToggled: "meeting_briefs_email_delivery_toggled",

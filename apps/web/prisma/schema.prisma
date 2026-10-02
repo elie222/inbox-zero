@@ -1489,7 +1489,7 @@ model AvailabilitySchedule {
 
   name      String
   isDefault Boolean @default(false)
-  timezone  String
+  timezone  String  @default("UTC") // Deprecated: schedules use EmailAccount.timezone. Drop once no deployment reads it.
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

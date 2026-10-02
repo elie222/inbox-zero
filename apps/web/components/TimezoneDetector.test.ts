@@ -4,7 +4,7 @@ import {
   addDismissedPrompt,
   DISMISSAL_EXPIRY_DAYS,
   type DismissedPrompt,
-} from "./TimezoneDetector.utils";
+} from "@/components/TimezoneDetector.utils";
 
 describe("shouldShowTimezonePrompt", () => {
   beforeEach(() => {
