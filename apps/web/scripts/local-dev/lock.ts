@@ -8,7 +8,7 @@ export async function acquireLocalLock(path: string) {
   const port =
     49_152 +
     (createHash("sha256").update(path).digest().readUInt32BE(0) % 16_384);
-  const server = createServer((socket) => socket.end());
+  const server = createServer((socket) => socket.destroy());
   await new Promise<void>((resolve, reject) => {
     server.once("error", (error) => {
       if ((error as NodeJS.ErrnoException).code === "EADDRINUSE")
