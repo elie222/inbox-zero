@@ -8,7 +8,7 @@ import {
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
-import { formatDateTimeInUserTimezone } from "@/utils/date";
+import { formatDateTimeInUserTimezone, getAccountTimezone } from "@/utils/date";
 
 type BookingEmailPayload = {
   cancellationReason?: string | null;
@@ -23,12 +23,10 @@ type BookingEmailPayload = {
     title: string;
     locationType: BookingLinkLocationType;
     locationValue: string | null;
-    availabilitySchedule: {
-      timezone: string;
-    };
     emailAccount: {
       email: string;
       name?: string | null;
+      timezone: string | null;
     };
   };
 };
@@ -54,7 +52,7 @@ export async function sendBookingConfirmationEmails({
     !booking.videoConferenceLink
       ? "Microsoft Teams link was not generated"
       : location;
-  const hostTimezone = link.availabilitySchedule.timezone;
+  const hostTimezone = getAccountTimezone(host.timezone);
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
@@ -132,7 +130,7 @@ export async function sendBookingRescheduledEmails({
   const link = booking.bookingLink;
   const host = link.emailAccount;
   const location = getLocationLabel(link);
-  const hostTimezone = link.availabilitySchedule.timezone;
+  const hostTimezone = getAccountTimezone(host.timezone);
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
@@ -207,7 +205,7 @@ export async function sendBookingCancellationEmails({
 }) {
   const link = booking.bookingLink;
   const host = link.emailAccount;
-  const hostTimezone = link.availabilitySchedule.timezone;
+  const hostTimezone = getAccountTimezone(host.timezone);
 
   try {
     await sendHostBookingCancellationEmail({

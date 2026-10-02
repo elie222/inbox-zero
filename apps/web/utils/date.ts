@@ -158,7 +158,7 @@ export function formatInUserTimezone(
   timezone: string | null | undefined,
   formatString: string,
 ): string {
-  const tz = timezone || DEFAULT_TIMEZONE;
+  const tz = getAccountTimezone(timezone);
   try {
     const dateInTZ = new TZDate(date, tz);
     return format(dateInTZ, formatString);
@@ -301,4 +301,8 @@ function shortDateFormatter(kind: keyof typeof shortDateFormats) {
     shortDateFormatters.set(kind, formatter);
   }
   return formatter;
+}
+
+export function getAccountTimezone(timezone: string | null | undefined) {
+  return timezone || DEFAULT_TIMEZONE;
 }

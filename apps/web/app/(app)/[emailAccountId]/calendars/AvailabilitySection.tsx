@@ -63,11 +63,6 @@ function AvailabilityEditor({
   const controller = useWeeklyHours(
     data.schedule?.windows ?? DEFAULT_WEEKDAY_WINDOWS,
   );
-  const timezone =
-    data.schedule?.timezone ??
-    data.timezone ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    "UTC";
 
   const { execute: updateAvailability, isExecuting: isSaving } = useAction(
     updateDefaultAvailabilityAction.bind(null, emailAccountId),
@@ -93,7 +88,7 @@ function AvailabilityEditor({
       return;
     }
 
-    updateAvailability({ timezone, windows: collected.windows });
+    updateAvailability({ windows: collected.windows });
   };
 
   return (

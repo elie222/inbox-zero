@@ -63,7 +63,7 @@ export function CalendarSettings() {
   return (
     <SettingCard
       title="Timezone"
-      description="Used for AI scheduling and booking-link availability."
+      description="Used for meeting briefs, AI scheduling, and your availability hours."
       collapseOnMobile
       right={
         <LoadingContent

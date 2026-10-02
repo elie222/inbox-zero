@@ -22,14 +22,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { toastSuccess } from "@/components/Toast";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { useOrgAccess } from "@/hooks/useOrgAccess";
 
 export function TimezoneDetector() {
   const { emailAccountId } = useAccount();
   const { data, mutate } = useCalendars();
+  const { isAccountOwner } = useOrgAccess();
   const analytics = useProductAnalytics();
   const [showDialog, setShowDialog] = useState(false);
   const trackedPromptRef = useRef<string | null>(null);
-  const autoSetAttemptedRef = useRef(false);
   const [dismissedPrompts, setDismissedPrompts] = useLocalStorage<
     DismissedPrompt[]
   >(`timezone-prompts-dismissed-${emailAccountId}`, []);
@@ -37,12 +38,7 @@ export function TimezoneDetector() {
   const { execute: executeUpdateTimezone, isExecuting } = useAction(
     updateEmailAccountTimezoneAction.bind(null, emailAccountId),
     {
-      onSuccess: ({ input }) => {
-        if (autoSetAttemptedRef.current && !data?.timezone) {
-          analytics.captureAction("timezone_auto_set", {
-            detected_timezone: input.timezone,
-          });
-        }
+      onSuccess: () => {
         toastSuccess({ description: "Timezone updated!" });
         closeDialog();
       },
@@ -54,21 +50,14 @@ export function TimezoneDetector() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: executeUpdateTimezone is stable from useAction and causes infinite loops if included
   useEffect(() => {
-    if (!data) return;
+    if (!data || !isAccountOwner) return;
 
     const currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const savedTimezone = data.timezone;
 
-    // Case 1: No timezone set - automatically set it
-    if (savedTimezone === null) {
-      // Once per mount, so a failed save doesn't retry on every revalidation.
-      if (autoSetAttemptedRef.current) return;
-      autoSetAttemptedRef.current = true;
-      executeUpdateTimezone({ timezone: currentTimezone });
-      return;
-    }
+    // A missing timezone is filled app-wide by FillMissingTimezone.
+    if (savedTimezone === null) return;
 
-    // Case 2: Timezone is different - show dialog (unless recently dismissed)
     if (
       shouldShowTimezonePrompt(savedTimezone, currentTimezone, dismissedPrompts)
     ) {
@@ -83,7 +72,7 @@ export function TimezoneDetector() {
         });
       }
     }
-  }, [data, dismissedPrompts]);
+  }, [data, dismissedPrompts, isAccountOwner]);
 
   const handleUpdateTimezone = () => {
     const currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
