@@ -67,6 +67,10 @@ import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
+import {
+  MailCoverageGate,
+  useMailEngineDemand,
+} from "@/utils/mail-engine/MailEngineHost";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
@@ -179,6 +183,15 @@ type ComposeAttachment = EmailComposerAttachment & {
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
 
 export function ComposeEmailForm(props: ComposeEmailFormProps) {
+  useMailEngineDemand();
+  return (
+    <MailCoverageGate>
+      <ComposeEmailFormWithEngine {...props} />
+    </MailCoverageGate>
+  );
+}
+
+function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   const { emailAccountId, provider } = useAccount();
   const [selectedEmailAccountId, setSelectedEmailAccountId] =
     useState(emailAccountId);
