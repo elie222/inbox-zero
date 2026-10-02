@@ -57,6 +57,16 @@ describe("shouldStartMailEngine", () => {
     ).toBe(true);
   });
 
+  it("keeps browser work running after a mail consumer has requested it", () => {
+    expect(
+      shouldStartMailEngine({
+        pathname: "/account/assistant",
+        desktopIpc: false,
+        browserRequested: true,
+      }),
+    ).toBe(true);
+  });
+
   it("only matches account-level mail routes", () => {
     expect(
       shouldStartMailEngine({

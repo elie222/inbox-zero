@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -45,6 +46,7 @@ type MailEngineRuntimeStatus = {
   client: MailClient | null;
   mounted: boolean;
   unavailable: boolean;
+  requestBrowserEngine: () => void;
 };
 
 type MailEngineInspectTransport = "browser" | "desktop-ipc";
@@ -53,7 +55,13 @@ const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
   client: null,
   mounted: false,
   unavailable: false,
+  requestBrowserEngine: () => {},
 });
+
+export function useMailEngineDemand() {
+  const { requestBrowserEngine } = useContext(MailEngineRuntimeStatusContext);
+  useEffect(requestBrowserEngine, [requestBrowserEngine]);
+}
 
 export function MailEngineRuntime({ children }: { children: ReactNode }) {
   const status = useContext(MailEngineRuntimeStatusContext);
@@ -107,12 +115,23 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     hasDesktopMailEngineIpc,
     () => false,
   );
-  const enabled = shouldStartMailEngine({ pathname, desktopIpc });
+  const [browserRequested, setBrowserRequested] = useState(false);
+  const requestBrowserEngine = useCallback(() => setBrowserRequested(true), []);
+  const enabled = shouldStartMailEngine({
+    pathname,
+    desktopIpc,
+    browserRequested,
+  });
   const [client, setClient] = useState<MailClient | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    if (!emailAccountId || !enabled) return;
+    if (!emailAccountId || !enabled) {
+      setUnavailable(false);
+      return;
+    }
+    // Keep queued sends and undo working after the initiating page or composer closes.
+    if (!desktopIpc) requestBrowserEngine();
     setUnavailable(false);
     const mode = selectMailEngineRuntimeMode({
       desktopIpc,
@@ -267,7 +286,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       engine?.close().catch(() => undefined);
       setClient(null);
     };
-  }, [emailAccountId, provider, enabled, desktopIpc]);
+  }, [emailAccountId, provider, enabled, desktopIpc, requestBrowserEngine]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
@@ -281,7 +300,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
   return (
     <MailEngineRuntimeStatusContext.Provider
-      value={{ client, mounted: true, unavailable }}
+      value={{ client, mounted: true, unavailable, requestBrowserEngine }}
     >
       <MailEngineProvider client={client}>{children}</MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>

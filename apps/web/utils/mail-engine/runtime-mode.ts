@@ -11,9 +11,10 @@ export function selectMailEngineRuntimeMode(input: {
 
 export function shouldStartMailEngine(input: {
   pathname: string | null;
+  browserRequested?: boolean;
   desktopIpc: boolean;
 }): boolean {
-  if (input.desktopIpc) return true;
+  if (input.desktopIpc || input.browserRequested) return true;
   const segments = input.pathname?.split("/").filter(Boolean) ?? [];
   if (segments.length === 2) {
     return segments[1] === "mail" || segments[1] === "compose";
