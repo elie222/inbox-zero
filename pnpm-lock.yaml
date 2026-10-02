@@ -30,7 +30,7 @@ packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
 
 patchedDependencies:
   '@better-auth/oauth-provider@1.7.4': f3e7e8d12056b3b4c2a2a4154041f666a87ec5e12419a2e2dfa5b56d573b346e
-  '@inbox-zero/emulate@0.12.0': aafc9eb895dc2b58b6d84694d3a25b852175c966089e7c321de840eb8d20333f
+  '@inbox-zero/emulate@0.12.0': ce7d5a76ed18060da7469c2012c49b28c18662f95facba6d0ffac8d7e7d5cf86
   '@sqlite.org/sqlite-wasm@3.53.4-build1': 0d8786ef5c43372d91f393ee2e75e3ea352d98cfd0b43b9b729156a1497ae855
 
 importers:
@@ -815,7 +815,7 @@ importers:
         version: 11.0.0
       emulate:
         specifier: npm:@inbox-zero/emulate@0.12.0
-        version: '@inbox-zero/emulate@0.12.0(patch_hash=aafc9eb895dc2b58b6d84694d3a25b852175c966089e7c321de840eb8d20333f)'
+        version: '@inbox-zero/emulate@0.12.0(patch_hash=ce7d5a76ed18060da7469c2012c49b28c18662f95facba6d0ffac8d7e7d5cf86)'
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -15712,7 +15712,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@inbox-zero/emulate@0.12.0(patch_hash=aafc9eb895dc2b58b6d84694d3a25b852175c966089e7c321de840eb8d20333f)':
+  '@inbox-zero/emulate@0.12.0(patch_hash=ce7d5a76ed18060da7469c2012c49b28c18662f95facba6d0ffac8d7e7d5cf86)':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
