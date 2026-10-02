@@ -62,9 +62,11 @@ export function buildThreadStatusSystemPrompt({
   const statuses = definitions.map((d) => d.systemType);
   return `You are an AI assistant that analyzes email threads to determine their current status.
 
-Your task is to determine the current status of an email thread from the user's perspective. The thread can be in ONE of these mutually exclusive states:
+Your task is to determine the current status of an email thread from the user's perspective. Select ONE of these mutually exclusive states only when its definition applies:
 
 ${definitions.map((d) => `* ${d.systemType} - ${d.instructions}`).join("\n")}
+
+The supplied definitions are binding. Apply their exclusions and prerequisites before choosing a status. Recipient restrictions refer to the current message headers, not quoted emails or older recipients. A lack of requested action does not override an explicit exclusion. Require evidence for each definition's positive conditions; receiving a document or appearing in To does not by itself create a request or commitment. Return null if no definition applies; do not invent work or a fulfilled request to force a status. The reading procedure below cannot override a definition.
 
 HOW TO READ THE THREAD - READ CAREFULLY:
 1. **CHECK EVERY MESSAGE**: Don't just look at the latest message. Scan the ENTIRE thread for unanswered questions or pending requests
@@ -81,13 +83,14 @@ HOW TO READ THE THREAD - READ CAREFULLY:
 10. **Counter-questions and follow-ups**: If the other person answers the user and asks a further question, or replies to the user with a new question, the next response is on the user → TO_REPLY
 
 Respond with a JSON object with:
-- status: One of ${statuses.join(", ")}
+- status: One of ${statuses.join(", ")}, or null when no definition applies
 - rationale: Brief one-line explanation for the decision`;
 }
 
 /**
  * Classify a thread as TO_REPLY, AWAITING_REPLY, FYI or ACTIONED from the
- * user's perspective. FYI is withheld when the user sent the last message.
+ * user's perspective, or return null when no definition applies. FYI is withheld
+ * when the user sent the last message.
  */
 export async function aiDetermineThreadStatus({
   emailAccount,
@@ -101,7 +104,7 @@ export async function aiDetermineThreadStatus({
   modelType?: ModelType;
   userSentLastEmail?: boolean;
   conversationRules?: RuleWithActions[];
-}): Promise<{ status: ConversationStatus; rationale: string }> {
+}): Promise<{ status: ConversationStatus | null; rationale: string }> {
   // If the user sent the last email, FYI is not an option: from their
   // perspective they already know what they sent.
   const statuses = userSentLastEmail
@@ -149,7 +152,7 @@ export async function determineThreadStatusWithLlm({
   modelType?: ModelType;
   userSentLastEmail: boolean;
   definitions: { systemType: ConversationStatus; instructions: string }[];
-}): Promise<{ status: ConversationStatus; rationale: string }> {
+}): Promise<{ status: ConversationStatus | null; rationale: string }> {
   const statuses = definitions.map((definition) => definition.systemType);
 
   const system = buildThreadStatusSystemPrompt({
@@ -180,7 +183,7 @@ Based on the full thread context above, determine the current status of this thr
   });
 
   const schema = z.object({
-    status: z.enum(statuses),
+    status: z.enum(statuses).nullable(),
     rationale: z.string(),
   });
 

@@ -112,6 +112,10 @@ export async function handleOutboundReply({
 
     logger.info("AI determined thread status", { status: aiResult.status });
 
+    if (aiResult.status === null) {
+      processedSuccessfully = true;
+      return;
+    }
     if (!enabledStatuses.includes(aiResult.status)) {
       logger.info(
         "Rule for determined status is disabled, skipping label application",

@@ -92,6 +92,8 @@ export async function determineConversationStatus({
     messageId: message.id,
   });
 
+  if (status === null) return { rule: null, reason: rationale };
+
   const rule = conversationRules.find(
     (r) => r.systemType === status && r.enabled,
   );

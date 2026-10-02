@@ -23,7 +23,7 @@ export async function decideThreadStatus({
   threadMessages: EmailForLLM[];
   userSentLastEmail: boolean;
   logger: Logger;
-}): Promise<{ status: ConversationStatus; rationale: string }> {
+}): Promise<{ status: ConversationStatus | null; rationale: string }> {
   const statuses = definitions.map((definition) => definition.systemType);
   const response = await runDecisionModel({
     config,
@@ -50,13 +50,18 @@ export async function decideThreadStatus({
             "Distinguish work owed by the account owner from work owed by another participant. Ignore exchanges solely between other participants.",
           latestMessage:
             "A newer informational message does not erase an older unresolved request or commitment.",
+          eligibility:
+            "The supplied status definitions are binding. Apply their exclusions and prerequisites before choosing a status. Recipient restrictions refer to the current message headers, not quoted emails or older recipients. A lack of requested action does not override an explicit exclusion. Require evidence for each definition's positive conditions; receiving a document or appearing in To does not by itself create a request or commitment. Choose None if no definition applies; do not invent work or a fulfilled request to force a status.",
         },
-        criteria: Object.fromEntries(
-          definitions.map((definition) => [
-            definition.systemType,
-            definition.instructions,
-          ]),
-        ),
+        criteria: {
+          ...Object.fromEntries(
+            definitions.map((definition) => [
+              definition.systemType,
+              definition.instructions,
+            ]),
+          ),
+          None: "No supplied status definition applies, including because of an explicit exclusion.",
+        },
       },
     },
     label: "Determine thread status",
@@ -67,7 +72,10 @@ export async function decideThreadStatus({
   if (answer?.type !== "choice") {
     throw new Error("Decision model response is missing the thread status");
   }
-  if (!statuses.includes(answer.choice as ConversationStatus)) {
+  if (
+    answer.choice !== "None" &&
+    !statuses.includes(answer.choice as ConversationStatus)
+  ) {
     throw new Error("Decision model returned an unknown thread status");
   }
   if (answer.confidence < MIN_STATUS_CONFIDENCE) {
@@ -75,7 +83,8 @@ export async function decideThreadStatus({
   }
 
   return {
-    status: answer.choice as ConversationStatus,
+    status:
+      answer.choice === "None" ? null : (answer.choice as ConversationStatus),
     rationale: `Decision model chose ${answer.choice} with ${Math.round(answer.confidence * 100)}% confidence.`,
   };
 }

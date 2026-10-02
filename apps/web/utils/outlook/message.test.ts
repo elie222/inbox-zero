@@ -275,6 +275,71 @@ describe("convertMessage", () => {
 });
 
 describe("queryBatchMessages", () => {
+  it("returns immutable search IDs so execution history remains addressable after moves", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        { id: "mutable", conversationId: "thread", subject: "Documents" },
+      ],
+    });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { searchQuery: "Documents" },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+    expect(result.messages[0].threadId).toBe("thread");
+    expect(post).toHaveBeenCalledWith({
+      inputIds: ["mutable"],
+      sourceIdType: "restId",
+      targetIdType: "restImmutableEntryId",
+    });
+  });
+
+  it("normalizes IDs on subsequent search pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({ value: [{ id: "mutable" }] });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        pageToken:
+          "https://graph.microsoft.com/v1.0/me/messages?$search=Documents&$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+  });
+
+  it("does not expose folder-dependent IDs when canonical lookup fails", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({ value: [{ id: "mutable" }] });
+    const post = vi
+      .fn()
+      .mockResolvedValue({ value: [{ sourceId: "mutable" }] });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    await expect(
+      queryBatchMessages(
+        createCachedOutlookClient(api),
+        { searchQuery: "Documents" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Failed to resolve immutable");
+  });
+
   it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
     const request = createMockMessagesRequest();
     await queryBatchMessages(
@@ -933,6 +998,9 @@ function createMockMessagesRequest() {
     filter: vi.fn().mockReturnThis(),
     orderby: vi.fn().mockReturnThis(),
     search: vi.fn().mockReturnThis(),
+    post: vi.fn(async ({ inputIds }: { inputIds: string[] }) => ({
+      value: inputIds.map((id) => ({ sourceId: id, targetId: id })),
+    })),
     get: vi.fn().mockResolvedValue({ value: [] }),
   };
 

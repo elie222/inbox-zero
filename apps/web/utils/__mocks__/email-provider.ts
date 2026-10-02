@@ -83,6 +83,7 @@ export const createMockEmailProvider = (
     succeededThreadIds: [],
     failedThreadIds: [],
   }),
+  moveMessageToFolder: vi.fn().mockResolvedValue(undefined),
   archiveMessage: vi.fn().mockResolvedValue(undefined),
   archiveMessages: vi.fn().mockResolvedValue(undefined),
   unarchiveMessages: vi.fn().mockResolvedValue(undefined),

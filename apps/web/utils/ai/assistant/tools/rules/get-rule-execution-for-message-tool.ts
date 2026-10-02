@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import type { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { serializedMatchMetadataSchema } from "@/utils/ai/assistant/chat-context-validation";
 import prisma from "@/utils/prisma";
+import { createEmailProvider } from "@/utils/email/provider";
 import { trackRuleToolCall } from "./shared";
 
 const getRuleExecutionForMessageInputSchema = z.object({
@@ -68,10 +69,12 @@ type GetRuleExecutionForMessageOutput =
 export const getRuleExecutionForMessageTool = ({
   email,
   emailAccountId,
+  provider,
   logger,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
   logger: Logger;
 }) =>
   tool({
@@ -88,12 +91,12 @@ export const getRuleExecutionForMessageTool = ({
       });
 
       try {
-        const executedRules = await prisma.executedRule.findMany({
+        const query = {
           where: {
             emailAccountId,
             messageId,
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: "desc" as const },
           select: {
             id: true,
             ruleId: true,
@@ -123,7 +126,24 @@ export const getRuleExecutionForMessageTool = ({
               },
             },
           },
-        });
+        } as const;
+        let resolvedMessageId = messageId;
+        let executedRules = await prisma.executedRule.findMany(query);
+        if (!executedRules.length) {
+          const emailProvider = await createEmailProvider({
+            emailAccountId,
+            provider,
+            logger,
+          });
+          const message = await emailProvider.getMessage(messageId);
+          resolvedMessageId = message.id;
+          if (resolvedMessageId !== messageId) {
+            executedRules = await prisma.executedRule.findMany({
+              ...query,
+              where: { emailAccountId, messageId: resolvedMessageId },
+            });
+          }
+        }
 
         const executions = executedRules.map((executedRule) => ({
           executedRuleId: executedRule.id,
@@ -150,7 +170,7 @@ export const getRuleExecutionForMessageTool = ({
         }));
 
         return {
-          messageId,
+          messageId: resolvedMessageId,
           threadId: executedRules[0]?.threadId ?? null,
           evidence: getExecutionEvidence(executions),
           executions,

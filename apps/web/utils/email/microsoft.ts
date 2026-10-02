@@ -2342,6 +2342,20 @@ export class OutlookProvider implements EmailProvider {
     return message.labelIds?.includes("SENT") || false;
   }
 
+  async moveMessageToFolder(
+    messageId: string,
+    folderId: string,
+  ): Promise<void> {
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${messageId}/move`)
+          .post({ destinationId: folderId }),
+      this.logger,
+    );
+  }
+
   async moveThreadToFolder(
     threadId: string,
     ownerEmail: string,
