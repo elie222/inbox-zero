@@ -17,7 +17,14 @@ export function shouldStartMailEngine(input: {
   if (input.desktopIpc || input.browserRequested) return true;
   const segments = input.pathname?.split("/").filter(Boolean) ?? [];
   if (segments.length === 2) {
-    return segments[1] === "mail" || segments[1] === "compose";
+    return [
+      "mail",
+      "compose",
+      "bulk-archive",
+      "quick-bulk-archive",
+      "bulk-unsubscribe",
+      "smart-categories",
+    ].includes(segments[1]);
   }
   return (
     segments.length === 3 &&
