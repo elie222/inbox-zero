@@ -265,8 +265,6 @@ export const enableDraftRepliesAction = actionClient
           },
         });
       }
-
-      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
 
