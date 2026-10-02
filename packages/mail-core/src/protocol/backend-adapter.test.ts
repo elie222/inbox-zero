@@ -98,6 +98,35 @@ describe("backend mailbox source", () => {
     ).resolves.toMatchObject(expected);
   });
 
+  it("drops a search the server will never accept instead of retrying it", async () => {
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async () => ({
+        status: 400,
+        json: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: "r1",
+          error: { code: "invalid", retryable: false },
+        },
+      }),
+    });
+    await expect(
+      source.search({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        predicate: {
+          kind: "text",
+          field: "any",
+          value: "invoice",
+          match: "term",
+        },
+        page: null,
+        pageSize: 50,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({ status: "unsupported" });
+  });
+
   it("sends the protocol version on bootstrap", async () => {
     let body: unknown;
     const source = createBackendMailboxSource({

@@ -125,6 +125,8 @@ export type MailClient = {
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
+  /** Purges every local account outside `accountIds`; an empty list is ignored. */
+  retainAccounts(accountIds: string[]): Promise<void>;
   close?(): Promise<void>;
 };
 
@@ -328,6 +330,20 @@ export function createMailEngine(input: {
       const revision = await store.purgeAccount(accountId);
       await refreshViews();
       return revision;
+    },
+    async retainAccounts(accountIds) {
+      // An empty list is never a real account set, so it must not wipe the device.
+      if (accountIds.length === 0) return;
+      const retained = new Set(accountIds);
+      const accounts = await store.readAccountSyncStates();
+      let purged = false;
+      for (const account of accounts) {
+        if (retained.has(account.accountId)) continue;
+        idleCatchUpGates.delete(account.accountId);
+        await store.purgeAccount(account.accountId);
+        purged = true;
+      }
+      if (purged) await refreshViews();
     },
     inspect() {
       return store.inspect();

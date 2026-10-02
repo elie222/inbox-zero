@@ -28,6 +28,8 @@ import {
   shouldStartMailEngine,
 } from "@/utils/mail-engine/runtime-mode";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
+import { followMailboxChanges } from "@/utils/mail-engine/follow-mailbox-changes";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 import {
   MAIL_ENGINE_OWNER_LOCK,
@@ -287,6 +289,37 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       setClient(null);
     };
   }, [emailAccountId, provider, enabled, desktopIpc, requestBrowserEngine]);
+
+  useEffect(() => {
+    if (!client || !emailAccountId) return;
+    let cancelled = false;
+    // Accounts deleted on another device stay in this device's local store
+    // and keep syncing until the server's list says they are gone. The open
+    // account stays too, since an org admin may be viewing a member's mail.
+    fetchEmailAccounts()
+      .then(({ emailAccounts }) => {
+        if (cancelled || emailAccounts.length === 0) return;
+        return client.retainAccounts([
+          emailAccountId,
+          ...emailAccounts.map((account) => account.id),
+        ]);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [client, emailAccountId]);
+
+  useEffect(() => {
+    // The desktop engine follows mailbox changes itself.
+    if (!client || !emailAccountId || hasDesktopMailEngineIpc()) return;
+    return followMailboxChanges({
+      accountId: emailAccountId,
+      onChange: () => {
+        client.requestSync([emailAccountId]).catch(() => undefined);
+      },
+    });
+  }, [client, emailAccountId]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
