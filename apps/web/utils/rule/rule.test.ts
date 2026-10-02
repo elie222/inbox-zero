@@ -68,7 +68,6 @@ import {
   setRuleEnabled,
   setRuleRunOnThreads,
   updateRule,
-  updateRuleInstructions,
   updateRuleActions,
 } from "./rule";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -654,17 +653,6 @@ describe("rule history snapshots", () => {
   beforeEach(resetRuleMocks);
 
   it.each([
-    {
-      name: "updating instructions",
-      data: { instructions: "updated instructions" },
-      triggerType: "instructions_updated",
-      run: () =>
-        updateRuleInstructions({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          instructions: "updated instructions",
-        }),
-    },
     {
       name: "toggling rule enablement",
       data: { enabled: false },
