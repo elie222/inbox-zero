@@ -215,3 +215,76 @@ describe("HTTP Redis environment names", () => {
     expect(env.REDIS_HTTP_TOKEN).toBe("kv-token");
   });
 });
+
+describe("decision model provider credentials", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    delete process.env.DEFAULT_DECISION_MODEL;
+    delete process.env.TYPESAFE_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    for (const key of Object.keys(process.env)) delete process.env[key];
+    Object.assign(process.env, originalEnv);
+  });
+
+  // Module loading must happen after each case configures the startup environment.
+  it.each([
+    {
+      model: "typesafe:jev-latest",
+      key: "TYPESAFE_API_KEY",
+    },
+    {
+      model: "openrouter:typesafe/jev-1.13",
+      key: "OPENROUTER_API_KEY",
+    },
+  ] as const)("accepts $model with only its selected provider key", async ({
+    model,
+    key,
+  }) => {
+    process.env.DEFAULT_DECISION_MODEL = model;
+    process.env[key] = "selected-provider-key";
+
+    const { env } = await import("./env");
+
+    expect(env.DEFAULT_DECISION_MODEL).toBe(model);
+    expect(env[key]).toBe("selected-provider-key");
+  });
+
+  it.each([
+    {
+      model: "typesafe:jev-latest",
+      key: "TYPESAFE_API_KEY",
+      provider: "typesafe",
+      otherKey: "OPENROUTER_API_KEY",
+    },
+    {
+      model: "openrouter:typesafe/jev-1.13",
+      key: "OPENROUTER_API_KEY",
+      provider: "openrouter",
+      otherKey: "TYPESAFE_API_KEY",
+    },
+  ] as const)("rejects $model without its key even when other keys are configured", async ({
+    model,
+    key,
+    provider,
+    otherKey,
+  }) => {
+    process.env.DEFAULT_DECISION_MODEL = model;
+    process.env[otherKey] = "wrong-provider-key";
+    process.env.LLM_API_KEY = "shared-llm-key";
+
+    await expect(import("./env")).rejects.toThrow(
+      `${key} is required when DEFAULT_DECISION_MODEL uses ${provider}.`,
+    );
+  });
+
+  it("does not require decision provider credentials when no decision model is configured", async () => {
+    const { env } = await import("./env");
+
+    expect(env.DEFAULT_DECISION_MODEL).toBeUndefined();
+  });
+});

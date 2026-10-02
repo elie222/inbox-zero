@@ -1,24 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { decideWithTypeSafe } from "./typesafe";
+import { decideWithSystemOne } from "./system-one";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-const config = {
-  provider: "typesafe" as const,
-  model: "test-model",
-  apiKey: "test-key",
-};
+describe.each([
+  {
+    provider: "typesafe" as const,
+    model: "jev-latest",
+    endpoint: "https://api.typesafe.ai/v1/systemone",
+  },
+  {
+    provider: "openrouter" as const,
+    model: "typesafe/jev-1.13",
+    endpoint: "https://openrouter.ai/api/v1/systemone",
+  },
+])("decideWithSystemOne ($provider)", ({ provider, model, endpoint }) => {
+  const config = { provider, model, apiKey: "test-key" };
 
-describe("decideWithTypeSafe", () => {
   beforeEach(() => {
     fetchMock.mockReset();
   });
 
-  it("translates yes/no questions and answers to and from the TypeSafe format", async () => {
+  it("translates structured choice and yes/no questions and answers", async () => {
     fetchMock.mockResolvedValue(
       Response.json({
-        model: "test-model",
+        model,
         usage: { input_tokens: 12, output_tokens: 1 },
         answers: {
           label: {
@@ -32,7 +39,7 @@ describe("decideWithTypeSafe", () => {
       }),
     );
 
-    const result = await decideWithTypeSafe({
+    const result = await decideWithSystemOne({
       config,
       state: { text: "hello" },
       questions: {
@@ -49,10 +56,11 @@ describe("decideWithTypeSafe", () => {
       },
     });
 
-    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe(endpoint);
     expect(init.headers.Authorization).toBe("Bearer test-key");
     expect(JSON.parse(init.body)).toEqual({
-      model: "test-model",
+      model,
       state: { text: "hello" },
       questions: {
         label: {
@@ -68,7 +76,7 @@ describe("decideWithTypeSafe", () => {
       },
     });
     expect(result).toEqual({
-      model: "test-model",
+      model,
       inputTokens: 12,
       outputTokens: 1,
       answers: {
@@ -86,14 +94,14 @@ describe("decideWithTypeSafe", () => {
   it("rejects probabilities outside 0 to 1", async () => {
     fetchMock.mockResolvedValue(
       Response.json({
-        model: "test-model",
+        model,
         usage: { input_tokens: 1, output_tokens: 1 },
         answers: { applies: { type: "noul", noul: 2 } },
       }),
     );
 
     await expect(
-      decideWithTypeSafe({ config, state: {}, questions: {} }),
+      decideWithSystemOne({ config, state: {}, questions: {} }),
     ).rejects.toThrow();
   });
 
@@ -101,7 +109,55 @@ describe("decideWithTypeSafe", () => {
     fetchMock.mockResolvedValue(new Response("rate limited", { status: 429 }));
 
     await expect(
-      decideWithTypeSafe({ config, state: {}, questions: {} }),
+      decideWithSystemOne({ config, state: {}, questions: {} }),
     ).rejects.toThrow("status 429");
+  });
+
+  it("defaults omitted output usage to zero without losing input usage", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        model,
+        usage: { input_tokens: 42 },
+        answers: { applies: { type: "noul", noul: 0 } },
+      }),
+    );
+
+    await expect(
+      decideWithSystemOne({ config, state: {}, questions: {} }),
+    ).resolves.toEqual({
+      model,
+      inputTokens: 42,
+      outputTokens: 0,
+      answers: { applies: { type: "yesNo", probability: 0 } },
+    });
+  });
+
+  it("rejects a malformed choice rather than returning an actionable decision", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        model,
+        usage: { input_tokens: 1 },
+        answers: {
+          label: {
+            type: "choice",
+            choice: "A",
+            confidence: 0.9,
+            probabilities: { A: -0.1 },
+          },
+        },
+      }),
+    );
+
+    await expect(
+      decideWithSystemOne({ config, state: {}, questions: {} }),
+    ).rejects.toThrow();
+  });
+
+  it("propagates a network failure instead of returning an empty decision", async () => {
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+
+    await expect(
+      decideWithSystemOne({ config, state: {}, questions: {} }),
+    ).rejects.toThrow("fetch failed");
   });
 });

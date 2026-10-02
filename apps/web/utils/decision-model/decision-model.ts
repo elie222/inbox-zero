@@ -6,7 +6,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveAiUsage } from "@/utils/usage";
-import { decideWithTypeSafe } from "./typesafe";
+import { decideWithSystemOne } from "./system-one";
 
 type DecisionInstructions = string | Record<string, string>;
 
@@ -39,7 +39,7 @@ export type DecisionModelResponse = {
 };
 
 export type DecisionModelConfig = {
-  provider: "typesafe";
+  provider: "typesafe" | "openrouter";
   model: string;
   apiKey: string;
 };
@@ -111,7 +111,7 @@ export async function runDecisionModel({
     emailAccountId: emailAccount.id,
   });
 
-  const response = await sendToProvider({
+  const response = await decideWithSystemOne({
     config,
     state: request.prompt,
     questions: request.instructions,
@@ -180,23 +180,22 @@ export async function runDecisionModelOrFallback<T>({
   }
 }
 
-function sendToProvider(options: {
-  config: DecisionModelConfig;
-  state: Record<string, unknown>;
-  questions: Record<string, DecisionQuestion>;
-}): Promise<DecisionModelResponse> {
-  switch (options.config.provider) {
-    case "typesafe":
-      return decideWithTypeSafe(options);
-  }
-}
-
 function getDeploymentDecisionModelConfig(): DecisionModelConfig | null {
-  if (!env.DEFAULT_DECISION_MODEL || !env.TYPESAFE_API_KEY) return null;
+  if (!env.DEFAULT_DECISION_MODEL) return null;
+
+  const separator = env.DEFAULT_DECISION_MODEL.indexOf(":");
+  const provider = env.DEFAULT_DECISION_MODEL.slice(0, separator);
+  const model = env.DEFAULT_DECISION_MODEL.slice(separator + 1);
+  if (provider !== "typesafe" && provider !== "openrouter") return null;
+  if (!model) return null;
+
+  const apiKey =
+    provider === "typesafe" ? env.TYPESAFE_API_KEY : env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
 
   return {
-    provider: "typesafe",
-    model: env.DEFAULT_DECISION_MODEL.slice("typesafe:".length),
-    apiKey: env.TYPESAFE_API_KEY,
+    provider,
+    model,
+    apiKey,
   };
 }

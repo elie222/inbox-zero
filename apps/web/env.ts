@@ -347,10 +347,13 @@ const parsedEnv = createEnv({
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     MCP_SERVER_ENABLED: booleanString.optional().default(false),
-    // Optional provider:model for structured decisions, e.g. typesafe:jev-latest
+    // Optional provider:model for structured decisions, e.g. openrouter:typesafe/jev-1.13
     DEFAULT_DECISION_MODEL: z
       .string()
-      .regex(/^typesafe:\S+$/, "Expected typesafe:<model>")
+      .regex(
+        /^(typesafe|openrouter):\S+$/,
+        "Expected typesafe:<model> or openrouter:<model>",
+      )
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
@@ -645,9 +648,21 @@ if (
   );
 }
 
-if (process.env.DEFAULT_DECISION_MODEL && !process.env.TYPESAFE_API_KEY) {
+if (
+  process.env.DEFAULT_DECISION_MODEL?.startsWith("typesafe:") &&
+  !process.env.TYPESAFE_API_KEY
+) {
   throw new Error(
-    "TYPESAFE_API_KEY is required when DEFAULT_DECISION_MODEL is set.",
+    "TYPESAFE_API_KEY is required when DEFAULT_DECISION_MODEL uses typesafe.",
+  );
+}
+
+if (
+  process.env.DEFAULT_DECISION_MODEL?.startsWith("openrouter:") &&
+  !process.env.OPENROUTER_API_KEY
+) {
+  throw new Error(
+    "OPENROUTER_API_KEY is required when DEFAULT_DECISION_MODEL uses openrouter.",
   );
 }
 

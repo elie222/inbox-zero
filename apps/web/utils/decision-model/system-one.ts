@@ -5,12 +5,15 @@ import type {
   DecisionQuestion,
 } from "./decision-model";
 
-const TYPESAFE_API_URL = "https://api.typesafe.ai/v1/systemone";
-const TYPESAFE_TIMEOUT_MS = 30_000;
+const SYSTEM_ONE_API_URLS = {
+  typesafe: "https://api.typesafe.ai/v1/systemone",
+  openrouter: "https://openrouter.ai/api/v1/systemone",
+};
+const SYSTEM_ONE_TIMEOUT_MS = 30_000;
 
 const probabilitySchema = z.number().min(0).max(1);
 
-const typeSafeResponseSchema = z.object({
+const systemOneResponseSchema = z.object({
   model: z.string(),
   usage: z.object({
     input_tokens: z.number().int().nonnegative(),
@@ -30,7 +33,7 @@ const typeSafeResponseSchema = z.object({
   ),
 });
 
-export async function decideWithTypeSafe({
+export async function decideWithSystemOne({
   config,
   state,
   questions,
@@ -39,7 +42,7 @@ export async function decideWithTypeSafe({
   state: Record<string, unknown>;
   questions: Record<string, DecisionQuestion>;
 }): Promise<DecisionModelResponse> {
-  const response = await fetch(TYPESAFE_API_URL, {
+  const response = await fetch(SYSTEM_ONE_API_URLS[config.provider], {
     method: "POST",
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -61,14 +64,17 @@ export async function decideWithTypeSafe({
         ]),
       ),
     }),
-    signal: AbortSignal.timeout(TYPESAFE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(SYSTEM_ONE_TIMEOUT_MS),
   });
 
   if (!response.ok) {
-    throw new Error(`TypeSafe request failed with status ${response.status}`);
+    const provider = config.provider === "typesafe" ? "TypeSafe" : "OpenRouter";
+    throw new Error(
+      `${provider} request failed with status ${response.status}`,
+    );
   }
 
-  const body = typeSafeResponseSchema.parse(await response.json());
+  const body = systemOneResponseSchema.parse(await response.json());
 
   return {
     model: body.model,
