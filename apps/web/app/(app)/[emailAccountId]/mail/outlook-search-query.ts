@@ -1,4 +1,5 @@
 import {
+  parseBooleanSearchValue,
   tokenizeSearchQuery,
   unquoteSearchValue,
 } from "@/utils/tokenize-search-query";
@@ -161,7 +162,7 @@ export function parseOutlookSearchQuery(query: string): OutlookSearchFields {
         assignSingle(fields, parsed.field, parsed.value, token, keywords);
         continue;
       case "hasattachments":
-        if (/^(true|yes)$/i.test(parsed.value)) {
+        if (parseBooleanSearchValue(parsed.value) === true) {
           fields.hasAttachment = true;
           continue;
         }
