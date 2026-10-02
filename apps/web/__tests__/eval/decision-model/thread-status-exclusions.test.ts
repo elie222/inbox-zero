@@ -92,27 +92,17 @@ describe.runIf(shouldRunDecisionModelEvals)(
             testName: testCase.name,
             expected: testCase.expected,
             reporter,
-            runJev: async () => {
-              try {
-                return (
-                  await decideThreadStatus({
-                    config: decisionModelConfig,
-                    emailAccount: lunaEmailAccount,
-                    definitions,
-                    threadMessages,
-                    userSentLastEmail: false,
-                    logger: decisionModelEvalLogger,
-                  })
-                ).status;
-              } catch (error) {
-                if (
-                  !(error instanceof Error) ||
-                  !error.message.includes("confidence is too low")
-                )
-                  throw error;
-                return (await runLlm()).status;
-              }
-            },
+            runJev: async () =>
+              (
+                await decideThreadStatus({
+                  config: decisionModelConfig,
+                  emailAccount: lunaEmailAccount,
+                  definitions,
+                  threadMessages,
+                  userSentLastEmail: false,
+                  logger: decisionModelEvalLogger,
+                })
+              ).status,
             runLuna: async () => (await runLlm()).status,
           });
         },

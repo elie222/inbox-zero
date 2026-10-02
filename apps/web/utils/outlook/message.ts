@@ -1308,10 +1308,18 @@ async function normalizeOutlookSearchIds(
   const ids = new Map(
     response.value.map((item) => [item.sourceId, item.targetId]),
   );
-  return messages.map((message) => {
+  const unresolvedIds = inputIds.filter((id) => !ids.get(id));
+  if (unresolvedIds.length) {
+    logger.warn("Some Outlook search messages could not be resolved", {
+      unresolvedCount: unresolvedIds.length,
+      messageCount: messages.length,
+    });
+    logger.trace("Unresolved Outlook search message IDs", {
+      messageIds: unresolvedIds,
+    });
+  }
+  return messages.flatMap((message) => {
     const id = message.id ? ids.get(message.id) : null;
-    if (!id)
-      throw new Error("Failed to resolve immutable Outlook search message ID");
-    return { ...message, id };
+    return id ? [{ ...message, id }] : [];
   });
 }
