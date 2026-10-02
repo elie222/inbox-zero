@@ -29,9 +29,18 @@ overrides:
   lodash: "4.18.1"
   next: "16.3.6"
   postcss: "8.5.14"
+  # express@5 depends on proxy-addr ^2.0.7. 2.0.7 treats an IPv4-mapped IPv6
+  # trust subnet with an IPv4-sized prefix as trusting every IPv4 address
+  # (CVE-2026-90711). 2.0.8 rejects those prefixes.
+  proxy-addr: "2.0.8"
   prosemirror-model: "1.25.11"
   prosemirror-view: "1.42.2"
   svelte: "5.55.5"
+  # @actions/* and node-gyp resolve undici 6. 6.25.0 is outside CVE-2026-84961,
+  # which is already covered by 7.29.1 and the direct 8.10.2 pin, but it is
+  # inside the other undici advisories fixed in 6.28.1. 6.29.0 is the latest
+  # 6.x those caret ranges allow.
+  "undici@>=6.0.0 <7.0.0": "6.29.0"
   "undici@>=7.0.0 <8.0.0": "7.29.1"
   vite: "7.3.6"
   webpack: "5.106.2"
