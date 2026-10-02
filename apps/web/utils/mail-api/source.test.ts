@@ -96,6 +96,38 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("reports a search the provider rejects as unsupported so it is not retried", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        searchMessages: vi.fn(async () => {
+          throw Object.assign(new Error("Syntax error in search query"), {
+            statusCode: 400,
+          });
+        }),
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search(searchInput("acc-1", { value: "to:someone" })),
+    ).resolves.toEqual({ status: "unsupported" });
+  });
+
+  it("pauses a search when the provider fails transiently", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        searchMessages: vi.fn(async () => {
+          throw Object.assign(new Error("Backend error"), { status: 503 });
+        }),
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.search(searchInput("acc-1", { value: "invoice" })),
+    ).resolves.toMatchObject({ status: "paused", reason: "unavailable" });
+  });
+
   it("includes spam when the search predicate is scoped to that mailbox", async () => {
     const searchMessages = vi.fn(async () => ({
       messages: [searchMessage("spam-hit", ["SPAM"])],
@@ -1090,6 +1122,22 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 });
+
+function searchInput(accountId: string, text: { value: string }) {
+  return {
+    session: { accountId, generation: "g1" },
+    requestId: "search-1",
+    signal: new AbortController().signal,
+    predicate: {
+      kind: "text",
+      field: "any",
+      value: text.value,
+      match: "phrase",
+    } as const,
+    page: null,
+    pageSize: 20,
+  };
+}
 
 function searchMessage(id: string, labelIds: string[] = []) {
   return {

@@ -247,6 +247,8 @@ async function createWorkerOwnedEngine(
       callWorker(worker, pending, "getDiagnostics", [accountId]),
     purgeAccount: (accountId) =>
       callWorker(worker, pending, "purgeAccount", [accountId]),
+    retainAccounts: (accountIds) =>
+      callWorker<void>(worker, pending, "retainAccounts", [accountIds]),
     inspect: () => callWorker(worker, pending, "inspect", []),
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),

@@ -303,12 +303,20 @@ export function createEmailProviderMailboxSource(input: {
     async search({ predicate, page, pageSize }) {
       const compiled = compileMailboxSearch(predicate);
       if (!compiled) return { status: "unsupported" };
-      const result = await provider.searchMessages({
-        query: "",
-        mailboxSearch: compiled.search,
-        maxResults: Math.min(pageSize, maxPageSize),
-        pageToken: page ?? undefined,
-      });
+      let result: Awaited<ReturnType<EmailProvider["searchMessages"]>>;
+      try {
+        result = await provider.searchMessages({
+          query: "",
+          mailboxSearch: compiled.search,
+          maxResults: Math.min(pageSize, maxPageSize),
+          pageToken: page ?? undefined,
+        });
+      } catch (error) {
+        // A rejected query fails the same way every time, so the client
+        // must drop it rather than retry it.
+        if (isRejectedProviderRequest(error)) return { status: "unsupported" };
+        return mapProviderError(error);
+      }
       const candidates = await mapWithConcurrency(
         result.messages,
         5,
@@ -483,6 +491,13 @@ function isMissingProviderResource(error: unknown) {
   return (
     extractGmailErrorInfo(error).status === 404 ||
     extractOutlookErrorInfo(error).status === 404
+  );
+}
+
+function isRejectedProviderRequest(error: unknown) {
+  return (
+    extractGmailErrorInfo(error).status === 400 ||
+    extractOutlookErrorInfo(error).status === 400
   );
 }
 
