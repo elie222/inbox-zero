@@ -17,7 +17,7 @@ export function ErrorMessages() {
   const { execute: clearErrorMessages, isExecuting } = useAction(
     clearUserErrorMessagesAction,
     {
-      onSuccess: () => mutate(null),
+      onSuccess: () => mutate(),
       onError: ({ error }) =>
         toastError({ description: getActionErrorMessage(error) }),
     },
