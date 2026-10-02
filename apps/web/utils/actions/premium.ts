@@ -17,6 +17,7 @@ import {
   premiumEntitlementSelect,
 } from "@/utils/premium";
 import {
+  getAdminGrantExpiresAt,
   grantPremiumAdmin,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
@@ -32,7 +33,6 @@ import {
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
-import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import {
   BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
   BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
@@ -311,36 +311,35 @@ export const adminChangePremiumStatusAction = adminActionClient
         },
       });
 
-      if (!userToUpgrade?.user) throw new SafeError("User not found");
+      if (!userToUpgrade?.user) {
+        const pendingEmail = email.toLowerCase();
+
+        if (upgrade) {
+          const grant = {
+            tier: period,
+            count: count || 1,
+            emailAccountsAccess: emailAccountsAccess ?? null,
+          };
+          await prisma.pendingPremiumGrant.upsert({
+            where: { email: pendingEmail },
+            create: { email: pendingEmail, ...grant },
+            update: grant,
+          });
+          return { pending: true };
+        }
+
+        const { count: deleted } = await prisma.pendingPremiumGrant.deleteMany({
+          where: { email: pendingEmail },
+        });
+        if (!deleted) throw new SafeError("User not found");
+        return { pending: true };
+      }
 
       if (upgrade) {
-        const getGrantExpiresAt = (period: PremiumTier): Date | null => {
-          const now = new Date();
-          switch (period) {
-            case PremiumTier.BASIC_ANNUALLY:
-            case PremiumTier.PRO_ANNUALLY:
-            case PremiumTier.STARTER_ANNUALLY:
-            case PremiumTier.PLUS_ANNUALLY:
-            case PremiumTier.PROFESSIONAL_ANNUALLY:
-              return new Date(now.getTime() + ONE_YEAR_MS * (count || 1));
-            case PremiumTier.BASIC_MONTHLY:
-            case PremiumTier.PRO_MONTHLY:
-            case PremiumTier.STARTER_MONTHLY:
-            case PremiumTier.PLUS_MONTHLY:
-            case PremiumTier.PROFESSIONAL_MONTHLY:
-            case PremiumTier.COPILOT_MONTHLY:
-              return new Date(now.getTime() + ONE_MONTH_MS * (count || 1));
-            case PremiumTier.LIFETIME:
-              return new Date(now.getTime() + TEN_YEARS);
-            default:
-              return null;
-          }
-        };
-
         await grantPremiumAdmin({
           userId: userToUpgrade.user.id,
           tier: period,
-          adminGrantExpiresAt: getGrantExpiresAt(period),
+          adminGrantExpiresAt: getAdminGrantExpiresAt({ tier: period, count }),
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
@@ -355,6 +354,8 @@ export const adminChangePremiumStatusAction = adminActionClient
       } else {
         throw new SafeError("User not premium.");
       }
+
+      return { pending: false };
     },
   );
 

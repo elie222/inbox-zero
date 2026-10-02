@@ -1,6 +1,8 @@
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
-import type { ActionType, PremiumTier } from "@/generated/prisma/enums";
+import type { ActionType } from "@/generated/prisma/enums";
+import { PremiumTier } from "@/generated/prisma/enums";
+import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
@@ -14,6 +16,8 @@ import { env } from "@/env";
 import { isAddingDigestAction } from "@/utils/premium/digest";
 
 const logger = createScopedLogger("premium");
+
+const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
 export async function upgradeToPremiumLemon(options: {
   userId: string;
@@ -136,6 +140,59 @@ export async function grantPremiumAdmin(options: {
   });
 
   return premiumRecord;
+}
+
+export async function applyPendingPremiumGrant({
+  userId,
+  email,
+}: {
+  userId: string;
+  email: string;
+}) {
+  const grant = await prisma.pendingPremiumGrant.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+  if (!grant) return;
+
+  await grantPremiumAdmin({
+    userId,
+    tier: grant.tier,
+    adminGrantExpiresAt: getAdminGrantExpiresAt(grant),
+    emailAccountsAccess: grant.emailAccountsAccess ?? undefined,
+  });
+
+  await prisma.pendingPremiumGrant.delete({ where: { id: grant.id } });
+
+  logger.info("Applied pending premium grant", { userId });
+}
+
+export function getAdminGrantExpiresAt({
+  tier,
+  count,
+}: {
+  tier: PremiumTier;
+  count?: number;
+}): Date | null {
+  const now = Date.now();
+  switch (tier) {
+    case PremiumTier.BASIC_ANNUALLY:
+    case PremiumTier.PRO_ANNUALLY:
+    case PremiumTier.STARTER_ANNUALLY:
+    case PremiumTier.PLUS_ANNUALLY:
+    case PremiumTier.PROFESSIONAL_ANNUALLY:
+      return new Date(now + ONE_YEAR_MS * (count || 1));
+    case PremiumTier.BASIC_MONTHLY:
+    case PremiumTier.PRO_MONTHLY:
+    case PremiumTier.STARTER_MONTHLY:
+    case PremiumTier.PLUS_MONTHLY:
+    case PremiumTier.PROFESSIONAL_MONTHLY:
+    case PremiumTier.COPILOT_MONTHLY:
+      return new Date(now + ONE_MONTH_MS * (count || 1));
+    case PremiumTier.LIFETIME:
+      return new Date(now + TEN_YEARS_MS);
+    default:
+      return null;
+  }
 }
 
 export async function cancelPremiumLemon({
