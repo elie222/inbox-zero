@@ -43,13 +43,13 @@ export function CalendarSettings() {
 
   const { execute: executeUpdateTimezone, isExecuting: isUpdatingTimezone } =
     useAction(updateEmailAccountTimezoneAction.bind(null, emailAccountId), {
-      onSuccess: () => {
+      onSuccess: async () => {
         analytics.captureAction("calendar_timezone_saved", {
           had_existing_timezone: Boolean(timezone),
         });
         toastSuccess({ description: "Timezone updated!" });
+        await mutate();
         setSelectedTimezone(null);
-        mutate();
       },
     });
 

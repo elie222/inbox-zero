@@ -13,7 +13,11 @@ export function getSupportedTimezonesWithOffsets(
     supportedValuesOf?: (key: "timeZone") => string[];
   };
   const zones = intlWithSupportedValues.supportedValuesOf?.("timeZone") ?? [];
-  const allZones = new Set([...zones, "UTC"]);
+  const allZones = new Set([
+    ...zones,
+    "UTC",
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ]);
   if (current) allZones.add(current);
   const now = new Date();
   return [...allZones]

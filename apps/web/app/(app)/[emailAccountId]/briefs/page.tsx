@@ -21,6 +21,15 @@ import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { TimezoneDetector } from "@/components/TimezoneDetector";
 
 export default function MeetingBriefsPage() {
+  return (
+    <>
+      <TimezoneDetector />
+      <MeetingBriefsPageContent />
+    </>
+  );
+}
+
+function MeetingBriefsPageContent() {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("meeting_briefs");
   const { data: calendarsData, isLoading: isLoadingCalendars } = useCalendars();
@@ -71,7 +80,6 @@ export default function MeetingBriefsPage() {
 
   return (
     <PageWrapper>
-      <TimezoneDetector />
       <PageHeader title="Meeting Briefs" />
 
       <div className="mt-4 space-y-4 max-w-3xl">

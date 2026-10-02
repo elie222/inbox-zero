@@ -28,6 +28,15 @@ import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/cale
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 
 export default function MeetingsPage() {
+  return (
+    <>
+      <TimezoneDetector />
+      <MeetingsPageContent />
+    </>
+  );
+}
+
+function MeetingsPageContent() {
   const meetingRecorderEnabled = useMeetingRecorderEnabled();
 
   if (!meetingRecorderEnabled) {
@@ -132,7 +141,6 @@ function MeetingRecorderPageContent() {
 
   return (
     <PageWrapper>
-      <TimezoneDetector />
       <div className="flex items-start justify-between gap-4">
         <PageHeader title="Meetings" />
 

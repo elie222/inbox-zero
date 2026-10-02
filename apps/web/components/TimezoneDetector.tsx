@@ -29,6 +29,7 @@ export function TimezoneDetector() {
   const analytics = useProductAnalytics();
   const [showDialog, setShowDialog] = useState(false);
   const trackedPromptRef = useRef<string | null>(null);
+  const autoSetAttemptedRef = useRef(false);
   const [dismissedPrompts, setDismissedPrompts] = useLocalStorage<
     DismissedPrompt[]
   >(`timezone-prompts-dismissed-${emailAccountId}`, []);
@@ -36,9 +37,14 @@ export function TimezoneDetector() {
   const { execute: executeUpdateTimezone, isExecuting } = useAction(
     updateEmailAccountTimezoneAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
+      onSuccess: ({ input }) => {
+        if (autoSetAttemptedRef.current && !data?.timezone) {
+          analytics.captureAction("timezone_auto_set", {
+            detected_timezone: input.timezone,
+          });
+        }
         toastSuccess({ description: "Timezone updated!" });
-        setShowDialog(false);
+        closeDialog();
       },
       onSettled: () => {
         mutate();
@@ -55,9 +61,9 @@ export function TimezoneDetector() {
 
     // Case 1: No timezone set - automatically set it
     if (savedTimezone === null) {
-      analytics.captureAction("timezone_auto_set", {
-        detected_timezone: currentTimezone,
-      });
+      // Once per mount, so a failed save doesn't retry on every revalidation.
+      if (autoSetAttemptedRef.current) return;
+      autoSetAttemptedRef.current = true;
       executeUpdateTimezone({ timezone: currentTimezone });
       return;
     }
@@ -103,7 +109,12 @@ export function TimezoneDetector() {
       );
       setDismissedPrompts(updated);
     }
+    closeDialog();
+  };
+
+  const closeDialog = () => {
     setShowDialog(false);
+    trackedPromptRef.current = null;
   };
 
   if (!data?.timezone) {
@@ -113,7 +124,12 @@ export function TimezoneDetector() {
   const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
-    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+    <Dialog
+      open={showDialog}
+      onOpenChange={(open) => {
+        if (!open) handleKeepCurrent();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Timezone Change Detected</DialogTitle>
