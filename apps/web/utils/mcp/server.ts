@@ -111,7 +111,7 @@ export async function handleMcpServerRequest(
     {
       title: "List email accounts",
       description: "List the inbox accounts linked to the authenticated user.",
-      annotations: readOnlyAnnotations,
+      annotations: { ...readOnlyAnnotations, title: "List email accounts" },
     },
     runTool("list_email_accounts", "mcp:read", async () => ({
       accounts: await listMcpEmailAccounts(userId),
@@ -123,9 +123,9 @@ export async function handleMcpServerRequest(
     {
       title: "Search inbox",
       description:
-        "Search one inbox and return message metadata and snippets. Use read_thread for full bodies. Does not send or change mail.",
+        "Search one inbox and return message metadata and snippets. Does not return full message bodies, send email, or change mail.",
       inputSchema: searchInboxInputShape,
-      annotations: mailboxReadAnnotations,
+      annotations: { ...mailboxReadAnnotations, title: "Search inbox" },
     },
     runTool("search_inbox", "mcp:read", async (args) =>
       searchInboxForMcp({
@@ -151,9 +151,9 @@ export async function handleMcpServerRequest(
     {
       title: "Read thread",
       description:
-        "Read messages in a thread. Returns plain-text bodies truncated per message. Use search_inbox to find threadId.",
+        "Read messages from one inbox thread by thread ID. Returns plain-text bodies truncated per message.",
       inputSchema: readThreadInputShape,
-      annotations: mailboxReadAnnotations,
+      annotations: { ...mailboxReadAnnotations, title: "Read thread" },
     },
     runTool("read_thread", "mcp:read", async (args) =>
       readThreadForMcp({
@@ -177,9 +177,9 @@ export async function handleMcpServerRequest(
     {
       title: "Create draft",
       description:
-        "Create a mailbox draft. This does not send. Prefer this over inventing a send action; sending is not available.",
+        "Create a mailbox draft with a recipient, subject, and body. Saves the draft for review without sending email.",
       inputSchema: createDraftInputShape,
-      annotations: mailboxWriteAnnotations,
+      annotations: { ...mailboxWriteAnnotations, title: "Create draft" },
     },
     runTool("create_draft", "mcp:write", async (args) =>
       createDraftForMcp({
@@ -204,7 +204,7 @@ export async function handleMcpServerRequest(
       title: "List rules",
       description: "List automation rules for one inbox account.",
       inputSchema: mcpAccountSelectorShape,
-      annotations: readOnlyAnnotations,
+      annotations: { ...readOnlyAnnotations, title: "List rules" },
     },
     runTool("list_rules", "mcp:read", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -233,7 +233,7 @@ export async function handleMcpServerRequest(
         ...mcpAccountSelectorShape,
         id: z.string(),
       },
-      annotations: readOnlyAnnotations,
+      annotations: { ...readOnlyAnnotations, title: "Get rule" },
     },
     runTool("get_rule", "mcp:read", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -265,7 +265,7 @@ export async function handleMcpServerRequest(
         ...mcpAccountSelectorShape,
         rule: ruleRequestBodySchema,
       },
-      annotations: writeAnnotations,
+      annotations: { ...writeAnnotations, title: "Create rule" },
     },
     runTool("create_rule", "mcp:write", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -319,7 +319,7 @@ export async function handleMcpServerRequest(
         id: z.string(),
         rule: ruleRequestBodySchema,
       },
-      annotations: writeAnnotations,
+      annotations: { ...writeAnnotations, title: "Update rule" },
     },
     runTool("update_rule", "mcp:write", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -387,7 +387,7 @@ export async function handleMcpServerRequest(
         ...mcpAccountSelectorShape,
         id: z.string(),
       },
-      annotations: destructiveAnnotations,
+      annotations: { ...destructiveAnnotations, title: "Delete rule" },
     },
     runTool("delete_rule", "mcp:write", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -428,7 +428,7 @@ export async function handleMcpServerRequest(
         fromDate: z.number().int().optional(),
         toDate: z.number().int().optional(),
       },
-      annotations: readOnlyAnnotations,
+      annotations: { ...readOnlyAnnotations, title: "Get stats by period" },
     },
     runTool("get_stats_by_period", "mcp:read", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -465,7 +465,7 @@ export async function handleMcpServerRequest(
         fromDate: z.number().int().optional(),
         toDate: z.number().int().optional(),
       },
-      annotations: readOnlyAnnotations,
+      annotations: { ...readOnlyAnnotations, title: "Get response time stats" },
     },
     runTool("get_response_time_stats", "mcp:read", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
