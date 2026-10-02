@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
@@ -279,6 +285,75 @@ describe("EmailThread outgoing replies", () => {
   });
 });
 
+describe("EmailThread draft discard", () => {
+  afterEach(cleanup);
+
+  // A draft opened from the Drafts folder is the entire conversation, so once
+  // it is discarded there is nothing left to read and the reader has to leave.
+  it("reports the conversation as gone when its only draft is discarded", async () => {
+    const onThreadDiscarded = vi.fn();
+    render(
+      <EmailThread
+        messages={[createReaderDraft("draft-1", "1000")]}
+        onThreadDiscarded={onThreadDiscarded}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    await act(async () => {});
+
+    expect(onThreadDiscarded).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a draft-only conversation open while another draft remains", async () => {
+    const onThreadDiscarded = vi.fn();
+    render(
+      <EmailThread
+        messages={[
+          createReaderDraft("draft-1", "1000"),
+          createReaderDraft("draft-2", "2000"),
+        ]}
+        onThreadDiscarded={onThreadDiscarded}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Discard draft" })[0],
+    );
+    await act(async () => {});
+
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    expect(onThreadDiscarded).not.toHaveBeenCalled();
+  });
+
+  it("keeps the conversation open when a reply draft on a message is discarded", async () => {
+    const onThreadDiscarded = vi.fn();
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        onThreadDiscarded={onThreadDiscarded}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    await act(async () => {});
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+    expect(onThreadDiscarded).not.toHaveBeenCalled();
+  });
+});
+
 describe("organizeThreadMessages", () => {
   it("attaches a draft to the message its headers reply to", () => {
     const first = createMessage({
@@ -480,11 +555,13 @@ function MockComposer({
   draftSessionId,
   providerDraftMessageId,
   onClose,
+  onDiscard,
 }: {
   draftKeyMessageId?: string;
   draftSessionId?: string;
   providerDraftMessageId?: string;
   onClose?: () => void;
+  onDiscard?: () => void;
 }) {
   useState(() => {
     composerMounts += 1;
@@ -499,6 +576,9 @@ function MockComposer({
       />
       <button onClick={onClose} type="button">
         Send
+      </button>
+      <button onClick={onDiscard} type="button">
+        Discard draft
       </button>
     </>
   );

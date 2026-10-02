@@ -236,6 +236,11 @@ export function ThreadReader({
           }}
           refetch={refetch}
           onSendSuccess={onSendSuccess}
+          onThreadDiscarded={
+            // A partially loaded conversation can look draft-only, so only
+            // leave once every message is here to say it is.
+            localAvailability?.hasMore ? undefined : onBackToInbox
+          }
           showReplyButton
         />
       ) : (
