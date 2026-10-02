@@ -147,6 +147,11 @@ export interface EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void>;
+  bulkArchiveSenderOrThrow(
+    fromEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<number>;
   bulkArchiveThreads(
     threads: BulkArchiveThread[],
     ownerEmail: string,

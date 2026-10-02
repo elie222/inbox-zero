@@ -7,7 +7,10 @@ import {
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { withEmailProvider } from "@/utils/middleware";
-import { getSenderEmailStats } from "@/utils/sender-stats";
+import {
+  getSenderEmailStats,
+  senderStatsOrderBySchema,
+} from "@/utils/sender-stats";
 import {
   filterNewsletters,
   findAutoArchiveFilters,
@@ -19,9 +22,10 @@ import {
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
+  cursor: z.string().trim().min(1).max(2048).optional(),
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
-  orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
+  orderBy: senderStatsOrderBySchema.optional(),
   orderDirection: z.enum(["asc", "desc"]).optional(),
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
@@ -51,7 +55,7 @@ async function getEmailMessages(
   const { emailAccountId, emailProvider, logger } = options;
   const types = getTypeFilters(options.types);
 
-  const [counts, emailFilters, newsletterStatuses] = await Promise.all([
+  const [senderStats, emailFilters, newsletterStatuses] = await Promise.all([
     getSenderEmailStats({
       emailAccountId,
       fromDate: options.fromDate,
@@ -64,13 +68,13 @@ async function getEmailMessages(
       orderBy: options.orderBy,
       orderDirection: options.orderDirection,
       limit: options.limit,
-      logger,
+      cursor: options.cursor,
     }),
     getEmailFilters(emailProvider, logger),
     getNewsletterStatuses({ emailAccountId }),
   ]);
 
-  const newsletters = counts.map((email) => {
+  const newsletters = senderStats.senders.map((email) => {
     const from = canonicalizeEmailAddress(email.from);
     return {
       name: from,
@@ -83,6 +87,7 @@ async function getEmailMessages(
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
+      lastEmailAt: email.lastEmailAt,
       unsubscribeLink: email.unsubscribeLink,
       autoArchived: findAutoArchiveFilters(
         emailFilters,
@@ -97,10 +102,14 @@ async function getEmailMessages(
     ? findNewsletterStatus(newsletterStatuses, options.search)
     : undefined;
 
-  if (!options.filters?.length) return { newsletters, searchedSenderStatus };
-
+  // Cursor pages the aggregated sender list. Status filters run after that,
+  // so a filtered page can be shorter than `limit` while `nextCursor` continues
+  // from the last aggregated sender.
   return {
-    newsletters: filterNewsletters(newsletters, options.filters),
+    newsletters: options.filters?.length
+      ? filterNewsletters(newsletters, options.filters)
+      : newsletters,
+    nextCursor: senderStats.nextCursor,
     searchedSenderStatus,
   };
 }
@@ -116,8 +125,9 @@ export const GET = withEmailProvider(
       limit: searchParams.get("limit"),
       fromDate: searchParams.get("fromDate"),
       toDate: searchParams.get("toDate"),
-      orderBy: searchParams.get("orderBy"),
+      orderBy: searchParams.get("orderBy") || undefined,
       orderDirection: searchParams.get("orderDirection") || undefined,
+      cursor: searchParams.get("cursor") || undefined,
       types: searchParams.get("types")?.split(",") || [],
       filters: searchParams.get("filters")?.split(",") || [],
       includeMissingUnsubscribe:
