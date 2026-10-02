@@ -31,7 +31,11 @@ vi.mock("@/utils/middleware", () => ({
       ),
 }));
 
+import { ContactsAccessDeniedError } from "@/utils/email/contact";
 import { GET } from "./route";
+
+const callGet = (url: string) =>
+  GET(new NextRequest(url), { params: Promise.resolve({}) });
 
 describe("GET /api/user/contacts", () => {
   beforeEach(() => {
@@ -44,47 +48,47 @@ describe("GET /api/user/contacts", () => {
       { emailAddress: "contact@example.com", name: "Contact" },
     ]);
 
-    const response = await GET(
-      new NextRequest(
-        "http://localhost:3000/api/user/contacts?query=contact%20name",
-      ),
-      { params: Promise.resolve({}) },
+    const response = await callGet(
+      "http://localhost:3000/api/user/contacts?query=contact%20name",
     );
 
     expect(searchContactsMock).toHaveBeenCalledWith("contact name");
     await expect(response.json()).resolves.toEqual({
       contacts: [{ emailAddress: "contact@example.com", name: "Contact" }],
+      reconnectRequired: false,
     });
   });
 
   it("does not query the provider when contact suggestions are disabled", async () => {
     envMock.NEXT_PUBLIC_CONTACTS_ENABLED = false;
 
-    const response = await GET(
-      new NextRequest("http://localhost:3000/api/user/contacts?query=contact"),
-      { params: Promise.resolve({}) },
+    const response = await callGet(
+      "http://localhost:3000/api/user/contacts?query=contact",
     );
 
     expect(response.status).toBe(404);
     expect(searchContactsMock).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { errors: [{ reason: "insufficientPermissions" }] },
-    { code: "AccessDenied" },
-  ])("offers a contact-specific reconnect for missing access", async (error) => {
-    searchContactsMock.mockRejectedValue(error);
+  it("offers a contact-specific reconnect for missing access", async () => {
+    searchContactsMock.mockRejectedValue(new ContactsAccessDeniedError());
 
-    const response = await GET(
-      new NextRequest("http://localhost:3000/api/user/contacts?query=contact"),
-      { params: Promise.resolve({}) },
+    const response = await callGet(
+      "http://localhost:3000/api/user/contacts?query=contact",
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      error: "Reconnect this account to enable contact suggestions.",
-      isKnownError: true,
+      contacts: [],
       reconnectRequired: true,
     });
+  });
+
+  it("propagates unrelated provider failures", async () => {
+    searchContactsMock.mockRejectedValue(new Error("Provider exploded"));
+
+    await expect(
+      callGet("http://localhost:3000/api/user/contacts?query=contact"),
+    ).rejects.toThrow("Provider exploded");
   });
 });

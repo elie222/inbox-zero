@@ -25,6 +25,7 @@ test("suggests contacts in every recipient field and reuses cached searches", as
                 { name: "Second Contact", emailAddress: "second@example.com" },
               ]
             : [],
+        reconnectRequired: false,
       },
     });
   });
@@ -82,5 +83,20 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   await bcc.press("Enter");
   await expect(
     dialog.getByRole("button", { name: "Remove manual@example.com" }),
+  ).toBeVisible();
+});
+
+test("prompts to reconnect when the account has no contact access", async ({
+  page,
+}) => {
+  await page.route("**/api/user/contacts?*", async (route) => {
+    await route.fulfill({ json: { contacts: [], reconnectRequired: true } });
+  });
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog.getByRole("combobox", { name: "To", exact: true }).fill("ada");
+  await expect(
+    dialog.getByText("Reconnect this account to enable contact suggestions."),
   ).toBeVisible();
 });

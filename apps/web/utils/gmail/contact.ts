@@ -1,5 +1,6 @@
 import type { people_v1 } from "@googleapis/people";
 import {
+  ContactsAccessDeniedError,
   type EmailContact,
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
@@ -22,7 +23,16 @@ export async function searchContacts(
   logger: Logger,
 ) {
   if (!env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED) {
-    return normalizeContactCandidates(await searchSavedContacts(client, query));
+    const onlySource = await loadContactSource(
+      () => searchSavedContacts(client, query),
+      "contacts",
+      logger,
+    );
+    if (onlySource.deniedError) {
+      throw new ContactsAccessDeniedError({ cause: onlySource.deniedError });
+    }
+
+    return normalizeContactCandidates(onlySource.contacts ?? []);
   }
 
   // Saved Google Contacts are only the address book the user curated. Gmail's
@@ -41,7 +51,9 @@ export async function searchContacts(
     ),
   ]);
 
-  if (saved.deniedError && other.deniedError) throw saved.deniedError;
+  if (saved.deniedError && other.deniedError) {
+    throw new ContactsAccessDeniedError({ cause: saved.deniedError });
+  }
 
   return normalizeContactCandidates([
     ...(saved.contacts ?? []),

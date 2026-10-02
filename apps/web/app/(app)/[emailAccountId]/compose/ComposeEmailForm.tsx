@@ -41,10 +41,7 @@ import {
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
-import type {
-  ContactsErrorResponse,
-  ContactsResponse,
-} from "@/app/api/user/contacts/route";
+import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { Input } from "@/components/Input";
@@ -1689,7 +1686,7 @@ function ComposeContactRecipientField({
   const label = RECIPIENT_LABELS[name];
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
-  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
+  const { data: contacts } = useSWR<ContactsResponse>(
     reconnectRequired || !active
       ? null
       : [
@@ -1700,11 +1697,17 @@ function ComposeContactRecipientField({
       dedupingInterval: 5 * 60 * 1000,
       keepPreviousData: false,
       revalidateOnFocus: true,
-      onError(error) {
-        if (error.info?.reconnectRequired) onReconnectRequired();
+      onSuccess(data) {
+        if (data.reconnectRequired) onReconnectRequired();
       },
     },
   );
+
+  // The parent latch stops further requests, but SWR runs onSuccess only for
+  // the hook that starts one: a remount served a cached or deduplicated
+  // response would never latch, so the prompt reads the data directly.
+  const showReconnectPrompt =
+    reconnectRequired || contacts?.reconnectRequired === true;
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedQuery(normalizedQuery), 200);
@@ -1810,7 +1813,7 @@ function ComposeContactRecipientField({
             value={searchQuery}
           />
 
-          {active && reconnectRequired && (
+          {active && showReconnectPrompt && (
             <div
               className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
               role="status"
@@ -1873,11 +1876,6 @@ function ComposeContactRecipientField({
     </Combobox>
   );
 }
-
-type ContactsFetchError = Error & {
-  info?: Partial<ContactsErrorResponse>;
-  status?: number;
-};
 
 function createComposeAttachmentMetadata(
   file: File,
