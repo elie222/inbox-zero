@@ -232,7 +232,7 @@ export default defineConfig({
       stdout: "pipe",
       command: `${
         todoistEnabled
-          ? "pnpm exec node --import tsx --import ./__tests__/playwright/todoist-transport.ts node_modules/next/dist/bin/next"
+          ? "node --import ./__tests__/playwright/todoist-preload.mjs node_modules/next/dist/bin/next"
           : "pnpm exec next"
       } ${production ? "start" : "dev --turbopack"} --port ${basePort}`,
       cwd: process.cwd(),

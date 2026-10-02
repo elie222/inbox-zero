@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Set by pnpm local:start}
+      POSTGRES_DB: inboxzero_local
+    ports:
+      - "127.0.0.1:${LOCAL_POSTGRES_PORT:?Set by pnpm local:start}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:${LOCAL_REDIS_PORT:?Set by pnpm local:start}:6379"
+volumes:
+  postgres:
