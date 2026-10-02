@@ -5,7 +5,7 @@ import { CheckIcon, PenIcon, XIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { OnboardingButton } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingButton";
@@ -18,34 +18,19 @@ export function StepDraft({
   provider: string;
   onNext: () => void;
 }) {
-  // A second click must not start another enableDraftRepliesAction.
-  // That action calls revalidatePath, and Next later commits the canonical URL
-  // captured when the action started. router.push discards only the one pending
-  // action, so any other in-flight choice writes ?step=draft back after the
-  // page has already moved, with no further click.
-  const submittedRef = useRef(false);
-
   const onSetDraftReplies = useCallback(
     async (value: string) => {
-      if (submittedRef.current) return;
-      submittedRef.current = true;
+      const result = await enableDraftRepliesAction(emailAccountId, {
+        enable: value === "yes",
+      });
 
-      try {
-        const result = await enableDraftRepliesAction(emailAccountId, {
-          enable: value === "yes",
+      if (result?.serverError) {
+        toastError({
+          description: `There was an error: ${result.serverError || ""}`,
         });
-
-        if (result?.serverError) {
-          toastError({
-            description: `There was an error: ${result.serverError || ""}`,
-          });
-        }
-
-        onNext();
-      } catch (error) {
-        submittedRef.current = false;
-        throw error;
       }
+
+      onNext();
     },
     [onNext, emailAccountId],
   );

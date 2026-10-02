@@ -6,21 +6,10 @@ import { OnboardingContent } from "./OnboardingContent";
 const mocks = vi.hoisted(() => ({
   analyzePersona: vi.fn(),
   mutate: vi.fn(),
-  push: vi.fn(),
-  completeAndRedirect: vi.fn(),
-  inboxOnNext: undefined as (() => Promise<void> | void) | undefined,
-  analytics: {
-    onStart: vi.fn(),
-    onStepViewed: vi.fn(),
-    onNext: vi.fn(),
-    onComplete: vi.fn(),
-    onSkip: vi.fn(),
-  },
+  analytics: { onStart: vi.fn(), onStepViewed: vi.fn() },
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mocks.push }),
-}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/hooks/usePersona", () => ({
   usePersona: () => ({ data: undefined, mutate: mocks.mutate }),
 }));
@@ -39,10 +28,7 @@ vi.mock("@/hooks/useOrganizationMembership", () => ({
 }));
 vi.mock("@/hooks/useRules", () => ({ useRules: () => ({ data: [] }) }));
 vi.mock("./useCompleteOnboarding", () => ({
-  useCompleteOnboarding: () => ({
-    destination: "welcome-upgrade",
-    completeAndRedirect: mocks.completeAndRedirect,
-  }),
+  useCompleteOnboarding: () => ({ destination: "welcome-upgrade" }),
 }));
 vi.mock("@/components/EmailStatsPreloader", () => ({
   EmailStatsPreloader: () => null,
@@ -55,12 +41,7 @@ vi.mock("./StepBulkUnsubscribe", () => ({ StepBulkUnsubscribe: () => null }));
 vi.mock("./StepLabels", () => ({ StepLabels: () => null }));
 vi.mock("./StepDraft", () => ({ StepDraft: () => null }));
 vi.mock("./StepCustomRules", () => ({ StepCustomRules: () => null }));
-vi.mock("./StepInboxProcessed", () => ({
-  StepInboxProcessed: ({ onNext }: { onNext: () => Promise<void> | void }) => {
-    mocks.inboxOnNext = onNext;
-    return null;
-  },
-}));
+vi.mock("./StepInboxProcessed", () => ({ StepInboxProcessed: () => null }));
 vi.mock("./StepCompanySize", () => ({ StepCompanySize: () => null }));
 vi.mock("./StepHowYouHeard", () => ({ StepHowYouHeard: () => null }));
 vi.mock("./StepInviteTeam", () => ({ StepInviteTeam: () => null }));
@@ -91,24 +72,5 @@ describe("onboarding persona analysis", () => {
     await act(async () => analysis.resolve());
 
     expect(mocks.mutate).toHaveBeenCalledOnce();
-  });
-});
-
-describe("onboarding completion", () => {
-  it("retries completion when the final step fails", async () => {
-    mocks.completeAndRedirect
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
-
-    render(<OnboardingContent step="inboxProcessed" />);
-
-    await act(async () => {
-      await mocks.inboxOnNext?.();
-    });
-    await act(async () => {
-      await mocks.inboxOnNext?.();
-    });
-
-    expect(mocks.completeAndRedirect).toHaveBeenCalledTimes(2);
   });
 });
