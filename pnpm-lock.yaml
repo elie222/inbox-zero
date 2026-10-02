@@ -780,6 +780,9 @@ importers:
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
+      '@types/pg':
+        specifier: 8.20.0
+        version: 8.20.0
       '@types/pngjs':
         specifier: 6.0.5
         version: 6.0.5
