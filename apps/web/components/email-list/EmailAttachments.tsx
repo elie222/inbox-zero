@@ -27,6 +27,8 @@ import {
   saveBlob,
 } from "@/utils/attachments/download";
 
+const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
+
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -34,6 +36,8 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const previewing = message.attachments?.find(
     (attachment) => attachment.attachmentId === previewingId,
   );
+  // Close for good if the attachment disappears so it can't reopen on its own later.
+  if (previewingId && !previewing) setPreviewingId(undefined);
   // Keyed by URL so a different account or message never shows a stale file.
   const previewUrl =
     previewing && emailAccountId
@@ -161,6 +165,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
           <AttachmentPreviewDialogContent
             key={previewUrl}
             filename={previewing.filename}
+            size={previewing.size}
             url={previewUrl}
             emailAccountId={emailAccountId}
           />
@@ -172,22 +177,33 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
 
 function AttachmentPreviewDialogContent({
   filename,
+  size,
   url,
   emailAccountId,
 }: {
   filename: string;
+  size: number;
   url: string;
   emailAccountId: string;
 }) {
+  const tooLarge = size > PREVIEW_MAX_BYTES;
   const [file, setFile] = useState<Blob>();
   const [preview, setPreview] = useState<{ url: string; type: string }>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<string | undefined>(
+    tooLarge ? "This file is too large to preview." : undefined,
+  );
 
   useEffect(() => {
+    if (tooLarge) return;
     const controller = new AbortController();
     let objectUrl: string | undefined;
 
-    fetchAttachment({ url, emailAccountId, signal: controller.signal })
+    fetchAttachment({
+      url,
+      emailAccountId,
+      signal: controller.signal,
+      maxBytes: PREVIEW_MAX_BYTES,
+    })
       .then(async (blob) => {
         const typed = await getAttachmentPreview(blob);
         if (controller.signal.aborted) return;
@@ -208,7 +224,7 @@ function AttachmentPreviewDialogContent({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, emailAccountId]);
+  }, [url, emailAccountId, tooLarge]);
 
   return (
     <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
