@@ -4,20 +4,35 @@ import { useOpenedConversationAttachments } from "./OpenedConversationAttachment
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { DownloadIcon, ImageIcon } from "lucide-react";
+import { DownloadIcon, ImageIcon, Loader2 } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isPreviewableImageType } from "@/utils/attachments/image-preview";
+import { cn } from "@/utils";
+import {
+  getAttachmentPreview,
+  isPreviewableAttachmentType,
+  isPreviewableImageType,
+} from "@/utils/attachments/image-preview";
 import {
   fetchAttachment,
   getAttachmentUrl,
+  saveBlob,
 } from "@/utils/attachments/download";
+
+type Attachment = NonNullable<ThreadMessage["attachments"]>[number];
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [previewing, setPreviewing] = useState<Attachment>();
   const controller = useRef(new AbortController());
   useEffect(() => {
     if (!emailAccountId || !message.id) return;
@@ -43,19 +58,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         signal,
       });
       signal.throwIfAborted();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      try {
-        link.click();
-      } finally {
-        link.remove();
-        // click() can start the download after this turn; 0ms revoke drops the file.
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      }
-      signal.throwIfAborted();
+      saveBlob(blob, filename);
     } catch {
       if (!signal.aborted)
         toastError({ description: "Failed to download attachment" });
@@ -75,11 +78,26 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
             })
           : "";
 
+        const canPreview =
+          !!emailAccountId && isPreviewableAttachmentType(attachment.mimeType);
+
         return (
           <CardBasic
             key={attachment.attachmentId}
-            className="overflow-hidden p-0"
+            className={cn(
+              "relative overflow-hidden p-0",
+              canPreview && "transition-colors hover:bg-muted/40",
+            )}
           >
+            {canPreview ? (
+              <button
+                type="button"
+                className="absolute inset-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                aria-label={`Preview ${attachment.filename}`}
+                title={attachment.filename}
+                onClick={() => setPreviewing(attachment)}
+              />
+            ) : null}
             {isPreviewableImageType(attachment.mimeType) && emailAccountId ? (
               <AttachmentImagePreview
                 key={`${emailAccountId}:${url}`}
@@ -105,6 +123,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                   variant="outline"
                   size="iconSm"
                   type="button"
+                  className="relative"
                   aria-label={`Download ${attachment.filename}`}
                   title="Download attachment"
                   disabled={!emailAccountId || isDownloading}
@@ -122,7 +141,129 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
           </CardBasic>
         );
       })}
+      <Dialog
+        open={!!previewing}
+        onOpenChange={(open) => {
+          if (!open) setPreviewing(undefined);
+        }}
+      >
+        {previewing && emailAccountId ? (
+          <AttachmentPreviewDialogContent
+            key={previewing.attachmentId}
+            filename={previewing.filename}
+            url={getAttachmentUrl({
+              accountId: emailAccountId,
+              messageId: message.id,
+              attachmentId: previewing.attachmentId,
+            })}
+            emailAccountId={emailAccountId}
+          />
+        ) : null}
+      </Dialog>
     </div>
+  );
+}
+
+function AttachmentPreviewDialogContent({
+  filename,
+  url,
+  emailAccountId,
+}: {
+  filename: string;
+  url: string;
+  emailAccountId: string;
+}) {
+  const [file, setFile] = useState<Blob>();
+  const [preview, setPreview] = useState<{ url: string; type: string }>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+
+    fetchAttachment({ url, emailAccountId, signal: controller.signal })
+      .then(async (blob) => {
+        const typed = await getAttachmentPreview(blob);
+        if (controller.signal.aborted) return;
+        setFile(blob);
+        if (!typed) {
+          setError("Preview isn't available for this file.");
+          return;
+        }
+        objectUrl = URL.createObjectURL(typed);
+        setPreview({ url: objectUrl, type: typed.type });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setError("Couldn't load this attachment.");
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url, emailAccountId]);
+
+  return (
+    <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+      <div className="flex items-center gap-3 border-b py-3 pr-12 pl-4">
+        <DialogTitle className="min-w-0 flex-1 truncate font-medium text-sm">
+          {filename}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Attachment preview
+        </DialogDescription>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          disabled={!file}
+          onClick={() => file && saveBlob(file, filename)}
+        >
+          <DownloadIcon className="mr-2 size-4" aria-hidden="true" />
+          Download
+        </Button>
+      </div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40">
+        <AttachmentPreviewBody
+          filename={filename}
+          preview={preview}
+          error={error}
+        />
+      </div>
+    </DialogContent>
+  );
+}
+
+function AttachmentPreviewBody({
+  filename,
+  preview,
+  error,
+}: {
+  filename: string;
+  preview?: { url: string; type: string };
+  error?: string;
+}) {
+  if (error) return <p className="text-muted-foreground text-sm">{error}</p>;
+  if (!preview)
+    return <Loader2 className="size-6 animate-spin text-muted-foreground" />;
+  if (preview.type === "application/pdf")
+    return (
+      <iframe
+        title={filename}
+        src={preview.url}
+        className="size-full border-0"
+      />
+    );
+  return (
+    <Image
+      fill
+      unoptimized
+      alt={filename}
+      className="object-contain"
+      sizes="(min-width: 1024px) 64rem, 100vw"
+      src={preview.url}
+    />
   );
 }
 
@@ -175,7 +316,7 @@ function AttachmentImagePreview({
   }, [emailAccountId, session, messageId, attachmentId, attachment]);
 
   return (
-    <div className="relative flex aspect-video items-center justify-center overflow-hidden border-border/60 border-b bg-muted/40">
+    <div className="pointer-events-none relative flex aspect-video items-center justify-center overflow-hidden border-border/60 border-b bg-muted/40">
       {previewUrl ? (
         <Image
           fill

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getAttachmentImagePreview,
+  getAttachmentPreview,
   isPreviewableImageType,
 } from "./image-preview";
 
@@ -64,5 +65,27 @@ describe("attachment image previews", () => {
     ]) {
       expect(isPreviewableImageType(type)).toBe(true);
     }
+  });
+
+  it("types PDFs from their signature for the full preview", async () => {
+    for (const type of ["application/octet-stream", "text/html", ""]) {
+      const blob = new Blob(["%PDF-1.7\n"], { type });
+      const preview = await getAttachmentPreview(blob);
+      expect(preview?.type).toBe("application/pdf");
+      expect(await preview?.arrayBuffer()).toEqual(await blob.arrayBuffer());
+    }
+  });
+
+  it.each([
+    "<!doctype html><html><body>Document</body></html>",
+    "<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+    "%PDF",
+    "",
+  ])("does not open non-PDF bytes declared as PDF: %s", async (content) => {
+    expect(
+      await getAttachmentPreview(
+        new Blob([content], { type: "application/pdf" }),
+      ),
+    ).toBeUndefined();
   });
 });
