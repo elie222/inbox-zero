@@ -20,6 +20,7 @@ import {
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { releaseCancelledDraftResource } from "@/utils/email/draft-resource";
 import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email/send-operation-policy";
 import {
   cancelHeldEmail,
@@ -675,6 +676,8 @@ async function holdEngineSend(
       sendAt: new Date(intent.sendAtMs),
       logger,
     });
+    if (row.status === "CANCELLED")
+      await releaseCancelledDraftResource(accountId, mutationId);
     // The hold carries the files now, so the uploads aren't needed again.
     await releaseSendAttachments(accountId, intent.attachmentIds);
     return { status: "held", row };
@@ -726,7 +729,11 @@ export async function cancelHeldEngineSend(
   accountId: string,
   operationId: string,
 ) {
-  return cancelHeldEmail(accountId, sendMutationId(operationId));
+  const mutationId = sendMutationId(operationId);
+  const result = await cancelHeldEmail(accountId, mutationId);
+  if (result === "cancelled")
+    await releaseCancelledDraftResource(accountId, mutationId);
+  return result;
 }
 
 async function inspectSendOperation(
@@ -827,6 +834,9 @@ function sendRequest(intent: SendIntent, attachments: Attachment[]) {
       attachments: attachments.length > 0 ? attachments : undefined,
       ...(intent.providerDraftId
         ? { providerDraftId: intent.providerDraftId }
+        : {}),
+      ...(intent.draftResourceKey
+        ? { draftResourceKey: intent.draftResourceKey }
         : {}),
     },
   };

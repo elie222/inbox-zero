@@ -3,6 +3,7 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { type RequestWithLogger, withError } from "@/utils/middleware";
 import { cleanupConfiguredAIDrafts } from "@/utils/ai/draft-cleanup";
+import { cleanupDraftResources } from "@/utils/email/draft-resource-cleanup";
 
 export const maxDuration = 300;
 
@@ -30,6 +31,6 @@ async function runDraftCleanup(request: RequestWithLogger) {
   const result = await cleanupConfiguredAIDrafts({
     logger: request.logger,
   });
-
-  return NextResponse.json(result);
+  const draftResources = await cleanupDraftResources(request.logger);
+  return NextResponse.json({ ...result, draftResources });
 }
