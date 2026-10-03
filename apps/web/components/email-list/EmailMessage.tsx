@@ -2,7 +2,6 @@ import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
 import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
-import useSWR from "swr";
 import {
   ForwardIcon,
   ReplyIcon,
@@ -13,6 +12,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  getInitials,
   isSameEmailAddress,
   splitRecipientList,
 } from "@/utils/email";
@@ -36,9 +36,8 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
-import { env } from "@/env";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
-import type { ContactsResponse } from "@/app/api/user/contacts/route";
+import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import {
@@ -401,24 +400,11 @@ function MessageHeader({
   const senderName = isSent
     ? "Me"
     : extractNameFromEmail(message.headers.from) || senderEmail;
-  const { data: contacts } = useSWR<ContactsResponse>(
-    expanded &&
-      env.NEXT_PUBLIC_CONTACTS_ENABLED &&
-      !isSent &&
-      senderEmail &&
-      emailAccountId
-      ? [
-          `/api/user/contacts?query=${encodeURIComponent(senderEmail)}`,
-          emailAccountId,
-        ]
-      : null,
-    { revalidateOnFocus: false, shouldRetryOnError: false },
-  );
-  const senderImage = isSent
-    ? emailAccount?.image
-    : contacts?.contacts.find((contact) =>
-        isSameEmailAddress(contact.emailAddress, senderEmail),
-      )?.profilePictureUrl;
+  const contactPhoto = useContactPhoto({
+    email: expanded && !isSent ? senderEmail : null,
+    emailAccountId,
+  });
+  const senderImage = isSent ? emailAccount?.image : contactPhoto;
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
     !isSent &&
@@ -451,7 +437,7 @@ function MessageHeader({
             : "bg-muted text-muted-foreground",
         )}
       >
-        {initialsFor(senderName)}
+        {getInitials(senderName)}
       </AvatarFallback>
     </Avatar>
   );
@@ -766,14 +752,6 @@ function ReplyPanel({
       />
     </div>
   );
-}
-
-/** Two letters at most: initials from a display name, or the address's first letters. */
-function initialsFor(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 }
 
 function resolveComposeMode(
