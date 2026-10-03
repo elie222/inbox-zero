@@ -28,4 +28,6 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Cerebras", value: Provider.CEREBRAS },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "Vercel AI Gateway", value: Provider.AI_GATEWAY },
+  { label: "OpenAI Compatible", value: Provider.OPENAI_COMPATIBLE },
+  { label: "Ollama", value: Provider.OLLAMA },
 ];
