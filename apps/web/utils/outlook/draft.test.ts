@@ -59,10 +59,36 @@ describe("outlook/draft", () => {
       getClient: () => ({ api: () => request }),
     } as unknown as OutlookClient;
     vi.mocked(getCategoryMap).mockResolvedValue(new Map());
-    await getDraft({ client, draftId: "draft-1", logger: createTestLogger() });
+    await getDraft({
+      client,
+      draftId: "draft-1",
+      logger: createTestLogger(),
+      includeAttachments: true,
+    });
     expect(request.expand).toHaveBeenCalledWith(MESSAGE_EXPAND_ATTACHMENTS);
     expect(convertMessage).toHaveBeenCalledWith(
       expect.objectContaining({ attachments: [attachment] }),
+      { drafts: "drafts" },
+      expect.any(Map),
+    );
+  });
+
+  it("does not fetch attachments for default save and discard identity checks", async () => {
+    const request = {
+      expand: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        parentFolderId: "drafts",
+      }),
+    };
+    const client = {
+      getClient: () => ({ api: () => request }),
+    } as unknown as OutlookClient;
+    vi.mocked(getCategoryMap).mockResolvedValue(new Map());
+    await getDraft({ client, draftId: "draft-1", logger: createTestLogger() });
+    expect(request.expand).not.toHaveBeenCalled();
+    expect(convertMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "draft-1" }),
       { drafts: "drafts" },
       expect.any(Map),
     );

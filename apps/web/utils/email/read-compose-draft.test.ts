@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
+import { parseMessage } from "@/utils/gmail/message";
 import {
   readComposeDraft,
   readComposeDraftForMessage,
@@ -63,7 +64,9 @@ describe("complete compose draft reads", () => {
       messageId: "message",
     });
     expect(result?.draftId).toBe("provider-draft");
-    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft");
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft", {
+      includeAttachments: true,
+    });
   });
 
   it("represents a text-only draft without synthesizing HTML from its snippet", async () => {
@@ -80,6 +83,27 @@ describe("complete compose draft reads", () => {
     expect(result?.html).toBeNull();
     expect(result?.text).toBe("Full plain body".repeat(100));
     expect(result?.attachments).toEqual([]);
+  });
+
+  it("keeps recipient keys present for a Gmail draft with no address headers", async () => {
+    vi.mocked(provider.getDraft).mockResolvedValue(
+      parseMessage({
+        id: "message",
+        threadId: "thread",
+        payload: { mimeType: "text/plain", headers: [], body: {} },
+      }),
+    );
+    const result = await readComposeDraft({
+      provider,
+      draftId: "provider-draft",
+    });
+    expect(result).toMatchObject({ from: "", to: "", cc: "", bcc: "" });
+    expect(JSON.parse(JSON.stringify(result))).toMatchObject({
+      from: "",
+      to: "",
+      cc: "",
+      bcc: "",
+    });
   });
 
   it("never invents a missing inline content id from a filename", async () => {

@@ -68,7 +68,9 @@ describe("/api/user/drafts", () => {
       html: "<p><strong>Complete rich body</strong></p>".repeat(100),
       attachments: [],
     });
-    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft");
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft", {
+      includeAttachments: true,
+    });
   });
 
   it("rejects draft reads without a session", async () => {
@@ -90,7 +92,9 @@ describe("/api/user/drafts", () => {
 
   it("reports a missing draft instead of returning empty editable content", async () => {
     provider.getDraftReferenceForMessage.mockResolvedValue(null);
-    expect((await readDraft("message-1")).status).toBe(404);
+    const response = await readDraft("message-1");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(provider.getDraft).not.toHaveBeenCalled();
   });
 

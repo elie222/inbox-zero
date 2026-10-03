@@ -70,7 +70,9 @@ describe("/api/user/drafts/[draftId]", () => {
       html: "<p>Full draft</p>",
       bcc: "hidden@example.com",
     });
-    expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
+    expect(provider.getDraft).toHaveBeenCalledWith("draft-1", {
+      includeAttachments: true,
+    });
     expect(provider.createDraft).not.toHaveBeenCalled();
     expect(provider.updateDraft).not.toHaveBeenCalled();
   });
@@ -83,7 +85,16 @@ describe("/api/user/drafts/[draftId]", () => {
 
   it("returns 404 for a draft removed or sent from another client", async () => {
     provider.getDraft.mockResolvedValue(null);
-    expect((await read("draft-1")).status).toBe(404);
+    const response = await read("draft-1");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("reports provider failure without presenting an empty or missing draft", async () => {
+    provider.getDraft.mockRejectedValue(new Error("Provider unavailable"));
+    expect((await read("draft-1")).status).toBe(500);
+    expect(provider.createDraft).not.toHaveBeenCalled();
+    expect(provider.updateDraft).not.toHaveBeenCalled();
   });
 
   it("rejects an update without a session", async () => {

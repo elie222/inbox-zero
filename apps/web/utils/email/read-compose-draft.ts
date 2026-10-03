@@ -7,7 +7,9 @@ export async function readComposeDraft({
   provider: EmailProvider;
   draftId: string;
 }) {
-  const message = await provider.getDraft(draftId);
+  const message = await provider.getDraft(draftId, {
+    includeAttachments: true,
+  });
   if (!message) return null;
 
   const attachments = [
@@ -30,8 +32,8 @@ export async function readComposeDraft({
     draftId,
     messageId: message.id,
     threadId: message.threadId,
-    from: message.headers.from,
-    to: message.headers.to,
+    from: message.headers.from ?? "",
+    to: message.headers.to ?? "",
     cc: message.headers.cc ?? "",
     bcc: message.headers.bcc ?? "",
     subject: message.subject,

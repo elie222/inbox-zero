@@ -216,7 +216,10 @@ export interface EmailProvider {
     attachmentId: string,
     signal?: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>>;
-  getDraft(draftId: string): Promise<ParsedMessage | null>;
+  getDraft(
+    draftId: string,
+    options?: { includeAttachments?: boolean },
+  ): Promise<ParsedMessage | null>;
   getDraftReferenceForMessage(
     messageId: string,
   ): Promise<DraftReference | null>;

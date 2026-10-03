@@ -20,13 +20,15 @@ export async function getDraft({
   client,
   draftId,
   logger,
+  includeAttachments = false,
 }: {
   client: OutlookClient;
   draftId: string;
   logger: Logger;
+  includeAttachments?: boolean;
 }) {
   const [draft, categoryMap] = await Promise.all([
-    getDraftMessage({ client, draftId, logger, includeAttachments: true }),
+    getDraftMessage({ client, draftId, logger, includeAttachments }),
     getCategoryMap(client, logger),
   ]);
   if (!draft) return null;
