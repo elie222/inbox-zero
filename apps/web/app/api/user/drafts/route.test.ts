@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const createEmailProvider = vi.hoisted(() => vi.fn());
 const authMock = vi.hoisted(() => vi.fn());
@@ -20,9 +20,10 @@ const provider = {
   createDraft: vi.fn(),
   updateDraft: vi.fn(),
   getDraft: vi.fn(),
+  getDraftReferenceForMessage: vi.fn(),
 };
 
-describe("POST /api/user/drafts", () => {
+describe("/api/user/drafts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "user-1" } });
@@ -34,7 +35,71 @@ describe("POST /api/user/drafts", () => {
       threadId: "thread-1",
     });
     createEmailProvider.mockResolvedValue(provider);
+    provider.getDraftReferenceForMessage.mockResolvedValue({
+      id: "provider-draft",
+    });
     mockProvider("google");
+  });
+
+  it("reads a complete draft using the provider's message-to-draft mapping", async () => {
+    provider.getDraft.mockResolvedValue({
+      id: "message-1",
+      threadId: "thread-1",
+      subject: "Complete",
+      headers: {
+        from: "sender@example.com",
+        to: "to@example.com",
+        cc: "cc@example.com",
+        bcc: "bcc@example.com",
+      },
+      textHtml: "<p><strong>Complete rich body</strong></p>".repeat(100),
+      textPlain: "Complete body",
+      inline: [],
+      attachments: [],
+      snippet: "Truncated",
+    });
+    const response = await readDraft("message-1");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      draftId: "provider-draft",
+      messageId: "message-1",
+      bcc: "bcc@example.com",
+      html: "<p><strong>Complete rich body</strong></p>".repeat(100),
+      attachments: [],
+    });
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft");
+  });
+
+  it("rejects draft reads without a session", async () => {
+    authMock.mockResolvedValue(null);
+    expect((await readDraft("message-1")).status).toBe(401);
+    expect(provider.getDraftReferenceForMessage).not.toHaveBeenCalled();
+  });
+
+  it("rejects draft reads from another user's account", async () => {
+    getEmailAccountMock.mockResolvedValue(null);
+    expect((await readDraft("message-1")).status).toBe(403);
+    expect(provider.getDraftReferenceForMessage).not.toHaveBeenCalled();
+  });
+
+  it("rejects reads without a message id before contacting the provider", async () => {
+    expect((await readDraft()).status).toBe(400);
+    expect(provider.getDraftReferenceForMessage).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing draft instead of returning empty editable content", async () => {
+    provider.getDraftReferenceForMessage.mockResolvedValue(null);
+    expect((await readDraft("message-1")).status).toBe(404);
+    expect(provider.getDraft).not.toHaveBeenCalled();
+  });
+
+  it("reports a provider read failure instead of returning an empty draft", async () => {
+    provider.getDraftReferenceForMessage.mockRejectedValue(
+      new Error("Provider unavailable"),
+    );
+    expect((await readDraft("message-1")).status).toBe(500);
+    expect(provider.getDraft).not.toHaveBeenCalled();
   });
 
   it("rejects a request without a session", async () => {
@@ -132,6 +197,21 @@ function createDraft(body: unknown) {
       },
       body: JSON.stringify(body),
     }),
+    { params: Promise.resolve({}) },
+  );
+}
+
+function readDraft(messageId?: string) {
+  return GET(
+    new NextRequest(
+      `http://127.0.0.1/api/user/drafts${messageId ? `?messageId=${messageId}` : ""}`,
+      {
+        headers: {
+          cookie: "better-auth.session_token=session",
+          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+        },
+      },
+    ),
     { params: Promise.resolve({}) },
   );
 }

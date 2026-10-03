@@ -17,6 +17,33 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("preserves BCC recipients from a provider draft", () => {
+    const result = convertMessage({
+      bccRecipients: [
+        {
+          emailAddress: {
+            name: "Private Recipient",
+            address: "hidden@example.com",
+          },
+        },
+      ],
+    });
+    expect(result.headers.bcc).toBe("Private Recipient <hidden@example.com>");
+  });
+
+  it("does not substitute a filename for a missing inline content id", () => {
+    const result = convertMessage({
+      attachments: [
+        {
+          id: "inline",
+          name: "logo.png",
+          isInline: true,
+          contentType: "image/png",
+        },
+      ],
+    });
+    expect(result.inline[0].headers["content-id"]).toBe("");
+  });
   it.each([
     [
       "text",

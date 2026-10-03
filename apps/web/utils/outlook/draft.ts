@@ -9,6 +9,7 @@ import {
   convertMessage,
   getCategoryMap,
   getFolderIds,
+  MESSAGE_EXPAND_ATTACHMENTS,
 } from "@/utils/outlook/message";
 import {
   withMicrosoftGraphRetry,
@@ -25,7 +26,7 @@ export async function getDraft({
   logger: Logger;
 }) {
   const [draft, categoryMap] = await Promise.all([
-    getDraftMessage({ client, draftId, logger }),
+    getDraftMessage({ client, draftId, logger, includeAttachments: true }),
     getCategoryMap(client, logger),
   ]);
   if (!draft) return null;
@@ -144,21 +145,20 @@ async function getDraftMessage({
   client,
   draftId,
   logger,
+  includeAttachments = false,
 }: {
   client: OutlookClient;
   draftId: string;
   logger: Logger;
+  includeAttachments?: boolean;
 }) {
   try {
     const [message, folderIds] = await Promise.all([
-      withMicrosoftGraphRetry(
-        () =>
-          client
-            .getClient()
-            .api(`/me/messages/${draftId}`)
-            .get() as Promise<Message>,
-        logger,
-      ),
+      withMicrosoftGraphRetry(() => {
+        const request = client.getClient().api(`/me/messages/${draftId}`);
+        if (includeAttachments) request.expand(MESSAGE_EXPAND_ATTACHMENTS);
+        return request.get() as Promise<Message>;
+      }, logger),
       getFolderIds(client, logger),
     ]);
 

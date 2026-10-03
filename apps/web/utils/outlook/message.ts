@@ -1137,6 +1137,7 @@ export function convertMessage(
         ) || "",
       to: formatRecipientsList(message.toRecipients) || "",
       cc: formatRecipientsList(message.ccRecipients),
+      bcc: formatRecipientsList(message.bccRecipients),
       subject: message.subject || "",
       date,
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
@@ -1204,9 +1205,7 @@ function convertInlineAttachments(
       const contentId =
         ("contentId" in attachment && typeof attachment.contentId === "string"
           ? attachment.contentId
-          : undefined) ||
-        attachment.name ||
-        "";
+          : undefined) || "";
 
       return {
         filename: attachment.name || "",
