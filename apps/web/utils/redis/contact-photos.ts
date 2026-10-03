@@ -5,6 +5,8 @@ import { redis } from "@/utils/redis";
 // Contact photos rarely change, and sweeping the address book is expensive
 // against the provider's per-user quota.
 const CONTACT_PHOTOS_TTL_SECONDS = 24 * 60 * 60;
+// Short enough that a newly granted contacts scope takes effect soon.
+const FAILED_SWEEP_TTL_SECONDS = 15 * 60;
 
 export async function getCachedContactPhotos(
   emailAccountId: string,
@@ -24,14 +26,30 @@ export async function setCachedContactPhotos(
   emailAccountId: string,
   photos: Record<string, string>,
   logger: Logger,
-  { ttlSeconds = CONTACT_PHOTOS_TTL_SECONDS }: { ttlSeconds?: number } = {},
 ) {
   try {
     await redis.set(getContactPhotosKey(emailAccountId), photos, {
-      ex: ttlSeconds,
+      ex: CONTACT_PHOTOS_TTL_SECONDS,
     });
   } catch (error) {
     logger.warn("Failed to cache contact photos", { error });
+  }
+}
+
+// Stops a rate limited or unpermitted account from re-sweeping on every page
+// load. NX keeps a concurrent request's successful map from being replaced.
+export async function setFailedContactPhotoSweep(
+  emailAccountId: string,
+  logger: Logger,
+) {
+  try {
+    await redis.set(
+      getContactPhotosKey(emailAccountId),
+      {},
+      { ex: FAILED_SWEEP_TTL_SECONDS, nx: true },
+    );
+  } catch (error) {
+    logger.warn("Failed to cache failed contact photo sweep", { error });
   }
 }
 

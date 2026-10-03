@@ -67,11 +67,12 @@ describe("GET /api/user/contacts/photos", () => {
 
     const body = await getPhotos();
 
+    expect(getContactPhotosMock).toHaveBeenCalledTimes(1);
     expect(body).toEqual({ photos: {} });
     expect(redisMock.set).toHaveBeenCalledWith(
       "contact-photos:account-1",
       {},
-      { ex: 15 * 60 },
+      { ex: 15 * 60, nx: true },
     );
   });
 

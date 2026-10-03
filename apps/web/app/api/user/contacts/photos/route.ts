@@ -6,9 +6,8 @@ import { withEmailProvider } from "@/utils/middleware";
 import {
   getCachedContactPhotos,
   setCachedContactPhotos,
+  setFailedContactPhotoSweep,
 } from "@/utils/redis/contact-photos";
-
-const FAILED_SWEEP_TTL_SECONDS = 15 * 60;
 
 export type ContactPhotosResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -49,13 +48,9 @@ async function getData({
     await setCachedContactPhotos(emailAccountId, photos, logger);
     return { photos };
   } catch (error) {
-    // Avatars fall back to initials. Caching the miss briefly stops a rate
-    // limited or unpermitted account from re-sweeping on every page load,
-    // while a newly granted scope still takes effect soon.
+    // Avatars fall back to initials.
     logger.warn("Failed to load contact photos", { error });
-    await setCachedContactPhotos(emailAccountId, {}, logger, {
-      ttlSeconds: FAILED_SWEEP_TTL_SECONDS,
-    });
+    await setFailedContactPhotoSweep(emailAccountId, logger);
     return { photos: {} };
   }
 }
