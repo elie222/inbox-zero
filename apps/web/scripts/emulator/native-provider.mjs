@@ -17,8 +17,13 @@ const control = createServer(async (request, response) => {
     response.writeHead(404).end();
     return;
   }
-  await emulator.reset();
-  response.writeHead(200).end();
+  try {
+    await emulator.reset();
+    response.writeHead(200).end();
+  } catch (error) {
+    console.error("Native fixture reset failed", error);
+    response.writeHead(500).end();
+  }
 });
 control.listen(Number(controlPort), "127.0.0.1");
 for (const signal of ["SIGINT", "SIGTERM"]) {

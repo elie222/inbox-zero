@@ -246,7 +246,11 @@ async function up({ foreground, nativeTests, ownerToken }) {
     printReady(state);
     if (foreground) await waitForSignal();
   } catch (error) {
-    await down(state);
+    try {
+      await down(state);
+    } catch (cleanupError) {
+      console.error("Emulator cleanup also failed", cleanupError);
+    }
     throw error;
   }
 }

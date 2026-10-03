@@ -2,12 +2,10 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, request } from "node:http";
-import test from "node:test";
+import { test } from "vitest";
 import { fileURLToPath } from "node:url";
 
-test("proxy keeps a fixed destination and loses only a completed metadata reply", {
-  timeout: 5000,
-}, async () => {
+test("proxy keeps a fixed destination and loses only a completed metadata reply", async () => {
   let forwarded = 0;
   let foreign = 0;
   const upstream = createServer((incoming, response) => {
@@ -69,6 +67,11 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
       }
     }
     assert.equal(ready, true);
+    assert.equal(
+      (await send("/__native-control/response-loss", "POST", "{")).status,
+      400,
+    );
+    assert.equal((await send("/__native-control/response-loss")).status, 200);
     for (const path of [
       `//127.0.0.1:${foreignPort}/private`,
       `http://127.0.0.1:${foreignPort}/private`,
@@ -101,7 +104,7 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
     await close(upstream);
     await close(second);
   }
-});
+}, 5000);
 
 function listen(server) {
   return new Promise((resolve) =>

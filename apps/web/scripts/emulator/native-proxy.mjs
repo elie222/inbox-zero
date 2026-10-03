@@ -13,8 +13,14 @@ const server = createServer(async (request, response) => {
   const body = Buffer.concat(chunks);
   if (request.url === "/__native-control/response-loss") {
     if (request.method === "POST") {
-      const intent = JSON.parse(body.toString());
-      if (intent.provider !== "google" || intent.count !== 1) {
+      let intent;
+      try {
+        intent = JSON.parse(body.toString());
+      } catch {
+        response.writeHead(400).end();
+        return;
+      }
+      if (intent?.provider !== "google" || intent?.count !== 1) {
         response.writeHead(400).end();
         return;
       }
