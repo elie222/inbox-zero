@@ -71,7 +71,7 @@ import {
   getAccessTokenFromClient,
   getContactsClient,
 } from "@/utils/gmail/client";
-import { searchContacts } from "@/utils/gmail/contact";
+import { listContactPhotos, searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
   getGmailAttachmentStream,
@@ -1683,6 +1683,14 @@ export class GmailProvider implements EmailProvider {
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
       searchContacts(client, query, this.logger),
+    );
+  }
+
+  async getContactPhotos() {
+    if (isGoogleOauthEmulationEnabled()) return {};
+    const client = getContactsClient({ accessToken: this.getAccessToken() });
+    return this.withRateLimitTracking("list-contact-photos", () =>
+      listContactPhotos(client, this.logger),
     );
   }
 

@@ -216,6 +216,8 @@ export interface EmailProvider {
     attachmentId: string,
     signal?: AbortSignal,
   ): Promise<ReadableStream<Uint8Array>>;
+  /** Real contact photos keyed by canonical email address. */
+  getContactPhotos(): Promise<Record<string, string>>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   getDraftReferenceForMessage(
     messageId: string,

@@ -1,7 +1,7 @@
 import useSWR from "swr";
-import type { ContactsResponse } from "@/app/api/user/contacts/route";
+import type { ContactPhotosResponse } from "@/app/api/user/contacts/photos/route";
 import { env } from "@/env";
-import { isSameEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress } from "@/utils/email";
 
 export function useContactPhoto({
   email,
@@ -10,19 +10,20 @@ export function useContactPhoto({
   email: string | null | undefined;
   emailAccountId: string | null | undefined;
 }) {
-  const { data } = useSWR<ContactsResponse>(
+  // Every avatar shares one key, so a page full of senders costs one request.
+  const { data } = useSWR<ContactPhotosResponse>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED && email && emailAccountId
-      ? [
-          `/api/user/contacts?query=${encodeURIComponent(email)}`,
-          emailAccountId,
-        ]
+      ? ["/api/user/contacts/photos", emailAccountId]
       : null,
-    { revalidateOnFocus: false, shouldRetryOnError: false },
+    {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      shouldRetryOnError: false,
+    },
   );
 
   if (!email) return;
 
-  return data?.contacts.find((contact) =>
-    isSameEmailAddress(contact.emailAddress, email),
-  )?.profilePictureUrl;
+  return data?.photos[canonicalizeEmailAddress(email)];
 }
